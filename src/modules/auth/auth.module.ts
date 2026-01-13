@@ -13,14 +13,14 @@ import { JwtAuthGuard, LocalAuthGuard } from './guards';
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        const secret = configService.get<string>('JWT_ACCESS_SECRET');
+        const secret = configService.get<string>('JWT_ACCESS_SECRET')
         if (!secret) {
           throw new Error('JWT_ACCESS_SECRET must be defined');
         }
         return {
           secret,
           signOptions: {
-            expiresIn: configService.get<string>('JWT_ACCESS_EXPIRATION') || '15m',
+            expiresIn: configService.get('JWT_ACCESS_EXPIRATION') || '15m',
           },
         };
       },

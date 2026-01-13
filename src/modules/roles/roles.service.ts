@@ -201,7 +201,7 @@ export class RolesService {
    * Agrega permisos a un rol (sin eliminar existentes)
    */
   async addPermissions(id: string, assignPermissionsDto: AssignPermissionsDto) {
-    await this.findOne(id);
+    const role = await this.findOne(id);
 
     // Verificar que todos los permisos existen
     const permissions = await this.prisma.permission.findMany({
@@ -212,14 +212,23 @@ export class RolesService {
       throw new BadRequestException('One or more permission IDs are invalid');
     }
 
-    // Agregar permisos (skipDuplicates evita errores si ya existe)
-    await this.prisma.rolePermission.createMany({
-      data: assignPermissionsDto.permissionIds.map((permissionId) => ({
-        roleId: id,
-        permissionId,
-      })),
-      skipDuplicates: true,
-    });
+    // Obtener permisos ya asignados
+    const existingPermissionIds = role.permissions.map((p) => p.id);
+    
+    // Filtrar solo los permisos nuevos
+    const newPermissionIds = assignPermissionsDto.permissionIds.filter(
+      (permissionId) => !existingPermissionIds.includes(permissionId),
+    );
+
+    // Agregar solo permisos nuevos
+    if (newPermissionIds.length > 0) {
+      await this.prisma.rolePermission.createMany({
+        data: newPermissionIds.map((permissionId) => ({
+          roleId: id,
+          permissionId,
+        })),
+      });
+    }
 
     return this.findOne(id);
   }
