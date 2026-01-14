@@ -8,12 +8,15 @@ import {
   Param,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { PermissionsService } from './permissions.service';
 import { CreatePermissionDto, UpdatePermissionDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards';
 import { PermissionsGuard } from '../../common/guards';
 import { RequirePermissions } from '../../common/decorators';
 
+@ApiTags('permissions')
+@ApiBearerAuth('JWT-auth')
 @Controller('permissions')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class PermissionsController {

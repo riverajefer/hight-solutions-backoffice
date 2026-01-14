@@ -6,12 +6,14 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard, JwtAuthGuard } from './guards';
 import { LoginDto, RefreshTokenDto, RegisterDto } from './dto';
 import { CurrentUser, Public } from '../../common/decorators';
 import { AuthenticatedUser, TokenPair } from '../../common/interfaces';
 
+@ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -66,6 +68,7 @@ export class AuthController {
    * POST /api/v1/auth/logout
    * Cierra la sesión del usuario (invalida el refresh token)
    */
+  @ApiBearerAuth('JWT-auth')
   @UseGuards(JwtAuthGuard)
   @Post('logout')
   @HttpCode(HttpStatus.OK)
@@ -80,6 +83,7 @@ export class AuthController {
    * POST /api/v1/auth/me
    * Retorna información del usuario autenticado
    */
+  @ApiBearerAuth('JWT-auth')
   @UseGuards(JwtAuthGuard)
   @Post('me')
   @HttpCode(HttpStatus.OK)
