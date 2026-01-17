@@ -77,6 +77,20 @@ export class AuthService {
   }
 
   /**
+   * Login que retorna los tokens y los permisos del usuario
+   */
+  async loginWithPermissions(user: AuthenticatedUser): Promise<TokenPair & { user: AuthenticatedUser; permissions: string[] }> {
+    const tokens = await this.login(user);
+    const permissions = await this.getUserPermissions(user.id);
+
+    return {
+      ...tokens,
+      user,
+      permissions,
+    };
+  }
+
+  /**
    * Registra un nuevo usuario
    */
   async register(registerDto: RegisterDto): Promise<TokenPair> {
@@ -182,6 +196,42 @@ export class AuthService {
   }
 
   /**
+   * Obtiene el perfil del usuario con sus permisos
+   */
+  async getUserProfile(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        role: {
+          include: {
+            permissions: {
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // Extraer solo los nombres de los permisos
+    const permissions = user.role.permissions.map((rp: any) => rp.permission.name);
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        roleId: user.roleId,
+      },
+      permissions,
+    };
+  }
+
+  /**
    * Genera un par de tokens (access + refresh)
    */
   private async generateTokens(user: AuthenticatedUser): Promise<TokenPair> {
@@ -211,5 +261,31 @@ export class AuthService {
     ]);
 
     return { accessToken, refreshToken };
+  }
+
+  /**
+   * Obtiene los permisos de un usuario por su ID
+   */
+  private async getUserPermissions(userId: string): Promise<string[]> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        role: {
+          include: {
+            permissions: {
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      return [];
+    }
+
+    return user.role.permissions.map((rp: any) => rp.permission.name);
   }
 }

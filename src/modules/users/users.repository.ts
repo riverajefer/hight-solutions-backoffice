@@ -17,6 +17,8 @@ export class UsersRepository {
         roleId: true,
         createdAt: true,
         updatedAt: true,
+        firstName: true,
+        lastName: true,
         role: {
           select: {
             id: true,
@@ -40,6 +42,8 @@ export class UsersRepository {
         roleId: true,
         createdAt: true,
         updatedAt: true,
+        firstName: true,
+        lastName: true,
         role: {
           select: {
             id: true,
@@ -73,6 +77,8 @@ export class UsersRepository {
         password: true,
         roleId: true,
         refreshToken: true,
+        firstName: true,
+        lastName: true,
       },
     });
   }
@@ -100,6 +106,8 @@ export class UsersRepository {
         email: true,
         roleId: true,
         createdAt: true,
+        firstName: true,
+        lastName: true,
         role: {
           select: {
             id: true,
@@ -123,6 +131,8 @@ export class UsersRepository {
         roleId: true,
         createdAt: true,
         updatedAt: true,
+        firstName: true,
+        lastName: true,
         role: {
           select: {
             id: true,

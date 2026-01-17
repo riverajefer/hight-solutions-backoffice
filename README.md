@@ -290,7 +290,7 @@ datasource db {
 npm run prisma:generate
 npm run prisma:migrate
 ```
-
+npx kill-port 3000
 ## 📄 Licencia
 
 MIT

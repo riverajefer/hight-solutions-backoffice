@@ -26,6 +26,23 @@ export class CreateUserDto {
   @MinLength(6, { message: 'Password must be at least 6 characters' })
   password: string;
 
+  // add firstName and lastName fields
+  @ApiProperty({
+    example: 'John',
+    description: 'First name of the user'
+  })
+  @IsString()
+  @IsNotEmpty({ message: 'First name is required' })
+  firstName: string;
+
+  @ApiProperty({
+    example: 'Doe',
+    description: 'Last name of the user'
+  })
+  @IsString()
+  @IsNotEmpty({ message: 'Last name is required' })
+  lastName: string;
+
   @ApiProperty({
     example: 'clm1234567890',
     description: 'Role ID'
