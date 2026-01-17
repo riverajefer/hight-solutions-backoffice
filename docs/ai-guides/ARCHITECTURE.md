@@ -1,38 +1,4 @@
-# Architecture Overview
-
-## Hight Solutions Backoffice - Stack Tecnológico
-
-- **Framework**: NestJS (Node.js)
-- **ORM**: Prisma
-- **Base de datos**: PostgreSQL (producción) / SQLite (desarrollo)
-- **Autenticación**: Passport (Local Strategy + JWT Strategy)
-- **Seguridad**: bcrypt para hash de passwords
-- **Hosting**: Render
-
-## Arquitectura General
-
-Este es un sistema de administración backoffice con arquitectura modular basada en:
-
-```
-User → Role → Permission[]
-```
-
-### Modelo de Autenticación
-
-1. **LocalStrategy**: Autenticación inicial con email/password
-2. **JwtStrategy**: Validación de tokens en requests subsecuentes
-3. **Tokens**:
-   - Access Token: 15 minutos
-   - Refresh Token: 7 días (almacenado hasheado en DB)
-
-### Sistema RBAC (Role-Based Access Control)
-
-- Un usuario tiene **un rol**
-- Un rol tiene **múltiples permisos**
-- Los permisos se validan **dinámicamente desde base de datos**
-- No hay permisos hardcodeados en el código
-
----
+# Architecture
 
 ## Design Pattern: Layered Architecture with Repository Pattern
 
