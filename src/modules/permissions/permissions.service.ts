@@ -3,51 +3,33 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { PrismaService } from '../../database/prisma.service';
 import { CreatePermissionDto, UpdatePermissionDto } from './dto';
-
+import { PermissionsRepository } from './permissions.repository';
 @Injectable()
 export class PermissionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly permissionsRepository: PermissionsRepository,
+  ) {}
 
   /**
    * Obtiene todos los permisos
    */
   async findAll() {
-    return this.prisma.permission.findMany({
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        createdAt: true,
-        updatedAt: true,
-        _count: {
-          select: { roles: true },
-        },
-      },
-      orderBy: { name: 'asc' },
-    });
+    return this.permissionsRepository.findAll();
+  }
+
+  /**
+   * Obtiene todos los permisos con información adicional
+   */
+  async findAllWithDetails() {
+    return this.permissionsRepository.findAll();
   }
 
   /**
    * Obtiene un permiso por ID
    */
   async findOne(id: string) {
-    const permission = await this.prisma.permission.findUnique({
-      where: { id },
-      include: {
-        roles: {
-          include: {
-            role: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
-      },
-    });
+    const permission = await this.permissionsRepository.findById(id);
 
     if (!permission) {
       throw new NotFoundException(`Permission with ID ${id} not found`);
@@ -68,23 +50,15 @@ export class PermissionsService {
    */
   async create(createPermissionDto: CreatePermissionDto) {
     // Verificar si el nombre ya existe
-    const existingPermission = await this.prisma.permission.findUnique({
-      where: { name: createPermissionDto.name },
-    });
+    const existingPermission = await this.permissionsRepository.findByName(
+      createPermissionDto.name,
+    );
 
     if (existingPermission) {
       throw new BadRequestException('Permission name already exists');
     }
 
-    return this.prisma.permission.create({
-      data: createPermissionDto,
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        createdAt: true,
-      },
-    });
+    return this.permissionsRepository.create(createPermissionDto);
   }
 
   /**
@@ -117,29 +91,17 @@ export class PermissionsService {
 
     // Verificar si el nuevo nombre ya existe
     if (updatePermissionDto.name) {
-      const existingPermission = await this.prisma.permission.findFirst({
-        where: {
-          name: updatePermissionDto.name,
-          NOT: { id },
-        },
-      });
+      const existingPermission = await this.permissionsRepository.findByNameExcludingId(
+        updatePermissionDto.name,
+        id,
+      );
 
       if (existingPermission) {
         throw new BadRequestException('Permission name already in use');
       }
     }
 
-    return this.prisma.permission.update({
-      where: { id },
-      data: updatePermissionDto,
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
+    return this.permissionsRepository.update(id, updatePermissionDto);
   }
 
   /**
@@ -155,9 +117,7 @@ export class PermissionsService {
       );
     }
 
-    await this.prisma.permission.delete({
-      where: { id },
-    });
+    await this.permissionsRepository.delete(id);
 
     return { message: `Permission "${permission.name}" deleted successfully` };
   }
