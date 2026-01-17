@@ -55,12 +55,27 @@ http://localhost:3000/api/v1
 
 ## Documentation Index
 
+### Core Documentation
 | Document | Description |
 |----------|-------------|
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | Architecture patterns and design principles |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | Full architecture overview, design patterns & principles |
 | [FOLDERS.md](./FOLDERS.md) | Project structure and file organization |
-| [DATA_FLOW.md](./DATA_FLOW.md) | Data flows and main processes |
 | [CONVENTIONS.md](./CONVENTIONS.md) | Naming conventions and coding standards |
+| [DATA_FLOW.md](./DATA_FLOW.md) | Data flows and main processes |
+
+### AI Development Guides
+| Document | Description |
+|----------|-------------|
+| [01-CRUD-MODULE-TEMPLATE.md](./01-CRUD-MODULE-TEMPLATE.md) | Template for creating new CRUD modules |
+| [02-PRISMA-RELATIONS-GUIDE.md](./02-PRISMA-RELATIONS-GUIDE.md) | Guide for Prisma relationships setup |
+| [03-GUARDS-DECORATORS-GUIDE.md](./03-GUARDS-DECORATORS-GUIDE.md) | Authentication & authorization patterns |
+| [04-DTOS-VALIDATION-GUIDE.md](./04-DTOS-VALIDATION-GUIDE.md) | Data validation best practices |
+| [05-AI-PROMPT-TEMPLATE.md](./05-AI-PROMPT-TEMPLATE.md) | Template for AI coding assistance prompts |
+
+### Additional Resources
+| Document | Description |
+|----------|-------------|
+| [AUDIT_LOG_SETUP.md](./AUDIT_LOG_SETUP.md) | Audit logging implementation |
 | [EXTENSIONS.md](./EXTENSIONS.md) | Guide for adding new features |
 
 ## Key Features
@@ -108,3 +123,41 @@ NODE_ENV=development
 ## Swagger Documentation
 
 Access API documentation at: `http://localhost:3000/api`
+
+PROMPT
+
+### Opción 2: Usar directamente con IA
+Cuando necesites crear un nuevo módulo, dale este prompt a Claude:
+```
+Lee los archivos en la carpeta docs/ai-guides/ y genera un nuevo módulo de [NOMBRE] 
+siguiendo la arquitectura del proyecto.
+
+Campos del modelo:
+- campo1: tipo
+- campo2: tipo
+
+[resto de especificaciones]
+```
+
+### Opción 3: Usar los templates
+Abre `05-AI-PROMPT-TEMPLATE.md`, copia el template apropiado, rellena los detalles y envíalo.
+
+## 💡 Ejemplo de uso rápido:
+
+Si quisieras crear un módulo de **Productos** ahora mismo, usarías este prompt:
+```
+Necesito crear un módulo de Products para el proyecto Hight Solutions Backoffice.
+
+Lee primero:
+- docs/ai-guides/00-ARCHITECTURE-OVERVIEW.md
+- docs/ai-guides/01-CRUD-MODULE-TEMPLATE.md
+- docs/ai-guides/04-DTOS-VALIDATION-GUIDE.md
+
+Genera el módulo completo con:
+- name: string
+- description: string (opcional)
+- price: decimal
+- stock: number
+- categoryId: string (relación con Category)
+
+Permisos: create_products, read_products, update_products, delete_products
