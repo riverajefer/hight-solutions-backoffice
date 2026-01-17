@@ -30,12 +30,8 @@ export class AuthController {
   async login(
     @Body() _loginDto: LoginDto, // Validación del DTO
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<TokenPair & { user: AuthenticatedUser }> {
-    const tokens = await this.authService.login(user);
-    return {
-      ...tokens,
-      user,
-    };
+  ): Promise<TokenPair & { user: AuthenticatedUser; permissions: string[] }> {
+    return this.authService.loginWithPermissions(user);
   }
 
   /**
@@ -81,15 +77,15 @@ export class AuthController {
 
   /**
    * POST /api/v1/auth/me
-   * Retorna información del usuario autenticado
+   * Retorna información del usuario autenticado con sus permisos
    */
   @ApiBearerAuth('JWT-auth')
   @UseGuards(JwtAuthGuard)
   @Post('me')
   @HttpCode(HttpStatus.OK)
-  getProfile(
-    @CurrentUser() user: AuthenticatedUser,
-  ): { user: AuthenticatedUser } {
-    return { user };
+  async getProfile(
+    @CurrentUser('id') userId: string,
+  ): Promise<{ user: any; permissions: string[] }> {
+    return this.authService.getUserProfile(userId);
   }
 }

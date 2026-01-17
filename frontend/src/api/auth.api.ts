@@ -37,9 +37,9 @@ export const authApi = {
   },
 
   /**
-   * Obtener información del usuario actual
+   * Obtener información del usuario actual con sus permisos
    */
-  me: async () => {
+  me: async (): Promise<{ user: any; permissions: string[] }> => {
     const response = await axiosInstance.post('/auth/me');
     return response.data;
   },

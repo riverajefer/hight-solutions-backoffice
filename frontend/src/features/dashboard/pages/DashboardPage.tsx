@@ -62,6 +62,17 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, action }
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, hasPermission } = useAuthStore();
+  
+  // Obtener todos los datos del store para debugging
+  const authState = useAuthStore.getState();
+  
+  // Logs de información del usuario y permisos
+  console.log('=== DASHBOARD - INFORMACIÓN DEL USUARIO ===');
+  console.log('Usuario completo:', user);
+  console.log('Permisos del usuario:', authState.permissions);
+  console.log('Total de permisos:', authState.permissions.length);
+  console.log('¿Está autenticado?:', authState.isAuthenticated);
+  console.log('===========================================');
 
   const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey: ['users'],
@@ -88,6 +99,15 @@ const DashboardPage: React.FC = () => {
   });
 
   const isLoading = usersLoading || rolesLoading || permissionsLoading;
+  
+  // Logs de verificación de permisos específicos
+  console.log('=== VERIFICACIÓN DE PERMISOS ESPECÍFICOS ===');
+  console.log(`${PERMISSIONS.READ_USERS}:`, hasPermission(PERMISSIONS.READ_USERS));
+  console.log(`${PERMISSIONS.READ_ROLES}:`, hasPermission(PERMISSIONS.READ_ROLES));
+  console.log(`${PERMISSIONS.READ_PERMISSIONS}:`, hasPermission(PERMISSIONS.READ_PERMISSIONS));
+  console.log(`${PERMISSIONS.CREATE_USERS}:`, hasPermission(PERMISSIONS.CREATE_USERS));
+  console.log(`${PERMISSIONS.CREATE_ROLES}:`, hasPermission(PERMISSIONS.CREATE_ROLES));
+  console.log('===========================================');
 
   if (isLoading) {
     return <LoadingSpinner />;

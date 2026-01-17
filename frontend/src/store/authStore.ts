@@ -37,10 +37,12 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         try {
           const response: AuthResponse = await authApi.login(credentials);
+          
           set({
             user: response.user,
             accessToken: response.accessToken,
             refreshToken: response.refreshToken,
+            permissions: response.permissions || [],
             isAuthenticated: true,
             isLoading: false,
           });
@@ -74,6 +76,16 @@ export const useAuthStore = create<AuthState>()(
             refreshToken: response.refreshToken,
             user: response.user,
           });
+          
+          // Recargar permisos después de refrescar el token
+          try {
+            const profileData = await authApi.me();
+            set({
+              permissions: profileData.permissions || [],
+            });
+          } catch (permError) {
+            console.error('Error loading user permissions:', permError);
+          }
         } catch (error: unknown) {
           get().logout();
           throw error;
@@ -104,6 +116,7 @@ export const useAuthStore = create<AuthState>()(
         refreshToken: state.refreshToken,
         user: state.user,
         isAuthenticated: state.isAuthenticated,
+        permissions: state.permissions,
       }),
     }
   )
