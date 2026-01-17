@@ -1,0 +1,154 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../../database/prisma.service';
+import { Prisma } from '../../generated/prisma';
+
+@Injectable()
+export class UsersRepository {
+  constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Encuentra todos los usuarios con su rol
+   */
+  async findAll() {
+    return this.prisma.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        roleId: true,
+        createdAt: true,
+        updatedAt: true,
+        role: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
+   * Encuentra un usuario por ID con su rol y permisos
+   */
+  async findById(id: string) {
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        email: true,
+        roleId: true,
+        createdAt: true,
+        updatedAt: true,
+        role: {
+          select: {
+            id: true,
+            name: true,
+            permissions: {
+              select: {
+                permission: {
+                  select: {
+                    id: true,
+                    name: true,
+                    description: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Encuentra un usuario por email
+   */
+  async findByEmail(email: string) {
+    return this.prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        password: true,
+        roleId: true,
+        refreshToken: true,
+      },
+    });
+  }
+
+  /**
+   * Encuentra un usuario por email excluyendo un ID específico
+   */
+  async findByEmailExcludingId(email: string, excludeId: string) {
+    return this.prisma.user.findFirst({
+      where: {
+        email,
+        NOT: { id: excludeId },
+      },
+    });
+  }
+
+  /**
+   * Crea un nuevo usuario
+   */
+  async create(data: Prisma.UserCreateInput) {
+    return this.prisma.user.create({
+      data,
+      select: {
+        id: true,
+        email: true,
+        roleId: true,
+        createdAt: true,
+        role: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Actualiza un usuario
+   */
+  async update(id: string, data: Prisma.UserUpdateInput) {
+    return this.prisma.user.update({
+      where: { id },
+      data,
+      select: {
+        id: true,
+        email: true,
+        roleId: true,
+        createdAt: true,
+        updatedAt: true,
+        role: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Actualiza el refresh token de un usuario
+   */
+  async updateRefreshToken(id: string, refreshToken: string | null) {
+    return this.prisma.user.update({
+      where: { id },
+      data: { refreshToken },
+    });
+  }
+
+  /**
+   * Elimina un usuario
+   */
+  async delete(id: string) {
+    return this.prisma.user.delete({
+      where: { id },
+    });
+  }
+}

@@ -4,68 +4,31 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
-import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto, UpdateUserDto } from './dto';
+import { UsersRepository } from './users.repository';
+import { RolesRepository } from '../roles/roles.repository';
 
 @Injectable()
 export class UsersService {
   private readonly SALT_ROUNDS = 12;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly usersRepository: UsersRepository,
+    private readonly rolesRepository: RolesRepository,
+  ) {}
 
   /**
    * Obtiene todos los usuarios con su rol
    */
   async findAll() {
-    return this.prisma.user.findMany({
-      select: {
-        id: true,
-        email: true,
-        roleId: true,
-        createdAt: true,
-        updatedAt: true,
-        role: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    return this.usersRepository.findAll();
   }
 
   /**
    * Obtiene un usuario por ID con su rol y permisos
    */
   async findOne(id: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        email: true,
-        roleId: true,
-        createdAt: true,
-        updatedAt: true,
-        role: {
-          select: {
-            id: true,
-            name: true,
-            permissions: {
-              select: {
-                permission: {
-                  select: {
-                    id: true,
-                    name: true,
-                    description: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
+    const user = await this.usersRepository.findById(id);
 
     if (!user) {
       throw new NotFoundException(`User with ID ${id} not found`);
@@ -87,18 +50,14 @@ export class UsersService {
    */
   async create(createUserDto: CreateUserDto) {
     // Verificar si el email ya existe
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email: createUserDto.email },
-    });
+    const existingUser = await this.usersRepository.findByEmail(createUserDto.email);
 
     if (existingUser) {
       throw new BadRequestException('Email already registered');
     }
 
     // Verificar si el rol existe
-    const role = await this.prisma.role.findUnique({
-      where: { id: createUserDto.roleId },
-    });
+    const role = await this.rolesRepository.findById(createUserDto.roleId);
 
     if (!role) {
       throw new BadRequestException('Invalid role ID');
@@ -111,27 +70,13 @@ export class UsersService {
     );
 
     // Crear el usuario
-    const user = await this.prisma.user.create({
-      data: {
-        email: createUserDto.email,
-        password: hashedPassword,
-        roleId: createUserDto.roleId,
-      },
-      select: {
-        id: true,
-        email: true,
-        roleId: true,
-        createdAt: true,
-        role: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
+    return this.usersRepository.create({
+      email: createUserDto.email,
+      password: hashedPassword,
+      role: {
+        connect: { id: createUserDto.roleId },
       },
     });
-
-    return user;
   }
 
   /**
@@ -143,12 +88,10 @@ export class UsersService {
 
     // Si se actualiza el email, verificar que no exista
     if (updateUserDto.email) {
-      const existingUser = await this.prisma.user.findFirst({
-        where: {
-          email: updateUserDto.email,
-          NOT: { id },
-        },
-      });
+      const existingUser = await this.usersRepository.findByEmailExcludingId(
+        updateUserDto.email,
+        id,
+      );
 
       if (existingUser) {
         throw new BadRequestException('Email already in use');
@@ -157,9 +100,7 @@ export class UsersService {
 
     // Si se actualiza el rol, verificar que existe
     if (updateUserDto.roleId) {
-      const role = await this.prisma.role.findUnique({
-        where: { id: updateUserDto.roleId },
-      });
+      const role = await this.rolesRepository.findById(updateUserDto.roleId);
 
       if (!role) {
         throw new BadRequestException('Invalid role ID');
@@ -177,23 +118,13 @@ export class UsersService {
       );
     }
 
-    return this.prisma.user.update({
-      where: { id },
-      data: updateData,
-      select: {
-        id: true,
-        email: true,
-        roleId: true,
-        createdAt: true,
-        updatedAt: true,
-        role: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-    });
+    // Si se actualiza el roleId, usar la sintaxis de Prisma connect
+    if (updateUserDto.roleId) {
+      updateData.role = { connect: { id: updateUserDto.roleId } };
+      delete updateData.roleId;
+    }
+
+    return this.usersRepository.update(id, updateData);
   }
 
   /**
@@ -202,9 +133,7 @@ export class UsersService {
   async remove(id: string) {
     await this.findOne(id);
 
-    await this.prisma.user.delete({
-      where: { id },
-    });
+    await this.usersRepository.delete(id);
 
     return { message: `User with ID ${id} deleted successfully` };
   }
