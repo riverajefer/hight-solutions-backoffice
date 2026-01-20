@@ -19,6 +19,7 @@ export const PERMISSIONS = {
   UPDATE_PERMISSIONS: 'update_permissions',
   DELETE_PERMISSIONS: 'delete_permissions',
   MANAGE_PERMISSIONS: 'manage_permissions',
+  READ_AUDIT_LOGS: 'read_audit_logs',
 };
 
 export const ROUTES = {
@@ -34,6 +35,7 @@ export const ROUTES = {
   ROLES_EDIT: '/roles/:id/edit',
   PERMISSIONS: '/permissions',
   PERMISSIONS_CREATE: '/permissions/create',
+  AUDIT_LOGS: '/audit-logs',
   NOT_FOUND: '/not-found',
   UNAUTHORIZED: '/unauthorized',
 };

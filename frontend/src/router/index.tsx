@@ -15,6 +15,8 @@ const UserFormPage = lazy(() => import('../features/users/pages/UserFormPage'));
 const RolesListPage = lazy(() => import('../features/roles/pages/RolesListPage'));
 const RoleFormPage = lazy(() => import('../features/roles/pages/RoleFormPage'));
 const PermissionsListPage = lazy(() => import('../features/permissions/pages/PermissionsListPage'));
+const AuditLogsListPage = lazy(() => import('../features/audit-logs/pages/AuditLogsListPage'));
+
 
 const RoutesConfig: FC = () => {
   return (
@@ -139,6 +141,21 @@ const RoutesConfig: FC = () => {
             </AuthGuard>
           }
         />
+
+        {/* Audit Logs Routes */}
+        <Route
+          path={PATHS.AUDIT_LOGS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_AUDIT_LOGS}>
+                  <AuditLogsListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
 
         {/* Default and Error Routes */}
         <Route path="/" element={<Navigate to={PATHS.DASHBOARD} replace />} />

@@ -18,7 +18,7 @@ interface DataTableColumn<T> {
   label: string;
   width?: string;
   align?: 'left' | 'right' | 'center';
-  format?: (value: unknown) => React.ReactNode;
+  format?: (value: unknown, row: T) => React.ReactNode;
 }
 
 interface DataTableProps<T> {
@@ -120,7 +120,7 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps<unknown
                 {columns.map((column) => (
                   <TableCell key={String(column.id)} align={column.align || 'left'}>
                     {column.format
-                      ? column.format((row as Record<string, unknown>)[column.id as string])
+                      ? column.format((row as Record<string, unknown>)[column.id as string], row as any)
                       : String((row as Record<string, unknown>)[column.id as string] || '-')}
                   </TableCell>
                 ))}

@@ -17,10 +17,10 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import PeopleIcon from '@mui/icons-material/People';
 import SecurityIcon from '@mui/icons-material/Security';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
+import HistoryIcon from '@mui/icons-material/History';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import { useAuthStore } from '../../store/authStore';
-import { useUIStore } from '../../store/uiStore';
 import { ROUTES, PERMISSIONS } from '../../utils/constants';
 
 const DRAWER_WIDTH = 280;
@@ -101,6 +101,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
       icon: <VerifiedUserIcon />,
       path: ROUTES.PERMISSIONS,
       permission: PERMISSIONS.READ_PERMISSIONS,
+    },
+    {
+      label: 'Logs de Auditoría',
+      icon: <HistoryIcon />,
+      path: ROUTES.AUDIT_LOGS,
+      permission: PERMISSIONS.READ_AUDIT_LOGS,
     },
   ];
 

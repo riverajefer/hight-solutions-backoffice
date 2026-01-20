@@ -3,3 +3,5 @@ export * from './user.types';
 export * from './role.types';
 export * from './permission.types';
 export * from './api.types';
+export * from './audit-log.types';
+

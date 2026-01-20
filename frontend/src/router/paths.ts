@@ -11,6 +11,8 @@ export const PATHS = {
   ROLES_EDIT: '/roles/:id/edit',
   PERMISSIONS: '/permissions',
   PERMISSIONS_CREATE: '/permissions/create',
+  AUDIT_LOGS: '/audit-logs',
   NOT_FOUND: '/not-found',
   UNAUTHORIZED: '/unauthorized',
 };
+
