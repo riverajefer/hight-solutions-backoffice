@@ -9,6 +9,7 @@ export const PATHS = {
   ROLES: '/roles',
   ROLES_CREATE: '/roles/create',
   ROLES_EDIT: '/roles/:id/edit',
+  ROLES_PERMISSIONS: '/roles/:id/permissions',
   PERMISSIONS: '/permissions',
   PERMISSIONS_CREATE: '/permissions/create',
   AUDIT_LOGS: '/audit-logs',

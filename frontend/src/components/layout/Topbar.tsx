@@ -15,9 +15,9 @@ import MenuIcon from '@mui/icons-material/Menu';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
-import { useUIStore } from '../../store/uiStore';
-import { ROUTES, PERMISSIONS } from '../../utils/constants';
+import { ROUTES } from '../../utils/constants';
 import { formatFullName } from '../../utils/helpers';
+import { ThemeToggler } from '../common/ThemeToggler';
 
 interface TopbarProps {
   onMenuClick?: () => void;
@@ -71,6 +71,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
         </Typography>
 
         <Box display="flex" alignItems="center" gap={2}>
+          <ThemeToggler />
           <IconButton color="inherit" onClick={handleMenuOpen}>
             <Avatar sx={{ width: 32, height: 32, cursor: 'pointer' }}>
               {userInitials}

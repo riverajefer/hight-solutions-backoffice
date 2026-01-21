@@ -48,6 +48,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading = fals
           <TextField
             label="Email"
             type="email"
+            value="admin@example.com"
             fullWidth
             {...register('email')}
             error={!!errors.email}
@@ -58,6 +59,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading = fals
           <TextField
             label="Contraseña"
             type="password"
+            value="admin123"
             fullWidth
             {...register('password')}
             error={!!errors.password}

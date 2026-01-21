@@ -4,6 +4,11 @@ export interface User {
   firstName?: string;
   lastName?: string;
   roleId: string;
+  role?: {
+    id: string;
+    name: string;
+  };
+  isActive?: boolean;
   createdAt: string;
   updatedAt: string;
 }
