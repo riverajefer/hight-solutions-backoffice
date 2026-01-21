@@ -36,6 +36,7 @@ async function main() {
     { name: 'update_permissions', description: 'Update permission information' },
     { name: 'delete_permissions', description: 'Delete permissions' },
     { name: 'manage_permissions', description: 'Assign/remove permissions to/from roles' },
+    { name: 'read_audit_logs', description: 'Permite visualizar los logs de auditoría del sistema' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
@@ -59,7 +60,10 @@ async function main() {
   const adminRole = await prisma.role.upsert({
     where: { name: 'admin' },
     update: {},
-    create: { name: 'admin' },
+    create: { 
+      id: 'b1700ef6-4e33-4c5b-9f4a-a249e59e483f',
+      name: 'admin' 
+    },
   });
   console.log(`  ✓ Role: admin`);
 
