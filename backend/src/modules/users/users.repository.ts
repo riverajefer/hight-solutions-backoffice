@@ -7,7 +7,7 @@ export class UsersRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Encuentra todos los usuarios con su rol
+   * Encuentra todos los usuarios con su rol y cargo
    */
   async findAll() {
     return this.prisma.user.findMany({
@@ -15,6 +15,7 @@ export class UsersRepository {
         id: true,
         email: true,
         roleId: true,
+        cargoId: true,
         createdAt: true,
         updatedAt: true,
         firstName: true,
@@ -25,13 +26,25 @@ export class UsersRepository {
             name: true,
           },
         },
+        cargo: {
+          select: {
+            id: true,
+            name: true,
+            area: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
   }
 
   /**
-   * Encuentra un usuario por ID con su rol y permisos
+   * Encuentra un usuario por ID con su rol, permisos y cargo
    */
   async findById(id: string) {
     return this.prisma.user.findUnique({
@@ -40,6 +53,7 @@ export class UsersRepository {
         id: true,
         email: true,
         roleId: true,
+        cargoId: true,
         createdAt: true,
         updatedAt: true,
         firstName: true,
@@ -57,6 +71,19 @@ export class UsersRepository {
                     description: true,
                   },
                 },
+              },
+            },
+          },
+        },
+        cargo: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            area: {
+              select: {
+                id: true,
+                name: true,
               },
             },
           },
@@ -105,6 +132,7 @@ export class UsersRepository {
         id: true,
         email: true,
         roleId: true,
+        cargoId: true,
         createdAt: true,
         firstName: true,
         lastName: true,
@@ -112,6 +140,18 @@ export class UsersRepository {
           select: {
             id: true,
             name: true,
+          },
+        },
+        cargo: {
+          select: {
+            id: true,
+            name: true,
+            area: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         },
       },
@@ -129,6 +169,7 @@ export class UsersRepository {
         id: true,
         email: true,
         roleId: true,
+        cargoId: true,
         createdAt: true,
         updatedAt: true,
         firstName: true,
@@ -137,6 +178,18 @@ export class UsersRepository {
           select: {
             id: true,
             name: true,
+          },
+        },
+        cargo: {
+          select: {
+            id: true,
+            name: true,
+            area: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         },
       },
