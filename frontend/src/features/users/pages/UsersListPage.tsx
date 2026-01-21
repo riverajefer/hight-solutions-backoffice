@@ -1,25 +1,18 @@
-import React from 'react';
-import { Box, Button } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Box } from '@mui/material';
 import { useSnackbar } from 'notistack';
 import { PageHeader } from '../../../components/common/PageHeader';
-import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
-import { UserTable } from '../components/UserTable';
+import { UsersTable } from '../components/UsersTable';
 import { useUsers } from '../hooks/useUsers';
-import { useAuthStore } from '../../../store/authStore';
 import { User } from '../../../types';
-import { ROUTES, PERMISSIONS } from '../../../utils/constants';
-import AddIcon from '@mui/icons-material/Add';
 
 /**
  * Página de listado de usuarios
  */
 const UsersListPage: React.FC = () => {
-  const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
-  const { hasPermission } = useAuthStore();
-  const [confirmDelete, setConfirmDelete] = React.useState<User | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<User | null>(null);
 
   const { usersQuery, deleteUserMutation } = useUsers();
   const users = usersQuery.data || [];
@@ -37,34 +30,17 @@ const UsersListPage: React.FC = () => {
     }
   };
 
-  if (usersQuery.isLoading) {
-    return <LoadingSpinner />;
-  }
-
   return (
     <Box>
       <PageHeader
         title="Usuarios"
         subtitle="Gestiona los usuarios del sistema"
-        action={
-          hasPermission(PERMISSIONS.CREATE_USERS) && (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => navigate(ROUTES.USERS_CREATE)}
-            >
-              Crear Usuario
-            </Button>
-          )
-        }
       />
 
-      <UserTable
+      <UsersTable
         users={users}
-        isLoading={usersQuery.isLoading}
+        loading={usersQuery.isLoading}
         onDelete={(user) => setConfirmDelete(user)}
-        canEdit={hasPermission(PERMISSIONS.UPDATE_USERS)}
-        canDelete={hasPermission(PERMISSIONS.DELETE_USERS)}
       />
 
       <ConfirmDialog
