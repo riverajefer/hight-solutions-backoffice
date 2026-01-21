@@ -21,9 +21,9 @@ export const authApi = {
   /**
    * Refrescar access token usando refresh token
    */
-  refresh: async (): Promise<AuthResponse> => {
-    const refreshToken = localStorage.getItem('refreshToken');
+  refresh: async (userId: string, refreshToken: string): Promise<AuthResponse> => {
     const response = await axiosInstance.post<AuthResponse>('/auth/refresh', {
+      userId,
       refreshToken,
     });
     return response.data;

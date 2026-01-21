@@ -69,8 +69,15 @@ export const useAuthStore = create<AuthState>()(
       },
 
       refreshAccessToken: async () => {
+        const { user, refreshToken } = get();
+        
+        if (!user || !refreshToken) {
+          get().logout();
+          return;
+        }
+
         try {
-          const response: AuthResponse = await authApi.refresh();
+          const response: AuthResponse = await authApi.refresh(user.id, refreshToken);
           set({
             accessToken: response.accessToken,
             refreshToken: response.refreshToken,

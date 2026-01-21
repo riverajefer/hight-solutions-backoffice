@@ -53,7 +53,7 @@ export class AuthController {
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refresh(@Body() refreshTokenDto: RefreshTokenDto): Promise<TokenPair> {
+  async refresh(@Body() refreshTokenDto: RefreshTokenDto): Promise<TokenPair & { user: AuthenticatedUser }> {
     return this.authService.refreshTokens(
       refreshTokenDto.userId,
       refreshTokenDto.refreshToken,
