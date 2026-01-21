@@ -19,6 +19,8 @@ import PeopleIcon from '@mui/icons-material/People';
 import SecurityIcon from '@mui/icons-material/Security';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import HistoryIcon from '@mui/icons-material/History';
+import BusinessIcon from '@mui/icons-material/Business';
+import WorkIcon from '@mui/icons-material/Work';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import { useAuthStore } from '../../store/authStore';
@@ -44,6 +46,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
     users: false,
     roles: false,
     permissions: false,
+    areas: false,
+    cargos: false,
   });
 
   const handleMenuClick = (menu: keyof typeof menuOpen) => {
@@ -95,6 +99,40 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
         },
       ],
       permission: PERMISSIONS.READ_USERS,
+    },
+    {
+      label: 'Áreas',
+      icon: <BusinessIcon />,
+      submenu: [
+        {
+          label: 'Listar Áreas',
+          path: ROUTES.AREAS,
+          permission: PERMISSIONS.READ_AREAS,
+        },
+        {
+          label: 'Crear Área',
+          path: ROUTES.AREAS_CREATE,
+          permission: PERMISSIONS.CREATE_AREAS,
+        },
+      ],
+      permission: PERMISSIONS.READ_AREAS,
+    },
+    {
+      label: 'Cargos',
+      icon: <WorkIcon />,
+      submenu: [
+        {
+          label: 'Listar Cargos',
+          path: ROUTES.CARGOS,
+          permission: PERMISSIONS.READ_CARGOS,
+        },
+        {
+          label: 'Crear Cargo',
+          path: ROUTES.CARGOS_CREATE,
+          permission: PERMISSIONS.CREATE_CARGOS,
+        },
+      ],
+      permission: PERMISSIONS.READ_CARGOS,
     },
     {
       label: 'Roles',

@@ -16,6 +16,8 @@ import EmailIcon from '@mui/icons-material/Email';
 import BadgeIcon from '@mui/icons-material/Badge';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import WorkIcon from '@mui/icons-material/Work';
+import BusinessIcon from '@mui/icons-material/Business';
 import { User } from '../../../types';
 import { StatusBadge } from '../../../components/common/DataTable';
 import { formatDate } from '../../../utils/helpers';
@@ -169,15 +171,25 @@ export const UserDetail: React.FC<UserDetailProps> = ({
               Información del Sistema
             </Typography>
             <Box display="flex" flexDirection="column" gap={3}>
-              <DetailItem 
-                icon={<VerifiedUserIcon />} 
-                label="Rol Asignado" 
-                value={(user as any).role?.name || 'N/A'} 
+              <DetailItem
+                icon={<VerifiedUserIcon />}
+                label="Rol Asignado"
+                value={(user as any).role?.name || 'N/A'}
               />
-              <DetailItem 
-                icon={<AccessTimeIcon />} 
-                label="Fecha de Registro" 
-                value={user.createdAt ? formatDate(user.createdAt) : 'N/A'} 
+              <DetailItem
+                icon={<WorkIcon />}
+                label="Cargo"
+                value={(user as any).cargo?.name || 'Sin cargo asignado'}
+              />
+              <DetailItem
+                icon={<BusinessIcon />}
+                label="Área"
+                value={(user as any).cargo?.area?.name || 'N/A'}
+              />
+              <DetailItem
+                icon={<AccessTimeIcon />}
+                label="Fecha de Registro"
+                value={user.createdAt ? formatDate(user.createdAt) : 'N/A'}
               />
             </Box>
           </Grid>
