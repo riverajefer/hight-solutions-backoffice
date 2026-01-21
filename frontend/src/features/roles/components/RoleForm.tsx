@@ -14,7 +14,7 @@ const roleSchema = z.object({
 type RoleFormData = z.infer<typeof roleSchema>;
 
 interface RoleFormProps {
-  initialData?: UpdateRoleDto & { id?: string; permissions?: string[] };
+  initialData?: UpdateRoleDto & { id?: string; permissions?: any[] };
   onSubmit: (data: CreateRoleDto | UpdateRoleDto, permissions?: string[]) => Promise<void>;
   isLoading?: boolean;
   error?: string | null;
@@ -31,9 +31,17 @@ export const RoleForm: React.FC<RoleFormProps> = ({
   error,
   isEdit = false,
 }) => {
-  const [selectedPermissions, setSelectedPermissions] = React.useState<string[]>(
-    initialData?.permissions || []
-  );
+  const [selectedPermissions, setSelectedPermissions] = React.useState<string[]>([]);
+
+  React.useEffect(() => {
+    if (initialData?.permissions) {
+      // Si recibimos objetos de permiso, extraemos solo los IDs
+      const ids = initialData.permissions.map((p: any) => 
+        typeof p === 'string' ? p : p.id
+      );
+      setSelectedPermissions(ids);
+    }
+  }, [initialData]);
 
   const { control, handleSubmit, formState: { errors } } = useForm<RoleFormData>({
     resolver: zodResolver(roleSchema),

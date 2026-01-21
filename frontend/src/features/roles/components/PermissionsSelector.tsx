@@ -11,6 +11,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { permissionsApi } from '../../../api';
 import { Permission } from '../../../types';
+import { getPermissionLabel } from '../../../utils/permission-labels';
 
 interface PermissionsSelectorProps {
   selectedPermissions: string[];
@@ -37,6 +38,18 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
     'update_permissions',
     'delete_permissions',
     'manage_permissions',
+  ],
+  Areas: [
+    'create_areas',
+    'read_areas',
+    'update_areas',
+    'delete_areas',
+  ],
+  Cargos: [
+    'create_cargos',
+    'read_cargos',
+    'update_cargos',
+    'delete_cargos',
   ],
 };
 
@@ -99,7 +112,7 @@ export const PermissionsSelector: React.FC<PermissionsSelectorProps> = ({
                           disabled={disabled}
                         />
                       }
-                      label={permission.name}
+                      label={getPermissionLabel(permission.name)}
                     />
                   );
                 })}

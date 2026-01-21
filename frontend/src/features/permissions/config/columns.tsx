@@ -2,6 +2,7 @@ import { GridColDef } from '@mui/x-data-grid';
 import { Tooltip, Typography } from '@mui/material';
 import { ActionsCell } from '../../../components/common/DataTable';
 import { Permission } from '../../../types';
+import { getPermissionLabel } from '../../../utils/permission-labels';
 
 interface PermissionColumnsProps {
   onEdit: (permission: Permission) => void;
@@ -26,6 +27,7 @@ export const getPermissionColumns = ({
     headerName: 'Nombre del permiso',
     flex: 1,
     minWidth: 150,
+    valueGetter: (_, row) => getPermissionLabel(row.name),
   },
   {
     field: 'code',
