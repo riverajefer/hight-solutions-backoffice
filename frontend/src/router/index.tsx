@@ -17,6 +17,7 @@ const RolesListPage = lazy(() => import('../features/roles/pages/RolesListPage')
 const RoleFormPage = lazy(() => import('../features/roles/pages/RoleFormPage'));
 const RolePermissionsPage = lazy(() => import('../features/roles/pages/RolePermissionsPage'));
 const PermissionsListPage = lazy(() => import('../features/permissions/pages/PermissionsListPage'));
+const PermissionFormPage = lazy(() => import('../features/permissions/pages/PermissionFormPage'));
 const AuditLogsListPage = lazy(() => import('../features/audit-logs/pages/AuditLogsListPage'));
 
 
@@ -162,6 +163,30 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.READ_PERMISSIONS}>
                   <PermissionsListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PERMISSIONS_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_PERMISSIONS}>
+                  <PermissionFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PERMISSIONS_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_PERMISSIONS}>
+                  <PermissionFormPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>
