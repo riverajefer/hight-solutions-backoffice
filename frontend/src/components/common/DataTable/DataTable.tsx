@@ -41,7 +41,7 @@ export function DataTable<T extends GridValidRowModel>({
   onAdd,
   addButtonText,
   searchPlaceholder,
-  showExport = true,
+  showExport = false,
   emptyMessage = 'No se encontraron registros',
 }: DataTableProps<T>) {
   const [paginationModel, setPaginationModel] = useState({
@@ -61,6 +61,11 @@ export function DataTable<T extends GridValidRowModel>({
       clearTimeout(handler);
     };
   }, [searchText]);
+
+  // Reset to first page when search changes
+  useEffect(() => {
+    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+  }, [debouncedSearchText]);
 
   const filteredRows = useMemo(() => {
     if (!debouncedSearchText) return rows;
@@ -83,11 +88,11 @@ export function DataTable<T extends GridValidRowModel>({
   const renderLoadingSkeleton = () => (
     <Box sx={{ width: '100%', p: 2 }}>
       {[...Array(paginationModel.pageSize)].map((_, index) => (
-        <Skeleton 
-          key={index} 
-          variant="rectangular" 
-          height={52} 
-          sx={{ mb: 1, borderRadius: 1 }} 
+        <Skeleton
+          key={index}
+          variant="rectangular"
+          height={52}
+          sx={{ mb: 1, borderRadius: 1 }}
         />
       ))}
     </Box>
@@ -105,13 +110,28 @@ export function DataTable<T extends GridValidRowModel>({
       }}
     >
       <Typography variant="body1" color="textSecondary">
-        {emptyMessage}
+        {debouncedSearchText
+          ? `No se encontraron resultados para "${debouncedSearchText}"`
+          : emptyMessage
+        }
       </Typography>
     </Box>
   );
 
   return (
     <Paper sx={paperStyles}>
+      {/* Toolbar renderizado fuera del DataGrid */}
+      {toolbar && (
+        <CustomToolbar
+          onAdd={onAdd}
+          addButtonText={addButtonText}
+          searchPlaceholder={searchPlaceholder}
+          searchValue={searchText}
+          onSearchChange={setSearchText}
+          showExport={showExport}
+        />
+      )}
+
       <DataGrid
         rows={filteredRows}
         columns={columns}
@@ -127,23 +147,8 @@ export function DataTable<T extends GridValidRowModel>({
         localeText={esES.components.MuiDataGrid.defaultProps.localeText}
         sx={dataGridStyles}
         slots={{
-          toolbar: toolbar ? () => (
-            <CustomToolbar
-              onAdd={onAdd}
-              addButtonText={addButtonText}
-              searchPlaceholder={searchPlaceholder}
-              searchValue={searchText}
-              onSearchChange={setSearchText}
-              showExport={showExport}
-            />
-          ) : undefined,
           noRowsOverlay: CustomNoRowsOverlay,
           loadingOverlay: renderLoadingSkeleton,
-        }}
-        slotProps={{
-          toolbar: {
-            showQuickFilter: true,
-          },
         }}
       />
     </Paper>

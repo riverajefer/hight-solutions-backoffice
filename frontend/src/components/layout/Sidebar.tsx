@@ -23,6 +23,7 @@ import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import { useAuthStore } from '../../store/authStore';
 import { ROUTES, PERMISSIONS } from '../../utils/constants';
+import logo from '../../assets/logo.png';
 
 const DRAWER_WIDTH = 280;
 
@@ -153,22 +154,38 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
 
   const content = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: 'background.paper' }}>
-      <Box sx={{ p: 3, mb: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        <Typography 
-          variant="h6" 
+      <Box 
+        sx={{ 
+          p: 3, 
+          m: 2,
+          mb: 4,
+          display: 'flex', 
+          justifyContent: 'center',
+          alignItems: 'center',
+          borderRadius: '16px',
+          background: theme.palette.mode === 'light' 
+            ? `linear-gradient(135deg, #1e293b 0%, #0f172a 100%)` 
+            : 'transparent',
+          boxShadow: theme.palette.mode === 'light' 
+            ? '0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1)'
+            : 'none',
+        }}
+      >
+        <Box
+          component="img"
+          src={logo}
+          alt="Hight Solutions Logo"
           sx={{ 
-            fontWeight: 800, 
-            letterSpacing: '-0.5px',
-            background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
+            width: '100%',
+            maxWidth: 160,
+            height: 'auto',
+            objectFit: 'contain',
+            transition: 'transform 0.3s ease',
+            '&:hover': {
+              transform: 'scale(1.05)',
+            }
           }}
-        >
-          Hight Solutions
-        </Typography>
-        <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 600, lineHeight: 1.2 }}>
-          Backoffice Elite
-        </Typography>
+        />
       </Box>
 
       <List sx={{ px: 1 }}>
