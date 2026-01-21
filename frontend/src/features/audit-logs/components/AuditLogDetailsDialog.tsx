@@ -57,14 +57,39 @@ export const AuditLogDetailsDialog: React.FC<AuditLogDetailsDialogProps> = ({
         </Typography>
         <Box
           sx={{
-            backgroundColor: '#f5f5f5',
+            backgroundColor: (theme) => 
+              theme.palette.mode === 'dark' 
+                ? 'rgba(0, 0, 0, 0.3)' 
+                : 'grey.100',
             p: 2,
             borderRadius: 1,
-            maxHeight: 200,
+            maxHeight: 350,
             overflow: 'auto',
+            border: '1px solid',
+            borderColor: 'divider',
+            position: 'relative',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '4px',
+              height: '100%',
+              backgroundColor: 'primary.main',
+              opacity: (theme) => theme.palette.mode === 'dark' ? 0.6 : 0.4,
+            },
+            '& pre': {
+              margin: 0,
+              fontSize: '0.875rem',
+              color: 'text.primary',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-all',
+              fontFamily: 'monospace',
+              paddingLeft: 1,
+            }
           }}
         >
-          <pre style={{ margin: 0, fontSize: '0.875rem' }}>
+          <pre>
             {JSON.stringify(data, null, 2)}
           </pre>
         </Box>
