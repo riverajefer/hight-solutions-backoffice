@@ -139,7 +139,7 @@ export class AuthService {
   /**
    * Refresca el access token usando el refresh token
    */
-  async refreshTokens(userId: string, refreshToken: string): Promise<TokenPair> {
+  async refreshTokens(userId: string, refreshToken: string): Promise<TokenPair & { user: AuthenticatedUser }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -164,12 +164,14 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    // Generar nuevos tokens
-    const tokens = await this.generateTokens({
+    const authenticatedUser = {
       id: user.id,
       email: user.email,
       roleId: user.roleId,
-    });
+    };
+
+    // Generar nuevos tokens
+    const tokens = await this.generateTokens(authenticatedUser);
 
     // Actualizar el refresh token en la base de datos
     const hashedRefreshToken = await bcrypt.hash(
@@ -182,7 +184,10 @@ export class AuthService {
       data: { refreshToken: hashedRefreshToken },
     });
 
-    return tokens;
+    return {
+      ...tokens,
+      user: authenticatedUser,
+    };
   }
 
   /**

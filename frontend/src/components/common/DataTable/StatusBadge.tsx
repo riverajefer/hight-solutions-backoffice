@@ -10,28 +10,30 @@ interface StatusBadgeProps {
 
 const StyledChip = styled(Chip, {
   shouldForwardProp: (prop) => prop !== 'statusVariant',
-})<{ statusVariant: string }>(({ statusVariant }) => {
+})<{ statusVariant: string }>(({ statusVariant, theme }) => {
   const getColors = () => {
+    const mode = theme.palette.mode;
+    
     switch (statusVariant) {
       case 'active':
         return {
-          bg: '#e8f5e9',
-          color: '#2e7d32',
+          bg: mode === 'light' ? '#e8f5e9' : 'rgba(46, 125, 50, 0.2)',
+          color: mode === 'light' ? '#2e7d32' : '#81c784',
         };
       case 'inactive':
         return {
-          bg: '#f5f5f5',
-          color: '#757575',
+          bg: mode === 'light' ? '#f5f5f5' : 'rgba(255, 255, 255, 0.08)',
+          color: mode === 'light' ? '#757575' : '#bdbdbd',
         };
       case 'pending':
         return {
-          bg: '#fffde7',
-          color: '#f9a825',
+          bg: mode === 'light' ? '#fffde7' : 'rgba(249, 168, 37, 0.2)',
+          color: mode === 'light' ? '#f9a825' : '#ffd54f',
         };
       default:
         return {
-          bg: '#f5f5f5',
-          color: '#757575',
+          bg: mode === 'light' ? '#f5f5f5' : 'rgba(255, 255, 255, 0.08)',
+          color: mode === 'light' ? '#757575' : '#bdbdbd',
         };
     }
   };

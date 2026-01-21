@@ -25,7 +25,7 @@ export const RolesTable: React.FC<RolesTableProps> = ({
   };
 
   const handleViewPermissions = (role: Role) => {
-    navigate(`${ROUTES.ROLES}/${role.id}/permissions`);
+    navigate(ROUTES.ROLES_PERMISSIONS.replace(':id', role.id));
   };
 
   const columns = useMemo(

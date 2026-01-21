@@ -21,7 +21,7 @@ export const PermissionsTable: React.FC<PermissionsTableProps> = ({
   const { hasPermission } = useAuthStore();
 
   const handleEdit = (permission: Permission) => {
-    navigate(`${ROUTES.PERMISSIONS}/${permission.id}/edit`);
+    navigate(ROUTES.PERMISSIONS_EDIT.replace(':id', permission.id));
   };
 
   const columns = useMemo(

@@ -32,7 +32,7 @@ export const dataGridStyles: SxProps<Theme> = {
     borderColor: 'divider',
   },
   '& .all-columns-header': {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: (theme) => theme.palette.background.default,
   },
 };
 

@@ -11,6 +11,7 @@ import {
   Typography,
   useTheme,
   useMediaQuery,
+  alpha,
 } from '@mui/material';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -31,7 +32,7 @@ interface SidebarProps {
 }
 
 /**
- * Sidebar con navegación
+ * Sidebar con navegación mejorada
  */
 export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
   const location = useLocation();
@@ -51,8 +52,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
     }));
   };
 
-  const isActive = (path: string) => {
-    return location.pathname.startsWith(path);
+  const isActive = (path: string, siblings: string[] = []) => {
+    if (path === ROUTES.DASHBOARD) {
+      return location.pathname === path;
+    }
+    
+    const isMatch = location.pathname.startsWith(path);
+    if (!isMatch) return false;
+
+    // Si hay un match exacto, ese gana
+    if (location.pathname === path) return true;
+
+    // Si es un prefijo, verificamos si hay un hermano que sea un match más específico (largo)
+    const hasMoreSpecificSibling = siblings.some(
+      (s) => s !== path && s.length > path.length && location.pathname.startsWith(s)
+    );
+
+    return !hasMoreSpecificSibling;
   };
 
   const navItems = [
@@ -110,20 +126,53 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
     },
   ];
 
+  const getItemStyles = (active: boolean) => ({
+    mx: 1.5,
+    my: 0.5,
+    borderRadius: '12px',
+    transition: 'all 0.2s ease-in-out',
+    backgroundColor: active 
+      ? alpha(theme.palette.primary.main, 0.12) 
+      : 'transparent',
+    color: active ? theme.palette.primary.main : theme.palette.text.primary,
+    '&:hover': {
+      backgroundColor: active 
+        ? alpha(theme.palette.primary.main, 0.18) 
+        : alpha(theme.palette.action.hover, 0.08),
+      transform: 'translateX(4px)',
+    },
+    '& .MuiListItemIcon-root': {
+      color: active ? theme.palette.primary.main : theme.palette.text.secondary,
+      minWidth: 40,
+    },
+    '& .MuiListItemText-primary': {
+      fontWeight: active ? 600 : 500,
+      fontSize: '0.875rem',
+    },
+  });
+
   const content = (
-    <Box sx={{ overflow: 'auto', height: '100%' }}>
-      <Box sx={{ p: 2, mb: 2 }}>
-        <Typography variant="h6" sx={{ fontWeight: 700, color: 'primary.main' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: 'background.paper' }}>
+      <Box sx={{ p: 3, mb: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        <Typography 
+          variant="h6" 
+          sx={{ 
+            fontWeight: 800, 
+            letterSpacing: '-0.5px',
+            background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}
+        >
           Hight Solutions
         </Typography>
-        <Typography variant="caption" color="textSecondary">
-          Backoffice
+        <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 600, lineHeight: 1.2 }}>
+          Backoffice Elite
         </Typography>
       </Box>
 
-      <List>
+      <List sx={{ px: 1 }}>
         {navItems.map((item, index) => {
-          // Verificar si el usuario tiene permiso
           if (item.permission && !hasPermission(item.permission)) {
             return null;
           }
@@ -131,46 +180,42 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
           if (item.submenu) {
             const menuKey = item.label.toLowerCase() as keyof typeof menuOpen;
             const isMenuOpen = menuOpen[menuKey];
+            const siblingPaths = item.submenu.map(sub => sub.path);
+            const isSubChildActive = item.submenu.some((sub) => isActive(sub.path, siblingPaths));
 
             return (
               <React.Fragment key={index}>
-                <ListItem
-                  disablePadding
-                  onClick={() => handleMenuClick(menuKey)}
-                  sx={{ display: 'block' }}
-                >
+                <ListItem disablePadding sx={{ display: 'block' }}>
                   <ListItemButton
-                    sx={{
-                      backgroundColor: item.submenu.some((sub) =>
-                        isActive(sub.path)
-                      )
-                        ? 'action.hover'
-                        : 'transparent',
-                    }}
+                    onClick={() => handleMenuClick(menuKey)}
+                    sx={getItemStyles(isSubChildActive)}
                   >
                     <ListItemIcon>{item.icon}</ListItemIcon>
                     <ListItemText primary={item.label} />
-                    {isMenuOpen ? <ExpandLess /> : <ExpandMore />}
+                    {isMenuOpen ? <ExpandLess sx={{ fontSize: '1.2rem' }} /> : <ExpandMore sx={{ fontSize: '1.2rem' }} />}
                   </ListItemButton>
                 </ListItem>
                 <Collapse in={isMenuOpen} timeout="auto" unmountOnExit>
-                  <List component="div" disablePadding>
+                  <List component="div" disablePadding sx={{ mb: 1 }}>
                     {item.submenu.map((subitem, subindex) => {
                       if (subitem.permission && !hasPermission(subitem.permission)) {
                         return null;
                       }
 
+                      const active = isActive(subitem.path, siblingPaths);
                       return (
                         <ListItem key={subindex} disablePadding>
                           <ListItemButton
                             component={RouterLink}
                             to={subitem.path}
                             sx={{
-                              pl: 4,
-                              backgroundColor: isActive(subitem.path)
-                                ? 'primary.light'
-                                : 'transparent',
-                              color: isActive(subitem.path) ? 'primary.main' : 'inherit',
+                              ...getItemStyles(active),
+                              pl: 6,
+                              mx: 2,
+                              '&:hover': {
+                                ...getItemStyles(active)['&:hover'],
+                                transform: 'translateX(6px)',
+                              }
                             }}
                           >
                             <ListItemText primary={subitem.label} />
@@ -184,17 +229,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
             );
           }
 
+          const topLevelPaths = navItems.filter(i => i.path).map(i => i.path!);
+          const active = isActive(item.path!, topLevelPaths);
           return (
             <ListItem key={index} disablePadding>
               <ListItemButton
                 component={RouterLink}
                 to={item.path!}
-                sx={{
-                  backgroundColor: isActive(item.path!)
-                    ? 'primary.light'
-                    : 'transparent',
-                  color: isActive(item.path!) ? 'primary.main' : 'inherit',
-                }}
+                sx={getItemStyles(active)}
               >
                 <ListItemIcon>{item.icon}</ListItemIcon>
                 <ListItemText primary={item.label} />
@@ -203,6 +245,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
           );
         })}
       </List>
+      
+      <Box sx={{ mt: 'auto', p: 2, mb: 1 }}>
+        <Box 
+          sx={{ 
+            p: 2, 
+            borderRadius: '16px', 
+            bgcolor: alpha(theme.palette.primary.main, 0.04),
+            border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`
+          }}
+        >
+          <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+            Estado de Sesión
+          </Typography>
+          <Typography variant="caption" sx={{ color: 'success.main', display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+            <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'success.main' }} />
+            En línea
+          </Typography>
+        </Box>
+      </Box>
     </Box>
   );
 
@@ -212,10 +273,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
         anchor="left"
         open={open}
         onClose={onClose}
-        sx={{
-          '& .MuiDrawer-paper': {
-            width: DRAWER_WIDTH,
-          },
+        PaperProps={{
+          sx: { width: DRAWER_WIDTH, borderRight: 'none' }
         }}
       >
         {content}
@@ -228,11 +287,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
       sx={{
         width: DRAWER_WIDTH,
         flexShrink: 0,
-        borderRight: '1px solid',
-        borderColor: 'divider',
+        borderRight: `1px solid ${theme.palette.divider}`,
+        height: '100vh',
+        position: 'sticky',
+        top: 0,
+        bgcolor: 'background.paper',
       }}
     >
       {content}
     </Box>
   );
 };
+

@@ -47,7 +47,7 @@ export const getUserColumns = ({
     renderCell: (params) => (
       <Box display="flex" gap={0.5}>
         <Chip 
-          label={(params.row as any).role?.name || (params.row as any).roleId || 'Usuario'} 
+          label={params.row.role?.name || params.row.roleId || 'Usuario'} 
           size="small" 
           variant="outlined" 
         />
@@ -59,7 +59,7 @@ export const getUserColumns = ({
     headerName: 'Estado',
     width: 120,
     renderCell: (params) => (
-      <StatusBadge status={(params.row as any).isActive !== false ? 'active' : 'inactive'} />
+      <StatusBadge status={params.row.isActive !== false ? 'active' : 'inactive'} />
     ),
   },
   {
