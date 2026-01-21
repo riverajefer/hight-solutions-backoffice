@@ -73,6 +73,8 @@ export class UsersService {
     return this.usersRepository.create({
       email: createUserDto.email,
       password: hashedPassword,
+      firstName: createUserDto.firstName,
+      lastName: createUserDto.lastName,
       role: {
         connect: { id: createUserDto.roleId },
       },
@@ -108,20 +110,19 @@ export class UsersService {
     }
 
     // Preparar datos de actualización
-    const updateData: any = { ...updateUserDto };
+    const { password, roleId, ...updateData } = updateUserDto;
 
     // Si se actualiza el password, hashearlo
-    if (updateUserDto.password) {
-      updateData.password = await bcrypt.hash(
-        updateUserDto.password,
+    if (password) {
+      (updateData as any).password = await bcrypt.hash(
+        password,
         this.SALT_ROUNDS,
       );
     }
 
     // Si se actualiza el roleId, usar la sintaxis de Prisma connect
-    if (updateUserDto.roleId) {
-      updateData.role = { connect: { id: updateUserDto.roleId } };
-      delete updateData.roleId;
+    if (roleId) {
+      (updateData as any).role = { connect: { id: roleId } };
     }
 
     return this.usersRepository.update(id, updateData);

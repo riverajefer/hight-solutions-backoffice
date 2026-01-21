@@ -72,6 +72,22 @@ export class UpdateUserDto {
   password?: string;
 
   @ApiPropertyOptional({
+    example: 'shon',
+    description: 'First name of the user'
+  })
+  @IsString()
+  @IsOptional()
+  firstName?: string;
+
+  @ApiPropertyOptional({
+    example: 'Doe',
+    description: 'Last name of the user'
+  })
+  @IsString()
+  @IsOptional()
+  lastName?: string;
+
+  @ApiPropertyOptional({
     example: 'clm1234567890',
     description: 'Role ID'
   })

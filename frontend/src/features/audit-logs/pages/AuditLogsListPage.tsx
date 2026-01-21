@@ -1,57 +1,31 @@
 import React from 'react';
 import { Box } from '@mui/material';
 import { PageHeader } from '../../../components/common/PageHeader';
-import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { AuditLogTable } from '../components/AuditLogTable';
-import { AuditLogFilters } from '../components/AuditLogFilters';
 import { AuditLogDetailsDialog } from '../components/AuditLogDetailsDialog';
 import { useAuditLogs } from '../hooks/useAuditLogs';
-import { AuditLog, AuditLogFilters as Filters } from '../../../types';
+import { AuditLog } from '../../../types';
 
 /**
  * Página de listado de logs de auditoría
- * Vista de solo lectura sin acciones CRUD
+ * Vista de solo lectura que sigue la estructura estándar del sistema
  */
 const AuditLogsListPage: React.FC = () => {
-  const [filters, setFilters] = React.useState<Filters>({
-    page: 1,
-    limit: 10,
-  });
   const [selectedLog, setSelectedLog] = React.useState<AuditLog | null>(null);
 
-  const { auditLogsQuery } = useAuditLogs(filters);
-  const auditLogs = auditLogsQuery.data?.data || [];
-  const total = auditLogsQuery.data?.total || 0;
-
-  const handlePageChange = (newPage: number) => {
-    setFilters((prev) => ({
-      ...prev,
-      page: newPage + 1, // MUI usa 0-indexed, backend usa 1-indexed
-    }));
-  };
-
-  const handleRowsPerPageChange = (newRowsPerPage: number) => {
-    setFilters((prev) => ({
-      ...prev,
-      limit: newRowsPerPage,
-      page: 1, // Reset a la primera página
-    }));
-  };
-
-  const handleFiltersChange = (newFilters: Filters) => {
-    setFilters({
-      ...newFilters,
-      page: 1, // Reset a la primera página cuando cambian los filtros
-      limit: filters.limit,
-    });
-  };
-
-  const handleClearFilters = () => {
-    setFilters({
-      page: 1,
-      limit: filters.limit,
-    });
-  };
+  // Obtenemos los logs sin filtros iniciales, dejando que DataTable maneje la búsqueda/paginación local
+  const { auditLogsQuery } = useAuditLogs();
+  
+  // Extraemos los datos dependiendo de la estructura de respuesta (paginada o simple)
+  const auditLogs = React.useMemo(() => {
+    if (!auditLogsQuery.data) return [];
+    // Si la API devuelve una estructura { data: AuditLog[], total: number }
+    if ('data' in auditLogsQuery.data) {
+      return (auditLogsQuery.data as any).data;
+    }
+    // Si la API devuelve directamente el array (caso poco probable según types, pero por seguridad)
+    return Array.isArray(auditLogsQuery.data) ? auditLogsQuery.data : [];
+  }, [auditLogsQuery.data]);
 
   const handleViewDetails = (log: AuditLog) => {
     setSelectedLog(log);
@@ -61,31 +35,16 @@ const AuditLogsListPage: React.FC = () => {
     setSelectedLog(null);
   };
 
-  if (auditLogsQuery.isLoading && !auditLogs.length) {
-    return <LoadingSpinner />;
-  }
-
   return (
     <Box>
       <PageHeader
         title="Logs de Auditoría"
-        subtitle="Visualiza el historial de acciones realizadas en el sistema"
-      />
-
-      <AuditLogFilters
-        filters={filters}
-        onFiltersChange={handleFiltersChange}
-        onClearFilters={handleClearFilters}
+        subtitle="Historial detallado de todas las acciones realizadas en el sistema"
       />
 
       <AuditLogTable
         auditLogs={auditLogs}
-        isLoading={auditLogsQuery.isLoading}
-        page={(filters.page || 1) - 1} // Convertir a 0-indexed para MUI
-        rowsPerPage={filters.limit || 10}
-        total={total}
-        onPageChange={handlePageChange}
-        onRowsPerPageChange={handleRowsPerPageChange}
+        loading={auditLogsQuery.isLoading}
         onViewDetails={handleViewDetails}
       />
 

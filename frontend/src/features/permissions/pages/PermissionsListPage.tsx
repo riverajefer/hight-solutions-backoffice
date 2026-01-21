@@ -1,22 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Box } from '@mui/material';
 import { useSnackbar } from 'notistack';
 import { PageHeader } from '../../../components/common/PageHeader';
-import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
-import { PermissionTable } from '../components/PermissionTable';
+import { PermissionsTable } from '../components/PermissionsTable';
 import { usePermissions } from '../hooks/usePermissions';
-import { useAuthStore } from '../../../store/authStore';
 import { Permission } from '../../../types';
-import { PERMISSIONS } from '../../../utils/constants';
 
 /**
  * Página de listado de permisos
  */
 const PermissionsListPage: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
-  const { hasPermission } = useAuthStore();
-  const [confirmDelete, setConfirmDelete] = React.useState<Permission | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Permission | null>(null);
 
   const { permissionsQuery, deletePermissionMutation } = usePermissions();
   const permissions = permissionsQuery.data || [];
@@ -34,10 +30,6 @@ const PermissionsListPage: React.FC = () => {
     }
   };
 
-  if (permissionsQuery.isLoading) {
-    return <LoadingSpinner />;
-  }
-
   return (
     <Box>
       <PageHeader
@@ -45,11 +37,10 @@ const PermissionsListPage: React.FC = () => {
         subtitle="Gestiona los permisos del sistema"
       />
 
-      <PermissionTable
+      <PermissionsTable
         permissions={permissions}
-        isLoading={permissionsQuery.isLoading}
+        loading={permissionsQuery.isLoading}
         onDelete={(permission) => setConfirmDelete(permission)}
-        canDelete={hasPermission(PERMISSIONS.DELETE_PERMISSIONS)}
       />
 
       <ConfirmDialog
