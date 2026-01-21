@@ -1,14 +1,11 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
+generator client {
+  provider     = "prisma-client-js"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
 
 datasource db {
   provider = "sqlite"
-}
-generator client {
-  provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
-  moduleFormat = "cjs"
 }
 
 model User {
@@ -60,43 +57,38 @@ model Cargo {
 }
 
 model Role {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  users       User[]
+  id          String           @id @default(uuid())
+  name        String           @unique
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
   permissions RolePermission[]
+  users       User[]
 
   @@map("roles")
 }
 
 model Permission {
-  id          String   @id @default(uuid())
-  name        String   @unique
+  id          String           @id @default(uuid())
+  name        String           @unique
   description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  roles RolePermission[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  roles       RolePermission[]
 
   @@map("permissions")
 }
 
-// Tabla pivot para la relación many-to-many entre Role y Permission
 model RolePermission {
   roleId       String
   permissionId String
-  assignedAt   DateTime @default(now())
-
-  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  assignedAt   DateTime   @default(now())
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@id([roleId, permissionId])
   @@map("role_permissions")
 }
 
-// Modelo para el registro de auditoría automático
 model AuditLog {
   id            String   @id @default(cuid())
   userId        String?  @map("user_id")
@@ -112,4 +104,28 @@ model AuditLog {
   createdAt     DateTime @default(now()) @map("created_at")
 
   @@map("audit_logs")
+}
+
+model areas {
+  id          String   @id
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  cargos      cargos[]
+}
+
+model cargos {
+  id          String   @id
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  areaId      String
+  areas       areas    @relation(fields: [areaId], references: [id])
+  users       User[]
+
+  @@unique([name, areaId])
 }
