@@ -3,6 +3,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   MinLength,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -26,7 +27,6 @@ export class CreateUserDto {
   @MinLength(6, { message: 'Password must be at least 6 characters' })
   password: string;
 
-  // add firstName and lastName fields
   @ApiProperty({
     example: 'John',
     description: 'First name of the user'
@@ -50,6 +50,14 @@ export class CreateUserDto {
   @IsString()
   @IsNotEmpty({ message: 'Role ID is required' })
   roleId: string;
+
+  @ApiPropertyOptional({
+    example: '123e4567-e89b-12d3-a456-426614174000',
+    description: 'Cargo ID (optional)'
+  })
+  @IsUUID()
+  @IsOptional()
+  cargoId?: string;
 }
 
 export class UpdateUserDto {
@@ -72,7 +80,7 @@ export class UpdateUserDto {
   password?: string;
 
   @ApiPropertyOptional({
-    example: 'shon',
+    example: 'John',
     description: 'First name of the user'
   })
   @IsString()
@@ -94,4 +102,12 @@ export class UpdateUserDto {
   @IsString()
   @IsOptional()
   roleId?: string;
+
+  @ApiPropertyOptional({
+    example: '123e4567-e89b-12d3-a456-426614174000',
+    description: 'Cargo ID (optional, set to null to remove)'
+  })
+  @IsUUID()
+  @IsOptional()
+  cargoId?: string | null;
 }

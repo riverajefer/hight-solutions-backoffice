@@ -7,6 +7,7 @@ import * as bcrypt from 'bcrypt';
 import { CreateUserDto, UpdateUserDto } from './dto';
 import { UsersRepository } from './users.repository';
 import { RolesRepository } from '../roles/roles.repository';
+import { CargosRepository } from '../cargos/cargos.repository';
 
 @Injectable()
 export class UsersService {
@@ -15,6 +16,7 @@ export class UsersService {
   constructor(
     private readonly usersRepository: UsersRepository,
     private readonly rolesRepository: RolesRepository,
+    private readonly cargosRepository: CargosRepository,
   ) {}
 
   /**
@@ -63,6 +65,19 @@ export class UsersService {
       throw new BadRequestException('Invalid role ID');
     }
 
+    // Verificar si el cargo existe (si se proporciona)
+    if (createUserDto.cargoId) {
+      const cargo = await this.cargosRepository.findById(createUserDto.cargoId);
+
+      if (!cargo) {
+        throw new BadRequestException('Invalid cargo ID');
+      }
+
+      if (!cargo.isActive) {
+        throw new BadRequestException('Cannot assign an inactive cargo');
+      }
+    }
+
     // Hashear el password
     const hashedPassword = await bcrypt.hash(
       createUserDto.password,
@@ -78,6 +93,11 @@ export class UsersService {
       role: {
         connect: { id: createUserDto.roleId },
       },
+      ...(createUserDto.cargoId && {
+        cargo: {
+          connect: { id: createUserDto.cargoId },
+        },
+      }),
     });
   }
 
@@ -109,8 +129,21 @@ export class UsersService {
       }
     }
 
+    // Si se actualiza el cargo, verificar que existe y está activo
+    if (updateUserDto.cargoId) {
+      const cargo = await this.cargosRepository.findById(updateUserDto.cargoId);
+
+      if (!cargo) {
+        throw new BadRequestException('Invalid cargo ID');
+      }
+
+      if (!cargo.isActive) {
+        throw new BadRequestException('Cannot assign an inactive cargo');
+      }
+    }
+
     // Preparar datos de actualización
-    const { password, roleId, ...updateData } = updateUserDto;
+    const { password, roleId, cargoId, ...updateData } = updateUserDto;
 
     // Si se actualiza el password, hashearlo
     if (password) {
@@ -123,6 +156,15 @@ export class UsersService {
     // Si se actualiza el roleId, usar la sintaxis de Prisma connect
     if (roleId) {
       (updateData as any).role = { connect: { id: roleId } };
+    }
+
+    // Manejar cargoId: connect si tiene valor, disconnect si es null
+    if (cargoId !== undefined) {
+      if (cargoId === null) {
+        (updateData as any).cargo = { disconnect: true };
+      } else {
+        (updateData as any).cargo = { connect: { id: cargoId } };
+      }
     }
 
     return this.usersRepository.update(id, updateData);

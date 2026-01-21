@@ -19,6 +19,12 @@ const RolePermissionsPage = lazy(() => import('../features/roles/pages/RolePermi
 const PermissionsListPage = lazy(() => import('../features/permissions/pages/PermissionsListPage'));
 const PermissionFormPage = lazy(() => import('../features/permissions/pages/PermissionFormPage'));
 const AuditLogsListPage = lazy(() => import('../features/audit-logs/pages/AuditLogsListPage'));
+const AreasListPage = lazy(() => import('../features/areas/pages/AreasListPage'));
+const AreaFormPage = lazy(() => import('../features/areas/pages/AreaFormPage'));
+const AreaDetailPage = lazy(() => import('../features/areas/pages/AreaDetailPage'));
+const CargosListPage = lazy(() => import('../features/cargos/pages/CargosListPage'));
+const CargoFormPage = lazy(() => import('../features/cargos/pages/CargoFormPage'));
+const CargoDetailPage = lazy(() => import('../features/cargos/pages/CargoDetailPage'));
 
 
 const RoutesConfig: FC = () => {
@@ -187,6 +193,106 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.UPDATE_PERMISSIONS}>
                   <PermissionFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Areas Routes */}
+        <Route
+          path={PATHS.AREAS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_AREAS}>
+                  <AreasListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.AREAS_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_AREAS}>
+                  <AreaFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.AREAS_VIEW}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_AREAS}>
+                  <AreaDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.AREAS_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_AREAS}>
+                  <AreaFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Cargos Routes */}
+        <Route
+          path={PATHS.CARGOS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_CARGOS}>
+                  <CargosListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.CARGOS_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_CARGOS}>
+                  <CargoFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.CARGOS_VIEW}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_CARGOS}>
+                  <CargoDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.CARGOS_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_CARGOS}>
+                  <CargoFormPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

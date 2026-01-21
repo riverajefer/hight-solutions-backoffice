@@ -19,10 +19,41 @@ model User {
   updatedAt    DateTime @updatedAt
   firstName    String?
   lastName     String?
-  cargos       cargos?  @relation(fields: [cargoId], references: [id])
-  role         Role     @relation(fields: [roleId], references: [id])
+
+  role  Role   @relation(fields: [roleId], references: [id])
+  cargo Cargo? @relation(fields: [cargoId], references: [id])
 
   @@map("users")
+}
+
+model Area {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  cargos Cargo[]
+
+  @@map("areas")
+}
+
+model Cargo {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  areaId String
+  area   Area   @relation(fields: [areaId], references: [id])
+
+  users User[]
+
+  @@unique([name, areaId])
+  @@map("cargos")
 }
 
 model Role {

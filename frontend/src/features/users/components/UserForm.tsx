@@ -1,12 +1,12 @@
 import React from 'react';
-import { Box, Card, CardContent, TextField, Button, Grid, Alert } from '@mui/material';
+import { Box, Card, CardContent, TextField, Button, Grid, Alert, Autocomplete } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useQuery } from '@tanstack/react-query';
 import { CreateUserDto, UpdateUserDto } from '../../../types';
-import { rolesApi } from '../../../api';
-import { Role } from '../../../types';
+import { rolesApi, cargosApi } from '../../../api';
+import { Role, Cargo } from '../../../types';
 
 // Schema base del formulario
 const userFormSchema = z.object({
@@ -16,6 +16,7 @@ const userFormSchema = z.object({
   password: z.string().optional(),
   confirmPassword: z.string().optional(),
   roleId: z.string().min(1, 'El rol es requerido'),
+  cargoId: z.string().optional().nullable(),
 });
 
 type UserFormData = z.infer<typeof userFormSchema>;
@@ -38,14 +39,27 @@ export const UserForm: React.FC<UserFormProps> = ({
   error,
   isEdit = false,
 }) => {
+  // Transform initialData to handle null cargoId
+  const defaultValues = initialData
+    ? {
+        ...initialData,
+        cargoId: initialData.cargoId ?? undefined,
+      }
+    : undefined;
+
   const { control, handleSubmit, formState: { errors }, setError } = useForm<UserFormData>({
     resolver: zodResolver(userFormSchema),
-    defaultValues: initialData,
+    defaultValues,
   });
 
   const { data: roles = [] } = useQuery({
     queryKey: ['roles'],
     queryFn: () => rolesApi.getAll(),
+  });
+
+  const { data: cargos = [], isLoading: isCargosLoading } = useQuery({
+    queryKey: ['cargos'],
+    queryFn: () => cargosApi.getAll(),
   });
 
   const handleFormSubmit = async (data: UserFormData) => {
@@ -88,8 +102,12 @@ export const UserForm: React.FC<UserFormProps> = ({
       }
     }
 
-    // Eliminar confirmPassword antes de enviar al backend
-    const { confirmPassword, ...submitData } = data;
+    // Eliminar confirmPassword y transformar cargoId vacío a undefined
+    const { confirmPassword, cargoId, ...rest } = data;
+    const submitData = {
+      ...rest,
+      cargoId: cargoId || undefined,
+    };
     await onSubmit(submitData);
   };
 
@@ -212,6 +230,34 @@ export const UserForm: React.FC<UserFormProps> = ({
                   </option>
                 ))}
               </TextField>
+            )}
+          />
+
+          <Controller
+            name="cargoId"
+            control={control}
+            render={({ field }) => (
+              <Autocomplete
+                options={cargos as Cargo[]}
+                getOptionLabel={(option: Cargo) =>
+                  option.area ? `${option.name} (${option.area.name})` : option.name
+                }
+                value={(cargos as Cargo[]).find((c) => c.id === field.value) || null}
+                onChange={(_, newValue) => {
+                  field.onChange(newValue?.id || '');
+                }}
+                loading={isCargosLoading}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Cargo (opcional)"
+                    error={!!errors.cargoId}
+                    helperText={errors.cargoId?.message || 'Selecciona el cargo del usuario'}
+                  />
+                )}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                disabled={isLoading}
+              />
             )}
           />
 

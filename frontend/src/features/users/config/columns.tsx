@@ -42,17 +42,38 @@ export const getUserColumns = ({
   },
   {
     field: 'role',
-    headerName: 'Roles asignados',
-    width: 150,
+    headerName: 'Rol',
+    width: 130,
     renderCell: (params) => (
       <Box display="flex" gap={0.5}>
-        <Chip 
-          label={params.row.role?.name || params.row.roleId || 'Usuario'} 
-          size="small" 
-          variant="outlined" 
+        <Chip
+          label={params.row.role?.name || params.row.roleId || 'Usuario'}
+          size="small"
+          variant="outlined"
         />
       </Box>
     ),
+  },
+  {
+    field: 'cargo',
+    headerName: 'Cargo',
+    width: 180,
+    renderCell: (params) => {
+      const cargo = (params.row as any).cargo;
+      if (!cargo) {
+        return <Chip label="Sin cargo" size="small" variant="outlined" color="default" />;
+      }
+      return (
+        <Box display="flex" gap={0.5} alignItems="center">
+          <Chip
+            label={cargo.name}
+            size="small"
+            color="secondary"
+            variant="outlined"
+          />
+        </Box>
+      );
+    },
   },
   {
     field: 'status',

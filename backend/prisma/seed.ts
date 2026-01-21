@@ -36,7 +36,18 @@ async function main() {
     { name: 'update_permissions', description: 'Update permission information' },
     { name: 'delete_permissions', description: 'Delete permissions' },
     { name: 'manage_permissions', description: 'Assign/remove permissions to/from roles' },
-    { name: 'read_audit_logs', description: 'Permite visualizar los logs de auditoría del sistema' },
+
+    // Areas
+    { name: 'create_areas', description: 'Create new areas' },
+    { name: 'read_areas', description: 'View areas' },
+    { name: 'update_areas', description: 'Update area information' },
+    { name: 'delete_areas', description: 'Delete areas' },
+
+    // Cargos
+    { name: 'create_cargos', description: 'Create new cargos' },
+    { name: 'read_cargos', description: 'View cargos' },
+    { name: 'update_cargos', description: 'Update cargo information' },
+    { name: 'delete_cargos', description: 'Delete cargos' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
@@ -123,6 +134,8 @@ async function main() {
     'update_users',
     'read_roles',
     'read_permissions',
+    'read_areas',
+    'read_cargos',
   ]);
 
   // User - solo lectura básica
@@ -187,6 +200,71 @@ async function main() {
   console.log(`  ✓ Regular user: ${regularUser.email}`);
 
   // ============================================
+  // 5. Crear Áreas de Ejemplo
+  // ============================================
+  console.log('\n🏢 Creating areas...');
+
+  const areasData = [
+    { name: 'Tecnología', description: 'Área de desarrollo de software y soporte tecnológico' },
+    { name: 'Recursos Humanos', description: 'Gestión del talento humano y bienestar organizacional' },
+    { name: 'Finanzas', description: 'Gestión contable y financiera de la empresa' },
+    { name: 'Comercial', description: 'Ventas y relaciones comerciales' },
+    { name: 'Operaciones', description: 'Gestión de procesos operativos' },
+  ];
+
+  const areas: { [key: string]: { id: string } } = {};
+
+  for (const areaData of areasData) {
+    const area = await prisma.area.upsert({
+      where: { name: areaData.name },
+      update: { description: areaData.description },
+      create: areaData,
+    });
+    areas[areaData.name] = area;
+    console.log(`  ✓ Area: ${areaData.name}`);
+  }
+
+  // ============================================
+  // 6. Crear Cargos de Ejemplo
+  // ============================================
+  console.log('\n💼 Creating cargos...');
+
+  const cargosData = [
+    // Tecnología
+    { name: 'Director de Tecnología', areaName: 'Tecnología', description: 'Líder del área de tecnología' },
+    { name: 'Desarrollador Senior', areaName: 'Tecnología', description: 'Desarrollador con experiencia avanzada' },
+    { name: 'Desarrollador Junior', areaName: 'Tecnología', description: 'Desarrollador en formación' },
+    { name: 'Analista QA', areaName: 'Tecnología', description: 'Control de calidad de software' },
+    // Recursos Humanos
+    { name: 'Director de RRHH', areaName: 'Recursos Humanos', description: 'Líder del área de recursos humanos' },
+    { name: 'Analista de Selección', areaName: 'Recursos Humanos', description: 'Reclutamiento y selección de personal' },
+    // Finanzas
+    { name: 'Director Financiero', areaName: 'Finanzas', description: 'Líder del área financiera' },
+    { name: 'Contador', areaName: 'Finanzas', description: 'Gestión contable' },
+    // Comercial
+    { name: 'Director Comercial', areaName: 'Comercial', description: 'Líder del área comercial' },
+    { name: 'Ejecutivo de Ventas', areaName: 'Comercial', description: 'Gestión de clientes y ventas' },
+  ];
+
+  for (const cargoData of cargosData) {
+    const area = areas[cargoData.areaName];
+    if (area) {
+      await prisma.cargo.upsert({
+        where: {
+          name_areaId: { name: cargoData.name, areaId: area.id },
+        },
+        update: { description: cargoData.description },
+        create: {
+          name: cargoData.name,
+          description: cargoData.description,
+          areaId: area.id,
+        },
+      });
+      console.log(`  ✓ Cargo: ${cargoData.name} (${cargoData.areaName})`);
+    }
+  }
+
+  // ============================================
   // Resumen
   // ============================================
   console.log('\n' + '='.repeat(50));
@@ -195,6 +273,8 @@ async function main() {
   console.log(`   - Permissions: ${permissionsData.length}`);
   console.log(`   - Roles: 3 (admin, manager, user)`);
   console.log(`   - Users: 3`);
+  console.log(`   - Areas: ${areasData.length}`);
+  console.log(`   - Cargos: ${cargosData.length}`);
   console.log('\n🔐 Test Credentials:');
   console.log('   Admin:   admin@example.com / admin123');
   console.log('   Manager: manager@example.com / manager123');

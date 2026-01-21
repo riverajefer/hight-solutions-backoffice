@@ -4,9 +4,18 @@ export interface User {
   firstName?: string;
   lastName?: string;
   roleId: string;
+  cargoId?: string;
   role?: {
     id: string;
     name: string;
+  };
+  cargo?: {
+    id: string;
+    name: string;
+    area?: {
+      id: string;
+      name: string;
+    };
   };
   isActive?: boolean;
   createdAt: string;
@@ -31,13 +40,16 @@ export interface CreateUserDto {
   firstName?: string;
   lastName?: string;
   roleId: string;
+  cargoId?: string;
 }
 
 export interface UpdateUserDto {
   email?: string;
+  password?: string;
   firstName?: string;
   lastName?: string;
   roleId?: string;
+  cargoId?: string | null;
 }
 
 export interface AuthResponse {
