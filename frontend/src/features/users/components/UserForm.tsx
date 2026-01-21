@@ -8,15 +8,17 @@ import { CreateUserDto, UpdateUserDto } from '../../../types';
 import { rolesApi } from '../../../api';
 import { Role } from '../../../types';
 
-const userSchema = z.object({
+// Schema base del formulario
+const userFormSchema = z.object({
   email: z.string().email('Email inválido'),
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
+  firstName: z.string().min(1, 'El nombre es requerido'),
+  lastName: z.string().min(1, 'El apellido es requerido'),
   password: z.string().optional(),
+  confirmPassword: z.string().optional(),
   roleId: z.string().min(1, 'El rol es requerido'),
 });
 
-type UserFormData = z.infer<typeof userSchema>;
+type UserFormData = z.infer<typeof userFormSchema>;
 
 interface UserFormProps {
   initialData?: UpdateUserDto & { id?: string };
@@ -36,8 +38,8 @@ export const UserForm: React.FC<UserFormProps> = ({
   error,
   isEdit = false,
 }) => {
-  const { control, handleSubmit, formState: { errors } } = useForm<UserFormData>({
-    resolver: zodResolver(userSchema),
+  const { control, handleSubmit, formState: { errors }, setError } = useForm<UserFormData>({
+    resolver: zodResolver(userFormSchema),
     defaultValues: initialData,
   });
 
@@ -47,7 +49,48 @@ export const UserForm: React.FC<UserFormProps> = ({
   });
 
   const handleFormSubmit = async (data: UserFormData) => {
-    await onSubmit(data);
+    // Validaciones adicionales para modo creación
+    if (!isEdit) {
+      // Validar que password esté presente
+      if (!data.password || data.password.trim() === '') {
+        setError('password', {
+          type: 'manual',
+          message: 'La contraseña es requerida'
+        });
+        return;
+      }
+
+      // Validar longitud mínima
+      if (data.password.length < 6) {
+        setError('password', {
+          type: 'manual',
+          message: 'La contraseña debe tener al menos 6 caracteres'
+        });
+        return;
+      }
+
+      // Validar que confirmPassword esté presente
+      if (!data.confirmPassword || data.confirmPassword.trim() === '') {
+        setError('confirmPassword', {
+          type: 'manual',
+          message: 'La confirmación de contraseña es requerida'
+        });
+        return;
+      }
+
+      // Validar que las contraseñas coincidan
+      if (data.password !== data.confirmPassword) {
+        setError('confirmPassword', {
+          type: 'manual',
+          message: 'Las contraseñas no coinciden'
+        });
+        return;
+      }
+    }
+
+    // Eliminar confirmPassword antes de enviar al backend
+    const { confirmPassword, ...submitData } = data;
+    await onSubmit(submitData);
   };
 
   return (
@@ -112,21 +155,38 @@ export const UserForm: React.FC<UserFormProps> = ({
           </Grid>
 
           {!isEdit && (
-            <Controller
-              name="password"
-              control={control}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  label="Contraseña"
-                  type="password"
-                  fullWidth
-                  error={!!errors.password}
-                  helperText={errors.password?.message}
-                  disabled={isLoading}
-                />
-              )}
-            />
+            <>
+              <Controller
+                name="password"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label="Contraseña"
+                    type="password"
+                    fullWidth
+                    error={!!errors.password}
+                    helperText={errors.password?.message}
+                    disabled={isLoading}
+                  />
+                )}
+              />
+              <Controller
+                name="confirmPassword"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label="Confirmar Contraseña"
+                    type="password"
+                    fullWidth
+                    error={!!errors.confirmPassword}
+                    helperText={errors.confirmPassword?.message}
+                    disabled={isLoading}
+                  />
+                )}
+              />
+            </>
           )}
 
           <Controller
