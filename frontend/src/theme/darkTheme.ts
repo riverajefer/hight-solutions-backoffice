@@ -1,16 +1,19 @@
 import { createTheme, alpha } from '@mui/material/styles';
 import {
   neonColors,
+  neonAccents,
   stateColors,
   darkModeColors,
+  darkSurfaces,
   neonEffects,
+  gradients,
   borderRadius,
   shadows,
 } from './colors';
 
 /**
- * Tema Oscuro - Estilo Neón Moderno
- * Efectos neón intensos con glassmorphism para el modo oscuro
+ * Tema Oscuro - Estilo Neón Elegante con Degradados
+ * Efectos neón intensos, glassmorphism y degradados vibrantes
  */
 export const darkTheme = createTheme({
   palette: {
@@ -21,13 +24,16 @@ export const darkTheme = createTheme({
     },
     secondary: {
       ...neonColors.secondary,
-      light: '#7B7FB8',
+      light: neonAccents.vividPurple,
     },
     success: stateColors.success,
     warning: stateColors.warning,
     error: stateColors.error,
     info: stateColors.info,
-    background: darkModeColors.background,
+    background: {
+      default: darkModeColors.background.default,
+      paper: darkModeColors.background.paper,
+    },
     text: darkModeColors.text,
     divider: darkModeColors.divider,
     action: darkModeColors.action,
@@ -91,7 +97,7 @@ export const darkTheme = createTheme({
       lineHeight: 1.57,
     },
     button: {
-      fontWeight: 500,
+      fontWeight: 600,
       textTransform: 'none',
     },
   },
@@ -130,84 +136,129 @@ export const darkTheme = createTheme({
 
   components: {
     // =========================================================================
-    // CssBaseline - Estilos globales
+    // CssBaseline - Estilos globales y animaciones
     // =========================================================================
     MuiCssBaseline: {
       styleOverrides: {
+        '@global': {
+          '@keyframes neonPulse': {
+            '0%, 100%': {
+              boxShadow: `0 0 5px ${neonColors.primary.main}, 0 0 10px ${neonColors.primary.main}, 0 0 20px rgba(46, 176, 196, 0.6)`,
+            },
+            '50%': {
+              boxShadow: `0 0 10px ${neonColors.primary.main}, 0 0 20px ${neonColors.primary.main}, 0 0 40px rgba(46, 176, 196, 0.8), 0 0 60px rgba(139, 92, 246, 0.4)`,
+            },
+          },
+          '@keyframes gradientShift': {
+            '0%': { backgroundPosition: '0% 50%' },
+            '50%': { backgroundPosition: '100% 50%' },
+            '100%': { backgroundPosition: '0% 50%' },
+          },
+          '@keyframes shimmer': {
+            '0%': { backgroundPosition: '-200% 0' },
+            '100%': { backgroundPosition: '200% 0' },
+          },
+        },
+        html: {
+          scrollBehavior: 'smooth',
+        },
         body: {
+          background: gradients.darkMesh,
+          backgroundAttachment: 'fixed',
           scrollbarColor: `${alpha(neonColors.primary.main, 0.4)} transparent`,
           '&::-webkit-scrollbar': {
-            width: 8,
-            height: 8,
+            width: 10,
+            height: 10,
           },
           '&::-webkit-scrollbar-thumb': {
-            backgroundColor: alpha(neonColors.primary.main, 0.4),
-            borderRadius: 4,
+            background: `linear-gradient(180deg, ${neonColors.primary.main} 0%, ${neonAccents.vividPurple} 100%)`,
+            borderRadius: 5,
             '&:hover': {
-              backgroundColor: alpha(neonColors.primary.main, 0.6),
+              background: `linear-gradient(180deg, ${neonColors.primary.light} 0%, ${neonAccents.vividPurple} 100%)`,
+              boxShadow: neonEffects.glow.cyanSubtle,
             },
           },
           '&::-webkit-scrollbar-track': {
-            backgroundColor: 'transparent',
+            backgroundColor: alpha(darkSurfaces.midnightBlue, 0.5),
           },
+        },
+        '::selection': {
+          backgroundColor: alpha(neonColors.primary.main, 0.3),
+          color: neonColors.base.white,
         },
       },
     },
 
     // =========================================================================
-    // Botones - Con efectos neón
+    // Botones - Con gradientes y efectos neón
     // =========================================================================
     MuiButton: {
       styleOverrides: {
         root: {
           textTransform: 'none',
-          fontWeight: 500,
-          borderRadius: borderRadius.medium,
-          padding: '8px 20px',
+          fontWeight: 600,
+          borderRadius: borderRadius.large,
+          padding: '10px 24px',
           transition: 'all 0.3s ease',
         },
         contained: {
-          boxShadow: `0 0 10px ${alpha(neonColors.primary.main, 0.3)}`,
+          boxShadow: `0 4px 15px ${alpha(neonColors.primary.main, 0.4)}`,
           '&:hover': {
-            boxShadow: neonEffects.glow.cyan,
-            transform: 'translateY(-1px)',
+            transform: 'translateY(-2px) scale(1.02)',
+            boxShadow: neonEffects.glow.cyanIntense,
           },
           '&:active': {
-            transform: 'translateY(0)',
+            transform: 'translateY(0) scale(1)',
           },
         },
         containedPrimary: {
-          background: neonColors.primary.main,
+          background: gradients.ocean,
           '&:hover': {
-            background: neonColors.primary.main,
-            boxShadow: neonEffects.glow.cyanIntense,
+            background: gradients.ocean,
+            boxShadow: `${neonEffects.glow.cyanIntense}, 0 8px 25px ${alpha(neonColors.primary.main, 0.5)}`,
           },
         },
         containedSecondary: {
-          background: neonColors.secondary.main,
+          background: gradients.neonPrimary,
           '&:hover': {
-            background: neonColors.secondary.light,
-            boxShadow: `0 0 15px ${alpha(neonColors.secondary.main, 0.5)}`,
+            background: gradients.neonPrimary,
+            boxShadow: `${neonEffects.glow.multi}, 0 8px 25px ${alpha(neonAccents.vividPurple, 0.4)}`,
+          },
+        },
+        containedError: {
+          background: gradients.sunset,
+          '&:hover': {
+            background: gradients.sunset,
+            boxShadow: `${neonEffects.glow.magenta}, 0 8px 25px ${alpha(neonAccents.neonMagenta, 0.4)}`,
           },
         },
         outlined: {
-          borderWidth: 1.5,
+          borderWidth: 2,
+          borderColor: neonColors.primary.main,
           '&:hover': {
-            borderWidth: 1.5,
+            borderWidth: 2,
             backgroundColor: alpha(neonColors.primary.main, 0.1),
-            boxShadow: `0 0 10px ${alpha(neonColors.primary.main, 0.3)}`,
+            boxShadow: neonEffects.glow.cyanSubtle,
           },
         },
         outlinedPrimary: {
-          borderColor: neonColors.primary.main,
           '&:hover': {
             borderColor: neonColors.primary.light,
-            boxShadow: neonEffects.glow.cyan,
+            boxShadow: neonEffects.glow.cyanSubtle,
+          },
+        },
+        outlinedSecondary: {
+          borderColor: neonAccents.vividPurple,
+          '&:hover': {
+            borderColor: neonAccents.vividPurple,
+            backgroundColor: alpha(neonAccents.vividPurple, 0.1),
+            boxShadow: `0 0 15px ${alpha(neonAccents.vividPurple, 0.4)}`,
           },
         },
         text: {
           '&:hover': {
-            backgroundColor: alpha(neonColors.primary.main, 0.1),
+            backgroundColor: alpha(neonColors.primary.main, 0.12),
+            textShadow: `0 0 10px ${alpha(neonColors.primary.main, 0.5)}`,
           },
         },
       },
@@ -222,14 +273,29 @@ export const darkTheme = createTheme({
           transition: 'all 0.3s ease',
           '&:hover': {
             backgroundColor: alpha(neonColors.primary.main, 0.15),
-            boxShadow: `0 0 8px ${alpha(neonColors.primary.main, 0.4)}`,
+            boxShadow: `0 0 12px ${alpha(neonColors.primary.main, 0.5)}`,
+            transform: 'scale(1.1)',
+          },
+        },
+      },
+    },
+
+    MuiFab: {
+      styleOverrides: {
+        root: {
+          background: gradients.ocean,
+          boxShadow: `0 4px 20px ${alpha(neonColors.primary.main, 0.4)}`,
+          '&:hover': {
+            background: gradients.ocean,
+            boxShadow: neonEffects.glow.cyanIntense,
+            transform: 'scale(1.1)',
           },
         },
       },
     },
 
     // =========================================================================
-    // Inputs y Forms - Con glow en focus
+    // Inputs y Forms - Con glow neón en focus
     // =========================================================================
     MuiTextField: {
       styleOverrides: {
@@ -242,7 +308,7 @@ export const darkTheme = createTheme({
             '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
               borderColor: neonColors.primary.main,
               borderWidth: 2,
-              boxShadow: neonEffects.glow.cyan,
+              boxShadow: neonEffects.glow.cyanSubtle,
             },
           },
         },
@@ -253,22 +319,22 @@ export const darkTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: borderRadius.medium,
-          backgroundColor: alpha(darkModeColors.background.paper, 0.5),
+          backgroundColor: alpha(darkSurfaces.navyMist, 0.6),
           backdropFilter: 'blur(8px)',
           transition: 'all 0.3s ease',
           '&:hover .MuiOutlinedInput-notchedOutline': {
             borderColor: alpha(neonColors.primary.main, 0.6),
           },
           '&.Mui-focused': {
-            backgroundColor: alpha(darkModeColors.background.paper, 0.7),
+            backgroundColor: alpha(darkSurfaces.navyMist, 0.8),
             '& .MuiOutlinedInput-notchedOutline': {
               borderColor: neonColors.primary.main,
-              boxShadow: neonEffects.glow.cyan,
+              boxShadow: `0 0 0 3px ${alpha(neonColors.primary.main, 0.2)}, ${neonEffects.glow.cyanSubtle}`,
             },
           },
         },
         notchedOutline: {
-          borderColor: darkModeColors.border,
+          borderColor: alpha(neonAccents.vividPurple, 0.3),
           transition: 'all 0.3s ease',
         },
       },
@@ -279,6 +345,7 @@ export const darkTheme = createTheme({
         root: {
           '&.Mui-focused': {
             color: neonColors.primary.main,
+            textShadow: `0 0 8px ${alpha(neonColors.primary.main, 0.4)}`,
           },
         },
       },
@@ -295,30 +362,41 @@ export const darkTheme = createTheme({
     MuiAutocomplete: {
       styleOverrides: {
         paper: {
-          borderRadius: borderRadius.medium,
-          backgroundColor: darkModeColors.background.paper,
-          backdropFilter: 'blur(10px)',
-          boxShadow: shadows.dark.lg,
-          border: `1px solid ${darkModeColors.border}`,
+          borderRadius: borderRadius.large,
+          background: gradients.darkCard,
+          backdropFilter: 'blur(16px)',
+          boxShadow: `${shadows.dark.lg}, ${shadows.dark.neon}`,
+          border: `1px solid ${alpha(neonAccents.vividPurple, 0.3)}`,
+        },
+        option: {
+          borderRadius: borderRadius.small,
+          margin: '2px 8px',
+          '&:hover': {
+            backgroundColor: alpha(neonColors.primary.main, 0.15),
+          },
+          '&[aria-selected="true"]': {
+            backgroundColor: alpha(neonColors.primary.main, 0.2),
+          },
         },
       },
     },
 
     // =========================================================================
-    // Cards y Surfaces - Glassmorphism
+    // Cards y Surfaces - Glassmorphism con gradientes
     // =========================================================================
     MuiCard: {
       styleOverrides: {
         root: {
-          borderRadius: borderRadius.large,
-          backgroundColor: alpha(darkModeColors.background.paper, 0.7),
-          backdropFilter: 'blur(10px)',
-          border: `1px solid ${darkModeColors.border}`,
-          boxShadow: shadows.dark.md,
+          borderRadius: borderRadius.xl,
+          background: gradients.darkCard,
+          backdropFilter: 'blur(16px)',
+          border: `1px solid ${alpha(neonAccents.vividPurple, 0.2)}`,
+          boxShadow: shadows.dark.card,
           transition: 'all 0.3s ease',
           '&:hover': {
-            boxShadow: `${shadows.dark.lg}, 0 0 20px ${alpha(neonColors.primary.main, 0.15)}`,
-            borderColor: alpha(neonColors.primary.main, 0.4),
+            borderColor: alpha(neonColors.primary.main, 0.5),
+            boxShadow: `${shadows.dark.card}, ${shadows.dark.neonHover}`,
+            transform: 'translateY(-4px)',
           },
         },
       },
@@ -327,10 +405,14 @@ export const darkTheme = createTheme({
     MuiCardHeader: {
       styleOverrides: {
         root: {
-          padding: '20px 24px 12px',
+          padding: '24px 24px 12px',
         },
         title: {
           fontWeight: 600,
+          color: neonColors.base.white,
+        },
+        subheader: {
+          color: darkModeColors.text.secondary,
         },
       },
     },
@@ -338,7 +420,7 @@ export const darkTheme = createTheme({
     MuiCardContent: {
       styleOverrides: {
         root: {
-          padding: '12px 24px 20px',
+          padding: '12px 24px 24px',
           '&:last-child': {
             paddingBottom: 24,
           },
@@ -350,8 +432,8 @@ export const darkTheme = createTheme({
       styleOverrides: {
         root: {
           backgroundImage: 'none',
-          backgroundColor: alpha(darkModeColors.background.paper, 0.8),
-          backdropFilter: 'blur(10px)',
+          background: gradients.darkCard,
+          backdropFilter: 'blur(12px)',
         },
         rounded: {
           borderRadius: borderRadius.large,
@@ -365,23 +447,36 @@ export const darkTheme = createTheme({
           border: `1px solid ${darkModeColors.border}`,
         },
         elevation3: {
-          boxShadow: shadows.dark.lg,
+          boxShadow: `${shadows.dark.lg}, ${shadows.dark.neon}`,
           border: `1px solid ${darkModeColors.border}`,
         },
       },
     },
 
     // =========================================================================
-    // Tables y DataGrid
+    // Tables y DataGrid - Con headers gradient y filas vibrantes
     // =========================================================================
+    MuiTableContainer: {
+      styleOverrides: {
+        root: {
+          borderRadius: borderRadius.large,
+          border: `1px solid ${alpha(neonAccents.vividPurple, 0.2)}`,
+          overflow: 'hidden',
+        },
+      },
+    },
+
     MuiTableHead: {
       styleOverrides: {
         root: {
           '& .MuiTableCell-head': {
-            backgroundColor: alpha(neonColors.secondary.main, 0.3),
+            background: gradients.tableHeaderDark,
             fontWeight: 600,
             color: neonColors.primary.light,
-            borderBottom: `1px solid ${darkModeColors.border}`,
+            borderBottom: `2px solid ${alpha(neonColors.primary.main, 0.3)}`,
+            textTransform: 'uppercase',
+            fontSize: '0.75rem',
+            letterSpacing: '0.05em',
           },
         },
       },
@@ -391,9 +486,22 @@ export const darkTheme = createTheme({
       styleOverrides: {
         root: {
           transition: 'all 0.2s ease',
+          '&:nth-of-type(odd)': {
+            backgroundColor: alpha(darkSurfaces.midnightBlue, 0.8),
+          },
+          '&:nth-of-type(even)': {
+            backgroundColor: alpha(darkSurfaces.navyMist, 0.6),
+          },
           '&:hover': {
-            backgroundColor: alpha(neonColors.primary.main, 0.08),
-            boxShadow: `inset 0 0 0 1px ${alpha(neonColors.primary.main, 0.2)}`,
+            backgroundColor: alpha(neonColors.primary.main, 0.12),
+            boxShadow: `inset 0 0 20px ${alpha(neonColors.primary.main, 0.1)}`,
+          },
+          '&.Mui-selected': {
+            background: `linear-gradient(90deg, ${alpha(neonColors.primary.main, 0.2)}, ${alpha(neonAccents.vividPurple, 0.15)})`,
+            borderLeft: `3px solid ${neonColors.primary.main}`,
+            '&:hover': {
+              background: `linear-gradient(90deg, ${alpha(neonColors.primary.main, 0.25)}, ${alpha(neonAccents.vividPurple, 0.2)})`,
+            },
           },
         },
       },
@@ -402,19 +510,29 @@ export const darkTheme = createTheme({
     MuiTableCell: {
       styleOverrides: {
         root: {
-          borderBottom: `1px solid ${alpha(darkModeColors.divider, 0.5)}`,
+          borderBottom: `1px solid ${alpha(neonAccents.vividPurple, 0.1)}`,
+          padding: '16px',
+        },
+      },
+    },
+
+    MuiTablePagination: {
+      styleOverrides: {
+        root: {
+          background: gradients.darkCard,
+          borderTop: `1px solid ${alpha(neonColors.primary.main, 0.2)}`,
         },
       },
     },
 
     // =========================================================================
-    // Navigation - Con indicadores neón
+    // Navigation - Sidebar con gradiente neón
     // =========================================================================
     MuiDrawer: {
       styleOverrides: {
         paper: {
-          borderRight: `1px solid ${darkModeColors.border}`,
-          backgroundColor: darkModeColors.background.paper,
+          borderRight: `1px solid ${alpha(neonAccents.vividPurple, 0.2)}`,
+          background: gradients.darkSidebar,
           backgroundImage: 'none',
         },
       },
@@ -423,21 +541,36 @@ export const darkTheme = createTheme({
     MuiListItemButton: {
       styleOverrides: {
         root: {
-          borderRadius: borderRadius.medium,
-          margin: '2px 8px',
+          borderRadius: borderRadius.large,
+          margin: '4px 12px',
+          padding: '12px 16px',
           transition: 'all 0.2s ease',
           '&:hover': {
-            backgroundColor: alpha(neonColors.primary.main, 0.12),
+            backgroundColor: alpha(neonColors.primary.main, 0.15),
+            transform: 'translateX(4px)',
           },
           '&.Mui-selected': {
-            backgroundColor: alpha(neonColors.primary.main, 0.15),
-            borderLeft: `3px solid ${neonColors.primary.main}`,
-            boxShadow: `inset 0 0 15px ${alpha(neonColors.primary.main, 0.1)}`,
+            background: `linear-gradient(90deg, ${alpha(neonColors.primary.main, 0.2)}, ${alpha(neonAccents.vividPurple, 0.1)})`,
+            boxShadow: `inset 0 0 20px ${alpha(neonColors.primary.main, 0.15)}`,
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              left: 0,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              width: 4,
+              height: '60%',
+              background: `linear-gradient(180deg, ${neonColors.primary.main}, ${neonAccents.vividPurple})`,
+              borderRadius: '0 4px 4px 0',
+              boxShadow: `0 0 10px ${neonColors.primary.main}`,
+            },
             '&:hover': {
-              backgroundColor: alpha(neonColors.primary.main, 0.2),
+              backgroundColor: alpha(neonColors.primary.main, 0.25),
+              transform: 'translateX(4px)',
             },
             '& .MuiListItemIcon-root': {
               color: neonColors.primary.main,
+              filter: `drop-shadow(0 0 4px ${alpha(neonColors.primary.main, 0.6)})`,
             },
             '& .MuiListItemText-primary': {
               color: neonColors.primary.main,
@@ -452,7 +585,7 @@ export const darkTheme = createTheme({
       styleOverrides: {
         root: {
           minWidth: 40,
-          color: 'inherit',
+          color: darkModeColors.text.secondary,
           transition: 'all 0.2s ease',
         },
       },
@@ -461,10 +594,10 @@ export const darkTheme = createTheme({
     MuiAppBar: {
       styleOverrides: {
         root: {
-          boxShadow: `0 0 15px ${alpha(neonColors.primary.main, 0.1)}`,
-          borderBottom: `1px solid ${darkModeColors.border}`,
-          backgroundColor: alpha(darkModeColors.background.paper, 0.9),
-          backdropFilter: 'blur(10px)',
+          boxShadow: `0 0 20px ${alpha(neonColors.primary.main, 0.15)}`,
+          borderBottom: `1px solid ${alpha(neonAccents.vividPurple, 0.2)}`,
+          background: `linear-gradient(90deg, ${alpha(darkSurfaces.midnightBlue, 0.95)} 0%, ${alpha(darkSurfaces.cosmicPurple, 0.9)} 100%)`,
+          backdropFilter: 'blur(16px)',
           color: darkModeColors.text.primary,
         },
       },
@@ -479,16 +612,16 @@ export const darkTheme = createTheme({
     },
 
     // =========================================================================
-    // Dialogs y Modals - Con blur y glassmorphism
+    // Dialogs y Modals - Glassmorphism intenso
     // =========================================================================
     MuiDialog: {
       styleOverrides: {
         paper: {
           borderRadius: borderRadius.xl,
-          backgroundColor: alpha(darkModeColors.background.paper, 0.9),
+          background: neonEffects.glass.darkIntense.background,
           backdropFilter: 'blur(20px)',
-          border: `1px solid ${darkModeColors.border}`,
-          boxShadow: `${shadows.dark.lg}, 0 0 30px ${alpha(neonColors.primary.main, 0.2)}`,
+          border: `1px solid ${alpha(neonAccents.vividPurple, 0.3)}`,
+          boxShadow: `${shadows.dark.lg}, 0 0 40px ${alpha(neonColors.primary.main, 0.25)}`,
         },
       },
     },
@@ -498,7 +631,7 @@ export const darkTheme = createTheme({
         root: {
           fontSize: '1.25rem',
           fontWeight: 600,
-          padding: '20px 24px 12px',
+          padding: '24px 24px 12px',
         },
       },
     },
@@ -506,7 +639,7 @@ export const darkTheme = createTheme({
     MuiDialogContent: {
       styleOverrides: {
         root: {
-          padding: '12px 24px 20px',
+          padding: '12px 24px 24px',
         },
       },
     },
@@ -514,8 +647,8 @@ export const darkTheme = createTheme({
     MuiDialogActions: {
       styleOverrides: {
         root: {
-          padding: '12px 24px 20px',
-          gap: 8,
+          padding: '16px 24px 24px',
+          gap: 12,
         },
       },
     },
@@ -523,40 +656,58 @@ export const darkTheme = createTheme({
     MuiBackdrop: {
       styleOverrides: {
         root: {
-          backgroundColor: alpha(neonColors.base.black, 0.7),
+          backgroundColor: alpha(neonColors.base.black, 0.75),
           backdropFilter: 'blur(8px)',
         },
       },
     },
 
     // =========================================================================
-    // Alerts y Feedback - Con bordes neón
+    // Alerts y Feedback - Con bordes y glows neón
     // =========================================================================
     MuiAlert: {
       styleOverrides: {
         root: {
-          borderRadius: borderRadius.medium,
-          backdropFilter: 'blur(10px)',
+          borderRadius: borderRadius.large,
+          backdropFilter: 'blur(12px)',
+          border: 'none',
+          borderLeft: '4px solid',
         },
         standardSuccess: {
-          backgroundColor: alpha(stateColors.success.main, 0.15),
-          borderLeft: `4px solid ${stateColors.success.main}`,
-          boxShadow: `0 0 10px ${alpha(stateColors.success.main, 0.2)}`,
+          background: `linear-gradient(90deg, ${alpha(stateColors.success.main, 0.15)}, ${alpha(stateColors.success.main, 0.05)})`,
+          borderLeftColor: stateColors.success.main,
+          boxShadow: `0 0 15px ${alpha(stateColors.success.main, 0.2)}`,
+          '& .MuiAlert-icon': {
+            color: stateColors.success.main,
+            filter: `drop-shadow(0 0 4px ${alpha(stateColors.success.main, 0.5)})`,
+          },
         },
         standardError: {
-          backgroundColor: alpha(stateColors.error.main, 0.15),
-          borderLeft: `4px solid ${stateColors.error.main}`,
-          boxShadow: `0 0 10px ${alpha(stateColors.error.main, 0.2)}`,
+          background: `linear-gradient(90deg, ${alpha(stateColors.error.main, 0.15)}, ${alpha(stateColors.error.main, 0.05)})`,
+          borderLeftColor: stateColors.error.main,
+          boxShadow: `0 0 15px ${alpha(stateColors.error.main, 0.2)}`,
+          '& .MuiAlert-icon': {
+            color: stateColors.error.main,
+            filter: `drop-shadow(0 0 4px ${alpha(stateColors.error.main, 0.5)})`,
+          },
         },
         standardWarning: {
-          backgroundColor: alpha(stateColors.warning.main, 0.15),
-          borderLeft: `4px solid ${stateColors.warning.main}`,
-          boxShadow: `0 0 10px ${alpha(stateColors.warning.main, 0.2)}`,
+          background: `linear-gradient(90deg, ${alpha(stateColors.warning.main, 0.15)}, ${alpha(stateColors.warning.main, 0.05)})`,
+          borderLeftColor: stateColors.warning.main,
+          boxShadow: `0 0 15px ${alpha(stateColors.warning.main, 0.2)}`,
+          '& .MuiAlert-icon': {
+            color: stateColors.warning.main,
+            filter: `drop-shadow(0 0 4px ${alpha(stateColors.warning.main, 0.5)})`,
+          },
         },
         standardInfo: {
-          backgroundColor: alpha(stateColors.info.main, 0.15),
-          borderLeft: `4px solid ${stateColors.info.main}`,
-          boxShadow: `0 0 10px ${alpha(stateColors.info.main, 0.2)}`,
+          background: `linear-gradient(90deg, ${alpha(stateColors.info.main, 0.15)}, ${alpha(stateColors.info.main, 0.05)})`,
+          borderLeftColor: stateColors.info.main,
+          boxShadow: `0 0 15px ${alpha(stateColors.info.main, 0.2)}`,
+          '& .MuiAlert-icon': {
+            color: stateColors.info.main,
+            filter: `drop-shadow(0 0 4px ${alpha(stateColors.info.main, 0.5)})`,
+          },
         },
       },
     },
@@ -565,36 +716,57 @@ export const darkTheme = createTheme({
       styleOverrides: {
         root: {
           '& .MuiPaper-root': {
-            borderRadius: borderRadius.medium,
+            borderRadius: borderRadius.large,
           },
         },
       },
     },
 
     // =========================================================================
-    // Chips y Badges - Con glow sutil
+    // Chips y Badges - Con gradientes y glow
     // =========================================================================
     MuiChip: {
       styleOverrides: {
         root: {
-          fontWeight: 500,
-          borderRadius: borderRadius.medium,
+          fontWeight: 600,
+          borderRadius: borderRadius.xxl,
+          transition: 'all 0.3s ease',
         },
         filled: {
           '&.MuiChip-colorPrimary': {
-            backgroundColor: alpha(neonColors.primary.main, 0.2),
-            color: neonColors.primary.light,
-            boxShadow: `0 0 8px ${alpha(neonColors.primary.main, 0.3)}`,
+            background: gradients.ocean,
+            color: neonColors.base.white,
+            boxShadow: `0 2px 10px ${alpha(neonColors.primary.main, 0.4)}`,
+            '&:hover': {
+              boxShadow: `0 4px 15px ${alpha(neonColors.primary.main, 0.5)}`,
+            },
           },
           '&.MuiChip-colorSecondary': {
-            backgroundColor: alpha(neonColors.secondary.main, 0.2),
-            color: neonColors.secondary.light,
+            background: gradients.neonPrimary,
+            color: neonColors.base.white,
+            boxShadow: `0 2px 10px ${alpha(neonAccents.vividPurple, 0.4)}`,
+          },
+          '&.MuiChip-colorSuccess': {
+            background: `linear-gradient(135deg, ${stateColors.success.main}, ${stateColors.success.dark})`,
+            boxShadow: `0 2px 10px ${alpha(stateColors.success.main, 0.4)}`,
+          },
+          '&.MuiChip-colorWarning': {
+            background: `linear-gradient(135deg, ${stateColors.warning.main}, ${stateColors.warning.light})`,
+            boxShadow: `0 2px 10px ${alpha(stateColors.warning.main, 0.4)}`,
+          },
+          '&.MuiChip-colorError': {
+            background: gradients.sunset,
+            boxShadow: `0 2px 10px ${alpha(stateColors.error.main, 0.4)}`,
           },
         },
         outlined: {
-          borderWidth: 1.5,
+          borderWidth: 2,
           '&.MuiChip-colorPrimary': {
-            borderColor: alpha(neonColors.primary.main, 0.5),
+            borderColor: neonColors.primary.main,
+            '&:hover': {
+              backgroundColor: alpha(neonColors.primary.main, 0.1),
+              boxShadow: neonEffects.glow.cyanSubtle,
+            },
           },
         },
       },
@@ -603,22 +775,22 @@ export const darkTheme = createTheme({
     MuiBadge: {
       styleOverrides: {
         badge: {
-          fontWeight: 600,
-          boxShadow: `0 0 6px ${alpha(neonColors.primary.main, 0.4)}`,
+          fontWeight: 700,
+          boxShadow: `0 0 8px ${alpha(neonColors.primary.main, 0.5)}`,
         },
       },
     },
 
     // =========================================================================
-    // Tabs - Con indicador neón
+    // Tabs - Con indicador neón animado
     // =========================================================================
     MuiTabs: {
       styleOverrides: {
         indicator: {
           height: 3,
           borderRadius: '3px 3px 0 0',
-          backgroundColor: neonColors.primary.main,
-          boxShadow: `0 0 10px ${alpha(neonColors.primary.main, 0.6)}`,
+          background: gradients.ocean,
+          boxShadow: `0 0 12px ${alpha(neonColors.primary.main, 0.7)}`,
         },
       },
     },
@@ -632,9 +804,12 @@ export const darkTheme = createTheme({
           transition: 'all 0.2s ease',
           '&.Mui-selected': {
             color: neonColors.primary.main,
+            fontWeight: 600,
+            textShadow: `0 0 10px ${alpha(neonColors.primary.main, 0.5)}`,
           },
           '&:hover': {
             color: neonColors.primary.light,
+            backgroundColor: alpha(neonColors.primary.main, 0.08),
           },
         },
       },
@@ -646,32 +821,35 @@ export const darkTheme = createTheme({
     MuiTooltip: {
       styleOverrides: {
         tooltip: {
-          backgroundColor: alpha(neonColors.secondary.main, 0.95),
-          fontSize: '0.75rem',
+          background: gradients.darkCard,
+          backdropFilter: 'blur(12px)',
+          fontSize: '0.8rem',
           fontWeight: 500,
-          padding: '8px 12px',
-          borderRadius: borderRadius.small,
-          boxShadow: `0 0 10px ${alpha(neonColors.primary.main, 0.3)}`,
-          border: `1px solid ${alpha(neonColors.primary.main, 0.2)}`,
+          padding: '10px 16px',
+          borderRadius: borderRadius.medium,
+          boxShadow: `${shadows.dark.md}, 0 0 15px ${alpha(neonColors.primary.main, 0.2)}`,
+          border: `1px solid ${alpha(neonAccents.vividPurple, 0.3)}`,
         },
         arrow: {
-          color: alpha(neonColors.secondary.main, 0.95),
+          color: darkSurfaces.midnightBlue,
         },
       },
     },
 
     // =========================================================================
-    // Progress indicators - Con glow
+    // Progress indicators - Con glow neón
     // =========================================================================
     MuiLinearProgress: {
       styleOverrides: {
         root: {
           borderRadius: borderRadius.small,
           backgroundColor: alpha(neonColors.primary.main, 0.15),
+          height: 6,
         },
         bar: {
           borderRadius: borderRadius.small,
-          boxShadow: `0 0 10px ${alpha(neonColors.primary.main, 0.5)}`,
+          background: gradients.ocean,
+          boxShadow: `0 0 10px ${alpha(neonColors.primary.main, 0.6)}`,
         },
       },
     },
@@ -680,13 +858,13 @@ export const darkTheme = createTheme({
       styleOverrides: {
         root: {
           color: neonColors.primary.main,
-          filter: `drop-shadow(0 0 6px ${alpha(neonColors.primary.main, 0.5)})`,
+          filter: `drop-shadow(0 0 8px ${alpha(neonColors.primary.main, 0.6)})`,
         },
       },
     },
 
     // =========================================================================
-    // Switches y Checkboxes
+    // Switches y Checkboxes - Con glow
     // =========================================================================
     MuiSwitch: {
       styleOverrides: {
@@ -695,11 +873,11 @@ export const darkTheme = createTheme({
             color: neonColors.primary.main,
             '& + .MuiSwitch-track': {
               backgroundColor: neonColors.primary.main,
-              boxShadow: `0 0 8px ${alpha(neonColors.primary.main, 0.5)}`,
+              boxShadow: `0 0 10px ${alpha(neonColors.primary.main, 0.6)}`,
             },
           },
           '& .MuiSwitch-thumb': {
-            boxShadow: `0 0 4px ${alpha(neonColors.primary.main, 0.3)}`,
+            boxShadow: `0 0 6px ${alpha(neonColors.primary.main, 0.4)}`,
           },
         },
       },
@@ -710,7 +888,7 @@ export const darkTheme = createTheme({
         root: {
           '&.Mui-checked': {
             color: neonColors.primary.main,
-            filter: `drop-shadow(0 0 4px ${alpha(neonColors.primary.main, 0.5)})`,
+            filter: `drop-shadow(0 0 6px ${alpha(neonColors.primary.main, 0.6)})`,
           },
         },
       },
@@ -721,19 +899,22 @@ export const darkTheme = createTheme({
         root: {
           '&.Mui-checked': {
             color: neonColors.primary.main,
-            filter: `drop-shadow(0 0 4px ${alpha(neonColors.primary.main, 0.5)})`,
+            filter: `drop-shadow(0 0 6px ${alpha(neonColors.primary.main, 0.6)})`,
           },
         },
       },
     },
 
     // =========================================================================
-    // Skeleton (loading) - Con shimmer effect
+    // Skeleton - Con shimmer effect
     // =========================================================================
     MuiSkeleton: {
       styleOverrides: {
         root: {
-          backgroundColor: alpha(neonColors.secondary.main, 0.15),
+          backgroundColor: alpha(neonAccents.vividPurple, 0.15),
+          '&::after': {
+            background: `linear-gradient(90deg, transparent, ${alpha(neonColors.primary.main, 0.1)}, transparent)`,
+          },
         },
       },
     },
@@ -750,15 +931,15 @@ export const darkTheme = createTheme({
     },
 
     // =========================================================================
-    // Avatar
+    // Avatar - Con glow
     // =========================================================================
     MuiAvatar: {
       styleOverrides: {
         root: {
-          backgroundColor: alpha(neonColors.primary.main, 0.2),
-          color: neonColors.primary.main,
+          background: gradients.ocean,
+          color: neonColors.base.white,
           fontWeight: 600,
-          boxShadow: `0 0 8px ${alpha(neonColors.primary.main, 0.3)}`,
+          boxShadow: `0 0 12px ${alpha(neonColors.primary.main, 0.4)}`,
         },
       },
     },
@@ -769,11 +950,11 @@ export const darkTheme = createTheme({
     MuiMenu: {
       styleOverrides: {
         paper: {
-          borderRadius: borderRadius.medium,
-          backgroundColor: alpha(darkModeColors.background.paper, 0.95),
-          backdropFilter: 'blur(10px)',
-          boxShadow: shadows.dark.lg,
-          border: `1px solid ${darkModeColors.border}`,
+          borderRadius: borderRadius.large,
+          background: gradients.darkCard,
+          backdropFilter: 'blur(16px)',
+          boxShadow: `${shadows.dark.lg}, ${shadows.dark.neon}`,
+          border: `1px solid ${alpha(neonAccents.vividPurple, 0.3)}`,
         },
       },
     },
@@ -781,16 +962,17 @@ export const darkTheme = createTheme({
     MuiMenuItem: {
       styleOverrides: {
         root: {
-          borderRadius: borderRadius.small,
-          margin: '2px 8px',
+          borderRadius: borderRadius.medium,
+          margin: '4px 8px',
+          padding: '10px 16px',
           transition: 'all 0.2s ease',
           '&:hover': {
-            backgroundColor: alpha(neonColors.primary.main, 0.12),
+            backgroundColor: alpha(neonColors.primary.main, 0.15),
           },
           '&.Mui-selected': {
-            backgroundColor: alpha(neonColors.primary.main, 0.15),
+            background: `linear-gradient(90deg, ${alpha(neonColors.primary.main, 0.2)}, ${alpha(neonAccents.vividPurple, 0.1)})`,
             '&:hover': {
-              backgroundColor: alpha(neonColors.primary.main, 0.2),
+              backgroundColor: alpha(neonColors.primary.main, 0.25),
             },
           },
         },
@@ -809,9 +991,12 @@ export const darkTheme = createTheme({
             transition: 'all 0.2s ease',
             '&:hover': {
               color: neonColors.primary.main,
-              textShadow: `0 0 8px ${alpha(neonColors.primary.main, 0.5)}`,
+              textShadow: `0 0 10px ${alpha(neonColors.primary.main, 0.6)}`,
             },
           },
+        },
+        separator: {
+          color: alpha(neonAccents.vividPurple, 0.5),
         },
       },
     },
@@ -827,7 +1012,93 @@ export const darkTheme = createTheme({
           transition: 'all 0.2s ease',
           '&:hover': {
             textDecorationColor: neonColors.primary.main,
-            textShadow: `0 0 8px ${alpha(neonColors.primary.main, 0.4)}`,
+            textShadow: `0 0 10px ${alpha(neonColors.primary.main, 0.5)}`,
+          },
+        },
+      },
+    },
+
+    // =========================================================================
+    // Accordion
+    // =========================================================================
+    MuiAccordion: {
+      styleOverrides: {
+        root: {
+          background: gradients.darkCard,
+          borderRadius: `${borderRadius.large}px !important`,
+          border: `1px solid ${alpha(neonAccents.vividPurple, 0.2)}`,
+          marginBottom: 8,
+          '&:before': {
+            display: 'none',
+          },
+          '&.Mui-expanded': {
+            borderColor: alpha(neonColors.primary.main, 0.4),
+            boxShadow: shadows.dark.neon,
+          },
+        },
+      },
+    },
+
+    MuiAccordionSummary: {
+      styleOverrides: {
+        root: {
+          borderRadius: borderRadius.large,
+          '&:hover': {
+            backgroundColor: alpha(neonColors.primary.main, 0.08),
+          },
+        },
+      },
+    },
+
+    // =========================================================================
+    // Slider
+    // =========================================================================
+    MuiSlider: {
+      styleOverrides: {
+        root: {
+          '& .MuiSlider-thumb': {
+            boxShadow: `0 0 10px ${alpha(neonColors.primary.main, 0.6)}`,
+            '&:hover, &.Mui-focusVisible': {
+              boxShadow: `0 0 15px ${alpha(neonColors.primary.main, 0.8)}`,
+            },
+          },
+          '& .MuiSlider-track': {
+            background: gradients.ocean,
+            boxShadow: `0 0 8px ${alpha(neonColors.primary.main, 0.5)}`,
+          },
+          '& .MuiSlider-rail': {
+            backgroundColor: alpha(neonAccents.vividPurple, 0.3),
+          },
+        },
+      },
+    },
+
+    // =========================================================================
+    // Rating
+    // =========================================================================
+    MuiRating: {
+      styleOverrides: {
+        iconFilled: {
+          color: neonAccents.sunsetOrange,
+          filter: `drop-shadow(0 0 4px ${alpha(neonAccents.sunsetOrange, 0.6)})`,
+        },
+      },
+    },
+
+    // =========================================================================
+    // ToggleButton
+    // =========================================================================
+    MuiToggleButton: {
+      styleOverrides: {
+        root: {
+          borderColor: alpha(neonAccents.vividPurple, 0.3),
+          '&.Mui-selected': {
+            background: `linear-gradient(135deg, ${alpha(neonColors.primary.main, 0.2)}, ${alpha(neonAccents.vividPurple, 0.15)})`,
+            borderColor: neonColors.primary.main,
+            boxShadow: neonEffects.glow.cyanSubtle,
+            '&:hover': {
+              backgroundColor: alpha(neonColors.primary.main, 0.25),
+            },
           },
         },
       },
