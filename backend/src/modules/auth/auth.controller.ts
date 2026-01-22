@@ -1,15 +1,17 @@
 import {
   Controller,
   Post,
+  Get,
+  Patch,
   Body,
   UseGuards,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard, JwtAuthGuard } from './guards';
-import { LoginDto, RefreshTokenDto, RegisterDto } from './dto';
+import { LoginDto, RefreshTokenDto, RegisterDto, UpdateProfilePhotoDto } from './dto';
 import { CurrentUser, Public } from '../../common/decorators';
 import { AuthenticatedUser, TokenPair } from '../../common/interfaces';
 
@@ -87,5 +89,36 @@ export class AuthController {
     @CurrentUser('id') userId: string,
   ): Promise<{ user: any; permissions: string[] }> {
     return this.authService.getUserProfile(userId);
+  }
+
+  /**
+   * GET /api/v1/auth/profile
+   * Retorna el perfil completo del usuario autenticado
+   */
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard)
+  @Get('profile')
+  @ApiOperation({ summary: 'Get current user profile' })
+  @ApiResponse({ status: 200, description: 'User profile retrieved successfully' })
+  async getFullProfile(
+    @CurrentUser('id') userId: string,
+  ): Promise<{ user: any; permissions: string[] }> {
+    return this.authService.getUserProfile(userId);
+  }
+
+  /**
+   * PATCH /api/v1/auth/profile/photo
+   * Actualiza la foto de perfil del usuario autenticado
+   */
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard)
+  @Patch('profile/photo')
+  @ApiOperation({ summary: 'Update profile photo' })
+  @ApiResponse({ status: 200, description: 'Profile photo updated successfully' })
+  async updateProfilePhoto(
+    @CurrentUser('id') userId: string,
+    @Body() updateProfilePhotoDto: UpdateProfilePhotoDto,
+  ): Promise<{ id: string; profilePhoto: string | null }> {
+    return this.authService.updateProfilePhoto(userId, updateProfilePhotoDto.profilePhoto || null);
   }
 }
