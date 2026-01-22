@@ -107,3 +107,86 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+// =============================================================================
+// MÓDULO DE UBICACIONES (Departamentos y Ciudades de Colombia)
+// =============================================================================
+
+model Department {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  code      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cities    City[]
+  clients   Client[]
+  suppliers Supplier[]
+
+  @@map("departments")
+}
+
+model City {
+  id           String   @id @default(uuid())
+  name         String
+  departmentId String   @map("department_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  department Department @relation(fields: [departmentId], references: [id])
+  clients    Client[]
+  suppliers  Supplier[]
+
+  @@unique([name, departmentId])
+  @@map("cities")
+}
+
+// =============================================================================
+// MÓDULO DE CLIENTES Y PROVEEDORES
+// =============================================================================
+
+enum PersonType {
+  NATURAL
+  EMPRESA
+}
+
+model Client {
+  id           String     @id @default(uuid())
+  name         String
+  manager      String?
+  phone        String?
+  address      String?
+  email        String     @unique
+  departmentId String     @map("department_id")
+  cityId       String     @map("city_id")
+  personType   PersonType @map("person_type")
+  nit          String?
+  isActive     Boolean    @default(true) @map("is_active")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  department Department @relation(fields: [departmentId], references: [id])
+  city       City       @relation(fields: [cityId], references: [id])
+
+  @@map("clients")
+}
+
+model Supplier {
+  id           String     @id @default(uuid())
+  name         String
+  phone        String?
+  address      String?
+  email        String     @unique
+  departmentId String     @map("department_id")
+  cityId       String     @map("city_id")
+  personType   PersonType @map("person_type")
+  nit          String?
+  isActive     Boolean    @default(true) @map("is_active")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  department Department @relation(fields: [departmentId], references: [id])
+  city       City       @relation(fields: [cityId], references: [id])
+
+  @@map("suppliers")
+}
+
