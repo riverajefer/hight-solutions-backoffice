@@ -35,6 +35,18 @@ export const PERMISSION_LABELS: Record<string, string> = {
   read_cargos: 'Ver Cargos',
   update_cargos: 'Actualizar Cargos',
   delete_cargos: 'Eliminar Cargos',
+
+  // Clientes
+  create_clients: 'Crear Clientes',
+  read_clients: 'Ver Clientes',
+  update_clients: 'Actualizar Clientes',
+  delete_clients: 'Eliminar Clientes',
+
+  // Proveedores
+  create_suppliers: 'Crear Proveedores',
+  read_suppliers: 'Ver Proveedores',
+  update_suppliers: 'Actualizar Proveedores',
+  delete_suppliers: 'Eliminar Proveedores',
 };
 
 /**

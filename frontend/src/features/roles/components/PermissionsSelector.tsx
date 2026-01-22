@@ -26,6 +26,18 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
     'update_users',
     'delete_users',
   ],
+  Clientes: [
+    'create_clients',
+    'read_clients',
+    'update_clients',
+    'delete_clients',
+  ],
+  Proveedores: [
+    'create_suppliers',
+    'read_suppliers',
+    'update_suppliers',
+    'delete_suppliers',
+  ],
   Roles: [
     'create_roles',
     'read_roles',
@@ -39,7 +51,7 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
     'delete_permissions',
     'manage_permissions',
   ],
-  Areas: [
+  'Áreas': [
     'create_areas',
     'read_areas',
     'update_areas',
@@ -50,6 +62,9 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
     'read_cargos',
     'update_cargos',
     'delete_cargos',
+  ],
+  Auditoría: [
+    'read_audit_logs',
   ],
 };
 
