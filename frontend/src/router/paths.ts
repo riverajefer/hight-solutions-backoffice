@@ -26,5 +26,13 @@ export const PATHS = {
   PROFILE: '/settings/profile',
   NOT_FOUND: '/not-found',
   UNAUTHORIZED: '/unauthorized',
+  CLIENTS: '/clients',
+  CLIENTS_CREATE: '/clients/new',
+  CLIENTS_EDIT: '/clients/:id/edit',
+  CLIENTS_VIEW: '/clients/:id',
+  SUPPLIERS: '/suppliers',
+  SUPPLIERS_CREATE: '/suppliers/new',
+  SUPPLIERS_EDIT: '/suppliers/:id/edit',
+  SUPPLIERS_VIEW: '/suppliers/:id',
 };
 

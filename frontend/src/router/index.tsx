@@ -25,6 +25,12 @@ const AreaDetailPage = lazy(() => import('../features/areas/pages/AreaDetailPage
 const CargosListPage = lazy(() => import('../features/cargos/pages/CargosListPage'));
 const CargoFormPage = lazy(() => import('../features/cargos/pages/CargoFormPage'));
 const CargoDetailPage = lazy(() => import('../features/cargos/pages/CargoDetailPage'));
+const ClientsListPage = lazy(() => import('../features/clients/pages/ClientsListPage'));
+const ClientFormPage = lazy(() => import('../features/clients/pages/ClientFormPage'));
+const ClientDetailPage = lazy(() => import('../features/clients/pages/ClientDetailPage'));
+const SuppliersListPage = lazy(() => import('../features/suppliers/pages/SuppliersListPage'));
+const SupplierFormPage = lazy(() => import('../features/suppliers/pages/SupplierFormPage'));
+const SupplierDetailPage = lazy(() => import('../features/suppliers/pages/SupplierDetailPage'));
 const ProfilePage = lazy(() => import('../features/settings/pages/ProfilePage'));
 
 
@@ -294,6 +300,106 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.UPDATE_CARGOS}>
                   <CargoFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Clients Routes */}
+        <Route
+          path={PATHS.CLIENTS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_CLIENTS}>
+                  <ClientsListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.CLIENTS_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_CLIENTS}>
+                  <ClientFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.CLIENTS_VIEW}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_CLIENTS}>
+                  <ClientDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.CLIENTS_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_CLIENTS}>
+                  <ClientFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Suppliers Routes */}
+        <Route
+          path={PATHS.SUPPLIERS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_SUPPLIERS}>
+                  <SuppliersListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.SUPPLIERS_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_SUPPLIERS}>
+                  <SupplierFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.SUPPLIERS_VIEW}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_SUPPLIERS}>
+                  <SupplierDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.SUPPLIERS_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_SUPPLIERS}>
+                  <SupplierFormPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

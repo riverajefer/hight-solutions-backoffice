@@ -21,6 +21,8 @@ import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import HistoryIcon from '@mui/icons-material/History';
 import BusinessIcon from '@mui/icons-material/Business';
 import WorkIcon from '@mui/icons-material/Work';
+import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
+import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import { useAuthStore } from '../../store/authStore';
@@ -50,6 +52,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
     permissions: false,
     areas: false,
     cargos: false,
+    clientes: false,
+    proveedores: false,
   });
 
   const handleMenuClick = (menu: keyof typeof menuOpen) => {
@@ -99,6 +103,40 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
         },
       ],
       permission: PERMISSIONS.READ_USERS,
+    },
+    {
+      label: 'Clientes',
+      icon: <PeopleAltIcon />,
+      submenu: [
+        {
+          label: 'Listar Clientes',
+          path: ROUTES.CLIENTS,
+          permission: PERMISSIONS.READ_CLIENTS,
+        },
+        {
+          label: 'Crear Cliente',
+          path: ROUTES.CLIENTS_CREATE,
+          permission: PERMISSIONS.CREATE_CLIENTS,
+        },
+      ],
+      permission: PERMISSIONS.READ_CLIENTS,
+    },
+    {
+      label: 'Proveedores',
+      icon: <LocalShippingIcon />,
+      submenu: [
+        {
+          label: 'Listar Proveedores',
+          path: ROUTES.SUPPLIERS,
+          permission: PERMISSIONS.READ_SUPPLIERS,
+        },
+        {
+          label: 'Crear Proveedor',
+          path: ROUTES.SUPPLIERS_CREATE,
+          permission: PERMISSIONS.CREATE_SUPPLIERS,
+        },
+      ],
+      permission: PERMISSIONS.READ_SUPPLIERS,
     },
     {
       label: 'Áreas',

@@ -48,6 +48,21 @@ async function main() {
     { name: 'read_cargos', description: 'View cargos' },
     { name: 'update_cargos', description: 'Update cargo information' },
     { name: 'delete_cargos', description: 'Delete cargos' },
+
+    // Audit Logs
+    { name: 'read_audit_logs', description: 'View audit logs' },
+
+    // Clients
+    { name: 'create_clients', description: 'Create new clients' },
+    { name: 'read_clients', description: 'View clients' },
+    { name: 'update_clients', description: 'Update client information' },
+    { name: 'delete_clients', description: 'Delete clients' },
+
+    // Suppliers
+    { name: 'create_suppliers', description: 'Create new suppliers' },
+    { name: 'read_suppliers', description: 'View suppliers' },
+    { name: 'update_suppliers', description: 'Update supplier information' },
+    { name: 'delete_suppliers', description: 'Delete suppliers' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
@@ -127,7 +142,7 @@ async function main() {
   // Admin - todos los permisos
   await assignPermissionsToRole(adminRole.id, 'admin', Object.keys(permissions));
 
-  // Manager - gestión de usuarios
+  // Manager - gestión de usuarios y lectura de clientes/proveedores
   await assignPermissionsToRole(managerRole.id, 'manager', [
     'create_users',
     'read_users',
@@ -136,6 +151,8 @@ async function main() {
     'read_permissions',
     'read_areas',
     'read_cargos',
+    'read_clients',
+    'read_suppliers',
   ]);
 
   // User - solo lectura básica
@@ -265,6 +282,77 @@ async function main() {
   }
 
   // ============================================
+  // 7. Crear Departamentos y Ciudades de Colombia
+  // ============================================
+  console.log('\n🇨🇴 Creating Colombian departments and cities...');
+
+  const departmentsData = [
+    { name: 'Amazonas', code: 'AMA', cities: ['Leticia', 'Puerto Nariño'] },
+    { name: 'Antioquia', code: 'ANT', cities: ['Medellín', 'Envigado', 'Bello', 'Itagüí', 'Rionegro', 'Sabaneta', 'La Estrella', 'Apartadó'] },
+    { name: 'Arauca', code: 'ARA', cities: ['Arauca', 'Tame', 'Saravena', 'Fortul'] },
+    { name: 'Atlántico', code: 'ATL', cities: ['Barranquilla', 'Soledad', 'Malambo', 'Sabanalarga', 'Puerto Colombia'] },
+    { name: 'Bolívar', code: 'BOL', cities: ['Cartagena', 'Magangué', 'Turbaco', 'El Carmen de Bolívar', 'Arjona'] },
+    { name: 'Boyacá', code: 'BOY', cities: ['Tunja', 'Duitama', 'Sogamoso', 'Chiquinquirá', 'Paipa'] },
+    { name: 'Caldas', code: 'CAL', cities: ['Manizales', 'Villamaría', 'Chinchiná', 'La Dorada', 'Anserma'] },
+    { name: 'Caquetá', code: 'CAQ', cities: ['Florencia', 'San Vicente del Caguán', 'Puerto Rico', 'El Doncello'] },
+    { name: 'Casanare', code: 'CAS', cities: ['Yopal', 'Aguazul', 'Villanueva', 'Tauramena', 'Paz de Ariporo'] },
+    { name: 'Cauca', code: 'CAU', cities: ['Popayán', 'Santander de Quilichao', 'Puerto Tejada', 'Piendamó'] },
+    { name: 'Cesar', code: 'CES', cities: ['Valledupar', 'Aguachica', 'Codazzi', 'Bosconia', 'La Jagua de Ibirico'] },
+    { name: 'Chocó', code: 'CHO', cities: ['Quibdó', 'Istmina', 'Tadó', 'Condoto', 'Riosucio'] },
+    { name: 'Córdoba', code: 'COR', cities: ['Montería', 'Cereté', 'Lorica', 'Sahagún', 'Planeta Rica'] },
+    { name: 'Cundinamarca', code: 'CUN', cities: ['Bogotá', 'Soacha', 'Chía', 'Zipaquirá', 'Facatativá', 'Girardot', 'Fusagasugá', 'Madrid'] },
+    { name: 'Guainía', code: 'GUA', cities: ['Inírida'] },
+    { name: 'Guaviare', code: 'GUV', cities: ['San José del Guaviare', 'El Retorno', 'Calamar'] },
+    { name: 'Huila', code: 'HUI', cities: ['Neiva', 'Pitalito', 'Garzón', 'La Plata', 'Campoalegre'] },
+    { name: 'La Guajira', code: 'LAG', cities: ['Riohacha', 'Maicao', 'Uribia', 'Manaure', 'San Juan del Cesar'] },
+    { name: 'Magdalena', code: 'MAG', cities: ['Santa Marta', 'Ciénaga', 'Fundación', 'El Banco', 'Plato'] },
+    { name: 'Meta', code: 'MET', cities: ['Villavicencio', 'Acacías', 'Granada', 'Puerto López', 'San Martín'] },
+    { name: 'Nariño', code: 'NAR', cities: ['Pasto', 'Tumaco', 'Ipiales', 'Túquerres', 'La Unión'] },
+    { name: 'Norte de Santander', code: 'NSA', cities: ['Cúcuta', 'Ocaña', 'Pamplona', 'Los Patios', 'Villa del Rosario'] },
+    { name: 'Putumayo', code: 'PUT', cities: ['Mocoa', 'Puerto Asís', 'Orito', 'Valle del Guamuez', 'Villagarzón'] },
+    { name: 'Quindío', code: 'QUI', cities: ['Armenia', 'Calarcá', 'Montenegro', 'La Tebaida', 'Circasia'] },
+    { name: 'Risaralda', code: 'RIS', cities: ['Pereira', 'Dosquebradas', 'Santa Rosa de Cabal', 'La Virginia'] },
+    { name: 'San Andrés y Providencia', code: 'SAP', cities: ['San Andrés', 'Providencia'] },
+    { name: 'Santander', code: 'SAN', cities: ['Bucaramanga', 'Floridablanca', 'Girón', 'Piedecuesta', 'Barrancabermeja', 'San Gil'] },
+    { name: 'Sucre', code: 'SUC', cities: ['Sincelejo', 'Corozal', 'San Marcos', 'Sampués', 'Tolú'] },
+    { name: 'Tolima', code: 'TOL', cities: ['Ibagué', 'Espinal', 'Melgar', 'Mariquita', 'Honda', 'Chaparral'] },
+    { name: 'Valle del Cauca', code: 'VAC', cities: ['Cali', 'Buenaventura', 'Palmira', 'Tuluá', 'Buga', 'Cartago', 'Yumbo', 'Jamundí'] },
+    { name: 'Vaupés', code: 'VAU', cities: ['Mitú', 'Carurú', 'Taraira'] },
+    { name: 'Vichada', code: 'VIC', cities: ['Puerto Carreño', 'La Primavera', 'Santa Rosalía', 'Cumaribo'] },
+  ];
+
+  let totalCities = 0;
+
+  for (const deptData of departmentsData) {
+    // Create or update department
+    const department = await prisma.department.upsert({
+      where: { code: deptData.code },
+      update: { name: deptData.name },
+      create: {
+        name: deptData.name,
+        code: deptData.code,
+      },
+    });
+
+    // Create cities for this department
+    for (const cityName of deptData.cities) {
+      await prisma.city.upsert({
+        where: {
+          name_departmentId: { name: cityName, departmentId: department.id },
+        },
+        update: {},
+        create: {
+          name: cityName,
+          departmentId: department.id,
+        },
+      });
+      totalCities++;
+    }
+
+    console.log(`  ✓ ${deptData.name}: ${deptData.cities.length} cities`);
+  }
+
+  // ============================================
   // Resumen
   // ============================================
   console.log('\n' + '='.repeat(50));
@@ -275,6 +363,8 @@ async function main() {
   console.log(`   - Users: 3`);
   console.log(`   - Areas: ${areasData.length}`);
   console.log(`   - Cargos: ${cargosData.length}`);
+  console.log(`   - Departments: ${departmentsData.length}`);
+  console.log(`   - Cities: ${totalCities}`);
   console.log('\n🔐 Test Credentials:');
   console.log('   Admin:   admin@example.com / admin123');
   console.log('   Manager: manager@example.com / manager123');

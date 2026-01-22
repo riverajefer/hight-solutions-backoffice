@@ -28,6 +28,14 @@ export const PERMISSIONS = {
   UPDATE_CARGOS: 'update_cargos',
   DELETE_CARGOS: 'delete_cargos',
   READ_AUDIT_LOGS: 'read_audit_logs',
+  CREATE_SUPPLIERS: 'create_suppliers',
+  READ_SUPPLIERS: 'read_suppliers',
+  UPDATE_SUPPLIERS: 'update_suppliers',
+  DELETE_SUPPLIERS: 'delete_suppliers',
+  CREATE_CLIENTS: 'create_clients',
+  READ_CLIENTS: 'read_clients',
+  UPDATE_CLIENTS: 'update_clients',
+  DELETE_CLIENTS: 'delete_clients',
 };
 
 export const ROUTES = {
@@ -58,6 +66,15 @@ export const ROUTES = {
   PROFILE: '/settings/profile',
   NOT_FOUND: '/not-found',
   UNAUTHORIZED: '/unauthorized',
+  SUPPLIERS: '/suppliers',
+  SUPPLIERS_CREATE: '/suppliers/new',
+  SUPPLIERS_EDIT: '/suppliers/:id/edit',
+  SUPPLIERS_VIEW: '/suppliers/:id',
+  // clients
+  CLIENTS: '/clients',
+  CLIENTS_CREATE: '/clients/new',
+  CLIENTS_EDIT: '/clients/:id/edit',
+  CLIENTS_VIEW: '/clients/:id',
 };
 
 export const DEFAULT_PAGINATION = {
