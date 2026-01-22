@@ -25,6 +25,7 @@ import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import { useAuthStore } from '../../store/authStore';
 import { ROUTES, PERMISSIONS } from '../../utils/constants';
+import { gradients, neonColors, neonAccents, darkSurfaces } from '../../theme';
 import logo from '../../assets/logo.png';
 
 const DRAWER_WIDTH = 280;
@@ -35,12 +36,13 @@ interface SidebarProps {
 }
 
 /**
- * Sidebar con navegación mejorada
+ * Sidebar con navegación estilo Neón Elegante
  */
 export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isDark = theme.palette.mode === 'dark';
   const { hasPermission } = useAuthStore();
   const [menuOpen, setMenuOpen] = React.useState({
     users: false,
@@ -61,14 +63,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
     if (path === ROUTES.DASHBOARD) {
       return location.pathname === path;
     }
-    
+
     const isMatch = location.pathname.startsWith(path);
     if (!isMatch) return false;
 
-    // Si hay un match exacto, ese gana
     if (location.pathname === path) return true;
 
-    // Si es un prefijo, verificamos si hay un hermano que sea un match más específico (largo)
     const hasMoreSpecificSibling = siblings.some(
       (s) => s !== path && s.length > path.length && location.pathname.startsWith(s)
     );
@@ -169,20 +169,48 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
     mx: 1.5,
     my: 0.5,
     borderRadius: '12px',
-    transition: 'all 0.2s ease-in-out',
-    backgroundColor: active 
-      ? alpha(theme.palette.primary.main, 0.12) 
+    transition: 'all 0.3s ease',
+    position: 'relative' as const,
+    background: active
+      ? isDark
+        ? `linear-gradient(90deg, ${alpha(neonColors.primary.main, 0.2)}, ${alpha(neonAccents.vividPurple, 0.1)})`
+        : `linear-gradient(90deg, ${alpha(neonColors.primary.main, 0.12)}, ${alpha(neonAccents.vividPurple, 0.06)})`
       : 'transparent',
-    color: active ? theme.palette.primary.main : theme.palette.text.primary,
+    boxShadow: active && isDark
+      ? `inset 0 0 20px ${alpha(neonColors.primary.main, 0.15)}`
+      : active
+        ? `0 2px 8px ${alpha(neonColors.primary.main, 0.15)}`
+        : 'none',
+    color: active
+      ? isDark
+        ? neonColors.primary.main
+        : neonColors.primary.dark
+      : theme.palette.text.primary,
+    '&::before': active ? {
+      content: '""',
+      position: 'absolute',
+      left: 0,
+      top: '50%',
+      transform: 'translateY(-50%)',
+      width: 4,
+      height: '60%',
+      background: `linear-gradient(180deg, ${neonColors.primary.main}, ${neonAccents.vividPurple})`,
+      borderRadius: '0 4px 4px 0',
+      boxShadow: isDark ? `0 0 10px ${neonColors.primary.main}` : 'none',
+    } : {},
     '&:hover': {
-      backgroundColor: active 
-        ? alpha(theme.palette.primary.main, 0.18) 
-        : alpha(theme.palette.action.hover, 0.08),
+      backgroundColor: alpha(neonColors.primary.main, isDark ? 0.15 : 0.08),
       transform: 'translateX(4px)',
     },
     '& .MuiListItemIcon-root': {
-      color: active ? theme.palette.primary.main : theme.palette.text.secondary,
+      color: active
+        ? neonColors.primary.main
+        : theme.palette.text.secondary,
       minWidth: 40,
+      transition: 'all 0.3s ease',
+      filter: active && isDark
+        ? `drop-shadow(0 0 4px ${alpha(neonColors.primary.main, 0.6)})`
+        : 'none',
     },
     '& .MuiListItemText-primary': {
       fontWeight: active ? 600 : 500,
@@ -191,34 +219,55 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
   });
 
   const content = (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: 'background.paper' }}>
-      <Box 
-        sx={{ 
-          p: 3, 
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        background: isDark
+          ? gradients.darkSidebar
+          : `linear-gradient(180deg, #F1F5F9 0%, #EDE9FE 100%)`,
+      }}
+    >
+      {/* Logo Container */}
+      <Box
+        sx={{
+          p: 3,
           m: 2,
-          mb: 4,
-          display: 'flex', 
+          mb: 3,
+          display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
           borderRadius: '16px',
-          background: theme.palette.mode === 'light' 
-            ? `linear-gradient(135deg, #1e293b 0%, #0f172a 100%)` 
-            : 'transparent',
-          boxShadow: theme.palette.mode === 'light' 
-            ? '0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1)'
+          background: isDark
+            ? `linear-gradient(135deg, ${darkSurfaces.navyMist} 0%, ${darkSurfaces.cosmicPurple} 100%)`
+            : `linear-gradient(135deg, #1e293b 0%, #0f172a 100%)`,
+          boxShadow: isDark
+            ? `0 10px 30px ${alpha(neonColors.primary.main, 0.2)}, 0 0 20px ${alpha(neonAccents.vividPurple, 0.15)}`
+            : '0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+          border: isDark
+            ? `1px solid ${alpha(neonAccents.vividPurple, 0.3)}`
             : 'none',
+          transition: 'all 0.3s ease',
+          '&:hover': {
+            boxShadow: isDark
+              ? `0 15px 40px ${alpha(neonColors.primary.main, 0.25)}, 0 0 30px ${alpha(neonAccents.vividPurple, 0.2)}`
+              : '0 15px 30px -5px rgba(0, 0, 0, 0.25)',
+            transform: 'translateY(-2px)',
+          },
         }}
       >
         <Box
           component="img"
           src={logo}
           alt="Hight Solutions Logo"
-          sx={{ 
+          sx={{
             width: '100%',
             maxWidth: 160,
             height: 'auto',
             objectFit: 'contain',
             transition: 'transform 0.3s ease',
+            filter: isDark ? 'drop-shadow(0 0 8px rgba(46, 176, 196, 0.3))' : 'none',
             '&:hover': {
               transform: 'scale(1.05)',
             }
@@ -226,7 +275,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
         />
       </Box>
 
-      <List sx={{ px: 1 }}>
+      {/* Navigation List */}
+      <List sx={{ px: 1, flex: 1 }}>
         {navItems.map((item, index) => {
           if (item.permission && !hasPermission(item.permission)) {
             return null;
@@ -300,21 +350,57 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
           );
         })}
       </List>
-      
+
+      {/* Session Status Card */}
       <Box sx={{ mt: 'auto', p: 2, mb: 1 }}>
-        <Box 
-          sx={{ 
-            p: 2, 
-            borderRadius: '16px', 
-            bgcolor: alpha(theme.palette.primary.main, 0.04),
-            border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`
+        <Box
+          sx={{
+            p: 2,
+            borderRadius: '16px',
+            background: isDark
+              ? `linear-gradient(135deg, ${alpha(neonColors.primary.main, 0.1)}, ${alpha(neonAccents.vividPurple, 0.08)})`
+              : alpha(neonColors.primary.main, 0.04),
+            border: `1px solid ${isDark
+              ? alpha(neonAccents.vividPurple, 0.2)
+              : alpha(neonColors.primary.main, 0.1)}`,
+            boxShadow: isDark
+              ? `0 0 15px ${alpha(neonColors.primary.main, 0.1)}`
+              : 'none',
           }}
         >
           <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
             Estado de Sesión
           </Typography>
-          <Typography variant="caption" sx={{ color: 'success.main', display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
-            <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'success.main' }} />
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'success.main',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              mt: 0.5,
+            }}
+          >
+            <Box
+              sx={{
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                bgcolor: 'success.main',
+                boxShadow: isDark
+                  ? `0 0 8px ${theme.palette.success.main}, 0 0 16px ${alpha(theme.palette.success.main, 0.5)}`
+                  : 'none',
+                animation: isDark ? 'pulse 2s infinite' : 'none',
+                '@keyframes pulse': {
+                  '0%, 100%': {
+                    boxShadow: `0 0 8px ${theme.palette.success.main}`,
+                  },
+                  '50%': {
+                    boxShadow: `0 0 16px ${theme.palette.success.main}, 0 0 24px ${alpha(theme.palette.success.main, 0.5)}`,
+                  },
+                },
+              }}
+            />
             En línea
           </Typography>
         </Box>
@@ -329,7 +415,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
         open={open}
         onClose={onClose}
         PaperProps={{
-          sx: { width: DRAWER_WIDTH, borderRight: 'none' }
+          sx: {
+            width: DRAWER_WIDTH,
+            borderRight: 'none',
+            background: isDark
+              ? gradients.darkSidebar
+              : `linear-gradient(180deg, #F1F5F9 0%, #EDE9FE 100%)`,
+          }
         }}
       >
         {content}
@@ -342,15 +434,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
       sx={{
         width: DRAWER_WIDTH,
         flexShrink: 0,
-        borderRight: `1px solid ${theme.palette.divider}`,
+        borderRight: `1px solid ${isDark
+          ? alpha(neonAccents.vividPurple, 0.2)
+          : theme.palette.divider}`,
         height: '100vh',
         position: 'sticky',
         top: 0,
-        bgcolor: 'background.paper',
+        background: isDark
+          ? gradients.darkSidebar
+          : `linear-gradient(180deg, #F1F5F9 0%, #EDE9FE 100%)`,
       }}
     >
       {content}
     </Box>
   );
 };
-

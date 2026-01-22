@@ -1,26 +1,42 @@
 import { createTheme, alpha } from '@mui/material/styles';
 import {
   neonColors,
+  neonAccents,
   stateColors,
   lightModeColors,
+  lightSurfaces,
+  neonEffects,
+  gradients,
   borderRadius,
   shadows,
 } from './colors';
 
 /**
- * Tema Claro - Estilo Neón Moderno
- * Versión suave de los efectos neón para el modo claro
+ * Tema Claro - Estilo Neón Elegante con Degradados Sutiles
+ * Efectos neón suaves pero presentes, degradados elegantes
  */
 export const lightTheme = createTheme({
   palette: {
     mode: 'light',
     primary: neonColors.primary,
-    secondary: neonColors.secondary,
-    success: stateColors.success,
+    secondary: {
+      ...neonColors.secondary,
+      light: neonAccents.vividPurple,
+    },
+    success: {
+      ...stateColors.success,
+      contrastText: '#FFFFFF',
+    },
     warning: stateColors.warning,
-    error: stateColors.error,
+    error: {
+      ...stateColors.error,
+      main: '#EF4444',
+    },
     info: stateColors.info,
-    background: lightModeColors.background,
+    background: {
+      default: lightModeColors.background.default,
+      paper: lightModeColors.background.paper,
+    },
     text: lightModeColors.text,
     divider: lightModeColors.divider,
     action: lightModeColors.action,
@@ -41,6 +57,7 @@ export const lightTheme = createTheme({
       fontSize: '2.5rem',
       fontWeight: 700,
       letterSpacing: '-0.02em',
+      color: neonColors.base.voidBlack,
     },
     h2: {
       fontSize: '2rem',
@@ -84,7 +101,7 @@ export const lightTheme = createTheme({
       lineHeight: 1.57,
     },
     button: {
-      fontWeight: 500,
+      fontWeight: 600,
       textTransform: 'none',
     },
   },
@@ -127,74 +144,97 @@ export const lightTheme = createTheme({
     // =========================================================================
     MuiCssBaseline: {
       styleOverrides: {
+        html: {
+          scrollBehavior: 'smooth',
+        },
         body: {
+          background: gradients.lightMesh,
+          backgroundAttachment: 'fixed',
           scrollbarColor: `${alpha(neonColors.primary.main, 0.3)} transparent`,
           '&::-webkit-scrollbar': {
-            width: 8,
-            height: 8,
+            width: 10,
+            height: 10,
           },
           '&::-webkit-scrollbar-thumb': {
-            backgroundColor: alpha(neonColors.primary.main, 0.3),
-            borderRadius: 4,
+            background: `linear-gradient(180deg, ${neonColors.primary.main} 0%, ${neonAccents.vividPurple} 100%)`,
+            borderRadius: 5,
             '&:hover': {
-              backgroundColor: alpha(neonColors.primary.main, 0.5),
+              background: `linear-gradient(180deg, ${neonColors.primary.dark} 0%, ${neonAccents.electricViolet} 100%)`,
             },
           },
           '&::-webkit-scrollbar-track': {
-            backgroundColor: 'transparent',
+            backgroundColor: alpha(lightSurfaces.mist, 0.5),
           },
+        },
+        '::selection': {
+          backgroundColor: alpha(neonColors.primary.main, 0.2),
+          color: neonColors.base.voidBlack,
         },
       },
     },
 
     // =========================================================================
-    // Botones
+    // Botones - Con sombras de color y hover elegante
     // =========================================================================
     MuiButton: {
       styleOverrides: {
         root: {
           textTransform: 'none',
-          fontWeight: 500,
-          borderRadius: borderRadius.medium,
-          padding: '8px 20px',
+          fontWeight: 600,
+          borderRadius: borderRadius.large,
+          padding: '10px 24px',
           transition: 'all 0.3s ease',
         },
         contained: {
-          boxShadow: 'none',
+          boxShadow: shadows.light.neon,
           '&:hover': {
-            boxShadow: `0 0 8px ${alpha(neonColors.primary.main, 0.4)}`,
-            transform: 'translateY(-1px)',
+            transform: 'translateY(-2px) scale(1.02)',
+            boxShadow: shadows.light.neonHover,
           },
           '&:active': {
-            transform: 'translateY(0)',
+            transform: 'translateY(0) scale(1)',
           },
         },
         containedPrimary: {
-          background: neonColors.primary.main,
+          background: gradients.ocean,
           '&:hover': {
-            background: neonColors.primary.dark,
-            boxShadow: `0 0 12px ${alpha(neonColors.primary.main, 0.5)}`,
+            background: gradients.ocean,
+            boxShadow: `0 8px 30px ${alpha(neonColors.primary.main, 0.35)}`,
           },
         },
         containedSecondary: {
-          background: neonColors.secondary.main,
+          background: gradients.neonPrimary,
           '&:hover': {
-            background: neonColors.secondary.dark,
-            boxShadow: `0 0 12px ${alpha(neonColors.secondary.main, 0.4)}`,
+            background: gradients.neonPrimary,
+            boxShadow: `0 8px 30px ${alpha(neonAccents.vividPurple, 0.3)}`,
+          },
+        },
+        containedError: {
+          background: gradients.sunset,
+          '&:hover': {
+            background: gradients.sunset,
+            boxShadow: `0 8px 30px ${alpha(neonAccents.neonMagenta, 0.3)}`,
           },
         },
         outlined: {
-          borderWidth: 1.5,
+          borderWidth: 2,
+          borderColor: neonColors.primary.main,
           '&:hover': {
-            borderWidth: 1.5,
+            borderWidth: 2,
             backgroundColor: alpha(neonColors.primary.main, 0.08),
+            boxShadow: `0 0 12px ${alpha(neonColors.primary.main, 0.2)}`,
           },
         },
         outlinedPrimary: {
-          borderColor: neonColors.primary.main,
           '&:hover': {
             borderColor: neonColors.primary.dark,
-            boxShadow: `0 0 8px ${alpha(neonColors.primary.main, 0.3)}`,
+          },
+        },
+        outlinedSecondary: {
+          borderColor: neonAccents.vividPurple,
+          '&:hover': {
+            borderColor: neonAccents.electricViolet,
+            backgroundColor: alpha(neonAccents.vividPurple, 0.08),
           },
         },
         text: {
@@ -213,7 +253,22 @@ export const lightTheme = createTheme({
         root: {
           transition: 'all 0.3s ease',
           '&:hover': {
-            backgroundColor: alpha(neonColors.primary.main, 0.08),
+            backgroundColor: alpha(neonColors.primary.main, 0.1),
+            transform: 'scale(1.1)',
+          },
+        },
+      },
+    },
+
+    MuiFab: {
+      styleOverrides: {
+        root: {
+          background: gradients.ocean,
+          boxShadow: shadows.light.neon,
+          '&:hover': {
+            background: gradients.ocean,
+            boxShadow: shadows.light.neonHover,
+            transform: 'scale(1.1)',
           },
         },
       },
@@ -233,7 +288,7 @@ export const lightTheme = createTheme({
             '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
               borderColor: neonColors.primary.main,
               borderWidth: 2,
-              boxShadow: `0 0 8px ${alpha(neonColors.primary.main, 0.2)}`,
+              boxShadow: `0 0 0 3px ${alpha(neonColors.primary.main, 0.15)}`,
             },
           },
         },
@@ -244,13 +299,17 @@ export const lightTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: borderRadius.medium,
+          backgroundColor: neonColors.base.white,
           transition: 'all 0.3s ease',
           '&:hover .MuiOutlinedInput-notchedOutline': {
             borderColor: alpha(neonColors.primary.main, 0.5),
           },
-          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-            borderColor: neonColors.primary.main,
-            boxShadow: `0 0 8px ${alpha(neonColors.primary.main, 0.2)}`,
+          '&.Mui-focused': {
+            backgroundColor: neonColors.base.white,
+            '& .MuiOutlinedInput-notchedOutline': {
+              borderColor: neonColors.primary.main,
+              boxShadow: `0 0 0 3px ${alpha(neonColors.primary.main, 0.12)}`,
+            },
           },
         },
         notchedOutline: {
@@ -281,25 +340,39 @@ export const lightTheme = createTheme({
     MuiAutocomplete: {
       styleOverrides: {
         paper: {
-          borderRadius: borderRadius.medium,
-          boxShadow: shadows.light.lg,
-          border: `1px solid ${lightModeColors.border}`,
+          borderRadius: borderRadius.large,
+          background: gradients.lightCard,
+          boxShadow: `${shadows.light.lg}, ${shadows.light.neon}`,
+          border: `1px solid ${alpha(neonColors.primary.main, 0.15)}`,
+        },
+        option: {
+          borderRadius: borderRadius.small,
+          margin: '2px 8px',
+          '&:hover': {
+            backgroundColor: alpha(neonColors.primary.main, 0.08),
+          },
+          '&[aria-selected="true"]': {
+            backgroundColor: alpha(neonColors.primary.main, 0.12),
+          },
         },
       },
     },
 
     // =========================================================================
-    // Cards y Surfaces
+    // Cards y Surfaces - Con tintes sutiles de color
     // =========================================================================
     MuiCard: {
       styleOverrides: {
         root: {
-          borderRadius: borderRadius.large,
-          boxShadow: shadows.light.md,
+          borderRadius: borderRadius.xl,
+          background: gradients.lightCard,
           border: `1px solid ${lightModeColors.border}`,
+          boxShadow: shadows.light.md,
           transition: 'all 0.3s ease',
           '&:hover': {
-            boxShadow: shadows.light.lg,
+            borderColor: alpha(neonColors.primary.main, 0.3),
+            boxShadow: `${shadows.light.lg}, ${shadows.light.neon}`,
+            transform: 'translateY(-4px)',
           },
         },
       },
@@ -308,10 +381,14 @@ export const lightTheme = createTheme({
     MuiCardHeader: {
       styleOverrides: {
         root: {
-          padding: '20px 24px 12px',
+          padding: '24px 24px 12px',
         },
         title: {
           fontWeight: 600,
+          color: neonColors.base.voidBlack,
+        },
+        subheader: {
+          color: lightModeColors.text.secondary,
         },
       },
     },
@@ -319,7 +396,7 @@ export const lightTheme = createTheme({
     MuiCardContent: {
       styleOverrides: {
         root: {
-          padding: '12px 24px 20px',
+          padding: '12px 24px 24px',
           '&:last-child': {
             paddingBottom: 24,
           },
@@ -331,18 +408,22 @@ export const lightTheme = createTheme({
       styleOverrides: {
         root: {
           backgroundImage: 'none',
+          background: gradients.lightCard,
         },
         rounded: {
           borderRadius: borderRadius.large,
         },
         elevation1: {
           boxShadow: shadows.light.sm,
+          border: `1px solid ${lightModeColors.border}`,
         },
         elevation2: {
           boxShadow: shadows.light.md,
+          border: `1px solid ${lightModeColors.border}`,
         },
         elevation3: {
-          boxShadow: shadows.light.lg,
+          boxShadow: `${shadows.light.lg}, ${shadows.light.neon}`,
+          border: `1px solid ${alpha(neonColors.primary.main, 0.1)}`,
         },
       },
     },
@@ -350,13 +431,27 @@ export const lightTheme = createTheme({
     // =========================================================================
     // Tables y DataGrid
     // =========================================================================
+    MuiTableContainer: {
+      styleOverrides: {
+        root: {
+          borderRadius: borderRadius.large,
+          border: `1px solid ${lightModeColors.border}`,
+          overflow: 'hidden',
+        },
+      },
+    },
+
     MuiTableHead: {
       styleOverrides: {
         root: {
           '& .MuiTableCell-head': {
-            backgroundColor: alpha(neonColors.primary.light, 0.3),
+            background: gradients.tableHeaderLight,
             fontWeight: 600,
             color: neonColors.secondary.main,
+            borderBottom: `2px solid ${alpha(neonColors.primary.main, 0.2)}`,
+            textTransform: 'uppercase',
+            fontSize: '0.75rem',
+            letterSpacing: '0.05em',
           },
         },
       },
@@ -365,9 +460,22 @@ export const lightTheme = createTheme({
     MuiTableRow: {
       styleOverrides: {
         root: {
-          transition: 'background-color 0.2s ease',
+          transition: 'all 0.2s ease',
+          '&:nth-of-type(odd)': {
+            backgroundColor: neonColors.base.white,
+          },
+          '&:nth-of-type(even)': {
+            backgroundColor: lightSurfaces.snow,
+          },
           '&:hover': {
-            backgroundColor: alpha(neonColors.primary.main, 0.04),
+            backgroundColor: alpha(neonColors.primary.main, 0.06),
+          },
+          '&.Mui-selected': {
+            background: `linear-gradient(90deg, ${alpha(neonColors.primary.main, 0.1)}, ${alpha(neonAccents.vividPurple, 0.05)})`,
+            borderLeft: `3px solid ${neonColors.primary.main}`,
+            '&:hover': {
+              background: `linear-gradient(90deg, ${alpha(neonColors.primary.main, 0.12)}, ${alpha(neonAccents.vividPurple, 0.08)})`,
+            },
           },
         },
       },
@@ -377,18 +485,28 @@ export const lightTheme = createTheme({
       styleOverrides: {
         root: {
           borderBottom: `1px solid ${lightModeColors.divider}`,
+          padding: '16px',
+        },
+      },
+    },
+
+    MuiTablePagination: {
+      styleOverrides: {
+        root: {
+          background: gradients.lightCard,
+          borderTop: `1px solid ${lightModeColors.divider}`,
         },
       },
     },
 
     // =========================================================================
-    // Navigation
+    // Navigation - Sidebar con tinte elegante
     // =========================================================================
     MuiDrawer: {
       styleOverrides: {
         paper: {
           borderRight: `1px solid ${lightModeColors.border}`,
-          backgroundColor: lightModeColors.background.paper,
+          background: `linear-gradient(180deg, ${lightSurfaces.cloud} 0%, ${lightSurfaces.lavenderTint} 100%)`,
         },
       },
     },
@@ -396,17 +514,38 @@ export const lightTheme = createTheme({
     MuiListItemButton: {
       styleOverrides: {
         root: {
-          borderRadius: borderRadius.medium,
-          margin: '2px 8px',
+          borderRadius: borderRadius.large,
+          margin: '4px 12px',
+          padding: '12px 16px',
           transition: 'all 0.2s ease',
           '&:hover': {
             backgroundColor: alpha(neonColors.primary.main, 0.08),
+            transform: 'translateX(4px)',
           },
           '&.Mui-selected': {
-            backgroundColor: alpha(neonColors.primary.main, 0.12),
-            borderLeft: `3px solid ${neonColors.primary.main}`,
+            background: `linear-gradient(90deg, ${alpha(neonColors.primary.main, 0.12)}, ${alpha(neonAccents.vividPurple, 0.06)})`,
+            boxShadow: `0 2px 8px ${alpha(neonColors.primary.main, 0.15)}`,
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              left: 0,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              width: 4,
+              height: '60%',
+              background: `linear-gradient(180deg, ${neonColors.primary.main}, ${neonAccents.vividPurple})`,
+              borderRadius: '0 4px 4px 0',
+            },
             '&:hover': {
-              backgroundColor: alpha(neonColors.primary.main, 0.16),
+              backgroundColor: alpha(neonColors.primary.main, 0.15),
+              transform: 'translateX(4px)',
+            },
+            '& .MuiListItemIcon-root': {
+              color: neonColors.primary.main,
+            },
+            '& .MuiListItemText-primary': {
+              color: neonColors.primary.dark,
+              fontWeight: 600,
             },
           },
         },
@@ -417,7 +556,8 @@ export const lightTheme = createTheme({
       styleOverrides: {
         root: {
           minWidth: 40,
-          color: 'inherit',
+          color: lightModeColors.text.secondary,
+          transition: 'all 0.2s ease',
         },
       },
     },
@@ -427,7 +567,8 @@ export const lightTheme = createTheme({
         root: {
           boxShadow: shadows.light.sm,
           borderBottom: `1px solid ${lightModeColors.border}`,
-          backgroundColor: lightModeColors.background.paper,
+          background: `linear-gradient(90deg, ${alpha(neonColors.base.white, 0.95)} 0%, ${alpha(lightSurfaces.cyanTint, 0.9)} 100%)`,
+          backdropFilter: 'blur(10px)',
           color: lightModeColors.text.primary,
         },
       },
@@ -448,7 +589,10 @@ export const lightTheme = createTheme({
       styleOverrides: {
         paper: {
           borderRadius: borderRadius.xl,
-          boxShadow: shadows.light.lg,
+          background: neonEffects.glass.light.background,
+          backdropFilter: 'blur(16px)',
+          border: `1px solid ${alpha(neonColors.primary.main, 0.15)}`,
+          boxShadow: `${shadows.light.lg}, 0 0 40px ${alpha(neonColors.primary.main, 0.1)}`,
         },
       },
     },
@@ -458,7 +602,8 @@ export const lightTheme = createTheme({
         root: {
           fontSize: '1.25rem',
           fontWeight: 600,
-          padding: '20px 24px 12px',
+          padding: '24px 24px 12px',
+          color: neonColors.base.voidBlack,
         },
       },
     },
@@ -466,7 +611,7 @@ export const lightTheme = createTheme({
     MuiDialogContent: {
       styleOverrides: {
         root: {
-          padding: '12px 24px 20px',
+          padding: '12px 24px 24px',
         },
       },
     },
@@ -474,8 +619,8 @@ export const lightTheme = createTheme({
     MuiDialogActions: {
       styleOverrides: {
         root: {
-          padding: '12px 24px 20px',
-          gap: 8,
+          padding: '16px 24px 24px',
+          gap: 12,
         },
       },
     },
@@ -483,8 +628,8 @@ export const lightTheme = createTheme({
     MuiBackdrop: {
       styleOverrides: {
         root: {
-          backgroundColor: alpha(neonColors.secondary.main, 0.3),
-          backdropFilter: 'blur(4px)',
+          backgroundColor: alpha(neonColors.secondary.main, 0.25),
+          backdropFilter: 'blur(6px)',
         },
       },
     },
@@ -495,23 +640,37 @@ export const lightTheme = createTheme({
     MuiAlert: {
       styleOverrides: {
         root: {
-          borderRadius: borderRadius.medium,
+          borderRadius: borderRadius.large,
+          border: 'none',
+          borderLeft: '4px solid',
         },
         standardSuccess: {
-          backgroundColor: alpha(stateColors.success.main, 0.12),
-          borderLeft: `4px solid ${stateColors.success.main}`,
+          background: `linear-gradient(90deg, ${alpha(stateColors.success.dark, 0.1)}, ${alpha(stateColors.success.dark, 0.02)})`,
+          borderLeftColor: stateColors.success.dark,
+          '& .MuiAlert-icon': {
+            color: stateColors.success.dark,
+          },
         },
         standardError: {
-          backgroundColor: alpha(stateColors.error.main, 0.12),
-          borderLeft: `4px solid ${stateColors.error.main}`,
+          background: `linear-gradient(90deg, ${alpha('#EF4444', 0.1)}, ${alpha('#EF4444', 0.02)})`,
+          borderLeftColor: '#EF4444',
+          '& .MuiAlert-icon': {
+            color: '#EF4444',
+          },
         },
         standardWarning: {
-          backgroundColor: alpha(stateColors.warning.main, 0.12),
-          borderLeft: `4px solid ${stateColors.warning.main}`,
+          background: `linear-gradient(90deg, ${alpha(stateColors.warning.dark, 0.1)}, ${alpha(stateColors.warning.dark, 0.02)})`,
+          borderLeftColor: stateColors.warning.dark,
+          '& .MuiAlert-icon': {
+            color: stateColors.warning.dark,
+          },
         },
         standardInfo: {
-          backgroundColor: alpha(stateColors.info.main, 0.12),
-          borderLeft: `4px solid ${stateColors.info.main}`,
+          background: `linear-gradient(90deg, ${alpha(stateColors.info.main, 0.1)}, ${alpha(stateColors.info.main, 0.02)})`,
+          borderLeftColor: stateColors.info.main,
+          '& .MuiAlert-icon': {
+            color: stateColors.info.main,
+          },
         },
       },
     },
@@ -520,33 +679,56 @@ export const lightTheme = createTheme({
       styleOverrides: {
         root: {
           '& .MuiPaper-root': {
-            borderRadius: borderRadius.medium,
+            borderRadius: borderRadius.large,
           },
         },
       },
     },
 
     // =========================================================================
-    // Chips y Badges
+    // Chips y Badges - Con color vibrante
     // =========================================================================
     MuiChip: {
       styleOverrides: {
         root: {
-          fontWeight: 500,
-          borderRadius: borderRadius.medium,
+          fontWeight: 600,
+          borderRadius: borderRadius.xxl,
+          transition: 'all 0.3s ease',
         },
         filled: {
           '&.MuiChip-colorPrimary': {
-            backgroundColor: alpha(neonColors.primary.main, 0.12),
-            color: neonColors.primary.dark,
+            background: gradients.ocean,
+            color: neonColors.base.white,
+            boxShadow: `0 2px 8px ${alpha(neonColors.primary.main, 0.3)}`,
           },
           '&.MuiChip-colorSecondary': {
-            backgroundColor: alpha(neonColors.secondary.main, 0.12),
-            color: neonColors.secondary.main,
+            background: gradients.neonPrimary,
+            color: neonColors.base.white,
+            boxShadow: `0 2px 8px ${alpha(neonAccents.vividPurple, 0.3)}`,
+          },
+          '&.MuiChip-colorSuccess': {
+            background: `linear-gradient(135deg, ${stateColors.success.dark}, ${stateColors.success.main})`,
+            color: neonColors.base.white,
+            boxShadow: `0 2px 8px ${alpha(stateColors.success.main, 0.3)}`,
+          },
+          '&.MuiChip-colorWarning': {
+            background: `linear-gradient(135deg, ${stateColors.warning.dark}, ${stateColors.warning.main})`,
+            boxShadow: `0 2px 8px ${alpha(stateColors.warning.main, 0.3)}`,
+          },
+          '&.MuiChip-colorError': {
+            background: gradients.sunset,
+            color: neonColors.base.white,
+            boxShadow: `0 2px 8px ${alpha(stateColors.error.main, 0.3)}`,
           },
         },
         outlined: {
-          borderWidth: 1.5,
+          borderWidth: 2,
+          '&.MuiChip-colorPrimary': {
+            borderColor: neonColors.primary.main,
+            '&:hover': {
+              backgroundColor: alpha(neonColors.primary.main, 0.08),
+            },
+          },
         },
       },
     },
@@ -554,7 +736,7 @@ export const lightTheme = createTheme({
     MuiBadge: {
       styleOverrides: {
         badge: {
-          fontWeight: 600,
+          fontWeight: 700,
         },
       },
     },
@@ -567,7 +749,7 @@ export const lightTheme = createTheme({
         indicator: {
           height: 3,
           borderRadius: '3px 3px 0 0',
-          backgroundColor: neonColors.primary.main,
+          background: gradients.ocean,
         },
       },
     },
@@ -578,8 +760,14 @@ export const lightTheme = createTheme({
           textTransform: 'none',
           fontWeight: 500,
           minHeight: 48,
+          transition: 'all 0.2s ease',
           '&.Mui-selected': {
             color: neonColors.primary.main,
+            fontWeight: 600,
+          },
+          '&:hover': {
+            color: neonColors.primary.dark,
+            backgroundColor: alpha(neonColors.primary.main, 0.06),
           },
         },
       },
@@ -592,10 +780,11 @@ export const lightTheme = createTheme({
       styleOverrides: {
         tooltip: {
           backgroundColor: neonColors.secondary.main,
-          fontSize: '0.75rem',
+          fontSize: '0.8rem',
           fontWeight: 500,
-          padding: '8px 12px',
-          borderRadius: borderRadius.small,
+          padding: '10px 16px',
+          borderRadius: borderRadius.medium,
+          boxShadow: shadows.light.md,
         },
         arrow: {
           color: neonColors.secondary.main,
@@ -611,9 +800,11 @@ export const lightTheme = createTheme({
         root: {
           borderRadius: borderRadius.small,
           backgroundColor: alpha(neonColors.primary.main, 0.12),
+          height: 6,
         },
         bar: {
           borderRadius: borderRadius.small,
+          background: gradients.ocean,
         },
       },
     },
@@ -663,7 +854,7 @@ export const lightTheme = createTheme({
     },
 
     // =========================================================================
-    // Skeleton (loading)
+    // Skeleton
     // =========================================================================
     MuiSkeleton: {
       styleOverrides: {
@@ -690,8 +881,8 @@ export const lightTheme = createTheme({
     MuiAvatar: {
       styleOverrides: {
         root: {
-          backgroundColor: alpha(neonColors.primary.main, 0.12),
-          color: neonColors.primary.main,
+          background: gradients.ocean,
+          color: neonColors.base.white,
           fontWeight: 600,
         },
       },
@@ -703,9 +894,10 @@ export const lightTheme = createTheme({
     MuiMenu: {
       styleOverrides: {
         paper: {
-          borderRadius: borderRadius.medium,
-          boxShadow: shadows.light.lg,
-          border: `1px solid ${lightModeColors.border}`,
+          borderRadius: borderRadius.large,
+          background: gradients.lightCard,
+          boxShadow: `${shadows.light.lg}, ${shadows.light.neon}`,
+          border: `1px solid ${alpha(neonColors.primary.main, 0.1)}`,
         },
       },
     },
@@ -713,16 +905,17 @@ export const lightTheme = createTheme({
     MuiMenuItem: {
       styleOverrides: {
         root: {
-          borderRadius: borderRadius.small,
-          margin: '2px 8px',
+          borderRadius: borderRadius.medium,
+          margin: '4px 8px',
+          padding: '10px 16px',
           transition: 'all 0.2s ease',
           '&:hover': {
             backgroundColor: alpha(neonColors.primary.main, 0.08),
           },
           '&.Mui-selected': {
-            backgroundColor: alpha(neonColors.primary.main, 0.12),
+            background: `linear-gradient(90deg, ${alpha(neonColors.primary.main, 0.12)}, ${alpha(neonAccents.vividPurple, 0.06)})`,
             '&:hover': {
-              backgroundColor: alpha(neonColors.primary.main, 0.16),
+              backgroundColor: alpha(neonColors.primary.main, 0.15),
             },
           },
         },
@@ -736,13 +929,16 @@ export const lightTheme = createTheme({
       styleOverrides: {
         root: {
           '& .MuiLink-root': {
-            color: neonColors.secondary.main,
+            color: lightModeColors.text.secondary,
             textDecoration: 'none',
-            transition: 'color 0.2s ease',
+            transition: 'all 0.2s ease',
             '&:hover': {
               color: neonColors.primary.main,
             },
           },
+        },
+        separator: {
+          color: alpha(neonColors.secondary.main, 0.4),
         },
       },
     },
@@ -755,8 +951,93 @@ export const lightTheme = createTheme({
         root: {
           color: neonColors.primary.main,
           textDecorationColor: alpha(neonColors.primary.main, 0.4),
+          transition: 'all 0.2s ease',
           '&:hover': {
             textDecorationColor: neonColors.primary.main,
+            color: neonColors.primary.dark,
+          },
+        },
+      },
+    },
+
+    // =========================================================================
+    // Accordion
+    // =========================================================================
+    MuiAccordion: {
+      styleOverrides: {
+        root: {
+          background: gradients.lightCard,
+          borderRadius: `${borderRadius.large}px !important`,
+          border: `1px solid ${lightModeColors.border}`,
+          marginBottom: 8,
+          '&:before': {
+            display: 'none',
+          },
+          '&.Mui-expanded': {
+            borderColor: alpha(neonColors.primary.main, 0.3),
+            boxShadow: shadows.light.neon,
+          },
+        },
+      },
+    },
+
+    MuiAccordionSummary: {
+      styleOverrides: {
+        root: {
+          borderRadius: borderRadius.large,
+          '&:hover': {
+            backgroundColor: alpha(neonColors.primary.main, 0.04),
+          },
+        },
+      },
+    },
+
+    // =========================================================================
+    // Slider
+    // =========================================================================
+    MuiSlider: {
+      styleOverrides: {
+        root: {
+          '& .MuiSlider-thumb': {
+            boxShadow: `0 2px 8px ${alpha(neonColors.primary.main, 0.4)}`,
+            '&:hover, &.Mui-focusVisible': {
+              boxShadow: `0 4px 12px ${alpha(neonColors.primary.main, 0.5)}`,
+            },
+          },
+          '& .MuiSlider-track': {
+            background: gradients.ocean,
+          },
+          '& .MuiSlider-rail': {
+            backgroundColor: alpha(neonColors.primary.main, 0.2),
+          },
+        },
+      },
+    },
+
+    // =========================================================================
+    // Rating
+    // =========================================================================
+    MuiRating: {
+      styleOverrides: {
+        iconFilled: {
+          color: neonAccents.sunsetOrange,
+        },
+      },
+    },
+
+    // =========================================================================
+    // ToggleButton
+    // =========================================================================
+    MuiToggleButton: {
+      styleOverrides: {
+        root: {
+          borderColor: lightModeColors.border,
+          '&.Mui-selected': {
+            background: `linear-gradient(135deg, ${alpha(neonColors.primary.main, 0.12)}, ${alpha(neonAccents.vividPurple, 0.08)})`,
+            borderColor: neonColors.primary.main,
+            '&:hover': {
+              backgroundColor: alpha(neonColors.primary.main, 0.15),
+            },
           },
         },
       },
