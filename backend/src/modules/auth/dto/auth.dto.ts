@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, MinLength, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class LoginDto {
@@ -65,4 +65,15 @@ export class RegisterDto {
   @IsString()
   @IsNotEmpty({ message: 'Role ID is required' })
   roleId: string;
+}
+
+export class UpdateProfilePhotoDto {
+  @ApiProperty({
+    example: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    description: 'Profile photo as base64 encoded string or URL',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  profilePhoto?: string;
 }

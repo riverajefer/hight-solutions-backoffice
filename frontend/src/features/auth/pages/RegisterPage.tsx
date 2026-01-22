@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Card, CardContent, Typography } from '@mui/material';
+import { Card, CardContent, Typography } from '@mui/material';
 
 /**
  * Página de registro (placeholder)

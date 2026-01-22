@@ -35,6 +35,28 @@ export class AuthService {
         email: true,
         password: true,
         roleId: true,
+        firstName: true,
+        lastName: true,
+        profilePhoto: true,
+        cargoId: true,
+        role: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        cargo: {
+          select: {
+            id: true,
+            name: true,
+            area: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -52,6 +74,12 @@ export class AuthService {
       id: user.id,
       email: user.email,
       roleId: user.roleId,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      profilePhoto: user.profilePhoto,
+      cargoId: user.cargoId,
+      role: user.role,
+      cargo: user.cargo,
     };
   }
 
@@ -146,7 +174,29 @@ export class AuthService {
         id: true,
         email: true,
         roleId: true,
+        firstName: true,
+        lastName: true,
+        profilePhoto: true,
+        cargoId: true,
         refreshToken: true,
+        role: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        cargo: {
+          select: {
+            id: true,
+            name: true,
+            area: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -164,10 +214,16 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const authenticatedUser = {
+    const authenticatedUser: AuthenticatedUser = {
       id: user.id,
       email: user.email,
       roleId: user.roleId,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      profilePhoto: user.profilePhoto,
+      cargoId: user.cargoId,
+      role: user.role,
+      cargo: user.cargo,
     };
 
     // Generar nuevos tokens
@@ -216,6 +272,11 @@ export class AuthService {
             },
           },
         },
+        cargo: {
+          include: {
+            area: true,
+          },
+        },
       },
     });
 
@@ -230,10 +291,44 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        profilePhoto: user.profilePhoto,
         roleId: user.roleId,
+        cargoId: user.cargoId,
+        role: {
+          id: user.role.id,
+          name: user.role.name,
+        },
+        cargo: user.cargo ? {
+          id: user.cargo.id,
+          name: user.cargo.name,
+          area: user.cargo.area ? {
+            id: user.cargo.area.id,
+            name: user.cargo.area.name,
+          } : null,
+        } : null,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
       },
       permissions,
     };
+  }
+
+  /**
+   * Actualiza la foto de perfil del usuario
+   */
+  async updateProfilePhoto(userId: string, profilePhoto: string | null) {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { profilePhoto },
+      select: {
+        id: true,
+        profilePhoto: true,
+      },
+    });
+
+    return user;
   }
 
   /**

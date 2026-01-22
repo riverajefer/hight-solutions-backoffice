@@ -15,6 +15,7 @@ model User {
   refreshToken String?
   roleId       String
   cargoId      String?
+  profilePhoto String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   firstName    String?
@@ -106,26 +107,3 @@ model AuditLog {
   @@map("audit_logs")
 }
 
-model areas {
-  id          String   @id
-  name        String   @unique
-  description String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime
-  cargos      cargos[]
-}
-
-model cargos {
-  id          String   @id
-  name        String
-  description String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime
-  areaId      String
-  areas       areas    @relation(fields: [areaId], references: [id])
-  users       User[]
-
-  @@unique([name, areaId])
-}

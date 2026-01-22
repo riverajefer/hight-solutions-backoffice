@@ -25,6 +25,7 @@ const AreaDetailPage = lazy(() => import('../features/areas/pages/AreaDetailPage
 const CargosListPage = lazy(() => import('../features/cargos/pages/CargosListPage'));
 const CargoFormPage = lazy(() => import('../features/cargos/pages/CargoFormPage'));
 const CargoDetailPage = lazy(() => import('../features/cargos/pages/CargoDetailPage'));
+const ProfilePage = lazy(() => import('../features/settings/pages/ProfilePage'));
 
 
 const RoutesConfig: FC = () => {
@@ -313,6 +314,21 @@ const RoutesConfig: FC = () => {
           }
         />
 
+        {/* Settings Routes */}
+        <Route
+          path={PATHS.PROFILE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <ProfilePage />
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.SETTINGS}
+          element={<Navigate to={PATHS.PROFILE} replace />}
+        />
 
         {/* Default and Error Routes */}
         <Route path="/" element={<Navigate to={PATHS.DASHBOARD} replace />} />

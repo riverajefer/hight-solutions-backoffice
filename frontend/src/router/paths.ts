@@ -22,6 +22,8 @@ export const PATHS = {
   CARGOS_EDIT: '/cargos/:id/edit',
   CARGOS_VIEW: '/cargos/:id',
   AUDIT_LOGS: '/audit-logs',
+  SETTINGS: '/settings',
+  PROFILE: '/settings/profile',
   NOT_FOUND: '/not-found',
   UNAUTHORIZED: '/unauthorized',
 };
