@@ -1,5 +1,5 @@
 import axiosInstance from './axios';
-import { AuthResponse, LoginDto, RegisterDto } from '../types';
+import { AuthResponse, LoginDto, RegisterDto, ProfileResponse, UpdateProfilePhotoDto } from '../types';
 
 export const authApi = {
   /**
@@ -41,6 +41,22 @@ export const authApi = {
    */
   me: async (): Promise<{ user: any; permissions: string[] }> => {
     const response = await axiosInstance.post('/auth/me');
+    return response.data;
+  },
+
+  /**
+   * Obtener perfil completo del usuario actual
+   */
+  getProfile: async (): Promise<ProfileResponse> => {
+    const response = await axiosInstance.get<ProfileResponse>('/auth/profile');
+    return response.data;
+  },
+
+  /**
+   * Actualizar foto de perfil
+   */
+  updateProfilePhoto: async (data: UpdateProfilePhotoDto): Promise<{ id: string; profilePhoto: string | null }> => {
+    const response = await axiosInstance.patch('/auth/profile/photo', data);
     return response.data;
   },
 };

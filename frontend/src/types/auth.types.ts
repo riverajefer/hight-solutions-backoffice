@@ -3,6 +3,7 @@ export interface User {
   email: string;
   firstName?: string;
   lastName?: string;
+  profilePhoto?: string | null;
   roleId: string;
   cargoId?: string;
   role?: {
@@ -20,6 +21,15 @@ export interface User {
   isActive?: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ProfileResponse {
+  user: User;
+  permissions: string[];
+}
+
+export interface UpdateProfilePhotoDto {
+  profilePhoto?: string;
 }
 
 export interface LoginDto {

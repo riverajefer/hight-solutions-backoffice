@@ -16,7 +16,7 @@ export const SearchInput: React.FC<SearchInputProps> = ({
   placeholder = 'Buscar...',
   value,
   onChange,
-  onClear,
+  onClear: _onClear,
 }) => {
   return (
     <TextField

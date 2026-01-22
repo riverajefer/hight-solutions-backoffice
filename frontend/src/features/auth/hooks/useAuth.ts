@@ -1,4 +1,4 @@
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { authApi } from '../../../api/auth.api';
 import { useAuthStore } from '../../../store/authStore';
 import { LoginDto } from '../../../types';
@@ -7,7 +7,7 @@ import { LoginDto } from '../../../types';
  * Hook personalizado para autenticación
  */
 export const useAuth = () => {
-  const { user, accessToken, isAuthenticated, login, logout } = useAuthStore();
+  const { user, accessToken, isAuthenticated, logout } = useAuthStore();
 
   const loginMutation = useMutation({
     mutationFn: (credentials: LoginDto) => useAuthStore.getState().login(credentials),

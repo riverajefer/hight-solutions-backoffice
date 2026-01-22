@@ -44,7 +44,7 @@ const RoleFormPage: React.FC = () => {
         }
         enqueueSnackbar('Rol actualizado correctamente', { variant: 'success' });
       } else {
-        const createdRole = await createRoleMutation.mutateAsync({
+        await createRoleMutation.mutateAsync({
           ...data,
           permissionIds: permissions || [],
         } as CreateRoleDto);
