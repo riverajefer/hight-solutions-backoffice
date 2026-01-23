@@ -1,9 +1,10 @@
 import React from 'react';
-import { Box, Card, CardContent, TextField, Button, Typography, Alert } from '@mui/material';
+import { Box, Card, CardContent, TextField, Button, Typography, Alert, useTheme } from '@mui/material';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { LoginDto } from '../../../types';
+import logo from '../../../assets/logo.png';
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
@@ -20,6 +21,9 @@ interface LoginFormProps {
  * Formulario de login
  */
 export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading = false, error }) => {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+
   const {
     register,
     handleSubmit,
@@ -33,12 +37,42 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading = fals
   });
 
   return (
-    <Card>
+    <Card
+      sx={{
+        maxWidth: 450,
+        width: '100%',
+        boxShadow: isDark
+          ? '0 20px 60px rgba(0, 0, 0, 0.5)'
+          : '0 20px 60px rgba(102, 126, 234, 0.3)',
+      }}
+    >
       <CardContent sx={{ p: 4 }}>
-        <Typography variant="h4" component="h1" sx={{ mb: 1, fontWeight: 700 }}>
+        {/* Logo */}
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            mb: 3,
+          }}
+        >
+          <Box
+            component="img"
+            src={logo}
+            alt="Hight Solutions"
+            sx={{
+              width: { xs: '180px', sm: '200px' },
+              height: 'auto',
+              filter: isDark
+                ? 'drop-shadow(0 4px 12px rgba(46, 176, 196, 0.3))'
+                : 'drop-shadow(0 4px 12px rgba(102, 126, 234, 0.3))',
+            }}
+          />
+        </Box>
+
+        <Typography variant="h4" component="h1" sx={{ mb: 1, fontWeight: 700, textAlign: 'center' }}>
           Iniciar Sesión
         </Typography>
-        <Typography color="textSecondary" sx={{ mb: 4 }}>
+        <Typography color="textSecondary" sx={{ mb: 4, textAlign: 'center' }}>
           Bienvenido a Hight Solutions Backoffice
         </Typography>
 
@@ -74,17 +108,25 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading = fals
           </Button>
 
           {/* Demo Users Info */}
-          <Box sx={{ mt: 3, p: 2, backgroundColor: '#121010ff', borderRadius: 1 }}>
-            <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mb: 1 }}>
+          <Box
+            sx={{
+              mt: 3,
+              p: 2,
+              backgroundColor: isDark ? 'rgba(30, 41, 59, 0.6)' : 'rgba(102, 126, 234, 0.08)',
+              borderRadius: 2,
+              border: `1px solid ${isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(102, 126, 234, 0.2)'}`,
+            }}
+          >
+            <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mb: 1, color: isDark ? 'rgba(148, 163, 184, 1)' : 'inherit' }}>
               Usuarios de Prueba:
             </Typography>
-            <Typography variant="caption" display="block">
+            <Typography variant="caption" display="block" sx={{ color: isDark ? 'rgba(148, 163, 184, 0.9)' : 'inherit' }}>
               Admin: admin@example.com / admin123
             </Typography>
-            <Typography variant="caption" display="block">
+            <Typography variant="caption" display="block" sx={{ color: isDark ? 'rgba(148, 163, 184, 0.9)' : 'inherit' }}>
               Manager: manager@example.com / manager123
             </Typography>
-            <Typography variant="caption" display="block">
+            <Typography variant="caption" display="block" sx={{ color: isDark ? 'rgba(148, 163, 184, 0.9)' : 'inherit' }}>
               User: user@example.com / user123
             </Typography>
           </Box>
