@@ -22,7 +22,7 @@ import HistoryIcon from '@mui/icons-material/History';
 import LoginIcon from '@mui/icons-material/Login';
 import BusinessIcon from '@mui/icons-material/Business';
 import WorkIcon from '@mui/icons-material/Work';
-import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
+import BadgeIcon from '@mui/icons-material/Badge';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
@@ -107,7 +107,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
     },
     {
       label: 'Clientes',
-      icon: <PeopleAltIcon />,
+      icon: <BadgeIcon />,
       submenu: [
         {
           label: 'Listar Clientes',
