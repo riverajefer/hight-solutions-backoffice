@@ -31,6 +31,7 @@ const ClientDetailPage = lazy(() => import('../features/clients/pages/ClientDeta
 const SuppliersListPage = lazy(() => import('../features/suppliers/pages/SuppliersListPage'));
 const SupplierFormPage = lazy(() => import('../features/suppliers/pages/SupplierFormPage'));
 const SupplierDetailPage = lazy(() => import('../features/suppliers/pages/SupplierDetailPage'));
+const SessionLogsPage = lazy(() => import('../features/session-logs/pages/SessionLogsPage'));
 const ProfilePage = lazy(() => import('../features/settings/pages/ProfilePage'));
 
 
@@ -414,6 +415,20 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.READ_AUDIT_LOGS}>
                   <AuditLogsListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Session Logs Routes */}
+        <Route
+          path={PATHS.SESSION_LOGS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_SESSION_LOGS}>
+                  <SessionLogsPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

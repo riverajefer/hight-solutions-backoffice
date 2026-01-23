@@ -19,6 +19,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import SecurityIcon from '@mui/icons-material/Security';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import HistoryIcon from '@mui/icons-material/History';
+import LoginIcon from '@mui/icons-material/Login';
 import BusinessIcon from '@mui/icons-material/Business';
 import WorkIcon from '@mui/icons-material/Work';
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
@@ -200,6 +201,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
       icon: <HistoryIcon />,
       path: ROUTES.AUDIT_LOGS,
       permission: PERMISSIONS.READ_AUDIT_LOGS,
+    },
+    {
+      label: 'Historial de Sesiones',
+      icon: <LoginIcon />,
+      path: ROUTES.SESSION_LOGS,
+      permission: PERMISSIONS.READ_SESSION_LOGS,
     },
   ];
 

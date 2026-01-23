@@ -34,5 +34,6 @@ export const PATHS = {
   SUPPLIERS_CREATE: '/suppliers/new',
   SUPPLIERS_EDIT: '/suppliers/:id/edit',
   SUPPLIERS_VIEW: '/suppliers/:id',
+  SESSION_LOGS: '/session-logs',
 };
 
