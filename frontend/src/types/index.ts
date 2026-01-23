@@ -9,4 +9,5 @@ export * from './cargo.types';
 export * from './location.types';
 export * from './client.types';
 export * from './supplier.types';
+export * from './session-log.types';
 

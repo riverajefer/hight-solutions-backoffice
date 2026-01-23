@@ -2,6 +2,8 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -9,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../database/prisma.service';
 import { JwtPayload, TokenPair, AuthenticatedUser } from '../../common/interfaces';
 import { RegisterDto } from './dto';
+import { SessionLogsService } from '../session-logs/session-logs.service';
 
 @Injectable()
 export class AuthService {
@@ -18,6 +21,8 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    @Inject(forwardRef(() => SessionLogsService))
+    private readonly sessionLogsService: SessionLogsService,
   ) {}
 
   /**
@@ -107,9 +112,16 @@ export class AuthService {
   /**
    * Login que retorna los tokens y los permisos del usuario
    */
-  async loginWithPermissions(user: AuthenticatedUser): Promise<TokenPair & { user: AuthenticatedUser; permissions: string[] }> {
+  async loginWithPermissions(
+    user: AuthenticatedUser,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<TokenPair & { user: AuthenticatedUser; permissions: string[] }> {
     const tokens = await this.login(user);
     const permissions = await this.getUserPermissions(user.id);
+
+    // Create session log
+    await this.sessionLogsService.createLoginLog(user.id, ipAddress, userAgent);
 
     return {
       ...tokens,
@@ -250,6 +262,9 @@ export class AuthService {
    * Cierra la sesión del usuario eliminando su refresh token
    */
   async logout(userId: string): Promise<void> {
+    // Create logout log
+    await this.sessionLogsService.createLogoutLog(userId);
+
     await this.prisma.user.update({
       where: { id: userId },
       data: { refreshToken: null },

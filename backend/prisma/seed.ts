@@ -63,6 +63,9 @@ async function main() {
     { name: 'read_suppliers', description: 'View suppliers' },
     { name: 'update_suppliers', description: 'Update supplier information' },
     { name: 'delete_suppliers', description: 'Delete suppliers' },
+
+    // Session Logs
+    { name: 'read_session_logs', description: 'Ver registros de inicio y cierre de sesión de usuarios' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};

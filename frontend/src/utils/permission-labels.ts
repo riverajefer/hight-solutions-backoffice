@@ -24,6 +24,9 @@ export const PERMISSION_LABELS: Record<string, string> = {
   // Auditoría
   read_audit_logs: 'Ver Logs de Auditoría',
 
+  // Session Logs
+  read_session_logs: 'Ver Historial de Sesiones',
+
   // Áreas
   create_areas: 'Crear Áreas',
   read_areas: 'Ver Áreas',
