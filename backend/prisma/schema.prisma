@@ -21,8 +21,9 @@ model User {
   firstName    String?
   lastName     String?
 
-  role  Role   @relation(fields: [roleId], references: [id])
-  cargo Cargo? @relation(fields: [cargoId], references: [id])
+  role         Role          @relation(fields: [roleId], references: [id])
+  cargo        Cargo?        @relation(fields: [cargoId], references: [id])
+  sessionLogs  SessionLog[]
 
   @@map("users")
 }
@@ -188,5 +189,27 @@ model Supplier {
   city       City       @relation(fields: [cityId], references: [id])
 
   @@map("suppliers")
+}
+
+// =============================================================================
+// MÓDULO DE SESSION LOGS (Registros de inicio y cierre de sesión)
+// =============================================================================
+
+model SessionLog {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  loginAt   DateTime  @default(now()) @map("login_at")
+  logoutAt  DateTime? @map("logout_at")
+  ipAddress String?   @map("ip_address")
+  userAgent String?   @map("user_agent")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([loginAt])
+  @@index([logoutAt])
+  @@map("session_logs")
 }
 

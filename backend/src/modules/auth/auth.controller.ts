@@ -7,7 +7,9 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard, JwtAuthGuard } from './guards';
@@ -32,8 +34,17 @@ export class AuthController {
   async login(
     @Body() _loginDto: LoginDto, // Validación del DTO
     @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
   ): Promise<TokenPair & { user: AuthenticatedUser; permissions: string[] }> {
-    return this.authService.loginWithPermissions(user);
+    // Extract IP address (handle proxy headers)
+    const ipAddress = (request.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+      || request.ip
+      || request.socket.remoteAddress;
+
+    // Extract user agent
+    const userAgent = request.headers['user-agent'];
+
+    return this.authService.loginWithPermissions(user, ipAddress, userAgent);
   }
 
   /**

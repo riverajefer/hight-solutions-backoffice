@@ -7,6 +7,7 @@ import { UsersModule } from './modules/users/users.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
+import { SessionLogsModule } from './modules/session-logs/session-logs.module';
 import { AreasModule } from './modules/areas/areas.module';
 import { CargosModule } from './modules/cargos/cargos.module';
 import { LocationsModule } from './modules/locations/locations.module';
@@ -26,6 +27,7 @@ import { AuditContextInterceptor } from './common/interceptors/audit-context.int
     RolesModule,
     PermissionsModule,
     AuditLogsModule,
+    SessionLogsModule,
     AreasModule,
     CargosModule,
     // Módulos de ubicaciones, clientes y proveedores
