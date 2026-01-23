@@ -92,9 +92,11 @@ const SessionLogsPage: React.FC = () => {
       renderCell: (params: GridRenderCellParams<SessionLog>) => {
         if (!params.row.logoutAt) {
           return (
-            <Typography variant="body2" color="text.secondary">
-              -
-            </Typography>
+            <Chip
+              label="Sesión activa"
+              color="success"
+              size="small"
+            />
           );
         }
         return (
@@ -110,18 +112,34 @@ const SessionLogsPage: React.FC = () => {
     },
     {
       field: 'durationFormatted',
-      headerName: 'Duración',
-      width: 140,
+      headerName: 'Tiempo Logueado',
+      width: 160,
       align: 'center',
       headerAlign: 'center',
-      renderCell: (params: GridRenderCellParams<SessionLog>) => (
-        <Chip
-          label={params.row.durationFormatted}
-          size="small"
-          color={params.row.logoutAt ? 'default' : 'success'}
-          variant={params.row.logoutAt ? 'outlined' : 'filled'}
-        />
-      ),
+      renderCell: (params: GridRenderCellParams<SessionLog>) => {
+        const minutes = params.row.durationMinutes || 0;
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+
+        let label = '';
+        if (hours > 0) {
+          label += `${hours} hora${hours !== 1 ? 's' : ''}`;
+          if (mins > 0) {
+            label += ` ${mins} min`;
+          }
+        } else {
+          label = `${mins} minuto${mins !== 1 ? 's' : ''}`;
+        }
+
+        return (
+          <Chip
+            label={label}
+            size="small"
+            color={params.row.logoutAt ? 'default' : 'info'}
+            variant="outlined"
+          />
+        );
+      },
     },
     {
       field: 'ipAddress',

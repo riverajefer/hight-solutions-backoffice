@@ -14,7 +14,7 @@ interface AuthState {
 
   // Acciones
   login: (credentials: LoginDto) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshAccessToken: () => Promise<void>;
   hasPermission: (permission: string) => boolean;
   hasAnyPermission: (permissions: string[]) => boolean;
@@ -56,7 +56,15 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      logout: () => {
+      logout: async () => {
+        try {
+          // Call backend logout to update session log
+          await authApi.logout();
+        } catch (error) {
+          console.error('Error logging out from backend:', error);
+          // Continue with local logout even if backend call fails
+        }
+
         set({
           user: null,
           accessToken: null,
