@@ -1,5 +1,4 @@
 import { useMutation } from '@tanstack/react-query';
-import { authApi } from '../../../api/auth.api';
 import { useAuthStore } from '../../../store/authStore';
 import { LoginDto } from '../../../types';
 
@@ -15,13 +14,7 @@ export const useAuth = () => {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      try {
-        await authApi.logout();
-      } catch (error) {
-        console.error('Error logging out:', error);
-      } finally {
-        logout();
-      }
+      await logout();
     },
   });
 
