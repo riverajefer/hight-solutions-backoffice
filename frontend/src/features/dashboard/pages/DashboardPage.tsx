@@ -353,12 +353,14 @@ const DashboardPage: React.FC = () => {
             sx: {
               height: 3,
               borderRadius: '3px 3px 0 0',
-              backgroundColor:
-                currentTab === 0 ? NEON_COLORS.general :
-                currentTab === 1 ? NEON_COLORS.talent :
-                currentTab === 2 ? NEON_COLORS.business :
-                currentTab === 3 ? NEON_COLORS.security :
-                NEON_COLORS.audit,
+              backgroundColor: (theme) => {
+                const isDark = theme.palette.mode === 'dark';
+                if (currentTab === 0) return isDark ? NEON_COLORS.general : '#0891b2';
+                if (currentTab === 1) return isDark ? NEON_COLORS.talent : '#0284c7';
+                if (currentTab === 2) return isDark ? NEON_COLORS.business : '#15803d';
+                if (currentTab === 3) return isDark ? NEON_COLORS.security : '#c2410c';
+                return isDark ? NEON_COLORS.audit : '#7e22ce';
+              },
               boxShadow: (theme) =>
                 theme.palette.mode === 'dark'
                   ? `0 0 20px ${
@@ -390,19 +392,19 @@ const DashboardPage: React.FC = () => {
               fontWeight: 700,
             },
             '& .MuiTab-root:nth-of-type(1).Mui-selected': {
-              color: NEON_COLORS.general,
+              color: (theme) => theme.palette.mode === 'dark' ? NEON_COLORS.general : '#0891b2',
             },
             '& .MuiTab-root:nth-of-type(2).Mui-selected': {
-              color: NEON_COLORS.talent,
+              color: (theme) => theme.palette.mode === 'dark' ? NEON_COLORS.talent : '#0284c7',
             },
             '& .MuiTab-root:nth-of-type(3).Mui-selected': {
-              color: NEON_COLORS.business,
+              color: (theme) => theme.palette.mode === 'dark' ? NEON_COLORS.business : '#15803d',
             },
             '& .MuiTab-root:nth-of-type(4).Mui-selected': {
-              color: NEON_COLORS.security,
+              color: (theme) => theme.palette.mode === 'dark' ? NEON_COLORS.security : '#c2410c',
             },
             '& .MuiTab-root:nth-of-type(5).Mui-selected': {
-              color: NEON_COLORS.audit,
+              color: (theme) => theme.palette.mode === 'dark' ? NEON_COLORS.audit : '#7e22ce',
             },
           }}
         >
