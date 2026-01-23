@@ -59,11 +59,15 @@ export const MainLayout: FC<MainLayoutProps> = ({ children }) => {
             flex: 1,
             overflow: 'auto',
             p: 3,
-            backgroundColor: 'background.default',
+            backgroundColor: (theme) =>
+              theme.palette.mode === 'dark'
+                ? '#31333b'
+                : '#f8fafc',
           }}
         >
           {children}
         </Box>
+
       </Box>
     </Box>
   );

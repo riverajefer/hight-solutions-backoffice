@@ -6,5 +6,7 @@ export { auditLogsApi } from './audit-logs.api';
 export { sessionLogsApi } from './session-logs.api';
 export { areasApi } from './areas.api';
 export { cargosApi } from './cargos.api';
+export { clientsApi } from './clients.api';
+export { suppliersApi } from './suppliers.api';
 export { default as axiosInstance } from './axios';
 
