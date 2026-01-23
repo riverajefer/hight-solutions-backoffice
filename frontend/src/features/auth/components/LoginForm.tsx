@@ -26,6 +26,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading = fals
     formState: { errors },
   } = useForm<LoginDto>({
     resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: 'admin@example.com',
+      password: 'admin123',
+    },
   });
 
   return (
@@ -48,7 +52,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading = fals
           <TextField
             label="Email"
             type="email"
-            value="admin@example.com"
             fullWidth
             {...register('email')}
             error={!!errors.email}
@@ -59,7 +62,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading = fals
           <TextField
             label="Contraseña"
             type="password"
-            value="admin123"
             fullWidth
             {...register('password')}
             error={!!errors.password}
@@ -72,7 +74,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading = fals
           </Button>
 
           {/* Demo Users Info */}
-          <Box sx={{ mt: 3, p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
+          <Box sx={{ mt: 3, p: 2, backgroundColor: '#121010ff', borderRadius: 1 }}>
             <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mb: 1 }}>
               Usuarios de Prueba:
             </Typography>
