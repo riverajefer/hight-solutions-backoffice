@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import PeopleIcon from '@mui/icons-material/People';
 import SecurityIcon from '@mui/icons-material/Security';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
-import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
+import BadgeIcon from '@mui/icons-material/Badge';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import BusinessIcon from '@mui/icons-material/Business';
 import WorkIcon from '@mui/icons-material/Work';
@@ -73,22 +73,22 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, neonColo
           borderColor: hoverColor,
           boxShadow: (theme) =>
             theme.palette.mode === 'dark'
-              ? `0 0 20px ${hoverColor}30, 0 0 40px ${hoverColor}15, 0 20px 50px -10px rgba(0,0,0,0.5)`
-              : `0 0 15px ${hoverColor}25, 0 0 30px ${hoverColor}12, 0 20px 50px -10px rgba(0,0,0,0.1)`,
+              ? `0 0 15px ${hoverColor}15, 0 0 30px ${hoverColor}08, 0 20px 50px -10px rgba(0,0,0,0.5)`
+              : `0 0 10px ${hoverColor}12, 0 0 20px ${hoverColor}06, 0 20px 50px -10px rgba(0,0,0,0.1)`,
           '& .stat-icon-container': {
             transform: 'scale(1.1) rotate(5deg)',
-            backgroundColor: hoverColor,
-            color: '#fff',
-            boxShadow: `0 0 15px ${hoverColor}50, 0 0 30px ${hoverColor}25`,
+            backgroundColor: (theme) => 
+              theme.palette.mode === 'dark' ? `${hoverColor}40` : `${hoverColor}20`,
+            boxShadow: 'none',
           },
           '& .stat-action-btn': {
-            backgroundColor: `${hoverColor}20`,
+            backgroundColor: `${hoverColor}12`,
             color: hoverColor,
             transform: 'translateY(-2px)',
-            boxShadow: `0 0 12px ${hoverColor}25`,
+            boxShadow: `0 0 8px ${hoverColor}15`,
           },
           '& .stat-decorative': {
-            background: `radial-gradient(circle, ${hoverColor}20 0%, transparent 70%)`,
+            background: `radial-gradient(circle, ${hoverColor}10 0%, transparent 70%)`,
           }
         },
       }}
@@ -487,7 +487,7 @@ const DashboardPage: React.FC = () => {
               <StatCard
                 title="Clientes"
                 value={clientsCount}
-                icon={<PeopleAltIcon />}
+                icon={<BadgeIcon />}
                 color="#38BDF8"
                 neonColor={NEON_COLORS.general}
                 action={{
@@ -724,7 +724,7 @@ const DashboardPage: React.FC = () => {
               <StatCard
                 title="Clientes"
                 value={clientsCount}
-                icon={<PeopleAltIcon />}
+                icon={<BadgeIcon />}
                 color="#38BDF8"
                 neonColor={NEON_COLORS.business}
                 action={{
