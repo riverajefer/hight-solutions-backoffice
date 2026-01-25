@@ -30,10 +30,38 @@ export class UpdateSupplierDto {
     example: '+57 300 123 4567',
     maxLength: 20,
   })
+  @ApiPropertyOptional({
+    description: 'Nombre del encargado o gerente',
+    example: 'Juan Pérez',
+    maxLength: 200,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(200)
+  manager?: string;
+
   @IsString()
   @IsOptional()
   @MaxLength(20)
   phone?: string;
+
+  @ApiPropertyOptional({
+    description: 'Teléfono fijo',
+    example: '601 123 4567',
+    maxLength: 20,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(20)
+  landline?: string;
+
+  @ApiPropertyOptional({
+    description: 'Email para facturación electrónica',
+    example: 'facturacion@distribuidoraxyz.com',
+  })
+  @IsEmail({}, { message: 'El email de facturación debe tener un formato válido' })
+  @IsOptional()
+  billingEmail?: string;
 
   @ApiPropertyOptional({
     description: 'Dirección física',

@@ -46,6 +46,24 @@ export class UpdateClientDto {
   phone?: string;
 
   @ApiPropertyOptional({
+    description: 'Teléfono fijo',
+    example: '601 123 4567',
+    maxLength: 20,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(20)
+  landline?: string;
+
+  @ApiPropertyOptional({
+    description: 'Email para facturación electrónica',
+    example: 'facturacion@empresaabc.com',
+  })
+  @IsEmail({}, { message: 'El email de facturación debe tener un formato válido' })
+  @IsOptional()
+  billingEmail?: string;
+
+  @ApiPropertyOptional({
     description: 'Dirección física',
     example: 'Calle 123 #45-67, Bogotá',
     maxLength: 300,

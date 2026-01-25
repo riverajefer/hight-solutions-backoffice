@@ -161,6 +161,8 @@ model Client {
   cityId       String     @map("city_id")
   personType   PersonType @map("person_type")
   nit          String?
+  billingEmail String?    @map("billing_email")
+  landline     String?
   isActive     Boolean    @default(true) @map("is_active")
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
@@ -181,6 +183,9 @@ model Supplier {
   cityId       String     @map("city_id")
   personType   PersonType @map("person_type")
   nit          String?
+  manager      String?
+  billingEmail String?    @map("billing_email")
+  landline     String?
   isActive     Boolean    @default(true) @map("is_active")
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")

@@ -29,9 +29,23 @@ const supplierSchema = z.object({
     .string()
     .min(2, 'El nombre debe tener al menos 2 caracteres')
     .max(200, 'El nombre no puede exceder 200 caracteres'),
+  manager: z
+    .string()
+    .max(200, 'El encargado no puede exceder 200 caracteres')
+    .optional()
+    .or(z.literal('')),
   phone: z
     .string()
-    .max(20, 'El teléfono no puede exceder 20 caracteres')
+    .min(5, 'El teléfono debe tener al menos 5 caracteres')
+    .max(20, 'El teléfono no puede exceder 20 caracteres'),
+  landline: z
+    .string()
+    .max(20, 'El teléfono fijo no puede exceder 20 caracteres')
+    .optional()
+    .or(z.literal('')),
+  billingEmail: z
+    .string()
+    .email('El email de facturación debe tener un formato válido')
     .optional()
     .or(z.literal('')),
   address: z
@@ -85,9 +99,12 @@ const SupplierFormPage: React.FC = () => {
     resolver: zodResolver(supplierSchema),
     defaultValues: {
       name: '',
+      manager: '',
       phone: '',
+      landline: '',
       address: '',
       email: '',
+      billingEmail: '',
       departmentId: '',
       cityId: '',
       personType: 'NATURAL',
@@ -109,21 +126,24 @@ const SupplierFormPage: React.FC = () => {
     }
   }, [watchDepartmentId, setValue, isEdit]);
 
-  // Clear NIT when personType changes to NATURAL
-  useEffect(() => {
-    if (watchPersonType === 'NATURAL') {
-      setValue('nit', '');
-    }
-  }, [watchPersonType, setValue]);
+  // Clear NIT when personType changes to NATURAL -> Removed
+  // useEffect(() => {
+  //   if (watchPersonType === 'NATURAL') {
+  //     setValue('nit', '');
+  //   }
+  // }, [watchPersonType, setValue]);
 
   // Populate form when editing
   useEffect(() => {
     if (supplier && isEdit) {
       reset({
         name: supplier.name,
+        manager: supplier.manager || '',
         phone: supplier.phone || '',
+        landline: supplier.landline || '',
         address: supplier.address || '',
         email: supplier.email,
+        billingEmail: supplier.billingEmail || '',
         departmentId: supplier.departmentId,
         cityId: supplier.cityId,
         personType: supplier.personType,
@@ -139,9 +159,12 @@ const SupplierFormPage: React.FC = () => {
       // Clean data: remove empty strings, handle NIT for NATURAL
       const cleanedData = {
         ...data,
-        phone: data.phone || undefined,
+        manager: data.manager || undefined,
+        // phone is required
+        landline: data.landline || undefined,
         address: data.address || undefined,
-        nit: data.personType === 'EMPRESA' ? data.nit : undefined,
+        billingEmail: data.billingEmail || undefined,
+        nit: data.nit || undefined,
       };
 
       if (isEdit && id) {
@@ -205,6 +228,23 @@ const SupplierFormPage: React.FC = () => {
                 />
               </Grid>
 
+              {/* Manager */}
+              <Grid item xs={12} md={6}>
+                <Controller
+                  name="manager"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      label="Encargado / Gerente"
+                      fullWidth
+                      error={!!errors.manager}
+                      helperText={errors.manager?.message}
+                    />
+                  )}
+                />
+              </Grid>
+
               {/* Email */}
               <Grid item xs={12} md={6}>
                 <Controller
@@ -213,12 +253,30 @@ const SupplierFormPage: React.FC = () => {
                   render={({ field }) => (
                     <TextField
                       {...field}
-                      label="Email"
+                      label="Email Principal"
                       type="email"
                       fullWidth
                       error={!!errors.email}
                       helperText={errors.email?.message}
                       required
+                    />
+                  )}
+                />
+              </Grid>
+
+              {/* Billing Email */}
+              <Grid item xs={12} md={6}>
+                <Controller
+                  name="billingEmail"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      label="Email Facturación Electrónica"
+                      type="email"
+                      fullWidth
+                      error={!!errors.billingEmail}
+                      helperText={errors.billingEmail?.message}
                     />
                   )}
                 />
@@ -232,10 +290,28 @@ const SupplierFormPage: React.FC = () => {
                   render={({ field }) => (
                     <TextField
                       {...field}
-                      label="Teléfono"
+                      label="Teléfono Móvil"
                       fullWidth
                       error={!!errors.phone}
                       helperText={errors.phone?.message}
+                      required
+                    />
+                  )}
+                />
+              </Grid>
+
+              {/* Landline */}
+              <Grid item xs={12} md={6}>
+                <Controller
+                  name="landline"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      label="Teléfono Fijo"
+                      fullWidth
+                      error={!!errors.landline}
+                      helperText={errors.landline?.message}
                     />
                   )}
                 />
@@ -366,26 +442,28 @@ const SupplierFormPage: React.FC = () => {
                 />
               </Grid>
 
-              {/* NIT - Only shown when personType is EMPRESA */}
-              {watchPersonType === 'EMPRESA' && (
-                <Grid item xs={12} md={6}>
-                  <Controller
-                    name="nit"
-                    control={control}
-                    render={({ field }) => (
-                      <TextField
-                        {...field}
-                        label="NIT"
-                        fullWidth
-                        error={!!errors.nit}
-                        helperText={errors.nit?.message}
-                        required
-                        placeholder="Ej: 900.123.456-7"
-                      />
-                    )}
-                  />
-                </Grid>
-              )}
+              {/* NIT / Cedula */}
+              <Grid item xs={12} md={6}>
+                <Controller
+                  name="nit"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      label={watchPersonType === 'NATURAL' ? 'NIT o Cédula' : 'NIT'}
+                      fullWidth
+                      error={!!errors.nit}
+                      helperText={errors.nit?.message}
+                      required={watchPersonType === 'EMPRESA'}
+                      placeholder={
+                        watchPersonType === 'NATURAL'
+                          ? 'Ej: 123456789'
+                          : 'Ej: 900.123.456-7'
+                      }
+                    />
+                  )}
+                />
+              </Grid>
 
               {/* Buttons */}
               <Grid item xs={12}>

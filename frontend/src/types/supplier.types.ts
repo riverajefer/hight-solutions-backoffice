@@ -14,6 +14,9 @@ export interface Supplier {
   cityId: string;
   personType: PersonType;
   nit?: string;
+  manager?: string;
+  billingEmail?: string;
+  landline?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -37,6 +40,9 @@ export interface CreateSupplierDto {
   cityId: string;
   personType: PersonType;
   nit?: string;
+  manager?: string;
+  billingEmail?: string;
+  landline?: string;
 }
 
 export interface UpdateSupplierDto {
@@ -48,6 +54,9 @@ export interface UpdateSupplierDto {
   cityId?: string;
   personType?: PersonType;
   nit?: string;
+  manager?: string;
+  billingEmail?: string;
+  landline?: string;
   isActive?: boolean;
 }
 

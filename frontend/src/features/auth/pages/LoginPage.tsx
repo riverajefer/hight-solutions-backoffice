@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
-import { Box, useTheme } from '@mui/material';
+import { Box } from '@mui/material';
 import { LoginForm } from '../components/LoginForm';
 import { useAuth } from '../hooks/useAuth';
 import { LoginDto } from '../../../types';
@@ -14,8 +14,8 @@ const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
   const { loginMutation } = useAuth();
-  const theme = useTheme();
-  const isDark = theme.palette.mode === 'dark';
+
+
   const [error, setError] = React.useState<string | null>(null);
 
   const handleLogin = async (credentials: LoginDto) => {
@@ -39,9 +39,7 @@ const LoginPage: React.FC = () => {
         alignItems: 'center',
         justifyContent: 'center',
         padding: 2,
-        background: isDark
-          ? 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%)'
-          : 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)',
+        background: 'transparent',
       }}
     >
       <LoginForm

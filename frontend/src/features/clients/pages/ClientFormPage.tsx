@@ -36,7 +36,16 @@ const clientSchema = z.object({
     .or(z.literal('')),
   phone: z
     .string()
-    .max(20, 'El teléfono no puede exceder 20 caracteres')
+    .min(5, 'El teléfono debe tener al menos 5 caracteres')
+    .max(20, 'El teléfono no puede exceder 20 caracteres'),
+  landline: z
+    .string()
+    .max(20, 'El teléfono fijo no puede exceder 20 caracteres')
+    .optional()
+    .or(z.literal('')),
+  billingEmail: z
+    .string()
+    .email('El email de facturación debe tener un formato válido')
     .optional()
     .or(z.literal('')),
   address: z
@@ -92,8 +101,10 @@ const ClientFormPage: React.FC = () => {
       name: '',
       manager: '',
       phone: '',
+      landline: '',
       address: '',
       email: '',
+      billingEmail: '',
       departmentId: '',
       cityId: '',
       personType: 'NATURAL',
@@ -115,12 +126,12 @@ const ClientFormPage: React.FC = () => {
     }
   }, [watchDepartmentId, setValue, isEdit]);
 
-  // Clear NIT when personType changes to NATURAL
-  useEffect(() => {
-    if (watchPersonType === 'NATURAL') {
-      setValue('nit', '');
-    }
-  }, [watchPersonType, setValue]);
+  // Clear NIT when personType changes to NATURAL -> Removed as per requirement to show Nit/Cedula
+  // useEffect(() => {
+  //   if (watchPersonType === 'NATURAL') {
+  //     setValue('nit', '');
+  //   }
+  // }, [watchPersonType, setValue]);
 
   // Populate form when editing
   useEffect(() => {
@@ -128,9 +139,11 @@ const ClientFormPage: React.FC = () => {
       reset({
         name: client.name,
         manager: client.manager || '',
-        phone: client.phone || '',
+        phone: client.phone || '', // actually it's required now, but backend might send null for old records if we didn't migrate data? Assuming it's ok.
+        landline: client.landline || '',
         address: client.address || '',
         email: client.email,
+        billingEmail: client.billingEmail || '',
         departmentId: client.departmentId,
         cityId: client.cityId,
         personType: client.personType,
@@ -147,9 +160,11 @@ const ClientFormPage: React.FC = () => {
       const cleanedData = {
         ...data,
         manager: data.manager || undefined,
-        phone: data.phone || undefined,
+        // phone is required
+        landline: data.landline || undefined,
         address: data.address || undefined,
-        nit: data.personType === 'EMPRESA' ? data.nit : undefined,
+        billingEmail: data.billingEmail || undefined,
+        nit: data.nit || undefined, // Allow sending nit for both
       };
 
       if (isEdit && id) {
@@ -238,12 +253,30 @@ const ClientFormPage: React.FC = () => {
                   render={({ field }) => (
                     <TextField
                       {...field}
-                      label="Email"
+                      label="Email Principal"
                       type="email"
                       fullWidth
                       error={!!errors.email}
                       helperText={errors.email?.message}
                       required
+                    />
+                  )}
+                />
+              </Grid>
+
+              {/* Billing Email */}
+              <Grid item xs={12} md={6}>
+                <Controller
+                  name="billingEmail"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      label="Email Facturación Electrónica"
+                      type="email"
+                      fullWidth
+                      error={!!errors.billingEmail}
+                      helperText={errors.billingEmail?.message}
                     />
                   )}
                 />
@@ -257,10 +290,28 @@ const ClientFormPage: React.FC = () => {
                   render={({ field }) => (
                     <TextField
                       {...field}
-                      label="Teléfono"
+                      label="Teléfono Móvil"
                       fullWidth
                       error={!!errors.phone}
                       helperText={errors.phone?.message}
+                      required
+                    />
+                  )}
+                />
+              </Grid>
+
+              {/* Landline */}
+              <Grid item xs={12} md={6}>
+                <Controller
+                  name="landline"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      label="Teléfono Fijo"
+                      fullWidth
+                      error={!!errors.landline}
+                      helperText={errors.landline?.message}
                     />
                   )}
                 />
@@ -391,26 +442,28 @@ const ClientFormPage: React.FC = () => {
                 />
               </Grid>
 
-              {/* NIT - Only shown when personType is EMPRESA */}
-              {watchPersonType === 'EMPRESA' && (
-                <Grid item xs={12} md={6}>
-                  <Controller
-                    name="nit"
-                    control={control}
-                    render={({ field }) => (
-                      <TextField
-                        {...field}
-                        label="NIT"
-                        fullWidth
-                        error={!!errors.nit}
-                        helperText={errors.nit?.message}
-                        required
-                        placeholder="Ej: 900.123.456-7"
-                      />
-                    )}
-                  />
-                </Grid>
-              )}
+              {/* NIT / Cedula */}
+              <Grid item xs={12} md={6}>
+                <Controller
+                  name="nit"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      label={watchPersonType === 'NATURAL' ? 'NIT o Cédula' : 'NIT'}
+                      fullWidth
+                      error={!!errors.nit}
+                      helperText={errors.nit?.message}
+                      required={watchPersonType === 'EMPRESA'}
+                      placeholder={
+                        watchPersonType === 'NATURAL'
+                          ? 'Ej: 123456789'
+                          : 'Ej: 900.123.456-7'
+                      }
+                    />
+                  )}
+                />
+              </Grid>
 
               {/* Buttons */}
               <Grid item xs={12}>

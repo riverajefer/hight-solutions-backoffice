@@ -15,6 +15,8 @@ export interface Client {
   cityId: string;
   personType: PersonType;
   nit?: string;
+  billingEmail?: string;
+  landline?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -39,6 +41,8 @@ export interface CreateClientDto {
   cityId: string;
   personType: PersonType;
   nit?: string;
+  billingEmail?: string;
+  landline?: string;
 }
 
 export interface UpdateClientDto {
@@ -51,6 +55,8 @@ export interface UpdateClientDto {
   cityId?: string;
   personType?: PersonType;
   nit?: string;
+  billingEmail?: string;
+  landline?: string;
   isActive?: boolean;
 }
 
