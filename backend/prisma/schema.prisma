@@ -213,3 +213,23 @@ model SessionLog {
   @@map("session_logs")
 }
 
+// =============================================================================
+// MÓDULO DE CATÁLOGOS - FASE 1: UNIDADES DE MEDIDA
+// =============================================================================
+
+model UnitOfMeasure {
+  id           String   @id @default(uuid())
+  name         String   @unique
+  abbreviation String   @unique
+  description  String?
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relaciones futuras con Supplies (comentadas por ahora)
+  // suppliesAsPurchase    Supply[] @relation("PurchaseUnit")
+  // suppliesAsConsumption Supply[] @relation("ConsumptionUnit")
+
+  @@map("units_of_measure")
+}
+

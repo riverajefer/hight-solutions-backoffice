@@ -66,6 +66,12 @@ async function main() {
 
     // Session Logs
     { name: 'read_session_logs', description: 'Ver registros de inicio y cierre de sesión de usuarios' },
+
+    // Units of Measure
+    { name: 'create_units_of_measure', description: 'Crear unidades de medida' },
+    { name: 'read_units_of_measure', description: 'Ver unidades de medida' },
+    { name: 'update_units_of_measure', description: 'Actualizar unidades de medida' },
+    { name: 'delete_units_of_measure', description: 'Eliminar unidades de medida' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
@@ -156,6 +162,7 @@ async function main() {
     'read_cargos',
     'read_clients',
     'read_suppliers',
+    'read_units_of_measure',
   ]);
 
   // User - solo lectura básica

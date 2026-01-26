@@ -13,6 +13,7 @@ import { CargosModule } from './modules/cargos/cargos.module';
 import { LocationsModule } from './modules/locations/locations.module';
 import { ClientsModule } from './modules/clients/clients.module';
 import { SuppliersModule } from './modules/suppliers/suppliers.module';
+import { UnitsOfMeasureModule } from './modules/portfolio/units-of-measure/units-of-measure.module';
 import { AuditContextInterceptor } from './common/interceptors/audit-context.interceptor';
 
 @Module({
@@ -34,6 +35,8 @@ import { AuditContextInterceptor } from './common/interceptors/audit-context.int
     LocationsModule,
     ClientsModule,
     SuppliersModule,
+    // Módulo de Portfolio (Catálogos de Servicios e Insumos)
+    UnitsOfMeasureModule,
   ],
   providers: [
     {
