@@ -66,6 +66,36 @@ async function main() {
 
     // Session Logs
     { name: 'read_session_logs', description: 'Ver registros de inicio y cierre de sesión de usuarios' },
+
+    // Units of Measure
+    { name: 'create_units_of_measure', description: 'Crear unidades de medida' },
+    { name: 'read_units_of_measure', description: 'Ver unidades de medida' },
+    { name: 'update_units_of_measure', description: 'Actualizar unidades de medida' },
+    { name: 'delete_units_of_measure', description: 'Eliminar unidades de medida' },
+
+    // Service Categories
+    { name: 'create_service_categories', description: 'Crear categorías de servicios' },
+    { name: 'read_service_categories', description: 'Ver categorías de servicios' },
+    { name: 'update_service_categories', description: 'Actualizar categorías de servicios' },
+    { name: 'delete_service_categories', description: 'Eliminar categorías de servicios' },
+
+    // Services
+    { name: 'create_services', description: 'Crear servicios' },
+    { name: 'read_services', description: 'Ver servicios' },
+    { name: 'update_services', description: 'Actualizar servicios' },
+    { name: 'delete_services', description: 'Eliminar servicios' },
+
+    // Supply Categories
+    { name: 'create_supply_categories', description: 'Crear categorías de insumos' },
+    { name: 'read_supply_categories', description: 'Ver categorías de insumos' },
+    { name: 'update_supply_categories', description: 'Actualizar categorías de insumos' },
+    { name: 'delete_supply_categories', description: 'Eliminar categorías de insumos' },
+
+    // Supplies
+    { name: 'create_supplies', description: 'Crear insumos' },
+    { name: 'read_supplies', description: 'Ver insumos' },
+    { name: 'update_supplies', description: 'Actualizar insumos' },
+    { name: 'delete_supplies', description: 'Eliminar insumos' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
@@ -156,6 +186,11 @@ async function main() {
     'read_cargos',
     'read_clients',
     'read_suppliers',
+    'read_units_of_measure',
+    'read_service_categories',
+    'read_services',
+    'read_supply_categories',
+    'read_supplies',
   ]);
 
   // User - solo lectura básica
@@ -356,6 +391,610 @@ async function main() {
   }
 
   // ============================================
+  // 6. Crear Unidades de Medida
+  // ============================================
+  console.log('\n📏 Creating units of measure...');
+
+  const unitsOfMeasureData = [
+    {
+      name: 'metro',
+      abbreviation: 'm',
+      description: 'Unidad de longitud del sistema internacional',
+    },
+    {
+      name: 'metro cuadrado',
+      abbreviation: 'm²',
+      description: 'Unidad de superficie o área',
+    },
+    {
+      name: 'litro',
+      abbreviation: 'L',
+      description: 'Unidad de volumen',
+    },
+    {
+      name: 'mililitro',
+      abbreviation: 'ml',
+      description: 'Unidad de volumen (milésima de litro)',
+    },
+    {
+      name: 'kilogramo',
+      abbreviation: 'kg',
+      description: 'Unidad de masa',
+    },
+    {
+      name: 'gramo',
+      abbreviation: 'g',
+      description: 'Unidad de masa (milésima de kilogramo)',
+    },
+    {
+      name: 'unidad',
+      abbreviation: 'und',
+      description: 'Unidad discreta para conteo de elementos',
+    },
+    {
+      name: 'docena',
+      abbreviation: 'doc',
+      description: 'Conjunto de 12 unidades',
+    },
+    {
+      name: 'ciento',
+      abbreviation: 'cto',
+      description: 'Conjunto de 100 unidades',
+    },
+    {
+      name: 'millar',
+      abbreviation: 'mill',
+      description: 'Conjunto de 1000 unidades',
+    },
+    {
+      name: 'rollo',
+      abbreviation: 'rollo',
+      description: 'Presentación enrollada de material',
+    },
+    {
+      name: 'caja',
+      abbreviation: 'caja',
+      description: 'Presentación en caja contenedora',
+    },
+    {
+      name: 'paquete',
+      abbreviation: 'pqt',
+      description: 'Presentación en paquete',
+    },
+    {
+      name: 'pliego',
+      abbreviation: 'plg',
+      description: 'Unidad de papel o material plano',
+    },
+  ];
+
+  for (const unitData of unitsOfMeasureData) {
+    await prisma.unitOfMeasure.upsert({
+      where: { name: unitData.name },
+      update: {
+        abbreviation: unitData.abbreviation,
+        description: unitData.description,
+      },
+      create: unitData,
+    });
+    console.log(`  ✓ Unit: ${unitData.name} (${unitData.abbreviation})`);
+  }
+
+  // ============================================
+  // 7. Crear Categorías de Servicios
+  // ============================================
+  console.log('\n📦 Creating service categories...');
+
+  const serviceCategoriesData = [
+    {
+      name: 'Impresión Gran Formato',
+      slug: 'impresion-gran-formato',
+      description: 'Servicios de impresión en gran formato como pendones, banners y vallas',
+      icon: '🖨️',
+      sortOrder: 1,
+    },
+    {
+      name: 'Promocionales',
+      slug: 'promocionales',
+      description: 'Artículos promocionales personalizados: gorras, lapiceros, vasos, etc.',
+      icon: '🎁',
+      sortOrder: 2,
+    },
+    {
+      name: 'Papelería',
+      slug: 'papeleria',
+      description: 'Productos de papelería corporativa: tarjetas, cuadernos, volantes',
+      icon: '📄',
+      sortOrder: 3,
+    },
+    {
+      name: 'Señalización',
+      slug: 'senalizacion',
+      description: 'Señalización corporativa e industrial',
+      icon: '🚦',
+      sortOrder: 4,
+    },
+  ];
+
+  for (const categoryData of serviceCategoriesData) {
+    await prisma.serviceCategory.upsert({
+      where: { slug: categoryData.slug },
+      update: {
+        name: categoryData.name,
+        description: categoryData.description,
+        icon: categoryData.icon,
+        sortOrder: categoryData.sortOrder,
+      },
+      create: categoryData,
+    });
+    console.log(`  ✓ Category: ${categoryData.name}`);
+  }
+
+  // ============================================
+  // 8. Crear Servicios de Prueba
+  // ============================================
+  console.log('\n🛠️ Creating services...');
+
+  // Obtener categorías para usar sus IDs
+  const impresionCategory = await prisma.serviceCategory.findUnique({
+    where: { slug: 'impresion-gran-formato' },
+  });
+  const promocionalesCategory = await prisma.serviceCategory.findUnique({
+    where: { slug: 'promocionales' },
+  });
+  const papeleriaCategory = await prisma.serviceCategory.findUnique({
+    where: { slug: 'papeleria' },
+  });
+  const senalizacionCategory = await prisma.serviceCategory.findUnique({
+    where: { slug: 'senalizacion' },
+  });
+
+  const servicesData = [
+    // Impresión Gran Formato
+    {
+      name: 'Pendón 80x200 cm',
+      slug: 'pendon-80x200-cm',
+      description: 'Impresión de pendón en lona mate de alta calidad con estructura metálica',
+      basePrice: 45000,
+      priceUnit: 'por unidad',
+      categoryId: impresionCategory?.id,
+    },
+    {
+      name: 'Pendón 100x200 cm',
+      slug: 'pendon-100x200-cm',
+      description: 'Impresión de pendón en lona mate de alta calidad con estructura metálica',
+      basePrice: 55000,
+      priceUnit: 'por unidad',
+      categoryId: impresionCategory?.id,
+    },
+    {
+      name: 'Banner 1x2 metros',
+      slug: 'banner-1x2-metros',
+      description: 'Banner impreso en lona brillante con ojales para instalación',
+      basePrice: 35000,
+      priceUnit: 'por unidad',
+      categoryId: impresionCategory?.id,
+    },
+    {
+      name: 'Valla Publicitaria 3x2 metros',
+      slug: 'valla-publicitaria-3x2-metros',
+      description: 'Impresión de valla publicitaria en lona reforzada con bastidores',
+      basePrice: 280000,
+      priceUnit: 'por unidad',
+      categoryId: impresionCategory?.id,
+    },
+    {
+      name: 'Pasacalle 1x5 metros',
+      slug: 'pasacalle-1x5-metros',
+      description: 'Pasacalle en lona reforzada con ojales y cuerda',
+      basePrice: 85000,
+      priceUnit: 'por unidad',
+      categoryId: impresionCategory?.id,
+    },
+
+    // Promocionales
+    {
+      name: 'Gorras Bordadas',
+      slug: 'gorras-bordadas',
+      description: 'Gorras de gabardina con logo bordado personalizado',
+      basePrice: 18000,
+      priceUnit: 'por unidad',
+      categoryId: promocionalesCategory?.id,
+    },
+    {
+      name: 'Lapiceros Personalizados',
+      slug: 'lapiceros-personalizados',
+      description: 'Lapiceros plásticos con logo impreso',
+      basePrice: 1200,
+      priceUnit: 'por unidad',
+      categoryId: promocionalesCategory?.id,
+    },
+    {
+      name: 'Termos Metálicos',
+      slug: 'termos-metalicos',
+      description: 'Termos de acero inoxidable 500ml con logo grabado',
+      basePrice: 35000,
+      priceUnit: 'por unidad',
+      categoryId: promocionalesCategory?.id,
+    },
+    {
+      name: 'USB Personalizados 8GB',
+      slug: 'usb-personalizados-8gb',
+      description: 'Memorias USB 8GB con logo impreso',
+      basePrice: 12000,
+      priceUnit: 'por unidad',
+      categoryId: promocionalesCategory?.id,
+    },
+    {
+      name: 'Agendas Corporativas',
+      slug: 'agendas-corporativas',
+      description: 'Agendas tamaño carta con logo estampado en tapa',
+      basePrice: 22000,
+      priceUnit: 'por unidad',
+      categoryId: promocionalesCategory?.id,
+    },
+
+    // Papelería
+    {
+      name: 'Tarjetas de Presentación x 1000',
+      slug: 'tarjetas-presentacion-x-1000',
+      description: 'Tarjetas de presentación propalcote 300gr a full color',
+      basePrice: 75000,
+      priceUnit: 'por millar',
+      categoryId: papeleriaCategory?.id,
+    },
+    {
+      name: 'Volantes Carta x 1000',
+      slug: 'volantes-carta-x-1000',
+      description: 'Volantes tamaño carta en propalcote 150gr a full color',
+      basePrice: 120000,
+      priceUnit: 'por millar',
+      categoryId: papeleriaCategory?.id,
+    },
+    {
+      name: 'Carpetas Corporativas x 100',
+      slug: 'carpetas-corporativas-x-100',
+      description: 'Carpetas tamaño carta en cartulina 240gr plastificadas',
+      basePrice: 180000,
+      priceUnit: 'por ciento',
+      categoryId: papeleriaCategory?.id,
+    },
+    {
+      name: 'Stickers Troquelados x 100',
+      slug: 'stickers-troquelados-x-100',
+      description: 'Stickers personalizados con corte según diseño',
+      basePrice: 45000,
+      priceUnit: 'por ciento',
+      categoryId: papeleriaCategory?.id,
+    },
+    {
+      name: 'Sellos Automáticos',
+      slug: 'sellos-automaticos',
+      description: 'Sello automático personalizado con tinta',
+      basePrice: 28000,
+      priceUnit: 'por unidad',
+      categoryId: papeleriaCategory?.id,
+    },
+
+    // Señalización
+    {
+      name: 'Letrero Acrílico con Luz LED',
+      slug: 'letrero-acrilico-con-luz-led',
+      description: 'Letrero en acrílico 3mm con iluminación LED perimetral',
+      basePrice: 15000,
+      priceUnit: 'por metro lineal',
+      categoryId: senalizacionCategory?.id,
+    },
+    {
+      name: 'Señal de Seguridad 30x40 cm',
+      slug: 'senal-seguridad-30x40-cm',
+      description: 'Señalización de seguridad industrial en reflectivo',
+      basePrice: 22000,
+      priceUnit: 'por unidad',
+      categoryId: senalizacionCategory?.id,
+    },
+    {
+      name: 'Aviso Institucional en Dibond',
+      slug: 'aviso-institucional-dibond',
+      description: 'Aviso institucional impreso sobre dibond 3mm',
+      basePrice: 85000,
+      priceUnit: 'por metro cuadrado',
+      categoryId: senalizacionCategory?.id,
+    },
+    {
+      name: 'Letras Corpóreas en PVC',
+      slug: 'letras-corporeas-pvc',
+      description: 'Letras corpóreas en PVC de 10mm de espesor',
+      basePrice: 12000,
+      priceUnit: 'por centímetro de altura',
+      categoryId: senalizacionCategory?.id,
+    },
+  ];
+
+  let servicesCreated = 0;
+  for (const serviceData of servicesData) {
+    if (serviceData.categoryId) {
+      await prisma.service.upsert({
+        where: { slug: serviceData.slug },
+        update: {
+          name: serviceData.name,
+          description: serviceData.description,
+          basePrice: serviceData.basePrice,
+          priceUnit: serviceData.priceUnit,
+        },
+        create: {
+          name: serviceData.name,
+          slug: serviceData.slug,
+          description: serviceData.description,
+          basePrice: serviceData.basePrice,
+          priceUnit: serviceData.priceUnit,
+          categoryId: serviceData.categoryId,
+        },
+      });
+      console.log(`  ✓ Service: ${serviceData.name}`);
+      servicesCreated++;
+    }
+  }
+
+  // ============================================
+  // 9. Crear Categorías de Insumos
+  // ============================================
+  console.log('\n📦 Creating supply categories...');
+
+  const supplyCategoriesData = [
+    {
+      name: 'Telas y Lonas',
+      slug: 'telas-y-lonas',
+      description: 'Materiales textiles y lonas para impresión gran formato',
+      icon: '🧵',
+      sortOrder: 1,
+    },
+    {
+      name: 'Tintas',
+      slug: 'tintas',
+      description: 'Tintas para impresoras de gran formato y sublimación',
+      icon: '🎨',
+      sortOrder: 2,
+    },
+    {
+      name: 'Productos Base',
+      slug: 'productos-base',
+      description: 'Artículos base para personalización (gorras, termos, lapiceros, etc.)',
+      icon: '📦',
+      sortOrder: 3,
+    },
+    {
+      name: 'Papelería y Cartón',
+      slug: 'papeleria-y-carton',
+      description: 'Papel, cartulina, cartón corrugado y materiales para impresión',
+      icon: '📄',
+      sortOrder: 4,
+    },
+    {
+      name: 'Materiales Rígidos',
+      slug: 'materiales-rigidos',
+      description: 'Acrílico, PVC, dibond y otros materiales rígidos',
+      icon: '🔲',
+      sortOrder: 5,
+    },
+    {
+      name: 'Consumibles',
+      slug: 'consumibles',
+      description: 'Adhesivos, cintas, cuerdas y otros consumibles',
+      icon: '🔧',
+      sortOrder: 6,
+    },
+  ];
+
+  for (const categoryData of supplyCategoriesData) {
+    await prisma.supplyCategory.upsert({
+      where: { slug: categoryData.slug },
+      update: {
+        name: categoryData.name,
+        description: categoryData.description,
+        icon: categoryData.icon,
+        sortOrder: categoryData.sortOrder,
+      },
+      create: categoryData,
+    });
+    console.log(`  ✓ Category: ${categoryData.name}`);
+  }
+
+  // ============================================
+  // 10. Crear Insumos de Prueba
+  // ============================================
+  console.log('\n📦 Creating supplies...');
+
+  // Obtener categorías de insumos
+  const telasCategory = await prisma.supplyCategory.findUnique({
+    where: { slug: 'telas-y-lonas' },
+  });
+  const tintasCategory = await prisma.supplyCategory.findUnique({
+    where: { slug: 'tintas' },
+  });
+  const productosBaseCategory = await prisma.supplyCategory.findUnique({
+    where: { slug: 'productos-base' },
+  });
+  const papeleriaCategorySupplies = await prisma.supplyCategory.findUnique({
+    where: { slug: 'papeleria-y-carton' },
+  });
+  const materialesRigidosCategory = await prisma.supplyCategory.findUnique({
+    where: { slug: 'materiales-rigidos' },
+  });
+
+  // Obtener unidades de medida
+  const metroUnit = await prisma.unitOfMeasure.findUnique({ where: { name: 'metro' } });
+  const metrosCuadradosUnit = await prisma.unitOfMeasure.findUnique({ where: { name: 'metro cuadrado' } });
+  const litroUnit = await prisma.unitOfMeasure.findUnique({ where: { name: 'litro' } });
+  const kilogramoUnit = await prisma.unitOfMeasure.findUnique({ where: { name: 'kilogramo' } });
+  const unidadUnit = await prisma.unitOfMeasure.findUnique({ where: { name: 'unidad' } });
+  const pliegoUnit = await prisma.unitOfMeasure.findUnique({ where: { name: 'pliego' } });
+  const cajaUnit = await prisma.unitOfMeasure.findUnique({ where: { name: 'caja' } });
+
+  const suppliesData = [
+    // Telas y Lonas
+    {
+      name: 'Lona Mate 13 oz',
+      sku: 'LM-13OZ',
+      description: 'Lona mate de 13 onzas para impresión de alta calidad',
+      categoryId: telasCategory?.id,
+      purchasePrice: 25000,
+      purchaseUnitId: metroUnit?.id,
+      consumptionUnitId: metrosCuadradosUnit?.id,
+      conversionFactor: 1.5,
+      currentStock: 150,
+      minimumStock: 50,
+    },
+    {
+      name: 'Lona Brillante 10 oz',
+      sku: 'LB-10OZ',
+      description: 'Lona brillante de 10 onzas para uso exterior',
+      categoryId: telasCategory?.id,
+      purchasePrice: 20000,
+      purchaseUnitId: metroUnit?.id,
+      consumptionUnitId: metrosCuadradosUnit?.id,
+      conversionFactor: 1.5,
+      currentStock: 80,
+      minimumStock: 30,
+    },
+
+    // Tintas
+    {
+      name: 'Tinta Ecosolvente Negra',
+      sku: 'TECO-BLACK-1L',
+      description: 'Tinta ecosolvente negra para impresoras gran formato',
+      categoryId: tintasCategory?.id,
+      purchasePrice: 85000,
+      purchaseUnitId: litroUnit?.id,
+      consumptionUnitId: litroUnit?.id,
+      conversionFactor: 1,
+      currentStock: 25,
+      minimumStock: 10,
+    },
+    {
+      name: 'Tinta Ecosolvente Cyan',
+      sku: 'TECO-CYAN-1L',
+      description: 'Tinta ecosolvente cyan para impresoras gran formato',
+      categoryId: tintasCategory?.id,
+      purchasePrice: 85000,
+      purchaseUnitId: litroUnit?.id,
+      consumptionUnitId: litroUnit?.id,
+      conversionFactor: 1,
+      currentStock: 20,
+      minimumStock: 10,
+    },
+
+    // Productos Base
+    {
+      name: 'Gorras Gabardina Blancas',
+      sku: 'GORRA-GAB-WHT',
+      description: 'Gorras de gabardina color blanco para personalización',
+      categoryId: productosBaseCategory?.id,
+      purchasePrice: 8000,
+      purchaseUnitId: unidadUnit?.id,
+      consumptionUnitId: unidadUnit?.id,
+      conversionFactor: 1,
+      currentStock: 200,
+      minimumStock: 50,
+    },
+    {
+      name: 'Lapiceros Plásticos',
+      sku: 'LAP-PLAS-BLU',
+      description: 'Lapiceros plásticos azules para personalización',
+      categoryId: productosBaseCategory?.id,
+      purchasePrice: 800,
+      purchaseUnitId: unidadUnit?.id,
+      consumptionUnitId: unidadUnit?.id,
+      conversionFactor: 1,
+      currentStock: 1000,
+      minimumStock: 200,
+    },
+
+    // Papelería y Cartón
+    {
+      name: 'Propalcote 300 gr',
+      sku: 'PROP-300',
+      description: 'Papel propalcote 300 gramos para tarjetas',
+      categoryId: papeleriaCategorySupplies?.id,
+      purchasePrice: 45000,
+      purchaseUnitId: pliegoUnit?.id,
+      consumptionUnitId: pliegoUnit?.id,
+      conversionFactor: 1,
+      currentStock: 500,
+      minimumStock: 100,
+    },
+    {
+      name: 'Cartulina Bristol 240 gr',
+      sku: 'BRIS-240',
+      description: 'Cartulina bristol 240 gramos para carpetas',
+      categoryId: papeleriaCategorySupplies?.id,
+      purchasePrice: 35000,
+      purchaseUnitId: pliegoUnit?.id,
+      consumptionUnitId: pliegoUnit?.id,
+      conversionFactor: 1,
+      currentStock: 300,
+      minimumStock: 80,
+    },
+
+    // Materiales Rígidos
+    {
+      name: 'Acrílico 3mm Transparente',
+      sku: 'ACR-3MM-TRA',
+      description: 'Lámina de acrílico transparente de 3mm',
+      categoryId: materialesRigidosCategory?.id,
+      purchasePrice: 95000,
+      purchaseUnitId: metrosCuadradosUnit?.id,
+      consumptionUnitId: metrosCuadradosUnit?.id,
+      conversionFactor: 1,
+      currentStock: 25,
+      minimumStock: 10,
+    },
+    {
+      name: 'PVC Espumado 10mm',
+      sku: 'PVC-10MM',
+      description: 'Plancha de PVC espumado de 10mm',
+      categoryId: materialesRigidosCategory?.id,
+      purchasePrice: 75000,
+      purchaseUnitId: metrosCuadradosUnit?.id,
+      consumptionUnitId: metrosCuadradosUnit?.id,
+      conversionFactor: 1,
+      currentStock: 30,
+      minimumStock: 15,
+    },
+  ];
+
+  let suppliesCreated = 0;
+  for (const supplyData of suppliesData) {
+    if (supplyData.categoryId && supplyData.purchaseUnitId && supplyData.consumptionUnitId) {
+      await prisma.supply.upsert({
+        where: { sku: supplyData.sku },
+        update: {
+          name: supplyData.name,
+          description: supplyData.description,
+          purchasePrice: supplyData.purchasePrice,
+          conversionFactor: supplyData.conversionFactor,
+          currentStock: supplyData.currentStock,
+          minimumStock: supplyData.minimumStock,
+        },
+        create: {
+          name: supplyData.name,
+          sku: supplyData.sku,
+          description: supplyData.description,
+          purchasePrice: supplyData.purchasePrice,
+          conversionFactor: supplyData.conversionFactor,
+          currentStock: supplyData.currentStock,
+          minimumStock: supplyData.minimumStock,
+          category: { connect: { id: supplyData.categoryId } },
+          purchaseUnit: { connect: { id: supplyData.purchaseUnitId } },
+          consumptionUnit: { connect: { id: supplyData.consumptionUnitId } },
+        },
+      });
+      console.log(`  ✓ Supply: ${supplyData.name}`);
+      suppliesCreated++;
+    }
+  }
+
+  // ============================================
   // Resumen
   // ============================================
   console.log('\n' + '='.repeat(50));
@@ -368,6 +1007,11 @@ async function main() {
   console.log(`   - Cargos: ${cargosData.length}`);
   console.log(`   - Departments: ${departmentsData.length}`);
   console.log(`   - Cities: ${totalCities}`);
+  console.log(`   - Units of Measure: ${unitsOfMeasureData.length}`);
+  console.log(`   - Service Categories: ${serviceCategoriesData.length}`);
+  console.log(`   - Services: ${servicesCreated}`);
+  console.log(`   - Supply Categories: ${supplyCategoriesData.length}`);
+  console.log(`   - Supplies: ${suppliesCreated}`);
   console.log('\n🔐 Test Credentials:');
   console.log('   Admin:   admin@example.com / admin123');
   console.log('   Manager: manager@example.com / manager123');

@@ -213,3 +213,112 @@ model SessionLog {
   @@map("session_logs")
 }
 
+// =============================================================================
+// MÓDULO DE CATÁLOGOS - FASE 1: UNIDADES DE MEDIDA
+// =============================================================================
+
+model UnitOfMeasure {
+  id           String   @id @default(uuid())
+  name         String   @unique
+  abbreviation String   @unique
+  description  String?
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  suppliesAsPurchase    Supply[] @relation("PurchaseUnit")
+  suppliesAsConsumption Supply[] @relation("ConsumptionUnit")
+
+  @@map("units_of_measure")
+}
+
+// =============================================================================
+// MÓDULO DE CATÁLOGOS - FASE 2: CATEGORÍAS DE SERVICIOS
+// =============================================================================
+
+model ServiceCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  icon        String?
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  services Service[]
+
+  @@map("service_categories")
+}
+
+// =============================================================================
+// MÓDULO DE CATÁLOGOS - FASE 3: SERVICIOS
+// =============================================================================
+
+model Service {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  basePrice   Decimal? @map("base_price")
+  priceUnit   String?  @map("price_unit")
+  categoryId  String   @map("category_id")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  category ServiceCategory @relation(fields: [categoryId], references: [id])
+
+  @@unique([name, categoryId])
+  @@map("services")
+}
+
+// =============================================================================
+// MÓDULO DE CATÁLOGOS - FASE 4: CATEGORÍAS DE INSUMOS
+// =============================================================================
+
+model SupplyCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  icon        String?
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  supplies Supply[]
+
+  @@map("supply_categories")
+}
+
+// =============================================================================
+// MÓDULO DE CATÁLOGOS - FASE 5: INSUMOS
+// =============================================================================
+
+model Supply {
+  id                   String   @id @default(uuid())
+  name                 String
+  sku                  String?  @unique
+  description          String?
+  categoryId           String   @map("category_id")
+  purchasePrice        Decimal? @map("purchase_price")
+  purchaseUnitId       String   @map("purchase_unit_id")
+  consumptionUnitId    String   @map("consumption_unit_id")
+  conversionFactor     Decimal  @default(1) @map("conversion_factor")
+  currentStock         Decimal  @default(0) @map("current_stock")
+  minimumStock         Decimal  @default(0) @map("minimum_stock")
+  isActive             Boolean  @default(true) @map("is_active")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  category          SupplyCategory @relation(fields: [categoryId], references: [id])
+  purchaseUnit      UnitOfMeasure  @relation("PurchaseUnit", fields: [purchaseUnitId], references: [id])
+  consumptionUnit   UnitOfMeasure  @relation("ConsumptionUnit", fields: [consumptionUnitId], references: [id])
+
+  @@unique([name, categoryId])
+  @@map("supplies")
+}
+
