@@ -248,9 +248,30 @@ model ServiceCategory {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  // Relación futura con Services (comentada por ahora)
-  // services Service[]
+  services Service[]
 
   @@map("service_categories")
+}
+
+// =============================================================================
+// MÓDULO DE CATÁLOGOS - FASE 3: SERVICIOS
+// =============================================================================
+
+model Service {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  basePrice   Decimal? @map("base_price")
+  priceUnit   String?  @map("price_unit")
+  categoryId  String   @map("category_id")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  category ServiceCategory @relation(fields: [categoryId], references: [id])
+
+  @@unique([name, categoryId])
+  @@map("services")
 }
 

@@ -15,6 +15,7 @@ import { ClientsModule } from './modules/clients/clients.module';
 import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { UnitsOfMeasureModule } from './modules/portfolio/units-of-measure/units-of-measure.module';
 import { ServiceCategoriesModule } from './modules/portfolio/service-categories/service-categories.module';
+import { ServicesModule } from './modules/portfolio/services/services.module';
 import { AuditContextInterceptor } from './common/interceptors/audit-context.interceptor';
 
 @Module({
@@ -39,6 +40,7 @@ import { AuditContextInterceptor } from './common/interceptors/audit-context.int
     // Módulo de Portfolio (Catálogos de Servicios e Insumos)
     UnitsOfMeasureModule,
     ServiceCategoriesModule,
+    ServicesModule,
   ],
   providers: [
     {

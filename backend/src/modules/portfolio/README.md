@@ -8,7 +8,7 @@ Este directorio contiene todos los módulos relacionados con el **portafolio de 
 portfolio/
 ├── units-of-measure/     ✅ Unidades de medida (metro, litro, unidad, etc.)
 ├── service-categories/   ✅ Categorías de servicios (Impresión, Promocionales, etc.)
-├── services/             ⏳ Servicios ofrecidos (Pendones, Banners, etc.)
+├── services/             ✅ Servicios ofrecidos (Pendones, Banners, etc.)
 ├── supply-categories/    ⏳ Categorías de insumos (Telas, Tintas, etc.)
 └── supplies/             ⏳ Insumos y materiales (Telas, Tintas, Productos base, etc.)
 ```
@@ -58,10 +58,42 @@ Gestiona las categorías para organizar los servicios ofrecidos por Hight Soluti
 - `icon` - Icono o emoji
 - `sortOrder` - Orden de visualización
 
-## Próximos Módulos
+### ✅ Services (Servicios)
+**Ruta:** `/api/v1/services`
 
-### ⏳ Services (Servicios)
-Servicios que ofrece Hight Solutions (Pendones, Banners, Gorras, Lapiceros, etc.)
+Gestiona los servicios ofrecidos por Hight Solutions (impresiones, promocionales, papelería, etc.).
+
+**Endpoints:**
+- `GET /services` - Listar todos (con filtros por categoría)
+- `GET /services/:id` - Obtener por ID
+- `POST /services` - Crear nuevo
+- `PUT /services/:id` - Actualizar
+- `DELETE /services/:id` - Soft delete
+
+**Permisos:**
+- `create_services`
+- `read_services`
+- `update_services`
+- `delete_services`
+
+**Campos:**
+- `name` - Nombre del servicio (único dentro de categoría)
+- `slug` - URL-friendly slug (único globalmente)
+- `description` - Descripción del servicio
+- `basePrice` - Precio base (Decimal, opcional)
+- `priceUnit` - Unidad de precio (por unidad, por m², etc.)
+- `categoryId` - Relación con ServiceCategory
+
+**Ejemplos de servicios:**
+- Pendones 80x200 cm, 100x200 cm
+- Banners 1x2 metros
+- Vallas publicitarias
+- Gorras bordadas
+- Lapiceros personalizados
+- Tarjetas de presentación
+- Señalización de seguridad
+
+## Próximos Módulos
 
 ### ⏳ Supply Categories (Categorías de Insumos)
 Categorías para agrupar insumos (Telas y Lonas, Tintas, Productos Base, etc.)
@@ -71,4 +103,4 @@ Materiales e insumos utilizados en la producción (con gestión de inventario)
 
 ---
 
-**Última actualización:** 2026-01-26
+**Última actualización:** 2026-01-27

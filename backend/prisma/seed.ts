@@ -78,6 +78,12 @@ async function main() {
     { name: 'read_service_categories', description: 'Ver categorías de servicios' },
     { name: 'update_service_categories', description: 'Actualizar categorías de servicios' },
     { name: 'delete_service_categories', description: 'Eliminar categorías de servicios' },
+
+    // Services
+    { name: 'create_services', description: 'Crear servicios' },
+    { name: 'read_services', description: 'Ver servicios' },
+    { name: 'update_services', description: 'Actualizar servicios' },
+    { name: 'delete_services', description: 'Eliminar servicios' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
@@ -170,6 +176,7 @@ async function main() {
     'read_suppliers',
     'read_units_of_measure',
     'read_service_categories',
+    'read_services',
   ]);
 
   // User - solo lectura básica
@@ -510,6 +517,212 @@ async function main() {
   }
 
   // ============================================
+  // 8. Crear Servicios de Prueba
+  // ============================================
+  console.log('\n🛠️ Creating services...');
+
+  // Obtener categorías para usar sus IDs
+  const impresionCategory = await prisma.serviceCategory.findUnique({
+    where: { slug: 'impresion-gran-formato' },
+  });
+  const promocionalesCategory = await prisma.serviceCategory.findUnique({
+    where: { slug: 'promocionales' },
+  });
+  const papeleriaCategory = await prisma.serviceCategory.findUnique({
+    where: { slug: 'papeleria' },
+  });
+  const senalizacionCategory = await prisma.serviceCategory.findUnique({
+    where: { slug: 'senalizacion' },
+  });
+
+  const servicesData = [
+    // Impresión Gran Formato
+    {
+      name: 'Pendón 80x200 cm',
+      slug: 'pendon-80x200-cm',
+      description: 'Impresión de pendón en lona mate de alta calidad con estructura metálica',
+      basePrice: 45000,
+      priceUnit: 'por unidad',
+      categoryId: impresionCategory?.id,
+    },
+    {
+      name: 'Pendón 100x200 cm',
+      slug: 'pendon-100x200-cm',
+      description: 'Impresión de pendón en lona mate de alta calidad con estructura metálica',
+      basePrice: 55000,
+      priceUnit: 'por unidad',
+      categoryId: impresionCategory?.id,
+    },
+    {
+      name: 'Banner 1x2 metros',
+      slug: 'banner-1x2-metros',
+      description: 'Banner impreso en lona brillante con ojales para instalación',
+      basePrice: 35000,
+      priceUnit: 'por unidad',
+      categoryId: impresionCategory?.id,
+    },
+    {
+      name: 'Valla Publicitaria 3x2 metros',
+      slug: 'valla-publicitaria-3x2-metros',
+      description: 'Impresión de valla publicitaria en lona reforzada con bastidores',
+      basePrice: 280000,
+      priceUnit: 'por unidad',
+      categoryId: impresionCategory?.id,
+    },
+    {
+      name: 'Pasacalle 1x5 metros',
+      slug: 'pasacalle-1x5-metros',
+      description: 'Pasacalle en lona reforzada con ojales y cuerda',
+      basePrice: 85000,
+      priceUnit: 'por unidad',
+      categoryId: impresionCategory?.id,
+    },
+
+    // Promocionales
+    {
+      name: 'Gorras Bordadas',
+      slug: 'gorras-bordadas',
+      description: 'Gorras de gabardina con logo bordado personalizado',
+      basePrice: 18000,
+      priceUnit: 'por unidad',
+      categoryId: promocionalesCategory?.id,
+    },
+    {
+      name: 'Lapiceros Personalizados',
+      slug: 'lapiceros-personalizados',
+      description: 'Lapiceros plásticos con logo impreso',
+      basePrice: 1200,
+      priceUnit: 'por unidad',
+      categoryId: promocionalesCategory?.id,
+    },
+    {
+      name: 'Termos Metálicos',
+      slug: 'termos-metalicos',
+      description: 'Termos de acero inoxidable 500ml con logo grabado',
+      basePrice: 35000,
+      priceUnit: 'por unidad',
+      categoryId: promocionalesCategory?.id,
+    },
+    {
+      name: 'USB Personalizados 8GB',
+      slug: 'usb-personalizados-8gb',
+      description: 'Memorias USB 8GB con logo impreso',
+      basePrice: 12000,
+      priceUnit: 'por unidad',
+      categoryId: promocionalesCategory?.id,
+    },
+    {
+      name: 'Agendas Corporativas',
+      slug: 'agendas-corporativas',
+      description: 'Agendas tamaño carta con logo estampado en tapa',
+      basePrice: 22000,
+      priceUnit: 'por unidad',
+      categoryId: promocionalesCategory?.id,
+    },
+
+    // Papelería
+    {
+      name: 'Tarjetas de Presentación x 1000',
+      slug: 'tarjetas-presentacion-x-1000',
+      description: 'Tarjetas de presentación propalcote 300gr a full color',
+      basePrice: 75000,
+      priceUnit: 'por millar',
+      categoryId: papeleriaCategory?.id,
+    },
+    {
+      name: 'Volantes Carta x 1000',
+      slug: 'volantes-carta-x-1000',
+      description: 'Volantes tamaño carta en propalcote 150gr a full color',
+      basePrice: 120000,
+      priceUnit: 'por millar',
+      categoryId: papeleriaCategory?.id,
+    },
+    {
+      name: 'Carpetas Corporativas x 100',
+      slug: 'carpetas-corporativas-x-100',
+      description: 'Carpetas tamaño carta en cartulina 240gr plastificadas',
+      basePrice: 180000,
+      priceUnit: 'por ciento',
+      categoryId: papeleriaCategory?.id,
+    },
+    {
+      name: 'Stickers Troquelados x 100',
+      slug: 'stickers-troquelados-x-100',
+      description: 'Stickers personalizados con corte según diseño',
+      basePrice: 45000,
+      priceUnit: 'por ciento',
+      categoryId: papeleriaCategory?.id,
+    },
+    {
+      name: 'Sellos Automáticos',
+      slug: 'sellos-automaticos',
+      description: 'Sello automático personalizado con tinta',
+      basePrice: 28000,
+      priceUnit: 'por unidad',
+      categoryId: papeleriaCategory?.id,
+    },
+
+    // Señalización
+    {
+      name: 'Letrero Acrílico con Luz LED',
+      slug: 'letrero-acrilico-con-luz-led',
+      description: 'Letrero en acrílico 3mm con iluminación LED perimetral',
+      basePrice: 15000,
+      priceUnit: 'por metro lineal',
+      categoryId: senalizacionCategory?.id,
+    },
+    {
+      name: 'Señal de Seguridad 30x40 cm',
+      slug: 'senal-seguridad-30x40-cm',
+      description: 'Señalización de seguridad industrial en reflectivo',
+      basePrice: 22000,
+      priceUnit: 'por unidad',
+      categoryId: senalizacionCategory?.id,
+    },
+    {
+      name: 'Aviso Institucional en Dibond',
+      slug: 'aviso-institucional-dibond',
+      description: 'Aviso institucional impreso sobre dibond 3mm',
+      basePrice: 85000,
+      priceUnit: 'por metro cuadrado',
+      categoryId: senalizacionCategory?.id,
+    },
+    {
+      name: 'Letras Corpóreas en PVC',
+      slug: 'letras-corporeas-pvc',
+      description: 'Letras corpóreas en PVC de 10mm de espesor',
+      basePrice: 12000,
+      priceUnit: 'por centímetro de altura',
+      categoryId: senalizacionCategory?.id,
+    },
+  ];
+
+  let servicesCreated = 0;
+  for (const serviceData of servicesData) {
+    if (serviceData.categoryId) {
+      await prisma.service.upsert({
+        where: { slug: serviceData.slug },
+        update: {
+          name: serviceData.name,
+          description: serviceData.description,
+          basePrice: serviceData.basePrice,
+          priceUnit: serviceData.priceUnit,
+        },
+        create: {
+          name: serviceData.name,
+          slug: serviceData.slug,
+          description: serviceData.description,
+          basePrice: serviceData.basePrice,
+          priceUnit: serviceData.priceUnit,
+          categoryId: serviceData.categoryId,
+        },
+      });
+      console.log(`  ✓ Service: ${serviceData.name}`);
+      servicesCreated++;
+    }
+  }
+
+  // ============================================
   // Resumen
   // ============================================
   console.log('\n' + '='.repeat(50));
@@ -524,6 +737,7 @@ async function main() {
   console.log(`   - Cities: ${totalCities}`);
   console.log(`   - Units of Measure: ${unitsOfMeasureData.length}`);
   console.log(`   - Service Categories: ${serviceCategoriesData.length}`);
+  console.log(`   - Services: ${servicesCreated}`);
   console.log('\n🔐 Test Credentials:');
   console.log('   Admin:   admin@example.com / admin123');
   console.log('   Manager: manager@example.com / manager123');
