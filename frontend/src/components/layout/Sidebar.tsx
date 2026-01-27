@@ -26,6 +26,7 @@ import BadgeIcon from '@mui/icons-material/Badge';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import StraightenIcon from '@mui/icons-material/Straighten';
+import CategoryIcon from '@mui/icons-material/Category';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import { useAuthStore } from '../../store/authStore';
@@ -151,6 +152,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
           icon: <StraightenIcon />,
           path: ROUTES.UNITS_OF_MEASURE,
           permission: PERMISSIONS.READ_UNITS_OF_MEASURE,
+        },
+        {
+          label: 'Categorías de Servicios',
+          icon: <CategoryIcon />,
+          path: ROUTES.SERVICE_CATEGORIES,
+          permission: PERMISSIONS.READ_SERVICE_CATEGORIES,
         },
       ],
       permission: PERMISSIONS.READ_UNITS_OF_MEASURE,

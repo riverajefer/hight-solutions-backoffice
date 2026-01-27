@@ -36,6 +36,9 @@ const ProfilePage = lazy(() => import('../features/settings/pages/ProfilePage'))
 // Portfolio - Units of Measure
 const UnitsOfMeasureListPage = lazy(() => import('../features/portfolio/units-of-measure/pages/UnitsOfMeasureListPage'));
 const UnitOfMeasureFormPage = lazy(() => import('../features/portfolio/units-of-measure/pages/UnitOfMeasureFormPage'));
+// Portfolio - Service Categories
+const ServiceCategoriesListPage = lazy(() => import('../features/portfolio/service-categories/pages/ServiceCategoriesListPage'));
+const ServiceCategoryFormPage = lazy(() => import('../features/portfolio/service-categories/pages/ServiceCategoryFormPage'));
 
 
 const RoutesConfig: FC = () => {
@@ -442,6 +445,44 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.UPDATE_UNITS_OF_MEASURE}>
                   <UnitOfMeasureFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Service Categories Routes */}
+        <Route
+          path={PATHS.SERVICE_CATEGORIES}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_SERVICE_CATEGORIES}>
+                  <ServiceCategoriesListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.SERVICE_CATEGORIES_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_SERVICE_CATEGORIES}>
+                  <ServiceCategoryFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.SERVICE_CATEGORIES_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_SERVICE_CATEGORIES}>
+                  <ServiceCategoryFormPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

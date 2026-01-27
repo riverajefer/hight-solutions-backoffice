@@ -39,5 +39,8 @@ export const PATHS = {
   UNITS_OF_MEASURE: '/portfolio/units-of-measure',
   UNITS_OF_MEASURE_CREATE: '/portfolio/units-of-measure/new',
   UNITS_OF_MEASURE_EDIT: '/portfolio/units-of-measure/:id/edit',
+  SERVICE_CATEGORIES: '/portfolio/service-categories',
+  SERVICE_CATEGORIES_CREATE: '/portfolio/service-categories/new',
+  SERVICE_CATEGORIES_EDIT: '/portfolio/service-categories/:id/edit',
 };
 
