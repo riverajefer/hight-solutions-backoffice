@@ -370,6 +370,146 @@ async function main() {
   }
 
   // ============================================
+  // 6. Crear Unidades de Medida
+  // ============================================
+  console.log('\n📏 Creating units of measure...');
+
+  const unitsOfMeasureData = [
+    {
+      name: 'metro',
+      abbreviation: 'm',
+      description: 'Unidad de longitud del sistema internacional',
+    },
+    {
+      name: 'metro cuadrado',
+      abbreviation: 'm²',
+      description: 'Unidad de superficie o área',
+    },
+    {
+      name: 'litro',
+      abbreviation: 'L',
+      description: 'Unidad de volumen',
+    },
+    {
+      name: 'mililitro',
+      abbreviation: 'ml',
+      description: 'Unidad de volumen (milésima de litro)',
+    },
+    {
+      name: 'kilogramo',
+      abbreviation: 'kg',
+      description: 'Unidad de masa',
+    },
+    {
+      name: 'gramo',
+      abbreviation: 'g',
+      description: 'Unidad de masa (milésima de kilogramo)',
+    },
+    {
+      name: 'unidad',
+      abbreviation: 'und',
+      description: 'Unidad discreta para conteo de elementos',
+    },
+    {
+      name: 'docena',
+      abbreviation: 'doc',
+      description: 'Conjunto de 12 unidades',
+    },
+    {
+      name: 'ciento',
+      abbreviation: 'cto',
+      description: 'Conjunto de 100 unidades',
+    },
+    {
+      name: 'millar',
+      abbreviation: 'mill',
+      description: 'Conjunto de 1000 unidades',
+    },
+    {
+      name: 'rollo',
+      abbreviation: 'rollo',
+      description: 'Presentación enrollada de material',
+    },
+    {
+      name: 'caja',
+      abbreviation: 'caja',
+      description: 'Presentación en caja contenedora',
+    },
+    {
+      name: 'paquete',
+      abbreviation: 'pqt',
+      description: 'Presentación en paquete',
+    },
+    {
+      name: 'pliego',
+      abbreviation: 'plg',
+      description: 'Unidad de papel o material plano',
+    },
+  ];
+
+  for (const unitData of unitsOfMeasureData) {
+    await prisma.unitOfMeasure.upsert({
+      where: { name: unitData.name },
+      update: {
+        abbreviation: unitData.abbreviation,
+        description: unitData.description,
+      },
+      create: unitData,
+    });
+    console.log(`  ✓ Unit: ${unitData.name} (${unitData.abbreviation})`);
+  }
+
+  // ============================================
+  // 7. Crear Categorías de Servicios
+  // ============================================
+  console.log('\n📦 Creating service categories...');
+
+  const serviceCategoriesData = [
+    {
+      name: 'Impresión Gran Formato',
+      slug: 'impresion-gran-formato',
+      description: 'Servicios de impresión en gran formato como pendones, banners y vallas',
+      icon: '🖨️',
+      sortOrder: 1,
+    },
+    {
+      name: 'Promocionales',
+      slug: 'promocionales',
+      description: 'Artículos promocionales personalizados: gorras, lapiceros, vasos, etc.',
+      icon: '🎁',
+      sortOrder: 2,
+    },
+    {
+      name: 'Papelería',
+      slug: 'papeleria',
+      description: 'Productos de papelería corporativa: tarjetas, cuadernos, volantes',
+      icon: '📄',
+      sortOrder: 3,
+    },
+    {
+      name: 'Señalización',
+      slug: 'senalizacion',
+      description: 'Señalización corporativa e industrial',
+      icon: '🚦',
+      sortOrder: 4,
+    },
+  ];
+
+  for (const categoryData of serviceCategoriesData) {
+    await prisma.serviceCategory.upsert({
+      where: { slug: categoryData.slug },
+      update: {
+        name: categoryData.name,
+        description: categoryData.description,
+        icon: categoryData.icon,
+        sortOrder: categoryData.sortOrder,
+      },
+      create: categoryData,
+    });
+    console.log(`  ✓ Category: ${categoryData.name}`);
+  }
+
+  // ============================================
   // Resumen
   // ============================================
   console.log('\n' + '='.repeat(50));
@@ -382,6 +522,8 @@ async function main() {
   console.log(`   - Cargos: ${cargosData.length}`);
   console.log(`   - Departments: ${departmentsData.length}`);
   console.log(`   - Cities: ${totalCities}`);
+  console.log(`   - Units of Measure: ${unitsOfMeasureData.length}`);
+  console.log(`   - Service Categories: ${serviceCategoriesData.length}`);
   console.log('\n🔐 Test Credentials:');
   console.log('   Admin:   admin@example.com / admin123');
   console.log('   Manager: manager@example.com / manager123');
