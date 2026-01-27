@@ -33,6 +33,9 @@ const SupplierFormPage = lazy(() => import('../features/suppliers/pages/Supplier
 const SupplierDetailPage = lazy(() => import('../features/suppliers/pages/SupplierDetailPage'));
 const SessionLogsPage = lazy(() => import('../features/session-logs/pages/SessionLogsPage'));
 const ProfilePage = lazy(() => import('../features/settings/pages/ProfilePage'));
+// Portfolio - Units of Measure
+const UnitsOfMeasureListPage = lazy(() => import('../features/portfolio/units-of-measure/pages/UnitsOfMeasureListPage'));
+const UnitOfMeasureFormPage = lazy(() => import('../features/portfolio/units-of-measure/pages/UnitOfMeasureFormPage'));
 
 
 const RoutesConfig: FC = () => {
@@ -401,6 +404,44 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.UPDATE_SUPPLIERS}>
                   <SupplierFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Units of Measure Routes */}
+        <Route
+          path={PATHS.UNITS_OF_MEASURE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_UNITS_OF_MEASURE}>
+                  <UnitsOfMeasureListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.UNITS_OF_MEASURE_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_UNITS_OF_MEASURE}>
+                  <UnitOfMeasureFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.UNITS_OF_MEASURE_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_UNITS_OF_MEASURE}>
+                  <UnitOfMeasureFormPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

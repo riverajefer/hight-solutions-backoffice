@@ -37,6 +37,11 @@ export const PERMISSIONS = {
   READ_CLIENTS: 'read_clients',
   UPDATE_CLIENTS: 'update_clients',
   DELETE_CLIENTS: 'delete_clients',
+  // Portfolio - Units of Measure
+  CREATE_UNITS_OF_MEASURE: 'create_units_of_measure',
+  READ_UNITS_OF_MEASURE: 'read_units_of_measure',
+  UPDATE_UNITS_OF_MEASURE: 'update_units_of_measure',
+  DELETE_UNITS_OF_MEASURE: 'delete_units_of_measure',
 };
 
 export const ROUTES = {
@@ -77,6 +82,10 @@ export const ROUTES = {
   CLIENTS_CREATE: '/clients/new',
   CLIENTS_EDIT: '/clients/:id/edit',
   CLIENTS_VIEW: '/clients/:id',
+  // Portfolio
+  UNITS_OF_MEASURE: '/portfolio/units-of-measure',
+  UNITS_OF_MEASURE_CREATE: '/portfolio/units-of-measure/new',
+  UNITS_OF_MEASURE_EDIT: '/portfolio/units-of-measure/:id/edit',
 };
 
 export const DEFAULT_PAGINATION = {

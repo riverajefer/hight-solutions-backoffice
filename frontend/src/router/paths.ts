@@ -35,5 +35,9 @@ export const PATHS = {
   SUPPLIERS_EDIT: '/suppliers/:id/edit',
   SUPPLIERS_VIEW: '/suppliers/:id',
   SESSION_LOGS: '/session-logs',
+  // Portfolio Routes
+  UNITS_OF_MEASURE: '/portfolio/units-of-measure',
+  UNITS_OF_MEASURE_CREATE: '/portfolio/units-of-measure/new',
+  UNITS_OF_MEASURE_EDIT: '/portfolio/units-of-measure/:id/edit',
 };
 

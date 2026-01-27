@@ -24,6 +24,8 @@ import BusinessIcon from '@mui/icons-material/Business';
 import WorkIcon from '@mui/icons-material/Work';
 import BadgeIcon from '@mui/icons-material/Badge';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
+import InventoryIcon from '@mui/icons-material/Inventory';
+import StraightenIcon from '@mui/icons-material/Straighten';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import { useAuthStore } from '../../store/authStore';
@@ -55,6 +57,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
     cargos: false,
     clientes: false,
     proveedores: false,
+    portfolio: false,
   });
 
   const handleMenuClick = (menu: keyof typeof menuOpen) => {
@@ -138,6 +141,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
         },
       ],
       permission: PERMISSIONS.READ_SUPPLIERS,
+    },
+    {
+      label: 'Portafolio',
+      icon: <InventoryIcon />,
+      submenu: [
+        {
+          label: 'Unidades de Medida',
+          icon: <StraightenIcon />,
+          path: ROUTES.UNITS_OF_MEASURE,
+          permission: PERMISSIONS.READ_UNITS_OF_MEASURE,
+        },
+      ],
+      permission: PERMISSIONS.READ_UNITS_OF_MEASURE,
     },
     {
       label: 'Áreas',
