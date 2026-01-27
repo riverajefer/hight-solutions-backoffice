@@ -16,6 +16,7 @@ import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { UnitsOfMeasureModule } from './modules/portfolio/units-of-measure/units-of-measure.module';
 import { ServiceCategoriesModule } from './modules/portfolio/service-categories/service-categories.module';
 import { ServicesModule } from './modules/portfolio/services/services.module';
+import { SupplyCategoriesModule } from './modules/portfolio/supply-categories/supply-categories.module';
 import { AuditContextInterceptor } from './common/interceptors/audit-context.interceptor';
 
 @Module({
@@ -41,6 +42,7 @@ import { AuditContextInterceptor } from './common/interceptors/audit-context.int
     UnitsOfMeasureModule,
     ServiceCategoriesModule,
     ServicesModule,
+    SupplyCategoriesModule,
   ],
   providers: [
     {

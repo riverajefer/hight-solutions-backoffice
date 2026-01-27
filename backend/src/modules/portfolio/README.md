@@ -9,7 +9,7 @@ portfolio/
 ├── units-of-measure/     ✅ Unidades de medida (metro, litro, unidad, etc.)
 ├── service-categories/   ✅ Categorías de servicios (Impresión, Promocionales, etc.)
 ├── services/             ✅ Servicios ofrecidos (Pendones, Banners, etc.)
-├── supply-categories/    ⏳ Categorías de insumos (Telas, Tintas, etc.)
+├── supply-categories/    ✅ Categorías de insumos (Telas, Tintas, etc.)
 └── supplies/             ⏳ Insumos y materiales (Telas, Tintas, Productos base, etc.)
 ```
 
@@ -93,10 +93,40 @@ Gestiona los servicios ofrecidos por Hight Solutions (impresiones, promocionales
 - Tarjetas de presentación
 - Señalización de seguridad
 
-## Próximos Módulos
+### ✅ Supply Categories (Categorías de Insumos)
+**Ruta:** `/api/v1/supply-categories`
 
-### ⏳ Supply Categories (Categorías de Insumos)
-Categorías para agrupar insumos (Telas y Lonas, Tintas, Productos Base, etc.)
+Gestiona las categorías para organizar los insumos y materiales utilizados en la producción.
+
+**Endpoints:**
+- `GET /supply-categories` - Listar todas
+- `GET /supply-categories/:id` - Obtener por ID
+- `POST /supply-categories` - Crear nueva
+- `PUT /supply-categories/:id` - Actualizar
+- `DELETE /supply-categories/:id` - Soft delete
+
+**Permisos:**
+- `create_supply_categories`
+- `read_supply_categories`
+- `update_supply_categories`
+- `delete_supply_categories`
+
+**Campos:**
+- `name` - Nombre de la categoría (único)
+- `slug` - URL-friendly slug (único)
+- `description` - Descripción de la categoría
+- `icon` - Icono o emoji
+- `sortOrder` - Orden de visualización
+
+**Ejemplos de categorías:**
+- Telas y Lonas (🧵)
+- Tintas (🎨)
+- Productos Base (📦)
+- Papelería y Cartón (📄)
+- Materiales Rígidos (🔲)
+- Consumibles (🔧)
+
+## Próximos Módulos
 
 ### ⏳ Supplies (Insumos)
 Materiales e insumos utilizados en la producción (con gestión de inventario)

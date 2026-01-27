@@ -84,6 +84,12 @@ async function main() {
     { name: 'read_services', description: 'Ver servicios' },
     { name: 'update_services', description: 'Actualizar servicios' },
     { name: 'delete_services', description: 'Eliminar servicios' },
+
+    // Supply Categories
+    { name: 'create_supply_categories', description: 'Crear categorías de insumos' },
+    { name: 'read_supply_categories', description: 'Ver categorías de insumos' },
+    { name: 'update_supply_categories', description: 'Actualizar categorías de insumos' },
+    { name: 'delete_supply_categories', description: 'Eliminar categorías de insumos' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
@@ -177,6 +183,7 @@ async function main() {
     'read_units_of_measure',
     'read_service_categories',
     'read_services',
+    'read_supply_categories',
   ]);
 
   // User - solo lectura básica
@@ -723,6 +730,70 @@ async function main() {
   }
 
   // ============================================
+  // 9. Crear Categorías de Insumos
+  // ============================================
+  console.log('\n📦 Creating supply categories...');
+
+  const supplyCategoriesData = [
+    {
+      name: 'Telas y Lonas',
+      slug: 'telas-y-lonas',
+      description: 'Materiales textiles y lonas para impresión gran formato',
+      icon: '🧵',
+      sortOrder: 1,
+    },
+    {
+      name: 'Tintas',
+      slug: 'tintas',
+      description: 'Tintas para impresoras de gran formato y sublimación',
+      icon: '🎨',
+      sortOrder: 2,
+    },
+    {
+      name: 'Productos Base',
+      slug: 'productos-base',
+      description: 'Artículos base para personalización (gorras, termos, lapiceros, etc.)',
+      icon: '📦',
+      sortOrder: 3,
+    },
+    {
+      name: 'Papelería y Cartón',
+      slug: 'papeleria-y-carton',
+      description: 'Papel, cartulina, cartón corrugado y materiales para impresión',
+      icon: '📄',
+      sortOrder: 4,
+    },
+    {
+      name: 'Materiales Rígidos',
+      slug: 'materiales-rigidos',
+      description: 'Acrílico, PVC, dibond y otros materiales rígidos',
+      icon: '🔲',
+      sortOrder: 5,
+    },
+    {
+      name: 'Consumibles',
+      slug: 'consumibles',
+      description: 'Adhesivos, cintas, cuerdas y otros consumibles',
+      icon: '🔧',
+      sortOrder: 6,
+    },
+  ];
+
+  for (const categoryData of supplyCategoriesData) {
+    await prisma.supplyCategory.upsert({
+      where: { slug: categoryData.slug },
+      update: {
+        name: categoryData.name,
+        description: categoryData.description,
+        icon: categoryData.icon,
+        sortOrder: categoryData.sortOrder,
+      },
+      create: categoryData,
+    });
+    console.log(`  ✓ Category: ${categoryData.name}`);
+  }
+
+  // ============================================
   // Resumen
   // ============================================
   console.log('\n' + '='.repeat(50));
@@ -738,6 +809,7 @@ async function main() {
   console.log(`   - Units of Measure: ${unitsOfMeasureData.length}`);
   console.log(`   - Service Categories: ${serviceCategoriesData.length}`);
   console.log(`   - Services: ${servicesCreated}`);
+  console.log(`   - Supply Categories: ${supplyCategoriesData.length}`);
   console.log('\n🔐 Test Credentials:');
   console.log('   Admin:   admin@example.com / admin123');
   console.log('   Manager: manager@example.com / manager123');

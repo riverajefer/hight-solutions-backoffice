@@ -275,3 +275,24 @@ model Service {
   @@map("services")
 }
 
+// =============================================================================
+// MÓDULO DE CATÁLOGOS - FASE 4: CATEGORÍAS DE INSUMOS
+// =============================================================================
+
+model SupplyCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  icon        String?
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relación futura con Supplies (comentada por ahora)
+  // supplies Supply[]
+
+  @@map("supply_categories")
+}
+
