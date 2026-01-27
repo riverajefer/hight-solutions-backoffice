@@ -10,7 +10,7 @@ portfolio/
 ├── service-categories/   ✅ Categorías de servicios (Impresión, Promocionales, etc.)
 ├── services/             ✅ Servicios ofrecidos (Pendones, Banners, etc.)
 ├── supply-categories/    ✅ Categorías de insumos (Telas, Tintas, etc.)
-└── supplies/             ⏳ Insumos y materiales (Telas, Tintas, Productos base, etc.)
+└── supplies/             ✅ Insumos y materiales con gestión de inventario
 ```
 
 ## Módulos Implementados
@@ -126,10 +126,65 @@ Gestiona las categorías para organizar los insumos y materiales utilizados en l
 - Materiales Rígidos (🔲)
 - Consumibles (🔧)
 
-## Próximos Módulos
+### ✅ Supplies (Insumos)
+**Ruta:** `/api/v1/supplies`
 
-### ⏳ Supplies (Insumos)
-Materiales e insumos utilizados en la producción (con gestión de inventario)
+Gestiona los insumos y materiales utilizados en la producción, con control de inventario.
+
+**Endpoints:**
+- `GET /supplies` - Listar todos (con filtros por categoría)
+- `GET /supplies/low-stock` - Obtener insumos con stock bajo
+- `GET /supplies/:id` - Obtener por ID
+- `POST /supplies` - Crear nuevo
+- `PUT /supplies/:id` - Actualizar
+- `DELETE /supplies/:id` - Soft delete
+
+**Permisos:**
+- `create_supplies`
+- `read_supplies`
+- `update_supplies`
+- `delete_supplies`
+
+**Campos:**
+- `name` - Nombre del insumo (único dentro de categoría)
+- `sku` - Código de producto (único, opcional)
+- `description` - Descripción del insumo
+- `categoryId` - Relación con SupplyCategory
+- `purchasePrice` - Precio de compra (Decimal, opcional)
+- `purchaseUnitId` - Unidad en que se compra (UnitOfMeasure)
+- `consumptionUnitId` - Unidad en que se consume (UnitOfMeasure)
+- `conversionFactor` - Factor de conversión entre unidades
+- `currentStock` - Stock actual (Decimal)
+- `minimumStock` - Stock mínimo de alerta (Decimal)
+
+**Características especiales:**
+- **Gestión de inventario**: Control de stock actual vs stock mínimo
+- **Endpoint de alertas**: `/supplies/low-stock` para inventario bajo
+- **Conversión de unidades**: Permite comprar en una unidad y consumir en otra
+- **Validación de SKU único**: Código opcional pero único si se proporciona
+
+**Ejemplos de insumos:**
+- Lona Mate 13 oz, Lona Brillante 10 oz
+- Tintas ecosolventes (Negro, Cyan, Magenta, etc.)
+- Gorras de gabardina, Lapiceros
+- Propalcote 300gr, Cartulina Bristol
+- Acrílico 3mm, PVC Espumado
+
+---
+
+## Resumen del Portfolio
+
+El sistema de Portfolio está **100% completado** con 5 módulos:
+
+| Módulo | Registros | Estado |
+|--------|-----------|--------|
+| Units of Measure | 14 | ✅ |
+| Service Categories | 4 | ✅ |
+| Services | 19 | ✅ |
+| Supply Categories | 6 | ✅ |
+| Supplies | 10 | ✅ |
+
+**Total:** 53 registros de prueba creados
 
 ---
 

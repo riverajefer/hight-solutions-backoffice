@@ -90,6 +90,12 @@ async function main() {
     { name: 'read_supply_categories', description: 'Ver categorías de insumos' },
     { name: 'update_supply_categories', description: 'Actualizar categorías de insumos' },
     { name: 'delete_supply_categories', description: 'Eliminar categorías de insumos' },
+
+    // Supplies
+    { name: 'create_supplies', description: 'Crear insumos' },
+    { name: 'read_supplies', description: 'Ver insumos' },
+    { name: 'update_supplies', description: 'Actualizar insumos' },
+    { name: 'delete_supplies', description: 'Eliminar insumos' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
@@ -184,6 +190,7 @@ async function main() {
     'read_service_categories',
     'read_services',
     'read_supply_categories',
+    'read_supplies',
   ]);
 
   // User - solo lectura básica
@@ -794,6 +801,200 @@ async function main() {
   }
 
   // ============================================
+  // 10. Crear Insumos de Prueba
+  // ============================================
+  console.log('\n📦 Creating supplies...');
+
+  // Obtener categorías de insumos
+  const telasCategory = await prisma.supplyCategory.findUnique({
+    where: { slug: 'telas-y-lonas' },
+  });
+  const tintasCategory = await prisma.supplyCategory.findUnique({
+    where: { slug: 'tintas' },
+  });
+  const productosBaseCategory = await prisma.supplyCategory.findUnique({
+    where: { slug: 'productos-base' },
+  });
+  const papeleriaCategorySupplies = await prisma.supplyCategory.findUnique({
+    where: { slug: 'papeleria-y-carton' },
+  });
+  const materialesRigidosCategory = await prisma.supplyCategory.findUnique({
+    where: { slug: 'materiales-rigidos' },
+  });
+
+  // Obtener unidades de medida
+  const metroUnit = await prisma.unitOfMeasure.findUnique({ where: { name: 'metro' } });
+  const metrosCuadradosUnit = await prisma.unitOfMeasure.findUnique({ where: { name: 'metro cuadrado' } });
+  const litroUnit = await prisma.unitOfMeasure.findUnique({ where: { name: 'litro' } });
+  const kilogramoUnit = await prisma.unitOfMeasure.findUnique({ where: { name: 'kilogramo' } });
+  const unidadUnit = await prisma.unitOfMeasure.findUnique({ where: { name: 'unidad' } });
+  const pliegoUnit = await prisma.unitOfMeasure.findUnique({ where: { name: 'pliego' } });
+  const cajaUnit = await prisma.unitOfMeasure.findUnique({ where: { name: 'caja' } });
+
+  const suppliesData = [
+    // Telas y Lonas
+    {
+      name: 'Lona Mate 13 oz',
+      sku: 'LM-13OZ',
+      description: 'Lona mate de 13 onzas para impresión de alta calidad',
+      categoryId: telasCategory?.id,
+      purchasePrice: 25000,
+      purchaseUnitId: metroUnit?.id,
+      consumptionUnitId: metrosCuadradosUnit?.id,
+      conversionFactor: 1.5,
+      currentStock: 150,
+      minimumStock: 50,
+    },
+    {
+      name: 'Lona Brillante 10 oz',
+      sku: 'LB-10OZ',
+      description: 'Lona brillante de 10 onzas para uso exterior',
+      categoryId: telasCategory?.id,
+      purchasePrice: 20000,
+      purchaseUnitId: metroUnit?.id,
+      consumptionUnitId: metrosCuadradosUnit?.id,
+      conversionFactor: 1.5,
+      currentStock: 80,
+      minimumStock: 30,
+    },
+
+    // Tintas
+    {
+      name: 'Tinta Ecosolvente Negra',
+      sku: 'TECO-BLACK-1L',
+      description: 'Tinta ecosolvente negra para impresoras gran formato',
+      categoryId: tintasCategory?.id,
+      purchasePrice: 85000,
+      purchaseUnitId: litroUnit?.id,
+      consumptionUnitId: litroUnit?.id,
+      conversionFactor: 1,
+      currentStock: 25,
+      minimumStock: 10,
+    },
+    {
+      name: 'Tinta Ecosolvente Cyan',
+      sku: 'TECO-CYAN-1L',
+      description: 'Tinta ecosolvente cyan para impresoras gran formato',
+      categoryId: tintasCategory?.id,
+      purchasePrice: 85000,
+      purchaseUnitId: litroUnit?.id,
+      consumptionUnitId: litroUnit?.id,
+      conversionFactor: 1,
+      currentStock: 20,
+      minimumStock: 10,
+    },
+
+    // Productos Base
+    {
+      name: 'Gorras Gabardina Blancas',
+      sku: 'GORRA-GAB-WHT',
+      description: 'Gorras de gabardina color blanco para personalización',
+      categoryId: productosBaseCategory?.id,
+      purchasePrice: 8000,
+      purchaseUnitId: unidadUnit?.id,
+      consumptionUnitId: unidadUnit?.id,
+      conversionFactor: 1,
+      currentStock: 200,
+      minimumStock: 50,
+    },
+    {
+      name: 'Lapiceros Plásticos',
+      sku: 'LAP-PLAS-BLU',
+      description: 'Lapiceros plásticos azules para personalización',
+      categoryId: productosBaseCategory?.id,
+      purchasePrice: 800,
+      purchaseUnitId: unidadUnit?.id,
+      consumptionUnitId: unidadUnit?.id,
+      conversionFactor: 1,
+      currentStock: 1000,
+      minimumStock: 200,
+    },
+
+    // Papelería y Cartón
+    {
+      name: 'Propalcote 300 gr',
+      sku: 'PROP-300',
+      description: 'Papel propalcote 300 gramos para tarjetas',
+      categoryId: papeleriaCategorySupplies?.id,
+      purchasePrice: 45000,
+      purchaseUnitId: pliegoUnit?.id,
+      consumptionUnitId: pliegoUnit?.id,
+      conversionFactor: 1,
+      currentStock: 500,
+      minimumStock: 100,
+    },
+    {
+      name: 'Cartulina Bristol 240 gr',
+      sku: 'BRIS-240',
+      description: 'Cartulina bristol 240 gramos para carpetas',
+      categoryId: papeleriaCategorySupplies?.id,
+      purchasePrice: 35000,
+      purchaseUnitId: pliegoUnit?.id,
+      consumptionUnitId: pliegoUnit?.id,
+      conversionFactor: 1,
+      currentStock: 300,
+      minimumStock: 80,
+    },
+
+    // Materiales Rígidos
+    {
+      name: 'Acrílico 3mm Transparente',
+      sku: 'ACR-3MM-TRA',
+      description: 'Lámina de acrílico transparente de 3mm',
+      categoryId: materialesRigidosCategory?.id,
+      purchasePrice: 95000,
+      purchaseUnitId: metrosCuadradosUnit?.id,
+      consumptionUnitId: metrosCuadradosUnit?.id,
+      conversionFactor: 1,
+      currentStock: 25,
+      minimumStock: 10,
+    },
+    {
+      name: 'PVC Espumado 10mm',
+      sku: 'PVC-10MM',
+      description: 'Plancha de PVC espumado de 10mm',
+      categoryId: materialesRigidosCategory?.id,
+      purchasePrice: 75000,
+      purchaseUnitId: metrosCuadradosUnit?.id,
+      consumptionUnitId: metrosCuadradosUnit?.id,
+      conversionFactor: 1,
+      currentStock: 30,
+      minimumStock: 15,
+    },
+  ];
+
+  let suppliesCreated = 0;
+  for (const supplyData of suppliesData) {
+    if (supplyData.categoryId && supplyData.purchaseUnitId && supplyData.consumptionUnitId) {
+      await prisma.supply.upsert({
+        where: { sku: supplyData.sku },
+        update: {
+          name: supplyData.name,
+          description: supplyData.description,
+          purchasePrice: supplyData.purchasePrice,
+          conversionFactor: supplyData.conversionFactor,
+          currentStock: supplyData.currentStock,
+          minimumStock: supplyData.minimumStock,
+        },
+        create: {
+          name: supplyData.name,
+          sku: supplyData.sku,
+          description: supplyData.description,
+          purchasePrice: supplyData.purchasePrice,
+          conversionFactor: supplyData.conversionFactor,
+          currentStock: supplyData.currentStock,
+          minimumStock: supplyData.minimumStock,
+          category: { connect: { id: supplyData.categoryId } },
+          purchaseUnit: { connect: { id: supplyData.purchaseUnitId } },
+          consumptionUnit: { connect: { id: supplyData.consumptionUnitId } },
+        },
+      });
+      console.log(`  ✓ Supply: ${supplyData.name}`);
+      suppliesCreated++;
+    }
+  }
+
+  // ============================================
   // Resumen
   // ============================================
   console.log('\n' + '='.repeat(50));
@@ -810,6 +1011,7 @@ async function main() {
   console.log(`   - Service Categories: ${serviceCategoriesData.length}`);
   console.log(`   - Services: ${servicesCreated}`);
   console.log(`   - Supply Categories: ${supplyCategoriesData.length}`);
+  console.log(`   - Supplies: ${suppliesCreated}`);
   console.log('\n🔐 Test Credentials:');
   console.log('   Admin:   admin@example.com / admin123');
   console.log('   Manager: manager@example.com / manager123');
