@@ -233,3 +233,24 @@ model UnitOfMeasure {
   @@map("units_of_measure")
 }
 
+// =============================================================================
+// MÓDULO DE CATÁLOGOS - FASE 2: CATEGORÍAS DE SERVICIOS
+// =============================================================================
+
+model ServiceCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  icon        String?
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relación futura con Services (comentada por ahora)
+  // services Service[]
+
+  @@map("service_categories")
+}
+

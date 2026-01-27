@@ -7,7 +7,7 @@ Este directorio contiene todos los módulos relacionados con el **portafolio de 
 ```
 portfolio/
 ├── units-of-measure/     ✅ Unidades de medida (metro, litro, unidad, etc.)
-├── service-categories/   ⏳ Categorías de servicios (Impresión, Promocionales, etc.)
+├── service-categories/   ✅ Categorías de servicios (Impresión, Promocionales, etc.)
 ├── services/             ⏳ Servicios ofrecidos (Pendones, Banners, etc.)
 ├── supply-categories/    ⏳ Categorías de insumos (Telas, Tintas, etc.)
 └── supplies/             ⏳ Insumos y materiales (Telas, Tintas, Productos base, etc.)
@@ -33,10 +33,32 @@ Gestiona las unidades de medida utilizadas en el sistema para compra y consumo d
 - `update_units_of_measure`
 - `delete_units_of_measure`
 
-## Próximos Módulos
+### ✅ Service Categories (Categorías de Servicios)
+**Ruta:** `/api/v1/service-categories`
 
-### ⏳ Service Categories (Categorías de Servicios)
-Categorías para agrupar servicios (Impresión Gran Formato, Promocionales, Papelería, etc.)
+Gestiona las categorías para organizar los servicios ofrecidos por Hight Solutions.
+
+**Endpoints:**
+- `GET /service-categories` - Listar todas
+- `GET /service-categories/:id` - Obtener por ID
+- `POST /service-categories` - Crear nueva
+- `PUT /service-categories/:id` - Actualizar
+- `DELETE /service-categories/:id` - Soft delete
+
+**Permisos:**
+- `create_service_categories`
+- `read_service_categories`
+- `update_service_categories`
+- `delete_service_categories`
+
+**Campos:**
+- `name` - Nombre de la categoría (único)
+- `slug` - URL-friendly slug (único)
+- `description` - Descripción de la categoría
+- `icon` - Icono o emoji
+- `sortOrder` - Orden de visualización
+
+## Próximos Módulos
 
 ### ⏳ Services (Servicios)
 Servicios que ofrece Hight Solutions (Pendones, Banners, Gorras, Lapiceros, etc.)

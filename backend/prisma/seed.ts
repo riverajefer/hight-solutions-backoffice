@@ -72,6 +72,12 @@ async function main() {
     { name: 'read_units_of_measure', description: 'Ver unidades de medida' },
     { name: 'update_units_of_measure', description: 'Actualizar unidades de medida' },
     { name: 'delete_units_of_measure', description: 'Eliminar unidades de medida' },
+
+    // Service Categories
+    { name: 'create_service_categories', description: 'Crear categorías de servicios' },
+    { name: 'read_service_categories', description: 'Ver categorías de servicios' },
+    { name: 'update_service_categories', description: 'Actualizar categorías de servicios' },
+    { name: 'delete_service_categories', description: 'Eliminar categorías de servicios' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
@@ -163,6 +169,7 @@ async function main() {
     'read_clients',
     'read_suppliers',
     'read_units_of_measure',
+    'read_service_categories',
   ]);
 
   // User - solo lectura básica
