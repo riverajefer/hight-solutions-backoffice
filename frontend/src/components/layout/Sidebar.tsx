@@ -29,6 +29,7 @@ import StraightenIcon from '@mui/icons-material/Straighten';
 import CategoryIcon from '@mui/icons-material/Category';
 import MiscellaneousServicesIcon from '@mui/icons-material/MiscellaneousServices';
 import FolderSpecialIcon from '@mui/icons-material/FolderSpecial';
+import Inventory2Icon from '@mui/icons-material/Inventory2';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import { useAuthStore } from '../../store/authStore';
@@ -172,6 +173,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
           icon: <FolderSpecialIcon />,
           path: ROUTES.SUPPLY_CATEGORIES,
           permission: PERMISSIONS.READ_SUPPLY_CATEGORIES,
+        },
+        {
+          label: 'Insumos',
+          icon: <Inventory2Icon />,
+          path: ROUTES.SUPPLIES,
+          permission: PERMISSIONS.READ_SUPPLIES,
         },
       ],
       permission: PERMISSIONS.READ_UNITS_OF_MEASURE,

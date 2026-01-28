@@ -45,6 +45,9 @@ const ServiceFormPage = lazy(() => import('../features/portfolio/services/pages/
 // Portfolio - Supply Categories
 const SupplyCategoriesListPage = lazy(() => import('../features/portfolio/supply-categories/pages/SupplyCategoriesListPage'));
 const SupplyCategoryFormPage = lazy(() => import('../features/portfolio/supply-categories/pages/SupplyCategoryFormPage'));
+// Portfolio - Supplies
+const SuppliesListPage = lazy(() => import('../features/portfolio/supplies/pages/SuppliesListPage'));
+const SupplyFormPage = lazy(() => import('../features/portfolio/supplies/pages/SupplyFormPage'));
 
 
 const RoutesConfig: FC = () => {
@@ -565,6 +568,44 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.UPDATE_SUPPLY_CATEGORIES}>
                   <SupplyCategoryFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Supplies Routes */}
+        <Route
+          path={PATHS.SUPPLIES}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_SUPPLIES}>
+                  <SuppliesListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.SUPPLIES_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_SUPPLIES}>
+                  <SupplyFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.SUPPLIES_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_SUPPLIES}>
+                  <SupplyFormPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

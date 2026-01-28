@@ -48,5 +48,8 @@ export const PATHS = {
   SUPPLY_CATEGORIES: '/portfolio/supply-categories',
   SUPPLY_CATEGORIES_CREATE: '/portfolio/supply-categories/new',
   SUPPLY_CATEGORIES_EDIT: '/portfolio/supply-categories/:id/edit',
+  SUPPLIES: '/portfolio/supplies',
+  SUPPLIES_CREATE: '/portfolio/supplies/new',
+  SUPPLIES_EDIT: '/portfolio/supplies/:id/edit',
 };
 

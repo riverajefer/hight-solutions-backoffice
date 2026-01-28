@@ -57,6 +57,11 @@ export const PERMISSIONS = {
   READ_SUPPLY_CATEGORIES: 'read_supply_categories',
   UPDATE_SUPPLY_CATEGORIES: 'update_supply_categories',
   DELETE_SUPPLY_CATEGORIES: 'delete_supply_categories',
+  // Portfolio - Supplies
+  CREATE_SUPPLIES: 'create_supplies',
+  READ_SUPPLIES: 'read_supplies',
+  UPDATE_SUPPLIES: 'update_supplies',
+  DELETE_SUPPLIES: 'delete_supplies',
 };
 
 export const ROUTES = {
@@ -110,6 +115,9 @@ export const ROUTES = {
   SUPPLY_CATEGORIES: '/portfolio/supply-categories',
   SUPPLY_CATEGORIES_CREATE: '/portfolio/supply-categories/new',
   SUPPLY_CATEGORIES_EDIT: '/portfolio/supply-categories/:id/edit',
+  SUPPLIES: '/portfolio/supplies',
+  SUPPLIES_CREATE: '/portfolio/supplies/new',
+  SUPPLIES_EDIT: '/portfolio/supplies/:id/edit',
 };
 
 export const DEFAULT_PAGINATION = {
