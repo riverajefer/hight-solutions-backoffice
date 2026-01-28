@@ -42,5 +42,8 @@ export const PATHS = {
   SERVICE_CATEGORIES: '/portfolio/service-categories',
   SERVICE_CATEGORIES_CREATE: '/portfolio/service-categories/new',
   SERVICE_CATEGORIES_EDIT: '/portfolio/service-categories/:id/edit',
+  SERVICES: '/portfolio/services',
+  SERVICES_CREATE: '/portfolio/services/new',
+  SERVICES_EDIT: '/portfolio/services/:id/edit',
 };
 

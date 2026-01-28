@@ -39,6 +39,9 @@ const UnitOfMeasureFormPage = lazy(() => import('../features/portfolio/units-of-
 // Portfolio - Service Categories
 const ServiceCategoriesListPage = lazy(() => import('../features/portfolio/service-categories/pages/ServiceCategoriesListPage'));
 const ServiceCategoryFormPage = lazy(() => import('../features/portfolio/service-categories/pages/ServiceCategoryFormPage'));
+// Portfolio - Services
+const ServicesListPage = lazy(() => import('../features/portfolio/services/pages/ServicesListPage'));
+const ServiceFormPage = lazy(() => import('../features/portfolio/services/pages/ServiceFormPage'));
 
 
 const RoutesConfig: FC = () => {
@@ -483,6 +486,44 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.UPDATE_SERVICE_CATEGORIES}>
                   <ServiceCategoryFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Services Routes */}
+        <Route
+          path={PATHS.SERVICES}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_SERVICES}>
+                  <ServicesListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.SERVICES_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_SERVICES}>
+                  <ServiceFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.SERVICES_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_SERVICES}>
+                  <ServiceFormPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>
