@@ -42,6 +42,9 @@ const ServiceCategoryFormPage = lazy(() => import('../features/portfolio/service
 // Portfolio - Services
 const ServicesListPage = lazy(() => import('../features/portfolio/services/pages/ServicesListPage'));
 const ServiceFormPage = lazy(() => import('../features/portfolio/services/pages/ServiceFormPage'));
+// Portfolio - Supply Categories
+const SupplyCategoriesListPage = lazy(() => import('../features/portfolio/supply-categories/pages/SupplyCategoriesListPage'));
+const SupplyCategoryFormPage = lazy(() => import('../features/portfolio/supply-categories/pages/SupplyCategoryFormPage'));
 
 
 const RoutesConfig: FC = () => {
@@ -524,6 +527,44 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.UPDATE_SERVICES}>
                   <ServiceFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Supply Categories Routes */}
+        <Route
+          path={PATHS.SUPPLY_CATEGORIES}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_SUPPLY_CATEGORIES}>
+                  <SupplyCategoriesListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.SUPPLY_CATEGORIES_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_SUPPLY_CATEGORIES}>
+                  <SupplyCategoryFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.SUPPLY_CATEGORIES_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_SUPPLY_CATEGORIES}>
+                  <SupplyCategoryFormPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>
