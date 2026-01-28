@@ -50,6 +50,31 @@ export const PERMISSION_LABELS: Record<string, string> = {
   read_suppliers: 'Ver Proveedores',
   update_suppliers: 'Actualizar Proveedores',
   delete_suppliers: 'Eliminar Proveedores',
+
+  create_units_of_measure: 'Crear Unidades de Medida',
+  read_units_of_measure: 'Ver Unidades de Medida',
+  update_units_of_measure: 'Actualizar Unidades de Medida',
+  delete_units_of_measure: 'Eliminar Unidades de Medida',
+
+  create_service_categories: 'Crear Categorías de Servicios',
+  read_service_categories: 'Ver Categorías de Servicios',
+  update_service_categories: 'Actualizar Categorías de Servicios',
+  delete_service_categories: 'Eliminar Categorías de Servicios',
+
+  create_services: 'Crear Servicios',
+  read_services: 'Ver Servicios',
+  update_services: 'Actualizar Servicios',
+  delete_services: 'Eliminar Servicios',
+
+  create_supply_categories: 'Crear Categorías de Insumos',
+  read_supply_categories: 'Ver Categorías de Insumos',
+  update_supply_categories: 'Actualizar Categorías de Insumos',
+  delete_supply_categories: 'Eliminar Categorías de Insumos',
+
+  create_supplies: 'Crear Insumos',
+  read_supplies: 'Ver Insumos',
+  update_supplies: 'Actualizar Insumos',
+  delete_supplies: 'Eliminar Insumos',
 };
 
 /**
