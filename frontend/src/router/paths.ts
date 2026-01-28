@@ -35,5 +35,21 @@ export const PATHS = {
   SUPPLIERS_EDIT: '/suppliers/:id/edit',
   SUPPLIERS_VIEW: '/suppliers/:id',
   SESSION_LOGS: '/session-logs',
+  // Portfolio Routes
+  UNITS_OF_MEASURE: '/portfolio/units-of-measure',
+  UNITS_OF_MEASURE_CREATE: '/portfolio/units-of-measure/new',
+  UNITS_OF_MEASURE_EDIT: '/portfolio/units-of-measure/:id/edit',
+  SERVICE_CATEGORIES: '/portfolio/service-categories',
+  SERVICE_CATEGORIES_CREATE: '/portfolio/service-categories/new',
+  SERVICE_CATEGORIES_EDIT: '/portfolio/service-categories/:id/edit',
+  SERVICES: '/portfolio/services',
+  SERVICES_CREATE: '/portfolio/services/new',
+  SERVICES_EDIT: '/portfolio/services/:id/edit',
+  SUPPLY_CATEGORIES: '/portfolio/supply-categories',
+  SUPPLY_CATEGORIES_CREATE: '/portfolio/supply-categories/new',
+  SUPPLY_CATEGORIES_EDIT: '/portfolio/supply-categories/:id/edit',
+  SUPPLIES: '/portfolio/supplies',
+  SUPPLIES_CREATE: '/portfolio/supplies/new',
+  SUPPLIES_EDIT: '/portfolio/supplies/:id/edit',
 };
 

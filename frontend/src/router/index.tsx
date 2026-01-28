@@ -33,6 +33,21 @@ const SupplierFormPage = lazy(() => import('../features/suppliers/pages/Supplier
 const SupplierDetailPage = lazy(() => import('../features/suppliers/pages/SupplierDetailPage'));
 const SessionLogsPage = lazy(() => import('../features/session-logs/pages/SessionLogsPage'));
 const ProfilePage = lazy(() => import('../features/settings/pages/ProfilePage'));
+// Portfolio - Units of Measure
+const UnitsOfMeasureListPage = lazy(() => import('../features/portfolio/units-of-measure/pages/UnitsOfMeasureListPage'));
+const UnitOfMeasureFormPage = lazy(() => import('../features/portfolio/units-of-measure/pages/UnitOfMeasureFormPage'));
+// Portfolio - Service Categories
+const ServiceCategoriesListPage = lazy(() => import('../features/portfolio/service-categories/pages/ServiceCategoriesListPage'));
+const ServiceCategoryFormPage = lazy(() => import('../features/portfolio/service-categories/pages/ServiceCategoryFormPage'));
+// Portfolio - Services
+const ServicesListPage = lazy(() => import('../features/portfolio/services/pages/ServicesListPage'));
+const ServiceFormPage = lazy(() => import('../features/portfolio/services/pages/ServiceFormPage'));
+// Portfolio - Supply Categories
+const SupplyCategoriesListPage = lazy(() => import('../features/portfolio/supply-categories/pages/SupplyCategoriesListPage'));
+const SupplyCategoryFormPage = lazy(() => import('../features/portfolio/supply-categories/pages/SupplyCategoryFormPage'));
+// Portfolio - Supplies
+const SuppliesListPage = lazy(() => import('../features/portfolio/supplies/pages/SuppliesListPage'));
+const SupplyFormPage = lazy(() => import('../features/portfolio/supplies/pages/SupplyFormPage'));
 
 
 const RoutesConfig: FC = () => {
@@ -401,6 +416,196 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.UPDATE_SUPPLIERS}>
                   <SupplierFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Units of Measure Routes */}
+        <Route
+          path={PATHS.UNITS_OF_MEASURE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_UNITS_OF_MEASURE}>
+                  <UnitsOfMeasureListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.UNITS_OF_MEASURE_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_UNITS_OF_MEASURE}>
+                  <UnitOfMeasureFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.UNITS_OF_MEASURE_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_UNITS_OF_MEASURE}>
+                  <UnitOfMeasureFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Service Categories Routes */}
+        <Route
+          path={PATHS.SERVICE_CATEGORIES}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_SERVICE_CATEGORIES}>
+                  <ServiceCategoriesListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.SERVICE_CATEGORIES_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_SERVICE_CATEGORIES}>
+                  <ServiceCategoryFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.SERVICE_CATEGORIES_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_SERVICE_CATEGORIES}>
+                  <ServiceCategoryFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Services Routes */}
+        <Route
+          path={PATHS.SERVICES}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_SERVICES}>
+                  <ServicesListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.SERVICES_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_SERVICES}>
+                  <ServiceFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.SERVICES_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_SERVICES}>
+                  <ServiceFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Supply Categories Routes */}
+        <Route
+          path={PATHS.SUPPLY_CATEGORIES}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_SUPPLY_CATEGORIES}>
+                  <SupplyCategoriesListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.SUPPLY_CATEGORIES_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_SUPPLY_CATEGORIES}>
+                  <SupplyCategoryFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.SUPPLY_CATEGORIES_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_SUPPLY_CATEGORIES}>
+                  <SupplyCategoryFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Supplies Routes */}
+        <Route
+          path={PATHS.SUPPLIES}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_SUPPLIES}>
+                  <SuppliesListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.SUPPLIES_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_SUPPLIES}>
+                  <SupplyFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.SUPPLIES_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_SUPPLIES}>
+                  <SupplyFormPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

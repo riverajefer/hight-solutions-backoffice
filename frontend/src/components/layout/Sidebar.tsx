@@ -24,6 +24,12 @@ import BusinessIcon from '@mui/icons-material/Business';
 import WorkIcon from '@mui/icons-material/Work';
 import BadgeIcon from '@mui/icons-material/Badge';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
+import InventoryIcon from '@mui/icons-material/Inventory';
+import StraightenIcon from '@mui/icons-material/Straighten';
+import CategoryIcon from '@mui/icons-material/Category';
+import MiscellaneousServicesIcon from '@mui/icons-material/MiscellaneousServices';
+import FolderSpecialIcon from '@mui/icons-material/FolderSpecial';
+import Inventory2Icon from '@mui/icons-material/Inventory2';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import { useAuthStore } from '../../store/authStore';
@@ -55,6 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
     cargos: false,
     clientes: false,
     proveedores: false,
+    portfolio: false,
   });
 
   const handleMenuClick = (menu: keyof typeof menuOpen) => {
@@ -138,6 +145,43 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
         },
       ],
       permission: PERMISSIONS.READ_SUPPLIERS,
+    },
+    {
+      label: 'Portafolio',
+      icon: <InventoryIcon />,
+      submenu: [
+        {
+          label: 'Unidades de Medida',
+          icon: <StraightenIcon />,
+          path: ROUTES.UNITS_OF_MEASURE,
+          permission: PERMISSIONS.READ_UNITS_OF_MEASURE,
+        },
+        {
+          label: 'Categorías de Servicios',
+          icon: <CategoryIcon />,
+          path: ROUTES.SERVICE_CATEGORIES,
+          permission: PERMISSIONS.READ_SERVICE_CATEGORIES,
+        },
+        {
+          label: 'Servicios',
+          icon: <MiscellaneousServicesIcon />,
+          path: ROUTES.SERVICES,
+          permission: PERMISSIONS.READ_SERVICES,
+        },
+        {
+          label: 'Categorías de Insumos',
+          icon: <FolderSpecialIcon />,
+          path: ROUTES.SUPPLY_CATEGORIES,
+          permission: PERMISSIONS.READ_SUPPLY_CATEGORIES,
+        },
+        {
+          label: 'Insumos',
+          icon: <Inventory2Icon />,
+          path: ROUTES.SUPPLIES,
+          permission: PERMISSIONS.READ_SUPPLIES,
+        },
+      ],
+      permission: PERMISSIONS.READ_UNITS_OF_MEASURE,
     },
     {
       label: 'Áreas',
