@@ -181,7 +181,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
           permission: PERMISSIONS.READ_SUPPLIES,
         },
       ],
-      permission: PERMISSIONS.READ_UNITS_OF_MEASURE,
+      // El menú se muestra si el usuario tiene permiso para cualquiera de los submódulos
+      permissions: [
+        PERMISSIONS.READ_UNITS_OF_MEASURE,
+        PERMISSIONS.READ_SERVICE_CATEGORIES,
+        PERMISSIONS.READ_SERVICES,
+        PERMISSIONS.READ_SUPPLY_CATEGORIES,
+        PERMISSIONS.READ_SUPPLIES,
+      ],
     },
     {
       label: 'Áreas',
@@ -367,7 +374,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
       {/* Navigation List */}
       <List sx={{ px: 1, flex: 1 }}>
         {navItems.map((item, index) => {
+          // Check permissions: single permission or array of permissions (any match)
           if (item.permission && !hasPermission(item.permission)) {
+            return null;
+          }
+          if (item.permissions && !item.permissions.some(p => hasPermission(p))) {
             return null;
           }
 

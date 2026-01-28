@@ -147,10 +147,11 @@ const SupplyFormPage: React.FC = () => {
       setError(null);
       const submitData = {
         ...data,
-        purchasePrice: data.purchasePrice ? Number(data.purchasePrice) : undefined,
-        conversionFactor: data.conversionFactor ? Number(data.conversionFactor) : 1,
-        currentStock: data.currentStock ? Number(data.currentStock) : 0,
-        minimumStock: data.minimumStock ? Number(data.minimumStock) : 0,
+        // No usar Number() porque Zod ya transforma. Verificar string vacío en lugar de falsy
+        purchasePrice: data.purchasePrice !== '' ? data.purchasePrice : undefined,
+        conversionFactor: data.conversionFactor !== '' ? data.conversionFactor : undefined,
+        currentStock: data.currentStock !== '' ? data.currentStock : undefined,
+        minimumStock: data.minimumStock !== '' ? data.minimumStock : undefined,
         sku: data.sku || undefined,
         description: data.description || undefined,
       };

@@ -103,7 +103,8 @@ const ServiceCategoryFormPage: React.FC = () => {
       setError(null);
       const submitData = {
         ...data,
-        sortOrder: data.sortOrder ? Number(data.sortOrder) : undefined,
+        // No usar Number() porque Zod ya transforma. Verificar string vacío en lugar de falsy
+        sortOrder: data.sortOrder !== '' ? data.sortOrder : undefined,
       };
 
       if (isEdit && id) {

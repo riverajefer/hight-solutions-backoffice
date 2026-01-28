@@ -20,12 +20,7 @@ interface PermissionsSelectorProps {
 }
 
 const PERMISSION_GROUPS: Record<string, string[]> = {
-  Usuarios: [
-    'create_users',
-    'read_users',
-    'update_users',
-    'delete_users',
-  ],
+  Usuarios: ['create_users', 'read_users', 'update_users', 'delete_users'],
   Clientes: [
     'create_clients',
     'read_clients',
@@ -38,12 +33,38 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
     'update_suppliers',
     'delete_suppliers',
   ],
-  Roles: [
-    'create_roles',
-    'read_roles',
-    'update_roles',
-    'delete_roles',
+  'Unidades de medida': [
+    'create_units_of_measure',
+    'read_units_of_measure',
+    'update_units_of_measure',
+    'delete_units_of_measure',
   ],
+  'Categorías de Servicios': [
+    'create_service_categories',
+    'read_service_categories',
+    'update_service_categories',
+    'delete_service_categories',
+  ],
+  Servicios: [
+    'create_services',
+    'read_services',
+    'update_services',
+    'delete_services',
+  ],
+  'Categorías de Insumos': [
+    'create_supply_categories',
+    'read_supply_categories',
+    'update_supply_categories',
+    'delete_supply_categories',
+  ],
+  Insumos: [
+    'create_supplies',
+    'read_supplies',
+    'update_supplies',
+    'delete_supplies',
+  ],
+
+  Roles: ['create_roles', 'read_roles', 'update_roles', 'delete_roles'],
   Permisos: [
     'create_permissions',
     'read_permissions',
@@ -51,21 +72,9 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
     'delete_permissions',
     'manage_permissions',
   ],
-  'Áreas': [
-    'create_areas',
-    'read_areas',
-    'update_areas',
-    'delete_areas',
-  ],
-  Cargos: [
-    'create_cargos',
-    'read_cargos',
-    'update_cargos',
-    'delete_cargos',
-  ],
-  Auditoría: [
-    'read_audit_logs',
-  ],
+  Áreas: ['create_areas', 'read_areas', 'update_areas', 'delete_areas'],
+  Cargos: ['create_cargos', 'read_cargos', 'update_cargos', 'delete_cargos'],
+  Auditoría: ['read_audit_logs'],
 };
 
 /**
@@ -85,7 +94,9 @@ export const PermissionsSelector: React.FC<PermissionsSelectorProps> = ({
     if (checked) {
       onSelectPermissions([...selectedPermissions, permissionId]);
     } else {
-      onSelectPermissions(selectedPermissions.filter((p) => p !== permissionId));
+      onSelectPermissions(
+        selectedPermissions.filter((p) => p !== permissionId),
+      );
     }
   };
 
@@ -94,47 +105,54 @@ export const PermissionsSelector: React.FC<PermissionsSelectorProps> = ({
       acc[p.name] = p;
       return acc;
     },
-    {} as Record<string, Permission>
+    {} as Record<string, Permission>,
   );
 
   return (
     <Box sx={{ mt: 3 }}>
-      <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
+      <Typography variant='subtitle1' sx={{ fontWeight: 600, mb: 2 }}>
         Permisos
       </Typography>
 
       <Grid container spacing={3}>
-        {Object.entries(PERMISSION_GROUPS).map(([groupName, permissionNames]) => (
-          <Grid item xs={12} sm={6} key={groupName}>
-            <Paper sx={{ p: 2 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                {groupName}
-              </Typography>
-              <FormGroup>
-                {permissionNames.map((permName) => {
-                  const permission = permissionMap[permName];
-                  if (!permission) return null;
+        {Object.entries(PERMISSION_GROUPS).map(
+          ([groupName, permissionNames]) => (
+            <Grid item xs={12} sm={6} key={groupName}>
+              <Paper sx={{ p: 2 }}>
+                <Typography variant='subtitle2' sx={{ fontWeight: 600, mb: 1 }}>
+                  {groupName}
+                </Typography>
+                <FormGroup>
+                  {permissionNames.map((permName) => {
+                    const permission = permissionMap[permName];
+                    if (!permission) return null;
 
-                  return (
-                    <FormControlLabel
-                      key={permission.id}
-                      control={
-                        <Checkbox
-                          checked={selectedPermissions.includes(permission.id)}
-                          onChange={(e) =>
-                            handlePermissionChange(permission.id, e.target.checked)
-                          }
-                          disabled={disabled}
-                        />
-                      }
-                      label={getPermissionLabel(permission.name)}
-                    />
-                  );
-                })}
-              </FormGroup>
-            </Paper>
-          </Grid>
-        ))}
+                    return (
+                      <FormControlLabel
+                        key={permission.id}
+                        control={
+                          <Checkbox
+                            checked={selectedPermissions.includes(
+                              permission.id,
+                            )}
+                            onChange={(e) =>
+                              handlePermissionChange(
+                                permission.id,
+                                e.target.checked,
+                              )
+                            }
+                            disabled={disabled}
+                          />
+                        }
+                        label={getPermissionLabel(permission.name)}
+                      />
+                    );
+                  })}
+                </FormGroup>
+              </Paper>
+            </Grid>
+          ),
+        )}
       </Grid>
     </Box>
   );
