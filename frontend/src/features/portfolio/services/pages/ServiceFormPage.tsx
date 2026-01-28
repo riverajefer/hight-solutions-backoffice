@@ -114,7 +114,8 @@ const ServiceFormPage: React.FC = () => {
       setError(null);
       const submitData = {
         ...data,
-        basePrice: data.basePrice ? Number(data.basePrice) : undefined,
+        // No usar Number() porque Zod ya transforma. Verificar string vacío en lugar de falsy
+        basePrice: data.basePrice !== '' ? data.basePrice : undefined,
         priceUnit: data.priceUnit || undefined,
         description: data.description || undefined,
       };
