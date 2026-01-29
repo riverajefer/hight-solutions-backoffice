@@ -96,6 +96,13 @@ async function main() {
     { name: 'read_supplies', description: 'Ver insumos' },
     { name: 'update_supplies', description: 'Actualizar insumos' },
     { name: 'delete_supplies', description: 'Eliminar insumos' },
+
+    // Orders
+    { name: 'create_orders', description: 'Crear órdenes de pedido' },
+    { name: 'read_orders', description: 'Ver órdenes de pedido' },
+    { name: 'update_orders', description: 'Actualizar órdenes de pedido' },
+    { name: 'delete_orders', description: 'Eliminar órdenes de pedido' },
+    { name: 'approve_orders', description: 'Aprobar/confirmar órdenes de pedido' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
@@ -191,12 +198,17 @@ async function main() {
     'read_services',
     'read_supply_categories',
     'read_supplies',
+    'create_orders',
+    'read_orders',
+    'update_orders',
+    'approve_orders',
   ]);
 
   // User - solo lectura básica
   await assignPermissionsToRole(userRole.id, 'user', [
     'read_users',
     'read_roles',
+    'read_orders',
   ]);
 
   // ============================================
