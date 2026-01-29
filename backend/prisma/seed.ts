@@ -1007,6 +1007,26 @@ async function main() {
   }
 
   // ============================================
+  // 10. Crear Consecutivos Iniciales
+  // ============================================
+  console.log('\n🔢 Creating initial consecutives...');
+
+  const consecutivesData = [
+    { type: 'ORDER', prefix: 'OP', year: new Date().getFullYear(), lastNumber: 0 },
+    { type: 'PRODUCTION', prefix: 'PROD', year: new Date().getFullYear(), lastNumber: 0 },
+    { type: 'EXPENSE', prefix: 'GAS', year: new Date().getFullYear(), lastNumber: 0 },
+  ];
+
+  for (const consecutive of consecutivesData) {
+    await prisma.consecutive.upsert({
+      where: { type: consecutive.type },
+      update: {},
+      create: consecutive,
+    });
+    console.log(`  ✓ Consecutive: ${consecutive.type} (${consecutive.prefix})`);
+  }
+
+  // ============================================
   // Resumen
   // ============================================
   console.log('\n' + '='.repeat(50));
@@ -1024,6 +1044,7 @@ async function main() {
   console.log(`   - Services: ${servicesCreated}`);
   console.log(`   - Supply Categories: ${supplyCategoriesData.length}`);
   console.log(`   - Supplies: ${suppliesCreated}`);
+  console.log(`   - Consecutives: ${consecutivesData.length}`);
   console.log('\n🔐 Test Credentials:');
   console.log('   Admin:   admin@example.com / admin123');
   console.log('   Manager: manager@example.com / manager123');

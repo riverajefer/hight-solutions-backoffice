@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 
 @Injectable()
-export class ConsecutiveRepository {
+export class ConsecutivesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
@@ -54,7 +54,7 @@ export class ConsecutiveRepository {
       return record;
     });
 
-    // Formato: OP-2025-0001
+    // Formato: OP-2026-0001
     const numberStr = consecutive.lastNumber.toString().padStart(4, '0');
     return `${prefix}-${year}-${numberStr}`;
   }

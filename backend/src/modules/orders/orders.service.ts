@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { OrdersRepository } from './orders.repository';
-import { ConsecutiveRepository } from './consecutive.repository';
+import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { CreateOrderDto, UpdateOrderDto } from './dto';
 import { OrderStatus, Prisma } from '../../generated/prisma';
 
@@ -12,7 +12,7 @@ import { OrderStatus, Prisma } from '../../generated/prisma';
 export class OrdersService {
   constructor(
     private readonly ordersRepository: OrdersRepository,
-    private readonly consecutiveRepository: ConsecutiveRepository,
+    private readonly consecutivesService: ConsecutivesService,
   ) {}
 
   async findAll(status?: OrderStatus) {
@@ -34,10 +34,7 @@ export class OrdersService {
     }
 
     // Generar número de orden
-    const orderNumber = await this.consecutiveRepository.getNextNumber(
-      'ORDER',
-      'OP',
-    );
+    const orderNumber = await this.consecutivesService.generateNumber('ORDER');
 
     // Calcular totales
     let subtotal = new Prisma.Decimal(0);
