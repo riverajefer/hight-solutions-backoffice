@@ -48,6 +48,10 @@ const SupplyCategoryFormPage = lazy(() => import('../features/portfolio/supply-c
 // Portfolio - Supplies
 const SuppliesListPage = lazy(() => import('../features/portfolio/supplies/pages/SuppliesListPage'));
 const SupplyFormPage = lazy(() => import('../features/portfolio/supplies/pages/SupplyFormPage'));
+// Orders
+const OrdersListPage = lazy(() => import('../features/orders/pages/OrdersListPage'));
+const OrderFormPage = lazy(() => import('../features/orders/pages/OrderFormPage'));
+const OrderDetailPage = lazy(() => import('../features/orders/pages/OrderDetailPage'));
 
 
 const RoutesConfig: FC = () => {
@@ -606,6 +610,56 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.UPDATE_SUPPLIES}>
                   <SupplyFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Orders Routes */}
+        <Route
+          path={PATHS.ORDERS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_ORDERS}>
+                  <OrdersListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.ORDERS_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_ORDERS}>
+                  <OrderFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.ORDERS_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_ORDERS}>
+                  <OrderFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.ORDERS_DETAIL}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_ORDERS}>
+                  <OrderDetailPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

@@ -4,6 +4,9 @@ import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { SnackbarProvider } from 'notistack';
+import { LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { es } from 'date-fns/locale';
 import { lightTheme, darkTheme } from './theme';
 import { useUIStore } from './store/uiStore';
 import RoutesConfig from './router';
@@ -27,9 +30,11 @@ const AppContent: FC = () => {
   return (
     <ThemeProvider theme={currentTheme}>
       <CssBaseline />
-      <SnackbarProvider maxSnack={3}>
-        <RoutesConfig />
-      </SnackbarProvider>
+      <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={es}>
+        <SnackbarProvider maxSnack={3}>
+          <RoutesConfig />
+        </SnackbarProvider>
+      </LocalizationProvider>
     </ThemeProvider>
   );
 };

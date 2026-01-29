@@ -30,6 +30,7 @@ import CategoryIcon from '@mui/icons-material/Category';
 import MiscellaneousServicesIcon from '@mui/icons-material/MiscellaneousServices';
 import FolderSpecialIcon from '@mui/icons-material/FolderSpecial';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import { useAuthStore } from '../../store/authStore';
@@ -189,6 +190,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
         PERMISSIONS.READ_SUPPLY_CATEGORIES,
         PERMISSIONS.READ_SUPPLIES,
       ],
+    },
+    {
+      label: 'Órdenes de Pedido',
+      icon: <ShoppingCartIcon />,
+      path: ROUTES.ORDERS,
+      permission: PERMISSIONS.READ_ORDERS,
     },
     {
       label: 'Áreas',
