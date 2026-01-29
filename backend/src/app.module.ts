@@ -18,6 +18,7 @@ import { ServiceCategoriesModule } from './modules/portfolio/service-categories/
 import { ServicesModule } from './modules/portfolio/services/services.module';
 import { SupplyCategoriesModule } from './modules/portfolio/supply-categories/supply-categories.module';
 import { SuppliesModule } from './modules/portfolio/supplies/supplies.module';
+import { OrdersModule } from './modules/orders/orders.module';
 import { AuditContextInterceptor } from './common/interceptors/audit-context.interceptor';
 
 @Module({
@@ -45,6 +46,8 @@ import { AuditContextInterceptor } from './common/interceptors/audit-context.int
     ServicesModule,
     SupplyCategoriesModule,
     SuppliesModule,
+    // Módulo de Órdenes de Pedido
+    OrdersModule,
   ],
   providers: [
     {

@@ -21,9 +21,10 @@ model User {
   firstName    String?
   lastName     String?
 
-  role         Role          @relation(fields: [roleId], references: [id])
-  cargo        Cargo?        @relation(fields: [cargoId], references: [id])
-  sessionLogs  SessionLog[]
+  role          Role          @relation(fields: [roleId], references: [id])
+  cargo         Cargo?        @relation(fields: [cargoId], references: [id])
+  sessionLogs   SessionLog[]
+  createdOrders Order[]
 
   @@map("users")
 }
@@ -167,6 +168,7 @@ model Client {
 
   department Department @relation(fields: [departmentId], references: [id])
   city       City       @relation(fields: [cityId], references: [id])
+  orders     Order[]
 
   @@map("clients")
 }
@@ -268,7 +270,8 @@ model Service {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  category ServiceCategory @relation(fields: [categoryId], references: [id])
+  category   ServiceCategory @relation(fields: [categoryId], references: [id])
+  orderItems OrderItem[]
 
   @@unique([name, categoryId])
   @@map("services")
@@ -320,5 +323,92 @@ model Supply {
 
   @@unique([name, categoryId])
   @@map("supplies")
+}
+
+// =============================================================================
+// MÓDULO DE ÓRDENES - FASE 2: CONSECUTIVOS Y ÓRDENES DE PEDIDO
+// =============================================================================
+
+enum OrderStatus {
+  DRAFT         // Borrador (editable)
+  CONFIRMED     // Confirmada (bloqueada para edición)
+  IN_PRODUCTION // En producción
+  READY         // Lista para entrega
+  DELIVERED     // Entregada
+  CANCELLED     // Cancelada
+}
+
+model Consecutive {
+  id         String   @id @default(uuid())
+  type       String   @unique // "ORDER", "PRODUCTION", "EXPENSE"
+  prefix     String   // "OP", "PROD", "GAS"
+  year       Int      // 2025, 2026, etc.
+  lastNumber Int      @default(0) @map("last_number") // Último número generado
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("consecutives")
+}
+
+model Order {
+  id           String      @id @default(uuid())
+  orderNumber  String      @unique @map("order_number") // "OP-2025-0001"
+  clientId     String      @map("client_id")
+  orderDate    DateTime    @default(now()) @map("order_date")
+  deliveryDate DateTime?   @map("delivery_date") // Fecha estimada de entrega
+
+  // Cálculos financieros
+  subtotal     Decimal     // Suma de todos los items
+  taxRate      Decimal     @default(0.19) @map("tax_rate") // IVA 19%
+  tax          Decimal     // subtotal * taxRate
+  total        Decimal     // subtotal + tax
+  paidAmount   Decimal     @default(0) @map("paid_amount") // Abonos realizados
+  balance      Decimal     // total - paidAmount (saldo pendiente)
+
+  status       OrderStatus @default(DRAFT)
+  notes        String?     // Observaciones generales
+
+  // Auditoría
+  createdById  String      @map("created_by_id")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  // Relaciones
+  client      Client      @relation(fields: [clientId], references: [id])
+  createdBy   User        @relation(fields: [createdById], references: [id])
+  items       OrderItem[]
+
+  @@index([clientId])
+  @@index([createdById])
+  @@index([orderDate])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id             String  @id @default(uuid())
+  orderId        String  @map("order_id")
+  serviceId      String? @map("service_id") // Opcional: servicio del catálogo
+
+  // Datos del item
+  description    String  // Descripción del servicio/producto
+  quantity       Decimal // Cantidad
+  unitPrice      Decimal @map("unit_price") // Precio unitario
+  total          Decimal // quantity * unitPrice
+
+  // Especificaciones técnicas (JSON flexible)
+  specifications Json?   // { color: "rojo", material: "acero", dimensiones: "10x20" }
+
+  sortOrder      Int      @default(0) @map("sort_order") // Orden de visualización
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  service Service? @relation(fields: [serviceId], references: [id])
+
+  @@index([orderId])
+  @@index([serviceId])
+  @@map("order_items")
 }
 
