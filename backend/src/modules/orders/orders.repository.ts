@@ -56,6 +56,26 @@ export class OrdersRepository {
       },
       orderBy: { sortOrder: 'asc' as const },
     },
+    payments: {
+      select: {
+        id: true,
+        amount: true,
+        paymentMethod: true,
+        paymentDate: true,
+        reference: true,
+        notes: true,
+        createdAt: true,
+        receivedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: { paymentDate: 'desc' as const },
+    },
   };
 
   async findAll(status?: OrderStatus) {
@@ -66,6 +86,60 @@ export class OrdersRepository {
       select: this.selectFields,
       orderBy: { orderDate: 'desc' },
     });
+  }
+
+  async findAllWithFilters(filters: {
+    status?: OrderStatus;
+    clientId?: string;
+    orderDateFrom?: Date;
+    orderDateTo?: Date;
+    page?: number;
+    limit?: number;
+  }) {
+    const { status, clientId, orderDateFrom, orderDateTo, page = 1, limit = 20 } = filters;
+
+    const where: Prisma.OrderWhereInput = {};
+
+    if (status) {
+      where.status = status;
+    }
+
+    if (clientId) {
+      where.clientId = clientId;
+    }
+
+    if (orderDateFrom || orderDateTo) {
+      where.orderDate = {};
+      if (orderDateFrom) {
+        where.orderDate.gte = orderDateFrom;
+      }
+      if (orderDateTo) {
+        where.orderDate.lte = orderDateTo;
+      }
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [orders, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where,
+        select: this.selectFields,
+        orderBy: { orderDate: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+
+    return {
+      data: orders,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async findById(id: string) {
@@ -121,6 +195,109 @@ export class OrdersRepository {
         balance: true,
       },
       _count: true,
+    });
+  }
+
+  // ========== ITEM MANAGEMENT ==========
+
+  async findItemById(itemId: string) {
+    return this.prisma.orderItem.findUnique({
+      where: { id: itemId },
+      include: {
+        order: {
+          select: {
+            id: true,
+            status: true,
+          },
+        },
+      },
+    });
+  }
+
+  async createItem(data: Prisma.OrderItemCreateInput) {
+    return this.prisma.orderItem.create({
+      data,
+    });
+  }
+
+  async updateItem(itemId: string, data: Prisma.OrderItemUpdateInput) {
+    return this.prisma.orderItem.update({
+      where: { id: itemId },
+      data,
+    });
+  }
+
+  async deleteItem(itemId: string) {
+    return this.prisma.orderItem.delete({
+      where: { id: itemId },
+    });
+  }
+
+  // ========== PAYMENT MANAGEMENT ==========
+
+  async createPayment(data: Prisma.PaymentCreateInput) {
+    return this.prisma.payment.create({
+      data,
+      select: {
+        id: true,
+        amount: true,
+        paymentMethod: true,
+        paymentDate: true,
+        reference: true,
+        notes: true,
+        createdAt: true,
+        receivedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+  }
+
+  async findPaymentsByOrderId(orderId: string) {
+    return this.prisma.payment.findMany({
+      where: { orderId },
+      select: {
+        id: true,
+        amount: true,
+        paymentMethod: true,
+        paymentDate: true,
+        reference: true,
+        notes: true,
+        createdAt: true,
+        receivedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: { paymentDate: 'desc' },
+    });
+  }
+
+  // ========== ORDER FINANCIALS UPDATE ==========
+
+  async updateOrderFinancials(
+    orderId: string,
+    financials: {
+      subtotal: Prisma.Decimal;
+      tax: Prisma.Decimal;
+      total: Prisma.Decimal;
+      paidAmount: Prisma.Decimal;
+      balance: Prisma.Decimal;
+    },
+  ) {
+    return this.prisma.order.update({
+      where: { id: orderId },
+      data: financials,
+      select: this.selectFields,
     });
   }
 }

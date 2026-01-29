@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -18,7 +19,15 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { OrdersService } from './orders.service';
-import { CreateOrderDto, UpdateOrderDto } from './dto';
+import {
+  CreateOrderDto,
+  UpdateOrderDto,
+  FilterOrdersDto,
+  AddOrderItemDto,
+  UpdateOrderItemDto,
+  CreatePaymentDto,
+  UpdateOrderStatusDto,
+} from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
@@ -34,15 +43,10 @@ export class OrdersController {
 
   @Get()
   @RequirePermissions('read_orders')
-  @ApiOperation({ summary: 'Get all orders' })
-  @ApiQuery({
-    name: 'status',
-    required: false,
-    enum: OrderStatus,
-  })
+  @ApiOperation({ summary: 'Get all orders with filters and pagination' })
   @ApiResponse({ status: 200, description: 'Orders retrieved successfully' })
-  findAll(@Query('status') status?: OrderStatus) {
-    return this.ordersService.findAll(status);
+  findAll(@Query() filters: FilterOrdersDto) {
+    return this.ordersService.findAll(filters);
   }
 
   @Get(':id')
@@ -84,9 +88,9 @@ export class OrdersController {
   @ApiResponse({ status: 200, description: 'Status updated successfully' })
   updateStatus(
     @Param('id') id: string,
-    @Body('status') status: OrderStatus,
+    @Body() updateStatusDto: UpdateOrderStatusDto,
   ) {
-    return this.ordersService.updateStatus(id, status);
+    return this.ordersService.updateStatus(id, updateStatusDto.status);
   }
 
   @Delete(':id')
@@ -97,5 +101,74 @@ export class OrdersController {
   @ApiResponse({ status: 400, description: 'Cannot delete this order' })
   remove(@Param('id') id: string) {
     return this.ordersService.remove(id);
+  }
+
+  // ========== ITEM MANAGEMENT ENDPOINTS ==========
+
+  @Post(':id/items')
+  @RequirePermissions('update_orders')
+  @ApiOperation({ summary: 'Add item to order (only DRAFT)' })
+  @ApiParam({ name: 'id', description: 'Order ID' })
+  @ApiResponse({ status: 201, description: 'Item added successfully' })
+  @ApiResponse({ status: 400, description: 'Cannot add items to non-DRAFT order' })
+  addItem(@Param('id') orderId: string, @Body() addItemDto: AddOrderItemDto) {
+    return this.ordersService.addItem(orderId, addItemDto);
+  }
+
+  @Patch(':id/items/:itemId')
+  @RequirePermissions('update_orders')
+  @ApiOperation({ summary: 'Update order item (only DRAFT)' })
+  @ApiParam({ name: 'id', description: 'Order ID' })
+  @ApiParam({ name: 'itemId', description: 'Item ID' })
+  @ApiResponse({ status: 200, description: 'Item updated successfully' })
+  @ApiResponse({ status: 400, description: 'Cannot update items in non-DRAFT order' })
+  updateItem(
+    @Param('id') orderId: string,
+    @Param('itemId') itemId: string,
+    @Body() updateItemDto: UpdateOrderItemDto,
+  ) {
+    return this.ordersService.updateItem(orderId, itemId, updateItemDto);
+  }
+
+  @Delete(':id/items/:itemId')
+  @RequirePermissions('update_orders')
+  @ApiOperation({ summary: 'Remove item from order (only DRAFT)' })
+  @ApiParam({ name: 'id', description: 'Order ID' })
+  @ApiParam({ name: 'itemId', description: 'Item ID' })
+  @ApiResponse({ status: 200, description: 'Item removed successfully' })
+  @ApiResponse({ status: 400, description: 'Cannot remove items from non-DRAFT order' })
+  removeItem(
+    @Param('id') orderId: string,
+    @Param('itemId') itemId: string,
+  ) {
+    return this.ordersService.removeItem(orderId, itemId);
+  }
+
+  // ========== PAYMENT MANAGEMENT ENDPOINTS ==========
+
+  @Post(':id/payments')
+  @RequirePermissions('approve_orders')
+  @ApiOperation({ summary: 'Add payment to order (only CONFIRMED+)' })
+  @ApiParam({ name: 'id', description: 'Order ID' })
+  @ApiResponse({ status: 201, description: 'Payment added successfully' })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot add payment to DRAFT order or payment exceeds balance',
+  })
+  addPayment(
+    @Param('id') orderId: string,
+    @Body() createPaymentDto: CreatePaymentDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.ordersService.addPayment(orderId, createPaymentDto, userId);
+  }
+
+  @Get(':id/payments')
+  @RequirePermissions('read_orders')
+  @ApiOperation({ summary: 'Get all payments for an order' })
+  @ApiParam({ name: 'id', description: 'Order ID' })
+  @ApiResponse({ status: 200, description: 'Payments retrieved successfully' })
+  getPayments(@Param('id') orderId: string) {
+    return this.ordersService.getPayments(orderId);
   }
 }
