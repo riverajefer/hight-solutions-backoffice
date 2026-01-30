@@ -7,9 +7,14 @@ import {
   TextField,
   Autocomplete,
   Button,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import { GridColDef } from '@mui/x-data-grid';
-import { ShoppingCart as ShoppingCartIcon } from '@mui/icons-material';
+import {
+  ShoppingCart as ShoppingCartIcon,
+  SwapHoriz as SwapHorizIcon,
+} from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { DataTable } from '../../../components/common/DataTable';
@@ -17,7 +22,7 @@ import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { ActionsCell } from '../../../components/common/DataTable/ActionsCell';
 import { useOrders } from '../hooks';
 import { useClients } from '../../clients/hooks/useClients';
-import { OrderStatusChip } from '../components';
+import { OrderStatusChip, ChangeStatusDialog } from '../components';
 import type { Order, OrderStatus, FilterOrdersDto } from '../../../types/order.types';
 import type { Client } from '../../../types/client.types';
 
@@ -55,9 +60,10 @@ export const OrdersListPage: React.FC = () => {
 
   // UI state
   const [confirmDelete, setConfirmDelete] = useState<Order | null>(null);
+  const [changeStatusOrder, setChangeStatusOrder] = useState<Order | null>(null);
 
   // Queries
-  const { ordersQuery, deleteOrderMutation } = useOrders(filters);
+  const { ordersQuery, deleteOrderMutation, updateStatusMutation } = useOrders(filters);
   const { clientsQuery } = useClients({ includeInactive: false });
 
   const orders = ordersQuery.data?.data || [];
@@ -96,6 +102,19 @@ export const OrdersListPage: React.FC = () => {
     try {
       await deleteOrderMutation.mutateAsync(confirmDelete.id);
       setConfirmDelete(null);
+    } catch (error) {
+      // Error is handled by the mutation
+    }
+  };
+
+  const handleChangeStatus = async (newStatus: OrderStatus) => {
+    if (!changeStatusOrder) return;
+
+    try {
+      await updateStatusMutation.mutateAsync({
+        id: changeStatusOrder.id,
+        status: newStatus,
+      });
     } catch (error) {
       // Error is handled by the mutation
     }
@@ -169,23 +188,35 @@ export const OrdersListPage: React.FC = () => {
     {
       field: 'actions',
       headerName: 'Acciones',
-      width: 150,
+      width: 200,
       sortable: false,
-      renderCell: (params) => (
-        <ActionsCell
-          onView={() => handleViewOrder(params.row)}
-          onEdit={
-            params.row.status === 'DRAFT'
-              ? () => handleEditOrder(params.row)
-              : undefined
-          }
-          onDelete={
-            ['DRAFT', 'CANCELLED'].includes(params.row.status)
-              ? () => setConfirmDelete(params.row)
-              : undefined
-          }
-        />
-      ),
+      renderCell: (params) => {
+        const canEdit = !['DELIVERED', 'CANCELLED'].includes(params.row.status);
+        const canDelete = ['DRAFT', 'CANCELLED'].includes(params.row.status);
+
+        return (
+          <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+            <ActionsCell
+              onView={() => handleViewOrder(params.row)}
+              onEdit={canEdit ? () => handleEditOrder(params.row) : undefined}
+              onDelete={canDelete ? () => setConfirmDelete(params.row) : undefined}
+            />
+            {/* Botón para cambiar estado */}
+            <Tooltip title="Cambiar estado">
+              <IconButton
+                size="small"
+                color="primary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setChangeStatusOrder(params.row);
+                }}
+              >
+                <SwapHorizIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        );
+      },
     },
   ];
 
@@ -199,7 +230,7 @@ export const OrdersListPage: React.FC = () => {
         breadcrumbs={[{ label: 'Órdenes' }]}
         action={
           <Button
-            variant="contained"
+            variant="outlined"
             startIcon={<ShoppingCartIcon />}
             onClick={() => navigate('/orders/new')}
           >
@@ -305,6 +336,15 @@ export const OrdersListPage: React.FC = () => {
         onConfirm={handleDeleteOrder}
         onCancel={() => setConfirmDelete(null)}
         isLoading={deleteOrderMutation.isPending}
+      />
+
+      {/* Change Status Dialog */}
+      <ChangeStatusDialog
+        open={!!changeStatusOrder}
+        order={changeStatusOrder}
+        onClose={() => setChangeStatusOrder(null)}
+        onConfirm={handleChangeStatus}
+        isLoading={updateStatusMutation.isPending}
       />
     </Box>
   );

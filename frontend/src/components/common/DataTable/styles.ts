@@ -8,28 +8,36 @@ export const dataGridStyles: SxProps<Theme> = {
   border: 'none',
   borderRadius: 2,
 
-  // Headers con estilo neón
+  // Headers con estilo mejorado y más elegante
   '& .MuiDataGrid-columnHeaders': {
     backgroundColor: (theme) =>
       theme.palette.mode === 'light'
-        ? alpha(theme.palette.primary.light, 0.15)
-        : alpha(theme.palette.secondary.main, 0.2),
+        ? alpha(theme.palette.primary.main, 0.08)
+        : alpha(theme.palette.primary.main, 0.15),
     color: (theme) =>
       theme.palette.mode === 'light'
-        ? theme.palette.secondary.main
+        ? theme.palette.text.primary
         : theme.palette.primary.light,
-    fontWeight: 700,
-    borderBottom: '1px solid',
+    fontWeight: 800,
+    fontSize: '0.9rem',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    borderBottom: '2px solid',
     borderColor: (theme) =>
       theme.palette.mode === 'light'
-        ? alpha(theme.palette.secondary.main, 0.15)
-        : alpha(theme.palette.primary.main, 0.3),
-    minHeight: '52px !important',
+        ? theme.palette.primary.main
+        : theme.palette.primary.dark,
+    minHeight: '56px !important',
+    boxShadow: (theme) =>
+      theme.palette.mode === 'light'
+        ? '0 2px 4px rgba(0, 0, 0, 0.05)'
+        : `0 2px 8px ${alpha(theme.palette.primary.main, 0.2)}`,
   },
 
   '& .MuiDataGrid-columnHeaderTitle': {
-    fontWeight: 600,
-    letterSpacing: '0.02em',
+    fontWeight: 700,
+    letterSpacing: '0.05em',
+    fontSize: '0.85rem',
   },
 
   '& .MuiDataGrid-columnSeparator': {
@@ -55,36 +63,48 @@ export const dataGridStyles: SxProps<Theme> = {
     },
   },
 
-  // Filas con hover neón
+  // Filas con hover mejorado
   '& .MuiDataGrid-row': {
-    transition: 'all 0.2s ease',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
     '&:hover': {
       backgroundColor: (theme) =>
         theme.palette.mode === 'light'
-          ? alpha(theme.palette.primary.main, 0.04)
-          : alpha(theme.palette.primary.main, 0.08),
+          ? alpha(theme.palette.primary.main, 0.08)
+          : alpha(theme.palette.primary.main, 0.2),
       cursor: 'pointer',
+      transform: 'translateX(2px)',
+      boxShadow: (theme) =>
+        theme.palette.mode === 'light'
+          ? `inset 3px 0 0 ${theme.palette.primary.main}`
+          : `inset 3px 0 0 ${theme.palette.primary.light}, 0 0 10px ${alpha(theme.palette.primary.main, 0.3)}`,
     },
     '&.Mui-selected': {
       backgroundColor: (theme) =>
         theme.palette.mode === 'light'
-          ? alpha(theme.palette.primary.main, 0.08)
-          : alpha(theme.palette.primary.main, 0.15),
+          ? alpha(theme.palette.primary.main, 0.12)
+          : alpha(theme.palette.primary.main, 0.25),
       '&:hover': {
         backgroundColor: (theme) =>
           theme.palette.mode === 'light'
-            ? alpha(theme.palette.primary.main, 0.12)
-            : alpha(theme.palette.primary.main, 0.2),
+            ? alpha(theme.palette.primary.main, 0.16)
+            : alpha(theme.palette.primary.main, 0.3),
       },
     },
   },
 
-  // Filas alternadas sutiles
+  // Efecto cebra mejorado (filas pares/impares)
+  '& .MuiDataGrid-row:nth-of-type(odd)': {
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? theme.palette.background.paper
+        : alpha(theme.palette.background.default, 0.4),
+  },
+
   '& .MuiDataGrid-row:nth-of-type(even)': {
     backgroundColor: (theme) =>
       theme.palette.mode === 'light'
-        ? alpha(theme.palette.secondary.main, 0.02)
-        : alpha(theme.palette.background.paper, 0.3),
+        ? alpha(theme.palette.grey[100], 0.5)
+        : alpha(theme.palette.primary.dark, 0.15),
   },
 
   // Footer

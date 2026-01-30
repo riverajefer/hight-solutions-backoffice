@@ -23,7 +23,7 @@ import { useClients, useClient } from '../hooks/useClients';
 import { useDepartments, useCitiesByDepartment } from '../../locations/hooks/useLocations';
 import { CreateClientDto, UpdateClientDto, Department, City } from '../../../types';
 
-// Zod validation schema with conditional NIT validation
+// Zod validation schema with conditional validations
 const clientSchema = z.object({
   name: z
     .string()
@@ -34,9 +34,18 @@ const clientSchema = z.object({
     .max(200, 'El encargado no puede exceder 200 caracteres')
     .optional()
     .or(z.literal('')),
+  encargado: z
+    .string()
+    .max(200, 'El encargado no puede exceder 200 caracteres')
+    .optional()
+    .or(z.literal('')),
   phone: z
     .string()
-    .max(20, 'El teléfono no puede exceder 20 caracteres')
+    .min(10, 'El número de celular debe tener al menos 10 dígitos')
+    .max(20, 'El número de celular no puede exceder 20 caracteres'),
+  landlinePhone: z
+    .string()
+    .max(20, 'El teléfono fijo no puede exceder 20 caracteres')
     .optional()
     .or(z.literal('')),
   address: z
@@ -51,6 +60,7 @@ const clientSchema = z.object({
     errorMap: () => ({ message: 'Debe seleccionar un tipo de persona' }),
   }),
   nit: z.string().optional().or(z.literal('')),
+  cedula: z.string().optional().or(z.literal('')),
 }).refine(
   (data) => {
     if (data.personType === 'EMPRESA') {
@@ -91,13 +101,16 @@ const ClientFormPage: React.FC = () => {
     defaultValues: {
       name: '',
       manager: '',
+      encargado: '',
       phone: '',
+      landlinePhone: '',
       address: '',
       email: '',
       departmentId: '',
       cityId: '',
       personType: 'NATURAL',
       nit: '',
+      cedula: '',
     },
   });
 
@@ -115,10 +128,12 @@ const ClientFormPage: React.FC = () => {
     }
   }, [watchDepartmentId, setValue, isEdit]);
 
-  // Clear NIT when personType changes to NATURAL
+  // Clear NIT/Cedula when personType changes
   useEffect(() => {
     if (watchPersonType === 'NATURAL') {
       setValue('nit', '');
+    } else if (watchPersonType === 'EMPRESA') {
+      setValue('cedula', '');
     }
   }, [watchPersonType, setValue]);
 
@@ -128,13 +143,16 @@ const ClientFormPage: React.FC = () => {
       reset({
         name: client.name,
         manager: client.manager || '',
+        encargado: client.encargado || '',
         phone: client.phone || '',
+        landlinePhone: client.landlinePhone || '',
         address: client.address || '',
         email: client.email,
         departmentId: client.departmentId,
         cityId: client.cityId,
         personType: client.personType,
         nit: client.nit || '',
+        cedula: client.cedula || '',
       });
     }
   }, [client, isEdit, reset]);
@@ -143,13 +161,15 @@ const ClientFormPage: React.FC = () => {
     try {
       setError(null);
 
-      // Clean data: remove empty strings, handle NIT for NATURAL
+      // Clean data: remove empty strings, handle NIT/Cedula based on personType
       const cleanedData = {
         ...data,
         manager: data.manager || undefined,
-        phone: data.phone || undefined,
+        encargado: data.encargado || undefined,
+        landlinePhone: data.landlinePhone || undefined,
         address: data.address || undefined,
         nit: data.personType === 'EMPRESA' ? data.nit : undefined,
+        cedula: data.personType === 'NATURAL' ? data.cedula : undefined,
       };
 
       if (isEdit && id) {
@@ -213,18 +233,19 @@ const ClientFormPage: React.FC = () => {
                 />
               </Grid>
 
-              {/* Manager */}
+              {/* Encargado */}
               <Grid item xs={12} md={6}>
                 <Controller
-                  name="manager"
+                  name="encargado"
                   control={control}
                   render={({ field }) => (
                     <TextField
                       {...field}
-                      label="Encargado / Gerente"
+                      label="Encargado"
                       fullWidth
-                      error={!!errors.manager}
-                      helperText={errors.manager?.message}
+                      error={!!errors.encargado}
+                      helperText={errors.encargado?.message}
+                      placeholder="Persona de contacto"
                     />
                   )}
                 />
@@ -249,7 +270,7 @@ const ClientFormPage: React.FC = () => {
                 />
               </Grid>
 
-              {/* Phone */}
+              {/* Phone (Celular) */}
               <Grid item xs={12} md={6}>
                 <Controller
                   name="phone"
@@ -257,10 +278,30 @@ const ClientFormPage: React.FC = () => {
                   render={({ field }) => (
                     <TextField
                       {...field}
-                      label="Teléfono"
+                      label="Número de celular"
                       fullWidth
                       error={!!errors.phone}
                       helperText={errors.phone?.message}
+                      required
+                      placeholder="3001234567"
+                    />
+                  )}
+                />
+              </Grid>
+
+              {/* Landline Phone (Teléfono fijo) */}
+              <Grid item xs={12} md={6}>
+                <Controller
+                  name="landlinePhone"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      label="Teléfono fijo"
+                      fullWidth
+                      error={!!errors.landlinePhone}
+                      helperText={errors.landlinePhone?.message}
+                      placeholder="6012345678"
                     />
                   )}
                 />
@@ -391,8 +432,25 @@ const ClientFormPage: React.FC = () => {
                 />
               </Grid>
 
-              {/* NIT - Only shown when personType is EMPRESA */}
-              {watchPersonType === 'EMPRESA' && (
+              {/* Cédula o NIT - Conditional based on personType */}
+              {watchPersonType === 'NATURAL' ? (
+                <Grid item xs={12} md={6}>
+                  <Controller
+                    name="cedula"
+                    control={control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        label="Cédula o nit"
+                        fullWidth
+                        error={!!errors.cedula}
+                        helperText={errors.cedula?.message}
+                        placeholder="1234567890"
+                      />
+                    )}
+                  />
+                </Grid>
+              ) : (
                 <Grid item xs={12} md={6}>
                   <Controller
                     name="nit"
@@ -405,7 +463,27 @@ const ClientFormPage: React.FC = () => {
                         error={!!errors.nit}
                         helperText={errors.nit?.message}
                         required
-                        placeholder="Ej: 900.123.456-7"
+                        placeholder="900.123.456-7"
+                      />
+                    )}
+                  />
+                </Grid>
+              )}
+
+              {/* Manager - Only shown when personType is EMPRESA */}
+              {watchPersonType === 'EMPRESA' && (
+                <Grid item xs={12} md={6}>
+                  <Controller
+                    name="manager"
+                    control={control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        label="Representante Legal"
+                        fullWidth
+                        error={!!errors.manager}
+                        helperText={errors.manager?.message}
+                        placeholder="Nombre del representante legal"
                       />
                     )}
                   />

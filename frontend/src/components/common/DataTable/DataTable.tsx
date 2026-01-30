@@ -79,6 +79,40 @@ export function DataTable<T extends GridValidRowModel>({
     });
   }, [rows, debouncedSearchText]);
 
+  // Agregar columna de numeración automática
+  const columnsWithRowNumber = useMemo<GridColDef[]>(() => {
+    const rowNumberColumn: GridColDef = {
+      field: '__row_number__',
+      headerName: '#',
+      width: 70,
+      sortable: false,
+      filterable: false,
+      disableColumnMenu: true,
+      align: 'center',
+      headerAlign: 'center',
+      renderCell: (params) => {
+        const rowIndex = filteredRows.findIndex(
+          (row) => (getRowId ? getRowId(row) : row.id) === params.id
+        );
+        return (
+          <Typography
+            variant="body2"
+            fontWeight={600}
+            color="text.secondary"
+            sx={{
+              opacity: 0.7,
+              fontFamily: 'monospace',
+            }}
+          >
+            {paginationModel.page * paginationModel.pageSize + rowIndex + 1}
+          </Typography>
+        );
+      },
+    };
+
+    return [rowNumberColumn, ...columns];
+  }, [columns, filteredRows, getRowId, paginationModel.page, paginationModel.pageSize]);
+
   const handleRowClick = (params: GridRowParams<T>) => {
     if (onRowClick) {
       onRowClick(params.row);
@@ -134,7 +168,7 @@ export function DataTable<T extends GridValidRowModel>({
 
       <DataGrid
         rows={filteredRows}
-        columns={columns}
+        columns={columnsWithRowNumber}
         loading={loading}
         paginationModel={paginationModel}
         onPaginationModelChange={setPaginationModel}

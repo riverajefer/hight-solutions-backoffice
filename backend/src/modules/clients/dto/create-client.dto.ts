@@ -24,7 +24,7 @@ export class CreateClientDto {
   name: string;
 
   @ApiPropertyOptional({
-    description: 'Nombre del encargado o gerente',
+    description: 'Nombre del representante legal (para empresas)',
     example: 'Juan Pérez',
     maxLength: 200,
   })
@@ -34,14 +34,35 @@ export class CreateClientDto {
   manager?: string;
 
   @ApiPropertyOptional({
-    description: 'Teléfono de contacto',
-    example: '+57 300 123 4567',
+    description: 'Nombre del encargado o persona de contacto',
+    example: 'María González',
+    maxLength: 200,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(200)
+  encargado?: string;
+
+  @ApiProperty({
+    description: 'Número de celular',
+    example: '3001234567',
+    minLength: 10,
+    maxLength: 20,
+  })
+  @IsString()
+  @MinLength(10, { message: 'El número de celular debe tener al menos 10 dígitos' })
+  @MaxLength(20, { message: 'El número de celular no puede exceder 20 caracteres' })
+  phone: string;
+
+  @ApiPropertyOptional({
+    description: 'Teléfono fijo',
+    example: '6012345678',
     maxLength: 20,
   })
   @IsString()
   @IsOptional()
   @MaxLength(20)
-  phone?: string;
+  landlinePhone?: string;
 
   @ApiPropertyOptional({
     description: 'Dirección física',
@@ -83,14 +104,26 @@ export class CreateClientDto {
   personType: PersonType;
 
   @ApiPropertyOptional({
-    description: 'NIT (requerido si el tipo de persona es EMPRESA)',
+    description: 'NIT (para empresas)',
     example: '900.123.456-7',
     minLength: 5,
     maxLength: 20,
   })
-  @ValidateIf((o) => o.personType === PersonType.EMPRESA)
-  @IsString({ message: 'El NIT es requerido para tipo EMPRESA' })
+  @IsString()
+  @IsOptional()
   @MinLength(5, { message: 'El NIT debe tener al menos 5 caracteres' })
   @MaxLength(20, { message: 'El NIT no puede exceder 20 caracteres' })
   nit?: string;
+
+  @ApiPropertyOptional({
+    description: 'Cédula de ciudadanía (para personas naturales)',
+    example: '1234567890',
+    minLength: 6,
+    maxLength: 15,
+  })
+  @IsString()
+  @IsOptional()
+  @MinLength(6, { message: 'La cédula debe tener al menos 6 caracteres' })
+  @MaxLength(15, { message: 'La cédula no puede exceder 15 caracteres' })
+  cedula?: string;
 }

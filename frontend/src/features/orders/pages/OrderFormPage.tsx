@@ -442,6 +442,7 @@ export const OrderFormPage: React.FC = () => {
             <Stack direction="row" spacing={2} justifyContent="flex-end">
               <Button
                 variant="outlined"
+                color="error"
                 startIcon={<CancelIcon />}
                 onClick={() => navigate('/orders')}
                 disabled={isSubmitting}
@@ -451,6 +452,7 @@ export const OrderFormPage: React.FC = () => {
               <Button
                 type="submit"
                 variant="contained"
+                color="success"
                 startIcon={<SaveIcon />}
                 disabled={isSubmitting}
               >

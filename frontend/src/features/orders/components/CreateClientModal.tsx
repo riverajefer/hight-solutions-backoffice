@@ -25,11 +25,14 @@ interface FormData {
   name: string;
   email: string;
   phone: string;
+  landlinePhone?: string;
   personType: PersonType;
   departmentId: string;
   cityId: string;
   nit?: string;
+  cedula?: string;
   manager?: string;
+  encargado?: string;
 }
 
 export const CreateClientModal: React.FC<CreateClientModalProps> = ({
@@ -44,11 +47,14 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
     name: '',
     email: '',
     phone: '',
+    landlinePhone: '',
     personType: 'NATURAL',
     departmentId: '',
     cityId: '',
     nit: '',
+    cedula: '',
     manager: '',
+    encargado: '',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -86,7 +92,9 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
       newErrors.email = 'Email inválido';
     }
     if (!formData.phone.trim()) {
-      newErrors.phone = 'El teléfono es requerido';
+      newErrors.phone = 'El número de celular es requerido';
+    } else if (formData.phone.length < 10) {
+      newErrors.phone = 'El número de celular debe tener al menos 10 dígitos';
     }
     if (!formData.departmentId) {
       newErrors.departmentId = 'El departamento es requerido';
@@ -110,8 +118,11 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
         personType: formData.personType,
         departmentId: formData.departmentId,
         cityId: formData.cityId,
+        ...(formData.landlinePhone && { landlinePhone: formData.landlinePhone }),
         ...(formData.nit && { nit: formData.nit }),
+        ...(formData.cedula && { cedula: formData.cedula }),
         ...(formData.manager && { manager: formData.manager }),
+        ...(formData.encargado && { encargado: formData.encargado }),
       });
 
       // Reset form
@@ -119,11 +130,14 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
         name: '',
         email: '',
         phone: '',
+        landlinePhone: '',
         personType: 'NATURAL',
         departmentId: '',
         cityId: '',
         nit: '',
+        cedula: '',
         manager: '',
+        encargado: '',
       });
       setErrors({});
 
@@ -140,11 +154,14 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
         name: '',
         email: '',
         phone: '',
+        landlinePhone: '',
         personType: 'NATURAL',
         departmentId: '',
         cityId: '',
         nit: '',
+        cedula: '',
         manager: '',
+        encargado: '',
       });
       setErrors({});
       onClose();
@@ -189,30 +206,58 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
             />
           </Grid>
 
-          {/* Manager (solo para empresas) */}
-          {formData.personType === 'EMPRESA' && (
-            <Grid item xs={12}>
+          {/* Cédula (solo para persona natural) */}
+          {formData.personType === 'NATURAL' && (
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Representante Legal"
-                value={formData.manager}
-                onChange={(e) => handleChange('manager', e.target.value)}
+                label="Cédula o nit"
+                value={formData.cedula}
+                onChange={(e) => handleChange('cedula', e.target.value)}
+                placeholder="1234567890"
+                helperText="Número de cédula de ciudadanía"
               />
             </Grid>
           )}
 
-          {/* NIT (opcional para empresas) */}
+          {/* NIT (solo para empresas) */}
           {formData.personType === 'EMPRESA' && (
-            <Grid item xs={12}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
                 label="NIT"
                 value={formData.nit}
                 onChange={(e) => handleChange('nit', e.target.value)}
                 placeholder="123456789-0"
+                helperText="Número de Identificación Tributaria"
               />
             </Grid>
           )}
+
+          {/* Representante Legal (solo para empresas) */}
+          {formData.personType === 'EMPRESA' && (
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Representante Legal"
+                value={formData.manager}
+                onChange={(e) => handleChange('manager', e.target.value)}
+                placeholder="Nombre del representante legal"
+              />
+            </Grid>
+          )}
+
+          {/* Encargado (campo común para ambos tipos) */}
+          <Grid item xs={12} sm={formData.personType === 'NATURAL' ? 6 : 12}>
+            <TextField
+              fullWidth
+              label="Encargado"
+              value={formData.encargado}
+              onChange={(e) => handleChange('encargado', e.target.value)}
+              placeholder="Persona encargada del contacto"
+              helperText="Persona de contacto directo"
+            />
+          </Grid>
 
           {/* Email */}
           <Grid item xs={12} sm={6}>
@@ -228,17 +273,29 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
             />
           </Grid>
 
-          {/* Teléfono */}
+          {/* Número de celular */}
           <Grid item xs={12} sm={6}>
             <TextField
               fullWidth
               required
-              label="Teléfono"
+              label="Número de celular"
               value={formData.phone}
               onChange={(e) => handleChange('phone', e.target.value)}
               error={!!errors.phone}
               helperText={errors.phone}
               placeholder="3001234567"
+            />
+          </Grid>
+
+          {/* Teléfono fijo */}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label="Teléfono fijo"
+              value={formData.landlinePhone}
+              onChange={(e) => handleChange('landlinePhone', e.target.value)}
+              placeholder="6012345678"
+              helperText="Opcional"
             />
           </Grid>
 
