@@ -9,8 +9,44 @@ import {
   IsNumber,
   IsPositive,
   Min,
+  IsEnum,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { PaymentMethod } from '../../../generated/prisma';
+
+export class InitialPaymentDto {
+  @ApiProperty({
+    description: 'Monto del pago inicial',
+    example: 50000,
+  })
+  @IsNumber()
+  @IsPositive()
+  amount: number;
+
+  @ApiProperty({
+    description: 'Método de pago',
+    enum: PaymentMethod,
+    example: PaymentMethod.CASH,
+  })
+  @IsEnum(PaymentMethod)
+  paymentMethod: PaymentMethod;
+
+  @ApiPropertyOptional({
+    description: 'Número de referencia o comprobante',
+    example: 'REF-12345',
+  })
+  @IsOptional()
+  @IsString()
+  reference?: string;
+
+  @ApiPropertyOptional({
+    description: 'Observaciones del pago',
+    example: 'Anticipo del 50%',
+  })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
 
 export class CreateOrderItemDto {
   @ApiPropertyOptional({
@@ -84,4 +120,13 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)
   items: CreateOrderItemDto[];
+
+  @ApiPropertyOptional({
+    description: 'Pago inicial al crear la orden (opcional)',
+    type: InitialPaymentDto,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => InitialPaymentDto)
+  initialPayment?: InitialPaymentDto;
 }

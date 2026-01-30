@@ -1,14 +1,14 @@
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from '../../database/database.module';
+import { ConsecutivesModule } from '../consecutives/consecutives.module';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { OrdersRepository } from './orders.repository';
-import { ConsecutiveRepository } from './consecutive.repository';
 
 @Module({
-  imports: [DatabaseModule],
+  imports: [DatabaseModule, ConsecutivesModule],
   controllers: [OrdersController],
-  providers: [OrdersService, OrdersRepository, ConsecutiveRepository],
+  providers: [OrdersService, OrdersRepository],
   exports: [OrdersService, OrdersRepository],
 })
 export class OrdersModule {}

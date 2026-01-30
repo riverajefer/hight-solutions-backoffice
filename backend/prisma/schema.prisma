@@ -21,10 +21,11 @@ model User {
   firstName    String?
   lastName     String?
 
-  role          Role          @relation(fields: [roleId], references: [id])
-  cargo         Cargo?        @relation(fields: [cargoId], references: [id])
-  sessionLogs   SessionLog[]
-  createdOrders Order[]
+  role             Role          @relation(fields: [roleId], references: [id])
+  cargo            Cargo?        @relation(fields: [cargoId], references: [id])
+  sessionLogs      SessionLog[]
+  createdOrders    Order[]
+  receivedPayments Payment[]     @relation("ReceivedPayments")
 
   @@map("users")
 }
@@ -377,6 +378,7 @@ model Order {
   client      Client      @relation(fields: [clientId], references: [id])
   createdBy   User        @relation(fields: [createdById], references: [id])
   items       OrderItem[]
+  payments    Payment[]
 
   @@index([clientId])
   @@index([createdById])
@@ -410,5 +412,37 @@ model OrderItem {
   @@index([orderId])
   @@index([serviceId])
   @@map("order_items")
+}
+
+enum PaymentMethod {
+  CASH      // Efectivo
+  TRANSFER  // Transferencia bancaria
+  CARD      // Tarjeta de crédito/débito
+  CHECK     // Cheque
+  OTHER     // Otro método
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  orderId       String        @map("order_id")
+  amount        Decimal       // Monto del pago
+  paymentMethod PaymentMethod @default(CASH) @map("payment_method")
+  paymentDate   DateTime      @default(now()) @map("payment_date")
+  reference     String?       // Número de referencia/comprobante
+  notes         String?       // Observaciones del pago
+
+  // Auditoría
+  receivedById  String        @map("received_by_id")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  // Relaciones
+  order       Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  receivedBy  User  @relation("ReceivedPayments", fields: [receivedById], references: [id])
+
+  @@index([orderId])
+  @@index([receivedById])
+  @@index([paymentDate])
+  @@map("payments")
 }
 

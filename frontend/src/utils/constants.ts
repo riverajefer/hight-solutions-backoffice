@@ -62,6 +62,11 @@ export const PERMISSIONS = {
   READ_SUPPLIES: 'read_supplies',
   UPDATE_SUPPLIES: 'update_supplies',
   DELETE_SUPPLIES: 'delete_supplies',
+  // Orders
+  CREATE_ORDERS: 'create_orders',
+  READ_ORDERS: 'read_orders',
+  UPDATE_ORDERS: 'update_orders',
+  DELETE_ORDERS: 'delete_orders',
 };
 
 export const ROUTES = {
@@ -118,6 +123,11 @@ export const ROUTES = {
   SUPPLIES: '/portfolio/supplies',
   SUPPLIES_CREATE: '/portfolio/supplies/new',
   SUPPLIES_EDIT: '/portfolio/supplies/:id/edit',
+  // Orders
+  ORDERS: '/orders',
+  ORDERS_CREATE: '/orders/new',
+  ORDERS_EDIT: '/orders/:id/edit',
+  ORDERS_DETAIL: '/orders/:id',
 };
 
 export const DEFAULT_PAGINATION = {

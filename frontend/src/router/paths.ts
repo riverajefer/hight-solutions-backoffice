@@ -51,5 +51,10 @@ export const PATHS = {
   SUPPLIES: '/portfolio/supplies',
   SUPPLIES_CREATE: '/portfolio/supplies/new',
   SUPPLIES_EDIT: '/portfolio/supplies/:id/edit',
+  // Orders Routes
+  ORDERS: '/orders',
+  ORDERS_CREATE: '/orders/new',
+  ORDERS_EDIT: '/orders/:id/edit',
+  ORDERS_DETAIL: '/orders/:id',
 };
 
