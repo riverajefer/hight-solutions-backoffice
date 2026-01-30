@@ -1,6 +1,7 @@
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 import { PrismaClient }  from '../src/generated/prisma';
 import * as bcrypt from 'bcrypt';
+import { randomInt, randomUUID } from 'node:crypto';
 
 // Use absolute paths for consistent behavior
 const adapter = new PrismaBetterSqlite3({
@@ -1007,7 +1008,409 @@ async function main() {
   }
 
   // ============================================
-  // 10. Crear Consecutivos Iniciales
+  // 10. Crear Clientes de Prueba
+  // ============================================
+  console.log('\n👥 Creating test clients...');
+
+  // Obtener ciudades para los clientes
+  const bogota = await prisma.city.findFirst({ where: { name: 'Bogotá' } });
+  const medellin = await prisma.city.findFirst({ where: { name: 'Medellín' } });
+  const cali = await prisma.city.findFirst({ where: { name: 'Cali' } });
+  const barranquilla = await prisma.city.findFirst({ where: { name: 'Barranquilla' } });
+  const cartagena = await prisma.city.findFirst({ where: { name: 'Cartagena' } });
+
+  const clientsData = [
+    {
+      name: 'Distribuidora El Sol S.A.S',
+      email: 'contacto@distribuidoraelsol.com',
+      phone: '3101234567',
+      address: 'Calle 72 # 10-34',
+      personType: 'EMPRESA' as const,
+      nit: '900123456-7',
+      cityId: bogota?.id,
+      departmentId: bogota?.departmentId,
+    },
+    {
+      name: 'María Fernanda López',
+      email: 'mafe.lopez@gmail.com',
+      phone: '3209876543',
+      address: 'Carrera 43A # 12-15',
+      personType: 'NATURAL' as const,
+      cityId: medellin?.id,
+      departmentId: medellin?.departmentId,
+    },
+    {
+      name: 'Publicidad Creativa Ltda',
+      email: 'ventas@publicidadcreativa.com',
+      phone: '3156781234',
+      address: 'Avenida 5N # 23-50',
+      personType: 'EMPRESA' as const,
+      nit: '800987654-3',
+      cityId: cali?.id,
+      departmentId: cali?.departmentId,
+    },
+    {
+      name: 'Juan Carlos Martínez',
+      email: 'jcmartinez@hotmail.com',
+      phone: '3187654321',
+      address: 'Calle 84 # 50-12',
+      personType: 'NATURAL' as const,
+      cityId: barranquilla?.id,
+      departmentId: barranquilla?.departmentId,
+    },
+    {
+      name: 'Eventos y Ferias del Caribe',
+      email: 'info@eventosyferias.com',
+      phone: '3145678901',
+      address: 'Centro Histórico, Calle del Arsenal',
+      personType: 'EMPRESA' as const,
+      nit: '890123789-5',
+      cityId: cartagena?.id,
+      departmentId: cartagena?.departmentId,
+    },
+    {
+      name: 'Laura Sofía Ramírez',
+      email: 'laurasofia.r@gmail.com',
+      phone: '3198765432',
+      address: 'Carrera 15 # 93-40',
+      personType: 'NATURAL' as const,
+      cityId: bogota?.id,
+      departmentId: bogota?.departmentId,
+    },
+    {
+      name: 'Impresiones Digitales Colombia',
+      email: 'digital@impresionescol.com',
+      phone: '3167890123',
+      address: 'Calle 10 # 40-66',
+      personType: 'EMPRESA' as const,
+      nit: '901234567-8',
+      cityId: medellin?.id,
+      departmentId: medellin?.departmentId,
+    },
+    {
+      name: 'Andrés Felipe Castro',
+      email: 'afcastro@outlook.com',
+      phone: '3124567890',
+      address: 'Carrera 100 # 15-25',
+      personType: 'NATURAL' as const,
+      cityId: cali?.id,
+      departmentId: cali?.departmentId,
+    },
+    {
+      name: 'Agencia de Marketing Innovador',
+      email: 'contacto@marketinginnovador.co',
+      phone: '3203456789',
+      address: 'Calle 53 # 45-10',
+      personType: 'EMPRESA' as const,
+      nit: '800345678-9',
+      cityId: bogota?.id,
+      departmentId: bogota?.departmentId,
+    },
+    {
+      name: 'Camila Andrea Vargas',
+      email: 'camila.vargas@yahoo.com',
+      phone: '3189012345',
+      address: 'Avenida Boyacá # 80-20',
+      personType: 'NATURAL' as const,
+      cityId: barranquilla?.id,
+      departmentId: barranquilla?.departmentId,
+    },
+  ];
+
+  let clientsCreated = 0;
+  for (const clientData of clientsData) {
+    if (clientData.cityId && clientData.departmentId) {
+      const { ...dataToCreate } = clientData;
+      await prisma.client.upsert({
+        where: { email: clientData.email },
+        update: dataToCreate as any,
+        create: dataToCreate as any,
+      });
+      clientsCreated++;
+      console.log(`  ✓ Client: ${clientData.name}`);
+    }
+  }
+
+  // ============================================
+  // 11. Crear Proveedores de Prueba
+  // ============================================
+  console.log('\n🏭 Creating test suppliers...');
+
+  const pereira = await prisma.city.findFirst({ where: { name: 'Pereira' } });
+  const bucaramanga = await prisma.city.findFirst({ where: { name: 'Bucaramanga' } });
+
+  const suppliersData = [
+    {
+      name: 'Tintas y Colores S.A.',
+      email: 'ventas@tintasycolores.com',
+      phone: '3101122334',
+      address: 'Zona Industrial Calle 13 # 68-50',
+      personType: 'EMPRESA' as const,
+      nit: '890456789-1',
+      cityId: bogota?.id,
+      departmentId: bogota?.departmentId,
+    },
+    {
+      name: 'Papelería Industrial Medellín',
+      email: 'contacto@papeleriaindustrial.com',
+      phone: '3142233445',
+      address: 'Carrera 50 # 30-15',
+      personType: 'EMPRESA' as const,
+      nit: '800567890-2',
+      cityId: medellin?.id,
+      departmentId: medellin?.departmentId,
+    },
+    {
+      name: 'Acrílicos y Plásticos del Valle',
+      email: 'info@acrilicosyvalle.com',
+      phone: '3183344556',
+      address: 'Zona Franca Calle 15 # 100-20',
+      personType: 'EMPRESA' as const,
+      nit: '900678901-3',
+      cityId: cali?.id,
+      departmentId: cali?.departmentId,
+    },
+    {
+      name: 'Textiles y Confecciones del Norte',
+      email: 'ventas@textilesyconfecciones.com',
+      phone: '3124455667',
+      address: 'Calle 45 # 20-30',
+      personType: 'EMPRESA' as const,
+      nit: '800789012-4',
+      cityId: barranquilla?.id,
+      departmentId: barranquilla?.departmentId,
+    },
+    {
+      name: 'Maderas y Acabados Premium',
+      email: 'contacto@maderaspremium.com',
+      phone: '3165566778',
+      address: 'Avenida del Río # 35-40',
+      personType: 'EMPRESA' as const,
+      nit: '890890123-5',
+      cityId: pereira?.id,
+      departmentId: pereira?.departmentId,
+    },
+    {
+      name: 'Suministros Gráficos Express',
+      email: 'express@suministrosgraficos.com',
+      phone: '3206677889',
+      address: 'Carrera 27 # 45-10',
+      personType: 'EMPRESA' as const,
+      nit: '900901234-6',
+      cityId: bucaramanga?.id,
+      departmentId: bucaramanga?.departmentId,
+    },
+    {
+      name: 'Vinilos y Adhesivos Colombia',
+      email: 'ventas@vinilosyadhesivos.co',
+      phone: '3147788990',
+      address: 'Calle 26 # 68-90',
+      personType: 'EMPRESA' as const,
+      nit: '800012345-7',
+      cityId: bogota?.id,
+      departmentId: bogota?.departmentId,
+    },
+    {
+      name: 'Metales y Estructuras del Sur',
+      email: 'info@metalesdelsur.com',
+      phone: '3188899001',
+      address: 'Zona Industrial Sur Km 5',
+      personType: 'EMPRESA' as const,
+      nit: '890123456-8',
+      cityId: cali?.id,
+      departmentId: cali?.departmentId,
+    },
+    {
+      name: 'Empaques y Cajas del Atlántico',
+      email: 'contacto@empaquesycajas.com',
+      phone: '3129900112',
+      address: 'Carrera 38 # 74-50',
+      personType: 'EMPRESA' as const,
+      nit: '900234567-9',
+      cityId: barranquilla?.id,
+      departmentId: barranquilla?.departmentId,
+    },
+    {
+      name: 'Tecnología de Impresión Digital',
+      email: 'ventas@tecimpresion.com',
+      phone: '3160011223',
+      address: 'Calle 70A # 50-20',
+      personType: 'EMPRESA' as const,
+      nit: '800345678-0',
+      cityId: medellin?.id,
+      departmentId: medellin?.departmentId,
+    },
+  ];
+
+  let suppliersCreated = 0;
+  for (const supplierData of suppliersData) {
+    if (supplierData.cityId && supplierData.departmentId) {
+      const { ...dataToCreate } = supplierData;
+      await prisma.supplier.upsert({
+        where: { email: supplierData.email },
+        update: dataToCreate as any,
+        create: dataToCreate as any,
+      });
+      suppliersCreated++;
+      console.log(`  ✓ Supplier: ${supplierData.name}`);
+    }
+  }
+
+  // ============================================
+  // 12. Crear Órdenes de Prueba
+  // ============================================
+  console.log('\n📦 Creating test orders...');
+
+  // Obtener algunos clientes y servicios para las órdenes
+  const client1 = await prisma.client.findFirst({ where: { email: 'contacto@distribuidoraelsol.com' } });
+  const client2 = await prisma.client.findFirst({ where: { email: 'ventas@publicidadcreativa.com' } });
+
+  const tarjetasService = await prisma.service.findFirst({ where: { slug: 'tarjetas-presentacion-x-1000' } });
+  const bannerService = await prisma.service.findFirst({ where: { slug: 'banner-1x2-metros' } });
+  const sellosService = await prisma.service.findFirst({ where: { slug: 'sellos-automaticos' } });
+
+  const adminUserForOrders = await prisma.user.findFirst({ where: { email: 'admin@example.com' } });
+
+  // Orden 1: CONFIRMED con items y pago inicial
+  if (client1 && tarjetasService && bannerService && adminUserForOrders) {
+    const order1 = await prisma.order.create({
+      data: {
+        orderNumber: 'OP-2024-001' + randomUUID().slice(0, 5),
+        orderDate: new Date('2024-01-15'),
+        deliveryDate: new Date('2024-01-25'),
+        status: 'CONFIRMED',
+        notes: 'Cliente solicita colores corporativos: azul y blanco',
+        subtotal: 450000,
+        taxRate: 0.19,
+        tax: 85500,
+        total: 535500,
+        paidAmount: 200000,
+        balance: 335500,
+        clientId: client1.id,
+        createdById: adminUserForOrders.id,
+        items: {
+          create: [
+            {
+              description: 'Tarjetas de presentación full color, papel propalcote 300gr',
+              quantity: 1000,
+              unitPrice: 250000,
+              total: 250000,
+              sortOrder: 1,
+              serviceId: tarjetasService.id,
+              specifications: {
+                material: 'Propalcote 300gr',
+                tamaño: '9x5 cm',
+                acabado: 'Laminado mate',
+                colores: 'Full color (4x4)',
+              },
+            },
+            {
+              description: 'Banner publicitario 1x2 metros',
+              quantity: 10,
+              unitPrice: 20000,
+              total: 200000,
+              sortOrder: 2,
+              serviceId: bannerService.id,
+              specifications: {
+                material: 'Lona mate 13oz',
+                tamaño: '1x2 metros',
+                impresion: 'Full color',
+              },
+            },
+          ],
+        },
+        payments: {
+          create: {
+            amount: 200000,
+            paymentMethod: 'TRANSFER',
+            paymentDate: new Date('2024-01-15'),
+            reference: 'TRANSF-001-2024',
+            notes: 'Abono inicial 40%',
+            receivedById: adminUserForOrders.id,
+          },
+        },
+      },
+    });
+    console.log(`  ✓ Order: ${order1.orderNumber} - ${order1.status}`);
+  }
+
+  // Orden 2: IN_PRODUCTION con items y múltiples pagos
+  if (client2 && sellosService && tarjetasService && adminUserForOrders) {
+    const order2 = await prisma.order.create({
+      data: {
+        orderNumber: 'OP-2024-002',
+        orderDate: new Date('2024-01-18'),
+        deliveryDate: new Date('2024-01-28'),
+        status: 'IN_PRODUCTION',
+        notes: 'Entrega urgente. Cliente requiere factura electrónica',
+        subtotal: 850000,
+        taxRate: 0.19,
+        tax: 161500,
+        total: 1011500,
+        paidAmount: 800000,
+        balance: 211500,
+        clientId: client2.id,
+        createdById: adminUserForOrders.id,
+        items: {
+          create: [
+            {
+              description: 'Sellos automáticos empresariales con logo',
+              quantity: 5,
+              unitPrice: 80000,
+              total: 400000,
+              sortOrder: 1,
+              serviceId: sellosService.id,
+              specifications: {
+                tipo: 'Automático Trodat 4913',
+                tamaño: '58x22 mm',
+                tinta: 'Negro',
+                incluye: 'Logo + texto personalizado',
+              },
+            },
+            {
+              description: 'Tarjetas de presentación premium doble cara',
+              quantity: 1500,
+              unitPrice: 300,
+              total: 450000,
+              sortOrder: 2,
+              serviceId: tarjetasService.id,
+              specifications: {
+                material: 'Cartulina Bristol 240gr',
+                tamaño: '9x5 cm',
+                acabado: 'Laminado UV brillante',
+                colores: 'Full color doble cara (4x4)',
+                extras: 'Stamping dorado',
+              },
+            },
+          ],
+        },
+        payments: {
+          create: [
+            {
+              amount: 500000,
+              paymentMethod: 'TRANSFER',
+              paymentDate: new Date('2024-01-18'),
+              reference: 'TRANSF-002-2024',
+              notes: 'Abono inicial 50%',
+              receivedById: adminUserForOrders.id,
+            },
+            {
+              amount: 300000,
+              paymentMethod: 'CARD',
+              paymentDate: new Date('2024-01-22'),
+              reference: 'CARD-003-2024',
+              notes: 'Segundo abono',
+              receivedById: adminUserForOrders.id,
+            },
+          ],
+        },
+      },
+    });
+    console.log(`  ✓ Order: ${order2.orderNumber} - ${order2.status}`);
+  }
+
+  // ============================================
+  // 13. Crear Consecutivos Iniciales
   // ============================================
   console.log('\n🔢 Creating initial consecutives...');
 
@@ -1039,11 +1442,14 @@ async function main() {
   console.log(`   - Cargos: ${cargosData.length}`);
   console.log(`   - Departments: ${departmentsData.length}`);
   console.log(`   - Cities: ${totalCities}`);
+  console.log(`   - Clients: ${clientsCreated}`);
+  console.log(`   - Suppliers: ${suppliersCreated}`);
   console.log(`   - Units of Measure: ${unitsOfMeasureData.length}`);
   console.log(`   - Service Categories: ${serviceCategoriesData.length}`);
   console.log(`   - Services: ${servicesCreated}`);
   console.log(`   - Supply Categories: ${supplyCategoriesData.length}`);
   console.log(`   - Supplies: ${suppliesCreated}`);
+  console.log(`   - Orders: 2`);
   console.log(`   - Consecutives: ${consecutivesData.length}`);
   console.log('\n🔐 Test Credentials:');
   console.log('   Admin:   admin@example.com / admin123');

@@ -157,10 +157,18 @@ export class OrdersRepository {
   }
 
   async create(data: Prisma.OrderCreateInput) {
-    return this.prisma.order.create({
+    // Crear la orden primero sin los includes complejos para mejor performance
+    const order = await this.prisma.order.create({
       data,
-      select: this.selectFields,
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+      },
     });
+
+    // Luego obtener la orden completa con todos los datos
+    return this.findById(order.id);
   }
 
   async update(id: string, data: Prisma.OrderUpdateInput) {

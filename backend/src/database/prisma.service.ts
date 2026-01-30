@@ -11,11 +11,16 @@ export class PrismaService
 {
   constructor() {
     const adapter = new PrismaBetterSqlite3({ url: process.env.DATABASE_URL });
-    super({ 
-      adapter, 
+    super({
+      adapter,
       log: process.env.NODE_ENV === 'development'
         ? ['query', 'info', 'warn', 'error']
-        : ['error'] 
+        : ['error'],
+      // Aumentar timeout de transacciones interactivas a 15 segundos
+      transactionOptions: {
+        maxWait: 45000, // Tiempo máximo de espera para adquirir la transacción
+        timeout: 45000, // Tiempo máximo de ejecución de la transacción
+      },
     });
 
     // Aplicar extensión de auditoría
@@ -42,19 +47,70 @@ export class PrismaService
           User: {
             exclude: ['password', 'refreshToken'],
           },
+          Order: {
+            // Solo registrar campos esenciales de la orden
+            include: [
+              'id',
+              'orderNumber',
+              'status',
+              'total',
+              'paidAmount',
+              'balance',
+              'clientId',
+              'createdById',
+            ],
+          },
+          OrderItem: {
+            // Solo campos clave de los items
+            include: [
+              'id',
+              'orderId',
+              'description',
+              'quantity',
+              'unitPrice',
+              'total',
+              'serviceId',
+            ],
+          },
+          Payment: {
+            // Solo campos importantes de pagos
+            include: [
+              'id',
+              'orderId',
+              'amount',
+              'paymentMethod',
+              'paymentDate',
+              'receivedById',
+            ],
+          },
         },
 
         // Registrador personalizado (opcional)
         logger: (log) => {
+          // Solo loguear en desarrollo y excluir modelos pesados para mejorar performance
           if (process.env.NODE_ENV === 'development') {
-            console.log('AUDIT LOG:', log);
+            const heavyModels = ['Order', 'OrderItem', 'Payment'];
+            const logs = Array.isArray(log) ? log : [log];
+
+            // Filtrar logs de modelos pesados
+            const filteredLogs = logs.filter(
+              (l) => !heavyModels.includes(l.model || '')
+            );
+
+            if (filteredLogs.length > 0) {
+              console.log('AUDIT LOG:', filteredLogs.length === 1 ? filteredLogs[0] : filteredLogs);
+            }
           }
         },
 
         // Saltar registro para operaciones específicas
         skip: ({ model }) => {
-          // No registrar cambios en el modelo AuditLog mismo
-          return model === 'AuditLog' || model === 'audit_logs';
+          // No registrar cambios en modelos de infraestructura
+          return (
+            model === 'AuditLog' ||
+            model === 'audit_logs' ||
+            model === 'Consecutive' // Excluir consecutivos (operación crítica de concurrencia)
+          );
         },
       })
     ) as unknown as PrismaService;

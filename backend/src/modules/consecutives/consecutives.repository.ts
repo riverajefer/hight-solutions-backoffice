@@ -7,52 +7,47 @@ export class ConsecutivesRepository {
 
   /**
    * Genera el siguiente número consecutivo para un tipo dado
-   * Usa transacción para evitar duplicados en concurrencia
+   * Usa operaciones atómicas sin transacción explícita para mejor performance
    */
   async getNextNumber(
     type: string,
     prefix: string,
     year: number = new Date().getFullYear(),
   ): Promise<string> {
-    const consecutive = await this.prisma.$transaction(async (tx) => {
-      // Buscar o crear el consecutivo para el tipo y año
-      let record = await tx.consecutive.findUnique({
-        where: { type },
-      });
-
-      if (!record) {
-        // Crear nuevo consecutivo
-        record = await tx.consecutive.create({
-          data: {
-            type,
-            prefix,
-            year,
-            lastNumber: 1,
-          },
-        });
-      } else {
-        // Si cambió el año, resetear a 1
-        if (record.year !== year) {
-          record = await tx.consecutive.update({
-            where: { type },
-            data: {
-              year,
-              lastNumber: 1,
-            },
-          });
-        } else {
-          // Incrementar número
-          record = await tx.consecutive.update({
-            where: { type },
-            data: {
-              lastNumber: record.lastNumber + 1,
-            },
-          });
-        }
-      }
-
-      return record;
+    // Primero verificar si existe el registro
+    const existing = await this.prisma.consecutive.findUnique({
+      where: { type },
+      select: { year: true, lastNumber: true },
     });
+
+    let consecutive;
+
+    // Si no existe o cambió el año, usar upsert con reset
+    if (!existing || existing.year !== year) {
+      consecutive = await this.prisma.consecutive.upsert({
+        where: { type },
+        create: {
+          type,
+          prefix,
+          year,
+          lastNumber: 1,
+        },
+        update: {
+          year,
+          lastNumber: 1,
+        },
+      });
+    } else {
+      // Si existe y el año es correcto, incrementar
+      consecutive = await this.prisma.consecutive.update({
+        where: { type },
+        data: {
+          lastNumber: {
+            increment: 1,
+          },
+        },
+      });
+    }
 
     // Formato: OP-2026-0001
     const numberStr = consecutive.lastNumber.toString().padStart(4, '0');
