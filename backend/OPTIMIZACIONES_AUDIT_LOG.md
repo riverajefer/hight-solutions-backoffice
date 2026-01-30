@@ -10,57 +10,37 @@ Las transacciones de creación de órdenes estaban excediendo el timeout de 45 s
 
 ## Soluciones Implementadas
 
-### 1. Audit Log Selectivo por Modelo
+### 1. Exclusión Completa de Modelos Críticos
 
 **Ubicación**: `backend/src/database/prisma.service.ts`
 
-Se configuró `fieldFilters` para que solo registre campos esenciales:
+**ACTUALIZACIÓN**: Inicialmente se intentó usar `fieldFilters` para limitar campos, pero el audit log seguía causando timeouts. La solución final fue **excluir completamente** los modelos Order, OrderItem y Payment del audit log usando `skip()`:
 
 ```typescript
+// Exclusión completa de modelos críticos
+skip: ({ model }) => {
+  return (
+    model === 'AuditLog' ||
+    model === 'audit_logs' ||
+    model === 'Consecutive' || // Operación crítica de concurrencia
+    model === 'Order' || // Transacciones complejas con múltiples relaciones
+    model === 'OrderItem' || // Items de órdenes
+    model === 'Payment' // Transacciones críticas de pagos
+  );
+},
+
 fieldFilters: {
   User: {
     exclude: ['password', 'refreshToken'],
   },
-  Order: {
-    // Solo registrar campos esenciales de la orden
-    include: [
-      'id',
-      'orderNumber',
-      'status',
-      'total',
-      'paidAmount',
-      'balance',
-      'clientId',
-      'createdById',
-    ],
-  },
-  OrderItem: {
-    // Solo campos clave de los items
-    include: [
-      'id',
-      'orderId',
-      'description',
-      'quantity',
-      'unitPrice',
-      'total',
-      'serviceId',
-    ],
-  },
-  Payment: {
-    // Solo campos importantes de pagos
-    include: [
-      'id',
-      'orderId',
-      'amount',
-      'paymentMethod',
-      'paymentDate',
-      'receivedById',
-    ],
-  },
+  // Order, OrderItem y Payment se excluyen completamente en skip()
 }
 ```
 
-**Beneficio**: Reduce drásticamente el volumen de datos que se auditan sin perder trazabilidad de cambios importantes.
+**Beneficio**:
+- ✅ Elimina completamente el overhead del audit log para módulos críticos
+- ✅ Transacciones se ejecutan sin interceptación
+- ✅ Reduce tiempo de ejecución de >45s a <2s
 
 ### 2. Logging Condicional en Consola
 
@@ -119,38 +99,46 @@ transactionOptions: {
 }
 ```
 
-## Campos Auditados
+## Modelos Auditados vs Excluidos
 
-### Order (Orden)
-- ✅ id, orderNumber, status
-- ✅ total, paidAmount, balance
-- ✅ clientId, createdById
-- ❌ orderDate, deliveryDate, notes
-- ❌ subtotal, taxRate, tax
-- ❌ Relaciones anidadas (client, createdBy, items, payments)
+### ✅ Modelos CON Auditoría
+- **User**: Todos los campos excepto password y refreshToken
+- **Role**: Todos los campos
+- **Permission**: Todos los campos
+- **Client**: Todos los campos
+- **Supplier**: Todos los campos
+- **Service**: Todos los campos
+- **Supply**: Todos los campos
+- Todos los demás modelos del sistema
 
-### OrderItem (Item de Orden)
-- ✅ id, orderId, description
-- ✅ quantity, unitPrice, total
-- ✅ serviceId
-- ❌ specifications, sortOrder
-- ❌ Relación service anidada
+### ❌ Modelos SIN Auditoría (Excluidos por Performance)
+- **AuditLog**: Para evitar loops infinitos
+- **Consecutive**: Operación crítica de concurrencia
+- **Order**: Transacciones complejas con timeout
+- **OrderItem**: Parte del módulo de órdenes
+- **Payment**: Transacciones críticas de pagos
 
-### Payment (Pago)
-- ✅ id, orderId, amount
-- ✅ paymentMethod, paymentDate
-- ✅ receivedById
-- ❌ reference, notes
-- ❌ Relación receivedBy anidada
+## Trazabilidad de Órdenes
 
-## Trazabilidad Mantenida
+Aunque Order, OrderItem y Payment no tienen audit log automático, la trazabilidad se mantiene mediante:
 
-A pesar de las optimizaciones, se mantiene completa trazabilidad de:
+1. **Campos en el modelo Order**:
+   - `createdById`: Quién creó la orden
+   - `createdAt`: Cuándo se creó
+   - `updatedAt`: Última modificación
+   - `status`: Estado actual de la orden
 
-1. **Quién**: userId en el contexto de auditoría
-2. **Qué**: Cambios en campos críticos (montos, estados, relaciones)
-3. **Cuándo**: Timestamps automáticos del audit log
-4. **Dónde**: IP address y user agent en metadata
+2. **Campos en el modelo Payment**:
+   - `receivedById`: Quién registró el pago
+   - `paymentDate`: Fecha del pago
+   - `createdAt`: Cuándo se registró
+
+3. **Logs de aplicación**: Todos los cambios críticos se loguean en consola (desarrollo) y archivos (producción)
+
+4. **Implementación futura (opcional)**:
+   - Sistema de auditoría personalizado para órdenes
+   - Tabla de historial de cambios de estado
+   - Eventos de dominio para tracking
 
 ## Métricas de Performance
 

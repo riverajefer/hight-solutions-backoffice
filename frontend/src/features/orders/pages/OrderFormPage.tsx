@@ -32,6 +32,7 @@ import {
 } from '../components';
 import type { Client } from '../../../types/client.types';
 import type { CreateOrderDto } from '../../../types/order.types';
+import { useAuthStore } from '../../../store/authStore';
 
 // ============================================================
 // VALIDATION SCHEMA
@@ -48,7 +49,7 @@ const orderItemSchema = z.object({
 });
 
 const initialPaymentSchema = z.object({
-  amount: z.number().positive('El monto debe ser mayor a 0'),
+  amount: z.number().positive('El monto del abono inicial es requerido'),
   paymentMethod: z.enum(['CASH', 'TRANSFER', 'CARD', 'CHECK', 'OTHER']),
   reference: z.string().optional(),
   notes: z.string().optional(),
@@ -64,8 +65,7 @@ const orderFormSchema = z
     items: z.array(orderItemSchema).min(1, 'Debe agregar al menos un item'),
     applyTax: z.boolean(),
     taxRate: z.number().min(0).max(100),
-    paymentEnabled: z.boolean(),
-    payment: initialPaymentSchema.nullable(),
+    payment: initialPaymentSchema, // Abono inicial es obligatorio
   })
   .refine(
     (data) => {
@@ -83,14 +83,11 @@ const orderFormSchema = z
   )
   .refine(
     (data) => {
-      // Si el pago está habilitado, validar que el monto no exceda el total
-      if (data.paymentEnabled && data.payment) {
-        const subtotal = data.items.reduce((sum, item) => sum + item.total, 0);
-        const tax = data.applyTax ? subtotal * (data.taxRate / 100) : 0;
-        const total = subtotal + tax;
-        return data.payment.amount <= total;
-      }
-      return true;
+      // Validar que el monto del abono no exceda el total
+      const subtotal = data.items.reduce((sum, item) => sum + item.total, 0);
+      const tax = data.applyTax ? subtotal * (data.taxRate / 100) : 0;
+      const total = subtotal + tax;
+      return data.payment.amount <= total;
     },
     {
       message: 'El monto del abono no puede ser mayor al total de la orden',
@@ -107,12 +104,18 @@ type OrderFormData = z.infer<typeof orderFormSchema>;
 export const OrderFormPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuthStore();
 
   const isEdit = !!id;
   const { orderQuery } = useOrder(id || '');
   const { createOrderMutation } = useOrders();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Nombre completo del usuario en sesión
+  const currentUserFullName = user
+    ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email
+    : '';
 
   // React Hook Form
   const {
@@ -138,22 +141,38 @@ export const OrderFormPage: React.FC = () => {
       ],
       applyTax: true,
       taxRate: 19,
-      paymentEnabled: false,
-      payment: null,
+      payment: {
+        amount: 0,
+        paymentMethod: 'CASH',
+        reference: '',
+        notes: '',
+      },
     },
   });
 
-  // Watch values for calculations
+  // Watch values for calculations and conditional logic
+  const selectedClient = watch('client');
   const items = watch('items');
   const applyTax = watch('applyTax');
   const taxRate = watch('taxRate');
-  const paymentEnabled = watch('paymentEnabled');
   const payment = watch('payment');
 
   // Calculate totals
   const subtotal = items.reduce((sum, item) => sum + item.total, 0);
   const tax = applyTax ? subtotal * (taxRate / 100) : 0;
   const total = subtotal + tax;
+
+  // Deshabilitar campos si no hay cliente seleccionado
+  const isClientSelected = !!selectedClient;
+
+  // Actualizar IVA automáticamente según tipo de cliente
+  useEffect(() => {
+    if (selectedClient) {
+      // Si es empresa, aplicar IVA; si es natural, no aplicar
+      const shouldApplyTax = selectedClient.personType === 'EMPRESA';
+      setValue('applyTax', shouldApplyTax);
+    }
+  }, [selectedClient, setValue]);
 
   // Load order data for edit mode
   useEffect(() => {
@@ -203,15 +222,12 @@ export const OrderFormPage: React.FC = () => {
           serviceId: item.serviceId,
           specifications: item.specifications,
         })),
-        initialPayment:
-          data.paymentEnabled && data.payment
-            ? {
-                amount: data.payment.amount,
-                paymentMethod: data.payment.paymentMethod,
-                reference: data.payment.reference,
-                notes: data.payment.notes,
-              }
-            : undefined,
+        initialPayment: {
+          amount: data.payment.amount,
+          paymentMethod: data.payment.paymentMethod,
+          reference: data.payment.reference,
+          notes: data.payment.notes,
+        },
       };
 
       const newOrder = await createOrderMutation.mutateAsync(createDto);
@@ -270,11 +286,12 @@ export const OrderFormPage: React.FC = () => {
               <Divider sx={{ mb: 2 }} />
               <Grid container spacing={2}>
                 {/* Fecha de Orden (readonly) */}
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={4}>
                   <TextField
                     fullWidth
                     label="Fecha de Orden"
                     value={new Date().toLocaleDateString('es-CO')}
+                    disabled={!isClientSelected}
                     InputProps={{
                       readOnly: true,
                     }}
@@ -283,7 +300,7 @@ export const OrderFormPage: React.FC = () => {
                 </Grid>
 
                 {/* Fecha de Entrega */}
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={4}>
                   <Controller
                     name="deliveryDate"
                     control={control}
@@ -292,15 +309,31 @@ export const OrderFormPage: React.FC = () => {
                         label="Fecha de Entrega (Opcional)"
                         value={field.value}
                         onChange={field.onChange}
+                        disabled={!isClientSelected}
                         minDate={new Date()}
                         slotProps={{
                           textField: {
                             fullWidth: true,
-                            helperText: 'Fecha estimada de entrega al cliente',
+                            helperText: isClientSelected
+                              ? 'Fecha estimada de entrega al cliente'
+                              : 'Primero seleccione un cliente',
                           },
                         }}
                       />
                     )}
+                  />
+                </Grid>
+
+                {/* Creado por (readonly) */}
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    fullWidth
+                    label="Creado por"
+                    value={currentUserFullName}
+                    InputProps={{
+                      readOnly: true,
+                    }}
+                    helperText="Usuario que crea la orden"
                   />
                 </Grid>
               </Grid>
@@ -314,6 +347,11 @@ export const OrderFormPage: React.FC = () => {
                 3. Items de la Orden
               </Typography>
               <Divider sx={{ mb: 2 }} />
+              {!isClientSelected && (
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Primero debe seleccionar un cliente para agregar items a la orden.
+                </Typography>
+              )}
               <Controller
                 name="items"
                 control={control}
@@ -322,6 +360,7 @@ export const OrderFormPage: React.FC = () => {
                     items={field.value}
                     onChange={field.onChange}
                     errors={errors}
+                    disabled={!isClientSelected}
                   />
                 )}
               />
@@ -343,30 +382,27 @@ export const OrderFormPage: React.FC = () => {
                     taxRate={taxRateField.value}
                     onApplyTaxChange={applyTaxField.onChange}
                     onTaxRateChange={taxRateField.onChange}
+                    disabled={!isClientSelected}
                   />
                 )}
               />
             )}
           />
 
-          {/* Sección 5: Abono Inicial */}
+          {/* Sección 5: Abono Inicial (Obligatorio) */}
           <Controller
-            name="paymentEnabled"
+            name="payment"
             control={control}
-            render={({ field: enabledField }) => (
-              <Controller
-                name="payment"
-                control={control}
-                render={({ field: paymentField }) => (
-                  <InitialPayment
-                    total={total}
-                    enabled={enabledField.value}
-                    value={paymentField.value}
-                    onEnabledChange={enabledField.onChange}
-                    onChange={paymentField.onChange}
-                    errors={errors as any}
-                  />
-                )}
+            render={({ field: paymentField }) => (
+              <InitialPayment
+                total={total}
+                enabled={true}
+                value={paymentField.value}
+                onEnabledChange={() => {}} // No permitir deshabilitar
+                onChange={paymentField.onChange}
+                errors={errors as any}
+                disabled={!isClientSelected}
+                required={true}
               />
             )}
           />
@@ -389,7 +425,12 @@ export const OrderFormPage: React.FC = () => {
                     rows={4}
                     label="Notas u Observaciones"
                     placeholder="Agregue cualquier información adicional sobre esta orden..."
-                    helperText="Opcional: instrucciones especiales, detalles importantes, etc."
+                    helperText={
+                      isClientSelected
+                        ? 'Opcional: instrucciones especiales, detalles importantes, etc.'
+                        : 'Primero seleccione un cliente'
+                    }
+                    disabled={!isClientSelected}
                   />
                 )}
               />

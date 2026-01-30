@@ -347,9 +347,9 @@ export class OrdersService {
       );
     }
 
-    // Usar transacción para crear pago y actualizar totales
-    return this.prisma.$transaction(async (tx) => {
-      // Crear el pago
+    // Usar transacción simple y luego obtener el pago completo
+    const paymentId = await this.prisma.$transaction(async (tx) => {
+      // Crear el pago - solo retornar el ID
       const payment = await tx.payment.create({
         data: {
           orderId,
@@ -364,20 +364,6 @@ export class OrdersService {
         },
         select: {
           id: true,
-          amount: true,
-          paymentMethod: true,
-          paymentDate: true,
-          reference: true,
-          notes: true,
-          createdAt: true,
-          receivedBy: {
-            select: {
-              id: true,
-              email: true,
-              firstName: true,
-              lastName: true,
-            },
-          },
         },
       });
 
@@ -395,7 +381,29 @@ export class OrdersService {
         },
       });
 
-      return payment;
+      return payment.id;
+    });
+
+    // Obtener el pago completo fuera de la transacción
+    return this.prisma.payment.findUnique({
+      where: { id: paymentId },
+      select: {
+        id: true,
+        amount: true,
+        paymentMethod: true,
+        paymentDate: true,
+        reference: true,
+        notes: true,
+        createdAt: true,
+        receivedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
     });
   }
 

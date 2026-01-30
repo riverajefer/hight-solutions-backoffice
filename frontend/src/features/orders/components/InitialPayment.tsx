@@ -28,6 +28,8 @@ interface InitialPaymentProps {
   onEnabledChange: (value: boolean) => void;
   onChange: (data: InitialPaymentData | null) => void;
   errors?: Record<string, string>;
+  disabled?: boolean;
+  required?: boolean;
 }
 
 const formatCurrency = (value: number): string => {
@@ -39,6 +41,18 @@ const formatCurrency = (value: number): string => {
   }).format(value);
 };
 
+// Formatear moneda mientras se escribe (con separadores de miles)
+const formatCurrencyInput = (value: string | number): string => {
+  // Convertir a string y remover todo excepto números
+  const numericValue = value.toString().replace(/\D/g, '');
+
+  if (!numericValue) return '';
+
+  // Convertir a número y formatear con separadores de miles
+  const number = parseInt(numericValue, 10);
+  return new Intl.NumberFormat('es-CO').format(number);
+};
+
 export const InitialPayment: React.FC<InitialPaymentProps> = ({
   total,
   enabled,
@@ -46,6 +60,8 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
   onEnabledChange,
   onChange,
   errors = {},
+  disabled = false,
+  required = false,
 }) => {
   const handleFieldChange = (field: keyof InitialPaymentData, newValue: any) => {
     onChange({
@@ -72,11 +88,12 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
                   onChange(null);
                 }
               }}
+              disabled={required || disabled}
             />
           }
           label={
             <Typography variant="subtitle1" fontWeight={500}>
-              Registrar abono inicial
+              {required ? 'Abono Inicial (Obligatorio)' : 'Registrar abono inicial'}
             </Typography>
           }
         />
@@ -89,32 +106,31 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
                 <TextField
                   fullWidth
                   required
-                  type="number"
                   label="Monto del Abono"
-                  value={value?.amount || ''}
+                  value={value?.amount ? formatCurrencyInput(value.amount) : ''}
                   onChange={(e) => {
-                    const amount = parseFloat(e.target.value) || 0;
+                    const rawValue = e.target.value.replace(/\D/g, '');
+                    const amount = rawValue ? parseInt(rawValue, 10) : 0;
                     handleFieldChange('amount', amount);
                   }}
                   error={!!errors['payment.amount']}
                   helperText={
                     errors['payment.amount'] ||
-                    `Máximo: ${formatCurrency(total)}`
+                    (disabled ? 'Primero seleccione un cliente' : `Máximo: ${formatCurrency(total)}`)
                   }
+                  disabled={disabled}
                   InputProps={{
                     startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>,
                   }}
                   inputProps={{
-                    min: 0,
-                    max: total,
-                    step: 1000,
+                    style: { textAlign: 'right' },
                   }}
                 />
               </Grid>
 
               {/* Método de pago */}
               <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
+                <FormControl fullWidth disabled={disabled}>
                   <FormLabel>Método de Pago</FormLabel>
                   <RadioGroup
                     value={value?.paymentMethod || 'CASH'}
@@ -150,6 +166,7 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
                   placeholder="Ej: REF-12345, Transf-001"
                   value={value?.reference || ''}
                   onChange={(e) => handleFieldChange('reference', e.target.value)}
+                  disabled={disabled}
                   helperText="Opcional: Número de comprobante, transferencia, etc."
                 />
               </Grid>
@@ -162,6 +179,7 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
                   placeholder="Ej: Anticipo del 50%"
                   value={value?.notes || ''}
                   onChange={(e) => handleFieldChange('notes', e.target.value)}
+                  disabled={disabled}
                   helperText="Opcional: Observaciones sobre el pago"
                 />
               </Grid>

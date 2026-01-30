@@ -19,6 +19,7 @@ interface OrderTotalsProps {
   taxRate: number;
   onApplyTaxChange: (value: boolean) => void;
   onTaxRateChange: (value: number) => void;
+  disabled?: boolean;
 }
 
 const formatCurrency = (value: number): string => {
@@ -36,6 +37,7 @@ export const OrderTotals: React.FC<OrderTotalsProps> = ({
   taxRate,
   onApplyTaxChange,
   onTaxRateChange,
+  disabled = false,
 }) => {
   // Calcular subtotal
   const subtotal = items.reduce((sum, item) => sum + item.total, 0);
@@ -57,6 +59,7 @@ export const OrderTotals: React.FC<OrderTotalsProps> = ({
                 <Checkbox
                   checked={applyTax}
                   onChange={(e) => onApplyTaxChange(e.target.checked)}
+                  disabled={disabled}
                 />
               }
               label="Aplicar IVA"
@@ -74,6 +77,7 @@ export const OrderTotals: React.FC<OrderTotalsProps> = ({
                       onTaxRateChange(value);
                     }
                   }}
+                  disabled={disabled}
                   InputProps={{
                     endAdornment: <Typography>%</Typography>,
                   }}

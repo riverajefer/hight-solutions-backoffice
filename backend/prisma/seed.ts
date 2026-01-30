@@ -224,11 +224,15 @@ async function main() {
     update: {
       password: adminPassword,
       roleId: adminRole.id,
+      firstName: 'Admin',
+      lastName: 'Sistema',
     },
     create: {
       email: 'admin@example.com',
       password: adminPassword,
       roleId: adminRole.id,
+      firstName: 'Admin',
+      lastName: 'Sistema',
     },
   });
   console.log(`  ✓ Admin user: ${adminUser.email}`);
@@ -241,11 +245,15 @@ async function main() {
     update: {
       password: managerPassword,
       roleId: managerRole.id,
+      firstName: 'Manager',
+      lastName: 'Gerente',
     },
     create: {
       email: 'manager@example.com',
       password: managerPassword,
       roleId: managerRole.id,
+      firstName: 'Manager',
+      lastName: 'Gerente',
     },
   });
   console.log(`  ✓ Manager user: ${managerUser.email}`);
@@ -258,10 +266,14 @@ async function main() {
     update: {
       password: userPassword,
       roleId: userRole.id,
+      firstName: 'Usuario',
+      lastName: 'Regular',
     },
     create: {
       email: 'user@example.com',
       password: userPassword,
+      firstName: 'Usuario',
+      lastName: 'Regular',
       roleId: userRole.id,
     },
   });

@@ -82,6 +82,18 @@ const formatDateTime = (date: string): string => {
   }).format(new Date(date));
 };
 
+// Formatear moneda mientras se escribe (con separadores de miles)
+const formatCurrencyInput = (value: string | number): string => {
+  // Convertir a string y remover todo excepto números
+  const numericValue = value.toString().replace(/\D/g, '');
+
+  if (!numericValue) return '';
+
+  // Convertir a número y formatear con separadores de miles
+  const number = parseInt(numericValue, 10);
+  return new Intl.NumberFormat('es-CO').format(number);
+};
+
 export const OrderDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -431,7 +443,9 @@ export const OrderDetailPage: React.FC = () => {
                       Creado por
                     </Typography>
                     <Typography variant="body2">
-                      {order.createdBy.firstName} {order.createdBy.lastName}
+                      {order.createdBy.firstName && order.createdBy.lastName
+                        ? `${order.createdBy.firstName} ${order.createdBy.lastName}`
+                        : order.createdBy.email}
                     </Typography>
                   </Box>
                   <Box>
@@ -499,17 +513,21 @@ export const OrderDetailPage: React.FC = () => {
           <Stack spacing={3} sx={{ mt: 2 }}>
             <TextField
               fullWidth
-              type="number"
               label="Monto"
-              value={paymentData.amount}
-              onChange={(e) =>
+              value={paymentData.amount ? formatCurrencyInput(paymentData.amount) : ''}
+              onChange={(e) => {
+                const rawValue = e.target.value.replace(/\D/g, '');
+                const amount = rawValue ? parseInt(rawValue, 10) : 0;
                 setPaymentData({
                   ...paymentData,
-                  amount: parseFloat(e.target.value) || 0,
-                })
-              }
+                  amount,
+                });
+              }}
               InputProps={{
                 startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>,
+              }}
+              inputProps={{
+                style: { textAlign: 'right' },
               }}
               helperText={`Saldo pendiente: ${formatCurrency(order.balance)}`}
             />

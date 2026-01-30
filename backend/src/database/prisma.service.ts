@@ -47,42 +47,7 @@ export class PrismaService
           User: {
             exclude: ['password', 'refreshToken'],
           },
-          Order: {
-            // Solo registrar campos esenciales de la orden
-            include: [
-              'id',
-              'orderNumber',
-              'status',
-              'total',
-              'paidAmount',
-              'balance',
-              'clientId',
-              'createdById',
-            ],
-          },
-          OrderItem: {
-            // Solo campos clave de los items
-            include: [
-              'id',
-              'orderId',
-              'description',
-              'quantity',
-              'unitPrice',
-              'total',
-              'serviceId',
-            ],
-          },
-          Payment: {
-            // Solo campos importantes de pagos
-            include: [
-              'id',
-              'orderId',
-              'amount',
-              'paymentMethod',
-              'paymentDate',
-              'receivedById',
-            ],
-          },
+          // Order, OrderItem y Payment se excluyen completamente en skip()
         },
 
         // Registrador personalizado (opcional)
@@ -105,11 +70,14 @@ export class PrismaService
 
         // Saltar registro para operaciones específicas
         skip: ({ model }) => {
-          // No registrar cambios en modelos de infraestructura
+          // No registrar cambios en modelos de infraestructura y módulos críticos de performance
           return (
             model === 'AuditLog' ||
             model === 'audit_logs' ||
-            model === 'Consecutive' // Excluir consecutivos (operación crítica de concurrencia)
+            model === 'Consecutive' || // Excluir consecutivos (operación crítica de concurrencia)
+            model === 'Order' || // Excluir órdenes (transacciones complejas)
+            model === 'OrderItem' || // Excluir items de órdenes
+            model === 'Payment' // Excluir pagos (transacciones críticas)
           );
         },
       })

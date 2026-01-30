@@ -22,6 +22,7 @@ interface OrderItemsTableProps {
   items: OrderItemRow[];
   onChange: (items: OrderItemRow[]) => void;
   errors?: Record<string, any>;
+  disabled?: boolean;
 }
 
 const formatCurrency = (value: number): string => {
@@ -33,10 +34,29 @@ const formatCurrency = (value: number): string => {
   }).format(value);
 };
 
+// Formatear moneda mientras se escribe (con separadores de miles)
+const formatCurrencyInput = (value: string): string => {
+  // Remover todo excepto números
+  const numericValue = value.replace(/\D/g, '');
+
+  if (!numericValue) return '';
+
+  // Convertir a número y formatear con separadores de miles
+  const number = parseInt(numericValue, 10);
+  return new Intl.NumberFormat('es-CO').format(number);
+};
+
+// Obtener valor numérico desde string formateado
+const parseFormattedCurrency = (value: string): number => {
+  const numericValue = value.replace(/\D/g, '');
+  return numericValue ? parseInt(numericValue, 10) : 0;
+};
+
 export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
   items,
   onChange,
   errors = {},
+  disabled = false,
 }) => {
   const handleAddRow = () => {
     const newItem: OrderItemRow = {
@@ -139,6 +159,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                         handleFieldChange(item.id, 'quantity', e.target.value)
                       }
                       error={!!itemErrors.quantity}
+                      disabled={disabled}
                       inputProps={{
                         min: 0,
                         step: 1,
@@ -162,6 +183,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                         )
                       }
                       error={!!itemErrors.description}
+                      disabled={disabled}
                       placeholder="Descripción del producto o servicio"
                       multiline
                       maxRows={2}
@@ -173,18 +195,17 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                     <TextField
                       fullWidth
                       size="small"
-                      type="number"
-                      value={item.unitPrice}
-                      onChange={(e) =>
-                        handleFieldChange(item.id, 'unitPrice', e.target.value)
-                      }
+                      value={item.unitPrice ? formatCurrencyInput(item.unitPrice) : ''}
+                      onChange={(e) => {
+                        const rawValue = e.target.value.replace(/\D/g, '');
+                        handleFieldChange(item.id, 'unitPrice', rawValue);
+                      }}
                       error={!!itemErrors.unitPrice}
+                      disabled={disabled}
                       InputProps={{
                         startAdornment: <Typography sx={{ mr: 0.5 }}>$</Typography>,
                       }}
                       inputProps={{
-                        min: 0,
-                        step: 1000,
                         style: { textAlign: 'right' },
                       }}
                       placeholder="0"
@@ -208,7 +229,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                       size="small"
                       color="error"
                       onClick={() => handleRemoveRow(item.id)}
-                      disabled={items.length <= 1}
+                      disabled={disabled || items.length <= 1}
                       title={
                         items.length <= 1
                           ? 'Debe haber al menos un item'
@@ -247,6 +268,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
           startIcon={<AddIcon />}
           onClick={handleAddRow}
           size="medium"
+          disabled={disabled}
         >
           Agregar Línea
         </Button>
