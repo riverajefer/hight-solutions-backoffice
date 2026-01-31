@@ -1,0 +1,13 @@
+Crea el CRUD completo de [NOMBRE] basándote en CRUD_TEMPLATE.md
+
+**Modelo de datos:**
+- campo1: tipo, descripción
+- campo2: tipo, descripción
+
+**Datos iniciales para el seed:**
+- Dato 1
+- Dato 2
+
+**Configuración:**
+- Icono: [nombre del icono]
+- Ruta: /[ruta]
