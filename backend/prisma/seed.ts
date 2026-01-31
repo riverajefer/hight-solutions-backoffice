@@ -1448,6 +1448,33 @@ async function main() {
   }
 
   // ============================================
+  // 18. Crear Áreas de Producción
+  // ============================================
+  console.log('\n🏭 Creating production areas...');
+
+  const productionAreasData = [
+    { name: 'DTF UV', description: 'Área especializada en impresión DTF con tecnología UV' },
+    { name: 'DTF Textil', description: 'Área de impresión DTF para textiles' },
+    { name: 'Calandra', description: 'Área de calandrado y acabados térmicos' },
+    { name: 'Sublimación', description: 'Área de sublimación textil' },
+    { name: 'Rigidos', description: 'Área de impresión en materiales rígidos' },
+    { name: 'Lanyard', description: 'Área de fabricación de lanyards' },
+    { name: 'Papeleria', description: 'Área de producción de papelería' },
+    { name: 'Costura', description: 'Área de costura y confección' },
+    { name: 'Ploter gran formato', description: 'Área de impresión en gran formato' },
+    { name: 'Promocionales', description: 'Área de productos promocionales' },
+    { name: 'Diseño', description: 'Área de diseño gráfico y creativo' },
+    { name: 'Producción High', description: 'Área de producción de alta gama' },
+    { name: 'Producción Externa', description: 'Área de gestión de producción externa' },
+  ];
+
+  for (const productionAreaData of productionAreasData) {
+    await prisma.productionArea.upsert({
+      where: { name: productionAreaData.name },
+      update: { description: productionAreaData.description },
+      create: productionAreaData,
+    });
+    console.log(`  ✓ Production Area: ${productionAreaData.name}`);
   // 14. Crear Canales de Venta (Commercial Channels)
   // ============================================
   console.log('\n🛒 Creating commercial channels...');
@@ -1518,6 +1545,7 @@ async function main() {
   console.log(`   - Supplies: ${suppliesCreated}`);
   console.log(`   - Orders: 2`);
   console.log(`   - Consecutives: ${consecutivesData.length}`);
+  console.log(`   - Production Areas: ${productionAreasData.length}`);
   console.log(`   - Commercial Channels: ${channelsCreated}`);
   console.log('\n🔐 Test Credentials:');
   console.log('   Admin:   admin@example.com / admin123');
