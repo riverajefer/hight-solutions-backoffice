@@ -17,6 +17,10 @@ export const PATHS = {
   AREAS_CREATE: '/areas/new',
   AREAS_EDIT: '/areas/:id/edit',
   AREAS_VIEW: '/areas/:id',
+  PRODUCTION_AREAS: '/production-areas',
+  PRODUCTION_AREAS_CREATE: '/production-areas/new',
+  PRODUCTION_AREAS_EDIT: '/production-areas/:id/edit',
+  PRODUCTION_AREAS_VIEW: '/production-areas/:id',
   CARGOS: '/cargos',
   CARGOS_CREATE: '/cargos/new',
   CARGOS_EDIT: '/cargos/:id/edit',
@@ -56,5 +60,10 @@ export const PATHS = {
   ORDERS_CREATE: '/orders/new',
   ORDERS_EDIT: '/orders/:id/edit',
   ORDERS_DETAIL: '/orders/:id',
+  // Commercial Channels Routes
+  COMMERCIAL_CHANNELS: '/commercial-channels',
+  COMMERCIAL_CHANNELS_CREATE: '/commercial-channels/new',
+  COMMERCIAL_CHANNELS_EDIT: '/commercial-channels/:id/edit',
+  COMMERCIAL_CHANNELS_VIEW: '/commercial-channels/:id',
 };
 
