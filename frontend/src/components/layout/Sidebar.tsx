@@ -200,6 +200,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
       permission: PERMISSIONS.READ_ORDERS,
     },
     {
+      label: 'Canales de Venta',
+      icon: <ShoppingCartIcon />,
+      path: '/commercial-channels',
+      permission: PERMISSIONS.READ_COMMERCIAL_CHANNELS,
+    },
+    {
       label: 'Áreas',
       icon: <BusinessIcon />,
       submenu: [

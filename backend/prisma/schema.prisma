@@ -464,3 +464,17 @@ model ProductionArea {
   @@map("production_areas")
 }
 
+// =============================================================================
+// MÓDULO DE CANALES DE VENTA (COMMERCIAL CHANNELS)
+// =============================================================================
+
+model CommercialChannel {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("commercial_channels")
+}
+

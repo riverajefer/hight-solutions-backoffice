@@ -60,5 +60,10 @@ export const PATHS = {
   ORDERS_CREATE: '/orders/new',
   ORDERS_EDIT: '/orders/:id/edit',
   ORDERS_DETAIL: '/orders/:id',
+  // Commercial Channels Routes
+  COMMERCIAL_CHANNELS: '/commercial-channels',
+  COMMERCIAL_CHANNELS_CREATE: '/commercial-channels/new',
+  COMMERCIAL_CHANNELS_EDIT: '/commercial-channels/:id/edit',
+  COMMERCIAL_CHANNELS_VIEW: '/commercial-channels/:id',
 };
 

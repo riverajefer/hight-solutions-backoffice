@@ -55,6 +55,10 @@ const SupplyFormPage = lazy(() => import('../features/portfolio/supplies/pages/S
 const OrdersListPage = lazy(() => import('../features/orders/pages/OrdersListPage'));
 const OrderFormPage = lazy(() => import('../features/orders/pages/OrderFormPage'));
 const OrderDetailPage = lazy(() => import('../features/orders/pages/OrderDetailPage'));
+// Commercial Channels
+const CommercialChannelsListPage = lazy(() => import('../features/commercial-channels/pages/CommercialChannelsListPage'));
+const CommercialChannelFormPage = lazy(() => import('../features/commercial-channels/pages/CommercialChannelFormPage'));
+const CommercialChannelDetailPage = lazy(() => import('../features/commercial-channels/pages/CommercialChannelDetailPage'));
 
 
 const RoutesConfig: FC = () => {
@@ -713,6 +717,56 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.READ_ORDERS}>
                   <OrderDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Commercial Channels Routes */}
+        <Route
+          path={PATHS.COMMERCIAL_CHANNELS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_COMMERCIAL_CHANNELS}>
+                  <CommercialChannelsListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.COMMERCIAL_CHANNELS_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_COMMERCIAL_CHANNELS}>
+                  <CommercialChannelFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.COMMERCIAL_CHANNELS_VIEW}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_COMMERCIAL_CHANNELS}>
+                  <CommercialChannelDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.COMMERCIAL_CHANNELS_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_COMMERCIAL_CHANNELS}>
+                  <CommercialChannelFormPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

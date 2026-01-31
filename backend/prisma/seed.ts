@@ -105,11 +105,11 @@ async function main() {
     { name: 'delete_orders', description: 'Eliminar órdenes de pedido' },
     { name: 'approve_orders', description: 'Aprobar/confirmar órdenes de pedido' },
 
-    // Production Areas
-    { name: 'create_production_areas', description: 'Crear áreas de producción' },
-    { name: 'read_production_areas', description: 'Ver áreas de producción' },
-    { name: 'update_production_areas', description: 'Actualizar áreas de producción' },
-    { name: 'delete_production_areas', description: 'Eliminar áreas de producción' },
+    // Commercial Channels
+    { name: 'create_commercial_channels', description: 'Crear canales de venta' },
+    { name: 'read_commercial_channels', description: 'Ver canales de venta' },
+    { name: 'update_commercial_channels', description: 'Actualizar canales de venta' },
+    { name: 'delete_commercial_channels', description: 'Eliminar canales de venta' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
@@ -1475,6 +1475,52 @@ async function main() {
       create: productionAreaData,
     });
     console.log(`  ✓ Production Area: ${productionAreaData.name}`);
+  // 14. Crear Canales de Venta (Commercial Channels)
+  // ============================================
+  console.log('\n🛒 Creating commercial channels...');
+
+  const commercialChannelsData = [
+    {
+      name: 'Tienda Física',
+      description: 'Ventas realizadas en nuestras tiendas físicas',
+    },
+    {
+      name: 'Tienda Online',
+      description: 'Ventas a través del sitio web y plataforma e-commerce',
+    },
+    {
+      name: 'WhatsApp',
+      description: 'Ventas realizadas por pedidos vía WhatsApp',
+    },
+    {
+      name: 'Redes Sociales',
+      description: 'Ventas generadas desde Facebook, Instagram y otras redes sociales',
+    },
+    {
+      name: 'Marketplace',
+      description: 'Ventas en plataformas como Mercado Libre, Amazon, etc.',
+    },
+    {
+      name: 'Distribuidores',
+      description: 'Ventas a través de nuestra red de distribuidores',
+    },
+    {
+      name: 'Clientes Corporativos',
+      description: 'Ventas directas a empresas y contratos corporativos',
+    },
+  ];
+
+  let channelsCreated = 0;
+  for (const channelData of commercialChannelsData) {
+    await prisma.commercialChannel.upsert({
+      where: { name: channelData.name },
+      update: {
+        description: channelData.description,
+      },
+      create: channelData,
+    });
+    console.log(`  ✓ Channel: ${channelData.name}`);
+    channelsCreated++;
   }
 
   // ============================================
@@ -1500,6 +1546,7 @@ async function main() {
   console.log(`   - Orders: 2`);
   console.log(`   - Consecutives: ${consecutivesData.length}`);
   console.log(`   - Production Areas: ${productionAreasData.length}`);
+  console.log(`   - Commercial Channels: ${channelsCreated}`);
   console.log('\n🔐 Test Credentials:');
   console.log('   Admin:   admin@example.com / admin123');
   console.log('   Manager: manager@example.com / manager123');
