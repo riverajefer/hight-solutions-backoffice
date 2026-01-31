@@ -22,6 +22,9 @@ const AuditLogsListPage = lazy(() => import('../features/audit-logs/pages/AuditL
 const AreasListPage = lazy(() => import('../features/areas/pages/AreasListPage'));
 const AreaFormPage = lazy(() => import('../features/areas/pages/AreaFormPage'));
 const AreaDetailPage = lazy(() => import('../features/areas/pages/AreaDetailPage'));
+const ProductionAreasListPage = lazy(() => import('../features/production-areas/pages/ProductionAreasListPage'));
+const ProductionAreaFormPage = lazy(() => import('../features/production-areas/pages/ProductionAreaFormPage'));
+const ProductionAreaDetailPage = lazy(() => import('../features/production-areas/pages/ProductionAreaDetailPage'));
 const CargosListPage = lazy(() => import('../features/cargos/pages/CargosListPage'));
 const CargoFormPage = lazy(() => import('../features/cargos/pages/CargoFormPage'));
 const CargoDetailPage = lazy(() => import('../features/cargos/pages/CargoDetailPage'));
@@ -52,6 +55,10 @@ const SupplyFormPage = lazy(() => import('../features/portfolio/supplies/pages/S
 const OrdersListPage = lazy(() => import('../features/orders/pages/OrdersListPage'));
 const OrderFormPage = lazy(() => import('../features/orders/pages/OrderFormPage'));
 const OrderDetailPage = lazy(() => import('../features/orders/pages/OrderDetailPage'));
+// Commercial Channels
+const CommercialChannelsListPage = lazy(() => import('../features/commercial-channels/pages/CommercialChannelsListPage'));
+const CommercialChannelFormPage = lazy(() => import('../features/commercial-channels/pages/CommercialChannelFormPage'));
+const CommercialChannelDetailPage = lazy(() => import('../features/commercial-channels/pages/CommercialChannelDetailPage'));
 
 
 const RoutesConfig: FC = () => {
@@ -270,6 +277,56 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.UPDATE_AREAS}>
                   <AreaFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Production Areas Routes */}
+        <Route
+          path={PATHS.PRODUCTION_AREAS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_PRODUCTION_AREAS}>
+                  <ProductionAreasListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PRODUCTION_AREAS_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_PRODUCTION_AREAS}>
+                  <ProductionAreaFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PRODUCTION_AREAS_VIEW}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_PRODUCTION_AREAS}>
+                  <ProductionAreaDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PRODUCTION_AREAS_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_PRODUCTION_AREAS}>
+                  <ProductionAreaFormPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>
@@ -660,6 +717,56 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.READ_ORDERS}>
                   <OrderDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Commercial Channels Routes */}
+        <Route
+          path={PATHS.COMMERCIAL_CHANNELS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_COMMERCIAL_CHANNELS}>
+                  <CommercialChannelsListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.COMMERCIAL_CHANNELS_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_COMMERCIAL_CHANNELS}>
+                  <CommercialChannelFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.COMMERCIAL_CHANNELS_VIEW}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_COMMERCIAL_CHANNELS}>
+                  <CommercialChannelDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.COMMERCIAL_CHANNELS_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_COMMERCIAL_CHANNELS}>
+                  <CommercialChannelFormPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

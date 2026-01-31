@@ -151,6 +151,13 @@ export const OrdersListPage: React.FC = () => {
       renderCell: (params) =>
         params.value ? formatDate(params.value) : '-',
     },
+    // creado por
+    {
+      field: 'createdBy',
+      headerName: 'Creado por',
+      width: 150,
+      valueGetter: (_, row) => row.createdBy?.firstName + ' ' + row.createdBy?.lastName,
+    },
     {
       field: 'total',
       headerName: 'Total',
