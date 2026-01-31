@@ -31,6 +31,7 @@ import MiscellaneousServicesIcon from '@mui/icons-material/MiscellaneousServices
 import FolderSpecialIcon from '@mui/icons-material/FolderSpecial';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import FactoryIcon from '@mui/icons-material/Factory';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import { useAuthStore } from '../../store/authStore';
@@ -231,6 +232,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
         },
       ],
       permission: PERMISSIONS.READ_CARGOS,
+    },
+    {
+      label: 'Áreas de Producción',
+      icon: <FactoryIcon />,
+      path: ROUTES.PRODUCTION_AREAS,
+      permission: PERMISSIONS.READ_PRODUCTION_AREAS,
     },
     {
       label: 'Roles',

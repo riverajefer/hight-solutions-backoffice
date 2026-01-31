@@ -449,3 +449,18 @@ model Payment {
   @@map("payments")
 }
 
+// =============================================================================
+// MÓDULO DE ÁREAS DE PRODUCCIÓN
+// =============================================================================
+
+model ProductionArea {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("production_areas")
+}
+

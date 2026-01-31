@@ -22,6 +22,9 @@ const AuditLogsListPage = lazy(() => import('../features/audit-logs/pages/AuditL
 const AreasListPage = lazy(() => import('../features/areas/pages/AreasListPage'));
 const AreaFormPage = lazy(() => import('../features/areas/pages/AreaFormPage'));
 const AreaDetailPage = lazy(() => import('../features/areas/pages/AreaDetailPage'));
+const ProductionAreasListPage = lazy(() => import('../features/production-areas/pages/ProductionAreasListPage'));
+const ProductionAreaFormPage = lazy(() => import('../features/production-areas/pages/ProductionAreaFormPage'));
+const ProductionAreaDetailPage = lazy(() => import('../features/production-areas/pages/ProductionAreaDetailPage'));
 const CargosListPage = lazy(() => import('../features/cargos/pages/CargosListPage'));
 const CargoFormPage = lazy(() => import('../features/cargos/pages/CargoFormPage'));
 const CargoDetailPage = lazy(() => import('../features/cargos/pages/CargoDetailPage'));
@@ -270,6 +273,56 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.UPDATE_AREAS}>
                   <AreaFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Production Areas Routes */}
+        <Route
+          path={PATHS.PRODUCTION_AREAS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_PRODUCTION_AREAS}>
+                  <ProductionAreasListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PRODUCTION_AREAS_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_PRODUCTION_AREAS}>
+                  <ProductionAreaFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PRODUCTION_AREAS_VIEW}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_PRODUCTION_AREAS}>
+                  <ProductionAreaDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PRODUCTION_AREAS_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_PRODUCTION_AREAS}>
+                  <ProductionAreaFormPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>
