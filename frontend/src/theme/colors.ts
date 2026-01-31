@@ -188,7 +188,7 @@ export const gradients = {
   `,
 
   // Degradados para Headers de tablas
-  tableHeaderDark: 'linear-gradient(90deg, #363A72 0%, #2D1B4E 100%)',
+  tableHeaderDark: 'linear-gradient(90deg, #24263D 0%, #1F2135 100%)',
   tableHeaderLight: 'linear-gradient(90deg, rgba(46, 176, 196, 0.15) 0%, rgba(139, 92, 246, 0.1) 100%)',
 } as const;
 

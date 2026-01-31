@@ -153,19 +153,22 @@ enum PersonType {
 }
 
 model Client {
-  id           String     @id @default(uuid())
-  name         String
-  manager      String?
-  phone        String?
-  address      String?
-  email        String     @unique
-  departmentId String     @map("department_id")
-  cityId       String     @map("city_id")
-  personType   PersonType @map("person_type")
-  nit          String?
-  isActive     Boolean    @default(true) @map("is_active")
-  createdAt    DateTime   @default(now()) @map("created_at")
-  updatedAt    DateTime   @updatedAt @map("updated_at")
+  id            String     @id @default(uuid())
+  name          String
+  manager       String?
+  encargado     String?
+  phone         String?
+  landlinePhone String?    @map("landline_phone")
+  address       String?
+  email         String     @unique
+  departmentId  String     @map("department_id")
+  cityId        String     @map("city_id")
+  personType    PersonType @map("person_type")
+  nit           String?
+  cedula        String?
+  isActive      Boolean    @default(true) @map("is_active")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
 
   department Department @relation(fields: [departmentId], references: [id])
   city       City       @relation(fields: [cityId], references: [id])

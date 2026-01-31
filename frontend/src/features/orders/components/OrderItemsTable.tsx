@@ -111,34 +111,43 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
 
   return (
     <Box>
-      <TableContainer component={Paper} variant="outlined">
+      <TableContainer>
         <Table size="small">
           <TableHead>
-            <TableRow>
+            <TableRow
+              sx={{
+                background: 'none !important',
+                backgroundImage: 'none !important',
+
+                '& .MuiTableCell-root': {
+                  background: 'none !important',
+                  backgroundImage: 'none !important',
+                  color: '#ffffff !important',
+                  fontWeight: 700,
+                  fontSize: '0.875rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  borderBottom: '2px solid',
+                  borderBottomColor: (theme) =>
+                    theme.palette.mode === 'light' ? '#1a1f23ff' : '#1a1f23ff',
+                  padding: '16px',
+                },
+              }}
+            >
               <TableCell width="15%" align="center">
-                <Typography variant="subtitle2" fontWeight={600}>
-                  Cantidad
-                </Typography>
+                Cantidad
               </TableCell>
               <TableCell width="40%">
-                <Typography variant="subtitle2" fontWeight={600}>
-                  Descripción
-                </Typography>
+                Descripción
               </TableCell>
               <TableCell width="20%" align="right">
-                <Typography variant="subtitle2" fontWeight={600}>
-                  Valor Unitario
-                </Typography>
+                Valor Unitario
               </TableCell>
               <TableCell width="20%" align="right">
-                <Typography variant="subtitle2" fontWeight={600}>
-                  Valor Total
-                </Typography>
+                Valor Total
               </TableCell>
               <TableCell width="5%" align="center">
-                <Typography variant="subtitle2" fontWeight={600}>
-                  Acciones
-                </Typography>
+                Acciones
               </TableCell>
             </TableRow>
           </TableHead>
@@ -244,14 +253,26 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
             })}
 
             {/* Fila de Subtotal */}
-            <TableRow>
+            <TableRow
+              sx={{
+                backgroundColor: (theme) =>
+                  theme.palette.mode === 'light'
+                    ? theme.palette.grey[100]
+                    : theme.palette.grey[900],
+                '& .MuiTableCell-root': {
+                  borderTop: '2px solid',
+                  borderTopColor: 'divider',
+                  paddingY: 2,
+                },
+              }}
+            >
               <TableCell colSpan={3} align="right">
-                <Typography variant="subtitle1" fontWeight={600}>
+                <Typography variant="subtitle1" fontWeight={700}>
                   Subtotal:
                 </Typography>
               </TableCell>
               <TableCell align="right">
-                <Typography variant="subtitle1" fontWeight={700}>
+                <Typography variant="subtitle1" fontWeight={700} color="primary">
                   {formatCurrency(subtotal)}
                 </Typography>
               </TableCell>

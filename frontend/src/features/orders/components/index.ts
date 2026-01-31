@@ -4,3 +4,4 @@ export { CreateClientModal } from './CreateClientModal';
 export { OrderItemsTable } from './OrderItemsTable';
 export { OrderTotals } from './OrderTotals';
 export { InitialPayment } from './InitialPayment';
+export { ChangeStatusDialog } from './ChangeStatusDialog';

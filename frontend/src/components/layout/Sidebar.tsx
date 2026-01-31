@@ -148,15 +148,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
       permission: PERMISSIONS.READ_SUPPLIERS,
     },
     {
-      label: 'Portafolio',
+      label: 'Catalogo',
       icon: <InventoryIcon />,
       submenu: [
-        {
-          label: 'Unidades de Medida',
-          icon: <StraightenIcon />,
-          path: ROUTES.UNITS_OF_MEASURE,
-          permission: PERMISSIONS.READ_UNITS_OF_MEASURE,
-        },
+
         {
           label: 'Categorías de Servicios',
           icon: <CategoryIcon />,
@@ -180,6 +175,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
           icon: <Inventory2Icon />,
           path: ROUTES.SUPPLIES,
           permission: PERMISSIONS.READ_SUPPLIES,
+        },
+        {
+          label: 'Unidades de Medida',
+          icon: <StraightenIcon />,
+          path: ROUTES.UNITS_OF_MEASURE,
+          permission: PERMISSIONS.READ_UNITS_OF_MEASURE,
         },
       ],
       // El menú se muestra si el usuario tiene permiso para cualquiera de los submódulos
