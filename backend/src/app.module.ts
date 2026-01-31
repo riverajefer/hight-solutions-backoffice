@@ -20,6 +20,7 @@ import { SupplyCategoriesModule } from './modules/portfolio/supply-categories/su
 import { SuppliesModule } from './modules/portfolio/supplies/supplies.module';
 import { ConsecutivesModule } from './modules/consecutives/consecutives.module';
 import { OrdersModule } from './modules/orders/orders.module';
+import { CommercialChannelsModule } from './modules/commercial-channels/commercial-channels.module';
 import { AuditContextInterceptor } from './common/interceptors/audit-context.interceptor';
 
 @Module({
@@ -51,6 +52,8 @@ import { AuditContextInterceptor } from './common/interceptors/audit-context.int
     ConsecutivesModule,
     // Módulo de Órdenes de Pedido
     OrdersModule,
+    // Módulo de Canales de Venta
+    CommercialChannelsModule,
   ],
   providers: [
     {
