@@ -71,6 +71,9 @@ export const PERMISSIONS = {
   READ_ORDERS: 'read_orders',
   UPDATE_ORDERS: 'update_orders',
   DELETE_ORDERS: 'delete_orders',
+  //READ_COMMERCIAL_CHANNELS
+  READ_COMMERCIAL_CHANNELS: 'read_commercial_channels',
+  
 };
 
 export const ROUTES = {
@@ -136,6 +139,7 @@ export const ROUTES = {
   ORDERS_CREATE: '/orders/new',
   ORDERS_EDIT: '/orders/:id/edit',
   ORDERS_DETAIL: '/orders/:id',
+
 };
 
 export const DEFAULT_PAGINATION = {

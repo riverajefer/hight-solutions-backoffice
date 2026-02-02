@@ -1,12 +1,12 @@
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
-import { PrismaClient }  from '../src/generated/prisma';
+import { PrismaClient } from '../src/generated/prisma';
 import * as bcrypt from 'bcrypt';
 import { randomInt, randomUUID } from 'node:crypto';
 
 // Use absolute paths for consistent behavior
 const adapter = new PrismaBetterSqlite3({
-  url: "file:./dev.db"
-})
+  url: 'file:./dev.db',
+});
 
 const prisma = new PrismaClient({ adapter });
 
@@ -34,15 +34,27 @@ async function main() {
     // Permissions
     { name: 'create_permissions', description: 'Create new permissions' },
     { name: 'read_permissions', description: 'View permissions' },
-    { name: 'update_permissions', description: 'Update permission information' },
+    {
+      name: 'update_permissions',
+      description: 'Update permission information',
+    },
     { name: 'delete_permissions', description: 'Delete permissions' },
-    { name: 'manage_permissions', description: 'Assign/remove permissions to/from roles' },
+    {
+      name: 'manage_permissions',
+      description: 'Assign/remove permissions to/from roles',
+    },
 
     // Areas
     { name: 'create_areas', description: 'Create new areas' },
     { name: 'read_areas', description: 'View areas' },
     { name: 'update_areas', description: 'Update area information' },
     { name: 'delete_areas', description: 'Delete areas' },
+
+    // Production Areas (CRUD)
+    { name: 'create_production_areas', description: 'Create new production areas' },
+    { name: 'read_production_areas', description: 'View production areas' },
+    { name: 'update_production_areas', description: 'Update production area information' },
+    { name: 'delete_production_areas', description: 'Delete production areas' },
 
     // Cargos
     { name: 'create_cargos', description: 'Create new cargos' },
@@ -66,19 +78,43 @@ async function main() {
     { name: 'delete_suppliers', description: 'Delete suppliers' },
 
     // Session Logs
-    { name: 'read_session_logs', description: 'Ver registros de inicio y cierre de sesión de usuarios' },
+    {
+      name: 'read_session_logs',
+      description: 'Ver registros de inicio y cierre de sesión de usuarios',
+    },
 
     // Units of Measure
-    { name: 'create_units_of_measure', description: 'Crear unidades de medida' },
+    {
+      name: 'create_units_of_measure',
+      description: 'Crear unidades de medida',
+    },
     { name: 'read_units_of_measure', description: 'Ver unidades de medida' },
-    { name: 'update_units_of_measure', description: 'Actualizar unidades de medida' },
-    { name: 'delete_units_of_measure', description: 'Eliminar unidades de medida' },
+    {
+      name: 'update_units_of_measure',
+      description: 'Actualizar unidades de medida',
+    },
+    {
+      name: 'delete_units_of_measure',
+      description: 'Eliminar unidades de medida',
+    },
 
     // Service Categories
-    { name: 'create_service_categories', description: 'Crear categorías de servicios' },
-    { name: 'read_service_categories', description: 'Ver categorías de servicios' },
-    { name: 'update_service_categories', description: 'Actualizar categorías de servicios' },
-    { name: 'delete_service_categories', description: 'Eliminar categorías de servicios' },
+    {
+      name: 'create_service_categories',
+      description: 'Crear categorías de servicios',
+    },
+    {
+      name: 'read_service_categories',
+      description: 'Ver categorías de servicios',
+    },
+    {
+      name: 'update_service_categories',
+      description: 'Actualizar categorías de servicios',
+    },
+    {
+      name: 'delete_service_categories',
+      description: 'Eliminar categorías de servicios',
+    },
 
     // Services
     { name: 'create_services', description: 'Crear servicios' },
@@ -87,10 +123,22 @@ async function main() {
     { name: 'delete_services', description: 'Eliminar servicios' },
 
     // Supply Categories
-    { name: 'create_supply_categories', description: 'Crear categorías de insumos' },
-    { name: 'read_supply_categories', description: 'Ver categorías de insumos' },
-    { name: 'update_supply_categories', description: 'Actualizar categorías de insumos' },
-    { name: 'delete_supply_categories', description: 'Eliminar categorías de insumos' },
+    {
+      name: 'create_supply_categories',
+      description: 'Crear categorías de insumos',
+    },
+    {
+      name: 'read_supply_categories',
+      description: 'Ver categorías de insumos',
+    },
+    {
+      name: 'update_supply_categories',
+      description: 'Actualizar categorías de insumos',
+    },
+    {
+      name: 'delete_supply_categories',
+      description: 'Eliminar categorías de insumos',
+    },
 
     // Supplies
     { name: 'create_supplies', description: 'Crear insumos' },
@@ -103,13 +151,25 @@ async function main() {
     { name: 'read_orders', description: 'Ver órdenes de pedido' },
     { name: 'update_orders', description: 'Actualizar órdenes de pedido' },
     { name: 'delete_orders', description: 'Eliminar órdenes de pedido' },
-    { name: 'approve_orders', description: 'Aprobar/confirmar órdenes de pedido' },
+    {
+      name: 'approve_orders',
+      description: 'Aprobar/confirmar órdenes de pedido',
+    },
 
     // Commercial Channels
-    { name: 'create_commercial_channels', description: 'Crear canales de venta' },
+    {
+      name: 'create_commercial_channels',
+      description: 'Crear canales de venta',
+    },
     { name: 'read_commercial_channels', description: 'Ver canales de venta' },
-    { name: 'update_commercial_channels', description: 'Actualizar canales de venta' },
-    { name: 'delete_commercial_channels', description: 'Eliminar canales de venta' },
+    {
+      name: 'update_commercial_channels',
+      description: 'Actualizar canales de venta',
+    },
+    {
+      name: 'delete_commercial_channels',
+      description: 'Eliminar canales de venta',
+    },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
@@ -133,9 +193,9 @@ async function main() {
   const adminRole = await prisma.role.upsert({
     where: { name: 'admin' },
     update: {},
-    create: { 
+    create: {
       id: 'b1700ef6-4e33-4c5b-9f4a-a249e59e483f',
-      name: 'admin' 
+      name: 'admin',
     },
   });
   console.log(`  ✓ Role: admin`);
@@ -187,7 +247,11 @@ async function main() {
   };
 
   // Admin - todos los permisos
-  await assignPermissionsToRole(adminRole.id, 'admin', Object.keys(permissions));
+  await assignPermissionsToRole(
+    adminRole.id,
+    'admin',
+    Object.keys(permissions),
+  );
 
   // Manager - gestión de usuarios y lectura de clientes/proveedores
   await assignPermissionsToRole(managerRole.id, 'manager', [
@@ -291,9 +355,18 @@ async function main() {
   console.log('\n🏢 Creating areas...');
 
   const areasData = [
-    { name: 'Tecnología', description: 'Área de desarrollo de software y soporte tecnológico' },
-    { name: 'Recursos Humanos', description: 'Gestión del talento humano y bienestar organizacional' },
-    { name: 'Finanzas', description: 'Gestión contable y financiera de la empresa' },
+    {
+      name: 'Tecnología',
+      description: 'Área de desarrollo de software y soporte tecnológico',
+    },
+    {
+      name: 'Recursos Humanos',
+      description: 'Gestión del talento humano y bienestar organizacional',
+    },
+    {
+      name: 'Finanzas',
+      description: 'Gestión contable y financiera de la empresa',
+    },
     { name: 'Comercial', description: 'Ventas y relaciones comerciales' },
     { name: 'Operaciones', description: 'Gestión de procesos operativos' },
   ];
@@ -317,19 +390,55 @@ async function main() {
 
   const cargosData = [
     // Tecnología
-    { name: 'Director de Tecnología', areaName: 'Tecnología', description: 'Líder del área de tecnología' },
-    { name: 'Desarrollador Senior', areaName: 'Tecnología', description: 'Desarrollador con experiencia avanzada' },
-    { name: 'Desarrollador Junior', areaName: 'Tecnología', description: 'Desarrollador en formación' },
-    { name: 'Analista QA', areaName: 'Tecnología', description: 'Control de calidad de software' },
+    {
+      name: 'Director de Tecnología',
+      areaName: 'Tecnología',
+      description: 'Líder del área de tecnología',
+    },
+    {
+      name: 'Desarrollador Senior',
+      areaName: 'Tecnología',
+      description: 'Desarrollador con experiencia avanzada',
+    },
+    {
+      name: 'Desarrollador Junior',
+      areaName: 'Tecnología',
+      description: 'Desarrollador en formación',
+    },
+    {
+      name: 'Analista QA',
+      areaName: 'Tecnología',
+      description: 'Control de calidad de software',
+    },
     // Recursos Humanos
-    { name: 'Director de RRHH', areaName: 'Recursos Humanos', description: 'Líder del área de recursos humanos' },
-    { name: 'Analista de Selección', areaName: 'Recursos Humanos', description: 'Reclutamiento y selección de personal' },
+    {
+      name: 'Director de RRHH',
+      areaName: 'Recursos Humanos',
+      description: 'Líder del área de recursos humanos',
+    },
+    {
+      name: 'Analista de Selección',
+      areaName: 'Recursos Humanos',
+      description: 'Reclutamiento y selección de personal',
+    },
     // Finanzas
-    { name: 'Director Financiero', areaName: 'Finanzas', description: 'Líder del área financiera' },
+    {
+      name: 'Director Financiero',
+      areaName: 'Finanzas',
+      description: 'Líder del área financiera',
+    },
     { name: 'Contador', areaName: 'Finanzas', description: 'Gestión contable' },
     // Comercial
-    { name: 'Director Comercial', areaName: 'Comercial', description: 'Líder del área comercial' },
-    { name: 'Ejecutivo de Ventas', areaName: 'Comercial', description: 'Gestión de clientes y ventas' },
+    {
+      name: 'Director Comercial',
+      areaName: 'Comercial',
+      description: 'Líder del área comercial',
+    },
+    {
+      name: 'Ejecutivo de Ventas',
+      areaName: 'Comercial',
+      description: 'Gestión de clientes y ventas',
+    },
   ];
 
   for (const cargoData of cargosData) {
@@ -357,37 +466,240 @@ async function main() {
 
   const departmentsData = [
     { name: 'Amazonas', code: 'AMA', cities: ['Leticia', 'Puerto Nariño'] },
-    { name: 'Antioquia', code: 'ANT', cities: ['Medellín', 'Envigado', 'Bello', 'Itagüí', 'Rionegro', 'Sabaneta', 'La Estrella', 'Apartadó'] },
-    { name: 'Arauca', code: 'ARA', cities: ['Arauca', 'Tame', 'Saravena', 'Fortul'] },
-    { name: 'Atlántico', code: 'ATL', cities: ['Barranquilla', 'Soledad', 'Malambo', 'Sabanalarga', 'Puerto Colombia'] },
-    { name: 'Bolívar', code: 'BOL', cities: ['Cartagena', 'Magangué', 'Turbaco', 'El Carmen de Bolívar', 'Arjona'] },
-    { name: 'Boyacá', code: 'BOY', cities: ['Tunja', 'Duitama', 'Sogamoso', 'Chiquinquirá', 'Paipa'] },
-    { name: 'Caldas', code: 'CAL', cities: ['Manizales', 'Villamaría', 'Chinchiná', 'La Dorada', 'Anserma'] },
-    { name: 'Caquetá', code: 'CAQ', cities: ['Florencia', 'San Vicente del Caguán', 'Puerto Rico', 'El Doncello'] },
-    { name: 'Casanare', code: 'CAS', cities: ['Yopal', 'Aguazul', 'Villanueva', 'Tauramena', 'Paz de Ariporo'] },
-    { name: 'Cauca', code: 'CAU', cities: ['Popayán', 'Santander de Quilichao', 'Puerto Tejada', 'Piendamó'] },
-    { name: 'Cesar', code: 'CES', cities: ['Valledupar', 'Aguachica', 'Codazzi', 'Bosconia', 'La Jagua de Ibirico'] },
-    { name: 'Chocó', code: 'CHO', cities: ['Quibdó', 'Istmina', 'Tadó', 'Condoto', 'Riosucio'] },
-    { name: 'Córdoba', code: 'COR', cities: ['Montería', 'Cereté', 'Lorica', 'Sahagún', 'Planeta Rica'] },
-    { name: 'Cundinamarca', code: 'CUN', cities: ['Bogotá', 'Soacha', 'Chía', 'Zipaquirá', 'Facatativá', 'Girardot', 'Fusagasugá', 'Madrid'] },
+    {
+      name: 'Antioquia',
+      code: 'ANT',
+      cities: [
+        'Medellín',
+        'Envigado',
+        'Bello',
+        'Itagüí',
+        'Rionegro',
+        'Sabaneta',
+        'La Estrella',
+        'Apartadó',
+      ],
+    },
+    {
+      name: 'Arauca',
+      code: 'ARA',
+      cities: ['Arauca', 'Tame', 'Saravena', 'Fortul'],
+    },
+    {
+      name: 'Atlántico',
+      code: 'ATL',
+      cities: [
+        'Barranquilla',
+        'Soledad',
+        'Malambo',
+        'Sabanalarga',
+        'Puerto Colombia',
+      ],
+    },
+    {
+      name: 'Bolívar',
+      code: 'BOL',
+      cities: [
+        'Cartagena',
+        'Magangué',
+        'Turbaco',
+        'El Carmen de Bolívar',
+        'Arjona',
+      ],
+    },
+    {
+      name: 'Boyacá',
+      code: 'BOY',
+      cities: ['Tunja', 'Duitama', 'Sogamoso', 'Chiquinquirá', 'Paipa'],
+    },
+    {
+      name: 'Caldas',
+      code: 'CAL',
+      cities: ['Manizales', 'Villamaría', 'Chinchiná', 'La Dorada', 'Anserma'],
+    },
+    {
+      name: 'Caquetá',
+      code: 'CAQ',
+      cities: [
+        'Florencia',
+        'San Vicente del Caguán',
+        'Puerto Rico',
+        'El Doncello',
+      ],
+    },
+    {
+      name: 'Casanare',
+      code: 'CAS',
+      cities: ['Yopal', 'Aguazul', 'Villanueva', 'Tauramena', 'Paz de Ariporo'],
+    },
+    {
+      name: 'Cauca',
+      code: 'CAU',
+      cities: [
+        'Popayán',
+        'Santander de Quilichao',
+        'Puerto Tejada',
+        'Piendamó',
+      ],
+    },
+    {
+      name: 'Cesar',
+      code: 'CES',
+      cities: [
+        'Valledupar',
+        'Aguachica',
+        'Codazzi',
+        'Bosconia',
+        'La Jagua de Ibirico',
+      ],
+    },
+    {
+      name: 'Chocó',
+      code: 'CHO',
+      cities: ['Quibdó', 'Istmina', 'Tadó', 'Condoto', 'Riosucio'],
+    },
+    {
+      name: 'Córdoba',
+      code: 'COR',
+      cities: ['Montería', 'Cereté', 'Lorica', 'Sahagún', 'Planeta Rica'],
+    },
+    {
+      name: 'Cundinamarca',
+      code: 'CUN',
+      cities: [
+        'Bogotá',
+        'Soacha',
+        'Chía',
+        'Zipaquirá',
+        'Facatativá',
+        'Girardot',
+        'Fusagasugá',
+        'Madrid',
+      ],
+    },
     { name: 'Guainía', code: 'GUA', cities: ['Inírida'] },
-    { name: 'Guaviare', code: 'GUV', cities: ['San José del Guaviare', 'El Retorno', 'Calamar'] },
-    { name: 'Huila', code: 'HUI', cities: ['Neiva', 'Pitalito', 'Garzón', 'La Plata', 'Campoalegre'] },
-    { name: 'La Guajira', code: 'LAG', cities: ['Riohacha', 'Maicao', 'Uribia', 'Manaure', 'San Juan del Cesar'] },
-    { name: 'Magdalena', code: 'MAG', cities: ['Santa Marta', 'Ciénaga', 'Fundación', 'El Banco', 'Plato'] },
-    { name: 'Meta', code: 'MET', cities: ['Villavicencio', 'Acacías', 'Granada', 'Puerto López', 'San Martín'] },
-    { name: 'Nariño', code: 'NAR', cities: ['Pasto', 'Tumaco', 'Ipiales', 'Túquerres', 'La Unión'] },
-    { name: 'Norte de Santander', code: 'NSA', cities: ['Cúcuta', 'Ocaña', 'Pamplona', 'Los Patios', 'Villa del Rosario'] },
-    { name: 'Putumayo', code: 'PUT', cities: ['Mocoa', 'Puerto Asís', 'Orito', 'Valle del Guamuez', 'Villagarzón'] },
-    { name: 'Quindío', code: 'QUI', cities: ['Armenia', 'Calarcá', 'Montenegro', 'La Tebaida', 'Circasia'] },
-    { name: 'Risaralda', code: 'RIS', cities: ['Pereira', 'Dosquebradas', 'Santa Rosa de Cabal', 'La Virginia'] },
-    { name: 'San Andrés y Providencia', code: 'SAP', cities: ['San Andrés', 'Providencia'] },
-    { name: 'Santander', code: 'SAN', cities: ['Bucaramanga', 'Floridablanca', 'Girón', 'Piedecuesta', 'Barrancabermeja', 'San Gil'] },
-    { name: 'Sucre', code: 'SUC', cities: ['Sincelejo', 'Corozal', 'San Marcos', 'Sampués', 'Tolú'] },
-    { name: 'Tolima', code: 'TOL', cities: ['Ibagué', 'Espinal', 'Melgar', 'Mariquita', 'Honda', 'Chaparral'] },
-    { name: 'Valle del Cauca', code: 'VAC', cities: ['Cali', 'Buenaventura', 'Palmira', 'Tuluá', 'Buga', 'Cartago', 'Yumbo', 'Jamundí'] },
+    {
+      name: 'Guaviare',
+      code: 'GUV',
+      cities: ['San José del Guaviare', 'El Retorno', 'Calamar'],
+    },
+    {
+      name: 'Huila',
+      code: 'HUI',
+      cities: ['Neiva', 'Pitalito', 'Garzón', 'La Plata', 'Campoalegre'],
+    },
+    {
+      name: 'La Guajira',
+      code: 'LAG',
+      cities: ['Riohacha', 'Maicao', 'Uribia', 'Manaure', 'San Juan del Cesar'],
+    },
+    {
+      name: 'Magdalena',
+      code: 'MAG',
+      cities: ['Santa Marta', 'Ciénaga', 'Fundación', 'El Banco', 'Plato'],
+    },
+    {
+      name: 'Meta',
+      code: 'MET',
+      cities: [
+        'Villavicencio',
+        'Acacías',
+        'Granada',
+        'Puerto López',
+        'San Martín',
+      ],
+    },
+    {
+      name: 'Nariño',
+      code: 'NAR',
+      cities: ['Pasto', 'Tumaco', 'Ipiales', 'Túquerres', 'La Unión'],
+    },
+    {
+      name: 'Norte de Santander',
+      code: 'NSA',
+      cities: [
+        'Cúcuta',
+        'Ocaña',
+        'Pamplona',
+        'Los Patios',
+        'Villa del Rosario',
+      ],
+    },
+    {
+      name: 'Putumayo',
+      code: 'PUT',
+      cities: [
+        'Mocoa',
+        'Puerto Asís',
+        'Orito',
+        'Valle del Guamuez',
+        'Villagarzón',
+      ],
+    },
+    {
+      name: 'Quindío',
+      code: 'QUI',
+      cities: ['Armenia', 'Calarcá', 'Montenegro', 'La Tebaida', 'Circasia'],
+    },
+    {
+      name: 'Risaralda',
+      code: 'RIS',
+      cities: ['Pereira', 'Dosquebradas', 'Santa Rosa de Cabal', 'La Virginia'],
+    },
+    {
+      name: 'San Andrés y Providencia',
+      code: 'SAP',
+      cities: ['San Andrés', 'Providencia'],
+    },
+    {
+      name: 'Santander',
+      code: 'SAN',
+      cities: [
+        'Bucaramanga',
+        'Floridablanca',
+        'Girón',
+        'Piedecuesta',
+        'Barrancabermeja',
+        'San Gil',
+      ],
+    },
+    {
+      name: 'Sucre',
+      code: 'SUC',
+      cities: ['Sincelejo', 'Corozal', 'San Marcos', 'Sampués', 'Tolú'],
+    },
+    {
+      name: 'Tolima',
+      code: 'TOL',
+      cities: [
+        'Ibagué',
+        'Espinal',
+        'Melgar',
+        'Mariquita',
+        'Honda',
+        'Chaparral',
+      ],
+    },
+    {
+      name: 'Valle del Cauca',
+      code: 'VAC',
+      cities: [
+        'Cali',
+        'Buenaventura',
+        'Palmira',
+        'Tuluá',
+        'Buga',
+        'Cartago',
+        'Yumbo',
+        'Jamundí',
+      ],
+    },
     { name: 'Vaupés', code: 'VAU', cities: ['Mitú', 'Carurú', 'Taraira'] },
-    { name: 'Vichada', code: 'VIC', cities: ['Puerto Carreño', 'La Primavera', 'Santa Rosalía', 'Cumaribo'] },
+    {
+      name: 'Vichada',
+      code: 'VIC',
+      cities: ['Puerto Carreño', 'La Primavera', 'Santa Rosalía', 'Cumaribo'],
+    },
   ];
 
   let totalCities = 0;
@@ -520,21 +832,24 @@ async function main() {
     {
       name: 'Impresión Gran Formato',
       slug: 'impresion-gran-formato',
-      description: 'Servicios de impresión en gran formato como pendones, banners y vallas',
+      description:
+        'Servicios de impresión en gran formato como pendones, banners y vallas',
       icon: '🖨️',
       sortOrder: 1,
     },
     {
       name: 'Promocionales',
       slug: 'promocionales',
-      description: 'Artículos promocionales personalizados: gorras, lapiceros, vasos, etc.',
+      description:
+        'Artículos promocionales personalizados: gorras, lapiceros, vasos, etc.',
       icon: '🎁',
       sortOrder: 2,
     },
     {
       name: 'Papelería',
       slug: 'papeleria',
-      description: 'Productos de papelería corporativa: tarjetas, cuadernos, volantes',
+      description:
+        'Productos de papelería corporativa: tarjetas, cuadernos, volantes',
       icon: '📄',
       sortOrder: 3,
     },
@@ -585,7 +900,8 @@ async function main() {
     {
       name: 'Pendón 80x200 cm',
       slug: 'pendon-80x200-cm',
-      description: 'Impresión de pendón en lona mate de alta calidad con estructura metálica',
+      description:
+        'Impresión de pendón en lona mate de alta calidad con estructura metálica',
       basePrice: 45000,
       priceUnit: 'por unidad',
       categoryId: impresionCategory?.id,
@@ -593,7 +909,8 @@ async function main() {
     {
       name: 'Pendón 100x200 cm',
       slug: 'pendon-100x200-cm',
-      description: 'Impresión de pendón en lona mate de alta calidad con estructura metálica',
+      description:
+        'Impresión de pendón en lona mate de alta calidad con estructura metálica',
       basePrice: 55000,
       priceUnit: 'por unidad',
       categoryId: impresionCategory?.id,
@@ -601,7 +918,8 @@ async function main() {
     {
       name: 'Banner 1x2 metros',
       slug: 'banner-1x2-metros',
-      description: 'Banner impreso en lona brillante con ojales para instalación',
+      description:
+        'Banner impreso en lona brillante con ojales para instalación',
       basePrice: 35000,
       priceUnit: 'por unidad',
       categoryId: impresionCategory?.id,
@@ -609,7 +927,8 @@ async function main() {
     {
       name: 'Valla Publicitaria 3x2 metros',
       slug: 'valla-publicitaria-3x2-metros',
-      description: 'Impresión de valla publicitaria en lona reforzada con bastidores',
+      description:
+        'Impresión de valla publicitaria en lona reforzada con bastidores',
       basePrice: 280000,
       priceUnit: 'por unidad',
       categoryId: impresionCategory?.id,
@@ -790,14 +1109,16 @@ async function main() {
     {
       name: 'Productos Base',
       slug: 'productos-base',
-      description: 'Artículos base para personalización (gorras, termos, lapiceros, etc.)',
+      description:
+        'Artículos base para personalización (gorras, termos, lapiceros, etc.)',
       icon: '📦',
       sortOrder: 3,
     },
     {
       name: 'Papelería y Cartón',
       slug: 'papeleria-y-carton',
-      description: 'Papel, cartulina, cartón corrugado y materiales para impresión',
+      description:
+        'Papel, cartulina, cartón corrugado y materiales para impresión',
       icon: '📄',
       sortOrder: 4,
     },
@@ -854,13 +1175,27 @@ async function main() {
   });
 
   // Obtener unidades de medida
-  const metroUnit = await prisma.unitOfMeasure.findUnique({ where: { name: 'metro' } });
-  const metrosCuadradosUnit = await prisma.unitOfMeasure.findUnique({ where: { name: 'metro cuadrado' } });
-  const litroUnit = await prisma.unitOfMeasure.findUnique({ where: { name: 'litro' } });
-  const kilogramoUnit = await prisma.unitOfMeasure.findUnique({ where: { name: 'kilogramo' } });
-  const unidadUnit = await prisma.unitOfMeasure.findUnique({ where: { name: 'unidad' } });
-  const pliegoUnit = await prisma.unitOfMeasure.findUnique({ where: { name: 'pliego' } });
-  const cajaUnit = await prisma.unitOfMeasure.findUnique({ where: { name: 'caja' } });
+  const metroUnit = await prisma.unitOfMeasure.findUnique({
+    where: { name: 'metro' },
+  });
+  const metrosCuadradosUnit = await prisma.unitOfMeasure.findUnique({
+    where: { name: 'metro cuadrado' },
+  });
+  const litroUnit = await prisma.unitOfMeasure.findUnique({
+    where: { name: 'litro' },
+  });
+  const kilogramoUnit = await prisma.unitOfMeasure.findUnique({
+    where: { name: 'kilogramo' },
+  });
+  const unidadUnit = await prisma.unitOfMeasure.findUnique({
+    where: { name: 'unidad' },
+  });
+  const pliegoUnit = await prisma.unitOfMeasure.findUnique({
+    where: { name: 'pliego' },
+  });
+  const cajaUnit = await prisma.unitOfMeasure.findUnique({
+    where: { name: 'caja' },
+  });
 
   const suppliesData = [
     // Telas y Lonas
@@ -996,7 +1331,11 @@ async function main() {
 
   let suppliesCreated = 0;
   for (const supplyData of suppliesData) {
-    if (supplyData.categoryId && supplyData.purchaseUnitId && supplyData.consumptionUnitId) {
+    if (
+      supplyData.categoryId &&
+      supplyData.purchaseUnitId &&
+      supplyData.consumptionUnitId
+    ) {
       await prisma.supply.upsert({
         where: { sku: supplyData.sku },
         update: {
@@ -1034,8 +1373,12 @@ async function main() {
   const bogota = await prisma.city.findFirst({ where: { name: 'Bogotá' } });
   const medellin = await prisma.city.findFirst({ where: { name: 'Medellín' } });
   const cali = await prisma.city.findFirst({ where: { name: 'Cali' } });
-  const barranquilla = await prisma.city.findFirst({ where: { name: 'Barranquilla' } });
-  const cartagena = await prisma.city.findFirst({ where: { name: 'Cartagena' } });
+  const barranquilla = await prisma.city.findFirst({
+    where: { name: 'Barranquilla' },
+  });
+  const cartagena = await prisma.city.findFirst({
+    where: { name: 'Cartagena' },
+  });
 
   const clientsData = [
     {
@@ -1155,7 +1498,9 @@ async function main() {
   console.log('\n🏭 Creating test suppliers...');
 
   const pereira = await prisma.city.findFirst({ where: { name: 'Pereira' } });
-  const bucaramanga = await prisma.city.findFirst({ where: { name: 'Bucaramanga' } });
+  const bucaramanga = await prisma.city.findFirst({
+    where: { name: 'Bucaramanga' },
+  });
 
   const suppliersData = [
     {
@@ -1280,14 +1625,26 @@ async function main() {
   console.log('\n📦 Creating test orders...');
 
   // Obtener algunos clientes y servicios para las órdenes
-  const client1 = await prisma.client.findFirst({ where: { email: 'contacto@distribuidoraelsol.com' } });
-  const client2 = await prisma.client.findFirst({ where: { email: 'ventas@publicidadcreativa.com' } });
+  const client1 = await prisma.client.findFirst({
+    where: { email: 'contacto@distribuidoraelsol.com' },
+  });
+  const client2 = await prisma.client.findFirst({
+    where: { email: 'ventas@publicidadcreativa.com' },
+  });
 
-  const tarjetasService = await prisma.service.findFirst({ where: { slug: 'tarjetas-presentacion-x-1000' } });
-  const bannerService = await prisma.service.findFirst({ where: { slug: 'banner-1x2-metros' } });
-  const sellosService = await prisma.service.findFirst({ where: { slug: 'sellos-automaticos' } });
+  const tarjetasService = await prisma.service.findFirst({
+    where: { slug: 'tarjetas-presentacion-x-1000' },
+  });
+  const bannerService = await prisma.service.findFirst({
+    where: { slug: 'banner-1x2-metros' },
+  });
+  const sellosService = await prisma.service.findFirst({
+    where: { slug: 'sellos-automaticos' },
+  });
 
-  const adminUserForOrders = await prisma.user.findFirst({ where: { email: 'admin@example.com' } });
+  const adminUserForOrders = await prisma.user.findFirst({
+    where: { email: 'admin@example.com' },
+  });
 
   // Orden 1: CONFIRMED con items y pago inicial
   if (client1 && tarjetasService && bannerService && adminUserForOrders) {
@@ -1309,7 +1666,8 @@ async function main() {
         items: {
           create: [
             {
-              description: 'Tarjetas de presentación full color, papel propalcote 300gr',
+              description:
+                'Tarjetas de presentación full color, papel propalcote 300gr',
               quantity: 1000,
               unitPrice: 250000,
               total: 250000,
@@ -1433,9 +1791,24 @@ async function main() {
   console.log('\n🔢 Creating initial consecutives...');
 
   const consecutivesData = [
-    { type: 'ORDER', prefix: 'OP', year: new Date().getFullYear(), lastNumber: 0 },
-    { type: 'PRODUCTION', prefix: 'PROD', year: new Date().getFullYear(), lastNumber: 0 },
-    { type: 'EXPENSE', prefix: 'GAS', year: new Date().getFullYear(), lastNumber: 0 },
+    {
+      type: 'ORDER',
+      prefix: 'OP',
+      year: new Date().getFullYear(),
+      lastNumber: 0,
+    },
+    {
+      type: 'PRODUCTION',
+      prefix: 'PROD',
+      year: new Date().getFullYear(),
+      lastNumber: 0,
+    },
+    {
+      type: 'EXPENSE',
+      prefix: 'GAS',
+      year: new Date().getFullYear(),
+      lastNumber: 0,
+    },
   ];
 
   for (const consecutive of consecutivesData) {
@@ -1453,7 +1826,10 @@ async function main() {
   console.log('\n🏭 Creating production areas...');
 
   const productionAreasData = [
-    { name: 'DTF UV', description: 'Área especializada en impresión DTF con tecnología UV' },
+    {
+      name: 'DTF UV',
+      description: 'Área especializada en impresión DTF con tecnología UV',
+    },
     { name: 'DTF Textil', description: 'Área de impresión DTF para textiles' },
     { name: 'Calandra', description: 'Área de calandrado y acabados térmicos' },
     { name: 'Sublimación', description: 'Área de sublimación textil' },
@@ -1461,11 +1837,17 @@ async function main() {
     { name: 'Lanyard', description: 'Área de fabricación de lanyards' },
     { name: 'Papeleria', description: 'Área de producción de papelería' },
     { name: 'Costura', description: 'Área de costura y confección' },
-    { name: 'Ploter gran formato', description: 'Área de impresión en gran formato' },
+    {
+      name: 'Ploter gran formato',
+      description: 'Área de impresión en gran formato',
+    },
     { name: 'Promocionales', description: 'Área de productos promocionales' },
     { name: 'Diseño', description: 'Área de diseño gráfico y creativo' },
     { name: 'Producción High', description: 'Área de producción de alta gama' },
-    { name: 'Producción Externa', description: 'Área de gestión de producción externa' },
+    {
+      name: 'Producción Externa',
+      description: 'Área de gestión de producción externa',
+    },
   ];
 
   for (const productionAreaData of productionAreasData) {
@@ -1475,83 +1857,85 @@ async function main() {
       create: productionAreaData,
     });
     console.log(`  ✓ Production Area: ${productionAreaData.name}`);
-  // 14. Crear Canales de Venta (Commercial Channels)
-  // ============================================
-  console.log('\n🛒 Creating commercial channels...');
+    // 14. Crear Canales de Venta (Commercial Channels)
+    // ============================================
+    console.log('\n🛒 Creating commercial channels...');
 
-  const commercialChannelsData = [
-    {
-      name: 'Tienda Física',
-      description: 'Ventas realizadas en nuestras tiendas físicas',
-    },
-    {
-      name: 'Tienda Online',
-      description: 'Ventas a través del sitio web y plataforma e-commerce',
-    },
-    {
-      name: 'WhatsApp',
-      description: 'Ventas realizadas por pedidos vía WhatsApp',
-    },
-    {
-      name: 'Redes Sociales',
-      description: 'Ventas generadas desde Facebook, Instagram y otras redes sociales',
-    },
-    {
-      name: 'Marketplace',
-      description: 'Ventas en plataformas como Mercado Libre, Amazon, etc.',
-    },
-    {
-      name: 'Distribuidores',
-      description: 'Ventas a través de nuestra red de distribuidores',
-    },
-    {
-      name: 'Clientes Corporativos',
-      description: 'Ventas directas a empresas y contratos corporativos',
-    },
-  ];
-
-  let channelsCreated = 0;
-  for (const channelData of commercialChannelsData) {
-    await prisma.commercialChannel.upsert({
-      where: { name: channelData.name },
-      update: {
-        description: channelData.description,
+    const commercialChannelsData = [
+      {
+        name: 'Tienda Física',
+        description: 'Ventas realizadas en nuestras tiendas físicas',
       },
-      create: channelData,
-    });
-    console.log(`  ✓ Channel: ${channelData.name}`);
-    channelsCreated++;
-  }
+      {
+        name: 'Tienda Online',
+        description: 'Ventas a través del sitio web y plataforma e-commerce',
+      },
+      {
+        name: 'WhatsApp',
+        description: 'Ventas realizadas por pedidos vía WhatsApp',
+      },
+      {
+        name: 'Redes Sociales',
+        description:
+          'Ventas generadas desde Facebook, Instagram y otras redes sociales',
+      },
+      {
+        name: 'Marketplace',
+        description: 'Ventas en plataformas como Mercado Libre, Amazon, etc.',
+      },
+      {
+        name: 'Distribuidores',
+        description: 'Ventas a través de nuestra red de distribuidores',
+      },
+      {
+        name: 'Clientes Corporativos',
+        description: 'Ventas directas a empresas y contratos corporativos',
+      },
+    ];
 
-  // ============================================
-  // Resumen
-  // ============================================
-  console.log('\n' + '='.repeat(50));
-  console.log('✅ Database seeded successfully!\n');
-  console.log('📋 Summary:');
-  console.log(`   - Permissions: ${permissionsData.length}`);
-  console.log(`   - Roles: 3 (admin, manager, user)`);
-  console.log(`   - Users: 3`);
-  console.log(`   - Areas: ${areasData.length}`);
-  console.log(`   - Cargos: ${cargosData.length}`);
-  console.log(`   - Departments: ${departmentsData.length}`);
-  console.log(`   - Cities: ${totalCities}`);
-  console.log(`   - Clients: ${clientsCreated}`);
-  console.log(`   - Suppliers: ${suppliersCreated}`);
-  console.log(`   - Units of Measure: ${unitsOfMeasureData.length}`);
-  console.log(`   - Service Categories: ${serviceCategoriesData.length}`);
-  console.log(`   - Services: ${servicesCreated}`);
-  console.log(`   - Supply Categories: ${supplyCategoriesData.length}`);
-  console.log(`   - Supplies: ${suppliesCreated}`);
-  console.log(`   - Orders: 2`);
-  console.log(`   - Consecutives: ${consecutivesData.length}`);
-  console.log(`   - Production Areas: ${productionAreasData.length}`);
-  console.log(`   - Commercial Channels: ${channelsCreated}`);
-  console.log('\n🔐 Test Credentials:');
-  console.log('   Admin:   admin@example.com / admin123');
-  console.log('   Manager: manager@example.com / manager123');
-  console.log('   User:    user@example.com / user123');
-  console.log('='.repeat(50) + '\n');
+    let channelsCreated = 0;
+    for (const channelData of commercialChannelsData) {
+      await prisma.commercialChannel.upsert({
+        where: { name: channelData.name },
+        update: {
+          description: channelData.description,
+        },
+        create: channelData,
+      });
+      console.log(`  ✓ Channel: ${channelData.name}`);
+      channelsCreated++;
+    }
+
+    // ============================================
+    // Resumen
+    // ============================================
+    console.log('\n' + '='.repeat(50));
+    console.log('✅ Database seeded successfully!\n');
+    console.log('📋 Summary:');
+    console.log(`   - Permissions: ${permissionsData.length}`);
+    console.log(`   - Roles: 3 (admin, manager, user)`);
+    console.log(`   - Users: 3`);
+    console.log(`   - Areas: ${areasData.length}`);
+    console.log(`   - Cargos: ${cargosData.length}`);
+    console.log(`   - Departments: ${departmentsData.length}`);
+    console.log(`   - Cities: ${totalCities}`);
+    console.log(`   - Clients: ${clientsCreated}`);
+    console.log(`   - Suppliers: ${suppliersCreated}`);
+    console.log(`   - Units of Measure: ${unitsOfMeasureData.length}`);
+    console.log(`   - Service Categories: ${serviceCategoriesData.length}`);
+    console.log(`   - Services: ${servicesCreated}`);
+    console.log(`   - Supply Categories: ${supplyCategoriesData.length}`);
+    console.log(`   - Supplies: ${suppliesCreated}`);
+    console.log(`   - Orders: 2`);
+    console.log(`   - Consecutives: ${consecutivesData.length}`);
+    console.log(`   - Production Areas: ${productionAreasData.length}`);
+    console.log(`   - Commercial Channels: ${channelsCreated}`);
+    console.log('\n🔐 Test Credentials:');
+    console.log('   Admin:   admin@example.com / admin123');
+    console.log('   Manager: manager@example.com / manager123');
+    console.log('   User:    user@example.com / user123');
+    console.log('='.repeat(50) + '\n');
+  }
 }
 
 main()
