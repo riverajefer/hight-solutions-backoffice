@@ -136,7 +136,7 @@ export const OrdersListPage: React.FC = () => {
       field: 'client',
       headerName: 'Cliente',
       width: 250,
-      valueGetter: (value, row) => row.client.name,
+      valueGetter: (_, row) => row.client.name,
     },
     {
       field: 'orderDate',
