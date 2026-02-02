@@ -422,6 +422,7 @@ enum PaymentMethod {
   TRANSFER  // Transferencia bancaria
   CARD      // Tarjeta de crédito/débito
   CHECK     // Cheque
+  CREDIT    // Crédito
   OTHER     // Otro método
 }
 

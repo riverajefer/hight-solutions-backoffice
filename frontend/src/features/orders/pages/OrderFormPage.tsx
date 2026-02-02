@@ -48,12 +48,27 @@ const orderItemSchema = z.object({
   specifications: z.record(z.any()).optional(),
 });
 
-const initialPaymentSchema = z.object({
-  amount: z.number().positive('El monto del abono inicial es requerido'),
-  paymentMethod: z.enum(['CASH', 'TRANSFER', 'CARD', 'CHECK', 'OTHER']),
-  reference: z.string().optional(),
-  notes: z.string().optional(),
-});
+const initialPaymentSchema = z
+  .object({
+    amount: z.number().min(0, 'El monto del abono inicial no puede ser negativo'),
+    paymentMethod: z.enum(['CASH', 'TRANSFER', 'CARD', 'CHECK', 'CREDIT', 'OTHER']),
+    reference: z.string().optional(),
+    notes: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      // Si es crédito, el monto puede ser 0
+      if (data.paymentMethod === 'CREDIT') {
+        return data.amount >= 0;
+      }
+      // En otros casos debe ser mayor a 0 (como estaba antes con .positive())
+      return data.amount > 0;
+    },
+    {
+      message: 'El monto del abono inicial debe ser mayor a cero',
+      path: ['amount'],
+    }
+  );
 
 const orderFormSchema = z
   .object({
@@ -123,9 +138,10 @@ export const OrderFormPage: React.FC = () => {
     handleSubmit,
     watch,
     setValue,
-    formState: { errors },
+    formState: { errors, isValid },
   } = useForm<OrderFormData>({
     resolver: zodResolver(orderFormSchema),
+    mode: 'onChange',
     defaultValues: {
       client: null,
       deliveryDate: null,
@@ -155,7 +171,6 @@ export const OrderFormPage: React.FC = () => {
   const items = watch('items');
   const applyTax = watch('applyTax');
   const taxRate = watch('taxRate');
-  const payment = watch('payment');
 
   // Calculate totals
   const subtotal = items.reduce((sum, item) => sum + item.total, 0);
@@ -454,7 +469,7 @@ export const OrderFormPage: React.FC = () => {
                 variant="contained"
                 color="success"
                 startIcon={<SaveIcon />}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !isValid}
               >
                 {isSubmitting
                   ? 'Guardando...'

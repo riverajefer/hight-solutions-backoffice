@@ -64,13 +64,21 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
   required = false,
 }) => {
   const handleFieldChange = (field: keyof InitialPaymentData, newValue: any) => {
-    onChange({
-      amount: value?.amount || 0,
+    const updatedData: InitialPaymentData = {
+      amount: value?.amount ?? 0,
       paymentMethod: value?.paymentMethod || 'CASH',
       reference: value?.reference,
       notes: value?.notes,
       [field]: newValue,
-    });
+    };
+
+    // Al cambiar el método de pago a crédito, nos aseguramos de que se muestre "0" 
+    // si el campo estaba "vacío" (monto 0). Si ya tenía un valor, se conserva.
+    if (field === 'paymentMethod' && newValue === 'CREDIT') {
+      updatedData.amount = value?.amount || 0;
+    }
+
+    onChange(updatedData);
   };
 
   const balance = total - (value?.amount || 0);
@@ -107,7 +115,15 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
                   fullWidth
                   required
                   label="Monto del Abono"
-                  value={value?.amount ? formatCurrencyInput(value.amount) : ''}
+                  value={
+                    // Si el monto es 0 y el método no es crédito, lo mostramos vacío
+                    // para cumplir con el requerimiento de "vacío por defecto".
+                    value?.amount === 0 && (value?.paymentMethod || 'CASH') !== 'CREDIT'
+                      ? ''
+                      : value?.amount !== undefined && value?.amount !== null
+                      ? formatCurrencyInput(value.amount)
+                      : ''
+                  }
                   onChange={(e) => {
                     const rawValue = e.target.value.replace(/\D/g, '');
                     const amount = rawValue ? parseInt(rawValue, 10) : 0;

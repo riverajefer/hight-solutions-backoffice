@@ -4,6 +4,8 @@ import {
   IsNumber,
   IsOptional,
   IsPositive,
+  Min,
+  ValidateIf,
   IsString,
   IsDateString,
 } from 'class-validator';
@@ -15,7 +17,9 @@ export class CreatePaymentDto {
     example: 100000,
   })
   @IsNumber()
-  @IsPositive()
+  @Min(0)
+  @ValidateIf((o: CreatePaymentDto) => o.paymentMethod !== PaymentMethod.CREDIT)
+  @IsPositive({ message: 'El monto debe ser mayor a cero para este método de pago' })
   amount: number;
 
   @ApiProperty({

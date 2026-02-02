@@ -10,7 +10,7 @@ export type OrderStatus =
   | 'DELIVERED'
   | 'CANCELLED';
 
-export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'CHECK' | 'OTHER';
+export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'CHECK' | 'CREDIT' | 'OTHER';
 
 // ============================================================
 // ENTITIES
@@ -221,5 +221,6 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   TRANSFER: 'Transferencia',
   CARD: 'Tarjeta',
   CHECK: 'Cheque',
+  CREDIT: 'Crédito',
   OTHER: 'Otro',
 };
