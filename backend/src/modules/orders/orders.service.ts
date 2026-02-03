@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { OrdersRepository } from './orders.repository';
 import { ConsecutivesService } from '../consecutives/consecutives.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import {
   CreateOrderDto,
   UpdateOrderDto,
@@ -22,6 +23,7 @@ export class OrdersService {
     private readonly ordersRepository: OrdersRepository,
     private readonly consecutivesService: ConsecutivesService,
     private readonly prisma: PrismaService,
+    private readonly auditLogsService: AuditLogsService,
   ) {}
 
   async findAll(filters: FilterOrdersDto) {
@@ -107,7 +109,7 @@ export class OrdersService {
     const balance = total.sub(paidAmount);
 
     // Crear orden con items y pago inicial (en transacción)
-    return this.ordersRepository.create({
+    const newOrder = await this.ordersRepository.create({
       orderNumber,
       orderDate: new Date(),
       deliveryDate: createOrderDto.deliveryDate
@@ -127,14 +129,27 @@ export class OrdersService {
       },
       ...(payments && { payments }),
     });
+
+    // Registrar en audit log (fuera de la transacción, sin esperar para no afectar performance)
+    if (newOrder) {
+      this.auditLogsService.logOrderChange(
+        'CREATE',
+        newOrder.id,
+        null,
+        newOrder,
+        createdById,
+      );
+    }
+
+    return newOrder;
   }
 
   async update(id: string, updateOrderDto: UpdateOrderDto, userId: string) {
-    await this.findOne(id);
+    const oldOrder = await this.findOne(id);
 
     // Si viene items o initialPayment, usamos una transacción para actualizar todo el conjunto
     if (updateOrderDto.items || updateOrderDto.initialPayment) {
-      return this.prisma.$transaction(async (tx) => {
+      const updatedOrder = await this.prisma.$transaction(async (tx) => {
         // 1. Actualizar datos básicos de la orden
         await tx.order.update({
           where: { id },
@@ -219,6 +234,17 @@ export class OrdersService {
         // 4. Recalcular totales, paidAmount y balance
         return this.recalculateOrderTotals(id, tx);
       });
+
+      // Registrar en audit log (fuera de la transacción, sin esperar)
+      this.auditLogsService.logOrderChange(
+        'UPDATE',
+        id,
+        oldOrder,
+        updatedOrder,
+        userId,
+      );
+
+      return updatedOrder;
     }
 
     // Si no hay items ni pago, actualización normal
@@ -238,7 +264,18 @@ export class OrdersService {
     });
 
     // Retornar la orden actualizada con sus relaciones
-    return this.findOne(id);
+    const updatedOrder = await this.findOne(id);
+
+    // Registrar en audit log (sin esperar)
+    this.auditLogsService.logOrderChange(
+      'UPDATE',
+      id,
+      oldOrder,
+      updatedOrder,
+      userId,
+    );
+
+    return updatedOrder;
   }
 
   async updateStatus(id: string, status: OrderStatus) {
@@ -246,7 +283,7 @@ export class OrdersService {
     return this.ordersRepository.updateStatus(id, status);
   }
 
-  async remove(id: string) {
+  async remove(id: string, userId?: string) {
     const order = await this.findOne(id);
 
     // Solo se pueden eliminar borradores o canceladas
@@ -258,6 +295,16 @@ export class OrdersService {
     }
 
     await this.ordersRepository.delete(id);
+
+    // Registrar en audit log (sin esperar)
+    this.auditLogsService.logOrderChange(
+      'DELETE',
+      id,
+      order,
+      null,
+      userId,
+    );
+
     return { message: 'Order deleted successfully' };
   }
 

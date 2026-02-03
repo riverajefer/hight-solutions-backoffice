@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Alert, AlertTitle, Box, Typography } from '@mui/material';
+import { Alert, AlertTitle, Box, Typography, alpha } from '@mui/material';
 import { Timer as TimerIcon } from '@mui/icons-material';
 import { useEditRequests } from '../../../hooks/useEditRequests';
 
@@ -54,25 +54,66 @@ export const ActivePermissionBanner: React.FC<
   return (
     <Alert
       severity="success"
-      icon={<TimerIcon />}
-      sx={{ mb: 3, backgroundColor: '#1c2b1dff' }}
+      variant="standard"
+      icon={<TimerIcon sx={{ fontSize: '2rem' }} />}
+      sx={{
+        mb: 3,
+        borderRadius: 2,
+        backdropFilter: 'blur(10px)',
+        border: (theme) => `1px solid ${alpha(theme.palette.success.main, 0.2)}`,
+        boxShadow: (theme) => `0 4px 12px ${alpha(theme.palette.success.main, 0.15)}`,
+        '& .MuiAlert-message': {
+          width: '100%',
+        },
+      }}
     >
-      <AlertTitle sx={{ fontWeight: 'bold', color: 'text.dark' }}>
+      <AlertTitle sx={{ fontWeight: 700, fontSize: '1.1rem', mb: 0.5 }}>
         Permiso de Edición Activo
       </AlertTitle>
-      <Box display="flex" alignItems="center" gap={2}>
-        <Typography variant="body2" color="text.secondary">
-          Tienes permiso para editar esta orden.
+      <Box 
+        display="flex" 
+        alignItems="center" 
+        justifyContent="space-between"
+        flexWrap="wrap"
+        gap={1}
+      >
+        <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+          Tienes permiso temporal para realizar cambios en esta orden.
         </Typography>
-        <Typography
-          variant="body2"
-          sx={{
-            fontWeight: 'bold',
-            color: timeRemaining === 'Expirado' ? 'error.main' : 'success.dark',
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1,
+            bgcolor: (theme) => alpha(timeRemaining === 'Expirado' ? theme.palette.error.main : theme.palette.success.main, 0.1),
+            px: 1.5,
+            py: 0.5,
+            borderRadius: 1.5,
+            border: (theme) => `1px solid ${alpha(timeRemaining === 'Expirado' ? theme.palette.error.main : theme.palette.success.main, 0.2)}`
           }}
         >
-          Tiempo restante: {timeRemaining}
-        </Typography>
+          <Typography
+            variant="caption"
+            sx={{
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              color: 'text.secondary',
+            }}
+          >
+            Tiempo restante:
+          </Typography>
+          <Typography
+            variant="body1"
+            sx={{
+              fontWeight: 800,
+              fontFamily: 'Monospace',
+              color: timeRemaining === 'Expirado' ? 'error.main' : 'success.main',
+            }}
+          >
+            {timeRemaining}
+          </Typography>
+        </Box>
       </Box>
     </Alert>
   );
