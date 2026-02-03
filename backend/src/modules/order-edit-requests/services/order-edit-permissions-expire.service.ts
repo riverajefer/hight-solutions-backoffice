@@ -17,7 +17,7 @@ export class OrderEditPermissionsExpireService {
    * Expirar permisos de edición vencidos
    * Se ejecuta cada 1 minuto
    */
-  @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CronExpression.EVERY_HOUR)
   async expirePermissions() {
     this.logger.debug('Running expirePermissions cron job');
 
@@ -93,7 +93,7 @@ export class OrderEditPermissionsExpireService {
    * Notificar sobre permisos que están por expirar (1 minuto antes)
    * Se ejecuta cada 1 minuto
    */
-  @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CronExpression.EVERY_HOUR)
   async notifyExpiringPermissions() {
     this.logger.debug('Running notifyExpiringPermissions cron job');
 

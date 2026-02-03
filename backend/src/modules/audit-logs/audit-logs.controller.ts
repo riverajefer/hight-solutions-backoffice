@@ -169,10 +169,12 @@ export class AuditLogsController {
          OR (model = 'OrderItem' AND (
               new_data->>'orderId' = ${recordId}
            OR old_data->>'orderId' = ${recordId}
+           OR record_id IN (SELECT id FROM order_items WHERE order_id = ${recordId})
          ))
          OR (model = 'Payment' AND (
               new_data->>'orderId' = ${recordId}
            OR old_data->>'orderId' = ${recordId}
+           OR record_id IN (SELECT id FROM payments WHERE order_id = ${recordId})
          ))
       ORDER BY created_at ASC
     `;

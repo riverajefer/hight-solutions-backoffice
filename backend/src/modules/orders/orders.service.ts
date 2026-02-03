@@ -169,35 +169,75 @@ export class OrdersService {
           },
         });
 
-        // 2. Si se enviaron items, reemplazar los actuales
+        // 2. Reconciliar items: actualizar existentes, crear nuevos, eliminar removidos
         if (updateOrderDto.items) {
-          // Eliminar items actuales
-          await tx.orderItem.deleteMany({
+          const currentItems = await tx.orderItem.findMany({
             where: { orderId: id },
           });
+          const currentIds = new Set(currentItems.map((i) => i.id));
 
-          // Crear nuevos items
-          const newItems = updateOrderDto.items.map((item, index) => {
+          // Separar items entrantes en: existentes (id presente en BD) vs nuevos
+          const itemsToUpdate: typeof updateOrderDto.items = [];
+          const itemsToCreate: typeof updateOrderDto.items = [];
+
+          for (const item of updateOrderDto.items) {
+            if (item.id && currentIds.has(item.id)) {
+              itemsToUpdate.push(item);
+            } else {
+              itemsToCreate.push(item);
+            }
+          }
+
+          const keepIds = new Set(itemsToUpdate.map((i) => i.id!));
+
+          // Eliminar items que no están en la lista entrante
+          const idsToDelete = [...currentIds].filter(
+            (dbId) => !keepIds.has(dbId),
+          );
+          if (idsToDelete.length > 0) {
+            await tx.orderItem.deleteMany({
+              where: { id: { in: idsToDelete } },
+            });
+          }
+
+          // Actualizar items existentes (solo los que cambiaron se generarán logs de auditoría)
+          for (const item of itemsToUpdate) {
             const itemTotal = new Prisma.Decimal(item.quantity).mul(
               item.unitPrice,
             );
-            return {
-              orderId: id,
-              description: item.description,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              total: itemTotal,
-              specifications: item.specifications || undefined,
-              sortOrder: index + 1,
-              ...(item.serviceId && {
-                serviceId: item.serviceId,
-              }),
-            };
-          });
+            await tx.orderItem.update({
+              where: { id: item.id! },
+              data: {
+                description: item.description,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                total: itemTotal,
+                specifications: item.specifications || undefined,
+                ...(item.serviceId && { serviceId: item.serviceId }),
+              },
+            });
+          }
 
-          await tx.orderItem.createMany({
-            data: newItems,
-          });
+          // Crear items nuevos
+          if (itemsToCreate.length > 0) {
+            const remainingCount = currentItems.length - idsToDelete.length;
+            const newItems = itemsToCreate.map((item, index) => {
+              const itemTotal = new Prisma.Decimal(item.quantity).mul(
+                item.unitPrice,
+              );
+              return {
+                orderId: id,
+                description: item.description,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                total: itemTotal,
+                specifications: item.specifications || undefined,
+                sortOrder: remainingCount + index + 1,
+                ...(item.serviceId && { serviceId: item.serviceId }),
+              };
+            });
+            await tx.orderItem.createMany({ data: newItems });
+          }
         }
 
         // 3. Si se envió pago inicial, actualizar el primero o crear uno

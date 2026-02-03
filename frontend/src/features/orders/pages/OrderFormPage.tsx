@@ -252,6 +252,7 @@ export const OrderFormPage: React.FC = () => {
         deliveryDate: data.deliveryDate?.toISOString(),
         notes: data.notes,
         items: data.items.map((item) => ({
+          ...(isEdit && item.id && { id: item.id }),
           description: item.description,
           quantity: parseFloat(item.quantity),
           unitPrice: parseFloat(item.unitPrice),
