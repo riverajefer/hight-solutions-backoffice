@@ -3,9 +3,7 @@ import { CreateOrderDto } from './create-order.dto';
 import { IsEnum, IsOptional } from 'class-validator';
 import { OrderStatus } from '../../../generated/prisma';
 
-export class UpdateOrderDto extends PartialType(
-  OmitType(CreateOrderDto, ['items'] as const),
-) {
+export class UpdateOrderDto extends PartialType(CreateOrderDto) {
   @ApiPropertyOptional({
     description: 'Estado de la orden',
     enum: OrderStatus,

@@ -82,8 +82,12 @@ export class OrdersController {
     status: 403,
     description: 'No permission to edit this order',
   })
-  update(@Param('id') id: string, @Body() updateOrderDto: UpdateOrderDto) {
-    return this.ordersService.update(id, updateOrderDto);
+  update(
+    @Param('id') id: string,
+    @Body() updateOrderDto: UpdateOrderDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.ordersService.update(id, updateOrderDto, userId);
   }
 
   @Put(':id/status')

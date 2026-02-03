@@ -24,15 +24,17 @@ import { v4 as uuidv4 } from 'uuid';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { useOrders, useOrder } from '../hooks';
+import { useEditRequests } from '../../../hooks/useEditRequests';
 import {
   ClientSelector,
   OrderItemsTable,
   OrderTotals,
   InitialPayment,
+  ActivePermissionBanner,
 } from '../components';
 import type { Client } from '../../../types/client.types';
-import type { CreateOrderDto } from '../../../types/order.types';
 import { useAuthStore } from '../../../store/authStore';
+import { enqueueSnackbar } from 'notistack';
 
 // ============================================================
 // VALIDATION SCHEMA
@@ -122,8 +124,10 @@ export const OrderFormPage: React.FC = () => {
   const { user } = useAuthStore();
 
   const isEdit = !!id;
-  const { orderQuery } = useOrder(id || '');
+  const { orderQuery, updateOrderMutation } = useOrder(id || '');
   const { createOrderMutation } = useOrders();
+  const { activePermissionQuery } = useEditRequests(id || '');
+  const isAdmin = user?.role?.name === 'admin';
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -180,22 +184,30 @@ export const OrderFormPage: React.FC = () => {
   // Deshabilitar campos si no hay cliente seleccionado
   const isClientSelected = !!selectedClient;
 
-  // Actualizar IVA automáticamente según tipo de cliente
+  // Actualizar IVA automáticamente según tipo de cliente (solo en modo creación)
   useEffect(() => {
-    if (selectedClient) {
+    if (!isEdit && selectedClient) {
       // Si es empresa, aplicar IVA; si es natural, no aplicar
       const shouldApplyTax = selectedClient.personType === 'EMPRESA';
       setValue('applyTax', shouldApplyTax);
     }
-  }, [selectedClient, setValue]);
+  }, [selectedClient, setValue, isEdit]);
 
   // Load order data for edit mode
   useEffect(() => {
     if (isEdit && orderQuery.data) {
       const order = orderQuery.data;
 
-      // Can only edit DRAFT orders
-      if (order.status !== 'DRAFT') {
+      // Validar acceso a edición
+      const canEdit =
+        order.status === 'DRAFT' ||           // DRAFT siempre editable
+        isAdmin ||                             // Admin puede editar todo
+        activePermissionQuery.data !== null;   // Permiso temporal activo
+
+      if (!canEdit) {
+        enqueueSnackbar('No tienes permiso para editar esta orden', {
+          variant: 'error'
+        });
         navigate(`/orders/${id}`);
         return;
       }
@@ -218,15 +230,24 @@ export const OrderFormPage: React.FC = () => {
       );
       setValue('applyTax', parseFloat(order.taxRate) > 0);
       setValue('taxRate', parseFloat(order.taxRate) * 100);
+
+      // Cargar abono inicial (primer pago si existe)
+      const firstPayment = order.payments && order.payments.length > 0 ? order.payments[0] : null;
+      setValue('payment', {
+        amount: firstPayment ? parseFloat(firstPayment.amount) : 0,
+        paymentMethod: firstPayment?.paymentMethod || 'CASH',
+        reference: firstPayment?.reference || '',
+        notes: firstPayment?.notes || '',
+      });
     }
-  }, [isEdit, orderQuery.data, id, navigate, setValue]);
+  }, [isEdit, orderQuery.data, id, navigate, setValue, isAdmin, activePermissionQuery.data]);
 
   // Handle form submission
   const onSubmit = async (data: OrderFormData) => {
     setIsSubmitting(true);
 
     try {
-      const createDto: CreateOrderDto = {
+      const orderDto = {
         clientId: data.client!.id,
         deliveryDate: data.deliveryDate?.toISOString(),
         notes: data.notes,
@@ -245,11 +266,27 @@ export const OrderFormPage: React.FC = () => {
         },
       };
 
-      const newOrder = await createOrderMutation.mutateAsync(createDto);
-      navigate(`/orders/${newOrder.id}`);
-    } catch (error) {
-      // Error handled by mutation hook
-      setIsSubmitting(false);
+      if (isEdit) {
+        // Actualizar orden existente
+        await updateOrderMutation.mutateAsync(orderDto);
+        navigate(`/orders/${id}`);
+      } else {
+        // Crear nueva orden
+        const newOrder = await createOrderMutation.mutateAsync(orderDto);
+        navigate(`/orders/${newOrder.id}`);
+      }
+    } catch (error: any) {
+      // Manejo especial para error 403 (permiso expirado)
+      if (error?.response?.status === 403) {
+        enqueueSnackbar(
+          'Tu permiso de edición ha expirado. Solicita un nuevo permiso.',
+          { variant: 'error' }
+        );
+        navigate(`/orders/${id}`);
+      } else {
+        // Otros errores manejados por mutation hook
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -267,6 +304,9 @@ export const OrderFormPage: React.FC = () => {
           { label: isEdit ? 'Editar' : 'Nueva' },
         ]}
       />
+
+      {/* Banner de permiso activo */}
+      {isEdit && id && <ActivePermissionBanner orderId={id} />}
 
       <form onSubmit={handleSubmit(onSubmit)}>
         <Stack spacing={3} sx={{ mt: 3 }}>

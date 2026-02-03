@@ -129,17 +129,100 @@ export class OrdersService {
     });
   }
 
-  async update(id: string, updateOrderDto: UpdateOrderDto) {
-    const order = await this.findOne(id);
+  async update(id: string, updateOrderDto: UpdateOrderDto, userId: string) {
+    await this.findOne(id);
 
-    // Solo se pueden editar órdenes en estado DRAFT
-    if (order.status !== OrderStatus.DRAFT) {
-      throw new BadRequestException(
-        'Only DRAFT orders can be updated. Use status endpoint to change order state.',
-      );
+    // Si viene items o initialPayment, usamos una transacción para actualizar todo el conjunto
+    if (updateOrderDto.items || updateOrderDto.initialPayment) {
+      return this.prisma.$transaction(async (tx) => {
+        // 1. Actualizar datos básicos de la orden
+        await tx.order.update({
+          where: { id },
+          data: {
+            ...(updateOrderDto.clientId && {
+              client: { connect: { id: updateOrderDto.clientId } },
+            }),
+            ...(updateOrderDto.deliveryDate && {
+              deliveryDate: new Date(updateOrderDto.deliveryDate),
+            }),
+            ...(updateOrderDto.notes !== undefined && {
+              notes: updateOrderDto.notes,
+            }),
+            ...(updateOrderDto.status && {
+              status: updateOrderDto.status,
+            }),
+          },
+        });
+
+        // 2. Si se enviaron items, reemplazar los actuales
+        if (updateOrderDto.items) {
+          // Eliminar items actuales
+          await tx.orderItem.deleteMany({
+            where: { orderId: id },
+          });
+
+          // Crear nuevos items
+          const newItems = updateOrderDto.items.map((item, index) => {
+            const itemTotal = new Prisma.Decimal(item.quantity).mul(
+              item.unitPrice,
+            );
+            return {
+              orderId: id,
+              description: item.description,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              total: itemTotal,
+              specifications: item.specifications || undefined,
+              sortOrder: index + 1,
+              ...(item.serviceId && {
+                serviceId: item.serviceId,
+              }),
+            };
+          });
+
+          await tx.orderItem.createMany({
+            data: newItems,
+          });
+        }
+
+        // 3. Si se envió pago inicial, actualizar el primero o crear uno
+        if (updateOrderDto.initialPayment) {
+          const firstPayment = await tx.payment.findFirst({
+            where: { orderId: id },
+            orderBy: { createdAt: 'asc' },
+          });
+
+          const paymentData = {
+            amount: new Prisma.Decimal(updateOrderDto.initialPayment.amount),
+            paymentMethod: updateOrderDto.initialPayment.paymentMethod,
+            reference: updateOrderDto.initialPayment.reference,
+            notes: updateOrderDto.initialPayment.notes,
+            receivedById: userId,
+          };
+
+          if (firstPayment) {
+            await tx.payment.update({
+              where: { id: firstPayment.id },
+              data: paymentData,
+            });
+          } else {
+            await tx.payment.create({
+              data: {
+                ...paymentData,
+                orderId: id,
+                paymentDate: new Date(),
+              },
+            });
+          }
+        }
+
+        // 4. Recalcular totales, paidAmount y balance
+        return this.recalculateOrderTotals(id, tx);
+      });
     }
 
-    return this.ordersRepository.update(id, {
+    // Si no hay items ni pago, actualización normal
+    await this.ordersRepository.update(id, {
       ...(updateOrderDto.clientId && {
         client: { connect: { id: updateOrderDto.clientId } },
       }),
@@ -149,7 +232,13 @@ export class OrdersService {
       ...(updateOrderDto.notes !== undefined && {
         notes: updateOrderDto.notes,
       }),
+      ...(updateOrderDto.status && {
+        status: updateOrderDto.status,
+      }),
     });
+
+    // Retornar la orden actualizada con sus relaciones
+    return this.findOne(id);
   }
 
   async updateStatus(id: string, status: OrderStatus) {
@@ -435,18 +524,27 @@ export class OrdersService {
       subtotal = subtotal.add(item.total);
     }
 
-    // Calcular impuesto y total
-    const taxRate = new Prisma.Decimal(0.19);
+    // Obtener taxRate de la orden
+    const order = await tx.order.findUnique({
+      where: { id: orderId },
+      select: { taxRate: true },
+    });
+
+    const taxRate = order?.taxRate || new Prisma.Decimal(0.19);
     const tax = subtotal.mul(taxRate);
     const total = subtotal.add(tax);
 
-    // Obtener paidAmount actual
-    const order = await tx.order.findUnique({
-      where: { id: orderId },
-      select: { paidAmount: true },
+    // Calcular paidAmount sumando todos los pagos
+    const payments = await tx.payment.findMany({
+      where: { orderId },
+      select: { amount: true },
     });
 
-    const paidAmount = order?.paidAmount || new Prisma.Decimal(0);
+    let paidAmount = new Prisma.Decimal(0);
+    for (const payment of payments) {
+      paidAmount = paidAmount.add(payment.amount);
+    }
+
     const balance = total.sub(paidAmount);
 
     // Actualizar orden
@@ -456,6 +554,7 @@ export class OrdersService {
         subtotal,
         tax,
         total,
+        paidAmount,
         balance,
       },
       select: {
@@ -466,6 +565,14 @@ export class OrdersService {
         total: true,
         paidAmount: true,
         balance: true,
+        status: true,
+        items: {
+          include: {
+            service: true,
+          },
+        },
+        client: true,
+        payments: true,
       },
     });
   }
