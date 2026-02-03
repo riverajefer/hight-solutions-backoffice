@@ -296,9 +296,9 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
       </Stack>
 
       {/* Error general de items */}
-      {errors.items && (
+      {errors.items?.message && (
         <Typography color="error" variant="caption" sx={{ mt: 1, display: 'block' }}>
-          {errors.items}
+          {errors.items.message as string}
         </Typography>
       )}
     </Box>

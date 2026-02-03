@@ -30,6 +30,7 @@ import {
 } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { CanEditOrderGuard } from '../../common/guards/can-edit-order.guard';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { OrderStatus } from '../../generated/prisma';
@@ -72,13 +73,21 @@ export class OrdersController {
   }
 
   @Put(':id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard, CanEditOrderGuard)
   @RequirePermissions('update_orders')
-  @ApiOperation({ summary: 'Update order (only DRAFT)' })
+  @ApiOperation({ summary: 'Update order' })
   @ApiParam({ name: 'id', description: 'Order ID' })
   @ApiResponse({ status: 200, description: 'Order updated successfully' })
-  @ApiResponse({ status: 400, description: 'Cannot update non-DRAFT order' })
-  update(@Param('id') id: string, @Body() updateOrderDto: UpdateOrderDto) {
-    return this.ordersService.update(id, updateOrderDto);
+  @ApiResponse({
+    status: 403,
+    description: 'No permission to edit this order',
+  })
+  update(
+    @Param('id') id: string,
+    @Body() updateOrderDto: UpdateOrderDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.ordersService.update(id, updateOrderDto, userId);
   }
 
   @Put(':id/status')
@@ -106,22 +115,30 @@ export class OrdersController {
   // ========== ITEM MANAGEMENT ENDPOINTS ==========
 
   @Post(':id/items')
+  @UseGuards(JwtAuthGuard, PermissionsGuard, CanEditOrderGuard)
   @RequirePermissions('update_orders')
-  @ApiOperation({ summary: 'Add item to order (only DRAFT)' })
+  @ApiOperation({ summary: 'Add item to order' })
   @ApiParam({ name: 'id', description: 'Order ID' })
   @ApiResponse({ status: 201, description: 'Item added successfully' })
-  @ApiResponse({ status: 400, description: 'Cannot add items to non-DRAFT order' })
+  @ApiResponse({
+    status: 403,
+    description: 'No permission to edit this order',
+  })
   addItem(@Param('id') orderId: string, @Body() addItemDto: AddOrderItemDto) {
     return this.ordersService.addItem(orderId, addItemDto);
   }
 
   @Patch(':id/items/:itemId')
+  @UseGuards(JwtAuthGuard, PermissionsGuard, CanEditOrderGuard)
   @RequirePermissions('update_orders')
-  @ApiOperation({ summary: 'Update order item (only DRAFT)' })
+  @ApiOperation({ summary: 'Update order item' })
   @ApiParam({ name: 'id', description: 'Order ID' })
   @ApiParam({ name: 'itemId', description: 'Item ID' })
   @ApiResponse({ status: 200, description: 'Item updated successfully' })
-  @ApiResponse({ status: 400, description: 'Cannot update items in non-DRAFT order' })
+  @ApiResponse({
+    status: 403,
+    description: 'No permission to edit this order',
+  })
   updateItem(
     @Param('id') orderId: string,
     @Param('itemId') itemId: string,
@@ -131,12 +148,16 @@ export class OrdersController {
   }
 
   @Delete(':id/items/:itemId')
+  @UseGuards(JwtAuthGuard, PermissionsGuard, CanEditOrderGuard)
   @RequirePermissions('update_orders')
-  @ApiOperation({ summary: 'Remove item from order (only DRAFT)' })
+  @ApiOperation({ summary: 'Remove item from order' })
   @ApiParam({ name: 'id', description: 'Order ID' })
   @ApiParam({ name: 'itemId', description: 'Item ID' })
   @ApiResponse({ status: 200, description: 'Item removed successfully' })
-  @ApiResponse({ status: 400, description: 'Cannot remove items from non-DRAFT order' })
+  @ApiResponse({
+    status: 403,
+    description: 'No permission to edit this order',
+  })
   removeItem(
     @Param('id') orderId: string,
     @Param('itemId') itemId: string,

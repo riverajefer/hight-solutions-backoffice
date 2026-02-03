@@ -1,5 +1,5 @@
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
-import { PrismaClient } from '../src/generated/prisma';
+import { PrismaClient, OrderStatus } from '../src/generated/prisma';
 import * as bcrypt from 'bcrypt';
 import { randomInt, randomUUID } from 'node:crypto';
 
@@ -1907,6 +1907,55 @@ async function main() {
     }
 
     // ============================================
+    // 15. Crear Estados Editables de Órdenes
+    // ============================================
+    console.log('\n🔧 Creating editable order statuses...');
+
+    const editableStatuses = [
+      {
+        orderStatus: OrderStatus.DRAFT,
+        allowEditRequests: false,
+        description: 'Borrador - ya es editable sin solicitud',
+      },
+      {
+        orderStatus: OrderStatus.CONFIRMED,
+        allowEditRequests: true,
+        description: 'Confirmada - requiere solicitud de edición',
+      },
+      {
+        orderStatus: OrderStatus.IN_PRODUCTION,
+        allowEditRequests: true,
+        description: 'En producción - requiere solicitud de edición',
+      },
+      {
+        orderStatus: OrderStatus.READY,
+        allowEditRequests: true,
+        description: 'Lista - requiere solicitud de edición',
+      },
+      {
+        orderStatus: OrderStatus.DELIVERED,
+        allowEditRequests: false,
+        description: 'Entregada - no se puede editar',
+      },
+      {
+        orderStatus: OrderStatus.CANCELLED,
+        allowEditRequests: false,
+        description: 'Cancelada - no se puede editar',
+      },
+    ];
+
+    for (const status of editableStatuses) {
+      await prisma.editableOrderStatus.upsert({
+        where: { orderStatus: status.orderStatus },
+        update: status,
+        create: status,
+      });
+      console.log(
+        `  ✓ ${status.orderStatus}: ${status.allowEditRequests ? 'Allow requests' : 'No requests'}`,
+      );
+    }
+
+    // ============================================
     // Resumen
     // ============================================
     console.log('\n' + '='.repeat(50));
@@ -1930,6 +1979,7 @@ async function main() {
     console.log(`   - Consecutives: ${consecutivesData.length}`);
     console.log(`   - Production Areas: ${productionAreasData.length}`);
     console.log(`   - Commercial Channels: ${channelsCreated}`);
+    console.log(`   - Editable Order Statuses: ${editableStatuses.length}`);
     console.log('\n🔐 Test Credentials:');
     console.log('   Admin:   admin@example.com / admin123');
     console.log('   Manager: manager@example.com / manager123');

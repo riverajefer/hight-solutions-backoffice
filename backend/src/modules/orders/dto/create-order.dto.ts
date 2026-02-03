@@ -10,6 +10,7 @@ import {
   IsPositive,
   Min,
   IsEnum,
+  ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaymentMethod } from '../../../generated/prisma';
@@ -20,7 +21,9 @@ export class InitialPaymentDto {
     example: 50000,
   })
   @IsNumber()
-  @IsPositive()
+  @Min(0)
+  @ValidateIf((o: InitialPaymentDto) => o.paymentMethod !== PaymentMethod.CREDIT)
+  @IsPositive({ message: 'El monto debe ser mayor a cero para este método de pago' })
   amount: number;
 
   @ApiProperty({
