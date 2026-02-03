@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule } from './config/config.module';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -22,12 +23,16 @@ import { ConsecutivesModule } from './modules/consecutives/consecutives.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { ProductionAreasModule } from './modules/production-areas/production-areas.module';
 import { CommercialChannelsModule } from './modules/commercial-channels/commercial-channels.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { OrderEditRequestsModule } from './modules/order-edit-requests/order-edit-requests.module';
 import { AuditContextInterceptor } from './common/interceptors/audit-context.interceptor';
 
 @Module({
   imports: [
     // Configuración centralizada
     ConfigModule,
+    // Cron Jobs
+    ScheduleModule.forRoot(),
     // Base de datos
     DatabaseModule,
     // Módulos de la aplicación
@@ -57,6 +62,10 @@ import { AuditContextInterceptor } from './common/interceptors/audit-context.int
     ProductionAreasModule,
     // Módulo de Canales de Venta
     CommercialChannelsModule,
+    // Módulo de Notificaciones
+    NotificationsModule,
+    // Módulo de Solicitudes de Edición de Órdenes
+    OrderEditRequestsModule,
   ],
   providers: [
     {

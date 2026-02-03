@@ -21,11 +21,14 @@ model User {
   firstName    String?
   lastName     String?
 
-  role             Role          @relation(fields: [roleId], references: [id])
-  cargo            Cargo?        @relation(fields: [cargoId], references: [id])
-  sessionLogs      SessionLog[]
-  createdOrders    Order[]
-  receivedPayments Payment[]     @relation("ReceivedPayments")
+  role                  Role               @relation(fields: [roleId], references: [id])
+  cargo                 Cargo?             @relation(fields: [cargoId], references: [id])
+  sessionLogs           SessionLog[]
+  createdOrders         Order[]
+  receivedPayments      Payment[]          @relation("ReceivedPayments")
+  requestedEditRequests OrderEditRequest[] @relation("RequestedEditRequests")
+  reviewedEditRequests  OrderEditRequest[] @relation("ReviewedEditRequests")
+  notifications         Notification[]
 
   @@map("users")
 }
@@ -378,10 +381,11 @@ model Order {
   updatedAt    DateTime    @updatedAt @map("updated_at")
 
   // Relaciones
-  client      Client      @relation(fields: [clientId], references: [id])
-  createdBy   User        @relation(fields: [createdById], references: [id])
-  items       OrderItem[]
-  payments    Payment[]
+  client       Client             @relation(fields: [clientId], references: [id])
+  createdBy    User               @relation(fields: [createdById], references: [id])
+  items        OrderItem[]
+  payments     Payment[]
+  editRequests OrderEditRequest[]
 
   @@index([clientId])
   @@index([createdById])
@@ -448,6 +452,87 @@ model Payment {
   @@index([receivedById])
   @@index([paymentDate])
   @@map("payments")
+}
+
+// =============================================================================
+// MÓDULO DE SOLICITUDES DE EDICIÓN DE ÓRDENES
+// =============================================================================
+
+enum EditRequestStatus {
+  PENDING   // Pendiente de aprobación
+  APPROVED  // Aprobada
+  REJECTED  // Rechazada
+  EXPIRED   // Expirada (permiso venció)
+}
+
+enum NotificationType {
+  EDIT_REQUEST_PENDING    // Nueva solicitud de edición
+  EDIT_REQUEST_APPROVED   // Solicitud aprobada
+  EDIT_REQUEST_REJECTED   // Solicitud rechazada
+  EDIT_PERMISSION_EXPIRING // Permiso por expirar (1 min antes)
+  EDIT_PERMISSION_EXPIRED  // Permiso expirado
+}
+
+model EditableOrderStatus {
+  id                  String      @id @default(uuid())
+  orderStatus         OrderStatus @unique @map("order_status")
+  allowEditRequests   Boolean     @default(true) @map("allow_edit_requests")
+  description         String?
+  createdAt           DateTime    @default(now()) @map("created_at")
+  updatedAt           DateTime    @updatedAt @map("updated_at")
+
+  @@map("editable_order_statuses")
+}
+
+model OrderEditRequest {
+  id                String            @id @default(uuid())
+  orderId           String            @map("order_id")
+  requestedById     String            @map("requested_by_id")
+  observations      String?
+  status            EditRequestStatus @default(PENDING)
+
+  // Aprobación/rechazo
+  reviewedById      String?           @map("reviewed_by_id")
+  reviewedAt        DateTime?         @map("reviewed_at")
+  reviewNotes       String?           @map("review_notes")
+
+  // Permiso temporal (5 minutos)
+  expiresAt         DateTime?         @map("expires_at")
+
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  // Relaciones
+  order             Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  requestedBy       User              @relation("RequestedEditRequests", fields: [requestedById], references: [id])
+  reviewedBy        User?             @relation("ReviewedEditRequests", fields: [reviewedById], references: [id])
+
+  @@index([orderId])
+  @@index([requestedById])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("order_edit_requests")
+}
+
+model Notification {
+  id            String           @id @default(uuid())
+  userId        String           @map("user_id")
+  type          NotificationType
+  title         String
+  message       String
+  relatedId     String?          @map("related_id")
+  relatedType   String?          @map("related_type")
+  isRead        Boolean          @default(false) @map("is_read")
+  readAt        DateTime?        @map("read_at")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  // Relación
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
 }
 
 // =============================================================================
