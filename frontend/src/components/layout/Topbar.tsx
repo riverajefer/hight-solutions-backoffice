@@ -23,6 +23,7 @@ import { useAuthStore } from '../../store/authStore';
 import { ROUTES } from '../../utils/constants';
 import { formatFullName } from '../../utils/helpers';
 import { ThemeToggler } from '../common/ThemeToggler';
+import { NotificationBell } from './NotificationBell';
 import { gradients, neonColors, neonAccents, darkSurfaces } from '../../theme';
 
 interface TopbarProps {
@@ -123,6 +124,9 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
 
         <Box display="flex" alignItems="center" gap={2}>
           <ThemeToggler />
+
+          {/* Notification Bell */}
+          <NotificationBell />
 
           {/* User Menu Button */}
           <Box

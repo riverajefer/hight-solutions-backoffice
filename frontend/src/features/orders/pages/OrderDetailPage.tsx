@@ -29,6 +29,8 @@ import {
   RadioGroup,
   Radio,
   FormControlLabel,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -44,6 +46,10 @@ import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { useOrder, useOrderPayments } from '../hooks';
 import { OrderStatusChip } from '../components';
+import { ActivePermissionBanner } from '../components/ActivePermissionBanner';
+import { RequestEditPermissionButton } from '../components/RequestEditPermissionButton';
+import { EditRequestsList } from '../components/EditRequestsList';
+import { OrderChangeHistoryTab } from '../components/OrderChangeHistoryTab';
 import type {
   OrderStatus,
   PaymentMethod,
@@ -82,6 +88,20 @@ const formatDateTime = (date: string): string => {
   }).format(new Date(date));
 };
 
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => {
+  return (
+    <div hidden={value !== index}>
+      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
+    </div>
+  );
+};
+
 // Formatear moneda mientras se escribe (con separadores de miles)
 const formatCurrencyInput = (value: string | number): string => {
   // Convertir a string y remover todo excepto números
@@ -106,6 +126,7 @@ export const OrderDetailPage: React.FC = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [tabValue, setTabValue] = useState(0);
   const [paymentData, setPaymentData] = useState<CreatePaymentDto>({
     amount: 0,
     paymentMethod: 'CASH',
@@ -163,6 +184,10 @@ export const OrderDetailPage: React.FC = () => {
     });
   };
 
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+  };
+
   const balance = parseFloat(order.balance);
 
   return (
@@ -184,6 +209,10 @@ export const OrderDetailPage: React.FC = () => {
                 Editar
               </Button>
             )}
+            <RequestEditPermissionButton
+              orderId={id!}
+              orderStatus={order.status}
+            />
             {canAddPayment && balance > 0 && (
               <Button
                 variant="contained"
@@ -199,6 +228,9 @@ export const OrderDetailPage: React.FC = () => {
           </Stack>
         }
       />
+
+      {/* Banner de permiso activo */}
+      <ActivePermissionBanner orderId={id!} />
 
       <Grid container spacing={3} sx={{ mt: 1 }}>
         {/* Info General */}
@@ -470,6 +502,22 @@ export const OrderDetailPage: React.FC = () => {
           </Stack>
         </Grid>
       </Grid>
+
+      {/* Solicitudes de Edición e Historial de Cambios */}
+      <Box sx={{ mt: 4 }}>
+        <Tabs value={tabValue} onChange={handleTabChange} sx={{ mb: 2 }}>
+          <Tab label="Solicitudes de Edición" />
+          <Tab label="Historial de Cambios" />
+        </Tabs>
+
+        <TabPanel value={tabValue} index={0}>
+          <EditRequestsList orderId={id!} />
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={1}>
+          <OrderChangeHistoryTab orderId={id!} />
+        </TabPanel>
+      </Box>
 
       {/* Menu de Acciones */}
       <Menu anchorEl={anchorEl} open={openMenu} onClose={handleMenuClose}>
