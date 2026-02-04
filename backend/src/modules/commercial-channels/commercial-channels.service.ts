@@ -3,56 +3,50 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { PrismaService } from '../../database/prisma.service';
 import {
   CreateCommercialChannelDto,
   UpdateCommercialChannelDto,
 } from './dto';
+import { CommercialChannelsRepository } from './commercial-channels.repository';
 
 @Injectable()
 export class CommercialChannelsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly repository: CommercialChannelsRepository,
+  ) {}
 
   /**
    * Crear un nuevo canal de venta
    */
   async create(dto: CreateCommercialChannelDto) {
     // Validar que no exista un canal con el mismo nombre
-    const existing = await this.prisma.commercialChannel.findUnique({
-      where: { name: dto.name },
-    });
+    const existing = await this.repository.findByName(dto.name);
 
     if (existing) {
       throw new BadRequestException(
-        `Commercial channel with name "${dto.name}" already exists`,
+        `El canal comercial con el nombre "${dto.name}" ya existe`,
       );
     }
 
-    return this.prisma.commercialChannel.create({
-      data: dto,
-    });
+    return this.repository.create(dto);
   }
 
   /**
    * Obtener todos los canales de venta
    */
   async findAll() {
-    return this.prisma.commercialChannel.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
+    return this.repository.findAll();
   }
 
   /**
    * Obtener un canal de venta por ID
    */
   async findOne(id: string) {
-    const channel = await this.prisma.commercialChannel.findUnique({
-      where: { id },
-    });
+    const channel = await this.repository.findById(id);
 
     if (!channel) {
       throw new NotFoundException(
-        `Commercial channel with ID ${id} not found`,
+        `Canal comercial con ID ${id} no encontrado`,
       );
     }
 
@@ -68,21 +62,16 @@ export class CommercialChannelsService {
 
     // Si se está actualizando el nombre, validar que no exista otro con ese nombre
     if (dto.name) {
-      const existing = await this.prisma.commercialChannel.findUnique({
-        where: { name: dto.name },
-      });
+      const existing = await this.repository.findByName(dto.name);
 
       if (existing && existing.id !== id) {
         throw new BadRequestException(
-          `Commercial channel with name "${dto.name}" already exists`,
+          `El canal comercial con el nombre "${dto.name}" ya existe`,
         );
       }
     }
 
-    return this.prisma.commercialChannel.update({
-      where: { id },
-      data: dto,
-    });
+    return this.repository.update(id, dto);
   }
 
   /**
@@ -92,10 +81,11 @@ export class CommercialChannelsService {
     // Verificar que existe
     await this.findOne(id);
 
-    await this.prisma.commercialChannel.delete({
-      where: { id },
-    });
+    // Aquí se podría agregar validación si tiene pedidos asociados, similar a cargos con usuarios
+    // Por ahora solo eliminamos como estaba originalmente pero usando el repo
 
-    return { message: 'Commercial channel deleted successfully' };
+    await this.repository.delete(id);
+
+    return { message: 'Canal comercial eliminado correctamente' };
   }
 }
