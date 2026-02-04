@@ -73,6 +73,12 @@ export interface OrderItem {
     name: string;
     slug: string;
   } | null;
+  productionAreas: {
+    productionArea: {
+      id: string;
+      name: string;
+    };
+  }[];
 }
 
 export interface Payment {
@@ -108,6 +114,7 @@ export interface CreateOrderItemDto {
   quantity: number;
   unitPrice: number;
   specifications?: Record<string, any>;
+  productionAreaIds?: string[];
 }
 
 export interface CreateOrderDto {
@@ -142,6 +149,7 @@ export interface AddOrderItemDto {
   quantity: number;
   unitPrice: number;
   specifications?: Record<string, any>;
+  productionAreaIds?: string[];
 }
 
 export interface UpdateOrderItemDto {
@@ -150,6 +158,7 @@ export interface UpdateOrderItemDto {
   unitPrice?: number;
   specifications?: Record<string, any>;
   serviceId?: string;
+  productionAreaIds?: string[];
 }
 
 export interface CreatePaymentDto {
@@ -199,6 +208,7 @@ export interface OrderItemRow {
   total: number; // Calculado
   serviceId?: string;
   specifications?: Record<string, any>;
+  productionAreaIds: string[];
 }
 
 export interface InitialPaymentData {

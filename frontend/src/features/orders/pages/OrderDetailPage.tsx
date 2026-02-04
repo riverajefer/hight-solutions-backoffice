@@ -298,6 +298,7 @@ export const OrderDetailPage: React.FC = () => {
                     <TableHead>
                       <TableRow>
                         <TableCell>Descripción</TableCell>
+                        <TableCell>Áreas de Producción</TableCell>
                         <TableCell align="right">Cantidad</TableCell>
                         <TableCell align="right">Precio Unit.</TableCell>
                         <TableCell align="right">Total</TableCell>
@@ -317,6 +318,22 @@ export const OrderDetailPage: React.FC = () => {
                             <Typography variant="body2">
                               {item.description}
                             </Typography>
+                          </TableCell>
+                          <TableCell>
+                            {item.productionAreas && item.productionAreas.length > 0 ? (
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                {item.productionAreas.map((pa) => (
+                                  <Chip
+                                    key={pa.productionArea.id}
+                                    label={pa.productionArea.name}
+                                    size="small"
+                                    variant="outlined"
+                                  />
+                                ))}
+                              </Box>
+                            ) : (
+                              <Typography variant="body2" color="text.disabled">—</Typography>
+                            )}
                           </TableCell>
                           <TableCell align="right">{item.quantity}</TableCell>
                           <TableCell align="right">

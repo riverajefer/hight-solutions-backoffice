@@ -13,10 +13,14 @@ import {
   Typography,
   Box,
   Stack,
+  Autocomplete,
+  Chip,
 } from '@mui/material';
 import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
 import { v4 as uuidv4 } from 'uuid';
 import type { OrderItemRow } from '../../../types/order.types';
+import { useProductionAreas } from '../../../features/production-areas/hooks/useProductionAreas';
+import type { ProductionArea } from '../../../types/production-area.types';
 
 interface OrderItemsTableProps {
   items: OrderItemRow[];
@@ -58,6 +62,9 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
   errors = {},
   disabled = false,
 }) => {
+  const { productionAreasQuery } = useProductionAreas();
+  const productionAreas: ProductionArea[] = productionAreasQuery.data || [];
+
   const handleAddRow = () => {
     const newItem: OrderItemRow = {
       id: uuidv4(),
@@ -65,6 +72,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
       quantity: '',
       unitPrice: '',
       total: 0,
+      productionAreaIds: [],
     };
     onChange([...items, newItem]);
   };
@@ -134,16 +142,19 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                 },
               }}
             >
-              <TableCell width="15%" align="center">
+              <TableCell width="10%" align="center">
                 Cantidad
               </TableCell>
-              <TableCell width="40%">
+              <TableCell width="28%">
                 Descripción
               </TableCell>
-              <TableCell width="20%" align="right">
+              <TableCell width="27%">
+                Áreas de Producción
+              </TableCell>
+              <TableCell width="18%" align="right">
                 Valor Unitario
               </TableCell>
-              <TableCell width="20%" align="right">
+              <TableCell width="12%" align="right">
                 Valor Total
               </TableCell>
               <TableCell width="5%" align="center">
@@ -196,6 +207,52 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                       placeholder="Descripción del producto o servicio"
                       multiline
                       maxRows={2}
+                    />
+                  </TableCell>
+
+                  {/* Áreas de Producción */}
+                  <TableCell>
+                    <Autocomplete<ProductionArea, true>
+                      multiple
+                      size="small"
+                      options={productionAreas}
+                      getOptionLabel={(option) => option.name}
+                      isOptionEqualToValue={(option, value) => option.id === value.id}
+                      value={productionAreas.filter((area) =>
+                        item.productionAreaIds?.includes(area.id)
+                      )}
+                      onChange={(_event, newValue) => {
+                        const updatedItems = items.map((i) =>
+                          i.id === item.id
+                            ? { ...i, productionAreaIds: newValue.map((v) => v.id) }
+                            : i
+                        );
+                        onChange(updatedItems);
+                      }}
+                      disabled={disabled}
+                      renderTags={(value, getTagProps) =>
+                        value.map((option, index) => (
+                          <Chip
+                            label={option.name}
+                            size="small"
+                            {...getTagProps({ index })}
+                            key={option.id}
+                          />
+                        ))
+                      }
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          size="small"
+                          placeholder={
+                            item.productionAreaIds?.length === 0
+                              ? 'Seleccionar áreas'
+                              : undefined
+                          }
+                        />
+                      )}
+                      noOptionsText="No hay áreas disponibles"
+                      ListboxProps={{ style: { maxHeight: 150 } }}
                     />
                   </TableCell>
 
@@ -266,7 +323,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                 },
               }}
             >
-              <TableCell colSpan={3} align="right">
+              <TableCell colSpan={4} align="right">
                 <Typography variant="subtitle1" fontWeight={700}>
                   Subtotal:
                 </Typography>

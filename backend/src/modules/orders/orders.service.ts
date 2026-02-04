@@ -73,6 +73,13 @@ export class OrdersService {
         ...(item.serviceId && {
           service: { connect: { id: item.serviceId } },
         }),
+        ...(item.productionAreaIds && item.productionAreaIds.length > 0 && {
+          productionAreas: {
+            create: item.productionAreaIds.map((areaId) => ({
+              productionAreaId: areaId,
+            })),
+          },
+        }),
       };
     });
 
@@ -222,27 +229,54 @@ export class OrdersService {
                 ...(item.serviceId && { serviceId: item.serviceId }),
               },
             });
+
+            // Reconciliar áreas de producción del item actualizado
+            if (item.productionAreaIds !== undefined) {
+              await tx.orderItemProductionArea.deleteMany({
+                where: { orderItemId: item.id! },
+              });
+              if (item.productionAreaIds.length > 0) {
+                await tx.orderItemProductionArea.createMany({
+                  data: item.productionAreaIds.map((areaId) => ({
+                    orderItemId: item.id!,
+                    productionAreaId: areaId,
+                  })),
+                });
+              }
+            }
           }
 
           // Crear items nuevos
           if (itemsToCreate.length > 0) {
             const remainingCount = currentItems.length - idsToDelete.length;
-            const newItems = itemsToCreate.map((item, index) => {
+            for (let i = 0; i < itemsToCreate.length; i++) {
+              const item = itemsToCreate[i];
               const itemTotal = new Prisma.Decimal(item.quantity).mul(
                 item.unitPrice,
               );
-              return {
-                orderId: id,
-                description: item.description,
-                quantity: item.quantity,
-                unitPrice: item.unitPrice,
-                total: itemTotal,
-                specifications: item.specifications || undefined,
-                sortOrder: remainingCount + index + 1,
-                ...(item.serviceId && { serviceId: item.serviceId }),
-              };
-            });
-            await tx.orderItem.createMany({ data: newItems });
+              const createdItem = await tx.orderItem.create({
+                data: {
+                  orderId: id,
+                  description: item.description,
+                  quantity: item.quantity,
+                  unitPrice: item.unitPrice,
+                  total: itemTotal,
+                  specifications: item.specifications || undefined,
+                  sortOrder: remainingCount + i + 1,
+                  ...(item.serviceId && { serviceId: item.serviceId }),
+                },
+                select: { id: true },
+              });
+
+              if (item.productionAreaIds && item.productionAreaIds.length > 0) {
+                await tx.orderItemProductionArea.createMany({
+                  data: item.productionAreaIds.map((areaId) => ({
+                    orderItemId: createdItem.id,
+                    productionAreaId: areaId,
+                  })),
+                });
+              }
+            }
           }
         }
 
@@ -396,6 +430,13 @@ export class OrdersService {
           ...(addItemDto.serviceId && {
             serviceId: addItemDto.serviceId,
           }),
+          ...(addItemDto.productionAreaIds && addItemDto.productionAreaIds.length > 0 && {
+            productionAreas: {
+              create: addItemDto.productionAreaIds.map((areaId) => ({
+                productionAreaId: areaId,
+              })),
+            },
+          }),
         },
       });
 
@@ -463,6 +504,21 @@ export class OrdersService {
         where: { id: itemId },
         data: updateData,
       });
+
+      // Reconciliar áreas de producción
+      if (updateItemDto.productionAreaIds !== undefined) {
+        await tx.orderItemProductionArea.deleteMany({
+          where: { orderItemId: itemId },
+        });
+        if (updateItemDto.productionAreaIds.length > 0) {
+          await tx.orderItemProductionArea.createMany({
+            data: updateItemDto.productionAreaIds.map((areaId) => ({
+              orderItemId: itemId,
+              productionAreaId: areaId,
+            })),
+          });
+        }
+      }
 
       // Recalcular totales de la orden
       return this.recalculateOrderTotals(orderId, tx);
