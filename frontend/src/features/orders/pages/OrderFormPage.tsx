@@ -318,6 +318,12 @@ export const OrderFormPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
+      {isSubmitting && (
+        <LoadingSpinner 
+          fullScreen 
+          message={isEdit ? 'Guardando cambios...' : 'Creando orden...'} 
+        />
+      )}
       <PageHeader
         title={isEdit ? 'Editar Orden' : 'Nueva Orden de Pedido'}
         breadcrumbs={[
