@@ -72,8 +72,6 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
       [field]: newValue,
     };
 
-    // Al cambiar el método de pago a crédito, nos aseguramos de que se muestre "0" 
-    // si el campo estaba "vacío" (monto 0). Si ya tenía un valor, se conserva.
     if (field === 'paymentMethod' && newValue === 'CREDIT') {
       updatedData.amount = value?.amount || 0;
     }
@@ -84,145 +82,172 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
   const balance = total - (value?.amount || 0);
 
   return (
-    <Card variant="outlined">
-      <CardContent>
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={enabled}
-              onChange={(e) => {
-                onEnabledChange(e.target.checked);
-                if (!e.target.checked) {
-                  onChange(null);
-                }
-              }}
-              disabled={required || disabled}
-            />
-          }
-          label={
-            <Typography variant="subtitle1" fontWeight={500}>
-              {required ? 'Abono Inicial (Obligatorio)' : 'Registrar abono inicial'}
-            </Typography>
-          }
-        />
-
-        <Collapse in={enabled}>
-          <Box sx={{ mt: 3 }}>
-            <Grid container spacing={3}>
-              {/* Monto del abono */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  required
-                  label="Monto del Abono"
-                  value={
-                    // Si el monto es 0 y el método no es crédito, lo mostramos vacío
-                    // para cumplir con el requerimiento de "vacío por defecto".
-                    value?.amount === 0 && (value?.paymentMethod || 'CASH') !== 'CREDIT'
-                      ? ''
-                      : value?.amount !== undefined && value?.amount !== null
-                      ? formatCurrencyInput(value.amount)
-                      : ''
-                  }
+    <Card variant="outlined" sx={{ borderRadius: 2 }}>
+      <CardContent sx={{ pb: '16px !important' }}>
+        <Box display="flex" alignItems="center" mb={required ? 2 : 0}>
+          {!required ? (
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={enabled}
                   onChange={(e) => {
-                    const rawValue = e.target.value.replace(/\D/g, '');
-                    const amount = rawValue ? parseInt(rawValue, 10) : 0;
-                    handleFieldChange('amount', amount);
-                  }}
-                  error={!!errors['payment.amount']}
-                  helperText={
-                    errors['payment.amount'] ||
-                    (disabled ? 'Primero seleccione un cliente' : `Máximo: ${formatCurrency(total)}`)
-                  }
-                  disabled={disabled}
-                  InputProps={{
-                    startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>,
-                  }}
-                  inputProps={{
-                    style: { textAlign: 'right' },
-                  }}
-                />
-              </Grid>
-
-              {/* Método de pago */}
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth disabled={disabled}>
-                  <FormLabel>Método de Pago</FormLabel>
-                  <RadioGroup
-                    value={value?.paymentMethod || 'CASH'}
-                    onChange={(e) =>
-                      handleFieldChange(
-                        'paymentMethod',
-                        e.target.value as PaymentMethod
-                      )
+                    onEnabledChange(e.target.checked);
+                    if (!e.target.checked) {
+                      onChange(null);
                     }
-                  >
-                    {(
-                      Object.entries(PAYMENT_METHOD_LABELS) as [
-                        PaymentMethod,
-                        string
-                      ][]
-                    ).map(([method, label]) => (
-                      <FormControlLabel
-                        key={method}
-                        value={method}
-                        control={<Radio size="small" />}
-                        label={label}
-                      />
-                    ))}
-                  </RadioGroup>
-                </FormControl>
-              </Grid>
-
-              {/* Referencia */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Número de Referencia"
-                  placeholder="Ej: REF-12345, Transf-001"
-                  value={value?.reference || ''}
-                  onChange={(e) => handleFieldChange('reference', e.target.value)}
+                  }}
                   disabled={disabled}
-                  helperText="Opcional: Número de comprobante, transferencia, etc."
                 />
-              </Grid>
+              }
+              label={
+                <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+                  Registrar abono inicial
+                </Typography>
+              }
+            />
+          ) : (
+            <>
+              <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
+                4. Abono Inicial (Obligatorio)
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+            </>
+          )}
+        </Box>
 
-              {/* Notas */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Notas del Pago"
-                  placeholder="Ej: Anticipo del 50%"
-                  value={value?.notes || ''}
-                  onChange={(e) => handleFieldChange('notes', e.target.value)}
-                  disabled={disabled}
-                  helperText="Opcional: Observaciones sobre el pago"
-                />
-              </Grid>
+        <Collapse in={enabled || required}>
+          <Grid container spacing={2}>
+            {/* Fila 1: Monto y Método de Pago */}
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                required
+                label="Monto del Abono"
+                size="medium"
+                value={
+                  value?.amount === 0 && (value?.paymentMethod || 'CASH') !== 'CREDIT'
+                    ? ''
+                    : value?.amount !== undefined && value?.amount !== null
+                    ? formatCurrencyInput(value.amount)
+                    : ''
+                }
+                onChange={(e) => {
+                  const rawValue = e.target.value.replace(/\D/g, '');
+                  const amount = rawValue ? parseInt(rawValue, 10) : 0;
+                  handleFieldChange('amount', amount);
+                }}
+                error={!!errors['payment.amount']}
+                helperText={
+                  errors['payment.amount'] ||
+                  (disabled ? 'Primero seleccione un cliente' : `Máximo: ${formatCurrency(total)}`)
+                }
+                disabled={disabled}
+                InputProps={{
+                  startAdornment: <Typography sx={{ mr: 1, color: 'text.secondary', fontWeight: 500 }}>$</Typography>,
+                }}
+                inputProps={{
+                  style: { textAlign: 'right', fontWeight: 600 },
+                }}
+              />
+            </Grid>
 
-              {/* Saldo calculado */}
-              <Grid item xs={12}>
-                <Divider sx={{ my: 1 }} />
-                <Box
-                  display="flex"
-                  justifyContent="space-between"
-                  alignItems="center"
-                  sx={{ mt: 2 }}
+            <Grid item xs={12} md={8}>
+              <FormControl component="fieldset" fullWidth disabled={disabled}>
+                <FormLabel component="legend" sx={{ fontSize: '0.75rem', mb: 0.5 }}>Método de Pago</FormLabel>
+                <RadioGroup
+                  row
+                  value={value?.paymentMethod || 'CASH'}
+                  onChange={(e) =>
+                    handleFieldChange(
+                      'paymentMethod',
+                      e.target.value as PaymentMethod
+                    )
+                  }
+                  sx={{ gap: 1 }}
                 >
-                  <Typography variant="subtitle1" fontWeight={500}>
-                    Saldo Pendiente:
+                  {(
+                    Object.entries(PAYMENT_METHOD_LABELS) as [
+                      PaymentMethod,
+                      string
+                    ][]
+                  ).map(([method, label]) => (
+                    <FormControlLabel
+                      key={method}
+                      value={method}
+                      control={<Radio size="small" />}
+                      label={<Typography variant="body2">{label}</Typography>}
+                      sx={{ mr: 1 }}
+                    />
+                  ))}
+                </RadioGroup>
+              </FormControl>
+            </Grid>
+
+            {/* Fila 2: Referencia y Notas */}
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                size="medium"
+                label="Referencia"
+                placeholder="Ej: REF-12345"
+                value={value?.reference || ''}
+                onChange={(e) => handleFieldChange('reference', e.target.value)}
+                disabled={disabled}
+              />
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                size="medium"
+                label="Notas del Pago"
+                placeholder="Ej: Anticipo"
+                value={value?.notes || ''}
+                onChange={(e) => handleFieldChange('notes', e.target.value)}
+                disabled={disabled}
+              />
+            </Grid>
+
+            {/* Fila 3: Saldo Calculado */}
+            <Grid item xs={12}>
+              <Box
+                sx={{
+                  mt: 1,
+                  p: 1.5,
+                  borderRadius: 1,
+                  border: '1px solid #4b4545ff',
+                  bgcolor: (theme) => theme.palette.mode === 'dark' ? 'transparent' : 'rgba(0,0,0,0.02)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.secondary' }}>
+                  
+                </Typography>
+                <Box sx={{ textAlign: 'right' }}>
+                  <Typography variant="caption" sx={{ 
+                    fontSize: '1.1rem',
+                    display: 'inline-block', color: 'text.secondary' }}>
+                    Saldo Pendiente
                   </Typography>
                   <Typography
                     variant="h6"
-                    fontWeight={600}
-                    color={balance > 0 ? 'warning.main' : 'success.main'}
+                    sx={{
+                      display: 'inline-block',
+                      marginLeft: '10px',
+                      fontSize: '1.7rem',
+                      fontWeight: 700,
+                      color: balance > 0 ? 'warning.main' : 'success.main',
+                      lineHeight: 1.2
+                    }}
                   >
                     {formatCurrency(balance)}
                   </Typography>
                 </Box>
-              </Grid>
+              </Box>
             </Grid>
-          </Box>
+          </Grid>
         </Collapse>
       </CardContent>
     </Card>

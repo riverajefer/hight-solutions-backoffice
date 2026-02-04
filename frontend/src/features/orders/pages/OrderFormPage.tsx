@@ -159,8 +159,8 @@ export const OrderFormPage: React.FC = () => {
           total: 0,
         },
       ],
-      applyTax: true,
-      taxRate: 19,
+      applyTax: false,
+      taxRate: 0,
       payment: {
         amount: 0,
         paymentMethod: 'CASH',
@@ -311,47 +311,42 @@ export const OrderFormPage: React.FC = () => {
 
       <form onSubmit={handleSubmit(onSubmit)}>
         <Stack spacing={3} sx={{ mt: 3 }}>
-          {/* Sección 1: Cliente */}
+          {/* Sección 1: Información del Cliente y Fechas */}
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                1. Cliente
+              <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
+                1. Información del Cliente y Fechas
               </Typography>
               <Divider sx={{ mb: 2 }} />
-              <Controller
-                name="client"
-                control={control}
-                render={({ field }) => (
-                  <ClientSelector
-                    value={field.value}
-                    onChange={field.onChange}
-                    error={!!errors.client}
-                    helperText={errors.client?.message}
+              
+              <Grid container spacing={3}>
+                <Grid item xs={12}>
+                  <Controller
+                    name="client"
+                    control={control}
+                    render={({ field }) => (
+                      <ClientSelector
+                        value={field.value}
+                        onChange={field.onChange}
+                        error={!!errors.client}
+                        helperText={errors.client?.message}
+                      />
+                    )}
                   />
-                )}
-              />
-            </CardContent>
-          </Card>
+                </Grid>
 
-          {/* Sección 2: Fechas */}
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                2. Fechas
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              <Grid container spacing={2}>
                 {/* Fecha de Orden (readonly) */}
                 <Grid item xs={12} sm={4}>
                   <TextField
                     fullWidth
                     label="Fecha de Orden"
+                    size="small"
                     value={new Date().toLocaleDateString('es-CO')}
                     disabled={!isClientSelected}
                     InputProps={{
                       readOnly: true,
                     }}
-                    helperText="Se registrará automáticamente al crear la orden"
+                    helperText="Fecha de registro"
                   />
                 </Grid>
 
@@ -370,9 +365,10 @@ export const OrderFormPage: React.FC = () => {
                         slotProps={{
                           textField: {
                             fullWidth: true,
+                            size: 'small',
                             helperText: isClientSelected
-                              ? 'Fecha estimada de entrega al cliente'
-                              : 'Primero seleccione un cliente',
+                              ? 'Fecha estimada'
+                              : 'Seleccione cliente',
                           },
                         }}
                       />
@@ -385,11 +381,12 @@ export const OrderFormPage: React.FC = () => {
                   <TextField
                     fullWidth
                     label="Creado por"
+                    size="small"
                     value={currentUserFullName}
                     InputProps={{
                       readOnly: true,
                     }}
-                    helperText="Usuario que crea la orden"
+                    helperText="Usuario responsable"
                   />
                 </Grid>
               </Grid>
@@ -399,8 +396,8 @@ export const OrderFormPage: React.FC = () => {
           {/* Sección 3: Items */}
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                3. Items de la Orden
+              <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
+                2. Items de la Orden
               </Typography>
               <Divider sx={{ mb: 2 }} />
               {!isClientSelected && (
@@ -466,8 +463,8 @@ export const OrderFormPage: React.FC = () => {
           {/* Sección 6: Notas */}
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                6. Observaciones
+              <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
+                5. Observaciones
               </Typography>
               <Divider sx={{ mb: 2 }} />
               <Controller
