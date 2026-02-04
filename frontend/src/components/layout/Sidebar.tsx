@@ -15,7 +15,6 @@ import {
 } from '@mui/material';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import DashboardIcon from '@mui/icons-material/Dashboard';
-import PeopleIcon from '@mui/icons-material/People';
 import SecurityIcon from '@mui/icons-material/Security';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import HistoryIcon from '@mui/icons-material/History';
@@ -25,13 +24,18 @@ import WorkIcon from '@mui/icons-material/Work';
 import BadgeIcon from '@mui/icons-material/Badge';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import InventoryIcon from '@mui/icons-material/Inventory';
-import StraightenIcon from '@mui/icons-material/Straighten';
-import CategoryIcon from '@mui/icons-material/Category';
 import MiscellaneousServicesIcon from '@mui/icons-material/MiscellaneousServices';
-import FolderSpecialIcon from '@mui/icons-material/FolderSpecial';
-import Inventory2Icon from '@mui/icons-material/Inventory2';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import FactoryIcon from '@mui/icons-material/Factory';
+import StoreIcon from '@mui/icons-material/Store';
+import ReceiptIcon from '@mui/icons-material/Receipt';
+import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
+import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
+import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined';
+import FolderSpecialOutlinedIcon from '@mui/icons-material/FolderSpecialOutlined';
+import StraightenOutlinedIcon from '@mui/icons-material/StraightenOutlined';
+import EngineeringIcon from '@mui/icons-material/Engineering';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import { useAuthStore } from '../../store/authStore';
@@ -46,6 +50,23 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
+interface NavItemSub {
+  label: string;
+  path: string;
+  icon?: React.ReactNode;
+  permission?: string;
+}
+
+interface NavItem {
+  label: string;
+  icon: React.ReactNode;
+  path?: string;
+  permission?: string | null;
+  permissions?: string[];
+  menuKey?: string;
+  submenu?: NavItemSub[];
+}
+
 /**
  * Sidebar con navegación estilo Neón Elegante
  */
@@ -56,14 +77,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
   const isDark = theme.palette.mode === 'dark';
   const { hasPermission } = useAuthStore();
   const [menuOpen, setMenuOpen] = React.useState({
-    users: false,
-    roles: false,
-    permissions: false,
-    areas: false,
-    cargos: false,
-    clientes: false,
-    proveedores: false,
-    portfolio: false,
+    comercial: false,
+    logistica: false,
+    organizacion: false,
+    configuracion: false,
   });
 
   const handleMenuClick = (menu: keyof typeof menuOpen) => {
@@ -90,7 +107,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
     return !hasMoreSpecificSibling;
   };
 
-  const navItems = [
+  const navItems: NavItem[] = [
     {
       label: 'Dashboard',
       icon: <DashboardIcon />,
@@ -98,66 +115,51 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
       permission: null,
     },
     {
-      label: 'Usuarios',
-      icon: <PeopleIcon />,
+      label: 'Comercial',
+      icon: <ShoppingCartIcon />,
+      menuKey: 'comercial',
       submenu: [
         {
-          label: 'Listar Usuarios',
-          path: ROUTES.USERS,
-          permission: PERMISSIONS.READ_USERS,
+          label: 'Órdenes de Pedido',
+          icon: <ReceiptIcon />,
+          path: ROUTES.ORDERS,
+          permission: PERMISSIONS.READ_ORDERS,
         },
         {
-          label: 'Crear Usuario',
-          path: ROUTES.USERS_CREATE,
-          permission: PERMISSIONS.CREATE_USERS,
-        },
-      ],
-      permission: PERMISSIONS.READ_USERS,
-    },
-    {
-      label: 'Clientes',
-      icon: <BadgeIcon />,
-      submenu: [
-        {
-          label: 'Listar Clientes',
+          label: 'Clientes',
+          icon: <BadgeIcon />,
           path: ROUTES.CLIENTS,
           permission: PERMISSIONS.READ_CLIENTS,
         },
         {
-          label: 'Crear Cliente',
-          path: ROUTES.CLIENTS_CREATE,
-          permission: PERMISSIONS.CREATE_CLIENTS,
+          label: 'Canales de Venta',
+          icon: <StoreIcon />,
+          path: '/commercial-channels',
+          permission: PERMISSIONS.READ_COMMERCIAL_CHANNELS,
         },
       ],
-      permission: PERMISSIONS.READ_CLIENTS,
+      permissions: [
+        PERMISSIONS.READ_ORDERS,
+        PERMISSIONS.READ_CLIENTS,
+        PERMISSIONS.READ_COMMERCIAL_CHANNELS,
+      ],
     },
     {
-      label: 'Proveedores',
-      icon: <LocalShippingIcon />,
+      label: 'Logística',
+      icon: <InventoryIcon />,
+      menuKey: 'logistica',
       submenu: [
         {
-          label: 'Listar Proveedores',
+          label: 'Proveedores',
+          icon: <LocalShippingIcon />,
           path: ROUTES.SUPPLIERS,
           permission: PERMISSIONS.READ_SUPPLIERS,
         },
         {
-          label: 'Crear Proveedor',
-          path: ROUTES.SUPPLIERS_CREATE,
-          permission: PERMISSIONS.CREATE_SUPPLIERS,
-        },
-      ],
-      permission: PERMISSIONS.READ_SUPPLIERS,
-    },
-    {
-      label: 'Catalogo',
-      icon: <InventoryIcon />,
-      submenu: [
-
-        {
-          label: 'Categorías de Servicios',
-          icon: <CategoryIcon />,
-          path: ROUTES.SERVICE_CATEGORIES,
-          permission: PERMISSIONS.READ_SERVICE_CATEGORIES,
+          label: 'Áreas de Producción',
+          icon: <FactoryIcon />,
+          path: ROUTES.PRODUCTION_AREAS,
+          permission: PERMISSIONS.READ_PRODUCTION_AREAS,
         },
         {
           label: 'Servicios',
@@ -166,127 +168,115 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
           permission: PERMISSIONS.READ_SERVICES,
         },
         {
-          label: 'Categorías de Insumos',
-          icon: <FolderSpecialIcon />,
-          path: ROUTES.SUPPLY_CATEGORIES,
-          permission: PERMISSIONS.READ_SUPPLY_CATEGORIES,
-        },
-        {
           label: 'Insumos',
-          icon: <Inventory2Icon />,
+          icon: <Inventory2OutlinedIcon />,
           path: ROUTES.SUPPLIES,
           permission: PERMISSIONS.READ_SUPPLIES,
         },
         {
+          label: 'Categorías Servicios',
+          icon: <CategoryOutlinedIcon />,
+          path: ROUTES.SERVICE_CATEGORIES,
+          permission: PERMISSIONS.READ_SERVICE_CATEGORIES,
+        },
+        {
+          label: 'Categorías Insumos',
+          icon: <FolderSpecialOutlinedIcon />,
+          path: ROUTES.SUPPLY_CATEGORIES,
+          permission: PERMISSIONS.READ_SUPPLY_CATEGORIES,
+        },
+        {
           label: 'Unidades de Medida',
-          icon: <StraightenIcon />,
+          icon: <StraightenOutlinedIcon />,
           path: ROUTES.UNITS_OF_MEASURE,
           permission: PERMISSIONS.READ_UNITS_OF_MEASURE,
         },
       ],
-      // El menú se muestra si el usuario tiene permiso para cualquiera de los submódulos
       permissions: [
-        PERMISSIONS.READ_UNITS_OF_MEASURE,
-        PERMISSIONS.READ_SERVICE_CATEGORIES,
+        PERMISSIONS.READ_SUPPLIERS,
+        PERMISSIONS.READ_PRODUCTION_AREAS,
         PERMISSIONS.READ_SERVICES,
-        PERMISSIONS.READ_SUPPLY_CATEGORIES,
         PERMISSIONS.READ_SUPPLIES,
+        PERMISSIONS.READ_SERVICE_CATEGORIES,
+        PERMISSIONS.READ_SUPPLY_CATEGORIES,
+        PERMISSIONS.READ_UNITS_OF_MEASURE,
       ],
     },
     {
-      label: 'Órdenes de Pedido',
-      icon: <ShoppingCartIcon />,
-      path: ROUTES.ORDERS,
-      permission: PERMISSIONS.READ_ORDERS,
-    },
-    {
-      label: 'Canales de Venta',
-      icon: <ShoppingCartIcon />,
-      path: '/commercial-channels',
-      permission: PERMISSIONS.READ_COMMERCIAL_CHANNELS,
-    },
-    {
-      label: 'Áreas',
-      icon: <BusinessIcon />,
+      label: 'Organización',
+      icon: <EngineeringIcon />,
+      menuKey: 'organizacion',
       submenu: [
         {
-          label: 'Listar Áreas',
+          label: 'Usuarios',
+          icon: <PeopleAltIcon />,
+          path: ROUTES.USERS,
+          permission: PERMISSIONS.READ_USERS,
+        },
+        {
+          label: 'Áreas',
+          icon: <BusinessIcon />,
           path: ROUTES.AREAS,
           permission: PERMISSIONS.READ_AREAS,
         },
         {
-          label: 'Crear Área',
-          path: ROUTES.AREAS_CREATE,
-          permission: PERMISSIONS.CREATE_AREAS,
-        },
-      ],
-      permission: PERMISSIONS.READ_AREAS,
-    },
-    {
-      label: 'Cargos',
-      icon: <WorkIcon />,
-      submenu: [
-        {
-          label: 'Listar Cargos',
+          label: 'Cargos',
+          icon: <WorkIcon />,
           path: ROUTES.CARGOS,
           permission: PERMISSIONS.READ_CARGOS,
         },
-        {
-          label: 'Crear Cargo',
-          path: ROUTES.CARGOS_CREATE,
-          permission: PERMISSIONS.CREATE_CARGOS,
-        },
       ],
-      permission: PERMISSIONS.READ_CARGOS,
+      permissions: [
+        PERMISSIONS.READ_USERS,
+        PERMISSIONS.READ_AREAS,
+        PERMISSIONS.READ_CARGOS,
+      ],
     },
     {
-      label: 'Áreas de Producción',
-      icon: <FactoryIcon />,
-      path: ROUTES.PRODUCTION_AREAS,
-      permission: PERMISSIONS.READ_PRODUCTION_AREAS,
-    },
-    {
-      label: 'Roles',
+      label: 'Seguridad',
       icon: <SecurityIcon />,
+      menuKey: 'configuracion',
       submenu: [
         {
-          label: 'Listar Roles',
+          label: 'Roles',
+          icon: <AdminPanelSettingsIcon />,
           path: ROUTES.ROLES,
           permission: PERMISSIONS.READ_ROLES,
         },
         {
-          label: 'Crear Rol',
-          path: ROUTES.ROLES_CREATE,
-          permission: PERMISSIONS.CREATE_ROLES,
+          label: 'Permisos',
+          icon: <VerifiedUserIcon />,
+          path: ROUTES.PERMISSIONS,
+          permission: PERMISSIONS.READ_PERMISSIONS,
+        },
+        {
+          label: 'Logs de Auditoría',
+          icon: <HistoryIcon />,
+          path: ROUTES.AUDIT_LOGS,
+          permission: PERMISSIONS.READ_AUDIT_LOGS,
+        },
+        {
+          label: 'Historial de Sesiones',
+          icon: <LoginIcon />,
+          path: ROUTES.SESSION_LOGS,
+          permission: PERMISSIONS.READ_SESSION_LOGS,
         },
       ],
-      permission: PERMISSIONS.READ_ROLES,
-    },
-    {
-      label: 'Permisos',
-      icon: <VerifiedUserIcon />,
-      path: ROUTES.PERMISSIONS,
-      permission: PERMISSIONS.READ_PERMISSIONS,
-    },
-    {
-      label: 'Logs de Auditoría',
-      icon: <HistoryIcon />,
-      path: ROUTES.AUDIT_LOGS,
-      permission: PERMISSIONS.READ_AUDIT_LOGS,
-    },
-    {
-      label: 'Historial de Sesiones',
-      icon: <LoginIcon />,
-      path: ROUTES.SESSION_LOGS,
-      permission: PERMISSIONS.READ_SESSION_LOGS,
+      permissions: [
+        PERMISSIONS.READ_ROLES,
+        PERMISSIONS.READ_PERMISSIONS,
+        PERMISSIONS.READ_AUDIT_LOGS,
+        PERMISSIONS.READ_SESSION_LOGS,
+      ],
     },
   ];
 
   const getItemStyles = (active: boolean) => ({
-    mx: 1.5,
+    mx: 0.50,
     my: 0.5,
-    borderRadius: '12px',
-    transition: 'all 0.3s ease',
+    borderRadius: '8px',
+    py: 0.9,
+    transition: 'all 0.2s ease',
     position: 'relative' as const,
     background: active
       ? isDark
@@ -322,8 +312,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
     '& .MuiListItemIcon-root': {
       color: active
         ? neonColors.primary.main
-        : theme.palette.text.secondary,
-      minWidth: 40,
+        : theme.palette.text.primary,
+      minWidth: 36,
       transition: 'all 0.3s ease',
       filter: active && isDark
         ? `drop-shadow(0 0 4px ${alpha(neonColors.primary.main, 0.6)})`
@@ -349,28 +339,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
       {/* Logo Container */}
       <Box
         sx={{
-          p: 3,
-          m: 2,
-          mb: 3,
+          p: 1.5,
+          m: 1.5,
+          mb: 2,
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          borderRadius: '16px',
+          borderRadius: '12px',
           background: isDark
             ? `linear-gradient(135deg, ${darkSurfaces.navyMist} 0%, ${darkSurfaces.cosmicPurple} 100%)`
             : `linear-gradient(135deg, #1e293b 0%, #0f172a 100%)`,
           boxShadow: isDark
-            ? `0 10px 30px ${alpha(neonColors.primary.main, 0.2)}, 0 0 20px ${alpha(neonAccents.vividPurple, 0.15)}`
-            : '0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+            ? `0 6px 20px ${alpha(neonColors.primary.main, 0.15)}, 0 0 15px ${alpha(neonAccents.vividPurple, 0.1)}`
+            : '0 8px 20px -5px rgba(0, 0, 0, 0.15)',
           border: isDark
             ? `1px solid ${alpha(neonAccents.vividPurple, 0.3)}`
             : 'none',
           transition: 'all 0.3s ease',
           '&:hover': {
             boxShadow: isDark
-              ? `0 15px 40px ${alpha(neonColors.primary.main, 0.25)}, 0 0 30px ${alpha(neonAccents.vividPurple, 0.2)}`
-              : '0 15px 30px -5px rgba(0, 0, 0, 0.25)',
-            transform: 'translateY(-2px)',
+              ? `0 10px 30px ${alpha(neonColors.primary.main, 0.2)}, 0 0 20px ${alpha(neonAccents.vividPurple, 0.15)}`
+              : '0 12px 25px -5px rgba(0, 0, 0, 0.2)',
+            transform: 'translateY(-1.5px)',
           },
         }}
       >
@@ -380,7 +370,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
           alt="Hight Solutions Logo"
           sx={{
             width: '100%',
-            maxWidth: 160,
+            maxWidth: 130,
             height: 'auto',
             objectFit: 'contain',
             transition: 'transform 0.3s ease',
@@ -404,7 +394,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
           }
 
           if (item.submenu) {
-            const menuKey = item.label.toLowerCase() as keyof typeof menuOpen;
+            const menuKey = (item.menuKey || item.label.toLowerCase()) as keyof typeof menuOpen;
             const isMenuOpen = menuOpen[menuKey];
             const siblingPaths = item.submenu.map(sub => sub.path);
             const isSubChildActive = item.submenu.some((sub) => isActive(sub.path, siblingPaths));
@@ -422,7 +412,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
                   </ListItemButton>
                 </ListItem>
                 <Collapse in={isMenuOpen} timeout="auto" unmountOnExit>
-                  <List component="div" disablePadding sx={{ mb: 1 }}>
+                  <List component="div" disablePadding sx={{ mb: 0.25 }}>
                     {item.submenu.map((subitem, subindex) => {
                       if (subitem.permission && !hasPermission(subitem.permission)) {
                         return null;
@@ -436,15 +426,29 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
                             to={subitem.path}
                             sx={{
                               ...getItemStyles(active),
-                              pl: 6,
-                              mx: 2,
+                              pl: 2.5,
+                              py: 0.3,
+                              mx: 1.25,
                               '&:hover': {
                                 ...getItemStyles(active)['&:hover'],
-                                transform: 'translateX(6px)',
+                                transform: 'translateX(3px)',
                               }
                             }}
                           >
-                            <ListItemText primary={subitem.label} />
+                            {subitem.icon && (
+                              <ListItemIcon sx={{ minWidth: 30, '& .MuiSvgIcon-root': { fontSize: '1.05rem' } }}>
+                                {subitem.icon}
+                              </ListItemIcon>
+                            )}
+                            <ListItemText 
+                              primary={subitem.label} 
+                              primaryTypographyProps={{ 
+                                sx: { 
+                                  fontSize: '0.8rem',
+                                  fontWeight: active ? 600 : 400
+                                } 
+                              }} 
+                            />
                           </ListItemButton>
                         </ListItem>
                       );
