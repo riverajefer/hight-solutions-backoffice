@@ -184,12 +184,25 @@ const isPrimitive = (value: unknown): boolean =>
 const buildItemDescriptions = (logs: AuditLog[]): Map<string, string> => {
   const map = new Map<string, string>();
   for (const log of logs) {
+    // 1. Logs directos de OrderItem
     if (log.model === 'OrderItem' && log.recordId) {
       const desc =
         (log.newData as Record<string, unknown>)?.description ||
         (log.oldData as Record<string, unknown>)?.description;
       if (typeof desc === 'string' && desc) {
         map.set(log.recordId, desc);
+      }
+    }
+    // 2. Logs de Order que contienen items en sus datos (como los generados por logOrderChange)
+    const possibleItems =
+      (log.newData as Record<string, unknown>)?.items ||
+      (log.oldData as Record<string, unknown>)?.items;
+
+    if (Array.isArray(possibleItems)) {
+      for (const item of possibleItems) {
+        if (item && typeof item === 'object' && item.id && item.description) {
+          map.set(String(item.id), String(item.description));
+        }
       }
     }
   }
@@ -443,10 +456,16 @@ export const OrderChangeHistoryTab: React.FC<OrderChangeHistoryTabProps> = ({
 }) => {
   const { data: auditLogs, isLoading, isError } = useRecordHistory(orderId);
 
-  const events = useMemo(
-    () => (auditLogs ? groupLogsByEvent(auditLogs) : []),
-    [auditLogs],
-  );
+  const events = useMemo(() => {
+    if (!auditLogs) return [];
+    const grouped = groupLogsByEvent(auditLogs);
+    // No mostrar el evento de creación inicial de la orden
+    return grouped.filter((event) => {
+      const isOrderCreate =
+        event.action === 'CREATE' && event.logs.some((l) => l.model === 'Order');
+      return !isOrderCreate;
+    });
+  }, [auditLogs]);
 
   /** Mapa itemId → descripción, escaneado de todos los logs */
   const itemDescriptions = useMemo(
@@ -629,7 +648,10 @@ export const OrderChangeHistoryTab: React.FC<OrderChangeHistoryTabProps> = ({
                                   variant="body2"
                                   sx={{ fontWeight: 700, color: 'info.main' }}
                                 >
-                                  {itemChanges[0].itemDescription ?? 'Item'}
+                                  {itemChanges[0].itemDescription || 
+                                   itemChanges.find(c => c.label === 'Descripción')?.oldValue ||
+                                   itemChanges.find(c => c.label === 'Descripción')?.newValue ||
+                                   'Item'}
                                 </Typography>
                               </Box>
                               {/* Cambios del item */}
