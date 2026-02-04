@@ -52,6 +52,7 @@ const orderItemSchema = z.object({
   total: z.number().min(0),
   serviceId: z.string().optional(),
   specifications: z.record(z.any()).optional(),
+  productionAreaIds: z.array(z.string()),
 });
 
 const initialPaymentSchema = z
@@ -168,6 +169,7 @@ export const OrderFormPage: React.FC = () => {
           quantity: '',
           unitPrice: '',
           total: 0,
+          productionAreaIds: [],
         },
       ],
       applyTax: false,
@@ -238,6 +240,9 @@ export const OrderFormPage: React.FC = () => {
           total: parseFloat(item.total),
           serviceId: item.service?.id,
           specifications: item.specifications || undefined,
+          productionAreaIds: item.productionAreas
+            ? item.productionAreas.map((pa) => pa.productionArea.id)
+            : [],
         }))
       );
       setValue('applyTax', parseFloat(order.taxRate) > 0);
@@ -271,6 +276,7 @@ export const OrderFormPage: React.FC = () => {
           unitPrice: parseFloat(item.unitPrice),
           serviceId: item.serviceId,
           specifications: item.specifications,
+          productionAreaIds: item.productionAreaIds,
         })),
         initialPayment: {
           amount: data.payment.amount,

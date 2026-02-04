@@ -60,6 +60,16 @@ export class OrdersRepository {
             slug: true,
           },
         },
+        productionAreas: {
+          select: {
+            productionArea: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
       },
       orderBy: { sortOrder: 'asc' as const },
     },

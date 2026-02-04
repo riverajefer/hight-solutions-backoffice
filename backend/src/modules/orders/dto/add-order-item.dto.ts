@@ -5,6 +5,7 @@ import {
   IsString,
   IsNumber,
   IsPositive,
+  IsArray,
   Min,
 } from 'class-validator';
 
@@ -46,4 +47,13 @@ export class AddOrderItemDto {
   })
   @IsOptional()
   specifications?: Record<string, any>;
+
+  @ApiPropertyOptional({
+    description: 'IDs de las áreas de producción asociadas',
+    example: ['uuid-area-1', 'uuid-area-2'],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsUUID('all', { each: true })
+  productionAreaIds?: string[];
 }
