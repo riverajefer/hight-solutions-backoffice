@@ -58,7 +58,7 @@ const ClientDetailPage: React.FC = () => {
         <Typography variant="caption" color="text.secondary">
           {label}
         </Typography>
-        <Typography variant="body1">{value || '-'}</Typography>
+        <Typography variant="body1" component="div">{value || '-'}</Typography>
       </Box>
     </Box>
   );

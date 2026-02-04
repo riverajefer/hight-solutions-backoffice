@@ -142,6 +142,7 @@ export const ROUTES = {
   ORDERS_CREATE: '/orders/new',
   ORDERS_EDIT: '/orders/:id/edit',
   ORDERS_DETAIL: '/orders/:id',
+  PENDING_PAYMENT_ORDERS: '/orders/pending-payment',
 
 };
 

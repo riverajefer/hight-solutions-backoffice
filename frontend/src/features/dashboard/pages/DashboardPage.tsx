@@ -24,6 +24,8 @@ import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined';
 import FolderSpecialOutlinedIcon from '@mui/icons-material/FolderSpecialOutlined';
 import StraightenOutlinedIcon from '@mui/icons-material/StraightenOutlined';
 import EngineeringIcon from '@mui/icons-material/Engineering';
+import PaymentsIcon from '@mui/icons-material/Payments';
+
 
 import { 
   usersApi, 
@@ -398,12 +400,22 @@ const DashboardPage: React.FC = () => {
     },
   });
 
+  const { data: pendingOrdersData, isLoading: pendingOrdersLoading } = useQuery({
+    queryKey: ['orders-pending-payment'],
+    queryFn: async () => {
+      if (!hasPermission(PERMISSIONS.READ_ORDERS)) return { data: [], meta: { total: 0 } };
+      // Simulado: traemos un lote razonable para el dashboard
+      // Lo ideal sería un filtro en el backend, pero seguimos la lógica de la página
+      return ordersApi.getAll({ limit: 100 });
+    },
+  });
+
   const isLoading = 
     usersLoading || rolesLoading || permissionsLoading || clientsLoading || 
     suppliersLoading || areasLoading || cargosLoading || auditLogsLoading || 
     sessionLogsLoading || ordersLoading || servicesLoading || suppliesLoading || 
     productionAreasLoading || channelsLoading || serviceCatsLoading || 
-    supplyCatsLoading || unitsLoading;
+    supplyCatsLoading || unitsLoading || pendingOrdersLoading;
   
   // Logs de verificación de permisos específicos
   console.log('=== VERIFICACIÓN DE PERMISOS ESPECÍFICOS ===');
@@ -413,6 +425,16 @@ const DashboardPage: React.FC = () => {
   console.log(`${PERMISSIONS.CREATE_USERS}:`, hasPermission(PERMISSIONS.CREATE_USERS));
   console.log(`${PERMISSIONS.CREATE_ROLES}:`, hasPermission(PERMISSIONS.CREATE_ROLES));
   console.log('===========================================');
+
+  const PENDING_PAYMENT_STATUSES = React.useMemo(() => ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED'], []);
+  const pendingOrdersCount = React.useMemo(() => {
+    const allOrders = pendingOrdersData?.data || [];
+    return allOrders.filter(
+      (order: any) =>
+        PENDING_PAYMENT_STATUSES.includes(order.status) &&
+        parseFloat(order.balance) > 0,
+    ).length;
+  }, [pendingOrdersData, PENDING_PAYMENT_STATUSES]);
 
   if (isLoading) {
     return <LoadingSpinner />;
@@ -559,6 +581,21 @@ const DashboardPage: React.FC = () => {
               />
             </Grid>
           )}
+          {hasPermission(PERMISSIONS.READ_ORDERS) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Órdenes Pendientes"
+                value={pendingOrdersCount}
+                icon={<PaymentsIcon />}
+                color="#F97316"
+                neonColor={NEON_COLORS.general}
+                action={{
+                  label: 'Ver pendientes',
+                  onClick: () => navigate(ROUTES.PENDING_PAYMENT_ORDERS),
+                }}
+              />
+            </Grid>
+          )}
           {hasPermission(PERMISSIONS.READ_CLIENTS) && (
             <Grid item xs={12} sm={6} md={4} lg={3}>
               <StatCard
@@ -681,6 +718,21 @@ const DashboardPage: React.FC = () => {
                 action={{
                   label: 'Ver órdenes',
                   onClick: () => navigate(ROUTES.ORDERS),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_ORDERS) && (
+            <Grid item xs={12} sm={6} md={4}>
+              <StatCard
+                title="Órdenes Pendientes de Pago"
+                value={pendingOrdersCount}
+                icon={<PaymentsIcon />}
+                color="#F97316"
+                neonColor={NEON_COLORS.commercial}
+                action={{
+                  label: 'Gestionar pagos',
+                  onClick: () => navigate(ROUTES.PENDING_PAYMENT_ORDERS),
                 }}
               />
             </Grid>
