@@ -61,6 +61,11 @@ export const PATHS = {
   ORDERS_EDIT: '/orders/:id/edit',
   ORDERS_DETAIL: '/orders/:id',
   PENDING_PAYMENT_ORDERS: '/orders/pending-payment',
+  // Quotes Routes
+  QUOTES: '/quotes',
+  QUOTES_CREATE: '/quotes/new',
+  QUOTES_EDIT: '/quotes/:id/edit',
+  QUOTES_DETAIL: '/quotes/:id',
   // Commercial Channels Routes
   COMMERCIAL_CHANNELS: '/commercial-channels',
   COMMERCIAL_CHANNELS_CREATE: '/commercial-channels/new',
