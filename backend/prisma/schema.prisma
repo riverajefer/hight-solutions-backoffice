@@ -29,6 +29,7 @@ model User {
   requestedEditRequests OrderEditRequest[] @relation("RequestedEditRequests")
   reviewedEditRequests  OrderEditRequest[] @relation("ReviewedEditRequests")
   notifications         Notification[]
+  createdQuotes         Quote[]
 
   @@map("users")
 }
@@ -176,6 +177,7 @@ model Client {
   department Department @relation(fields: [departmentId], references: [id])
   city       City       @relation(fields: [cityId], references: [id])
   orders     Order[]
+  quotes     Quote[]
 
   @@map("clients")
 }
@@ -279,6 +281,7 @@ model Service {
 
   category   ServiceCategory @relation(fields: [categoryId], references: [id])
   orderItems OrderItem[]
+  quoteItems QuoteItem[]
 
   @@unique([name, categoryId])
   @@map("services")
@@ -345,10 +348,19 @@ enum OrderStatus {
   CANCELLED     // Cancelada
 }
 
+enum QuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  CONVERTED
+  CANCELLED
+}
+
 model Consecutive {
   id         String   @id @default(uuid())
-  type       String   @unique // "ORDER", "PRODUCTION", "EXPENSE"
-  prefix     String   // "OP", "PROD", "GAS"
+  type       String   @unique // "ORDER", "PRODUCTION", "EXPENSE", "QUOTE"
+  prefix     String   // "OP", "PROD", "GAS", "COT"
   year       Int      // 2025, 2026, etc.
   lastNumber Int      @default(0) @map("last_number") // Último número generado
   createdAt  DateTime @default(now()) @map("created_at")
@@ -388,12 +400,79 @@ model Order {
   items              OrderItem[]
   payments           Payment[]
   editRequests       OrderEditRequest[]
+  
+  // Referencia a la cotización de origen
+  quoteId            String?            @unique @map("quote_id")
+  quote              Quote?             @relation("QuoteToOrder")
 
   @@index([clientId])
   @@index([createdById])
   @@index([orderDate])
   @@index([status])
   @@map("orders")
+}
+
+model Quote {
+  id           String      @id @default(uuid())
+  quoteNumber  String      @unique @map("quote_number") // "COT-2025-0001"
+  clientId     String      @map("client_id")
+  quoteDate    DateTime    @default(now()) @map("quote_date")
+  validUntil   DateTime?   @map("valid_until") // Validez de la cotización
+
+  // Cálculos financieros
+  subtotal     Decimal
+  taxRate      Decimal     @default(0.19) @map("tax_rate")
+  tax          Decimal
+  total        Decimal
+
+  status       QuoteStatus @default(DRAFT)
+  notes        String?
+
+  // Auditoría
+  createdById  String      @map("created_by_id")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  // Relaciones
+  client             Client             @relation(fields: [clientId], references: [id])
+  createdBy          User               @relation(fields: [createdById], references: [id])
+  commercialChannelId String?           @map("commercial_channel_id")
+  commercialChannel   CommercialChannel? @relation(fields: [commercialChannelId], references: [id])
+  items              QuoteItem[]
+  
+  // Referencia a la orden si se convirtió
+  orderId            String?            @unique @map("order_id")
+  order              Order?             @relation("QuoteToOrder", fields: [orderId], references: [id])
+
+  @@index([clientId])
+  @@index([createdById])
+  @@index([quoteDate])
+  @@index([status])
+  @@map("quotes")
+}
+
+model QuoteItem {
+  id             String  @id @default(uuid())
+  quoteId        String  @map("quote_id")
+  serviceId      String? @map("service_id")
+
+  description    String
+  quantity       Decimal
+  unitPrice      Decimal @map("unit_price")
+  total          Decimal
+
+  specifications Json?
+
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  quote           Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  service         Service? @relation(fields: [serviceId], references: [id])
+
+  @@index([quoteId])
+  @@index([serviceId])
+  @@map("quote_items")
 }
 
 model OrderItem {
@@ -578,7 +657,9 @@ model CommercialChannel {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   orders      Order[]
+  quotes      Quote[]
 
   @@map("commercial_channels")
 }
+
 
