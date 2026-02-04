@@ -55,6 +55,7 @@ const SupplyFormPage = lazy(() => import('../features/portfolio/supplies/pages/S
 const OrdersListPage = lazy(() => import('../features/orders/pages/OrdersListPage'));
 const OrderFormPage = lazy(() => import('../features/orders/pages/OrderFormPage'));
 const OrderDetailPage = lazy(() => import('../features/orders/pages/OrderDetailPage'));
+const PendingPaymentOrdersPage = lazy(() => import('../features/orders/pages/PendingPaymentOrdersPage'));
 // Commercial Channels
 const CommercialChannelsListPage = lazy(() => import('../features/commercial-channels/pages/CommercialChannelsListPage'));
 const CommercialChannelFormPage = lazy(() => import('../features/commercial-channels/pages/CommercialChannelFormPage'));
@@ -812,6 +813,20 @@ const RoutesConfig: FC = () => {
             </AuthGuard>
           }
         />
+        {/* Pending Payment Orders */}
+        <Route
+          path={PATHS.PENDING_PAYMENT_ORDERS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_ORDERS}>
+                  <PendingPaymentOrdersPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
 
         {/* Settings Routes */}
         <Route

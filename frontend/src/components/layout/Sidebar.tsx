@@ -29,6 +29,7 @@ import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import FactoryIcon from '@mui/icons-material/Factory';
 import StoreIcon from '@mui/icons-material/Store';
 import ReceiptIcon from '@mui/icons-material/Receipt';
+import PaymentsIcon from '@mui/icons-material/Payments';
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined';
@@ -123,6 +124,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
           label: 'Órdenes de Pedido',
           icon: <ReceiptIcon />,
           path: ROUTES.ORDERS,
+          permission: PERMISSIONS.READ_ORDERS,
+        },
+        {
+          label: 'Órdenes Pendientes de Pago',
+          icon: <PaymentsIcon />,
+          path: ROUTES.PENDING_PAYMENT_ORDERS,
           permission: PERMISSIONS.READ_ORDERS,
         },
         {

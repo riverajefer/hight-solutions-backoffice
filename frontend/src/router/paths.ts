@@ -60,6 +60,7 @@ export const PATHS = {
   ORDERS_CREATE: '/orders/new',
   ORDERS_EDIT: '/orders/:id/edit',
   ORDERS_DETAIL: '/orders/:id',
+  PENDING_PAYMENT_ORDERS: '/orders/pending-payment',
   // Commercial Channels Routes
   COMMERCIAL_CHANNELS: '/commercial-channels',
   COMMERCIAL_CHANNELS_CREATE: '/commercial-channels/new',
