@@ -21,7 +21,6 @@ export const useEditRequests = (orderId: string) => {
     queryKey: ['edit-requests', orderId, 'active'],
     queryFn: () => editRequestsApi.getActivePermission(orderId),
     enabled: !!orderId,
-    refetchInterval: 30000, // Revalidar cada 30 segundos
   });
 
   // Mutation: Crear solicitud de edición

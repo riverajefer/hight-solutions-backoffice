@@ -73,6 +73,9 @@ export const PERMISSIONS = {
   DELETE_ORDERS: 'delete_orders',
   //READ_COMMERCIAL_CHANNELS
   READ_COMMERCIAL_CHANNELS: 'read_commercial_channels',
+  CREATE_COMMERCIAL_CHANNELS: 'create_commercial_channels',
+  UPDATE_COMMERCIAL_CHANNELS: 'update_commercial_channels',
+  DELETE_COMMERCIAL_CHANNELS: 'delete_commercial_channels',
   
 };
 
