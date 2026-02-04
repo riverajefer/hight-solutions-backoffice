@@ -5,12 +5,12 @@ import {
   UpdateQuoteDto, 
   FilterQuotesDto 
 } from '../types/quote.types';
-import { ApiResponse, PaginatedResponse } from '../types/api.types';
+import { ApiResponse, PaginatedMetaResponse } from '../types/api.types';
 import { Order } from '../types/order.types';
 
 export const quotesApi = {
   findAll: async (params?: FilterQuotesDto) => {
-    const { data } = await axios.get<PaginatedResponse<Quote>>('/quotes', { params });
+    const { data } = await axios.get<PaginatedMetaResponse<Quote>>('/quotes', { params });
     return data;
   },
 

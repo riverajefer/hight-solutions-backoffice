@@ -169,6 +169,13 @@ async function main() {
       name: 'delete_commercial_channels',
       description: 'Eliminar canales de venta',
     },
+
+    // Quotes
+    { name: 'create_quotes', description: 'Crear cotizaciones' },
+    { name: 'read_quotes', description: 'Ver cotizaciones' },
+    { name: 'update_quotes', description: 'Actualizar cotizaciones' },
+    { name: 'delete_quotes', description: 'Eliminar cotizaciones' },
+    { name: 'convert_quotes', description: 'Convertir cotizaciones a órdenes' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
@@ -272,6 +279,11 @@ async function main() {
     'read_orders',
     'update_orders',
     'approve_orders',
+    // Quotes (Manager)
+    'create_quotes',
+    'read_quotes',
+    'update_quotes',
+    'convert_quotes',
   ]);
 
   // User - solo lectura básica
