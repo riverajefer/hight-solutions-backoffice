@@ -108,8 +108,8 @@ export class OrdersController {
   @ApiParam({ name: 'id', description: 'Order ID' })
   @ApiResponse({ status: 200, description: 'Order deleted successfully' })
   @ApiResponse({ status: 400, description: 'Cannot delete this order' })
-  remove(@Param('id') id: string) {
-    return this.ordersService.remove(id);
+  remove(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    return this.ordersService.remove(id, userId);
   }
 
   // ========== ITEM MANAGEMENT ENDPOINTS ==========

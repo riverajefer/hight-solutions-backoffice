@@ -1,8 +1,9 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '../generated/prisma';
-import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 import { auditLogExtension } from '@explita/prisma-audit-log';
 import { getAuditContext } from '../common/utils/audit-context';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 
 @Injectable()
 export class PrismaService
@@ -10,13 +11,14 @@ export class PrismaService
   implements OnModuleInit, OnModuleDestroy
 {
   constructor() {
-    const adapter = new PrismaBetterSqlite3({ url: process.env.DATABASE_URL });
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    const adapter = new PrismaPg(pool);
     super({
       adapter,
       log: process.env.NODE_ENV === 'development'
         ? ['query', 'info', 'warn', 'error']
         : ['error'],
-      // Aumentar timeout de transacciones interactivas a 15 segundos
+      // Aumentar timeout de transacciones interactivas
       transactionOptions: {
         maxWait: 45000, // Tiempo máximo de espera para adquirir la transacción
         timeout: 45000, // Tiempo máximo de ejecución de la transacción
@@ -47,37 +49,25 @@ export class PrismaService
           User: {
             exclude: ['password', 'refreshToken'],
           },
-          // Order, OrderItem y Payment se excluyen completamente en skip()
         },
 
         // Registrador personalizado (opcional)
         logger: (log) => {
-          // Solo loguear en desarrollo y excluir modelos pesados para mejorar performance
+          // Solo loguear en desarrollo
           if (process.env.NODE_ENV === 'development') {
-            const heavyModels = ['Order', 'OrderItem', 'Payment'];
             const logs = Array.isArray(log) ? log : [log];
-
-            // Filtrar logs de modelos pesados
-            const filteredLogs = logs.filter(
-              (l) => !heavyModels.includes(l.model || '')
-            );
-
-            if (filteredLogs.length > 0) {
-              console.log('AUDIT LOG:', filteredLogs.length === 1 ? filteredLogs[0] : filteredLogs);
+            if (logs.length > 0) {
+              console.log('AUDIT LOG:', logs.length === 1 ? logs[0] : logs);
             }
           }
         },
 
         // Saltar registro para operaciones específicas
         skip: ({ model }) => {
-          // No registrar cambios en modelos de infraestructura y módulos críticos de performance
           return (
             model === 'AuditLog' ||
             model === 'audit_logs' ||
-            model === 'Consecutive' || // Excluir consecutivos (operación crítica de concurrencia)
-            model === 'Order' || // Excluir órdenes (transacciones complejas)
-            model === 'OrderItem' || // Excluir items de órdenes
-            model === 'Payment' // Excluir pagos (transacciones críticas)
+            model === 'Consecutive' // Excluir consecutivos (operación crítica de concurrencia)
           );
         },
       })

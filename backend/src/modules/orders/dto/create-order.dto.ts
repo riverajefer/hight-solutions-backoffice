@@ -53,6 +53,14 @@ export class InitialPaymentDto {
 
 export class CreateOrderItemDto {
   @ApiPropertyOptional({
+    description: 'ID del item existente (solo para actualización de orden)',
+    example: 'uuid-item',
+  })
+  @IsOptional()
+  @IsUUID()
+  id?: string;
+
+  @ApiPropertyOptional({
     description: 'ID del servicio (opcional)',
     example: 'uuid-service',
   })

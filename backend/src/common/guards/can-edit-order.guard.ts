@@ -39,8 +39,12 @@ export class CanEditOrderGuard implements CanActivate {
       return true;
     }
 
-    // Si es admin, permitir
-    if (user.role?.name === 'admin') {
+    // Si es admin, permitir (JwtStrategy no incluye role.name, así que se busca por roleId)
+    const role = await this.prisma.role.findUnique({
+      where: { id: user.roleId },
+      select: { name: true },
+    });
+    if (role?.name === 'admin') {
       return true;
     }
 
