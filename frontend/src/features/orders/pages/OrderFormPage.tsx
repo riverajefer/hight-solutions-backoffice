@@ -10,7 +10,11 @@ import {
   Typography,
   Divider,
   Paper,
+  MenuItem,
+  CircularProgress,
 } from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
+import { commercialChannelsApi } from '../../../api/commercialChannels.api';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -82,7 +86,8 @@ const orderFormSchema = z
     items: z.array(orderItemSchema).min(1, 'Debe agregar al menos un item'),
     applyTax: z.boolean(),
     taxRate: z.number().min(0).max(100),
-    payment: initialPaymentSchema, // Abono inicial es obligatorio
+    payment: initialPaymentSchema,
+    commercialChannelId: z.string().min(1, 'El canal de ventas es requerido'),
   })
   .refine(
     (data) => {
@@ -131,6 +136,12 @@ export const OrderFormPage: React.FC = () => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Cargar canales de venta
+  const { data: channels = [], isLoading: channelsLoading } = useQuery({
+    queryKey: ['commercial-channels'],
+    queryFn: () => commercialChannelsApi.getAll(),
+  });
+
   // Nombre completo del usuario en sesión
   const currentUserFullName = user
     ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email
@@ -167,6 +178,7 @@ export const OrderFormPage: React.FC = () => {
         reference: '',
         notes: '',
       },
+      commercialChannelId: '',
     },
   });
 
@@ -239,6 +251,7 @@ export const OrderFormPage: React.FC = () => {
         reference: firstPayment?.reference || '',
         notes: firstPayment?.notes || '',
       });
+      setValue('commercialChannelId', order.commercialChannelId || '');
     }
   }, [isEdit, orderQuery.data, id, navigate, setValue, isAdmin, activePermissionQuery.data]);
 
@@ -265,6 +278,7 @@ export const OrderFormPage: React.FC = () => {
           reference: data.payment.reference,
           notes: data.payment.notes,
         },
+        commercialChannelId: data.commercialChannelId,
       };
 
       if (isEdit) {
@@ -460,11 +474,51 @@ export const OrderFormPage: React.FC = () => {
             )}
           />
 
+          {/* Sección 5: Canal de Ventas */}
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
+                5. Canal de Ventas
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              <Controller
+                name="commercialChannelId"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    select
+                    fullWidth
+                    label="Seleccione el Canal de Venta"
+                    error={!!errors.commercialChannelId}
+                    helperText={errors.commercialChannelId?.message || 'Canal por el cual se realizó la venta'}
+                    disabled={!isClientSelected || channelsLoading}
+                    InputProps={{
+                      startAdornment: channelsLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null
+                    }}
+                  >
+                    {channels.length > 0 ? (
+                      channels.map((channel) => (
+                        <MenuItem key={channel.id} value={channel.id}>
+                          {channel.name}
+                        </MenuItem>
+                      ))
+                    ) : (
+                      <MenuItem disabled value="">
+                        No hay canales disponibles
+                      </MenuItem>
+                    )}
+                  </TextField>
+                )}
+              />
+            </CardContent>
+          </Card>
+
           {/* Sección 6: Notas */}
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
-                5. Observaciones
+                6. Observaciones
               </Typography>
               <Divider sx={{ mb: 2 }} />
               <Controller

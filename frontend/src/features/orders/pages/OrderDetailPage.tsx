@@ -39,6 +39,7 @@ import {
   Payment as PaymentIcon,
   Person as PersonIcon,
   CalendarToday as CalendarIcon,
+  Storefront as ChannelIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -240,7 +241,7 @@ export const OrderDetailPage: React.FC = () => {
             <Card>
               <CardContent>
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={4}>
+                  <Grid item xs={12} sm={3}>
                     <Typography variant="body2" color="textSecondary">
                       Estado
                     </Typography>
@@ -248,7 +249,7 @@ export const OrderDetailPage: React.FC = () => {
                       <OrderStatusChip status={order.status} size="medium" />
                     </Box>
                   </Grid>
-                  <Grid item xs={12} sm={4}>
+                  <Grid item xs={12} sm={3}>
                     <Typography variant="body2" color="textSecondary">
                       Fecha de Orden
                     </Typography>
@@ -259,7 +260,7 @@ export const OrderDetailPage: React.FC = () => {
                       </Typography>
                     </Stack>
                   </Grid>
-                  <Grid item xs={12} sm={4}>
+                  <Grid item xs={12} sm={3}>
                     <Typography variant="body2" color="textSecondary">
                       Fecha de Entrega
                     </Typography>
@@ -267,6 +268,17 @@ export const OrderDetailPage: React.FC = () => {
                       <CalendarIcon fontSize="small" color="action" />
                       <Typography variant="body1">
                         {order.deliveryDate ? formatDate(order.deliveryDate) : 'No especificada'}
+                      </Typography>
+                    </Stack>
+                  </Grid>
+                  <Grid item xs={12} sm={3}>
+                    <Typography variant="body2" color="textSecondary">
+                      Canal de Venta
+                    </Typography>
+                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
+                      <ChannelIcon fontSize="small" color="action" />
+                      <Typography variant="body1">
+                        {order.commercialChannel?.name || 'No especificado'}
                       </Typography>
                     </Stack>
                   </Grid>
@@ -486,6 +498,14 @@ export const OrderDetailPage: React.FC = () => {
                     </Typography>
                     <Typography variant="body2">
                       {formatDateTime(order.createdAt)}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="body2" color="textSecondary">
+                      Canal de Venta
+                    </Typography>
+                    <Typography variant="body2" fontWeight={600}>
+                      {order.commercialChannel?.name || 'No especificado'}
                     </Typography>
                   </Box>
                   <Box>

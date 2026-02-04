@@ -43,8 +43,21 @@ export interface Order {
     firstName: string | null;
     lastName: string | null;
   };
+  commercialChannelId: string | null;
+  commercialChannel: {
+    id: string;
+    name: string;
+  } | null;
   items: OrderItem[];
   payments: Payment[];
+}
+
+export interface CommercialChannel {
+  id: string;
+  name: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface OrderItem {
@@ -103,6 +116,7 @@ export interface CreateOrderDto {
   notes?: string;
   items: CreateOrderItemDto[];
   initialPayment?: InitialPaymentDto;
+  commercialChannelId?: string;
 }
 
 // ============================================================
@@ -113,6 +127,9 @@ export interface UpdateOrderDto {
   clientId?: string;
   deliveryDate?: string;
   notes?: string;
+  items?: CreateOrderItemDto[];
+  initialPayment?: InitialPaymentDto;
+  commercialChannelId?: string;
 }
 
 export interface UpdateOrderStatusDto {
