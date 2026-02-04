@@ -8,6 +8,13 @@ import {
   Typography,
   Chip,
   Avatar,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Divider,
 } from '@mui/material';
 import {
   Person as PersonIcon,
@@ -364,14 +371,18 @@ const TimelineDot: React.FC<{ action: string }> = ({ action }) => {
   const cfg = ACTION_CONFIG[action] ?? ACTION_CONFIG.UPDATE;
   return (
     <Avatar
+      className="timeline-dot"
       sx={{
-        width: 36,
-        height: 36,
+        width: 32,
+        height: 32,
         backgroundColor: cfg.dotBg,
         color: '#fff',
-        boxShadow: 2,
+        boxShadow: (theme) => theme.palette.mode === 'dark' 
+          ? '0 0 10px rgba(0,0,0,0.5)' 
+          : '0 2px 4px rgba(0,0,0,0.1)',
         zIndex: 1,
         flexShrink: 0,
+        transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
       }}
     >
       {cfg.icon}
@@ -379,68 +390,92 @@ const TimelineDot: React.FC<{ action: string }> = ({ action }) => {
   );
 };
 
-/** Una fila "antes → después" para un campo modificado */
-const ChangeRow: React.FC<{ change: FieldChange }> = ({ change }) => (
-  <Box
-    sx={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 1,
-      py: 0.6,
-      borderBottom: '1px dashed',
-      borderColor: 'divider',
-      '&:last-child': { borderBottom: 'none' },
-    }}
-  >
-    {/* Etiqueta del campo */}
-    <Typography
-      variant="body2"
-      sx={{ fontWeight: 600, minWidth: 120, color: 'text.secondary', flexShrink: 0 }}
-    >
-      {change.label}
-    </Typography>
+/** Una tabla para mostrar los cambios de un grupo de campos */
+const ChangesTable: React.FC<{ changes: FieldChange[] }> = ({ changes }) => (
+  <TableContainer sx={{ border: 'none', boxShadow: 'none', backgroundColor: 'transparent', overflow: 'hidden' }}>
+    <Table size="small">
+      <TableHead sx={{ backgroundColor: (theme) => 
+          theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'grey.50' }}>
+        <TableRow sx={{ '& th': { borderBottom: '1px solid', borderColor: 'divider', fontWeight: 600, py: 0.5, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px' } }}>
+          <TableCell sx={{ color: 'text.secondary', width: '30%' }}>Campo</TableCell>
+          <TableCell sx={{ color: 'text.secondary', width: '32%', textAlign: 'center' }}>Antes</TableCell>
+          <TableCell sx={{ color: 'text.secondary', width: '6%', textAlign: 'center' }}></TableCell>
+          <TableCell sx={{ color: 'text.secondary', width: '32%', textAlign: 'center' }}>Ahora</TableCell>
+        </TableRow>
+      </TableHead>
+      <TableBody>
+        {changes.map((change, index) => (
+          <TableRow 
+            key={index} 
+            sx={{ 
+              '& td': { borderBottom: index === changes.length - 1 ? 'none' : '1px solid', borderColor: 'divider', py: 0.75 },
+              '&:hover': { backgroundColor: 'action.hover' }
+            }}
+          >
+            {/* Etiqueta del campo */}
+            <TableCell sx={{ fontWeight: 500, color: 'text.primary', fontSize: '0.8125rem' }}>
+              {change.label}
+            </TableCell>
 
-    {/* Valor anterior (si existe) */}
-    {change.oldValue ? (
-      <Chip
-        label={change.oldValue}
-        size="small"
-        sx={{
-          backgroundColor: 'error.light',
-          color: 'error.contrastText',
-          fontWeight: 500,
-          maxWidth: 160,
-          '& .MuiChip-label': { overflow: 'ellipsis', textOverflow: 'ellipsis' },
-        }}
-      />
-    ) : (
-      <Typography variant="caption" color="text.disabled" sx={{ fontStyle: 'italic' }}>
-        nuevo
-      </Typography>
-    )}
+            {/* Valor anterior */}
+            <TableCell align="center">
+              {change.oldValue ? (
+                <Chip
+                  label={change.oldValue}
+                  size="small"
+                  variant="outlined"
+                  sx={{
+                    height: 20,
+                    fontSize: '0.75rem',
+                    borderColor: (theme) => 
+                      theme.palette.mode === 'dark' ? 'rgba(231, 76, 60, 0.3)' : 'error.light',
+                    color: (theme) => 
+                      theme.palette.mode === 'dark' ? '#ff8a80' : 'error.main',
+                    fontWeight: 500,
+                    maxWidth: 200,
+                  }}
+                />
+              ) : (
+                <Typography variant="caption" color="text.disabled" sx={{ fontStyle: 'italic', fontSize: '0.7rem' }}>
+                  —
+                </Typography>
+              )}
+            </TableCell>
 
-    {/* Flecha */}
-    <ArrowForwardIcon fontSize="small" sx={{ color: 'text.disabled', flexShrink: 0 }} />
+            {/* Flecha */}
+            <TableCell align="center" sx={{ px: 0 }}>
+              <ArrowForwardIcon sx={{ color: 'text.disabled', fontSize: '0.9rem', verticalAlign: 'middle' }} />
+            </TableCell>
 
-    {/* Valor nuevo (si existe) */}
-    {change.newValue ? (
-      <Chip
-        label={change.newValue}
-        size="small"
-        sx={{
-          backgroundColor: 'success.light',
-          color: 'success.contrastText',
-          fontWeight: 500,
-          maxWidth: 160,
-          '& .MuiChip-label': { overflow: 'ellipsis', textOverflow: 'ellipsis' },
-        }}
-      />
-    ) : (
-      <Typography variant="caption" color="text.disabled" sx={{ fontStyle: 'italic' }}>
-        eliminado
-      </Typography>
-    )}
-  </Box>
+            {/* Valor nuevo */}
+            <TableCell align="center">
+              {change.newValue ? (
+                <Chip
+                  label={change.newValue}
+                  size="small"
+                  sx={{
+                    height: 20,
+                    fontSize: '0.75rem',
+                    backgroundColor: (theme) => 
+                      theme.palette.mode === 'dark' ? 'rgba(46, 204, 113, 0.15)' : 'success.light',
+                    color: (theme) => 
+                      theme.palette.mode === 'dark' ? '#b9f6ca' : 'success.contrastText',
+                    fontWeight: 500,
+                    maxWidth: 200,
+                    border: 'none',
+                  }}
+                />
+              ) : (
+                <Typography variant="caption" color="text.disabled" sx={{ fontStyle: 'italic', fontSize: '0.7rem' }}>
+                  eliminado
+                </Typography>
+              )}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  </TableContainer>
 );
 
 // ---------------------------------------------------------------------------
@@ -449,10 +484,12 @@ const ChangeRow: React.FC<{ change: FieldChange }> = ({ change }) => (
 
 interface OrderChangeHistoryTabProps {
   orderId: string;
+  orderNumber?: string;
 }
 
 export const OrderChangeHistoryTab: React.FC<OrderChangeHistoryTabProps> = ({
   orderId,
+  orderNumber,
 }) => {
   const { data: auditLogs, isLoading, isError } = useRecordHistory(orderId);
 
@@ -524,8 +561,8 @@ export const OrderChangeHistoryTab: React.FC<OrderChangeHistoryTabProps> = ({
   return (
     <Card>
       <CardHeader
-        title="Historial de Cambios"
-        subheader="Registro completo de modificaciones realizadas a esta orden"
+        title={`Historial de Cambios: ${orderNumber ? `${orderNumber}` : ''}`}
+        subheader={`Registro completo de modificaciones realizadas a esta orden (${events.length})`}
       />
       <CardContent sx={{ p: { xs: 1, sm: 2 } }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -538,7 +575,14 @@ export const OrderChangeHistoryTab: React.FC<OrderChangeHistoryTabProps> = ({
               : 'Sistema';
 
             return (
-              <Box key={index} sx={{ display: 'flex', gap: 2 }}>
+              <Box 
+                key={index} 
+                sx={{ 
+                  display: 'flex', 
+                  gap: 2,
+                  '&:hover .timeline-dot': { transform: 'scale(1.15)' }
+                }}
+              >
                 {/* Columna izquierda: línea + punto */}
                 <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 36, flexShrink: 0 }}>
                   <TimelineLine isLast={index === 0} />
@@ -547,66 +591,51 @@ export const OrderChangeHistoryTab: React.FC<OrderChangeHistoryTabProps> = ({
                 </Box>
 
                 {/* Columna derecha: contenido */}
-                <Box sx={{ flex: 1, pb: isLast ? 0 : 3, minWidth: 0 }}>
+                <Box sx={{ flex: 1, pb: isLast ? 0 : 5, minWidth: 0 }}>
                   {/* Header: usuario + fecha + chip acción */}
                   <Box
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 1,
+                      gap: 1.5,
                       flexWrap: 'wrap',
-                      py: 0.5,
+                      py: 0.75,
+                      px: 1,
+                      borderRadius: 1.5,
+                      backgroundColor: (theme) => 
+                        theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0,0,0,0.01)',
+                      mb: 1
                     }}
                   >
-                    <PersonIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {userName}
-                    </Typography>
-                    <Typography variant="caption" color="text.disabled">
-                      •
-                    </Typography>
-                    <Typography variant="caption" color="text.disabled">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <PersonIcon sx={{ color: 'text.secondary', fontSize: '1rem' }} />
+                      <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.85rem' }}>
+                        {userName}
+                      </Typography>
+                    </Box>
+                    
+                    <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.75rem' }}>
                       {formatDateTime(event.timestamp)}
                     </Typography>
+
                     <Chip
-                      label={cfg.label}
+                      label={getEventTitle(event)}
                       color={cfg.color}
                       size="small"
-                      sx={{ fontWeight: 500, ml: 0.5 }}
+                      sx={{ 
+                        fontWeight: 700, 
+                        height: 22, 
+                        fontSize: '0.7rem',
+                        textTransform: 'uppercase',
+                        px: 0.5,
+                        ml: 'auto' // Empuja el chip a la derecha si hay espacio
+                      }}
                     />
                   </Box>
 
-                  {/* Tarjeta del evento */}
-                  <Box
-                    sx={{
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      borderRadius: 2,
-                      overflow: 'hidden',
-                      mt: 0.5,
-                    }}
-                  >
-                    {/* Título del evento */}
-                    <Box
-                      sx={{
-                        px: 2,
-                        py: 1,
-                        backgroundColor: (theme) =>
-                          theme.palette.mode === 'dark'
-                            ? 'rgba(46,204,113,0.08)'
-                            : 'grey.50',
-                        borderBottom: '1px solid',
-                        borderColor: 'divider',
-                      }}
-                    >
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                        {getEventTitle(event)}
-                      </Typography>
-                    </Box>
-
-                    {/* Lista de cambios campo a campo, agrupados por item */}
+                  {/* Contenedor de cambios */}
+                  <Box sx={{ mt: 1, ml: 1 }}>
                     {changes.length > 0 ? (() => {
-                      // Separar cambios de OrderItem (agrupa por recordId) y otros modelos
                       const itemGroups = new Map<string, FieldChange[]>();
                       const otherChanges: FieldChange[] = [];
 
@@ -621,65 +650,42 @@ export const OrderChangeHistoryTab: React.FC<OrderChangeHistoryTabProps> = ({
                       }
 
                       return (
-                        <Box sx={{ px: 2, py: 1 }}>
-                          {/* Primero: grupos de items con sub-header de descripción */}
+                        <Box>
+                          {/* Primero: grupos de items */}
                           {Array.from(itemGroups.entries()).map(([recId, itemChanges]) => (
-                            <Box key={recId} sx={{ mb: itemGroups.size > 1 ? 1.5 : 0 }}>
-                              {/* Sub-header: nombre del item */}
-                              <Box
-                                sx={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: 0.75,
-                                  mb: 0.5,
-                                  mt: 0.25,
-                                }}
-                              >
-                                <Box
-                                  sx={{
-                                    width: 6,
-                                    height: 6,
-                                    borderRadius: '50%',
-                                    backgroundColor: 'info.main',
-                                    flexShrink: 0,
-                                  }}
-                                />
-                                <Typography
-                                  variant="body2"
-                                  sx={{ fontWeight: 700, color: 'info.main' }}
-                                >
+                            <Box key={recId} sx={{ mb: 2.5 }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, ml: -0.5 }}>
+                                <Box sx={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'info.main' }} />
+                                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary', fontSize: '0.8rem', letterSpacing: '0.2px' }}>
                                   {itemChanges[0].itemDescription || 
                                    itemChanges.find(c => c.label === 'Descripción')?.oldValue ||
                                    itemChanges.find(c => c.label === 'Descripción')?.newValue ||
                                    'Item'}
                                 </Typography>
                               </Box>
-                              {/* Cambios del item */}
-                              {itemChanges.map((change, ci) => (
-                                <ChangeRow key={ci} change={change} />
-                              ))}
+                              <ChangesTable changes={itemChanges} />
                             </Box>
                           ))}
 
-                          {/* Luego: cambios de Order / Payment sin sub-header */}
-                          {otherChanges.map((change, ci) => (
-                            <ChangeRow key={`other-${ci}`} change={change} />
-                          ))}
+                          {/* Luego: cambios de Order / Payment */}
+                          {otherChanges.length > 0 && (
+                            <Box sx={{ mt: itemGroups.size > 0 ? 3 : 0 }}>
+                              <ChangesTable changes={otherChanges} />
+                            </Box>
+                          )}
                         </Box>
                       );
                     })() : (
-                      /* Si no hay campos visibles que mostrar, resumen genérico */
-                      <Box sx={{ px: 2, py: 1 }}>
-                        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                          {event.action === 'CREATE'
-                            ? 'Se creó el registro.'
-                            : event.action === 'DELETE'
-                              ? 'Se eliminó el registro.'
-                              : 'Se realizó una modificación.'}
-                        </Typography>
-                      </Box>
+                      <Typography variant="caption" color="text.disabled" sx={{ fontStyle: 'italic', ml: 1 }}>
+                        {event.action === 'CREATE' ? 'Registro creado.' : event.action === 'DELETE' ? 'Registro eliminado.' : 'Modificación realizada.'}
+                      </Typography>
                     )}
                   </Box>
+
+                  {/* Divisor Visual entre eventos */}
+                  {!isLast && (
+                    <Divider sx={{ mt: 4, mb: 0, opacity: 0.4 }} />
+                  )}
                 </Box>
               </Box>
             );

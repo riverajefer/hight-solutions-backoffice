@@ -515,7 +515,7 @@ export const OrderDetailPage: React.FC = () => {
         </TabPanel>
 
         <TabPanel value={tabValue} index={1}>
-          <OrderChangeHistoryTab orderId={id!} />
+          <OrderChangeHistoryTab orderId={id!} orderNumber={order.orderNumber} />
         </TabPanel>
       </Box>
 

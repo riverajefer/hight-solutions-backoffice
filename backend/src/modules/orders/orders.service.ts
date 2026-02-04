@@ -653,6 +653,9 @@ export class OrdersService {
         paidAmount: true,
         balance: true,
         status: true,
+        notes: true,
+        deliveryDate: true,
+        taxRate: true,
         items: {
           include: {
             service: true,
