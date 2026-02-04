@@ -53,7 +53,7 @@ export class QuotesService {
       const itemTotal = new Prisma.Decimal(item.quantity).mul(item.unitPrice);
       subtotal = subtotal.add(itemTotal);
 
-      return {
+      const itemData: any = {
         description: item.description,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
@@ -64,6 +64,17 @@ export class QuotesService {
           service: { connect: { id: item.serviceId } },
         }),
       };
+
+      // Add production areas if provided
+      if (item.productionAreaIds && item.productionAreaIds.length > 0) {
+        itemData.productionAreas = {
+          create: item.productionAreaIds.map((areaId: string) => ({
+            productionArea: { connect: { id: areaId } },
+          })),
+        };
+      }
+
+      return itemData;
     });
 
     const taxRate = new Prisma.Decimal(0.19);
@@ -99,8 +110,10 @@ export class QuotesService {
       throw new BadRequestException('Cannot update a converted quote');
     }
 
+    const isConverting = updateQuoteDto.status === QuoteStatus.CONVERTED;
+
     if (updateQuoteDto.items) {
-      return this.prisma.$transaction(async (tx) => {
+      await this.prisma.$transaction(async (tx) => {
         // Handle basic fields
         await tx.quote.update({
           where: { id },
@@ -108,7 +121,7 @@ export class QuotesService {
             ...(updateQuoteDto.clientId && { client: { connect: { id: updateQuoteDto.clientId } } }),
             ...(updateQuoteDto.validUntil && { validUntil: new Date(updateQuoteDto.validUntil) }),
             ...(updateQuoteDto.notes !== undefined && { notes: updateQuoteDto.notes }),
-            ...(updateQuoteDto.status && { status: updateQuoteDto.status }),
+            ...(updateQuoteDto.status && !isConverting && { status: updateQuoteDto.status }),
             ...(updateQuoteDto.commercialChannelId && {
               commercialChannel: { connect: { id: updateQuoteDto.commercialChannelId } },
             }),
@@ -130,6 +143,13 @@ export class QuotesService {
 
         for (const item of itemsToUpdate) {
           const itemTotal = new Prisma.Decimal(item.quantity).mul(item.unitPrice);
+          
+          // Delete existing production areas
+          await tx.quoteItemProductionArea.deleteMany({
+            where: { quoteItemId: item.id! },
+          });
+          
+          // Update item
           await tx.quoteItem.update({
             where: { id: item.id! },
             data: {
@@ -141,12 +161,23 @@ export class QuotesService {
               ...(item.serviceId && { serviceId: item.serviceId }),
             },
           });
+          
+          // Create new production areas
+          if (item.productionAreaIds && item.productionAreaIds.length > 0) {
+            await tx.quoteItemProductionArea.createMany({
+              data: item.productionAreaIds.map((areaId: string) => ({
+                quoteItemId: item.id!,
+                productionAreaId: areaId,
+              })),
+            });
+          }
         }
 
         for (let i = 0; i < itemsToCreate.length; i++) {
           const item = itemsToCreate[i];
           const itemTotal = new Prisma.Decimal(item.quantity).mul(item.unitPrice);
-          await tx.quoteItem.create({
+          
+          const createdItem = await tx.quoteItem.create({
             data: {
               quoteId: id,
               description: item.description,
@@ -158,21 +189,37 @@ export class QuotesService {
               ...(item.serviceId && { serviceId: item.serviceId }),
             },
           });
+          
+          // Add production areas for new items
+          if (item.productionAreaIds && item.productionAreaIds.length > 0) {
+            await tx.quoteItemProductionArea.createMany({
+              data: item.productionAreaIds.map((areaId: string) => ({
+                quoteItemId: createdItem.id,
+                productionAreaId: areaId,
+              })),
+            });
+          }
         }
 
-        return this.recalculateQuoteTotals(id, tx);
+        await this.recalculateQuoteTotals(id, tx);
+      });
+    } else {
+      await this.quotesRepository.update(id, {
+        ...(updateQuoteDto.clientId && { client: { connect: { id: updateQuoteDto.clientId } } }),
+        ...(updateQuoteDto.validUntil && { validUntil: new Date(updateQuoteDto.validUntil) }),
+        ...(updateQuoteDto.notes !== undefined && { notes: updateQuoteDto.notes }),
+        ...(updateQuoteDto.status && !isConverting && { status: updateQuoteDto.status }),
+        ...(updateQuoteDto.commercialChannelId && {
+          commercialChannel: { connect: { id: updateQuoteDto.commercialChannelId } },
+        }),
       });
     }
 
-    return this.quotesRepository.update(id, {
-      ...(updateQuoteDto.clientId && { client: { connect: { id: updateQuoteDto.clientId } } }),
-      ...(updateQuoteDto.validUntil && { validUntil: new Date(updateQuoteDto.validUntil) }),
-      ...(updateQuoteDto.notes !== undefined && { notes: updateQuoteDto.notes }),
-      ...(updateQuoteDto.status && { status: updateQuoteDto.status }),
-      ...(updateQuoteDto.commercialChannelId && {
-        commercialChannel: { connect: { id: updateQuoteDto.commercialChannelId } },
-      }),
-    });
+    if (isConverting) {
+      return this.convertToOrder(id, userId);
+    }
+
+    return this.findOne(id);
   }
 
   async remove(id: string) {

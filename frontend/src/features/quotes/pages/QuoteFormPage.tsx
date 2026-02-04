@@ -36,6 +36,7 @@ const quoteItemSchema = z.object({
   total: z.number().min(0),
   serviceId: z.string().optional(),
   specifications: z.record(z.any()).optional(),
+  productionAreaIds: z.array(z.string()).optional(),
 });
 
 const quoteFormSchema = z.object({
@@ -88,7 +89,7 @@ export const QuoteFormPage: React.FC = () => {
       client: null,
       validUntil: null,
       notes: '',
-      items: [{ id: uuidv4(), description: '', quantity: '', unitPrice: '', total: 0 }],
+      items: [{ id: uuidv4(), description: '', quantity: '', unitPrice: '', total: 0, productionAreaIds: [] }],
       applyTax: false,
       taxRate: 19,
       commercialChannelId: '',
@@ -120,6 +121,9 @@ export const QuoteFormPage: React.FC = () => {
         total: parseFloat(item.total.toString()),
         serviceId: item.serviceId,
         specifications: item.specifications || undefined,
+        productionAreaIds: item.productionAreas
+          ? item.productionAreas.map((pa: any) => pa.productionArea.id)
+          : [],
       })) || []);
       setValue('applyTax', parseFloat(currentQuote.taxRate.toString()) > 0);
       setValue('taxRate', parseFloat(currentQuote.taxRate.toString()) * 100);
@@ -141,6 +145,7 @@ export const QuoteFormPage: React.FC = () => {
           unitPrice: parseFloat(item.unitPrice),
           serviceId: item.serviceId,
           specifications: item.specifications,
+          productionAreaIds: item.productionAreaIds,
         })),
         commercialChannelId: data.commercialChannelId,
       };

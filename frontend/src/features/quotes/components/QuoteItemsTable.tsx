@@ -13,11 +13,14 @@ import {
   Box,
   Stack,
   Autocomplete,
+  Chip,
 } from '@mui/material';
 import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
 import { v4 as uuidv4 } from 'uuid';
 import { useServices } from '../../portfolio/services/hooks/useServices';
 import type { Service } from '../../../types/service.types';
+import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
+import type { ProductionArea } from '../../../types/production-area.types';
 
 export interface QuoteItemRow {
   id: string;
@@ -27,6 +30,7 @@ export interface QuoteItemRow {
   total: number;
   serviceId?: string;
   specifications?: any;
+  productionAreaIds?: string[];
 }
 
 interface QuoteItemsTableProps {
@@ -61,6 +65,9 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
   const { servicesQuery } = useServices();
   const services: Service[] = servicesQuery.data || [];
 
+  const { productionAreasQuery } = useProductionAreas();
+  const productionAreas: ProductionArea[] = productionAreasQuery.data || [];
+
   const handleAddRow = () => {
     const newItem: QuoteItemRow = {
       id: uuidv4(),
@@ -68,6 +75,7 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
       quantity: '',
       unitPrice: '',
       total: 0,
+      productionAreaIds: [],
     };
     onChange([...items, newItem]);
   };
@@ -119,11 +127,12 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
                 },
               }}
             >
-              <TableCell width="10%" align="center">Cantidad</TableCell>
-              <TableCell width="30%">Servicio (Opcional)</TableCell>
-              <TableCell width="30%">Descripción</TableCell>
-              <TableCell width="15%" align="right">Valor Unitario</TableCell>
-              <TableCell width="10%" align="right">Valor Total</TableCell>
+              <TableCell width="8%" align="center">Cantidad</TableCell>
+              <TableCell width="25%">Servicio (Opcional)</TableCell>
+              <TableCell width="25%">Descripción</TableCell>
+              <TableCell width="17%">Áreas de Producción</TableCell>
+              <TableCell width="12%" align="right">Valor Unitario</TableCell>
+              <TableCell width="8%" align="right">Valor Total</TableCell>
               <TableCell width="5%" align="center">Acciones</TableCell>
             </TableRow>
           </TableHead>
@@ -185,6 +194,54 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
                     />
                   </TableCell>
                   <TableCell>
+                    <Autocomplete<ProductionArea, true>
+                      multiple
+                      size="small"
+                      options={productionAreas}
+                      getOptionLabel={(option) => option.name}
+                      isOptionEqualToValue={(option, value) => option.id === value.id}
+                      value={productionAreas.filter((area) =>
+                        item.productionAreaIds?.includes(area.id)
+                      )}
+                      onChange={(_event, newValue) => {
+                        const updatedItems = items.map((i) =>
+                          i.id === item.id
+                            ? { ...i, productionAreaIds: newValue.map((v) => v.id) }
+                            : i
+                        );
+                        onChange(updatedItems);
+                      }}
+                      disabled={disabled}
+                      renderTags={(value, getTagProps) =>
+                        value.map((option, index) => (
+                          <Chip
+                            label={option.name}
+                            size="small"
+                            {...getTagProps({ index })}
+                            key={option.id}
+                          />
+                        ))
+                      }
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          size="small"
+                          placeholder={
+                            item.productionAreaIds?.length === 0
+                              ? 'Áreas...'
+                              : undefined
+                          }
+                          InputProps={{
+                            ...params.InputProps,
+                            style: { fontSize: '0.8125rem' }
+                          }}
+                        />
+                      )}
+                      noOptionsText="No hay áreas disponibles"
+                      ListboxProps={{ style: { maxHeight: 150 } }}
+                    />
+                  </TableCell>
+                  <TableCell>
                     <TextField
                       fullWidth
                       size="small"
@@ -220,7 +277,7 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
               );
             })}
             <TableRow sx={{ backgroundColor: 'action.hover' }}>
-              <TableCell colSpan={4} align="right">
+              <TableCell colSpan={5} align="right">
                 <Typography variant="body2" fontWeight={700}>SUBTOTAL:</Typography>
               </TableCell>
               <TableCell align="right">

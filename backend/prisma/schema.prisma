@@ -469,10 +469,22 @@ model QuoteItem {
 
   quote           Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
   service         Service? @relation(fields: [serviceId], references: [id])
+  productionAreas QuoteItemProductionArea[]
 
   @@index([quoteId])
   @@index([serviceId])
   @@map("quote_items")
+}
+
+model QuoteItemProductionArea {
+  quoteItemId      String
+  productionAreaId String
+  assignedAt       DateTime       @default(now()) @map("assigned_at")
+  quoteItem        QuoteItem      @relation(fields: [quoteItemId], references: [id], onDelete: Cascade)
+  productionArea   ProductionArea @relation(fields: [productionAreaId], references: [id], onDelete: Cascade)
+
+  @@id([quoteItemId, productionAreaId])
+  @@map("quote_item_production_areas")
 }
 
 model OrderItem {
@@ -641,6 +653,7 @@ model ProductionArea {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   orderItems OrderItemProductionArea[]
+  quoteItems QuoteItemProductionArea[]
 
   @@map("production_areas")
 }

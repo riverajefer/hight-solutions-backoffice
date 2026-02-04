@@ -24,4 +24,8 @@ export class AddQuoteItemDto {
   @ApiPropertyOptional({ example: { detail: 'value' } })
   @IsOptional()
   specifications?: Record<string, any>;
+
+  @ApiPropertyOptional({ example: ['uuid-1', 'uuid-2'] })
+  @IsOptional()
+  productionAreaIds?: string[];
 }

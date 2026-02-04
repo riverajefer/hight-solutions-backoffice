@@ -58,6 +58,14 @@ export class CreateQuoteItemDto {
   })
   @IsOptional()
   specifications?: Record<string, any>;
+
+  @ApiPropertyOptional({
+    description: 'IDs de las áreas de producción',
+    example: ['uuid-area-1', 'uuid-area-2'],
+  })
+  @IsOptional()
+  @IsArray()
+  productionAreaIds?: string[];
 }
 
 export class CreateQuoteDto {
