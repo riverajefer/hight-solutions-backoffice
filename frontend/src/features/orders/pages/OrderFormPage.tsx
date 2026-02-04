@@ -10,7 +10,11 @@ import {
   Typography,
   Divider,
   Paper,
+  MenuItem,
+  CircularProgress,
 } from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
+import { commercialChannelsApi } from '../../../api/commercialChannels.api';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -82,7 +86,8 @@ const orderFormSchema = z
     items: z.array(orderItemSchema).min(1, 'Debe agregar al menos un item'),
     applyTax: z.boolean(),
     taxRate: z.number().min(0).max(100),
-    payment: initialPaymentSchema, // Abono inicial es obligatorio
+    payment: initialPaymentSchema,
+    commercialChannelId: z.string().min(1, 'El canal de ventas es requerido'),
   })
   .refine(
     (data) => {
@@ -131,6 +136,12 @@ export const OrderFormPage: React.FC = () => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Cargar canales de venta
+  const { data: channels = [], isLoading: channelsLoading } = useQuery({
+    queryKey: ['commercial-channels'],
+    queryFn: () => commercialChannelsApi.getAll(),
+  });
+
   // Nombre completo del usuario en sesión
   const currentUserFullName = user
     ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email
@@ -159,14 +170,15 @@ export const OrderFormPage: React.FC = () => {
           total: 0,
         },
       ],
-      applyTax: true,
-      taxRate: 19,
+      applyTax: false,
+      taxRate: 0,
       payment: {
         amount: 0,
         paymentMethod: 'CASH',
         reference: '',
         notes: '',
       },
+      commercialChannelId: '',
     },
   });
 
@@ -239,6 +251,7 @@ export const OrderFormPage: React.FC = () => {
         reference: firstPayment?.reference || '',
         notes: firstPayment?.notes || '',
       });
+      setValue('commercialChannelId', order.commercialChannelId || '');
     }
   }, [isEdit, orderQuery.data, id, navigate, setValue, isAdmin, activePermissionQuery.data]);
 
@@ -265,6 +278,7 @@ export const OrderFormPage: React.FC = () => {
           reference: data.payment.reference,
           notes: data.payment.notes,
         },
+        commercialChannelId: data.commercialChannelId,
       };
 
       if (isEdit) {
@@ -311,47 +325,42 @@ export const OrderFormPage: React.FC = () => {
 
       <form onSubmit={handleSubmit(onSubmit)}>
         <Stack spacing={3} sx={{ mt: 3 }}>
-          {/* Sección 1: Cliente */}
+          {/* Sección 1: Información del Cliente y Fechas */}
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                1. Cliente
+              <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
+                1. Información del Cliente y Fechas
               </Typography>
               <Divider sx={{ mb: 2 }} />
-              <Controller
-                name="client"
-                control={control}
-                render={({ field }) => (
-                  <ClientSelector
-                    value={field.value}
-                    onChange={field.onChange}
-                    error={!!errors.client}
-                    helperText={errors.client?.message}
+              
+              <Grid container spacing={3}>
+                <Grid item xs={12}>
+                  <Controller
+                    name="client"
+                    control={control}
+                    render={({ field }) => (
+                      <ClientSelector
+                        value={field.value}
+                        onChange={field.onChange}
+                        error={!!errors.client}
+                        helperText={errors.client?.message}
+                      />
+                    )}
                   />
-                )}
-              />
-            </CardContent>
-          </Card>
+                </Grid>
 
-          {/* Sección 2: Fechas */}
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                2. Fechas
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              <Grid container spacing={2}>
                 {/* Fecha de Orden (readonly) */}
                 <Grid item xs={12} sm={4}>
                   <TextField
                     fullWidth
                     label="Fecha de Orden"
+                    size="small"
                     value={new Date().toLocaleDateString('es-CO')}
                     disabled={!isClientSelected}
                     InputProps={{
                       readOnly: true,
                     }}
-                    helperText="Se registrará automáticamente al crear la orden"
+                    helperText="Fecha de registro"
                   />
                 </Grid>
 
@@ -370,9 +379,10 @@ export const OrderFormPage: React.FC = () => {
                         slotProps={{
                           textField: {
                             fullWidth: true,
+                            size: 'small',
                             helperText: isClientSelected
-                              ? 'Fecha estimada de entrega al cliente'
-                              : 'Primero seleccione un cliente',
+                              ? 'Fecha estimada'
+                              : 'Seleccione cliente',
                           },
                         }}
                       />
@@ -385,11 +395,12 @@ export const OrderFormPage: React.FC = () => {
                   <TextField
                     fullWidth
                     label="Creado por"
+                    size="small"
                     value={currentUserFullName}
                     InputProps={{
                       readOnly: true,
                     }}
-                    helperText="Usuario que crea la orden"
+                    helperText="Usuario responsable"
                   />
                 </Grid>
               </Grid>
@@ -399,8 +410,8 @@ export const OrderFormPage: React.FC = () => {
           {/* Sección 3: Items */}
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                3. Items de la Orden
+              <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
+                2. Items de la Orden
               </Typography>
               <Divider sx={{ mb: 2 }} />
               {!isClientSelected && (
@@ -463,10 +474,50 @@ export const OrderFormPage: React.FC = () => {
             )}
           />
 
+          {/* Sección 5: Canal de Ventas */}
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
+                5. Canal de Ventas
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              <Controller
+                name="commercialChannelId"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    select
+                    fullWidth
+                    label="Seleccione el Canal de Venta"
+                    error={!!errors.commercialChannelId}
+                    helperText={errors.commercialChannelId?.message || 'Canal por el cual se realizó la venta'}
+                    disabled={!isClientSelected || channelsLoading}
+                    InputProps={{
+                      startAdornment: channelsLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null
+                    }}
+                  >
+                    {channels.length > 0 ? (
+                      channels.map((channel) => (
+                        <MenuItem key={channel.id} value={channel.id}>
+                          {channel.name}
+                        </MenuItem>
+                      ))
+                    ) : (
+                      <MenuItem disabled value="">
+                        No hay canales disponibles
+                      </MenuItem>
+                    )}
+                  </TextField>
+                )}
+              />
+            </CardContent>
+          </Card>
+
           {/* Sección 6: Notas */}
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
+              <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
                 6. Observaciones
               </Typography>
               <Divider sx={{ mb: 2 }} />

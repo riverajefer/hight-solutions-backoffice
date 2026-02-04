@@ -13,11 +13,13 @@ import {
 import {
   Notifications as NotificationsIcon,
   Circle as CircleIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNotifications } from '../../hooks/useNotifications';
+import { PATHS } from '../../router/paths';
 
 export const NotificationBell: React.FC = () => {
   const navigate = useNavigate();
@@ -48,10 +50,17 @@ export const NotificationBell: React.FC = () => {
 
     // Navegar si tiene relación
     if (relatedId && relatedType === 'Order') {
-      navigate(`/orders/${relatedId}`);
+      navigate(`${PATHS.ORDERS}/${relatedId}`);
     }
 
     handleClose();
+  };
+
+  const handleRefresh = async () => {
+    await Promise.all([
+      notificationsQuery.refetch(),
+      unreadCountQuery.refetch(),
+    ]);
   };
 
   return (
@@ -73,8 +82,22 @@ export const NotificationBell: React.FC = () => {
           },
         }}
       >
-        <Box px={2} py={1}>
+        <Box px={2} py={1} display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h6">Notificaciones</Typography>
+          <IconButton 
+            size="small" 
+            onClick={handleRefresh} 
+            disabled={notificationsQuery.isFetching || unreadCountQuery.isFetching}
+            sx={{ 
+              animation: (notificationsQuery.isFetching || unreadCountQuery.isFetching) ? 'spin 1s linear infinite' : 'none',
+              '@keyframes spin': {
+                '0%': { transform: 'rotate(0deg)' },
+                '100%': { transform: 'rotate(360deg)' }
+              }
+            }}
+          >
+            <RefreshIcon fontSize="small" />
+          </IconButton>
         </Box>
         <Divider />
 
@@ -153,7 +176,7 @@ export const NotificationBell: React.FC = () => {
               <Button
                 size="small"
                 onClick={() => {
-                  navigate('/notifications');
+                  navigate(PATHS.NOTIFICATIONS);
                   handleClose();
                 }}
               >

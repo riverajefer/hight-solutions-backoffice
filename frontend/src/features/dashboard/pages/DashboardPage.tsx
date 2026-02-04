@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Grid, Card, CardContent, Typography, Button, Tabs, Tab } from '@mui/material';
+import { Box, Grid, Card, CardContent, Typography, Button, Tabs, Tab, alpha } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import PeopleIcon from '@mui/icons-material/People';
@@ -12,11 +12,38 @@ import WorkIcon from '@mui/icons-material/Work';
 import HistoryIcon from '@mui/icons-material/History';
 import LoginIcon from '@mui/icons-material/Login';
 import DashboardIcon from '@mui/icons-material/Dashboard';
-import GroupsIcon from '@mui/icons-material/Groups';
-import HandshakeIcon from '@mui/icons-material/Handshake';
 import ShieldIcon from '@mui/icons-material/Shield';
-import AssessmentIcon from '@mui/icons-material/Assessment';
-import { usersApi, rolesApi, permissionsApi, clientsApi, suppliersApi, areasApi, cargosApi, auditLogsApi, sessionLogsApi } from '../../../api';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import FactoryIcon from '@mui/icons-material/Factory';
+import StoreIcon from '@mui/icons-material/Store';
+import ReceiptIcon from '@mui/icons-material/Receipt';
+import InventoryIcon from '@mui/icons-material/Inventory';
+import MiscellaneousServicesIcon from '@mui/icons-material/MiscellaneousServices';
+import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
+import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined';
+import FolderSpecialOutlinedIcon from '@mui/icons-material/FolderSpecialOutlined';
+import StraightenOutlinedIcon from '@mui/icons-material/StraightenOutlined';
+import EngineeringIcon from '@mui/icons-material/Engineering';
+
+import { 
+  usersApi, 
+  rolesApi, 
+  permissionsApi, 
+  clientsApi, 
+  suppliersApi, 
+  areasApi, 
+  cargosApi, 
+  auditLogsApi, 
+  sessionLogsApi,
+  ordersApi,
+  servicesApi,
+  suppliesApi,
+  serviceCategoriesApi,
+  supplyCategoriesApi,
+  unitsOfMeasureApi,
+  productionAreasApi,
+  commercialChannelsApi 
+} from '../../../api';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { useAuthStore } from '../../../store/authStore';
@@ -37,8 +64,9 @@ interface StatCardProps {
 // Colores neón para cada categoría
 const NEON_COLORS = {
   general: '#00FFFF',      // Cyan neón
-  talent: '#00D9FF',       // Azul neón
-  business: '#0FFF50',     // Verde neón
+  commercial: '#FFD700',   // Dorado/Amarillo comercial
+  logistics: '#0FFF50',    // Verde neón
+  organization: '#00D9FF', // Azul neón
   security: '#FF6B00',     // Naranja neón
   audit: '#BC13FE',        // Púrpura neón
 };
@@ -306,7 +334,76 @@ const DashboardPage: React.FC = () => {
     },
   });
 
-  const isLoading = usersLoading || rolesLoading || permissionsLoading || clientsLoading || suppliersLoading || areasLoading || cargosLoading || auditLogsLoading || sessionLogsLoading;
+  const { data: ordersData, isLoading: ordersLoading } = useQuery({
+    queryKey: ['orders'],
+    queryFn: async () => {
+      if (!hasPermission(PERMISSIONS.READ_ORDERS)) return { data: [], meta: { total: 0, page: 1, limit: 1, totalPages: 0 } };
+      return ordersApi.getAll({ limit: 1 });
+    },
+  });
+
+  const { data: services = [], isLoading: servicesLoading } = useQuery({
+    queryKey: ['services'],
+    queryFn: async () => {
+      if (!hasPermission(PERMISSIONS.READ_SERVICES)) return [];
+      return servicesApi.getAll();
+    },
+  });
+
+  const { data: supplies = [], isLoading: suppliesLoading } = useQuery({
+    queryKey: ['supplies'],
+    queryFn: async () => {
+      if (!hasPermission(PERMISSIONS.READ_SUPPLIES)) return [];
+      return suppliesApi.getAll();
+    },
+  });
+
+  const { data: productionAreas = [], isLoading: productionAreasLoading } = useQuery({
+    queryKey: ['production-areas'],
+    queryFn: async () => {
+      if (!hasPermission(PERMISSIONS.READ_PRODUCTION_AREAS)) return [];
+      return productionAreasApi.getAll();
+    },
+  });
+
+  const { data: commercialChannels = [], isLoading: channelsLoading } = useQuery({
+    queryKey: ['commercial-channels'],
+    queryFn: async () => {
+      if (!hasPermission(PERMISSIONS.READ_COMMERCIAL_CHANNELS)) return [];
+      return commercialChannelsApi.getAll();
+    },
+  });
+
+  const { data: serviceCategories = [], isLoading: serviceCatsLoading } = useQuery({
+    queryKey: ['service-categories'],
+    queryFn: async () => {
+      if (!hasPermission(PERMISSIONS.READ_SERVICE_CATEGORIES)) return [];
+      return serviceCategoriesApi.getAll();
+    },
+  });
+
+  const { data: supplyCategories = [], isLoading: supplyCatsLoading } = useQuery({
+    queryKey: ['supply-categories'],
+    queryFn: async () => {
+      if (!hasPermission(PERMISSIONS.READ_SUPPLY_CATEGORIES)) return [];
+      return supplyCategoriesApi.getAll();
+    },
+  });
+
+  const { data: unitsOfMeasure = [], isLoading: unitsLoading } = useQuery({
+    queryKey: ['units-of-measure'],
+    queryFn: async () => {
+      if (!hasPermission(PERMISSIONS.READ_UNITS_OF_MEASURE)) return [];
+      return unitsOfMeasureApi.getAll();
+    },
+  });
+
+  const isLoading = 
+    usersLoading || rolesLoading || permissionsLoading || clientsLoading || 
+    suppliersLoading || areasLoading || cargosLoading || auditLogsLoading || 
+    sessionLogsLoading || ordersLoading || servicesLoading || suppliesLoading || 
+    productionAreasLoading || channelsLoading || serviceCatsLoading || 
+    supplyCatsLoading || unitsLoading;
   
   // Logs de verificación de permisos específicos
   console.log('=== VERIFICACIÓN DE PERMISOS ESPECÍFICOS ===');
@@ -330,6 +427,14 @@ const DashboardPage: React.FC = () => {
   const cargosCount = Array.isArray(cargos) ? cargos.length : 0;
   const auditLogsCount = auditLogsData?.total || 0;
   const sessionLogsCount = sessionLogsData?.meta?.total || 0;
+  const ordersCount = ordersData?.meta?.total || 0;
+  const servicesCount = Array.isArray(services) ? services.length : 0;
+  const suppliesCount = Array.isArray(supplies) ? supplies.length : 0;
+  const productionAreasCount = Array.isArray(productionAreas) ? productionAreas.length : 0;
+  const channelsCount = Array.isArray(commercialChannels) ? commercialChannels.length : 0;
+  const serviceCatsCount = Array.isArray(serviceCategories) ? serviceCategories.length : 0;
+  const supplyCatsCount = Array.isArray(supplyCategories) ? supplyCategories.length : 0;
+  const unitsCount = Array.isArray(unitsOfMeasure) ? unitsOfMeasure.length : 0;
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setCurrentTab(newValue);
@@ -356,19 +461,19 @@ const DashboardPage: React.FC = () => {
               backgroundColor: (theme) => {
                 const isDark = theme.palette.mode === 'dark';
                 if (currentTab === 0) return isDark ? NEON_COLORS.general : '#0891b2';
-                if (currentTab === 1) return isDark ? NEON_COLORS.talent : '#0284c7';
-                if (currentTab === 2) return isDark ? NEON_COLORS.business : '#15803d';
-                if (currentTab === 3) return isDark ? NEON_COLORS.security : '#c2410c';
-                return isDark ? NEON_COLORS.audit : '#7e22ce';
+                if (currentTab === 1) return isDark ? NEON_COLORS.commercial : '#b45309';
+                if (currentTab === 2) return isDark ? NEON_COLORS.logistics : '#15803d';
+                if (currentTab === 3) return isDark ? NEON_COLORS.organization : '#0369a1';
+                return isDark ? NEON_COLORS.security : '#c2410c';
               },
               boxShadow: (theme) =>
                 theme.palette.mode === 'dark'
                   ? `0 0 20px ${
                       currentTab === 0 ? NEON_COLORS.general :
-                      currentTab === 1 ? NEON_COLORS.talent :
-                      currentTab === 2 ? NEON_COLORS.business :
-                      currentTab === 3 ? NEON_COLORS.security :
-                      NEON_COLORS.audit
+                      currentTab === 1 ? NEON_COLORS.commercial :
+                      currentTab === 2 ? NEON_COLORS.logistics :
+                      currentTab === 3 ? NEON_COLORS.organization :
+                      NEON_COLORS.security
                     }80`
                   : 'none',
             }
@@ -395,16 +500,16 @@ const DashboardPage: React.FC = () => {
               color: (theme) => theme.palette.mode === 'dark' ? NEON_COLORS.general : '#0891b2',
             },
             '& .MuiTab-root:nth-of-type(2).Mui-selected': {
-              color: (theme) => theme.palette.mode === 'dark' ? NEON_COLORS.talent : '#0284c7',
+              color: (theme) => theme.palette.mode === 'dark' ? NEON_COLORS.commercial : '#b45309',
             },
             '& .MuiTab-root:nth-of-type(3).Mui-selected': {
-              color: (theme) => theme.palette.mode === 'dark' ? NEON_COLORS.business : '#15803d',
+              color: (theme) => theme.palette.mode === 'dark' ? NEON_COLORS.logistics : '#15803d',
             },
             '& .MuiTab-root:nth-of-type(4).Mui-selected': {
-              color: (theme) => theme.palette.mode === 'dark' ? NEON_COLORS.security : '#c2410c',
+              color: (theme) => theme.palette.mode === 'dark' ? NEON_COLORS.organization : '#0369a1',
             },
             '& .MuiTab-root:nth-of-type(5).Mui-selected': {
-              color: (theme) => theme.palette.mode === 'dark' ? NEON_COLORS.audit : '#7e22ce',
+              color: (theme) => theme.palette.mode === 'dark' ? NEON_COLORS.security : '#c2410c',
             },
           }}
         >
@@ -414,24 +519,24 @@ const DashboardPage: React.FC = () => {
             label="Vista General"
           />
           <Tab
-            icon={<GroupsIcon />}
+            icon={<ShoppingCartIcon />}
             iconPosition="start"
-            label="Gestión de Talento"
+            label="Comercial"
           />
           <Tab
-            icon={<HandshakeIcon />}
+            icon={<InventoryIcon />}
             iconPosition="start"
-            label="Negocios"
+            label="Logística"
+          />
+          <Tab
+            icon={<EngineeringIcon />}
+            iconPosition="start"
+            label="Organización"
           />
           <Tab
             icon={<ShieldIcon />}
             iconPosition="start"
             label="Seguridad"
-          />
-          <Tab
-            icon={<AssessmentIcon />}
-            iconPosition="start"
-            label="Auditoría"
           />
         </Tabs>
       </Box>
@@ -439,6 +544,81 @@ const DashboardPage: React.FC = () => {
       {/* Tab 0: Vista General */}
       <TabPanel value={currentTab} index={0}>
         <Grid container spacing={2.5}>
+          {hasPermission(PERMISSIONS.READ_ORDERS) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Órdenes"
+                value={ordersCount}
+                icon={<ReceiptIcon />}
+                color="#FFD700"
+                neonColor={NEON_COLORS.general}
+                action={{
+                  label: 'Ver órdenes',
+                  onClick: () => navigate(ROUTES.ORDERS),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_CLIENTS) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Clientes"
+                value={clientsCount}
+                icon={<BadgeIcon />}
+                color="#38BDF8"
+                neonColor={NEON_COLORS.general}
+                action={{
+                  label: 'Ver clientes',
+                  onClick: () => navigate(ROUTES.CLIENTS),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_SUPPLIERS) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Proveedores"
+                value={suppliersCount}
+                icon={<LocalShippingIcon />}
+                color="#A78BFA"
+                neonColor={NEON_COLORS.general}
+                action={{
+                  label: 'Ver proveedores',
+                  onClick: () => navigate(ROUTES.SUPPLIERS),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_SERVICES) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Servicios"
+                value={servicesCount}
+                icon={<MiscellaneousServicesIcon />}
+                color="#60A5FA"
+                neonColor={NEON_COLORS.general}
+                action={{
+                  label: 'Ver servicios',
+                  onClick: () => navigate(ROUTES.SERVICES),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_SUPPLIES) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Insumos"
+                value={suppliesCount}
+                icon={<Inventory2OutlinedIcon />}
+                color="#FBBF24"
+                neonColor={NEON_COLORS.general}
+                action={{
+                  label: 'Ver insumos',
+                  onClick: () => navigate(ROUTES.SUPPLIES),
+                }}
+              />
+            </Grid>
+          )}
           {hasPermission(PERMISSIONS.READ_USERS) && (
             <Grid item xs={12} sm={6} md={4} lg={3}>
               <StatCard
@@ -484,243 +664,27 @@ const DashboardPage: React.FC = () => {
               />
             </Grid>
           )}
-          {hasPermission(PERMISSIONS.READ_CLIENTS) && (
-            <Grid item xs={12} sm={6} md={4} lg={3}>
-              <StatCard
-                title="Clientes"
-                value={clientsCount}
-                icon={<BadgeIcon />}
-                color="#38BDF8"
-                neonColor={NEON_COLORS.general}
-                action={{
-                  label: 'Ver clientes',
-                  onClick: () => navigate(ROUTES.CLIENTS),
-                }}
-              />
-            </Grid>
-          )}
-          {hasPermission(PERMISSIONS.READ_SUPPLIERS) && (
-            <Grid item xs={12} sm={6} md={4} lg={3}>
-              <StatCard
-                title="Proveedores"
-                value={suppliersCount}
-                icon={<LocalShippingIcon />}
-                color="#A78BFA"
-                neonColor={NEON_COLORS.general}
-                action={{
-                  label: 'Ver proveedores',
-                  onClick: () => navigate(ROUTES.SUPPLIERS),
-                }}
-              />
-            </Grid>
-          )}
-          {hasPermission(PERMISSIONS.READ_ROLES) && (
-            <Grid item xs={12} sm={6} md={4} lg={3}>
-              <StatCard
-                title="Roles"
-                value={rolesCount}
-                icon={<SecurityIcon />}
-                color="#FB923C"
-                neonColor={NEON_COLORS.general}
-                action={{
-                  label: 'Ver roles',
-                  onClick: () => navigate(ROUTES.ROLES),
-                }}
-              />
-            </Grid>
-          )}
-          {hasPermission(PERMISSIONS.READ_PERMISSIONS) && (
-            <Grid item xs={12} sm={6} md={4} lg={3}>
-              <StatCard
-                title="Permisos"
-                value={permissionsCount}
-                icon={<VerifiedUserIcon />}
-                color="#4ADE80"
-                neonColor={NEON_COLORS.general}
-                action={{
-                  label: 'Ver permisos',
-                  onClick: () => navigate(ROUTES.PERMISSIONS),
-                }}
-              />
-            </Grid>
-          )}
-          {hasPermission(PERMISSIONS.READ_AUDIT_LOGS) && (
-            <Grid item xs={12} sm={6} md={4} lg={3}>
-              <StatCard
-                title="Logs de Auditoría"
-                value={auditLogsCount}
-                icon={<HistoryIcon />}
-                color="#A1A1AA"
-                neonColor={NEON_COLORS.general}
-                action={{
-                  label: 'Ver logs',
-                  onClick: () => navigate(ROUTES.AUDIT_LOGS),
-                }}
-              />
-            </Grid>
-          )}
-          {hasPermission(PERMISSIONS.READ_SESSION_LOGS) && (
-            <Grid item xs={12} sm={6} md={4} lg={3}>
-              <StatCard
-                title="Historial de Sesiones"
-                value={sessionLogsCount}
-                icon={<LoginIcon />}
-                color="#94A3B8"
-                neonColor={NEON_COLORS.general}
-                action={{
-                  label: 'Ver historial',
-                  onClick: () => navigate(ROUTES.SESSION_LOGS),
-                }}
-              />
-            </Grid>
-          )}
         </Grid>
       </TabPanel>
 
-      {/* Tab 1: Gestión de Talento */}
+      {/* Tab 1: Comercial */}
       <TabPanel value={currentTab} index={1}>
         <Grid container spacing={2.5}>
-          {hasPermission(PERMISSIONS.READ_USERS) && (
+          {hasPermission(PERMISSIONS.READ_ORDERS) && (
             <Grid item xs={12} sm={6} md={4}>
               <StatCard
-                title="Usuarios"
-                value={usersCount}
-                icon={<PeopleIcon />}
-                color="#5B9FED"
-                neonColor={NEON_COLORS.talent}
+                title="Órdenes de Pedido"
+                value={ordersCount}
+                icon={<ReceiptIcon />}
+                color="#FFD700"
+                neonColor={NEON_COLORS.commercial}
                 action={{
-                  label: 'Ver usuarios',
-                  onClick: () => navigate(ROUTES.USERS),
+                  label: 'Ver órdenes',
+                  onClick: () => navigate(ROUTES.ORDERS),
                 }}
               />
             </Grid>
           )}
-          {hasPermission(PERMISSIONS.READ_AREAS) && (
-            <Grid item xs={12} sm={6} md={4}>
-              <StatCard
-                title="Áreas"
-                value={areasCount}
-                icon={<BusinessIcon />}
-                color="#2DD4BF"
-                neonColor={NEON_COLORS.talent}
-                action={{
-                  label: 'Ver áreas',
-                  onClick: () => navigate(ROUTES.AREAS),
-                }}
-              />
-            </Grid>
-          )}
-          {hasPermission(PERMISSIONS.READ_CARGOS) && (
-            <Grid item xs={12} sm={6} md={4}>
-              <StatCard
-                title="Cargos"
-                value={cargosCount}
-                icon={<WorkIcon />}
-                color="#F472B6"
-                neonColor={NEON_COLORS.talent}
-                action={{
-                  label: 'Ver cargos',
-                  onClick: () => navigate(ROUTES.CARGOS),
-                }}
-              />
-            </Grid>
-          )}
-        </Grid>
-
-        {/* Acciones Rápidas - Talento */}
-        <Box mt={4}>
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, color: 'text.primary' }}>
-            Acciones Rápidas
-          </Typography>
-          <Grid container spacing={2}>
-            {hasPermission(PERMISSIONS.CREATE_USERS) && (
-              <Grid item xs={12} sm={6} md={4}>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  onClick={() => navigate(ROUTES.USERS_CREATE)}
-                  sx={{
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    fontSize: '0.875rem',
-                    py: 1.5,
-                    borderRadius: '12px',
-                    borderColor: 'divider',
-                    color: 'text.secondary',
-                    '&:hover': {
-                      borderColor: '#5B9FED',
-                      color: '#5B9FED',
-                      transform: 'translateY(-2px)',
-                      boxShadow: '0 4px 12px rgba(91, 159, 237, 0.15)',
-                      background: 'rgba(91, 159, 237, 0.05)',
-                    },
-                  }}
-                >
-                  Crear Usuario
-                </Button>
-              </Grid>
-            )}
-            {hasPermission(PERMISSIONS.CREATE_AREAS) && (
-              <Grid item xs={12} sm={6} md={4}>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  onClick={() => navigate(ROUTES.AREAS_CREATE)}
-                  sx={{
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    fontSize: '0.875rem',
-                    py: 1.5,
-                    borderRadius: '12px',
-                    borderColor: 'divider',
-                    color: 'text.secondary',
-                    '&:hover': {
-                      borderColor: '#2DD4BF',
-                      color: '#2DD4BF',
-                      transform: 'translateY(-2px)',
-                      boxShadow: '0 4px 12px rgba(45, 212, 191, 0.15)',
-                      background: 'rgba(45, 212, 191, 0.05)',
-                    },
-                  }}
-                >
-                  Crear Área
-                </Button>
-              </Grid>
-            )}
-            {hasPermission(PERMISSIONS.CREATE_CARGOS) && (
-              <Grid item xs={12} sm={6} md={4}>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  onClick={() => navigate(ROUTES.CARGOS_CREATE)}
-                  sx={{
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    fontSize: '0.875rem',
-                    py: 1.5,
-                    borderRadius: '12px',
-                    borderColor: 'divider',
-                    color: 'text.secondary',
-                    '&:hover': {
-                      borderColor: '#F472B6',
-                      color: '#F472B6',
-                      transform: 'translateY(-2px)',
-                      boxShadow: '0 4px 12px rgba(244, 114, 182, 0.15)',
-                      background: 'rgba(244, 114, 182, 0.05)',
-                    },
-                  }}
-                >
-                  Crear Cargo
-                </Button>
-              </Grid>
-            )}
-          </Grid>
-        </Box>
-      </TabPanel>
-
-      {/* Tab 2: Negocios */}
-      <TabPanel value={currentTab} index={2}>
-        <Grid container spacing={2.5}>
           {hasPermission(PERMISSIONS.READ_CLIENTS) && (
             <Grid item xs={12} sm={6} md={4}>
               <StatCard
@@ -728,7 +692,7 @@ const DashboardPage: React.FC = () => {
                 value={clientsCount}
                 icon={<BadgeIcon />}
                 color="#38BDF8"
-                neonColor={NEON_COLORS.business}
+                neonColor={NEON_COLORS.commercial}
                 action={{
                   label: 'Ver clientes',
                   onClick: () => navigate(ROUTES.CLIENTS),
@@ -736,29 +700,56 @@ const DashboardPage: React.FC = () => {
               />
             </Grid>
           )}
-          {hasPermission(PERMISSIONS.READ_SUPPLIERS) && (
+          {hasPermission(PERMISSIONS.READ_COMMERCIAL_CHANNELS) && (
             <Grid item xs={12} sm={6} md={4}>
               <StatCard
-                title="Proveedores"
-                value={suppliersCount}
-                icon={<LocalShippingIcon />}
-                color="#A78BFA"
-                neonColor={NEON_COLORS.business}
+                title="Canales de Venta"
+                value={channelsCount}
+                icon={<StoreIcon />}
+                color="#FBBF24"
+                neonColor={NEON_COLORS.commercial}
                 action={{
-                  label: 'Ver proveedores',
-                  onClick: () => navigate(ROUTES.SUPPLIERS),
+                  label: 'Ver canales',
+                  onClick: () => navigate('/commercial-channels'),
                 }}
               />
             </Grid>
           )}
         </Grid>
 
-        {/* Acciones Rápidas - Negocios */}
+        {/* Acciones Rápidas - Comercial */}
         <Box mt={4}>
           <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, color: 'text.primary' }}>
             Acciones Rápidas
           </Typography>
           <Grid container spacing={2}>
+            {hasPermission(PERMISSIONS.CREATE_ORDERS) && (
+              <Grid item xs={12} sm={6} md={4}>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  onClick={() => navigate(ROUTES.ORDERS_CREATE)}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: '0.875rem',
+                    py: 1.5,
+                    borderRadius: '12px',
+                    borderColor: 'divider',
+                    color: 'text.secondary',
+                    '&:hover': {
+                      borderColor: NEON_COLORS.commercial,
+                      color: NEON_COLORS.commercial,
+                      transform: 'translateY(-2px)',
+                      boxShadow: `0 4px 12px ${alpha(NEON_COLORS.commercial, 0.15)}`,
+                      background: alpha(NEON_COLORS.commercial, 0.05),
+                    },
+                  }}
+                >
+                  Nueva Orden
+                </Button>
+              </Grid>
+            )}
             {hasPermission(PERMISSIONS.CREATE_CLIENTS) && (
               <Grid item xs={12} sm={6} md={4}>
                 <Button
@@ -782,34 +773,7 @@ const DashboardPage: React.FC = () => {
                     },
                   }}
                 >
-                  Crear Cliente
-                </Button>
-              </Grid>
-            )}
-            {hasPermission(PERMISSIONS.CREATE_SUPPLIERS) && (
-              <Grid item xs={12} sm={6} md={4}>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  onClick={() => navigate(ROUTES.SUPPLIERS_CREATE)}
-                  sx={{
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    fontSize: '0.875rem',
-                    py: 1.5,
-                    borderRadius: '12px',
-                    borderColor: 'divider',
-                    color: 'text.secondary',
-                    '&:hover': {
-                      borderColor: '#A78BFA',
-                      color: '#A78BFA',
-                      transform: 'translateY(-2px)',
-                      boxShadow: '0 4px 12px rgba(167, 139, 250, 0.15)',
-                      background: 'rgba(167, 139, 250, 0.05)',
-                    },
-                  }}
-                >
-                  Crear Proveedor
+                  Nuevo Cliente
                 </Button>
               </Grid>
             )}
@@ -817,8 +781,170 @@ const DashboardPage: React.FC = () => {
         </Box>
       </TabPanel>
 
-      {/* Tab 3: Seguridad */}
+      {/* Tab 2: Logística */}
+      <TabPanel value={currentTab} index={2}>
+        <Grid container spacing={2.5}>
+          {hasPermission(PERMISSIONS.READ_SUPPLIERS) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Proveedores"
+                value={suppliersCount}
+                icon={<LocalShippingIcon />}
+                color="#A78BFA"
+                neonColor={NEON_COLORS.logistics}
+                action={{
+                  label: 'Ver proveedores',
+                  onClick: () => navigate(ROUTES.SUPPLIERS),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_PRODUCTION_AREAS) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Áreas Producción"
+                value={productionAreasCount}
+                icon={<FactoryIcon />}
+                color="#10B981"
+                neonColor={NEON_COLORS.logistics}
+                action={{
+                  label: 'Ver áreas',
+                  onClick: () => navigate(ROUTES.PRODUCTION_AREAS),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_SERVICES) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Servicios"
+                value={servicesCount}
+                icon={<MiscellaneousServicesIcon />}
+                color="#60A5FA"
+                neonColor={NEON_COLORS.logistics}
+                action={{
+                  label: 'Ver servicios',
+                  onClick: () => navigate(ROUTES.SERVICES),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_SUPPLIES) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Insumos"
+                value={suppliesCount}
+                icon={<Inventory2OutlinedIcon />}
+                color="#FBBF24"
+                neonColor={NEON_COLORS.logistics}
+                action={{
+                  label: 'Ver insumos',
+                  onClick: () => navigate(ROUTES.SUPPLIES),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_SERVICE_CATEGORIES) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Categorías Serv."
+                value={serviceCatsCount}
+                icon={<CategoryOutlinedIcon />}
+                color="#EC4899"
+                neonColor={NEON_COLORS.logistics}
+                action={{
+                  label: 'Ver categorías',
+                  onClick: () => navigate(ROUTES.SERVICE_CATEGORIES),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_SUPPLY_CATEGORIES) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Categorías Ins."
+                value={supplyCatsCount}
+                icon={<FolderSpecialOutlinedIcon />}
+                color="#8B5CF6"
+                neonColor={NEON_COLORS.logistics}
+                action={{
+                  label: 'Ver categorías',
+                  onClick: () => navigate(ROUTES.SUPPLY_CATEGORIES),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_UNITS_OF_MEASURE) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Unidades Medida"
+                value={unitsCount}
+                icon={<StraightenOutlinedIcon />}
+                color="#64748B"
+                neonColor={NEON_COLORS.logistics}
+                action={{
+                  label: 'Ver unidades',
+                  onClick: () => navigate(ROUTES.UNITS_OF_MEASURE),
+                }}
+              />
+            </Grid>
+          )}
+        </Grid>
+      </TabPanel>
+
+      {/* Tab 3: Organización */}
       <TabPanel value={currentTab} index={3}>
+        <Grid container spacing={2.5}>
+          {hasPermission(PERMISSIONS.READ_USERS) && (
+            <Grid item xs={12} sm={6} md={4}>
+              <StatCard
+                title="Usuarios"
+                value={usersCount}
+                icon={<PeopleIcon />}
+                color="#5B9FED"
+                neonColor={NEON_COLORS.organization}
+                action={{
+                  label: 'Ver usuarios',
+                  onClick: () => navigate(ROUTES.USERS),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_AREAS) && (
+            <Grid item xs={12} sm={6} md={4}>
+              <StatCard
+                title="Áreas"
+                value={areasCount}
+                icon={<BusinessIcon />}
+                color="#2DD4BF"
+                neonColor={NEON_COLORS.organization}
+                action={{
+                  label: 'Ver áreas',
+                  onClick: () => navigate(ROUTES.AREAS),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_CARGOS) && (
+            <Grid item xs={12} sm={6} md={4}>
+              <StatCard
+                title="Cargos"
+                value={cargosCount}
+                icon={<WorkIcon />}
+                color="#F472B6"
+                neonColor={NEON_COLORS.organization}
+                action={{
+                  label: 'Ver cargos',
+                  onClick: () => navigate(ROUTES.CARGOS),
+                }}
+              />
+            </Grid>
+          )}
+        </Grid>
+      </TabPanel>
+
+      {/* Tab 4: Seguridad */}
+      <TabPanel value={currentTab} index={4}>
         <Grid container spacing={2.5}>
           {hasPermission(PERMISSIONS.READ_ROLES) && (
             <Grid item xs={12} sm={6} md={4}>
@@ -846,6 +972,36 @@ const DashboardPage: React.FC = () => {
                 action={{
                   label: 'Ver permisos',
                   onClick: () => navigate(ROUTES.PERMISSIONS),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_AUDIT_LOGS) && (
+            <Grid item xs={12} sm={6} md={4}>
+              <StatCard
+                title="Auditoría"
+                value={auditLogsCount}
+                icon={<HistoryIcon />}
+                color="#A1A1AA"
+                neonColor={NEON_COLORS.security}
+                action={{
+                  label: 'Ver logs',
+                  onClick: () => navigate(ROUTES.AUDIT_LOGS),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_SESSION_LOGS) && (
+            <Grid item xs={12} sm={6} md={4}>
+              <StatCard
+                title="Sesiones"
+                value={sessionLogsCount}
+                icon={<LoginIcon />}
+                color="#94A3B8"
+                neonColor={NEON_COLORS.security}
+                action={{
+                  label: 'Ver historial',
+                  onClick: () => navigate(ROUTES.SESSION_LOGS),
                 }}
               />
             </Grid>
@@ -887,42 +1043,6 @@ const DashboardPage: React.FC = () => {
             )}
           </Grid>
         </Box>
-      </TabPanel>
-
-      {/* Tab 4: Auditoría */}
-      <TabPanel value={currentTab} index={4}>
-        <Grid container spacing={2.5}>
-          {hasPermission(PERMISSIONS.READ_AUDIT_LOGS) && (
-            <Grid item xs={12} sm={6} md={4}>
-              <StatCard
-                title="Logs de Auditoría"
-                value={auditLogsCount}
-                icon={<HistoryIcon />}
-                color="#A1A1AA"
-                neonColor={NEON_COLORS.audit}
-                action={{
-                  label: 'Ver logs',
-                  onClick: () => navigate(ROUTES.AUDIT_LOGS),
-                }}
-              />
-            </Grid>
-          )}
-          {hasPermission(PERMISSIONS.READ_SESSION_LOGS) && (
-            <Grid item xs={12} sm={6} md={4}>
-              <StatCard
-                title="Historial de Sesiones"
-                value={sessionLogsCount}
-                icon={<LoginIcon />}
-                color="#94A3B8"
-                neonColor={NEON_COLORS.audit}
-                action={{
-                  label: 'Ver historial',
-                  onClick: () => navigate(ROUTES.SESSION_LOGS),
-                }}
-              />
-            </Grid>
-          )}
-        </Grid>
       </TabPanel>
     </Box>
   );

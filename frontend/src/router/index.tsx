@@ -59,6 +59,7 @@ const OrderDetailPage = lazy(() => import('../features/orders/pages/OrderDetailP
 const CommercialChannelsListPage = lazy(() => import('../features/commercial-channels/pages/CommercialChannelsListPage'));
 const CommercialChannelFormPage = lazy(() => import('../features/commercial-channels/pages/CommercialChannelFormPage'));
 const CommercialChannelDetailPage = lazy(() => import('../features/commercial-channels/pages/CommercialChannelDetailPage'));
+const NotificationsPage = lazy(() => import('../features/notifications/pages/NotificationsPage'));
 
 
 const RoutesConfig: FC = () => {
@@ -787,7 +788,6 @@ const RoutesConfig: FC = () => {
           }
         />
 
-        {/* Session Logs Routes */}
         <Route
           path={PATHS.SESSION_LOGS}
           element={
@@ -796,6 +796,18 @@ const RoutesConfig: FC = () => {
                 <PermissionGuard permission={PERMISSIONS.READ_SESSION_LOGS}>
                   <SessionLogsPage />
                 </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Notifications Routes */}
+        <Route
+          path={PATHS.NOTIFICATIONS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <NotificationsPage />
               </MainLayout>
             </AuthGuard>
           }

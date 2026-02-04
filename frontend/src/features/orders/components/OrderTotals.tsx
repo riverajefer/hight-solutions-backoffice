@@ -6,7 +6,6 @@ import {
   Typography,
   Grid,
   Checkbox,
-  TextField,
   FormControlLabel,
   Divider,
   Stack,
@@ -36,7 +35,7 @@ export const OrderTotals: React.FC<OrderTotalsProps> = ({
   applyTax,
   taxRate,
   onApplyTaxChange,
-  onTaxRateChange,
+  onTaxRateChange: _onTaxRateChange, // Ignorado ya que no se edita manualmente
   disabled = false,
 }) => {
   // Calcular subtotal
@@ -49,9 +48,14 @@ export const OrderTotals: React.FC<OrderTotalsProps> = ({
   const total = subtotal + tax;
 
   return (
-    <Card variant="outlined">
-      <CardContent>
-        <Grid container spacing={3}>
+    <Card variant="outlined" sx={{ borderRadius: 2 }}>
+      <CardContent sx={{ pb: '16px !important' }}>
+        <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
+          3. IVA
+        </Typography>
+        <Divider sx={{ mb: 2 }} />
+
+        <Grid container spacing={2}>
           {/* Configuración de IVA */}
           <Grid item xs={12} md={6}>
             <FormControlLabel
@@ -62,34 +66,12 @@ export const OrderTotals: React.FC<OrderTotalsProps> = ({
                   disabled={disabled}
                 />
               }
-              label="Aplicar IVA"
+              label={
+                <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                  Aplicar IVA
+                </Typography>
+              }
             />
-
-            {applyTax && (
-              <Box sx={{ mt: 2, ml: 4 }}>
-                <TextField
-                  type="number"
-                  label="Porcentaje de IVA"
-                  value={taxRate}
-                  onChange={(e) => {
-                    const value = parseFloat(e.target.value);
-                    if (!isNaN(value) && value >= 0 && value <= 100) {
-                      onTaxRateChange(value);
-                    }
-                  }}
-                  disabled={disabled}
-                  InputProps={{
-                    endAdornment: <Typography>%</Typography>,
-                  }}
-                  sx={{ width: 150 }}
-                  inputProps={{
-                    min: 0,
-                    max: 100,
-                    step: 0.5,
-                  }}
-                />
-              </Box>
-            )}
           </Grid>
 
           {/* Totales */}

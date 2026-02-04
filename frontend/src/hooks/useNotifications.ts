@@ -12,14 +12,12 @@ export const useNotifications = (filters?: NotificationsFilters) => {
   const notificationsQuery = useQuery({
     queryKey: ['notifications', filters],
     queryFn: () => notificationsApi.getAll(filters || { limit: 50 }),
-    refetchInterval: 60000, // Revalidar cada 1 minuto
   });
 
   // Query: Contar notificaciones no leídas
   const unreadCountQuery = useQuery({
     queryKey: ['notifications', 'unread-count'],
     queryFn: () => notificationsApi.countUnread(),
-    refetchInterval: 30000, // Revalidar cada 30 segundos
   });
 
   // Mutation: Marcar como leída

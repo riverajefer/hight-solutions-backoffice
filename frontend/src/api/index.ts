@@ -8,5 +8,12 @@ export { areasApi } from './areas.api';
 export { cargosApi } from './cargos.api';
 export { clientsApi } from './clients.api';
 export { suppliersApi } from './suppliers.api';
+export { ordersApi } from './orders.api';
+export { servicesApi } from './services.api';
+export { suppliesApi } from './supplies.api';
+export { serviceCategoriesApi } from './service-categories.api';
+export { supplyCategoriesApi } from './supply-categories.api';
+export { unitsOfMeasureApi } from './units-of-measure.api';
+export { productionAreasApi } from './production-areas.api';
+export { commercialChannelsApi } from './commercialChannels.api';
 export { default as axiosInstance } from './axios';
-

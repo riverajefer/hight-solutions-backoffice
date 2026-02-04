@@ -140,4 +140,12 @@ export class CreateOrderDto {
   @ValidateNested()
   @Type(() => InitialPaymentDto)
   initialPayment?: InitialPaymentDto;
+
+  @ApiPropertyOptional({
+    description: 'ID del canal comercial',
+    example: 'uuid-channel',
+  })
+  @IsOptional()
+  @IsUUID()
+  commercialChannelId?: string;
 }

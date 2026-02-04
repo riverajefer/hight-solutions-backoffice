@@ -381,11 +381,13 @@ model Order {
   updatedAt    DateTime    @updatedAt @map("updated_at")
 
   // Relaciones
-  client       Client             @relation(fields: [clientId], references: [id])
-  createdBy    User               @relation(fields: [createdById], references: [id])
-  items        OrderItem[]
-  payments     Payment[]
-  editRequests OrderEditRequest[]
+  client             Client             @relation(fields: [clientId], references: [id])
+  createdBy          User               @relation(fields: [createdById], references: [id])
+  commercialChannelId String?           @map("commercial_channel_id")
+  commercialChannel   CommercialChannel? @relation(fields: [commercialChannelId], references: [id])
+  items              OrderItem[]
+  payments           Payment[]
+  editRequests       OrderEditRequest[]
 
   @@index([clientId])
   @@index([createdById])
@@ -560,6 +562,8 @@ model CommercialChannel {
   description String?
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
+
+  orders      Order[]
 
   @@map("commercial_channels")
 }

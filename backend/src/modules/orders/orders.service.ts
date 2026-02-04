@@ -124,6 +124,9 @@ export class OrdersService {
       notes: createOrderDto.notes,
       client: { connect: { id: createOrderDto.clientId } },
       createdBy: { connect: { id: createdById } },
+      ...(createOrderDto.commercialChannelId && {
+        commercialChannel: { connect: { id: createOrderDto.commercialChannelId } },
+      }),
       items: {
         create: items,
       },
@@ -165,6 +168,9 @@ export class OrdersService {
             }),
             ...(updateOrderDto.status && {
               status: updateOrderDto.status,
+            }),
+            ...(updateOrderDto.commercialChannelId && {
+              commercialChannel: { connect: { id: updateOrderDto.commercialChannelId } },
             }),
           },
         });
@@ -300,6 +306,9 @@ export class OrdersService {
       }),
       ...(updateOrderDto.status && {
         status: updateOrderDto.status,
+      }),
+      ...(updateOrderDto.commercialChannelId && {
+        commercialChannel: { connect: { id: updateOrderDto.commercialChannelId } },
       }),
     });
 
@@ -653,6 +662,9 @@ export class OrdersService {
         paidAmount: true,
         balance: true,
         status: true,
+        notes: true,
+        deliveryDate: true,
+        taxRate: true,
         items: {
           include: {
             service: true,

@@ -21,6 +21,13 @@ export class OrdersRepository {
     notes: true,
     createdAt: true,
     updatedAt: true,
+    commercialChannelId: true,
+    commercialChannel: {
+      select: {
+        id: true,
+        name: true,
+      },
+    },
     client: {
       select: {
         id: true,
