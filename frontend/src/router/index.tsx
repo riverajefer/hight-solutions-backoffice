@@ -60,6 +60,10 @@ const PendingPaymentOrdersPage = lazy(() => import('../features/orders/pages/Pen
 const CommercialChannelsListPage = lazy(() => import('../features/commercial-channels/pages/CommercialChannelsListPage'));
 const CommercialChannelFormPage = lazy(() => import('../features/commercial-channels/pages/CommercialChannelFormPage'));
 const CommercialChannelDetailPage = lazy(() => import('../features/commercial-channels/pages/CommercialChannelDetailPage'));
+// Quotes
+const QuotesListPage = lazy(() => import('../features/quotes/pages/QuotesListPage'));
+const QuoteFormPage = lazy(() => import('../features/quotes/pages/QuoteFormPage'));
+const QuoteDetailPage = lazy(() => import('../features/quotes/pages/QuoteDetailPage'));
 const NotificationsPage = lazy(() => import('../features/notifications/pages/NotificationsPage'));
 
 
@@ -720,6 +724,48 @@ const RoutesConfig: FC = () => {
                 <PermissionGuard permission={PERMISSIONS.READ_ORDERS}>
                   <OrderDetailPage />
                 </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Quotes Routes */}
+        <Route
+          path={PATHS.QUOTES}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <QuotesListPage />
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.QUOTES_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <QuoteFormPage />
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.QUOTES_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <QuoteFormPage />
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.QUOTES_DETAIL}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <QuoteDetailPage />
               </MainLayout>
             </AuthGuard>
           }

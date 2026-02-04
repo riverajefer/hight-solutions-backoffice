@@ -25,6 +25,7 @@ import FolderSpecialOutlinedIcon from '@mui/icons-material/FolderSpecialOutlined
 import StraightenOutlinedIcon from '@mui/icons-material/StraightenOutlined';
 import EngineeringIcon from '@mui/icons-material/Engineering';
 import PaymentsIcon from '@mui/icons-material/Payments';
+import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
 
 
 import { 
@@ -38,6 +39,7 @@ import {
   auditLogsApi, 
   sessionLogsApi,
   ordersApi,
+  quotesApi,
   servicesApi,
   suppliesApi,
   serviceCategoriesApi,
@@ -344,6 +346,14 @@ const DashboardPage: React.FC = () => {
     },
   });
 
+  const { data: quotesData, isLoading: quotesLoading } = useQuery({
+    queryKey: ['quotes'],
+    queryFn: async () => {
+      if (!hasPermission(PERMISSIONS.READ_QUOTES)) return { data: [], meta: { total: 0, page: 1, limit: 1, totalPages: 0 } };
+      return quotesApi.findAll({ limit: 1 });
+    },
+  });
+
   const { data: services = [], isLoading: servicesLoading } = useQuery({
     queryKey: ['services'],
     queryFn: async () => {
@@ -415,7 +425,7 @@ const DashboardPage: React.FC = () => {
     suppliersLoading || areasLoading || cargosLoading || auditLogsLoading || 
     sessionLogsLoading || ordersLoading || servicesLoading || suppliesLoading || 
     productionAreasLoading || channelsLoading || serviceCatsLoading || 
-    supplyCatsLoading || unitsLoading || pendingOrdersLoading;
+    supplyCatsLoading || unitsLoading || pendingOrdersLoading || quotesLoading;
   
   // Logs de verificación de permisos específicos
   console.log('=== VERIFICACIÓN DE PERMISOS ESPECÍFICOS ===');
@@ -450,6 +460,8 @@ const DashboardPage: React.FC = () => {
   const auditLogsCount = auditLogsData?.total || 0;
   const sessionLogsCount = sessionLogsData?.meta?.total || 0;
   const ordersCount = ordersData?.meta?.total || 0;
+  const quotesCount = quotesData?.meta?.total || 0;
+
   const servicesCount = Array.isArray(services) ? services.length : 0;
   const suppliesCount = Array.isArray(supplies) ? supplies.length : 0;
   const productionAreasCount = Array.isArray(productionAreas) ? productionAreas.length : 0;
@@ -577,6 +589,21 @@ const DashboardPage: React.FC = () => {
                 action={{
                   label: 'Ver órdenes',
                   onClick: () => navigate(ROUTES.ORDERS),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_QUOTES) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Cotizaciones"
+                value={quotesCount}
+                icon={<RequestQuoteIcon />}
+                color="#06b6d4"
+                neonColor={NEON_COLORS.general}
+                action={{
+                  label: 'Ver cotizaciones',
+                  onClick: () => navigate(ROUTES.QUOTES),
                 }}
               />
             </Grid>
@@ -722,6 +749,21 @@ const DashboardPage: React.FC = () => {
               />
             </Grid>
           )}
+          {hasPermission(PERMISSIONS.READ_QUOTES) && (
+            <Grid item xs={12} sm={6} md={4}>
+              <StatCard
+                title="Cotizaciones"
+                value={quotesCount}
+                icon={<RequestQuoteIcon />}
+                color="#06b6d4"
+                neonColor={NEON_COLORS.commercial}
+                action={{
+                  label: 'Ver cotizaciones',
+                  onClick: () => navigate(ROUTES.QUOTES),
+                }}
+              />
+            </Grid>
+          )}
           {hasPermission(PERMISSIONS.READ_ORDERS) && (
             <Grid item xs={12} sm={6} md={4}>
               <StatCard
@@ -775,6 +817,33 @@ const DashboardPage: React.FC = () => {
             Acciones Rápidas
           </Typography>
           <Grid container spacing={2}>
+            {hasPermission(PERMISSIONS.CREATE_QUOTES) && (
+              <Grid item xs={12} sm={6} md={4}>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  onClick={() => navigate(ROUTES.QUOTES_CREATE)}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: '0.875rem',
+                    py: 1.5,
+                    borderRadius: '12px',
+                    borderColor: 'divider',
+                    color: 'text.secondary',
+                    '&:hover': {
+                      borderColor: '#06b6d4',
+                      color: '#06b6d4',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 4px 12px rgba(6, 182, 212, 0.15)',
+                      background: 'rgba(6, 182, 212, 0.05)',
+                    },
+                  }}
+                >
+                  Nueva Cotización
+                </Button>
+              </Grid>
+            )}
             {hasPermission(PERMISSIONS.CREATE_ORDERS) && (
               <Grid item xs={12} sm={6} md={4}>
                 <Button

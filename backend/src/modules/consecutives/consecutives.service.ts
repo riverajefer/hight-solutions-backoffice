@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConsecutivesRepository } from './consecutives.repository';
 
-type ConsecutiveType = 'ORDER' | 'PRODUCTION' | 'EXPENSE';
+type ConsecutiveType = 'ORDER' | 'PRODUCTION' | 'EXPENSE' | 'QUOTE';
 
 @Injectable()
 export class ConsecutivesService {
@@ -13,8 +13,8 @@ export class ConsecutivesService {
    * Genera el siguiente número consecutivo para un tipo dado
    * Auto-resuelve el prefijo según el tipo
    *
-   * @param type - Tipo de consecutivo (ORDER, PRODUCTION, EXPENSE)
-   * @returns Número formateado (ej: "OP-2026-0001")
+   * @param type - Tipo de consecutivo (ORDER, PRODUCTION, EXPENSE, QUOTE)
+   * @returns Número formateado (ej: "OP-2026-0001", "COT-2026-0001")
    */
   async generateNumber(type: ConsecutiveType): Promise<string> {
     const prefix = this.getPrefixForType(type);
@@ -46,8 +46,10 @@ export class ConsecutivesService {
       ORDER: 'OP',
       PRODUCTION: 'PROD',
       EXPENSE: 'GAS',
+      QUOTE: 'COT',
     };
 
     return prefixMap[type];
   }
 }
+

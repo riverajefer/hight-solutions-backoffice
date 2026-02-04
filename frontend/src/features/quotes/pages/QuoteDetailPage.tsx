@@ -1,0 +1,287 @@
+import React, { useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  Grid,
+  Divider,
+  Stack,
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Chip,
+  IconButton,
+  Menu,
+  MenuItem,
+} from '@mui/material';
+import {
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  MoreVert as MoreVertIcon,
+  ShoppingCartCheckout as ConvertIcon,
+  Person as PersonIcon,
+  CalendarToday as CalendarIcon,
+  Storefront as ChannelIcon,
+} from '@mui/icons-material';
+import { PageHeader } from '../../../components/common/PageHeader';
+import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
+import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
+import { useQuotes } from '../hooks/useQuotes';
+import { QuoteStatusChip } from '../components/QuoteStatusChip';
+import { QuoteStatus, QUOTE_STATUS_CONFIG, QuoteItem } from '../../../types/quote.types';
+
+const formatCurrency = (value: string | number): string => {
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  return new Intl.NumberFormat('es-CO', {
+    style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0,
+  }).format(numValue);
+};
+
+const formatDate = (date: string): string => {
+  return new Intl.DateTimeFormat('es-CO', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(date));
+};
+
+const formatDateTime = (date: string): string => {
+  return new Intl.DateTimeFormat('es-CO', {
+    year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+  }).format(new Date(date));
+};
+
+export const QuoteDetailPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+
+  const { quoteQuery, updateQuoteMutation, deleteQuoteMutation, convertToOrderMutation } = useQuotes();
+  const { data: quote, isLoading } = quoteQuery(id!);
+
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmConvert, setConfirmConvert] = useState(false);
+
+  if (isLoading) return <LoadingSpinner />;
+  if (!quote) return (
+    <Box sx={{ p: 3 }}>
+      <Typography>Cotización no encontrada</Typography>
+      <Button onClick={() => navigate('/quotes')}>Volver al listado</Button>
+    </Box>
+  );
+
+  const isConverted = quote.status === QuoteStatus.CONVERTED;
+  const canEdit = !isConverted && quote.status !== QuoteStatus.CANCELLED;
+  const canDelete = !isConverted;
+  const canConvert = !isConverted && quote.status === QuoteStatus.ACCEPTED;
+
+  const handleMenuClose = () => setAnchorEl(null);
+
+  const handleChangeStatus = async (newStatus: QuoteStatus) => {
+    await updateQuoteMutation.mutateAsync({ id: id!, data: { status: newStatus } });
+    handleMenuClose();
+  };
+
+  const handleConvert = async () => {
+    try {
+      const order = await convertToOrderMutation.mutateAsync(id!);
+      navigate(`/orders/${order.id}`);
+    } catch (error) {}
+  };
+
+  const handleDelete = async () => {
+    await deleteQuoteMutation.mutateAsync(id!);
+    navigate('/quotes');
+  };
+
+  return (
+    <Box sx={{ p: 3 }}>
+      <PageHeader
+        title={`Cotización ${quote.quoteNumber}`}
+        breadcrumbs={[{ label: 'Cotizaciones', path: '/quotes' }, { label: quote.quoteNumber }]}
+        action={
+          <Stack direction="row" spacing={1}>
+            {canEdit && (
+              <Button variant="outlined" startIcon={<EditIcon />} onClick={() => navigate(`/quotes/${id}/edit`)}>
+                Editar
+              </Button>
+            )}
+            {canConvert && (
+              <Button variant="contained" color="success" startIcon={<ConvertIcon />} onClick={() => setConfirmConvert(true)}>
+                Convertir a Orden
+              </Button>
+            )}
+            <IconButton onClick={(e) => setAnchorEl(e.currentTarget)}><MoreVertIcon /></IconButton>
+          </Stack>
+        }
+      />
+
+      {isConverted && quote.order && (
+        <Card sx={{ mb: 3, bgcolor: 'secondary.light', color: 'secondary.contrastText' }}>
+          <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
+            <Typography variant="body2" fontWeight={600}>
+              Esta cotización ya fue convertida en la orden{' '}
+              <Button 
+                variant="text" 
+                color="inherit" 
+                size="small" 
+                onClick={() => navigate(`/orders/${quote.order?.id}`)} 
+                sx={{ textDecoration: 'underline', fontWeight: 800 }}
+              >
+                {quote.order.orderNumber}
+              </Button>
+            </Typography>
+          </CardContent>
+        </Card>
+      )}
+
+      <Grid container spacing={3} sx={{ mt: 1 }}>
+        <Grid item xs={12} md={8}>
+          <Stack spacing={3}>
+            <Card>
+              <CardContent>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={3}>
+                    <Typography variant="body2" color="textSecondary">Estado</Typography>
+                    <Box sx={{ mt: 1 }}><QuoteStatusChip status={quote.status} size="medium" /></Box>
+                  </Grid>
+                  <Grid item xs={12} sm={3}>
+                    <Typography variant="body2" color="textSecondary">Fecha</Typography>
+                    <Stack direction="row" spacing={1} sx={{ mt: 1 }}><CalendarIcon fontSize="small"/><Typography>{formatDate(quote.quoteDate)}</Typography></Stack>
+                  </Grid>
+                  <Grid item xs={12} sm={3}>
+                    <Typography variant="body2" color="textSecondary">Vence</Typography>
+                    <Stack direction="row" spacing={1} sx={{ mt: 1 }}><CalendarIcon fontSize="small"/><Typography>{quote.validUntil ? formatDate(quote.validUntil) : '-'}</Typography></Stack>
+                  </Grid>
+                  <Grid item xs={12} sm={3}>
+                    <Typography variant="body2" color="textSecondary">Canal</Typography>
+                    <Stack direction="row" spacing={1} sx={{ mt: 1 }}><ChannelIcon fontSize="small"/><Typography>{quote.commercialChannel?.name || '-'}</Typography></Stack>
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>Items</Typography>
+                <Divider sx={{ mb: 2 }} />
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Descripción</TableCell>
+                        <TableCell align="right">Cant.</TableCell>
+                        <TableCell align="right">P. Unit</TableCell>
+                        <TableCell align="right">Total</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {quote.items?.map((item: QuoteItem) => (
+                        <TableRow key={item.id}>
+                          <TableCell>
+                            {item.service && <Chip label={item.service.name} size="small" sx={{ mr: 1, mb: 0.5 }} />}
+                            <Typography variant="body2">{item.description}</Typography>
+                          </TableCell>
+                          <TableCell align="right">{item.quantity.toString()}</TableCell>
+                          <TableCell align="right">{formatCurrency(item.unitPrice)}</TableCell>
+                          <TableCell align="right"><Typography fontWeight={500}>{formatCurrency(item.total)}</Typography></TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+
+                <Box sx={{ mt: 3, ml: 'auto', width: 'fit-content' }}>
+                  <Stack spacing={1} alignItems="flex-end">
+                    <Typography>Subtotal: {formatCurrency(quote.subtotal)}</Typography>
+                    {parseFloat(quote.tax.toString()) > 0 && (
+                      <Typography>IVA ({(parseFloat(quote.taxRate.toString()) * 100).toFixed(0)}%): {formatCurrency(quote.tax)}</Typography>
+                    )}
+                    <Typography variant="h6" color="primary">Total: {formatCurrency(quote.total)}</Typography>
+                  </Stack>
+                </Box>
+              </CardContent>
+            </Card>
+
+            {quote.notes && (
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>Observaciones</Typography>
+                  <Divider sx={{ mb: 2 }} />
+                  <Typography variant="body2">{quote.notes}</Typography>
+                </CardContent>
+              </Card>
+            )}
+          </Stack>
+        </Grid>
+
+        <Grid item xs={12} md={4}>
+          <Stack spacing={3}>
+            <Card>
+              <CardContent>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}><PersonIcon color="primary" /><Typography variant="h6">Cliente</Typography></Stack>
+                <Divider sx={{ mb: 2 }} />
+                <Typography variant="subtitle1" fontWeight={600}>{quote.client?.name}</Typography>
+                <Typography variant="body2" color="textSecondary">{quote.client?.email}</Typography>
+                <Typography variant="body2" color="textSecondary">{quote.client?.phone}</Typography>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>Info Adicional</Typography>
+                <Divider sx={{ mb: 2 }} />
+                <Stack spacing={1}>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Creado por</Typography>
+                    <Typography variant="body2">{quote.createdBy?.firstName} {quote.createdBy?.lastName}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Fecha creación</Typography>
+                    <Typography variant="body2">{formatDateTime(quote.createdAt)}</Typography>
+                  </Box>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Stack>
+        </Grid>
+      </Grid>
+
+      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
+        {Object.entries(QUOTE_STATUS_CONFIG).map(([status, config]) => (
+          <MenuItem key={status} onClick={() => handleChangeStatus(status as QuoteStatus)} disabled={quote.status === status}>
+            <Chip label={config.label} color={config.color} size="small" />
+          </MenuItem>
+        ))}
+        <Divider />
+        {canDelete && (
+          <MenuItem onClick={() => setConfirmDelete(true)} sx={{ color: 'error.main' }}>
+            <DeleteIcon sx={{ mr: 1 }} fontSize="small" /> Eliminar
+          </MenuItem>
+        )}
+      </Menu>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Eliminar Cotización"
+        message="¿Confirma eliminar esta cotización?"
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmDelete(false)}
+        isLoading={deleteQuoteMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={confirmConvert}
+        title="Convertir a Orden"
+        message="¿Confirma convertir esta cotización en una orden de pedido?"
+        onConfirm={handleConvert}
+        onCancel={() => setConfirmConvert(false)}
+        isLoading={convertToOrderMutation.isPending}
+      />
+    </Box>
+  );
+};
+
+export default QuoteDetailPage;

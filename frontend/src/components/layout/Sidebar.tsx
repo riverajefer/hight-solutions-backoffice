@@ -39,6 +39,7 @@ import EngineeringIcon from '@mui/icons-material/Engineering';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
+import PostAddIcon from '@mui/icons-material/PostAdd';
 import { useAuthStore } from '../../store/authStore';
 import { ROUTES, PERMISSIONS } from '../../utils/constants';
 import { gradients, neonColors, neonAccents, darkSurfaces } from '../../theme';
@@ -120,6 +121,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
       icon: <ShoppingCartIcon />,
       menuKey: 'comercial',
       submenu: [
+        {
+          label: 'Cotizaciones',
+          icon: <PostAddIcon />,
+          path: '/quotes',
+          // permission: PERMISSIONS.READ_QUOTES, // Add later if needed
+        },
         {
           label: 'Órdenes de Pedido',
           icon: <ReceiptIcon />,

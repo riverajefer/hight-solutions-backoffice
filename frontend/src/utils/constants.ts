@@ -76,7 +76,12 @@ export const PERMISSIONS = {
   CREATE_COMMERCIAL_CHANNELS: 'create_commercial_channels',
   UPDATE_COMMERCIAL_CHANNELS: 'update_commercial_channels',
   DELETE_COMMERCIAL_CHANNELS: 'delete_commercial_channels',
-  
+  // Quotes
+  CREATE_QUOTES: 'create_quotes',
+  READ_QUOTES: 'read_quotes',
+  UPDATE_QUOTES: 'update_quotes',
+  DELETE_QUOTES: 'delete_quotes',
+  CONVERT_QUOTES: 'convert_quotes',
 };
 
 export const ROUTES = {
@@ -143,7 +148,11 @@ export const ROUTES = {
   ORDERS_EDIT: '/orders/:id/edit',
   ORDERS_DETAIL: '/orders/:id',
   PENDING_PAYMENT_ORDERS: '/orders/pending-payment',
-
+  // Quotes
+  QUOTES: '/quotes',
+  QUOTES_CREATE: '/quotes/new',
+  QUOTES_EDIT: '/quotes/:id/edit',
+  QUOTES_DETAIL: '/quotes/:id',
 };
 
 export const DEFAULT_PAGINATION = {
