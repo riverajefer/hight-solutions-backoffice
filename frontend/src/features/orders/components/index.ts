@@ -9,3 +9,4 @@ export { ActivePermissionBanner } from './ActivePermissionBanner';
 export { RequestEditPermissionButton } from './RequestEditPermissionButton';
 export { EditRequestsList } from './EditRequestsList';
 export { OrderChangeHistoryTab } from './OrderChangeHistoryTab';
+export { OrderPdfButton } from './OrderPdfButton';

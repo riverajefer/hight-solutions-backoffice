@@ -46,7 +46,7 @@ import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { useOrder, useOrderPayments } from '../hooks';
-import { OrderStatusChip } from '../components';
+import { OrderStatusChip, OrderPdfButton } from '../components';
 import { ActivePermissionBanner } from '../components/ActivePermissionBanner';
 import { RequestEditPermissionButton } from '../components/RequestEditPermissionButton';
 import { EditRequestsList } from '../components/EditRequestsList';
@@ -223,6 +223,7 @@ export const OrderDetailPage: React.FC = () => {
                 Registrar Pago
               </Button>
             )}
+            <OrderPdfButton order={order} />
             <IconButton onClick={handleMenuOpen}>
               <MoreVertIcon />
             </IconButton>
