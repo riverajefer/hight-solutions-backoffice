@@ -436,7 +436,7 @@ const DashboardPage: React.FC = () => {
   console.log(`${PERMISSIONS.CREATE_ROLES}:`, hasPermission(PERMISSIONS.CREATE_ROLES));
   console.log('===========================================');
 
-  const PENDING_PAYMENT_STATUSES = React.useMemo(() => ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED'], []);
+  const PENDING_PAYMENT_STATUSES = React.useMemo(() => ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'WARRANTY'], []);
   const pendingOrdersCount = React.useMemo(() => {
     const allOrders = pendingOrdersData?.data || [];
     return allOrders.filter(

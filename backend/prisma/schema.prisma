@@ -346,6 +346,9 @@ enum OrderStatus {
   READY         // Lista para entrega
   DELIVERED     // Entregada
   CANCELLED     // Cancelada
+  WARRANTY      // Garantía
+  RETURNED      // Devolución
+  PAID          // Pagada
 }
 
 enum QuoteStatus {

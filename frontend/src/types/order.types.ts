@@ -8,9 +8,12 @@ export type OrderStatus =
   | 'IN_PRODUCTION'
   | 'READY'
   | 'DELIVERED'
-  | 'CANCELLED';
+  | 'CANCELLED'
+  | 'WARRANTY'
+  | 'RETURNED'
+  | 'PAID';
 
-export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'CHECK' | 'CREDIT' | 'OTHER';
+export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'CHECK' | 'CREDIT';
 
 // ============================================================
 // ENTITIES
@@ -238,9 +241,12 @@ export const ORDER_STATUS_CONFIG: Record<OrderStatus, OrderStatusConfig> = {
   DRAFT: { label: 'Borrador', color: 'default' },
   CONFIRMED: { label: 'Confirmada', color: 'info' },
   IN_PRODUCTION: { label: 'En Producción', color: 'warning' },
-  READY: { label: 'Lista', color: 'success' },
+  READY: { label: 'Lista para entrega', color: 'success' },
   DELIVERED: { label: 'Entregada', color: 'primary' },
   CANCELLED: { label: 'Cancelada', color: 'error' },
+  WARRANTY: { label: 'Garantía', color: 'secondary' },
+  RETURNED: { label: 'Devolución', color: 'error' },
+  PAID: { label: 'Pagada', color: 'success' },
 };
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
@@ -249,5 +255,4 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   CARD: 'Tarjeta',
   CHECK: 'Cheque',
   CREDIT: 'Crédito',
-  OTHER: 'Otro',
 };
