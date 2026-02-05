@@ -39,11 +39,20 @@ export const useClients = (params?: ClientQueryParams) => {
     },
   });
 
+  // Mutation for bulk uploading clients via CSV
+  const uploadCsvMutation = useMutation({
+    mutationFn: (file: File) => clientsApi.uploadCsv(file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+    },
+  });
+
   return {
     clientsQuery,
     createClientMutation,
     updateClientMutation,
     deleteClientMutation,
+    uploadCsvMutation,
   };
 };
 

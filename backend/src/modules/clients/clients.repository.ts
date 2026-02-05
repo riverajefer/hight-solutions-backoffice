@@ -185,4 +185,39 @@ export class ClientsRepository {
       where: { id },
     });
   }
+
+  /**
+   * Fetch all client emails (for bulk uniqueness check)
+   */
+  async findAllEmails(): Promise<string[]> {
+    const clients = await this.prisma.client.findMany({
+      select: { email: true },
+    });
+    return clients.map((c) => c.email);
+  }
+
+  /**
+   * Create multiple clients inside a transaction.
+   * Uses individual create() calls to preserve audit log extensions.
+   */
+  async createMany(clients: Array<{
+    name: string;
+    email: string;
+    phone: string;
+    personType: import('../../generated/prisma').PersonType;
+    departmentId: string;
+    cityId: string;
+    nit: string | null;
+    cedula: string | null;
+    manager: string | null;
+    encargado: string | null;
+    landlinePhone: string | null;
+    address: string | null;
+  }>) {
+    return this.prisma.$transaction(async (tx) => {
+      for (const client of clients) {
+        await tx.client.create({ data: client });
+      }
+    });
+  }
 }

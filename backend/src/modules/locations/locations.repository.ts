@@ -103,4 +103,27 @@ export class LocationsRepository {
     });
     return !!city;
   }
+
+  /**
+   * Find department by name (case-insensitive)
+   */
+  async findDepartmentByName(name: string) {
+    return this.prisma.department.findFirst({
+      where: { name: { equals: name, mode: 'insensitive' } },
+      select: { id: true, name: true },
+    });
+  }
+
+  /**
+   * Find city by name within a specific department (case-insensitive)
+   */
+  async findCityByNameAndDepartment(cityName: string, departmentId: string) {
+    return this.prisma.city.findFirst({
+      where: {
+        name: { equals: cityName, mode: 'insensitive' },
+        departmentId,
+      },
+      select: { id: true, name: true },
+    });
+  }
 }

@@ -61,4 +61,20 @@ export class LocationsService {
 
     return city;
   }
+
+  /**
+   * Find department by name. Returns null if not found (does NOT throw).
+   * Used by bulk upload to collect per-row errors.
+   */
+  async findDepartmentByName(name: string) {
+    return this.locationsRepository.findDepartmentByName(name);
+  }
+
+  /**
+   * Find city by name within a department. Returns null if not found.
+   * Used by bulk upload to collect per-row errors.
+   */
+  async findCityByNameAndDepartment(cityName: string, departmentId: string) {
+    return this.locationsRepository.findCityByNameAndDepartment(cityName, departmentId);
+  }
 }
