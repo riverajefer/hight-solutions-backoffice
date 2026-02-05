@@ -235,7 +235,6 @@ export const OrderDetailPage: React.FC = () => {
               Cambiar Estado
             </Button>
             <OrderPdfButton order={order} />
-            {/* add button with new order */}
             <Button
               variant="outlined"
               startIcon={<AddIcon />}

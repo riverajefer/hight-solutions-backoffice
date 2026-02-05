@@ -44,6 +44,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading = fals
         boxShadow: isDark
           ? '0 20px 60px rgba(0, 0, 0, 0.5)'
           : '0 20px 60px rgba(102, 126, 234, 0.3)',
+        bgcolor: 'background.paper',
+        backgroundImage: 'none',
       }}
     >
       <CardContent sx={{ p: 4 }}>

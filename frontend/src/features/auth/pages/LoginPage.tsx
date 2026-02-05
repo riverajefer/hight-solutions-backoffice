@@ -39,9 +39,6 @@ const LoginPage: React.FC = () => {
         alignItems: 'center',
         justifyContent: 'center',
         padding: 2,
-        background: isDark
-          ? 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%)'
-          : 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)',
       }}
     >
       <LoginForm
