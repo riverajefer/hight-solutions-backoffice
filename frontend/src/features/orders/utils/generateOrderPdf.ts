@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import logo from '../../../assets/logo-dark.webp';
 import type { Order } from '../../../types/order.types';
 import { formatCurrency, formatDate } from '../../../utils/formatters';
 import {
@@ -8,10 +9,39 @@ import {
   PDF_LAYOUT,
 } from '../../../utils/pdfConstants';
 
-/** Get string width in mm (jsPDF v4: getStringUnitWidth returns points) */
+/** Get string width in mm */
 function strWidthMm(doc: jsPDF, text: string): number {
-  return doc.getStringUnitWidth(text) / doc.internal.scaleFactor;
+  return doc.getTextWidth(text);
 }
+
+/** Load image from URL to Base64 */
+function loadImage(url: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.src = url;
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } else {
+        reject(new Error('Canvas context error'));
+      }
+    };
+    img.onerror = (e) => reject(e);
+  });
+}
+
+const SERVICES_LIST = [
+  ['+Papelería empresarial', '+Cuadernos, agendas', '+Vinilo', '+Banner', '+Etiquetas'],
+  ['+Impresión gran formato', '+Impresión sobre rígidos', '+Sublimación textil', '+Roll ups, arañas', '+Calandra'],
+  ['+Señalización', '+Promocionales', '+Confección', '+Mugs', '+DTF UV'],
+  ['+DTF textil', '+Gorras', '+Bordados']
+];
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -63,28 +93,45 @@ function drawFooterOnPage(doc: jsPDF, pageIndex: number) {
 // Section drawers — each receives (doc, y) and returns the new y
 // ---------------------------------------------------------------------------
 
-function drawHeader(doc: jsPDF): number {
-  // Dark navy background bar
-  setFillColor(doc, PDF_COLORS.headerBg);
-  doc.rect(0, 0, PDF_LAYOUT.pageWidth, PDF_LAYOUT.headerHeight, 'F');
+async function drawHeader(doc: jsPDF): Promise<number> {
+  const logoData = await loadImage(logo);
+  const logoW = 50;
+  const logoH = 15; // Aspect ratio approximation
+  const logoX = (PDF_LAYOUT.pageWidth - logoW) / 2;
+  const logoY = 10;
+  const barHeight = 3;
+  const barY = logoY + (logoH / 2) - (barHeight / 2);
 
-  // Company name
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(PDF_FONTS.headerCompany);
-  setTextColor(doc, PDF_COLORS.headerText);
-  doc.text(COMPANY_INFO.name.toUpperCase(), PDF_LAYOUT.marginLeft, 14);
+  // Logo
+  doc.addImage(logoData, 'PNG', logoX, logoY, logoW, logoH);
 
-  // Document title
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(PDF_FONTS.headerDocTitle);
-  doc.text('Orden de Pedido', PDF_LAYOUT.marginLeft, 23);
+  // Left Bar (Cyan)
+  setFillColor(doc, [41, 171, 226]); // Cyan
+  // Draw a complex shape or simple bar. Let's do a simple bar and a "hook"
+  doc.rect(0, barY, logoX - 5, barHeight, 'F');
+  
+  // Right Bar (Black)
+  setFillColor(doc, [0, 0, 0]);
+  doc.rect(logoX + logoW + 5, barY, PDF_LAYOUT.pageWidth - (logoX + logoW + 5), barHeight, 'F');
+  
+  // Services List
+  let y = logoY + logoH + 8;
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'normal'); // Font style looks like a techno font in image, using normal for now
+  setTextColor(doc, [0, 0, 0]);
 
-  // Contact line inside header
-  doc.setFontSize(PDF_FONTS.footer);
-  const contactLine = `${COMPANY_INFO.address}, ${COMPANY_INFO.city}  |  Tel: ${COMPANY_INFO.phones.join(' / ')}  |  ${COMPANY_INFO.email}`;
-  doc.text(contactLine, PDF_LAYOUT.pageWidth / 2, PDF_LAYOUT.headerHeight - 4, { align: 'center' });
+  // Distribute 4 columns
+  const margin = 15;
+  const availableWidth = PDF_LAYOUT.pageWidth - (margin * 2);
+  const colWidth = availableWidth / 4;
 
-  return PDF_LAYOUT.headerHeight + 6;
+  SERVICES_LIST.forEach((col, i) => {
+    col.forEach((item, j) => {
+      doc.text(item, margin + (i * colWidth), y + (j * 3.5));
+    });
+  });
+
+  return y + (5 * 3.5) + 5;
 }
 
 function drawOrderInfo(doc: jsPDF, y: number, order: Order): number {
@@ -277,7 +324,7 @@ function drawFinancials(doc: jsPDF, y: number, order: Order): number {
   setDrawColor(doc, PDF_COLORS.borderGray);
   doc.setLineWidth(0.3);
   doc.line(labelX, y + 1, valueRight, y + 1);
-  y += 4;
+  y += 6;
 
   // Total (larger, bold)
   doc.setFont('helvetica', 'bold');
@@ -367,10 +414,17 @@ function drawAttendedBy(doc: jsPDF, y: number, order: Order): number {
 // Main export
 // ---------------------------------------------------------------------------
 
-export function generateOrderPdf(order: Order): jsPDF {
+export async function generateOrderPdf(order: Order): Promise<jsPDF> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-  let y = drawHeader(doc);
+  let y = await drawHeader(doc);
+
+  // Separator
+  setDrawColor(doc, PDF_COLORS.tableHeaderBg);
+  doc.setLineWidth(0.5);
+  doc.line(PDF_LAYOUT.marginLeft, y, PDF_LAYOUT.marginLeft + PDF_LAYOUT.contentWidth, y);
+  y += 5;
+
   y = drawOrderInfo(doc, y, order);
   y = drawClientSection(doc, y, order);
   y = drawItemsTable(doc, y, order);
