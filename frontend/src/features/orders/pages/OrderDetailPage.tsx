@@ -16,7 +16,6 @@ import {
   TableHead,
   TableRow,
   Chip,
-  IconButton,
   Menu,
   MenuItem,
   Dialog,
@@ -32,10 +31,13 @@ import {
   Tabs,
   Tab,
 } from '@mui/material';
+
 import {
   Edit as EditIcon,
+  Add as AddIcon,
+  Refresh as RefreshIcon,
   Delete as DeleteIcon,
-  MoreVert as MoreVertIcon,
+  ArrowDropDown as ArrowDropDownIcon,
   Payment as PaymentIcon,
   Person as PersonIcon,
   CalendarToday as CalendarIcon,
@@ -46,7 +48,7 @@ import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { useOrder, useOrderPayments } from '../hooks';
-import { OrderStatusChip } from '../components';
+import { OrderStatusChip, OrderPdfButton } from '../components';
 import { ActivePermissionBanner } from '../components/ActivePermissionBanner';
 import { RequestEditPermissionButton } from '../components/RequestEditPermissionButton';
 import { EditRequestsList } from '../components/EditRequestsList';
@@ -214,6 +216,7 @@ export const OrderDetailPage: React.FC = () => {
               orderId={id!}
               orderStatus={order.status}
             />
+
             {canAddPayment && balance > 0 && (
               <Button
                 variant="contained"
@@ -223,9 +226,24 @@ export const OrderDetailPage: React.FC = () => {
                 Registrar Pago
               </Button>
             )}
-            <IconButton onClick={handleMenuOpen}>
-              <MoreVertIcon />
-            </IconButton>
+            <Button
+              variant="outlined"
+              onClick={handleMenuOpen}
+              endIcon={<ArrowDropDownIcon />}
+              startIcon={<RefreshIcon />}
+            >
+              Cambiar Estado
+            </Button>
+            <OrderPdfButton order={order} />
+            {/* add button with new order */}
+            <Button
+              variant="outlined"
+              startIcon={<AddIcon />}
+              onClick={() => navigate('/orders/new')}
+            >
+              Nueva Orden
+            </Button>
+
           </Stack>
         }
       />
@@ -241,7 +259,7 @@ export const OrderDetailPage: React.FC = () => {
             <Card>
               <CardContent>
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={3}>
+                  <Grid item xs={12} sm={4}>
                     <Typography variant="body2" color="textSecondary">
                       Estado
                     </Typography>
@@ -249,7 +267,7 @@ export const OrderDetailPage: React.FC = () => {
                       <OrderStatusChip status={order.status} size="medium" />
                     </Box>
                   </Grid>
-                  <Grid item xs={12} sm={3}>
+                  <Grid item xs={12} sm={4}>
                     <Typography variant="body2" color="textSecondary">
                       Fecha de Orden
                     </Typography>
@@ -260,7 +278,7 @@ export const OrderDetailPage: React.FC = () => {
                       </Typography>
                     </Stack>
                   </Grid>
-                  <Grid item xs={12} sm={3}>
+                  <Grid item xs={12} sm={4}>
                     <Typography variant="body2" color="textSecondary">
                       Fecha de Entrega
                     </Typography>
@@ -268,17 +286,6 @@ export const OrderDetailPage: React.FC = () => {
                       <CalendarIcon fontSize="small" color="action" />
                       <Typography variant="body1">
                         {order.deliveryDate ? formatDate(order.deliveryDate) : 'No especificada'}
-                      </Typography>
-                    </Stack>
-                  </Grid>
-                  <Grid item xs={12} sm={3}>
-                    <Typography variant="body2" color="textSecondary">
-                      Canal de Venta
-                    </Typography>
-                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
-                      <ChannelIcon fontSize="small" color="action" />
-                      <Typography variant="body1">
-                        {order.commercialChannel?.name || 'No especificado'}
                       </Typography>
                     </Stack>
                   </Grid>
@@ -560,7 +567,7 @@ export const OrderDetailPage: React.FC = () => {
       <Menu anchorEl={anchorEl} open={openMenu} onClose={handleMenuClose}>
         <MenuItem disabled>
           <Typography variant="caption" color="textSecondary">
-            Cambiar Estado
+            Cambiar Estado de la Orden
           </Typography>
         </MenuItem>
         {Object.entries(ORDER_STATUS_CONFIG).map(([status, config]) => (
