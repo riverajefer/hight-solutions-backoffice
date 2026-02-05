@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Box, Chip } from '@mui/material';
+import { Box, Button, Chip } from '@mui/material';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
@@ -7,6 +8,7 @@ import { PageHeader } from '../../../components/common/PageHeader';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { DataTable, ActionsCell } from '../../../components/common/DataTable';
 import { useClients } from '../hooks/useClients';
+import { UploadCsvModal } from '../components/UploadCsvModal';
 import { Client } from '../../../types';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
@@ -16,8 +18,9 @@ const ClientsListPage: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
   const { hasPermission } = useAuthStore();
   const [confirmDelete, setConfirmDelete] = useState<Client | null>(null);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
 
-  const { clientsQuery, deleteClientMutation } = useClients();
+  const { clientsQuery, deleteClientMutation, uploadCsvMutation } = useClients();
   const clients = clientsQuery.data || [];
 
   const handleDeleteConfirm = async () => {
@@ -126,6 +129,18 @@ const ClientsListPage: React.FC = () => {
       <PageHeader
         title="Clientes"
         subtitle="Gestiona los clientes de la organización"
+        action={
+          hasPermission(PERMISSIONS.CREATE_CLIENTS) ? (
+            <Button
+              variant="outlined"
+              color="primary"
+              startIcon={<UploadFileIcon />}
+              onClick={() => setUploadModalOpen(true)}
+            >
+              Subida Masiva
+            </Button>
+          ) : undefined
+        }
       />
 
       <DataTable
@@ -150,6 +165,21 @@ const ClientsListPage: React.FC = () => {
         isLoading={deleteClientMutation.isPending}
         confirmText="Eliminar"
         severity="error"
+      />
+
+      <UploadCsvModal
+        open={uploadModalOpen}
+        onClose={() => setUploadModalOpen(false)}
+        onUpload={async (file) => {
+          const result = await uploadCsvMutation.mutateAsync(file);
+          if (result.successful > 0) {
+            enqueueSnackbar(
+              `${result.successful} cliente${result.successful !== 1 ? 's' : ''} importado${result.successful !== 1 ? 's' : ''} correctamente`,
+              { variant: 'success' },
+            );
+          }
+          return result;
+        }}
       />
     </Box>
   );

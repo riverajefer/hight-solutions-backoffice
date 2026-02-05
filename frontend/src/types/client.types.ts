@@ -68,3 +68,15 @@ export interface ClientQueryParams {
 }
 
 export type ClientListResponse = Client[];
+
+export interface UploadClientRowError {
+  row: number;
+  error: string;
+}
+
+export interface UploadClientsResponse {
+  total: number;
+  successful: number;
+  failed: number;
+  errors: UploadClientRowError[];
+}

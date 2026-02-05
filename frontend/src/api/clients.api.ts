@@ -5,6 +5,7 @@ import {
   UpdateClientDto,
   ClientQueryParams,
   ClientListResponse,
+  UploadClientsResponse,
 } from '../types';
 
 export const clientsApi = {
@@ -48,6 +49,22 @@ export const clientsApi = {
   delete: async (id: string): Promise<{ message: string }> => {
     const response = await axiosInstance.delete<{ message: string }>(
       `/clients/${id}`
+    );
+    return response.data;
+  },
+
+  /**
+   * Upload clients via CSV file (bulk import)
+   */
+  uploadCsv: async (file: File): Promise<UploadClientsResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await axiosInstance.post<UploadClientsResponse>(
+      '/clients/upload',
+      formData,
+      {
+        headers: { 'Content-Type': undefined as unknown as string },
+      },
     );
     return response.data;
   },

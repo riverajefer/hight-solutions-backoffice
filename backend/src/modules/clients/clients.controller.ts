@@ -8,7 +8,11 @@ import {
   Param,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
@@ -16,12 +20,14 @@ import {
   ApiParam,
   ApiQuery,
   ApiBearerAuth,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { ClientsService } from './clients.service';
-import { CreateClientDto, UpdateClientDto } from './dto';
+import { CreateClientDto, UpdateClientDto, UploadClientsResponseDto } from './dto';
 
 @ApiTags('clients')
 @ApiBearerAuth('JWT-auth')
@@ -61,6 +67,44 @@ export class ClientsController {
   })
   findOne(@Param('id') id: string) {
     return this.clientsService.findOne(id);
+  }
+
+  @Post('upload')
+  @RequirePermissions('create_clients')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 1024 * 1024 }, // 1MB
+    }),
+  )
+  @ApiOperation({ summary: 'Subida masiva de clientes por CSV' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Archivo CSV con datos de clientes',
+    type: 'multipart/form-data',
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Resultado de la subida masiva',
+    type: UploadClientsResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Archivo inválido o vacío',
+  })
+  async uploadClients(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('No se proporcionó archivo CSV');
+    }
+    if (!file.originalname.toLowerCase().endsWith('.csv')) {
+      throw new BadRequestException('Solo se permiten archivos CSV (.csv)');
+    }
+    return this.clientsService.uploadClients(file.buffer);
   }
 
   @Post()
