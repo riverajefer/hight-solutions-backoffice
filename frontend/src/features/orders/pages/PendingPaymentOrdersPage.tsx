@@ -38,6 +38,7 @@ const PENDING_PAYMENT_STATUSES: string[] = [
   'IN_PRODUCTION',
   'READY',
   'DELIVERED',
+  'WARRANTY',
 ];
 
 // ============================================================

@@ -571,6 +571,7 @@ export class OrdersService {
       OrderStatus.IN_PRODUCTION,
       OrderStatus.READY,
       OrderStatus.DELIVERED,
+      OrderStatus.WARRANTY,
     ];
 
     if (!allowedStatuses.includes(order.status)) {

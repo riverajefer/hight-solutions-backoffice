@@ -173,7 +173,7 @@ export const OrderFormPage: React.FC = () => {
         },
       ],
       applyTax: false,
-      taxRate: 0,
+      taxRate: 19,
       payment: {
         amount: 0,
         paymentMethod: 'CASH',
