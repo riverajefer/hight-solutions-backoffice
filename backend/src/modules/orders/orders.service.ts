@@ -361,9 +361,35 @@ export class OrdersService {
     return updatedOrder;
   }
 
-  async updateStatus(id: string, status: OrderStatus) {
-    await this.findOne(id);
-    return this.ordersRepository.updateStatus(id, status);
+  async updateStatus(id: string, status: OrderStatus, userId: string) {
+    const order = await this.findOne(id);
+
+    // SECURITY: Prevent reverting to DRAFT status to bypass edit restrictions
+    // If an order is already processed (CONFIRMED, etc), it should not go back to DRAFT.
+    // Users should use the "Edit Request" flow instead.
+    if (status === OrderStatus.DRAFT && order.status !== OrderStatus.DRAFT) {
+      throw new BadRequestException(
+        'No se puede revertir el estado de la orden a BORRADOR. Por favor, use el flujo de solicitud de edición para modificar la orden.',
+      );
+    }
+    
+    // Log change
+    if (order.status !== status) {
+        await this.ordersRepository.updateStatus(id, status);
+        
+        // Registrar en audit log (sin esperar)
+        const updatedOrder = await this.findOne(id);
+        this.auditLogsService.logOrderChange(
+          'UPDATE',
+          id,
+          order,
+          updatedOrder,
+          userId,
+        );
+        return updatedOrder;
+    }
+
+    return order;
   }
 
   async remove(id: string, userId?: string) {
