@@ -19,7 +19,7 @@ export interface ServiceCategory {
  */
 export interface CreateServiceCategoryDto {
   name: string;
-  slug: string;
+  slug?: string;
   description?: string;
   icon?: string;
   sortOrder?: number;

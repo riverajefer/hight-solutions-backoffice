@@ -31,11 +31,6 @@ const supplyCategorySchema = z.object({
     .string()
     .min(1, 'El nombre es requerido')
     .max(100, 'El nombre no puede exceder 100 caracteres'),
-  slug: z
-    .string()
-    .min(1, 'El slug es requerido')
-    .max(100, 'El slug no puede exceder 100 caracteres')
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'El slug debe estar en formato kebab-case (ej: mi-categoria)'),
   description: z
     .string()
     .max(500, 'La descripción no puede exceder 500 caracteres')
@@ -78,7 +73,6 @@ const SupplyCategoryFormPage: React.FC = () => {
     resolver: zodResolver(supplyCategorySchema),
     defaultValues: {
       name: '',
-      slug: '',
       description: '',
       icon: '',
       sortOrder: '' as unknown as number,
@@ -90,7 +84,6 @@ const SupplyCategoryFormPage: React.FC = () => {
     if (supplyCategory && isEdit) {
       reset({
         name: supplyCategory.name,
-        slug: supplyCategory.slug,
         description: supplyCategory.description || '',
         icon: supplyCategory.icon || '',
         sortOrder: supplyCategory.sortOrder.toString() as unknown as number,
@@ -168,22 +161,6 @@ const SupplyCategoryFormPage: React.FC = () => {
                     helperText={errors.name?.message}
                     required
                     placeholder="Ej: Materiales de Construcción, Químicos"
-                  />
-                )}
-              />
-
-              <Controller
-                name="slug"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Slug"
-                    fullWidth
-                    error={!!errors.slug}
-                    helperText={errors.slug?.message || 'URL amigable (formato: mi-categoria)'}
-                    required
-                    placeholder="Ej: materiales-construccion, quimicos"
                   />
                 )}
               />

@@ -19,7 +19,7 @@ export interface SupplyCategory {
  */
 export interface CreateSupplyCategoryDto {
   name: string;
-  slug: string;
+  slug?: string;
   description?: string;
   icon?: string;
   sortOrder?: number;

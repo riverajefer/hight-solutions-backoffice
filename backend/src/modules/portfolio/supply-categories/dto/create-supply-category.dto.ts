@@ -13,16 +13,17 @@ export class CreateSupplyCategoryDto {
   @MaxLength(100)
   name: string;
 
-  @ApiProperty({
-    description: 'Slug único (URL-friendly)',
+  @ApiPropertyOptional({
+    description: 'Slug único (URL-friendly). Se autogenera a partir del nombre si no se proporciona.',
     example: 'telas-y-lonas',
     minLength: 2,
     maxLength: 100,
   })
   @IsString()
+  @IsOptional()
   @MinLength(2)
   @MaxLength(100)
-  slug: string;
+  slug?: string;
 
   @ApiPropertyOptional({
     description: 'Descripción de la categoría',

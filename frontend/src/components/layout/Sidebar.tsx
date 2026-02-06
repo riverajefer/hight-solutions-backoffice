@@ -397,7 +397,30 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
       </Box>
 
       {/* Navigation List */}
-      <List sx={{ px: 1, flex: 1 }}>
+      <List 
+        sx={{ 
+          px: 1, 
+          flex: 1,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          '&::-webkit-scrollbar': {
+            width: '6px',
+          },
+          '&::-webkit-scrollbar-track': {
+            marginTop: '8px',
+            marginBottom: '8px',
+            background: 'transparent',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: isDark ? alpha(neonColors.primary.main, 0.2) : 'rgba(0, 0, 0, 0.1)',
+            borderRadius: '10px',
+            transition: 'background 0.3s ease',
+          },
+          '&::-webkit-scrollbar-thumb:hover': {
+            background: isDark ? alpha(neonColors.primary.main, 0.4) : 'rgba(0, 0, 0, 0.2)',
+          },
+        }}
+      >
         {navItems.map((item, index) => {
           // Check permissions: single permission or array of permissions (any match)
           if (item.permission && !hasPermission(item.permission)) {

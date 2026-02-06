@@ -38,6 +38,20 @@ export class SupplyCategoriesService {
   }
 
   /**
+   * Genera un slug a partir de un texto
+   */
+  private generateSlug(text: string): string {
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s-]/g, '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
+  }
+
+  /**
    * Crea una nueva categoría de insumo
    */
   async create(createSupplyCategoryDto: CreateSupplyCategoryDto) {
@@ -52,20 +66,23 @@ export class SupplyCategoriesService {
       );
     }
 
+    // Autogenerar slug si no se proporciona
+    const slug =
+      createSupplyCategoryDto.slug || this.generateSlug(createSupplyCategoryDto.name);
+
     // Verificar slug único
-    const existingSlug = await this.supplyCategoriesRepository.findBySlug(
-      createSupplyCategoryDto.slug,
-    );
+    const existingSlug =
+      await this.supplyCategoriesRepository.findBySlug(slug);
 
     if (existingSlug) {
       throw new BadRequestException(
-        `Ya existe una categoría de insumo con el slug "${createSupplyCategoryDto.slug}"`,
+        `Ya existe una categoría de insumo con el slug "${slug}"`,
       );
     }
 
     return this.supplyCategoriesRepository.create({
       name: createSupplyCategoryDto.name,
-      slug: createSupplyCategoryDto.slug,
+      slug,
       description: createSupplyCategoryDto.description,
       icon: createSupplyCategoryDto.icon,
       sortOrder: createSupplyCategoryDto.sortOrder ?? 0,
@@ -95,6 +112,11 @@ export class SupplyCategoriesService {
           `Ya existe una categoría de insumo con el nombre "${updateSupplyCategoryDto.name}"`,
         );
       }
+    }
+
+    // Si se actualiza el nombre, regenerar slug automáticamente
+    if (updateSupplyCategoryDto.name && !updateSupplyCategoryDto.slug) {
+      updateSupplyCategoryDto.slug = this.generateSlug(updateSupplyCategoryDto.name);
     }
 
     // Si se actualiza el slug, verificar que no exista
