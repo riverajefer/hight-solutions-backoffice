@@ -231,7 +231,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                           return { 
                             ...i, 
                             serviceId: newValue?.id || undefined,
-                            description: i.description || newValue?.name || '',
+                            description: newValue?.name || '',
                             unitPrice: i.unitPrice || (hasBasePrice ? newValue!.basePrice!.toString() : ''),
                             total: !isNaN(quantity) && !isNaN(basePriceValue) ? quantity * basePriceValue : i.total
                           };
