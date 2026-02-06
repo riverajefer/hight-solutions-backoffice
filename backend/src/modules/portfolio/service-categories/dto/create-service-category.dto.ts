@@ -20,16 +20,17 @@ export class CreateServiceCategoryDto {
   @MaxLength(100)
   name: string;
 
-  @ApiProperty({
-    description: 'Slug único para la categoría (URL-friendly)',
+  @ApiPropertyOptional({
+    description: 'Slug único para la categoría (URL-friendly). Se autogenera a partir del nombre si no se proporciona.',
     example: 'impresion-gran-formato',
     minLength: 2,
     maxLength: 100,
   })
   @IsString()
+  @IsOptional()
   @MinLength(2)
   @MaxLength(100)
-  slug: string;
+  slug?: string;
 
   @ApiPropertyOptional({
     description: 'Descripción de la categoría',

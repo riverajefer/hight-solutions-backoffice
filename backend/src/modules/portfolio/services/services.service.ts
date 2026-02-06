@@ -32,17 +32,33 @@ export class ServicesService {
   }
 
   /**
+   * Genera un slug a partir de un texto
+   */
+  private generateSlug(text: string): string {
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s-]/g, '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
+  }
+
+  /**
    * Crea un nuevo servicio
    */
   async create(createServiceDto: CreateServiceDto) {
+    // Autogenerar slug si no se proporciona
+    const slug =
+      createServiceDto.slug || this.generateSlug(createServiceDto.name);
+
     // Verificar slug único
-    const existingSlug = await this.servicesRepository.findBySlug(
-      createServiceDto.slug,
-    );
+    const existingSlug = await this.servicesRepository.findBySlug(slug);
 
     if (existingSlug) {
       throw new BadRequestException(
-        `Ya existe un servicio con el slug "${createServiceDto.slug}"`,
+        `Ya existe un servicio con el slug "${slug}"`,
       );
     }
 
@@ -66,7 +82,7 @@ export class ServicesService {
 
     return this.servicesRepository.create({
       name: createServiceDto.name,
-      slug: createServiceDto.slug,
+      slug,
       description: createServiceDto.description,
       basePrice: basePriceDecimal,
       priceUnit: createServiceDto.priceUnit,
@@ -82,6 +98,11 @@ export class ServicesService {
   async update(id: string, updateServiceDto: UpdateServiceDto) {
     // Verificar que existe
     await this.findOne(id);
+
+    // Si se actualiza el nombre, regenerar slug automáticamente
+    if (updateServiceDto.name && !updateServiceDto.slug) {
+      updateServiceDto.slug = this.generateSlug(updateServiceDto.name);
+    }
 
     // Si se actualiza el slug, verificar que no exista
     if (updateServiceDto.slug) {

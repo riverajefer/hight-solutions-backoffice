@@ -25,7 +25,7 @@ export interface Service {
  */
 export interface CreateServiceDto {
   name: string;
-  slug: string;
+  slug?: string;
   description?: string;
   basePrice?: number;
   priceUnit?: string;

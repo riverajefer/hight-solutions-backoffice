@@ -38,6 +38,20 @@ export class ServiceCategoriesService {
   }
 
   /**
+   * Genera un slug a partir de un texto
+   */
+  private generateSlug(text: string): string {
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s-]/g, '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
+  }
+
+  /**
    * Crea una nueva categoría de servicio
    */
   async create(createServiceCategoryDto: CreateServiceCategoryDto) {
@@ -52,20 +66,23 @@ export class ServiceCategoriesService {
       );
     }
 
+    // Autogenerar slug si no se proporciona
+    const slug =
+      createServiceCategoryDto.slug || this.generateSlug(createServiceCategoryDto.name);
+
     // Verificar slug único
-    const existingSlug = await this.serviceCategoriesRepository.findBySlug(
-      createServiceCategoryDto.slug,
-    );
+    const existingSlug =
+      await this.serviceCategoriesRepository.findBySlug(slug);
 
     if (existingSlug) {
       throw new BadRequestException(
-        `Ya existe una categoría de servicio con el slug "${createServiceCategoryDto.slug}"`,
+        `Ya existe una categoría de servicio con el slug "${slug}"`,
       );
     }
 
     return this.serviceCategoriesRepository.create({
       name: createServiceCategoryDto.name,
-      slug: createServiceCategoryDto.slug,
+      slug,
       description: createServiceCategoryDto.description,
       icon: createServiceCategoryDto.icon,
       sortOrder: createServiceCategoryDto.sortOrder ?? 0,
@@ -95,6 +112,11 @@ export class ServiceCategoriesService {
           `Ya existe una categoría de servicio con el nombre "${updateServiceCategoryDto.name}"`,
         );
       }
+    }
+
+    // Si se actualiza el nombre, regenerar slug automáticamente
+    if (updateServiceCategoryDto.name && !updateServiceCategoryDto.slug) {
+      updateServiceCategoryDto.slug = this.generateSlug(updateServiceCategoryDto.name);
     }
 
     // Si se actualiza el slug, verificar que no exista

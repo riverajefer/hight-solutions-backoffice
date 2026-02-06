@@ -34,11 +34,6 @@ const serviceSchema = z.object({
     .string()
     .min(1, 'El nombre es requerido')
     .max(100, 'El nombre no puede exceder 100 caracteres'),
-  slug: z
-    .string()
-    .min(1, 'El slug es requerido')
-    .max(100, 'El slug no puede exceder 100 caracteres')
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'El slug debe estar en formato kebab-case (ej: mi-servicio)'),
   description: z
     .string()
     .max(500, 'La descripción no puede exceder 500 caracteres')
@@ -87,7 +82,6 @@ const ServiceFormPage: React.FC = () => {
     resolver: zodResolver(serviceSchema),
     defaultValues: {
       name: '',
-      slug: '',
       description: '',
       basePrice: '' as unknown as number,
       priceUnit: '',
@@ -100,7 +94,6 @@ const ServiceFormPage: React.FC = () => {
     if (service && isEdit) {
       reset({
         name: service.name,
-        slug: service.slug,
         description: service.description || '',
         basePrice: service.basePrice?.toString() as unknown as number || '' as unknown as number,
         priceUnit: service.priceUnit || '',
@@ -186,22 +179,6 @@ const ServiceFormPage: React.FC = () => {
                     helperText={errors.name?.message}
                     required
                     placeholder="Ej: Desarrollo Web, Consultoría IT"
-                  />
-                )}
-              />
-
-              <Controller
-                name="slug"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Slug"
-                    fullWidth
-                    error={!!errors.slug}
-                    helperText={errors.slug?.message || 'URL amigable (formato: mi-servicio)'}
-                    required
-                    placeholder="Ej: desarrollo-web, consultoria-it"
                   />
                 )}
               />

@@ -22,16 +22,17 @@ export class CreateServiceDto {
   @MaxLength(150)
   name: string;
 
-  @ApiProperty({
-    description: 'Slug único (URL-friendly)',
+  @ApiPropertyOptional({
+    description: 'Slug único (URL-friendly). Se autogenera a partir del nombre si no se proporciona.',
     example: 'pendon-80x200-cm',
     minLength: 2,
     maxLength: 150,
   })
   @IsString()
+  @IsOptional()
   @MinLength(2)
   @MaxLength(150)
-  slug: string;
+  slug?: string;
 
   @ApiPropertyOptional({
     description: 'Descripción del servicio',

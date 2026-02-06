@@ -31,11 +31,6 @@ const serviceCategorySchema = z.object({
     .string()
     .min(1, 'El nombre es requerido')
     .max(100, 'El nombre no puede exceder 100 caracteres'),
-  slug: z
-    .string()
-    .min(1, 'El slug es requerido')
-    .max(100, 'El slug no puede exceder 100 caracteres')
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'El slug debe estar en formato kebab-case (ej: mi-categoria)'),
   description: z
     .string()
     .max(500, 'La descripción no puede exceder 500 caracteres')
@@ -78,7 +73,6 @@ const ServiceCategoryFormPage: React.FC = () => {
     resolver: zodResolver(serviceCategorySchema),
     defaultValues: {
       name: '',
-      slug: '',
       description: '',
       icon: '',
       sortOrder: '' as unknown as number,
@@ -90,7 +84,6 @@ const ServiceCategoryFormPage: React.FC = () => {
     if (serviceCategory && isEdit) {
       reset({
         name: serviceCategory.name,
-        slug: serviceCategory.slug,
         description: serviceCategory.description || '',
         icon: serviceCategory.icon || '',
         sortOrder: serviceCategory.sortOrder.toString() as unknown as number,
@@ -169,22 +162,6 @@ const ServiceCategoryFormPage: React.FC = () => {
                     helperText={errors.name?.message}
                     required
                     placeholder="Ej: Desarrollo de Software, Consultoría"
-                  />
-                )}
-              />
-
-              <Controller
-                name="slug"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Slug"
-                    fullWidth
-                    error={!!errors.slug}
-                    helperText={errors.slug?.message || 'URL amigable (formato: mi-categoria)'}
-                    required
-                    placeholder="Ej: desarrollo-software, consultoria"
                   />
                 )}
               />
