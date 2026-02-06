@@ -75,6 +75,30 @@ export const PERMISSION_LABELS: Record<string, string> = {
   read_supplies: 'Ver Insumos',
   update_supplies: 'Actualizar Insumos',
   delete_supplies: 'Eliminar Insumos',
+  
+  // Áreas de Producción
+  create_production_areas: 'Crear Áreas de Producción',
+  read_production_areas: 'Ver Áreas de Producción',
+  update_production_areas: 'Actualizar Áreas de Producción',
+  delete_production_areas: 'Eliminar Áreas de Producción',
+  
+  // Canales Comerciales
+  create_commercial_channels: 'Crear Canales Comerciales',
+  read_commercial_channels: 'Ver Canales Comerciales',
+  update_commercial_channels: 'Actualizar Canales Comerciales',
+  delete_commercial_channels: 'Eliminar Canales Comerciales',
+
+  // Cotizaciones
+  create_quotes: 'Crear Cotizaciones',
+  read_quotes: 'Ver Cotizaciones',
+  update_quotes: 'Actualizar Cotizaciones',
+  delete_quotes: 'Eliminar Cotizaciones',
+  convert_quotes: 'Convertir Cotizaciones',
+   // Órdenes
+   create_orders: 'Crear Órdenes',
+   read_orders: 'Ver Órdenes',
+   update_orders: 'Actualizar Órdenes',
+   delete_orders: 'Eliminar Órdenes',
 };
 
 /**

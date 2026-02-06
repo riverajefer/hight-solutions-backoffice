@@ -369,11 +369,11 @@ export class OrdersService {
   async remove(id: string, userId?: string) {
     const order = await this.findOne(id);
 
-    // Solo se pueden eliminar borradores o canceladas
-    const allowedStatuses: OrderStatus[] = [OrderStatus.DRAFT, OrderStatus.CANCELLED];
+    // Solo se pueden eliminar borradores
+    const allowedStatuses: OrderStatus[] = [OrderStatus.DRAFT];
     if (!allowedStatuses.includes(order.status)) {
       throw new BadRequestException(
-        'Only DRAFT or CANCELLED orders can be deleted',
+        'Only DRAFT orders can be deleted',
       );
     }
 

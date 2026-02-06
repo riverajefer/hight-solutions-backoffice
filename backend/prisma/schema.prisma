@@ -345,7 +345,6 @@ enum OrderStatus {
   IN_PRODUCTION // En producción
   READY         // Lista para entrega
   DELIVERED     // Entregada
-  CANCELLED     // Cancelada
   WARRANTY      // Garantía
   RETURNED      // Devolución
   PAID          // Pagada

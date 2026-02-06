@@ -44,9 +44,11 @@ const ORDER_STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
   { value: 'DRAFT', label: 'Borrador' },
   { value: 'CONFIRMED', label: 'Confirmada' },
   { value: 'IN_PRODUCTION', label: 'En Producción' },
-  { value: 'READY', label: 'Lista' },
+  { value: 'READY', label: 'Lista para entrega' },
   { value: 'DELIVERED', label: 'Entregada' },
-  { value: 'CANCELLED', label: 'Cancelada' },
+  { value: 'WARRANTY', label: 'Garantía' },
+  { value: 'RETURNED', label: 'Devolución' },
+  { value: 'PAID', label: 'Pagada' },
 ];
 
 export const OrdersListPage: React.FC = () => {
@@ -198,8 +200,8 @@ export const OrdersListPage: React.FC = () => {
       width: 200,
       sortable: false,
       renderCell: (params) => {
-        const canEdit = !['DELIVERED', 'CANCELLED'].includes(params.row.status);
-        const canDelete = ['DRAFT', 'CANCELLED'].includes(params.row.status);
+        const canEdit = !['DELIVERED'].includes(params.row.status);
+        const canDelete = ['DRAFT'].includes(params.row.status);
 
         return (
           <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>

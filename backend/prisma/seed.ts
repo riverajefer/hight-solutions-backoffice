@@ -1945,13 +1945,23 @@ async function main() {
       },
       {
         orderStatus: OrderStatus.DELIVERED,
-        allowEditRequests: false,
-        description: 'Entregada - no se puede editar',
+        allowEditRequests: true,
+        description: 'Entregada - requiere solicitud de edición',
       },
       {
-        orderStatus: OrderStatus.CANCELLED,
+        orderStatus: OrderStatus.WARRANTY,
+        allowEditRequests: true,
+        description: 'Garantía - requiere solicitud de edición',
+      },
+      {
+        orderStatus: OrderStatus.RETURNED,
+        allowEditRequests: true,
+        description: 'Devolución - requiere solicitud de edición',
+      },
+      {
+        orderStatus: OrderStatus.PAID,
         allowEditRequests: false,
-        description: 'Cancelada - no se puede editar',
+        description: 'Pagada - no se puede editar',
       },
     ];
 
