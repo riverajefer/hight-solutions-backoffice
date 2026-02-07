@@ -42,7 +42,6 @@ const serviceSchema = z.object({
   basePrice: z
     .string()
     .regex(/^\d+(\.\d{1,2})?$/, 'El precio debe ser un número válido')
-    .transform(Number)
     .optional()
     .or(z.literal('')),
   priceUnit: z
@@ -83,7 +82,7 @@ const ServiceFormPage: React.FC = () => {
     defaultValues: {
       name: '',
       description: '',
-      basePrice: '' as unknown as number,
+      basePrice: '',
       priceUnit: '',
       categoryId: '',
     },
@@ -95,7 +94,7 @@ const ServiceFormPage: React.FC = () => {
       reset({
         name: service.name,
         description: service.description || '',
-        basePrice: service.basePrice?.toString() as unknown as number || '' as unknown as number,
+        basePrice: service.basePrice?.toString() || '',
         priceUnit: service.priceUnit || '',
         categoryId: service.categoryId,
       });
@@ -107,8 +106,7 @@ const ServiceFormPage: React.FC = () => {
       setError(null);
       const submitData = {
         ...data,
-        // No usar Number() porque Zod ya transforma. Verificar string vacío en lugar de falsy
-        basePrice: data.basePrice !== '' ? data.basePrice : undefined,
+        basePrice: data.basePrice ? Number(data.basePrice) : undefined,
         priceUnit: data.priceUnit || undefined,
         description: data.description || undefined,
       };

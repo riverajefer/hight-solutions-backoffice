@@ -53,7 +53,7 @@ const ServicesListPage: React.FC = () => {
       headerName: 'Categoría',
       flex: 1,
       minWidth: 150,
-      valueGetter: (value, row) => row.category?.name || 'N/A',
+      valueGetter: (_value, row) => row.category?.name || 'N/A',
     },
     {
       field: 'basePrice',

@@ -53,7 +53,7 @@ const SuppliesListPage: React.FC = () => {
       headerName: 'Categoría',
       flex: 1,
       minWidth: 150,
-      valueGetter: (value, row) => row.category?.name || 'N/A',
+      valueGetter: (_value, row) => row.category?.name || 'N/A',
     },
     {
       field: 'purchasePrice',
@@ -74,7 +74,7 @@ const SuppliesListPage: React.FC = () => {
       field: 'purchaseUnit',
       headerName: 'Unidad Compra',
       width: 120,
-      valueGetter: (value, row) => row.purchaseUnit?.abbreviation || 'N/A',
+      valueGetter: (_value, row) => row.purchaseUnit?.abbreviation || 'N/A',
     },
     {
       field: 'currentStock',

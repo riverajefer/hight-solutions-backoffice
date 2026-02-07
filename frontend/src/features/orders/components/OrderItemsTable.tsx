@@ -9,7 +9,6 @@ import {
   TextField,
   IconButton,
   Button,
-  Paper,
   Typography,
   Box,
   Stack,
@@ -52,11 +51,6 @@ const formatCurrencyInput = (value: string): string => {
   return new Intl.NumberFormat('es-CO').format(number);
 };
 
-// Obtener valor numérico desde string formateado
-const parseFormattedCurrency = (value: string): number => {
-  const numericValue = value.replace(/\D/g, '');
-  return numericValue ? parseInt(numericValue, 10) : 0;
-};
 
 export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
   items,

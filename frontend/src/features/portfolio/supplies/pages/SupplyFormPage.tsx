@@ -54,7 +54,6 @@ const supplySchema = z.object({
   purchasePrice: z
     .string()
     .regex(/^\d+(\.\d{1,2})?$/, 'El precio debe ser un número válido')
-    .transform(Number)
     .optional()
     .or(z.literal('')),
   purchaseUnitId: z
@@ -66,19 +65,16 @@ const supplySchema = z.object({
   conversionFactor: z
     .string()
     .regex(/^\d+(\.\d{1,4})?$/, 'El factor de conversión debe ser un número válido')
-    .transform(Number)
     .optional()
     .or(z.literal('')),
   currentStock: z
     .string()
     .regex(/^\d+(\.\d{1,2})?$/, 'El stock actual debe ser un número válido')
-    .transform(Number)
     .optional()
     .or(z.literal('')),
   minimumStock: z
     .string()
     .regex(/^\d+(\.\d{1,2})?$/, 'El stock mínimo debe ser un número válido')
-    .transform(Number)
     .optional()
     .or(z.literal('')),
 });
@@ -115,12 +111,12 @@ const SupplyFormPage: React.FC = () => {
       sku: '',
       description: '',
       categoryId: '',
-      purchasePrice: '' as unknown as number,
+      purchasePrice: '',
       purchaseUnitId: '',
       consumptionUnitId: '',
-      conversionFactor: '' as unknown as number,
-      currentStock: '' as unknown as number,
-      minimumStock: '' as unknown as number,
+      conversionFactor: '',
+      currentStock: '',
+      minimumStock: '',
     },
   });
 
@@ -132,12 +128,12 @@ const SupplyFormPage: React.FC = () => {
         sku: supply.sku || '',
         description: supply.description || '',
         categoryId: supply.categoryId,
-        purchasePrice: supply.purchasePrice?.toString() as unknown as number || '' as unknown as number,
+        purchasePrice: supply.purchasePrice?.toString() || '',
         purchaseUnitId: supply.purchaseUnitId,
         consumptionUnitId: supply.consumptionUnitId,
-        conversionFactor: supply.conversionFactor.toString() as unknown as number,
-        currentStock: supply.currentStock.toString() as unknown as number,
-        minimumStock: supply.minimumStock.toString() as unknown as number,
+        conversionFactor: supply.conversionFactor.toString(),
+        currentStock: supply.currentStock.toString(),
+        minimumStock: supply.minimumStock.toString(),
       });
     }
   }, [supply, isEdit, reset]);
@@ -147,11 +143,10 @@ const SupplyFormPage: React.FC = () => {
       setError(null);
       const submitData = {
         ...data,
-        // No usar Number() porque Zod ya transforma. Verificar string vacío en lugar de falsy
-        purchasePrice: data.purchasePrice !== '' ? data.purchasePrice : undefined,
-        conversionFactor: data.conversionFactor !== '' ? data.conversionFactor : undefined,
-        currentStock: data.currentStock !== '' ? data.currentStock : undefined,
-        minimumStock: data.minimumStock !== '' ? data.minimumStock : undefined,
+        purchasePrice: data.purchasePrice ? Number(data.purchasePrice) : undefined,
+        conversionFactor: data.conversionFactor ? Number(data.conversionFactor) : undefined,
+        currentStock: data.currentStock ? Number(data.currentStock) : undefined,
+        minimumStock: data.minimumStock ? Number(data.minimumStock) : undefined,
         sku: data.sku || undefined,
         description: data.description || undefined,
       };

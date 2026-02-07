@@ -44,7 +44,6 @@ const serviceCategorySchema = z.object({
   sortOrder: z
     .string()
     .regex(/^\d+$/, 'El orden debe ser un número')
-    .transform(Number)
     .optional()
     .or(z.literal('')),
 });
@@ -75,7 +74,7 @@ const ServiceCategoryFormPage: React.FC = () => {
       name: '',
       description: '',
       icon: '',
-      sortOrder: '' as unknown as number,
+      sortOrder: '',
     },
   });
 
@@ -86,7 +85,7 @@ const ServiceCategoryFormPage: React.FC = () => {
         name: serviceCategory.name,
         description: serviceCategory.description || '',
         icon: serviceCategory.icon || '',
-        sortOrder: serviceCategory.sortOrder.toString() as unknown as number,
+        sortOrder: serviceCategory.sortOrder.toString(),
       });
     }
   }, [serviceCategory, isEdit, reset]);
@@ -96,8 +95,7 @@ const ServiceCategoryFormPage: React.FC = () => {
       setError(null);
       const submitData = {
         ...data,
-        // No usar Number() porque Zod ya transforma. Verificar string vacío en lugar de falsy
-        sortOrder: data.sortOrder !== '' ? data.sortOrder : undefined,
+        sortOrder: data.sortOrder ? Number(data.sortOrder) : undefined,
       };
 
       if (isEdit && id) {

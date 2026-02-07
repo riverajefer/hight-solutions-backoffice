@@ -44,7 +44,6 @@ const supplyCategorySchema = z.object({
   sortOrder: z
     .string()
     .regex(/^\d+$/, 'El orden debe ser un número')
-    .transform(Number)
     .optional()
     .or(z.literal('')),
 });
@@ -75,7 +74,7 @@ const SupplyCategoryFormPage: React.FC = () => {
       name: '',
       description: '',
       icon: '',
-      sortOrder: '' as unknown as number,
+      sortOrder: '',
     },
   });
 
@@ -86,7 +85,7 @@ const SupplyCategoryFormPage: React.FC = () => {
         name: supplyCategory.name,
         description: supplyCategory.description || '',
         icon: supplyCategory.icon || '',
-        sortOrder: supplyCategory.sortOrder.toString() as unknown as number,
+        sortOrder: supplyCategory.sortOrder.toString(),
       });
     }
   }, [supplyCategory, isEdit, reset]);

@@ -41,7 +41,6 @@ import {
   Payment as PaymentIcon,
   Person as PersonIcon,
   CalendarToday as CalendarIcon,
-  Storefront as ChannelIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';

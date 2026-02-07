@@ -12,7 +12,7 @@ export type OrderStatus =
   | 'RETURNED'
   | 'PAID';
 
-export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'CHECK' | 'CREDIT';
+export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'CHECK' | 'CREDIT' | 'OTHER';
 
 // ============================================================
 // ENTITIES
@@ -253,4 +253,5 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   CARD: 'Tarjeta',
   CHECK: 'Cheque',
   CREDIT: 'Crédito',
+  OTHER: 'Otro',
 };

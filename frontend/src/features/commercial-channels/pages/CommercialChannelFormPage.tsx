@@ -9,7 +9,6 @@ import {
   Alert,
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useSnackbar } from 'notistack';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -36,7 +35,6 @@ type CommercialChannelFormData = z.infer<typeof commercialChannelSchema>;
 
 const CommercialChannelFormPage: React.FC = () => {
   const navigate = useNavigate();
-  const { enqueueSnackbar } = useSnackbar();
   const { id } = useParams<{ id: string }>();
   const [error, setError] = useState<string | null>(null);
 
