@@ -30,9 +30,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading = fals
     formState: { errors },
   } = useForm<LoginDto>({
     resolver: zodResolver(loginSchema),
-    defaultValues: {
+    /* defaultValues: {
       email: 'admin@example.com',
       password: 'admin123',
+    }, */
+    defaultValues: {
+      email: '',
+      password: '',
     },
   });
 
@@ -110,7 +114,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading = fals
           </Button>
 
           {/* Demo Users Info */}
-          <Box
+{/*           <Box
             sx={{
               mt: 3,
               p: 2,
@@ -131,7 +135,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading = fals
             <Typography variant="caption" display="block" sx={{ color: isDark ? 'rgba(148, 163, 184, 0.9)' : 'inherit' }}>
               User: user@example.com / user123
             </Typography>
-          </Box>
+          </Box> */}
         </Box>
       </CardContent>
     </Card>
