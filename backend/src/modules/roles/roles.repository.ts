@@ -105,10 +105,11 @@ export class RolesRepository {
   /**
    * Crea un rol con permisos
    */
-  async createWithPermissions(name: string, permissionIds: string[]) {
+  async createWithPermissions(name: string, description: string | undefined, permissionIds: string[]) {
     return this.prisma.role.create({
       data: {
         name,
+        description,
         permissions: {
           create: permissionIds.map((permissionId) => ({
             permission: { connect: { id: permissionId } },
@@ -138,11 +139,18 @@ export class RolesRepository {
     return this.prisma.role.update({
       where: { id },
       data,
-      select: {
-        id: true,
-        name: true,
-        createdAt: true,
-        updatedAt: true,
+      include: {
+        permissions: {
+          include: {
+            permission: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+              },
+            },
+          },
+        },
       },
     });
   }
