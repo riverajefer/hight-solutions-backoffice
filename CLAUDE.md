@@ -10,13 +10,14 @@ Sistema completo de backoffice con autenticación JWT y control de acceso basado
 
 1. [Descripción General](#descripción-general)
 2. [Stack Tecnológico](#stack-tecnológico)
-3. [Estructura del Proyecto](#estructura-del-proyecto)
-4. [Arquitectura](#arquitectura)
-5. [Guías de Desarrollo](#guías-de-desarrollo)
-6. [Convenciones y Patrones](#convenciones-y-patrones)
-7. [Comandos Útiles](#comandos-útiles)
-8. [Flujos Principales](#flujos-principales)
-9. [Documentación Adicional](#documentación-adicional)
+3. [Configuración de Ambientes](#configuración-de-ambientes)
+4. [Estructura del Proyecto](#estructura-del-proyecto)
+5. [Arquitectura](#arquitectura)
+6. [Guías de Desarrollo](#guías-de-desarrollo)
+7. [Convenciones y Patrones](#convenciones-y-patrones)
+8. [Comandos Útiles](#comandos-útiles)
+9. [Flujos Principales](#flujos-principales)
+10. [Documentación Adicional](#documentación-adicional)
 
 ---
 
@@ -24,11 +25,12 @@ Sistema completo de backoffice con autenticación JWT y control de acceso basado
 
 **Hight Solutions Backoffice** es un sistema fullstack profesional que proporciona:
 
-- **Backend**: API REST con NestJS + Prisma + SQLite
+- **Backend**: API REST con NestJS + Prisma + PostgreSQL
 - **Frontend**: Aplicación React con Material UI + Zustand + React Query
 - **Autenticación**: JWT con access y refresh tokens
 - **Autorización**: Sistema RBAC dinámico basado en permisos
 - **Seguridad**: Hashing de contraseñas, validación de datos, guards
+- **Ambientes**: Desarrollo (Supabase), Staging y Producción (Railway)
 
 ### Módulos Implementados
 
@@ -48,7 +50,7 @@ Sistema completo de backoffice con autenticación JWT y control de acceso basado
 | Framework | NestJS | 11.x |
 | Language | TypeScript | 5.9.x |
 | ORM | Prisma | 7.2.x |
-| Database | SQLite | better-sqlite3 |
+| Database | PostgreSQL | Supabase (dev) / Railway (staging/prod) |
 | Authentication | Passport + JWT | - |
 | Password Hashing | bcrypt | 12 rounds |
 | Validation | class-validator | - |
@@ -67,6 +69,108 @@ Sistema completo de backoffice con autenticación JWT y control de acceso basado
 | HTTP Client | Axios | 1.x |
 | Routing | React Router | 6.x |
 | Notifications | notistack | 3.x |
+
+---
+
+## Configuración de Ambientes
+
+El proyecto soporta tres ambientes diferentes con configuración independiente:
+
+### Ambientes Disponibles
+
+| Ambiente | Base de Datos | Propósito | Demo Credentials |
+|----------|---------------|-----------|------------------|
+| **development** | Supabase PostgreSQL | Desarrollo local | ✅ Visible |
+| **staging** | Railway PostgreSQL | QA y pruebas | ❌ Oculto |
+| **production** | Railway PostgreSQL | Producción | ❌ Oculto |
+
+### Archivos de Configuración
+
+#### Backend (`backend/`)
+- `.env.development` - Desarrollo local con Supabase
+- `.env.staging` - Staging en Railway (no committed)
+- `.env.production` - Producción en Railway (no committed)
+- `.env.example` - Template sin credenciales
+
+#### Frontend (`frontend/`)
+- `.env.development` - Desarrollo local
+- `.env.staging` - Staging en Railway (no committed)
+- `.env.production` - Producción en Railway (no committed)
+- `.env.example` - Template sin credenciales
+
+### Comandos por Ambiente
+
+**Backend:**
+```bash
+# Desarrollo
+npm run start:dev       # Usa .env.development
+
+# Staging
+npm run start:staging   # Usa .env.staging
+
+# Producción
+npm run start:prod      # Usa .env.production
+```
+
+**Frontend:**
+```bash
+# Desarrollo
+npm run dev             # Usa .env.development
+
+# Build Staging
+npm run build:staging   # Usa .env.staging
+
+# Build Producción
+npm run build:prod      # Usa .env.production
+```
+
+### Variables de Ambiente Importantes
+
+**Backend:**
+- `NODE_ENV` - Nombre del ambiente (development/staging/production)
+- `DATABASE_URL` - URL de PostgreSQL (Supabase o Railway)
+- `JWT_ACCESS_SECRET` - Secret para access tokens
+- `JWT_REFRESH_SECRET` - Secret para refresh tokens
+- `FRONTEND_URL` - URL del frontend para CORS
+
+**Frontend:**
+- `VITE_API_URL` - URL del backend API
+- `VITE_ENVIRONMENT` - Nombre del ambiente
+- `VITE_SHOW_DEMO_CREDENTIALS` - Mostrar credenciales demo (true/false)
+- `VITE_APP_NAME` - Nombre de la aplicación
+
+### Utilidades de Ambiente
+
+**Backend** (`backend/src/common/utils/environment.util.ts`):
+```typescript
+import { isDevelopment, isStaging, isProduction } from '@common/utils/environment.util';
+
+if (isDevelopment()) {
+  // Código solo para desarrollo
+}
+```
+
+**Frontend** (`frontend/src/utils/environment.ts`):
+```typescript
+import { showDemoCredentials, isDevelopment } from '@/utils/environment';
+
+// Mostrar credenciales demo solo en desarrollo
+{showDemoCredentials() && <DemoCredentials />}
+```
+
+### Railway Deployment
+
+Ambos backend y frontend incluyen archivos `railway.toml` para configurar el deployment:
+
+- **Backend**: Usa `npm run start:prod`
+- **Frontend**: Usa `npm run preview`
+
+Configura las variables de ambiente en el dashboard de Railway para cada servicio.
+
+### Documentación Completa
+
+Para una guía detallada sobre configuración de ambientes, consulta:
+📖 **[docs/ENVIRONMENT_SETUP.md](./docs/ENVIRONMENT_SETUP.md)**
 
 ---
 
@@ -683,6 +787,7 @@ npm run lint                # Ejecutar ESLint
 ### General
 
 - **[README.md](./README.md)** - README principal del proyecto
+- **[docs/ENVIRONMENT_SETUP.md](./docs/ENVIRONMENT_SETUP.md)** - Guía de configuración de ambientes
 
 ---
 
@@ -766,22 +871,33 @@ npm run lint                # Ejecutar ESLint
 cd backend
 npm install
 
-# 2. Configurar base de datos
+# 2. Configurar ambiente de desarrollo
+cp .env.example .env.development
+# Editar .env.development con tu URL de Supabase PostgreSQL
+
+# 3. Configurar base de datos
 npm run db:setup
 
-# 3. Iniciar backend
+# 4. Iniciar backend (usa .env.development automáticamente)
 npm run start:dev
 
-# 4. En otra terminal, instalar frontend
+# 5. En otra terminal, configurar frontend
 cd ../frontend
 npm install
+cp .env.example .env.development
+# .env.development ya viene configurado para localhost
 
-# 5. Iniciar frontend
+# 6. Iniciar frontend (usa .env.development automáticamente)
 npm run dev
 
-# 6. Abrir navegador en http://localhost:5173
-# 7. Login con admin@example.com / admin123
+# 7. Abrir navegador en http://localhost:5173
+# 8. Las credenciales demo se muestran automáticamente en desarrollo:
+#    Admin: admin@example.com / admin123
+#    Manager: manager@example.com / manager123
+#    User: user@example.com / user123
 ```
+
+**Nota**: En desarrollo verás las credenciales demo en la pantalla de login. Estas se ocultan automáticamente en staging y producción.
 
 ---
 

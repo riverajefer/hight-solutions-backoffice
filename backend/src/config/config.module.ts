@@ -8,7 +8,7 @@ import jwtConfig from './jwt.config';
   imports: [
     NestConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      envFilePath: `.env.${process.env.NODE_ENV || 'development'}`,
       load: [appConfig, databaseConfig, jwtConfig],
       cache: true,
     }),
