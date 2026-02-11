@@ -9,7 +9,7 @@ builder = "RAILPACK"
 # Note: For production, you might want to use a static server like 'serve'
 # Install serve: npm install -g serve
 # Then use: serve -s dist -l 3000
-startCommand = "npm run preview"
+startCommand = "npx serve -s dist -l $PORT"
 
 # Restart policy
 restartPolicyType = "ON_FAILURE"

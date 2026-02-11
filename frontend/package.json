@@ -10,7 +10,7 @@
     "build:prod": "tsc && vite build --mode production",
     "env:info": "node scripts/env-info.js",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview --host 0.0.0.0 --port $PORT"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
