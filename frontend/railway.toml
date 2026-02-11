@@ -2,7 +2,7 @@
 # This file configures how Railway builds and deploys the frontend application
 
 [build]
-builder = "NIXPACKS"
+builder = "RAILPACK"
 
 [deploy]
 # Start command for preview server

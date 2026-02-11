@@ -2,7 +2,7 @@
 # This file configures how Railway builds and deploys the backend application
 
 [build]
-builder = "NIXPACKS"
+builder = "RAILPACK"
 
 [deploy]
 # Start command for production
