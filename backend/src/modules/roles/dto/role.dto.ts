@@ -17,6 +17,14 @@ export class CreateRoleDto {
   name: string;
 
   @ApiPropertyOptional({
+    example: 'Administrator with full access',
+    description: 'Role description'
+  })
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @ApiPropertyOptional({
     example: ['clm1234567890', 'clm0987654321'],
     description: 'Array of permission IDs',
     type: [String]
@@ -35,6 +43,14 @@ export class UpdateRoleDto {
   @IsString()
   @IsOptional()
   name?: string;
+
+  @ApiPropertyOptional({
+    example: 'Administrator with full access',
+    description: 'Role description'
+  })
+  @IsString()
+  @IsOptional()
+  description?: string;
 }
 
 export class AssignPermissionsDto {

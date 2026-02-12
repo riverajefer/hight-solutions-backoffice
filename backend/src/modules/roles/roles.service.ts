@@ -24,6 +24,7 @@ export class RolesService {
     return roles.map((role) => ({
       id: role.id,
       name: role.name,
+      description: role.description,
       createdAt: role.createdAt,
       updatedAt: role.updatedAt,
       usersCount: role._count.users,
@@ -44,6 +45,7 @@ export class RolesService {
     return {
       id: role.id,
       name: role.name,
+      description: role.description,
       createdAt: role.createdAt,
       updatedAt: role.updatedAt,
       permissions: role.permissions.map((rp) => rp.permission),
@@ -66,13 +68,18 @@ export class RolesService {
     const role = createRoleDto.permissionIds
       ? await this.rolesRepository.createWithPermissions(
           createRoleDto.name,
+          createRoleDto.description,
           createRoleDto.permissionIds,
         )
-      : await this.rolesRepository.create({ name: createRoleDto.name });
+      : await this.rolesRepository.create({
+          name: createRoleDto.name,
+          description: createRoleDto.description,
+        });
 
     return {
       id: role.id,
       name: role.name,
+      description: role.description,
       createdAt: role.createdAt,
       permissions: role.permissions.map((rp) => rp.permission),
     };
@@ -96,7 +103,16 @@ export class RolesService {
       }
     }
 
-    return this.rolesRepository.update(id, updateRoleDto);
+    const role = await this.rolesRepository.update(id, updateRoleDto);
+
+    return {
+      id: role.id,
+      name: role.name,
+      description: role.description,
+      createdAt: role.createdAt,
+      updatedAt: role.updatedAt,
+      permissions: role.permissions.map((rp) => rp.permission),
+    };
   }
 
   /**
