@@ -28,6 +28,8 @@ import {
   Person as PersonIcon,
   CalendarToday as CalendarIcon,
   Storefront as ChannelIcon,
+  Download as DownloadIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
@@ -35,6 +37,8 @@ import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { useQuotes } from '../hooks/useQuotes';
 import { QuoteStatusChip } from '../components/QuoteStatusChip';
 import { QuoteStatus, QUOTE_STATUS_CONFIG, QuoteItem } from '../../../types/quote.types';
+import { generateQuotePdf } from '../utils/generateQuotePdf';
+import { useSnackbar } from 'notistack';
 
 const formatCurrency = (value: string | number): string => {
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
@@ -56,6 +60,7 @@ const formatDateTime = (date: string): string => {
 export const QuoteDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { enqueueSnackbar } = useSnackbar();
 
   const { quoteQuery, updateQuoteMutation, deleteQuoteMutation, convertToOrderMutation } = useQuotes();
   const { data: quote, isLoading } = quoteQuery(id!);
@@ -63,6 +68,7 @@ export const QuoteDetailPage: React.FC = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmConvert, setConfirmConvert] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   if (isLoading) return <LoadingSpinner />;
   if (!quote) return (
@@ -96,6 +102,49 @@ export const QuoteDetailPage: React.FC = () => {
     navigate('/quotes');
   };
 
+  const handleDownloadPdf = async () => {
+    if (!quote) return;
+
+    setIsGeneratingPdf(true);
+    try {
+      const pdfDoc = await generateQuotePdf(quote);
+      pdfDoc.save(`Cotizacion-${quote.quoteNumber}.pdf`);
+      enqueueSnackbar('PDF descargado exitosamente', { variant: 'success' });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      enqueueSnackbar('Error al generar el PDF', { variant: 'error' });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
+  const handlePrintPdf = async () => {
+    if (!quote) return;
+
+    setIsGeneratingPdf(true);
+    try {
+      const pdfDoc = await generateQuotePdf(quote);
+      const pdfBlob = pdfDoc.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+
+      const printWindow = window.open(pdfUrl, '_blank');
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.print();
+          URL.revokeObjectURL(pdfUrl);
+        };
+      } else {
+        enqueueSnackbar('No se pudo abrir la ventana de impresión', { variant: 'warning' });
+        URL.revokeObjectURL(pdfUrl);
+      }
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      enqueueSnackbar('Error al generar el PDF para impresión', { variant: 'error' });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       <PageHeader
@@ -103,6 +152,22 @@ export const QuoteDetailPage: React.FC = () => {
         breadcrumbs={[{ label: 'Cotizaciones', path: '/quotes' }, { label: quote.quoteNumber }]}
         action={
           <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              startIcon={<DownloadIcon />}
+              onClick={handleDownloadPdf}
+              disabled={isGeneratingPdf}
+            >
+              Descargar PDF
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<PrintIcon />}
+              onClick={handlePrintPdf}
+              disabled={isGeneratingPdf}
+            >
+              Imprimir
+            </Button>
             {canEdit && (
               <Button variant="outlined" startIcon={<EditIcon />} onClick={() => navigate(`/quotes/${id}/edit`)}>
                 Editar
