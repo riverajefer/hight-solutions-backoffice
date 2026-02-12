@@ -1,0 +1,20 @@
+# Railway Configuration for Backend
+# This file configures how Railway builds and deploys the backend application
+
+[build]
+builder = "RAILPACK"
+
+[deploy]
+# Start command for production
+startCommand = "npm run start:prod"
+
+# Restart policy
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+# Health check configuration (optional)
+# Uncomment and configure if you have a health check endpoint
+# [deploy.healthcheck]
+# path = "/api/v1/health"
+# timeout = 100
+# interval = 60

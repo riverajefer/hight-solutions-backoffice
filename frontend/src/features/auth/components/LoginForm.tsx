@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { LoginDto } from '../../../types';
+import { showDemoCredentials } from '../../../utils/environment';
 import logo from '../../../assets/logo.png';
 
 const loginSchema = z.object({
@@ -113,29 +114,31 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading = fals
             {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
           </Button>
 
-          {/* Demo Users Info */}
-{/*           <Box
-            sx={{
-              mt: 3,
-              p: 2,
-              backgroundColor: isDark ? 'rgba(30, 41, 59, 0.6)' : 'rgba(102, 126, 234, 0.08)',
-              borderRadius: 2,
-              border: `1px solid ${isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(102, 126, 234, 0.2)'}`,
-            }}
-          >
-            <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mb: 1, color: isDark ? 'rgba(148, 163, 184, 1)' : 'inherit' }}>
-              Usuarios de Prueba:
-            </Typography>
-            <Typography variant="caption" display="block" sx={{ color: isDark ? 'rgba(148, 163, 184, 0.9)' : 'inherit' }}>
-              Admin: admin@example.com / admin123
-            </Typography>
-            <Typography variant="caption" display="block" sx={{ color: isDark ? 'rgba(148, 163, 184, 0.9)' : 'inherit' }}>
-              Manager: manager@example.com / manager123
-            </Typography>
-            <Typography variant="caption" display="block" sx={{ color: isDark ? 'rgba(148, 163, 184, 0.9)' : 'inherit' }}>
-              User: user@example.com / user123
-            </Typography>
-          </Box> */}
+          {/* Demo Users Info - Only shown in development environment */}
+          {showDemoCredentials() && (
+            <Box
+              sx={{
+                mt: 3,
+                p: 2,
+                backgroundColor: isDark ? 'rgba(30, 41, 59, 0.6)' : 'rgba(102, 126, 234, 0.08)',
+                borderRadius: 2,
+                border: `1px solid ${isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(102, 126, 234, 0.2)'}`,
+              }}
+            >
+              <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mb: 1, color: isDark ? 'rgba(148, 163, 184, 1)' : 'inherit' }}>
+                Usuarios de Prueba:
+              </Typography>
+              <Typography variant="caption" display="block" sx={{ color: isDark ? 'rgba(148, 163, 184, 0.9)' : 'inherit' }}>
+                Admin: admin@example.com / admin123
+              </Typography>
+              <Typography variant="caption" display="block" sx={{ color: isDark ? 'rgba(148, 163, 184, 0.9)' : 'inherit' }}>
+                Manager: manager@example.com / manager123
+              </Typography>
+              <Typography variant="caption" display="block" sx={{ color: isDark ? 'rgba(148, 163, 184, 0.9)' : 'inherit' }}>
+                User: user@example.com / user123
+              </Typography>
+            </Box>
+          )}
         </Box>
       </CardContent>
     </Card>
