@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   S3Client,
   PutObjectCommand,
+  GetObjectCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
   ListObjectsV2Command,
@@ -38,13 +39,11 @@ export class StorageS3Service {
 
     this.s3Client = new S3Client({
       region: region || 'auto',
-      endpoint: endpoint || undefined,
+      endpoint: endpoint,
       credentials: {
         accessKeyId,
         secretAccessKey,
       },
-      // Force path style for S3-compatible services like Tigris
-      forcePathStyle: true,
     });
 
     this.logger.log('S3Client initialized successfully');
@@ -109,7 +108,7 @@ export class StorageS3Service {
     expiresIn: number = this.defaultSignedUrlExpiration,
   ): Promise<string> {
     try {
-      const command = new HeadObjectCommand({
+      const command = new GetObjectCommand({
         Bucket: this.bucketName,
         Key: key,
       });
@@ -119,6 +118,7 @@ export class StorageS3Service {
       });
 
       this.logger.log(`Signed URL generated for: ${key}`);
+      this.logger.debug(`Signed URL: ${signedUrl}`);
       return signedUrl;
     } catch (error) {
       this.logger.error(

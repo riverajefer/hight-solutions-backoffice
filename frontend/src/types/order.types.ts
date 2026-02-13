@@ -90,6 +90,7 @@ export interface Payment {
   paymentDate: string;
   reference: string | null;
   notes: string | null;
+  receiptFileId: string | null;
   createdAt: string;
   receivedBy: {
     id: string;
@@ -169,6 +170,7 @@ export interface CreatePaymentDto {
   paymentDate?: string; // ISO date string
   reference?: string;
   notes?: string;
+  receiptFileId?: string;
 }
 
 // ============================================================

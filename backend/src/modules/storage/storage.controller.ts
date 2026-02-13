@@ -10,7 +10,10 @@ import {
   UploadedFile,
   Query,
   ParseIntPipe,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
+import fetch from 'node-fetch';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
@@ -150,6 +153,50 @@ export class StorageController {
   ) {
     const url = await this.storageService.getFileUrl(id, expiresIn);
     return { url };
+  }
+
+  /**
+   * GET /api/v1/storage/:id/download
+   * Download file with proper headers (forces download instead of viewing)
+   * Requiere permiso: read_files
+   */
+  @Get(':id/download')
+  @RequirePermissions('read_files')
+  @ApiOperation({ summary: 'Descargar archivo' })
+  @ApiParam({ name: 'id', description: 'ID del archivo' })
+  @ApiResponse({
+    status: 200,
+    description: 'Archivo descargado',
+  })
+  @ApiResponse({ status: 404, description: 'Archivo no encontrado' })
+  async downloadFile(@Param('id') id: string, @Res() res: Response) {
+    const file = await this.storageService.getFile(id);
+    const url = await this.storageService.getFileUrl(id);
+
+    // Fetch file from S3
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch file from storage');
+    }
+
+    // Set headers to force download
+    res.setHeader('Content-Type', file.mimeType);
+
+    // Use RFC 5987 encoding for filename with special characters
+    const encodedFilename = encodeURIComponent(file.originalName);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${file.originalName}"; filename*=UTF-8''${encodedFilename}`,
+    );
+    res.setHeader('Content-Length', file.size.toString());
+
+    // CORS: Expose Content-Disposition header to frontend
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+
+    // Stream the file
+    const buffer = await response.buffer();
+    res.send(buffer);
   }
 
   /**

@@ -9,7 +9,10 @@ import {
   Param,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
@@ -17,6 +20,7 @@ import {
   ApiBearerAuth,
   ApiParam,
   ApiQuery,
+  ApiConsumes,
 } from '@nestjs/swagger';
 import { OrdersService } from './orders.service';
 import {
@@ -192,5 +196,35 @@ export class OrdersController {
   @ApiResponse({ status: 200, description: 'Payments retrieved successfully' })
   getPayments(@Param('id') orderId: string) {
     return this.ordersService.getPayments(orderId);
+  }
+
+  @Post(':orderId/payments/:paymentId/receipt')
+  @RequirePermissions('approve_orders', 'upload_files')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload payment receipt' })
+  @ApiParam({ name: 'orderId', description: 'Order ID' })
+  @ApiParam({ name: 'paymentId', description: 'Payment ID' })
+  @ApiResponse({ status: 200, description: 'Receipt uploaded successfully' })
+  async uploadPaymentReceipt(
+    @Param('orderId') orderId: string,
+    @Param('paymentId') paymentId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.ordersService.uploadPaymentReceipt(orderId, paymentId, file, userId);
+  }
+
+  @Delete(':orderId/payments/:paymentId/receipt')
+  @RequirePermissions('delete_files')
+  @ApiOperation({ summary: 'Delete payment receipt (admin only)' })
+  @ApiParam({ name: 'orderId', description: 'Order ID' })
+  @ApiParam({ name: 'paymentId', description: 'Payment ID' })
+  @ApiResponse({ status: 200, description: 'Receipt deleted successfully' })
+  async deletePaymentReceipt(
+    @Param('orderId') orderId: string,
+    @Param('paymentId') paymentId: string,
+  ) {
+    return this.ordersService.deletePaymentReceipt(orderId, paymentId);
   }
 }
