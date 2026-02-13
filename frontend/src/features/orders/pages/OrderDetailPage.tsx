@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useSnackbar } from 'notistack';
 import {
   Box,
   Card,
@@ -30,6 +31,7 @@ import {
   FormControlLabel,
   Tabs,
   Tab,
+  IconButton,
 } from '@mui/material';
 
 import {
@@ -41,6 +43,10 @@ import {
   Payment as PaymentIcon,
   Person as PersonIcon,
   CalendarToday as CalendarIcon,
+  AttachFile as AttachFileIcon,
+  Download as DownloadIcon,
+  Visibility as VisibilityIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -52,6 +58,10 @@ import { ActivePermissionBanner } from '../components/ActivePermissionBanner';
 import { RequestEditPermissionButton } from '../components/RequestEditPermissionButton';
 import { EditRequestsList } from '../components/EditRequestsList';
 import { OrderChangeHistoryTab } from '../components/OrderChangeHistoryTab';
+import { ordersApi } from '../../../api/orders.api';
+import { storageApi } from '../../../api/storage.api';
+import axiosInstance from '../../../api/axios';
+import { useAuthStore } from '../../../store/authStore';
 import type {
   OrderStatus,
   PaymentMethod,
@@ -119,6 +129,8 @@ const formatCurrencyInput = (value: string | number): string => {
 export const OrderDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuthStore();
+  const { enqueueSnackbar } = useSnackbar();
 
   const { orderQuery, updateStatusMutation, deleteOrderMutation } = useOrder(
     id!
@@ -134,6 +146,13 @@ export const OrderDetailPage: React.FC = () => {
     paymentMethod: 'CASH',
     paymentDate: new Date().toISOString(),
   });
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [deletingReceipt, setDeletingReceipt] = useState<string | null>(null);
+  const [viewReceiptDialog, setViewReceiptDialog] = useState<{
+    open: boolean;
+    url: string;
+    mimeType: string;
+  }>({ open: false, url: '', mimeType: '' });
 
   const order = orderQuery.data;
   const payments = paymentsQuery.data || [];
@@ -177,19 +196,132 @@ export const OrderDetailPage: React.FC = () => {
   };
 
   const handleAddPayment = async () => {
-    await addPaymentMutation.mutateAsync(paymentData);
+    const payment = await addPaymentMutation.mutateAsync(paymentData);
+
+    // Si hay archivo, subirlo
+    if (receiptFile && payment) {
+      try {
+        await ordersApi.uploadPaymentReceipt(id!, payment.id, receiptFile);
+        await paymentsQuery.refetch();
+        enqueueSnackbar('Pago registrado con comprobante exitosamente', {
+          variant: 'success'
+        });
+      } catch (error) {
+        console.error('Error uploading receipt:', error);
+        enqueueSnackbar('Pago registrado pero hubo un error al subir el comprobante', {
+          variant: 'warning'
+        });
+      }
+    } else {
+      enqueueSnackbar('Pago registrado exitosamente', { variant: 'success' });
+    }
+
     setPaymentDialogOpen(false);
     setPaymentData({
       amount: 0,
       paymentMethod: 'CASH',
       paymentDate: new Date().toISOString(),
     });
+    setReceiptFile(null);
   };
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 
+  const handleViewReceipt = async (receiptFileId: string) => {
+    try {
+      const [urlResponse, fileData] = await Promise.all([
+        storageApi.getFileUrl(receiptFileId),
+        storageApi.getFile(receiptFileId),
+      ]);
+
+      setViewReceiptDialog({
+        open: true,
+        url: urlResponse.url,
+        mimeType: fileData.mimeType,
+      });
+    } catch (error) {
+      console.error('Error viewing receipt:', error);
+      enqueueSnackbar('Error al ver el comprobante', { variant: 'error' });
+    }
+  };
+
+  const handleCloseViewReceipt = () => {
+    setViewReceiptDialog({ open: false, url: '', mimeType: '' });
+  };
+
+  const handleDownloadReceipt = async (receiptFileId: string) => {
+    try {
+      // Usar axiosInstance para descargar con el token
+      const downloadUrl = `/storage/${receiptFileId}/download`;
+
+      const response = await axiosInstance.get(downloadUrl, {
+        responseType: 'blob', // Important: Get as blob
+      });
+
+      // Obtener nombre del archivo del header Content-Disposition
+      const contentDisposition = response.headers['content-disposition'];
+      console.log('Content-Disposition:', contentDisposition);
+
+      let fileName = 'comprobante';
+
+      if (contentDisposition) {
+        // Primero intentar con filename* (RFC 5987) que soporta UTF-8
+        const rfc5987Match = /filename\*=UTF-8''([^;\n]+)/i.exec(contentDisposition);
+        if (rfc5987Match && rfc5987Match[1]) {
+          fileName = decodeURIComponent(rfc5987Match[1]);
+          console.log('Filename from RFC 5987:', fileName);
+        } else {
+          // Fallback a filename regular
+          const regularMatch = /filename="([^"]+)"/i.exec(contentDisposition);
+          if (regularMatch && regularMatch[1]) {
+            fileName = regularMatch[1];
+            console.log('Filename from regular:', fileName);
+          }
+        }
+      }
+
+      console.log('Final filename:', fileName);
+
+      // Crear blob URL y descargar
+      const blob = new Blob([response.data]);
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      link.style.display = 'none';
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Limpiar blob URL
+      window.URL.revokeObjectURL(blobUrl);
+
+      enqueueSnackbar('Archivo descargado', { variant: 'success' });
+    } catch (error) {
+      console.error('Error downloading receipt:', error);
+      enqueueSnackbar('Error al descargar el comprobante', { variant: 'error' });
+    }
+  };
+
+  const handleDeleteReceipt = async (paymentId: string) => {
+    try {
+      setDeletingReceipt(paymentId);
+      await ordersApi.deletePaymentReceipt(id!, paymentId);
+      await paymentsQuery.refetch();
+      enqueueSnackbar('Comprobante eliminado exitosamente', { variant: 'success' });
+    } catch (error) {
+      console.error('Error deleting receipt:', error);
+      enqueueSnackbar('Error al eliminar el comprobante', { variant: 'error' });
+    } finally {
+      setDeletingReceipt(null);
+    }
+  };
+
+  const isAdmin = user?.role?.name === 'admin';
   const balance = parseFloat(order.balance);
 
   return (
@@ -432,6 +564,7 @@ export const OrderDetailPage: React.FC = () => {
                           <TableCell>Referencia</TableCell>
                           <TableCell align="right">Monto</TableCell>
                           <TableCell>Recibido por</TableCell>
+                          <TableCell align="center">Comprobante</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -455,6 +588,43 @@ export const OrderDetailPage: React.FC = () => {
                             <TableCell>
                               {payment.receivedBy.firstName}{' '}
                               {payment.receivedBy.lastName}
+                            </TableCell>
+                            <TableCell align="center">
+                              {payment.receiptFileId ? (
+                                <Stack direction="row" spacing={0.5} justifyContent="center">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleViewReceipt(payment.receiptFileId!)}
+                                    color="info"
+                                    title="Ver comprobante"
+                                  >
+                                    <VisibilityIcon fontSize="small" />
+                                  </IconButton>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleDownloadReceipt(payment.receiptFileId!)}
+                                    color="primary"
+                                    title="Descargar comprobante"
+                                  >
+                                    <DownloadIcon fontSize="small" />
+                                  </IconButton>
+                                  {isAdmin && (
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => handleDeleteReceipt(payment.id)}
+                                      color="error"
+                                      disabled={deletingReceipt === payment.id}
+                                      title="Eliminar comprobante (solo admin)"
+                                    >
+                                      <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                  )}
+                                </Stack>
+                              ) : (
+                                <Typography variant="body2" color="text.secondary">
+                                  -
+                                </Typography>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -679,6 +849,45 @@ export const OrderDetailPage: React.FC = () => {
                 setPaymentData({ ...paymentData, notes: e.target.value })
               }
             />
+
+            <Box>
+              <FormLabel sx={{ mb: 1, display: 'block' }}>
+                Comprobante de Pago (Opcional)
+              </FormLabel>
+              <Button
+                variant="outlined"
+                component="label"
+                startIcon={<AttachFileIcon />}
+                fullWidth
+              >
+                {receiptFile ? receiptFile.name : 'Seleccionar archivo (imagen o PDF)'}
+                <input
+                  type="file"
+                  hidden
+                  accept="image/*,.pdf"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setReceiptFile(file);
+                    }
+                  }}
+                />
+              </Button>
+              {receiptFile && (
+                <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {(receiptFile.size / 1024).toFixed(2)} KB
+                  </Typography>
+                  <IconButton
+                    size="small"
+                    onClick={() => setReceiptFile(null)}
+                    color="error"
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              )}
+            </Box>
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -704,6 +913,72 @@ export const OrderDetailPage: React.FC = () => {
         onCancel={() => setConfirmDelete(false)}
         isLoading={deleteOrderMutation.isPending}
       />
+
+      {/* Dialog: Ver Comprobante */}
+      <Dialog
+        open={viewReceiptDialog.open}
+        onClose={handleCloseViewReceipt}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          Comprobante de Pago
+          <IconButton
+            onClick={handleCloseViewReceipt}
+            sx={{
+              position: 'absolute',
+              right: 8,
+              top: 8,
+              color: (theme) => theme.palette.grey[500],
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              minHeight: 400,
+              bgcolor: 'grey.100',
+              borderRadius: 1,
+              p: 2,
+            }}
+          >
+            {viewReceiptDialog.mimeType.startsWith('image/') ? (
+              <Box
+                component="img"
+                src={viewReceiptDialog.url}
+                alt="Comprobante de pago"
+                sx={{
+                  maxWidth: '100%',
+                  maxHeight: '70vh',
+                  objectFit: 'contain',
+                }}
+              />
+            ) : viewReceiptDialog.mimeType === 'application/pdf' ? (
+              <iframe
+                src={viewReceiptDialog.url}
+                title="Comprobante de pago PDF"
+                style={{
+                  width: '100%',
+                  height: '70vh',
+                  border: 'none',
+                }}
+              />
+            ) : (
+              <Typography color="text.secondary">
+                No se puede visualizar este tipo de archivo
+              </Typography>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseViewReceipt}>Cerrar</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

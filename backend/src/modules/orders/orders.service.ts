@@ -6,6 +6,7 @@ import {
 import { OrdersRepository } from './orders.repository';
 import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { StorageService } from '../storage/storage.service';
 import {
   CreateOrderDto,
   UpdateOrderDto,
@@ -24,6 +25,7 @@ export class OrdersService {
     private readonly consecutivesService: ConsecutivesService,
     private readonly prisma: PrismaService,
     private readonly auditLogsService: AuditLogsService,
+    private readonly storageService: StorageService,
   ) {}
 
   async findAll(filters: FilterOrdersDto) {
@@ -628,6 +630,7 @@ export class OrdersService {
             : new Date(),
           reference: createPaymentDto.reference,
           notes: createPaymentDto.notes,
+          receiptFileId: createPaymentDto.receiptFileId,
           receivedById,
         },
         select: {
@@ -662,6 +665,7 @@ export class OrdersService {
         paymentDate: true,
         reference: true,
         notes: true,
+        receiptFileId: true,
         createdAt: true,
         receivedBy: {
           select: {
@@ -757,5 +761,90 @@ export class OrdersService {
         payments: true,
       },
     });
+  }
+
+  // ========== PAYMENT RECEIPT MANAGEMENT ==========
+
+  async uploadPaymentReceipt(
+    orderId: string,
+    paymentId: string,
+    file: Express.Multer.File,
+    userId: string,
+  ) {
+    // Verificar que la orden existe
+    await this.findOne(orderId);
+
+    // Verificar que el pago existe y pertenece a la orden
+    const payment = await this.prisma.payment.findFirst({
+      where: {
+        id: paymentId,
+        orderId,
+      },
+    });
+
+    if (!payment) {
+      throw new NotFoundException(
+        `Payment ${paymentId} not found for order ${orderId}`,
+      );
+    }
+
+    // Si ya existe un comprobante, eliminarlo primero
+    if (payment.receiptFileId) {
+      await this.storageService.deleteFile(payment.receiptFileId, userId);
+    }
+
+    // Subir el nuevo archivo
+    const uploadedFile = await this.storageService.uploadFile(file, {
+      entityType: 'payment',
+      entityId: paymentId,
+      userId,
+    });
+
+    // Actualizar el payment con el ID del archivo
+    await this.prisma.payment.update({
+      where: { id: paymentId },
+      data: { receiptFileId: uploadedFile.id },
+    });
+
+    return {
+      message: 'Receipt uploaded successfully',
+      file: uploadedFile,
+    };
+  }
+
+  async deletePaymentReceipt(orderId: string, paymentId: string) {
+    // Verificar que la orden existe
+    await this.findOne(orderId);
+
+    // Verificar que el pago existe y pertenece a la orden
+    const payment = await this.prisma.payment.findFirst({
+      where: {
+        id: paymentId,
+        orderId,
+      },
+    });
+
+    if (!payment) {
+      throw new NotFoundException(
+        `Payment ${paymentId} not found for order ${orderId}`,
+      );
+    }
+
+    if (!payment.receiptFileId) {
+      throw new BadRequestException('Payment does not have a receipt');
+    }
+
+    // Eliminar el archivo (hard delete ya que es eliminación explícita por admin)
+    await this.storageService.hardDeleteFile(payment.receiptFileId);
+
+    // Actualizar el payment removiendo el ID del archivo
+    await this.prisma.payment.update({
+      where: { id: paymentId },
+      data: { receiptFileId: null },
+    });
+
+    return {
+      message: 'Receipt deleted successfully',
+    };
   }
 }

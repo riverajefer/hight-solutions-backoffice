@@ -441,7 +441,7 @@ App.tsx (root)
 
 2. **Crea el API service** (`src/api/entity.api.ts`)
    ```typescript
-   import { axiosInstance } from './axios';
+   import axiosInstance from './axios';
 
    export const entityApi = {
      getAll: async () => {

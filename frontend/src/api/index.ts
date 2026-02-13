@@ -17,4 +17,5 @@ export { unitsOfMeasureApi } from './units-of-measure.api';
 export { productionAreasApi } from './production-areas.api';
 export { quotesApi } from './quotes.api';
 export { commercialChannelsApi } from './commercialChannels.api';
+export { storageApi } from './storage.api';
 export { default as axiosInstance } from './axios';

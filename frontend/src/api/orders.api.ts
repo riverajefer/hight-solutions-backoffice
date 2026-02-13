@@ -93,4 +93,40 @@ export const ordersApi = {
     );
     return data;
   },
+
+  /**
+   * Subir comprobante de pago
+   */
+  uploadPaymentReceipt: async (
+    orderId: string,
+    paymentId: string,
+    file: File
+  ): Promise<{ message: string; file: any }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const { data } = await axiosInstance.post(
+      `${BASE_URL}/${orderId}/payments/${paymentId}/receipt`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return data;
+  },
+
+  /**
+   * Eliminar comprobante de pago
+   */
+  deletePaymentReceipt: async (
+    orderId: string,
+    paymentId: string
+  ): Promise<{ message: string }> => {
+    const { data} = await axiosInstance.delete(
+      `${BASE_URL}/${orderId}/payments/${paymentId}/receipt`
+    );
+    return data;
+  },
 };
