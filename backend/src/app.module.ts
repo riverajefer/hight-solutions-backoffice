@@ -26,6 +26,7 @@ import { CommercialChannelsModule } from './modules/commercial-channels/commerci
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OrderEditRequestsModule } from './modules/order-edit-requests/order-edit-requests.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
+import { StorageModule } from './modules/storage/storage.module';
 import { AuditContextInterceptor } from './common/interceptors/audit-context.interceptor';
 
 @Module({
@@ -69,6 +70,8 @@ import { AuditContextInterceptor } from './common/interceptors/audit-context.int
     NotificationsModule,
     // Módulo de Solicitudes de Edición de Órdenes
     OrderEditRequestsModule,
+    // Módulo de Almacenamiento (AWS S3)
+    StorageModule,
   ],
   providers: [
     {

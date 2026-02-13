@@ -678,4 +678,25 @@ model CommercialChannel {
   @@map("commercial_channels")
 }
 
+model UploadedFile {
+  id           String   @id @default(uuid())
+  originalName String   @map("original_name")
+  fileName     String   @unique @map("file_name")
+  mimeType     String   @map("mime_type")
+  size         Int
+  s3Key        String   @unique @map("s3_key")
+  s3Bucket     String   @map("s3_bucket")
+  entityType   String?  @map("entity_type")
+  entityId     String?  @map("entity_id")
+  uploadedBy   String?  @map("uploaded_by")
+  isDeleted    Boolean  @default(false) @map("is_deleted")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([entityType, entityId])
+  @@index([uploadedBy])
+  @@index([isDeleted])
+  @@map("uploaded_files")
+}
+
 
