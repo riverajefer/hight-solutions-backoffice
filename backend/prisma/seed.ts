@@ -176,6 +176,12 @@ async function main() {
     { name: 'update_quotes', description: 'Actualizar cotizaciones' },
     { name: 'delete_quotes', description: 'Eliminar cotizaciones' },
     { name: 'convert_quotes', description: 'Convertir cotizaciones a órdenes' },
+
+    // Storage (File Upload/Management)
+    { name: 'upload_files', description: 'Subir archivos al sistema' },
+    { name: 'read_files', description: 'Ver y descargar archivos' },
+    { name: 'delete_files', description: 'Eliminar archivos' },
+    { name: 'manage_storage', description: 'Gestión completa de almacenamiento' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
