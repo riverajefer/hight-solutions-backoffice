@@ -72,17 +72,21 @@ export class ClientsService {
       );
     }
 
-    // Set NIT to null for NATURAL type
+    // Set NIT and Cedula based on personType
     const nit = createClientDto.personType === PersonType.NATURAL ? null : createClientDto.nit;
+    const cedula = createClientDto.personType === PersonType.EMPRESA ? null : createClientDto.cedula;
 
     return this.clientsRepository.create({
       name: createClientDto.name,
       manager: createClientDto.manager,
+      encargado: createClientDto.encargado,
       phone: createClientDto.phone,
+      landlinePhone: createClientDto.landlinePhone,
       address: createClientDto.address,
       email: createClientDto.email,
       personType: createClientDto.personType,
       nit,
+      cedula,
       department: { connect: { id: createClientDto.departmentId } },
       city: { connect: { id: createClientDto.cityId } },
     });
@@ -149,17 +153,25 @@ export class ClientsService {
 
     if (updateClientDto.name !== undefined) updateData.name = updateClientDto.name;
     if (updateClientDto.manager !== undefined) updateData.manager = updateClientDto.manager;
+    if (updateClientDto.encargado !== undefined) updateData.encargado = updateClientDto.encargado;
     if (updateClientDto.phone !== undefined) updateData.phone = updateClientDto.phone;
+    if (updateClientDto.landlinePhone !== undefined) updateData.landlinePhone = updateClientDto.landlinePhone;
     if (updateClientDto.address !== undefined) updateData.address = updateClientDto.address;
     if (updateClientDto.email !== undefined) updateData.email = updateClientDto.email;
     if (updateClientDto.personType !== undefined) updateData.personType = updateClientDto.personType;
     if (updateClientDto.isActive !== undefined) updateData.isActive = updateClientDto.isActive;
 
-    // Handle NIT based on personType
+    // Handle NIT and Cedula based on personType
     if (updateClientDto.nit !== undefined) {
       updateData.nit = finalPersonType === PersonType.NATURAL ? null : updateClientDto.nit;
     } else if (updateClientDto.personType === PersonType.NATURAL) {
       updateData.nit = null;
+    }
+
+    if (updateClientDto.cedula !== undefined) {
+      updateData.cedula = finalPersonType === PersonType.EMPRESA ? null : updateClientDto.cedula;
+    } else if (updateClientDto.personType === PersonType.EMPRESA) {
+      updateData.cedula = null;
     }
 
     // Handle department/city updates

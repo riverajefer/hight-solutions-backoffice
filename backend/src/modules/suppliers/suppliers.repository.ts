@@ -15,7 +15,9 @@ export class SuppliersRepository {
       select: {
         id: true,
         name: true,
+        encargado: true,
         phone: true,
+        landlinePhone: true,
         address: true,
         email: true,
         departmentId: true,
@@ -62,6 +64,8 @@ export class SuppliersRepository {
         isActive: true,
         createdAt: true,
         updatedAt: true,
+        encargado: true,
+        landlinePhone: true,
         department: {
           select: {
             id: true,

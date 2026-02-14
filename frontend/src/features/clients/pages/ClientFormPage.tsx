@@ -41,11 +41,11 @@ const clientSchema = z.object({
     .or(z.literal('')),
   phone: z
     .string()
-    .min(10, 'El número de celular debe tener al menos 10 dígitos')
-    .max(20, 'El número de celular no puede exceder 20 caracteres'),
+    .min(10, 'El número de celular debe tener exactamente 10 dígitos')
+    .max(10, 'El número de celular no puede exceder 10 dígitos'),
   landlinePhone: z
     .string()
-    .max(20, 'El teléfono fijo no puede exceder 20 caracteres')
+    .max(10, 'El teléfono fijo no puede exceder 10 dígitos')
     .optional()
     .or(z.literal('')),
   address: z
@@ -59,8 +59,8 @@ const clientSchema = z.object({
   personType: z.enum(['NATURAL', 'EMPRESA'], {
     errorMap: () => ({ message: 'Debe seleccionar un tipo de persona' }),
   }),
-  nit: z.string().optional().or(z.literal('')),
-  cedula: z.string().optional().or(z.literal('')),
+  nit: z.string().max(12, 'El NIT no puede exceder 12 caracteres').optional().or(z.literal('')),
+  cedula: z.string().max(10, 'La cédula no puede exceder 10 dígitos').optional().or(z.literal('')),
 }).refine(
   (data) => {
     if (data.personType === 'EMPRESA') {
@@ -124,9 +124,30 @@ const ClientFormPage: React.FC = () => {
   // Reset city when department changes (only if not editing or department actually changed)
   useEffect(() => {
     if (watchDepartmentId && !isEdit) {
+      // Check if it's the default Cundinamarca -> Bogotá case
+      const cundinamarca = departments?.find(d => d.name.toLowerCase().includes('cundinamarca'));
+      if (watchDepartmentId === cundinamarca?.id) {
+        const bogota = cities?.find(c => c.name.toLowerCase().includes('bogotá') || c.name.toLowerCase().includes('bogota'));
+        if (bogota && !watch('cityId')) {
+          setValue('cityId', bogota.id);
+          return;
+        }
+      }
       setValue('cityId', '');
     }
-  }, [watchDepartmentId, setValue, isEdit]);
+  }, [watchDepartmentId, setValue, isEdit, departments, cities, watch]);
+
+  // Set default Department (Cundinamarca)
+  useEffect(() => {
+    if (departments && departments.length > 0 && !watchDepartmentId && !isEdit) {
+      const cundinamarca = departments.find(d => 
+        d.name.toLowerCase().includes('cundinamarca')
+      );
+      if (cundinamarca) {
+        setValue('departmentId', cundinamarca.id);
+      }
+    }
+  }, [departments, watchDepartmentId, setValue, isEdit]);
 
   // Clear NIT/Cedula when personType changes
   useEffect(() => {
@@ -281,9 +302,14 @@ const ClientFormPage: React.FC = () => {
                       label="Número de celular"
                       fullWidth
                       error={!!errors.phone}
-                      helperText={errors.phone?.message}
+                      helperText={errors.phone?.message || 'Máximo 10 dígitos'}
                       required
                       placeholder="3001234567"
+                      inputProps={{ maxLength: 10 }}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        field.onChange(val);
+                      }}
                     />
                   )}
                 />
@@ -300,8 +326,13 @@ const ClientFormPage: React.FC = () => {
                       label="Teléfono fijo"
                       fullWidth
                       error={!!errors.landlinePhone}
-                      helperText={errors.landlinePhone?.message}
+                      helperText={errors.landlinePhone?.message || 'Máximo 10 dígitos'}
                       placeholder="6012345678"
+                      inputProps={{ maxLength: 10 }}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        field.onChange(val);
+                      }}
                     />
                   )}
                 />
@@ -444,8 +475,13 @@ const ClientFormPage: React.FC = () => {
                         label="Cédula o nit"
                         fullWidth
                         error={!!errors.cedula}
-                        helperText={errors.cedula?.message}
+                        helperText={errors.cedula?.message || 'Máximo 10 dígitos'}
                         placeholder="1234567890"
+                        inputProps={{ maxLength: 10 }}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          field.onChange(val);
+                        }}
                       />
                     )}
                   />
@@ -461,7 +497,7 @@ const ClientFormPage: React.FC = () => {
                         label="NIT"
                         fullWidth
                         error={!!errors.nit}
-                        helperText={errors.nit?.message}
+                        helperText={errors.nit?.message || 'Máximo 10 dígitos'}
                         required
                         placeholder="900.123.456-7"
                       />

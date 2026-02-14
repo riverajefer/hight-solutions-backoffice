@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -80,6 +80,36 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
     }
   };
 
+  // Set default Department (Cundinamarca)
+  useEffect(() => {
+    if (departments.length > 0 && !formData.departmentId) {
+      const cundinamarca = departments.find(d => 
+        d.name.toLowerCase().includes('cundinamarca')
+      );
+      if (cundinamarca) {
+        setFormData(prev => ({ ...prev, departmentId: cundinamarca.id }));
+      }
+    }
+  }, [departments, formData.departmentId]);
+
+  // Set default City (Bogotá)
+  useEffect(() => {
+    if (cities.length > 0 && !formData.cityId && formData.departmentId) {
+      const cundinamarcaId = departments.find(d => 
+        d.name.toLowerCase().includes('cundinamarca')
+      )?.id;
+
+      if (formData.departmentId === cundinamarcaId) {
+        const bogota = cities.find(c => 
+          c.name.toLowerCase().includes('bogotá') || c.name.toLowerCase().includes('bogota')
+        );
+        if (bogota) {
+          setFormData(prev => ({ ...prev, cityId: bogota.id }));
+        }
+      }
+    }
+  }, [cities, formData.cityId, formData.departmentId, departments]);
+
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
 
@@ -94,7 +124,7 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
     if (!formData.phone.trim()) {
       newErrors.phone = 'El número de celular es requerido';
     } else if (formData.phone.length < 10) {
-      newErrors.phone = 'El número de celular debe tener al menos 10 dígitos';
+      newErrors.phone = 'El número de celular debe tener 10 dígitos';
     }
     if (!formData.departmentId) {
       newErrors.departmentId = 'El departamento es requerido';
@@ -206,14 +236,17 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
             />
           </Grid>
 
-          {/* Cédula (solo para persona natural) */}
+          {/* Cédula yo NIT (solo para persona natural) */}
           {formData.personType === 'NATURAL' && (
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
                 label="Cédula o nit"
                 value={formData.cedula}
-                onChange={(e) => handleChange('cedula', e.target.value)}
+                onChange={(e) => {  
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 12);
+                  handleChange('cedula', value);
+                }}
                 placeholder="1234567890"
                 helperText="Número de cédula de ciudadanía"
               />
@@ -227,9 +260,13 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
                 fullWidth
                 label="NIT"
                 value={formData.nit}
-                onChange={(e) => handleChange('nit', e.target.value)}
-                placeholder="123456789-0"
-                helperText="Número de Identificación Tributaria"
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  handleChange('nit', value);
+                }}
+                inputProps={{ maxLength: 10 }}
+                placeholder="1234567890"
+                helperText="Máximo 10 dígitos"
               />
             </Grid>
           )}
@@ -280,10 +317,14 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
               required
               label="Número de celular"
               value={formData.phone}
-              onChange={(e) => handleChange('phone', e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                handleChange('phone', value);
+              }}
               error={!!errors.phone}
-              helperText={errors.phone}
+              helperText={errors.phone || 'Máximo 10 dígitos'}
               placeholder="3001234567"
+              inputProps={{ maxLength: 10 }}
             />
           </Grid>
 
@@ -293,9 +334,13 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
               fullWidth
               label="Teléfono fijo"
               value={formData.landlinePhone}
-              onChange={(e) => handleChange('landlinePhone', e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                handleChange('landlinePhone', value);
+              }}
               placeholder="6012345678"
-              helperText="Opcional"
+              helperText="Opcional - Máximo 10 dígitos"
+              inputProps={{ maxLength: 10 }}
             />
           </Grid>
 
