@@ -14,6 +14,7 @@ export class OrdersRepository {
     subtotal: true,
     taxRate: true,
     tax: true,
+    discountAmount: true,
     total: true,
     paidAmount: true,
     balance: true,
@@ -92,6 +93,23 @@ export class OrdersRepository {
         },
       },
       orderBy: { paymentDate: 'desc' as const },
+    },
+    discounts: {
+      select: {
+        id: true,
+        amount: true,
+        reason: true,
+        appliedAt: true,
+        appliedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: { appliedAt: 'desc' as const },
     },
   };
 
@@ -315,6 +333,7 @@ export class OrdersRepository {
     financials: {
       subtotal: Prisma.Decimal;
       tax: Prisma.Decimal;
+      discountAmount: Prisma.Decimal;
       total: Prisma.Decimal;
       paidAmount: Prisma.Decimal;
       balance: Prisma.Decimal;
@@ -324,6 +343,29 @@ export class OrdersRepository {
       where: { id: orderId },
       data: financials,
       select: this.selectFields,
+    });
+  }
+
+  // ========== DISCOUNT MANAGEMENT ==========
+
+  async findDiscountsByOrderId(orderId: string) {
+    return this.prisma.orderDiscount.findMany({
+      where: { orderId },
+      select: {
+        id: true,
+        amount: true,
+        reason: true,
+        appliedAt: true,
+        appliedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: { appliedAt: 'desc' },
     });
   }
 }

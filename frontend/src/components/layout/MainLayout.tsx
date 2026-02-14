@@ -12,6 +12,7 @@ interface MainLayoutProps {
  */
 export const MainLayout: FC<MainLayoutProps> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -31,6 +32,10 @@ export const MainLayout: FC<MainLayoutProps> = ({ children }) => {
     }
   };
 
+  const handleToggleCollapse = () => {
+    setSidebarCollapsed(!sidebarCollapsed);
+  };
+
   return (
     <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       {isMobile && sidebarOpen && (
@@ -48,7 +53,12 @@ export const MainLayout: FC<MainLayoutProps> = ({ children }) => {
         />
       )}
 
-      <Sidebar open={sidebarOpen} onClose={handleCloseSidebar} />
+      <Sidebar 
+        open={sidebarOpen} 
+        onClose={handleCloseSidebar}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={handleToggleCollapse}
+      />
 
       <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
         <Topbar onMenuClick={handleMenuClick} />

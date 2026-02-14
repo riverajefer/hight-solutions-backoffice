@@ -410,6 +410,17 @@ function drawFinancials(doc: jsPDF, y: number, order: Order): number {
     y += lineH;
   }
 
+  // Descuentos — only if discountAmount > 0
+  if (parseFloat(order.discountAmount) > 0) {
+    doc.setFont('helvetica', 'normal');
+    setTextColor(doc, [220, 53, 69]); // Color rojo para descuentos
+    doc.text('Descuentos:', labelX, y);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`-${formatCurrency(order.discountAmount)}`, valueRight, y, { align: 'right' });
+    setTextColor(doc, PDF_COLORS.bodyText); // Restaurar color
+    y += lineH;
+  }
+
   // Separator line
   setDrawColor(doc, PDF_COLORS.borderGray);
   doc.setLineWidth(0.3);

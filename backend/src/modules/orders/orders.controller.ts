@@ -31,6 +31,7 @@ import {
   UpdateOrderItemDto,
   CreatePaymentDto,
   UpdateOrderStatusDto,
+  ApplyDiscountDto,
 } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -226,5 +227,47 @@ export class OrdersController {
     @Param('paymentId') paymentId: string,
   ) {
     return this.ordersService.deletePaymentReceipt(orderId, paymentId);
+  }
+
+  // ========== DISCOUNT MANAGEMENT ENDPOINTS ==========
+
+  @Post(':id/discounts')
+  @RequirePermissions('apply_discounts')
+  @ApiOperation({ summary: 'Apply discount to order (only CONFIRMED+)' })
+  @ApiParam({ name: 'id', description: 'Order ID' })
+  @ApiResponse({ status: 201, description: 'Discount applied successfully' })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot apply discount to DRAFT order or discount exceeds total',
+  })
+  applyDiscount(
+    @Param('id') orderId: string,
+    @Body() applyDiscountDto: ApplyDiscountDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.ordersService.applyDiscount(orderId, applyDiscountDto, userId);
+  }
+
+  @Get(':id/discounts')
+  @RequirePermissions('read_orders')
+  @ApiOperation({ summary: 'Get all discounts for an order' })
+  @ApiParam({ name: 'id', description: 'Order ID' })
+  @ApiResponse({ status: 200, description: 'Discounts retrieved successfully' })
+  getDiscounts(@Param('id') orderId: string) {
+    return this.ordersService.getDiscounts(orderId);
+  }
+
+  @Delete(':id/discounts/:discountId')
+  @RequirePermissions('delete_discounts')
+  @ApiOperation({ summary: 'Remove discount from order (admin only)' })
+  @ApiParam({ name: 'id', description: 'Order ID' })
+  @ApiParam({ name: 'discountId', description: 'Discount ID' })
+  @ApiResponse({ status: 200, description: 'Discount removed successfully' })
+  @ApiResponse({ status: 404, description: 'Discount not found' })
+  removeDiscount(
+    @Param('id') orderId: string,
+    @Param('discountId') discountId: string,
+  ) {
+    return this.ordersService.removeDiscount(orderId, discountId);
   }
 }

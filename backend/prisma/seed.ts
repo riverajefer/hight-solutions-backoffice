@@ -154,6 +154,14 @@ async function main() {
       name: 'approve_orders',
       description: 'Aprobar/confirmar órdenes de pedido',
     },
+    {
+      name: 'apply_discounts',
+      description: 'Aplicar descuentos a órdenes',
+    },
+    {
+      name: 'delete_discounts',
+      description: 'Eliminar descuentos de órdenes',
+    },
 
     // Commercial Channels
     {
@@ -285,6 +293,7 @@ async function main() {
     'read_orders',
     'update_orders',
     'approve_orders',
+    'apply_discounts',
     // Quotes (Manager)
     'create_quotes',
     'read_quotes',

@@ -30,6 +30,7 @@ model User {
   reviewedEditRequests  OrderEditRequest[] @relation("ReviewedEditRequests")
   notifications         Notification[]
   createdQuotes         Quote[]
+  appliedDiscounts      OrderDiscount[]    @relation("AppliedDiscounts")
 
   @@map("users")
 }
@@ -382,12 +383,13 @@ model Order {
   deliveryDate DateTime?   @map("delivery_date") // Fecha estimada de entrega
 
   // Cálculos financieros
-  subtotal     Decimal     // Suma de todos los items
-  taxRate      Decimal     @default(0.19) @map("tax_rate") // IVA 19%
-  tax          Decimal     // subtotal * taxRate
-  total        Decimal     // subtotal + tax
-  paidAmount   Decimal     @default(0) @map("paid_amount") // Abonos realizados
-  balance      Decimal     // total - paidAmount (saldo pendiente)
+  subtotal       Decimal     // Suma de todos los items
+  taxRate        Decimal     @default(0.19) @map("tax_rate") // IVA 19%
+  tax            Decimal     // subtotal * taxRate
+  discountAmount Decimal     @default(0) @map("discount_amount") // Total de descuentos aplicados
+  total          Decimal     // subtotal + tax - discountAmount
+  paidAmount     Decimal     @default(0) @map("paid_amount") // Abonos realizados
+  balance        Decimal     // total - paidAmount (saldo pendiente)
 
   status       OrderStatus @default(DRAFT)
   notes        String?     // Observaciones generales
@@ -404,8 +406,9 @@ model Order {
   commercialChannel   CommercialChannel? @relation(fields: [commercialChannelId], references: [id])
   items              OrderItem[]
   payments           Payment[]
+  discounts          OrderDiscount[]
   editRequests       OrderEditRequest[]
-  
+
   // Referencia a la cotización de origen
   quoteId            String?            @unique @map("quote_id")
   quote              Quote?             @relation("QuoteToOrder")
@@ -566,6 +569,28 @@ model Payment {
   @@index([paymentDate])
   @@index([receiptFileId])
   @@map("payments")
+}
+
+model OrderDiscount {
+  id          String   @id @default(uuid())
+  orderId     String   @map("order_id")
+  amount      Decimal  // Monto del descuento
+  reason      String   // Motivo/razón del descuento (obligatorio)
+
+  // Auditoría
+  appliedById String   @map("applied_by_id")
+  appliedAt   DateTime @default(now()) @map("applied_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  appliedBy   User     @relation("AppliedDiscounts", fields: [appliedById], references: [id])
+
+  @@index([orderId])
+  @@index([appliedById])
+  @@index([appliedAt])
+  @@map("order_discounts")
 }
 
 // =============================================================================

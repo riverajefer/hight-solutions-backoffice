@@ -32,6 +32,9 @@ import {
   Tabs,
   Tab,
   IconButton,
+  Tooltip,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 
 import {
@@ -47,13 +50,19 @@ import {
   Download as DownloadIcon,
   Visibility as VisibilityIcon,
   Close as CloseIcon,
+  Discount as DiscountIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { useOrder, useOrderPayments } from '../hooks';
-import { OrderStatusChip, OrderPdfButton } from '../components';
+import {
+  OrderStatusChip,
+  OrderPdfButton,
+  ApplyDiscountDialog,
+  DiscountsSection,
+} from '../components';
 import { ActivePermissionBanner } from '../components/ActivePermissionBanner';
 import { RequestEditPermissionButton } from '../components/RequestEditPermissionButton';
 import { EditRequestsList } from '../components/EditRequestsList';
@@ -66,6 +75,7 @@ import type {
   OrderStatus,
   PaymentMethod,
   CreatePaymentDto,
+  ApplyDiscountDto,
 } from '../../../types/order.types';
 import {
   ORDER_STATUS_CONFIG,
@@ -129,8 +139,11 @@ const formatCurrencyInput = (value: string | number): string => {
 export const OrderDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { user } = useAuthStore();
+  const { user, permissions } = useAuthStore();
   const { enqueueSnackbar } = useSnackbar();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
   const { orderQuery, updateStatusMutation, deleteOrderMutation } = useOrder(
     id!
@@ -140,6 +153,7 @@ export const OrderDetailPage: React.FC = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [discountDialogOpen, setDiscountDialogOpen] = useState(false);
   const [tabValue, setTabValue] = useState(0);
   const [paymentData, setPaymentData] = useState<CreatePaymentDto>({
     amount: 0,
@@ -148,6 +162,7 @@ export const OrderDetailPage: React.FC = () => {
   });
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [deletingReceipt, setDeletingReceipt] = useState<string | null>(null);
+  const [deletingDiscount, setDeletingDiscount] = useState(false);
   const [viewReceiptDialog, setViewReceiptDialog] = useState<{
     open: boolean;
     url: string;
@@ -156,6 +171,7 @@ export const OrderDetailPage: React.FC = () => {
 
   const order = orderQuery.data;
   const payments = paymentsQuery.data || [];
+  const discounts = order?.discounts || [];
 
   const openMenu = Boolean(anchorEl);
 
@@ -176,6 +192,14 @@ export const OrderDetailPage: React.FC = () => {
   const canAddPayment = ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED'].includes(
     order.status
   );
+  const canApplyDiscount =
+    permissions.includes('apply_discounts') &&
+    ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'WARRANTY'].includes(
+      order.status
+    );
+  const canDeleteDiscount =
+    permissions.includes('delete_discounts');
+  const isAdmin = user?.role?.name === 'admin';
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -307,6 +331,29 @@ export const OrderDetailPage: React.FC = () => {
     }
   };
 
+  const handleApplyDiscount = async (discountDto: ApplyDiscountDto) => {
+    await ordersApi.applyDiscount(id!, discountDto);
+    await orderQuery.refetch();
+  };
+
+  const handleRemoveDiscount = async (discountId: string) => {
+    setDeletingDiscount(true);
+    try {
+      await ordersApi.removeDiscount(id!, discountId);
+      await orderQuery.refetch();
+      enqueueSnackbar('Descuento eliminado exitosamente', {
+        variant: 'success',
+      });
+    } catch (error: any) {
+      enqueueSnackbar(
+        error.response?.data?.message || 'Error al eliminar descuento',
+        { variant: 'error' }
+      );
+    } finally {
+      setDeletingDiscount(false);
+    }
+  };
+
   const handleDeleteReceipt = async (paymentId: string) => {
     try {
       setDeletingReceipt(paymentId);
@@ -321,7 +368,6 @@ export const OrderDetailPage: React.FC = () => {
     }
   };
 
-  const isAdmin = user?.role?.name === 'admin';
   const balance = parseFloat(order.balance);
 
   return (
@@ -333,15 +379,36 @@ export const OrderDetailPage: React.FC = () => {
           { label: order.orderNumber },
         ]}
         action={
-          <Stack direction="row" spacing={1}>
+          <Stack 
+            direction="row" 
+            spacing={1}
+            sx={{
+              flexWrap: 'wrap',
+              gap: 1,
+              justifyContent: 'flex-end',
+            }}
+          >
             {canEdit && (
-              <Button
-                variant="outlined"
-                startIcon={<EditIcon />}
-                onClick={() => navigate(`/orders/${id}/edit`)}
-              >
-                Editar
-              </Button>
+              isMobile ? (
+                <Tooltip title="Editar">
+                  <IconButton
+                    color="primary"
+                    onClick={() => navigate(`/orders/${id}/edit`)}
+                    size="small"
+                  >
+                    <EditIcon />
+                  </IconButton>
+                </Tooltip>
+              ) : (
+                <Button
+                  variant="outlined"
+                  startIcon={<EditIcon />}
+                  onClick={() => navigate(`/orders/${id}/edit`)}
+                  size={isTablet ? 'small' : 'medium'}
+                >
+                  Editar
+                </Button>
+              )
             )}
             <RequestEditPermissionButton
               orderId={id!}
@@ -349,31 +416,92 @@ export const OrderDetailPage: React.FC = () => {
             />
 
             {canAddPayment && balance > 0 && (
+              isMobile ? (
+                <Tooltip title="Registrar Pago">
+                  <IconButton
+                    color="primary"
+                    onClick={() => setPaymentDialogOpen(true)}
+                    size="small"
+                  >
+                    <PaymentIcon />
+                  </IconButton>
+                </Tooltip>
+              ) : (
+                <Button
+                  variant="contained"
+                  startIcon={<PaymentIcon />}
+                  onClick={() => setPaymentDialogOpen(true)}
+                  size={isTablet ? 'small' : 'medium'}
+                >
+                  {isTablet ? 'Pago' : 'Registrar Pago'}
+                </Button>
+              )
+            )}
+            {canApplyDiscount && (
+              isMobile ? (
+                <Tooltip title="Aplicar Descuento">
+                  <IconButton
+                    color="warning"
+                    onClick={() => setDiscountDialogOpen(true)}
+                    size="small"
+                  >
+                    <DiscountIcon />
+                  </IconButton>
+                </Tooltip>
+              ) : (
+                <Button
+                  variant="outlined"
+                  startIcon={<DiscountIcon />}
+                  onClick={() => setDiscountDialogOpen(true)}
+                  color="warning"
+                  size={isTablet ? 'small' : 'medium'}
+                >
+                  {isTablet ? 'Descuento' : 'Aplicar Descuento'}
+                </Button>
+              )
+            )}
+            {isMobile ? (
+              <Tooltip title="Cambiar Estado">
+                <IconButton
+                  color="primary"
+                  onClick={handleMenuOpen}
+                  size="small"
+                >
+                  <RefreshIcon />
+                </IconButton>
+              </Tooltip>
+            ) : (
               <Button
-                variant="contained"
-                startIcon={<PaymentIcon />}
-                onClick={() => setPaymentDialogOpen(true)}
+                variant="outlined"
+                onClick={handleMenuOpen}
+                endIcon={<ArrowDropDownIcon />}
+                startIcon={<RefreshIcon />}
+                size={isTablet ? 'small' : 'medium'}
               >
-                Registrar Pago
+                {isTablet ? 'Estado' : 'Cambiar Estado'}
               </Button>
             )}
-            <Button
-              variant="outlined"
-              onClick={handleMenuOpen}
-              endIcon={<ArrowDropDownIcon />}
-              startIcon={<RefreshIcon />}
-            >
-              Cambiar Estado
-            </Button>
             <OrderPdfButton order={order} />
-            <Button
-              variant="outlined"
-              startIcon={<AddIcon />}
-              onClick={() => navigate('/orders/new')}
-            >
-              Nueva Orden
-            </Button>
-
+            {isMobile ? (
+              <Tooltip title="Nueva Orden">
+                <IconButton
+                  color="primary"
+                  onClick={() => navigate('/orders/new')}
+                  size="small"
+                >
+                  <AddIcon />
+                </IconButton>
+              </Tooltip>
+            ) : (
+              <Button
+                variant="outlined"
+                startIcon={<AddIcon />}
+                onClick={() => navigate('/orders/new')}
+                size={isTablet ? 'small' : 'medium'}
+              >
+                {isTablet ? 'Nueva' : 'Nueva Orden'}
+              </Button>
+            )}
           </Stack>
         }
       />
@@ -507,6 +635,16 @@ export const OrderDetailPage: React.FC = () => {
                         </Typography>
                       </Box>
                     )}
+                    {parseFloat(order.discountAmount) > 0 && (
+                      <Box display="flex" justifyContent="space-between">
+                        <Typography color="error.main">
+                          Descuentos:
+                        </Typography>
+                        <Typography fontWeight={500} color="error.main">
+                          -{formatCurrency(order.discountAmount)}
+                        </Typography>
+                      </Box>
+                    )}
                     <Divider />
                     <Box display="flex" justifyContent="space-between">
                       <Typography variant="h6">Total:</Typography>
@@ -634,6 +772,14 @@ export const OrderDetailPage: React.FC = () => {
                 </CardContent>
               </Card>
             )}
+
+            {/* Descuentos Aplicados */}
+            <DiscountsSection
+              discounts={discounts}
+              canDelete={canDeleteDiscount}
+              onDelete={handleRemoveDiscount}
+              isDeleting={deletingDiscount}
+            />            
           </Stack>
         </Grid>
 
@@ -912,6 +1058,14 @@ export const OrderDetailPage: React.FC = () => {
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(false)}
         isLoading={deleteOrderMutation.isPending}
+      />
+
+      {/* Dialog: Aplicar Descuento */}
+      <ApplyDiscountDialog
+        open={discountDialogOpen}
+        onClose={() => setDiscountDialogOpen(false)}
+        onApply={handleApplyDiscount}
+        maxAmount={parseFloat(order.subtotal) + parseFloat(order.tax)}
       />
 
       {/* Dialog: Ver Comprobante */}

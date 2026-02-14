@@ -8,6 +8,8 @@ import type {
   CreatePaymentDto,
   Payment,
   OrderStatus,
+  ApplyDiscountDto,
+  OrderDiscount,
 } from '../types/order.types';
 
 const BASE_URL = '/orders';
@@ -126,6 +128,43 @@ export const ordersApi = {
   ): Promise<{ message: string }> => {
     const { data} = await axiosInstance.delete(
       `${BASE_URL}/${orderId}/payments/${paymentId}/receipt`
+    );
+    return data;
+  },
+
+  /**
+   * Aplicar descuento a una orden (solo CONFIRMED+)
+   */
+  applyDiscount: async (
+    orderId: string,
+    applyDiscountDto: ApplyDiscountDto
+  ): Promise<OrderDiscount> => {
+    const { data } = await axiosInstance.post<OrderDiscount>(
+      `${BASE_URL}/${orderId}/discounts`,
+      applyDiscountDto
+    );
+    return data;
+  },
+
+  /**
+   * Obtener todos los descuentos de una orden
+   */
+  getDiscounts: async (orderId: string): Promise<OrderDiscount[]> => {
+    const { data } = await axiosInstance.get<OrderDiscount[]>(
+      `${BASE_URL}/${orderId}/discounts`
+    );
+    return data;
+  },
+
+  /**
+   * Eliminar un descuento de una orden (admin only)
+   */
+  removeDiscount: async (
+    orderId: string,
+    discountId: string
+  ): Promise<Order> => {
+    const { data } = await axiosInstance.delete<Order>(
+      `${BASE_URL}/${orderId}/discounts/${discountId}`
     );
     return data;
   },
