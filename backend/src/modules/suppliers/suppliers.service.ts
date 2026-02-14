@@ -65,23 +65,22 @@ export class SuppliersService {
       );
     }
 
-    // Validate NIT for EMPRESA type
+    // Validate NIT for EMPRESA type remains required, but now we allow it for NATURAL too
     if (createSupplierDto.personType === PersonType.EMPRESA && !createSupplierDto.nit) {
       throw new BadRequestException(
         'El NIT es requerido para proveedores de tipo EMPRESA',
       );
     }
 
-    // Set NIT to null for NATURAL type
-    const nit = createSupplierDto.personType === PersonType.NATURAL ? null : createSupplierDto.nit;
-
     return this.suppliersRepository.create({
       name: createSupplierDto.name,
+      encargado: createSupplierDto.encargado,
       phone: createSupplierDto.phone,
+      landlinePhone: createSupplierDto.landlinePhone,
       address: createSupplierDto.address,
       email: createSupplierDto.email,
       personType: createSupplierDto.personType,
-      nit,
+      nit: createSupplierDto.nit,
       department: { connect: { id: createSupplierDto.departmentId } },
       city: { connect: { id: createSupplierDto.cityId } },
     });
@@ -147,18 +146,14 @@ export class SuppliersService {
     const updateData: any = {};
 
     if (updateSupplierDto.name !== undefined) updateData.name = updateSupplierDto.name;
+    if (updateSupplierDto.encargado !== undefined) updateData.encargado = updateSupplierDto.encargado;
     if (updateSupplierDto.phone !== undefined) updateData.phone = updateSupplierDto.phone;
+    if (updateSupplierDto.landlinePhone !== undefined) updateData.landlinePhone = updateSupplierDto.landlinePhone;
     if (updateSupplierDto.address !== undefined) updateData.address = updateSupplierDto.address;
     if (updateSupplierDto.email !== undefined) updateData.email = updateSupplierDto.email;
     if (updateSupplierDto.personType !== undefined) updateData.personType = updateSupplierDto.personType;
     if (updateSupplierDto.isActive !== undefined) updateData.isActive = updateSupplierDto.isActive;
-
-    // Handle NIT based on personType
-    if (updateSupplierDto.nit !== undefined) {
-      updateData.nit = finalPersonType === PersonType.NATURAL ? null : updateSupplierDto.nit;
-    } else if (updateSupplierDto.personType === PersonType.NATURAL) {
-      updateData.nit = null;
-    }
+    if (updateSupplierDto.nit !== undefined) updateData.nit = updateSupplierDto.nit;
 
     // Handle department/city updates
     if (updateSupplierDto.departmentId) {

@@ -24,14 +24,34 @@ export class CreateSupplierDto {
   name: string;
 
   @ApiPropertyOptional({
-    description: 'Teléfono de contacto',
-    example: '+57 300 123 4567',
-    maxLength: 20,
+    description: 'Nombre del encargado o persona de contacto',
+    example: 'Juan Pérez',
+    maxLength: 100,
   })
   @IsString()
   @IsOptional()
-  @MaxLength(20)
+  @MaxLength(100)
+  encargado?: string;
+
+  @ApiPropertyOptional({
+    description: 'Teléfono celular de contacto',
+    example: '3001234567',
+    maxLength: 10,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(10)
   phone?: string;
+
+  @ApiPropertyOptional({
+    description: 'Teléfono fijo de contacto',
+    example: '6011234567',
+    maxLength: 10,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(10)
+  landlinePhone?: string;
 
   @ApiPropertyOptional({
     description: 'Dirección física',
@@ -73,14 +93,14 @@ export class CreateSupplierDto {
   personType: PersonType;
 
   @ApiPropertyOptional({
-    description: 'NIT (requerido si el tipo de persona es EMPRESA)',
+    description: 'NIT o Cédula (requerido si el tipo de persona es EMPRESA o NATURAL)',
     example: '800.456.789-0',
     minLength: 5,
     maxLength: 20,
   })
-  @ValidateIf((o) => o.personType === PersonType.EMPRESA)
-  @IsString({ message: 'El NIT es requerido para tipo EMPRESA' })
-  @MinLength(5, { message: 'El NIT debe tener al menos 5 caracteres' })
-  @MaxLength(20, { message: 'El NIT no puede exceder 20 caracteres' })
+  @IsString({ message: 'El NIT/Cédula es requerido' })
+  @IsOptional() // Make it optional in the DTO but validated by logic if needed
+  @MinLength(5, { message: 'El NIT/Cédula debe tener al menos 5 caracteres' })
+  @MaxLength(20, { message: 'El NIT/Cédula no puede exceder 20 caracteres' })
   nit?: string;
 }
