@@ -14,6 +14,7 @@ import {
   AddOrderItemDto,
   UpdateOrderItemDto,
   CreatePaymentDto,
+  ApplyDiscountDto,
 } from './dto';
 import { OrderStatus, Prisma } from '../../generated/prisma';
 import { PrismaService } from '../../database/prisma.service';
@@ -87,7 +88,8 @@ export class OrdersService {
 
     const taxRate = new Prisma.Decimal(0.19);
     const tax = subtotal.mul(taxRate);
-    const total = subtotal.add(tax);
+    const discountAmount = new Prisma.Decimal(0);
+    const total = subtotal.add(tax).sub(discountAmount);
 
     // Manejar pago inicial
     let paidAmount = new Prisma.Decimal(0);
@@ -127,6 +129,7 @@ export class OrdersService {
       subtotal,
       taxRate,
       tax,
+      discountAmount,
       total,
       paidAmount,
       balance,
@@ -715,7 +718,19 @@ export class OrdersService {
 
     const taxRate = order?.taxRate || new Prisma.Decimal(0.19);
     const tax = subtotal.mul(taxRate);
-    const total = subtotal.add(tax);
+
+    // Calcular discountAmount sumando todos los descuentos
+    const discounts = await tx.orderDiscount.findMany({
+      where: { orderId },
+      select: { amount: true },
+    });
+
+    let discountAmount = new Prisma.Decimal(0);
+    for (const discount of discounts) {
+      discountAmount = discountAmount.add(discount.amount);
+    }
+
+    const total = subtotal.add(tax).sub(discountAmount);
 
     // Calcular paidAmount sumando todos los pagos
     const payments = await tx.payment.findMany({
@@ -736,6 +751,7 @@ export class OrdersService {
       data: {
         subtotal,
         tax,
+        discountAmount,
         total,
         paidAmount,
         balance,
@@ -745,6 +761,7 @@ export class OrdersService {
         orderNumber: true,
         subtotal: true,
         tax: true,
+        discountAmount: true,
         total: true,
         paidAmount: true,
         balance: true,
@@ -846,5 +863,137 @@ export class OrdersService {
     return {
       message: 'Receipt deleted successfully',
     };
+  }
+
+  // ========== DISCOUNT MANAGEMENT ==========
+
+  async applyDiscount(
+    orderId: string,
+    applyDiscountDto: ApplyDiscountDto,
+    appliedById: string,
+  ) {
+    const order = await this.findOne(orderId);
+
+    // Solo se pueden aplicar descuentos a órdenes CONFIRMED en adelante
+    const allowedStatuses: OrderStatus[] = [
+      OrderStatus.CONFIRMED,
+      OrderStatus.IN_PRODUCTION,
+      OrderStatus.READY,
+      OrderStatus.DELIVERED,
+      OrderStatus.WARRANTY,
+    ];
+
+    if (!allowedStatuses.includes(order.status)) {
+      throw new BadRequestException(
+        'Los descuentos solo pueden aplicarse a órdenes CONFIRMADAS o en estado posterior',
+      );
+    }
+
+    const discountAmount = new Prisma.Decimal(applyDiscountDto.amount);
+
+    // Validar que el descuento no exceda el total de la orden
+    const currentTotal = new Prisma.Decimal(order.total);
+    const currentDiscountAmount = new Prisma.Decimal(order.discountAmount);
+    const newDiscountAmount = currentDiscountAmount.add(discountAmount);
+
+    // El total base es subtotal + tax
+    const baseTotal = new Prisma.Decimal(order.subtotal).add(order.tax);
+
+    if (newDiscountAmount.greaterThan(baseTotal)) {
+      throw new BadRequestException(
+        `El descuento total (${newDiscountAmount}) no puede exceder el subtotal + impuestos (${baseTotal})`,
+      );
+    }
+
+    // Usar transacción para crear descuento y recalcular totales
+    const discountId = await this.prisma.$transaction(async (tx) => {
+      // Crear el descuento
+      const discount = await tx.orderDiscount.create({
+        data: {
+          orderId,
+          amount: discountAmount,
+          reason: applyDiscountDto.reason,
+          appliedById,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      // Recalcular totales de la orden
+      await this.recalculateOrderTotals(orderId, tx);
+
+      return discount.id;
+    });
+
+    // Obtener el descuento completo fuera de la transacción
+    return this.prisma.orderDiscount.findUnique({
+      where: { id: discountId },
+      select: {
+        id: true,
+        amount: true,
+        reason: true,
+        appliedAt: true,
+        appliedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+  }
+
+  async getDiscounts(orderId: string) {
+    // Verificar que la orden existe
+    await this.findOne(orderId);
+
+    return this.ordersRepository.findDiscountsByOrderId(orderId);
+  }
+
+  async removeDiscount(orderId: string, discountId: string) {
+    const order = await this.findOne(orderId);
+
+    // Solo se pueden eliminar descuentos de órdenes CONFIRMED en adelante
+    const allowedStatuses: OrderStatus[] = [
+      OrderStatus.CONFIRMED,
+      OrderStatus.IN_PRODUCTION,
+      OrderStatus.READY,
+      OrderStatus.DELIVERED,
+      OrderStatus.WARRANTY,
+    ];
+
+    if (!allowedStatuses.includes(order.status)) {
+      throw new BadRequestException(
+        'Los descuentos solo pueden eliminarse de órdenes CONFIRMADAS o en estado posterior',
+      );
+    }
+
+    // Verificar que el descuento existe y pertenece a la orden
+    const discount = await this.prisma.orderDiscount.findFirst({
+      where: {
+        id: discountId,
+        orderId,
+      },
+    });
+
+    if (!discount) {
+      throw new NotFoundException(
+        `Descuento ${discountId} no encontrado para la orden ${orderId}`,
+      );
+    }
+
+    // Usar transacción para eliminar descuento y recalcular totales
+    return this.prisma.$transaction(async (tx) => {
+      // Eliminar el descuento
+      await tx.orderDiscount.delete({
+        where: { id: discountId },
+      });
+
+      // Recalcular totales
+      return this.recalculateOrderTotals(orderId, tx);
+    });
   }
 }

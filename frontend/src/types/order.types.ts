@@ -26,6 +26,7 @@ export interface Order {
   subtotal: string; // Decimal viene como string del backend
   taxRate: string;
   tax: string;
+  discountAmount: string; // Total de descuentos aplicados
   total: string;
   paidAmount: string;
   balance: string;
@@ -52,6 +53,7 @@ export interface Order {
   } | null;
   items: OrderItem[];
   payments: Payment[];
+  discounts: OrderDiscount[];
 }
 
 export interface CommercialChannel {
@@ -94,6 +96,19 @@ export interface Payment {
   receiptFileId: string | null;
   createdAt: string;
   receivedBy: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
+}
+
+export interface OrderDiscount {
+  id: string;
+  amount: string; // Decimal
+  reason: string; // Motivo del descuento (obligatorio)
+  appliedAt: string; // Fecha de aplicación
+  appliedBy: {
     id: string;
     email: string;
     firstName: string | null;
@@ -172,6 +187,11 @@ export interface CreatePaymentDto {
   reference?: string;
   notes?: string;
   receiptFileId?: string;
+}
+
+export interface ApplyDiscountDto {
+  amount: number;
+  reason: string; // Motivo del descuento (obligatorio)
 }
 
 // ============================================================
