@@ -25,10 +25,9 @@ import {
   DialogActions,
   TextField,
   FormControl,
+  InputLabel,
+  Select,
   FormLabel,
-  RadioGroup,
-  Radio,
-  FormControlLabel,
   Tabs,
   Tab,
   IconButton,
@@ -1043,10 +1042,13 @@ export const OrderDetailPage: React.FC = () => {
               helperText={`Saldo pendiente: ${formatCurrency(order.balance)}`}
             />
 
-            <FormControl>
-              <FormLabel>Método de Pago</FormLabel>
-              <RadioGroup
+            <FormControl fullWidth>
+              <InputLabel id="payment-method-label">Método de Pago</InputLabel>
+              <Select
+                labelId="payment-method-label"
+                id="payment-method-select"
                 value={paymentData.paymentMethod}
+                label="Método de Pago"
                 onChange={(e) =>
                   setPaymentData({
                     ...paymentData,
@@ -1057,14 +1059,11 @@ export const OrderDetailPage: React.FC = () => {
                 {(
                   Object.entries(PAYMENT_METHOD_LABELS) as [PaymentMethod, string][]
                 ).map(([method, label]) => (
-                  <FormControlLabel
-                    key={method}
-                    value={method}
-                    control={<Radio size="small" />}
-                    label={label}
-                  />
+                  <MenuItem key={method} value={method}>
+                    {label}
+                  </MenuItem>
                 ))}
-              </RadioGroup>
+              </Select>
             </FormControl>
 
             <DatePicker
