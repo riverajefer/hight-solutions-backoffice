@@ -14,7 +14,6 @@ interface OrderPdfButtonProps {
 export const OrderPdfButton: React.FC<OrderPdfButtonProps> = ({ order }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
   const handleDownload = async () => {
     const doc = await generateOrderPdf(order);
@@ -35,11 +34,15 @@ export const OrderPdfButton: React.FC<OrderPdfButtonProps> = ({ order }) => {
   if (isMobile) {
     return (
       <>
-        <Tooltip title="Descargar PDF">
+        <Tooltip title="PDF">
           <IconButton
             color="primary"
             onClick={handleDownload}
             size="small"
+            sx={{
+              bgcolor: 'action.hover',
+              border: (theme) => `1px solid ${theme.palette.divider}`,
+            }}
           >
             <PdfIcon />
           </IconButton>
@@ -49,6 +52,10 @@ export const OrderPdfButton: React.FC<OrderPdfButtonProps> = ({ order }) => {
             color="primary"
             onClick={handlePrint}
             size="small"
+            sx={{
+              bgcolor: 'action.hover',
+              border: (theme) => `1px solid ${theme.palette.divider}`,
+            }}
           >
             <PrintIcon />
           </IconButton>
@@ -63,15 +70,17 @@ export const OrderPdfButton: React.FC<OrderPdfButtonProps> = ({ order }) => {
         variant="outlined"
         startIcon={<PdfIcon />}
         onClick={handleDownload}
-        size={isTablet ? 'small' : 'medium'}
+        size="medium"
+        sx={{ minWidth: { sm: 'auto', md: 120 } }}
       >
-        {isTablet ? 'PDF' : 'Descargar PDF'}
+        PDF
       </Button>
       <Button
         variant="outlined"
         startIcon={<PrintIcon />}
         onClick={handlePrint}
-        size={isTablet ? 'small' : 'medium'}
+        size="medium"
+        sx={{ minWidth: { sm: 'auto', md: 120 } }}
       >
         Imprimir
       </Button>
