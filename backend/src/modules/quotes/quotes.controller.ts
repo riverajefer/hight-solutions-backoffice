@@ -9,15 +9,18 @@ import {
   Query,
   UseGuards,
   Request as NestRequest,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import { Request } from 'express';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { QuotesService } from './quotes.service';
 import {
   CreateQuoteDto,
   UpdateQuoteDto,
   FilterQuotesDto,
 } from './dto';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody, ApiParam } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 interface AuthenticatedRequest extends Request {
@@ -72,5 +75,43 @@ export class QuotesController {
   @ApiOperation({ summary: 'Convertir cotización en orden de pedido' })
   convertToOrder(@Param('id') id: string, @NestRequest() req: AuthenticatedRequest) {
     return this.quotesService.convertToOrder(id, req.user.id);
+  }
+
+  @Post(':quoteId/items/:itemId/sample-image')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Subir imagen de muestra para un item de cotización' })
+  @ApiParam({ name: 'quoteId', description: 'ID de la cotización' })
+  @ApiParam({ name: 'itemId', description: 'ID del item' })
+  @ApiBody({
+    description: 'Imagen de muestra',
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  async uploadSampleImage(
+    @Param('quoteId') quoteId: string,
+    @Param('itemId') itemId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @NestRequest() req: AuthenticatedRequest,
+  ) {
+    return this.quotesService.uploadItemSampleImage(quoteId, itemId, file, req.user.id);
+  }
+
+  @Delete(':quoteId/items/:itemId/sample-image')
+  @ApiOperation({ summary: 'Eliminar imagen de muestra de un item de cotización' })
+  @ApiParam({ name: 'quoteId', description: 'ID de la cotización' })
+  @ApiParam({ name: 'itemId', description: 'ID del item' })
+  async deleteSampleImage(
+    @Param('quoteId') quoteId: string,
+    @Param('itemId') itemId: string,
+  ) {
+    return this.quotesService.deleteItemSampleImage(quoteId, itemId);
   }
 }

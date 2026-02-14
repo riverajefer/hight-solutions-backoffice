@@ -34,6 +34,7 @@ export interface QuoteItem {
   unitPrice: number | string;
   total: number | string;
   specifications?: any;
+  sampleImageId?: string;
   sortOrder: number;
   service?: Service;
   createdAt: string;
@@ -77,6 +78,7 @@ export interface CreateQuoteItemDto {
   quantity: number;
   unitPrice: number;
   specifications?: any;
+  sampleImageId?: string;
 }
 
 export interface CreateQuoteDto {
