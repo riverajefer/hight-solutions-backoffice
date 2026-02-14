@@ -31,13 +31,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading = fals
     formState: { errors },
   } = useForm<LoginDto>({
     resolver: zodResolver(loginSchema),
-    /* defaultValues: {
-      email: 'admin@example.com',
-      password: 'admin123',
-    }, */
     defaultValues: {
-      email: '',
-      password: '',
+      email: showDemoCredentials() ? 'admin@example.com' : '',
+      password: showDemoCredentials() ? 'admin123' : '',
     },
   });
 

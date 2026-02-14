@@ -60,6 +60,14 @@ export class CreateQuoteItemDto {
   specifications?: Record<string, any>;
 
   @ApiPropertyOptional({
+    description: 'ID de la imagen de muestra del item',
+    example: 'uuid-image',
+  })
+  @IsOptional()
+  @IsUUID()
+  sampleImageId?: string;
+
+  @ApiPropertyOptional({
     description: 'IDs de las áreas de producción',
     example: ['uuid-area-1', 'uuid-area-2'],
   })

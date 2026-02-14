@@ -200,6 +200,42 @@ export class StorageController {
   }
 
   /**
+   * GET /api/v1/storage/:id/view
+   * View/stream file (inline instead of download)
+   * Requiere permiso: read_files
+   */
+  @Get(':id/view')
+  @RequirePermissions('read_files')
+  @ApiOperation({ summary: 'Ver/stream archivo (inline)' })
+  @ApiParam({ name: 'id', description: 'ID del archivo' })
+  @ApiResponse({
+    status: 200,
+    description: 'Archivo servido inline',
+  })
+  @ApiResponse({ status: 404, description: 'Archivo no encontrado' })
+  async viewFile(@Param('id') id: string, @Res() res: Response) {
+    const file = await this.storageService.getFile(id);
+    const url = await this.storageService.getFileUrl(id);
+
+    // Fetch file from S3
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch file from storage');
+    }
+
+    // Set headers to display inline (not download)
+    res.setHeader('Content-Type', file.mimeType);
+    res.setHeader('Content-Length', file.size.toString());
+    res.setHeader('Access-Control-Allow-Origin', '*'); // Allow CORS for images
+    res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+
+    // Stream the file
+    const buffer = await response.buffer();
+    res.send(buffer);
+  }
+
+  /**
    * DELETE /api/v1/storage/:id
    * Delete a file (soft delete)
    * Requiere permiso: delete_files

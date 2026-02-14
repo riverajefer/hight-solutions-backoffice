@@ -19,6 +19,9 @@ import {
   IconButton,
   Menu,
   MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -30,6 +33,8 @@ import {
   Storefront as ChannelIcon,
   Download as DownloadIcon,
   Print as PrintIcon,
+  Visibility as VisibilityIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
@@ -39,6 +44,7 @@ import { QuoteStatusChip } from '../components/QuoteStatusChip';
 import { QuoteStatus, QUOTE_STATUS_CONFIG, QuoteItem } from '../../../types/quote.types';
 import { generateQuotePdf } from '../utils/generateQuotePdf';
 import { useSnackbar } from 'notistack';
+import axiosInstance from '../../../api/axios';
 
 const formatCurrency = (value: string | number): string => {
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
@@ -69,6 +75,10 @@ export const QuoteDetailPage: React.FC = () => {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmConvert, setConfirmConvert] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [viewImageDialog, setViewImageDialog] = useState<{
+    open: boolean;
+    url: string;
+  }>({ open: false, url: '' });
 
   if (isLoading) return <LoadingSpinner />;
   if (!quote) return (
@@ -142,6 +152,16 @@ export const QuoteDetailPage: React.FC = () => {
       enqueueSnackbar('Error al generar el PDF para impresión', { variant: 'error' });
     } finally {
       setIsGeneratingPdf(false);
+    }
+  };
+
+  const handleViewImage = async (sampleImageId: string) => {
+    try {
+      const { data } = await axiosInstance.get(`/storage/${sampleImageId}/url`);
+      setViewImageDialog({ open: true, url: data.url });
+    } catch (error) {
+      console.error('Error loading image:', error);
+      enqueueSnackbar('Error al cargar la imagen', { variant: 'error' });
     }
   };
 
@@ -236,6 +256,9 @@ export const QuoteDetailPage: React.FC = () => {
                   <Table size="small">
                     <TableHead>
                       <TableRow>
+                        {quote.items?.some(item => item.sampleImageId) && (
+                          <TableCell width="60px" align="center">Imagen</TableCell>
+                        )}
                         <TableCell>Descripción</TableCell>
                         <TableCell align="right">Cant.</TableCell>
                         <TableCell align="right">P. Unit</TableCell>
@@ -245,6 +268,19 @@ export const QuoteDetailPage: React.FC = () => {
                     <TableBody>
                       {quote.items?.map((item: QuoteItem) => (
                         <TableRow key={item.id}>
+                          {quote.items?.some(i => i.sampleImageId) && (
+                            <TableCell align="center">
+                              {item.sampleImageId && (
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleViewImage(item.sampleImageId!)}
+                                  color="primary"
+                                >
+                                  <VisibilityIcon fontSize="small" />
+                                </IconButton>
+                              )}
+                            </TableCell>
+                          )}
                           <TableCell>
                             {item.service && <Chip label={item.service.name} size="small" sx={{ mr: 1, mb: 0.5 }} />}
                             <Typography variant="body2">{item.description}</Typography>
@@ -345,6 +381,37 @@ export const QuoteDetailPage: React.FC = () => {
         onCancel={() => setConfirmConvert(false)}
         isLoading={convertToOrderMutation.isPending}
       />
+
+      {/* View Image Dialog */}
+      <Dialog
+        open={viewImageDialog.open}
+        onClose={() => setViewImageDialog({ open: false, url: '' })}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          Imagen de Muestra
+          <IconButton
+            onClick={() => setViewImageDialog({ open: false, url: '' })}
+            sx={{ position: 'absolute', right: 8, top: 8 }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <Box
+            component="img"
+            src={viewImageDialog.url}
+            alt="Muestra"
+            sx={{
+              width: '100%',
+              height: 'auto',
+              maxHeight: '70vh',
+              objectFit: 'contain',
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };

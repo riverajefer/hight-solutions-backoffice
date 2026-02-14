@@ -465,6 +465,7 @@ model QuoteItem {
   total          Decimal
 
   specifications Json?
+  sampleImageId  String? @map("sample_image_id") // ID de la imagen de muestra
 
   sortOrder      Int      @default(0) @map("sort_order")
   createdAt      DateTime @default(now()) @map("created_at")
@@ -476,6 +477,7 @@ model QuoteItem {
 
   @@index([quoteId])
   @@index([serviceId])
+  @@index([sampleImageId])
   @@map("quote_items")
 }
 

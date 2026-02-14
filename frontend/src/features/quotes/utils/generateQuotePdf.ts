@@ -8,6 +8,7 @@ import {
   PDF_FONTS,
   PDF_LAYOUT,
 } from '../../../utils/pdfConstants';
+import axiosInstance from '../../../api/axios';
 
 /** Get string width in mm */
 function strWidthMm(doc: jsPDF, text: string): number {
@@ -15,6 +16,44 @@ function strWidthMm(doc: jsPDF, text: string): number {
 }
 
 /** Load image from URL to Base64 */
+async function loadImageFromBlob(url: string): Promise<string> {
+  return new Promise(async (resolve, reject) => {
+    try {
+      // Fetch the image with authentication
+      const response = await axiosInstance.get(url, {
+        responseType: 'blob',
+      });
+
+      const blob = response.data;
+      const blobUrl = URL.createObjectURL(blob);
+
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          URL.revokeObjectURL(blobUrl);
+          resolve(canvas.toDataURL('image/png'));
+        } else {
+          URL.revokeObjectURL(blobUrl);
+          reject(new Error('Canvas context error'));
+        }
+      };
+      img.onerror = (e) => {
+        URL.revokeObjectURL(blobUrl);
+        reject(e);
+      };
+      img.src = blobUrl;
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+/** Load image from URL to Base64 (for logo) */
 function loadImage(url: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -210,13 +249,42 @@ function drawClientSection(doc: jsPDF, y: number, quote: Quote): number {
   return y + 3;
 }
 
-function drawItemsTable(doc: jsPDF, y: number, quote: Quote): number {
-  const colWidths = [20, 85, 37.5, 37.5]; // Cant | Descripción | Val. Unitario | Val. Total
-  const colLabels = ['Cant.', 'Descripción', 'Val. Unitario', 'Val. Total'];
-  const colAligns: ('center' | 'left' | 'right')[] = ['center', 'left', 'right', 'right'];
+async function drawItemsTable(doc: jsPDF, y: number, quote: Quote): Promise<number> {
+  // Determine if we need an image column
+  const hasImages = quote.items?.some(item => item.sampleImageId);
+
+  const colWidths = hasImages
+    ? [25, 15, 70, 32.5, 37.5] // Imagen | Cant | Descripción | Val. Unitario | Val. Total
+    : [20, 85, 37.5, 37.5]; // Cant | Descripción | Val. Unitario | Val. Total
+
+  const colLabels = hasImages
+    ? ['Imagen', 'Cant.', 'Descripción', 'Val. Unitario', 'Val. Total']
+    : ['Cant.', 'Descripción', 'Val. Unitario', 'Val. Total'];
+
+  const colAligns: ('center' | 'left' | 'right')[] = hasImages
+    ? ['center', 'center', 'left', 'right', 'right']
+    : ['center', 'left', 'right', 'right'];
+
   const rowHeight = 6;
   const headerHeight = 7;
   const x0 = PDF_LAYOUT.marginLeft;
+
+  // Load all sample images upfront
+  const imageCache: Record<string, string> = {};
+  if (hasImages) {
+    for (const item of quote.items || []) {
+      if (item.sampleImageId) {
+        try {
+          // Use backend proxy endpoint with authentication
+          const viewUrl = `/storage/${item.sampleImageId}/view`;
+          const imageData = await loadImageFromBlob(viewUrl);
+          imageCache[item.sampleImageId] = imageData;
+        } catch (error) {
+          console.error(`Failed to load image ${item.sampleImageId}:`, error);
+        }
+      }
+    }
+  }
 
   const drawTableHeader = (atY: number) => {
     setFillColor(doc, PDF_COLORS.tableHeaderBg);
@@ -239,10 +307,14 @@ function drawItemsTable(doc: jsPDF, y: number, quote: Quote): number {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(PDF_FONTS.tableBody);
 
-  quote.items?.forEach((item, idx) => {
+  for (let idx = 0; idx < (quote.items?.length || 0); idx++) {
+    const item = quote.items![idx];
+
     // Calculate required row height based on description wrapping
-    const descLines = calcLineCount(doc, item.description, colWidths[1] - 4);
-    const dynamicRowHeight = Math.max(rowHeight, descLines * 4 + 2);
+    const descColIndex = hasImages ? 2 : 1;
+    const descLines = calcLineCount(doc, item.description, colWidths[descColIndex] - 4);
+    const imageHeight = item.sampleImageId && imageCache[item.sampleImageId] ? 20 : 0;
+    const dynamicRowHeight = Math.max(rowHeight, descLines * 4 + 2, imageHeight + 4);
 
     // Page break check
     if (y + dynamicRowHeight > PDF_LAYOUT.pageHeight - PDF_LAYOUT.marginBottom - 5) {
@@ -266,16 +338,34 @@ function drawItemsTable(doc: jsPDF, y: number, quote: Quote): number {
     setTextColor(doc, PDF_COLORS.bodyText);
     const textY = y + dynamicRowHeight * 0.5 + (strWidthMm(doc, 'M') * 0.35);
 
-    const values = [
-      String(item.quantity),
-      item.description,
-      formatCurrency(item.unitPrice),
-      formatCurrency(item.total),
-    ];
+    const values = hasImages
+      ? [
+          '', // Image placeholder
+          String(item.quantity),
+          item.description,
+          formatCurrency(item.unitPrice),
+          formatCurrency(item.total),
+        ]
+      : [
+          String(item.quantity),
+          item.description,
+          formatCurrency(item.unitPrice),
+          formatCurrency(item.total),
+        ];
 
     let cx = x0;
     values.forEach((val, i) => {
-      if (i === 1) {
+      if (hasImages && i === 0) {
+        // Image column
+        if (item.sampleImageId && imageCache[item.sampleImageId]) {
+          const imgData = imageCache[item.sampleImageId];
+          const imgWidth = 18;
+          const imgHeight = 18;
+          const imgX = cx + (colWidths[i] - imgWidth) / 2;
+          const imgY = y + (dynamicRowHeight - imgHeight) / 2;
+          doc.addImage(imgData, 'PNG', imgX, imgY, imgWidth, imgHeight);
+        }
+      } else if ((hasImages && i === 2) || (!hasImages && i === 1)) {
         // Description: left-aligned with padding, support multi-line
         const lines = doc.splitTextToSize(val, colWidths[i] - 4);
         const lineH = 4;
@@ -284,14 +374,14 @@ function drawItemsTable(doc: jsPDF, y: number, quote: Quote): number {
         lines.forEach((line: string, li: number) => {
           doc.text(line, cx + 2, startY + li * lineH);
         });
-      } else {
+      } else if (val !== '') {
         doc.text(val, cx + colWidths[i] / 2, textY, { align: colAligns[i] });
       }
       cx += colWidths[i];
     });
 
     y += dynamicRowHeight;
-  });
+  }
 
   return y + 4;
 }
@@ -411,7 +501,7 @@ export async function generateQuotePdf(quote: Quote): Promise<jsPDF> {
 
   y = drawQuoteInfo(doc, y, quote);
   y = drawClientSection(doc, y, quote);
-  y = drawItemsTable(doc, y, quote);
+  y = await drawItemsTable(doc, y, quote);
   y = drawFinancials(doc, y, quote);
   y = drawNotes(doc, y, quote);
   drawAttendedBy(doc, y, quote);

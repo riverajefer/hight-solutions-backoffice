@@ -69,6 +69,7 @@ export interface OrderItem {
   unitPrice: string; // Decimal
   total: string; // Decimal
   specifications: Record<string, any> | null;
+  sampleImageId?: string;
   sortOrder: number;
   service: {
     id: string;

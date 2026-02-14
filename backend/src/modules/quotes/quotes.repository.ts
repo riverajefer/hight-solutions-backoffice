@@ -51,6 +51,7 @@ export class QuotesRepository {
         unitPrice: true,
         total: true,
         specifications: true,
+        sampleImageId: true,
         sortOrder: true,
         serviceId: true,
         service: {

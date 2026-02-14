@@ -52,6 +52,7 @@ export class OrdersRepository {
         unitPrice: true,
         total: true,
         specifications: true,
+        sampleImageId: true,
         sortOrder: true,
         service: {
           select: {
