@@ -32,6 +32,9 @@ import {
   Tabs,
   Tab,
   IconButton,
+  Tooltip,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 
 import {
@@ -138,6 +141,9 @@ export const OrderDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { user, permissions } = useAuthStore();
   const { enqueueSnackbar } = useSnackbar();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
   const { orderQuery, updateStatusMutation, deleteOrderMutation } = useOrder(
     id!
@@ -373,15 +379,36 @@ export const OrderDetailPage: React.FC = () => {
           { label: order.orderNumber },
         ]}
         action={
-          <Stack direction="row" spacing={1}>
+          <Stack 
+            direction="row" 
+            spacing={1}
+            sx={{
+              flexWrap: 'wrap',
+              gap: 1,
+              justifyContent: 'flex-end',
+            }}
+          >
             {canEdit && (
-              <Button
-                variant="outlined"
-                startIcon={<EditIcon />}
-                onClick={() => navigate(`/orders/${id}/edit`)}
-              >
-                Editar
-              </Button>
+              isMobile ? (
+                <Tooltip title="Editar">
+                  <IconButton
+                    color="primary"
+                    onClick={() => navigate(`/orders/${id}/edit`)}
+                    size="small"
+                  >
+                    <EditIcon />
+                  </IconButton>
+                </Tooltip>
+              ) : (
+                <Button
+                  variant="outlined"
+                  startIcon={<EditIcon />}
+                  onClick={() => navigate(`/orders/${id}/edit`)}
+                  size={isTablet ? 'small' : 'medium'}
+                >
+                  Editar
+                </Button>
+              )
             )}
             <RequestEditPermissionButton
               orderId={id!}
@@ -389,41 +416,92 @@ export const OrderDetailPage: React.FC = () => {
             />
 
             {canAddPayment && balance > 0 && (
-              <Button
-                variant="contained"
-                startIcon={<PaymentIcon />}
-                onClick={() => setPaymentDialogOpen(true)}
-              >
-                Registrar Pago
-              </Button>
+              isMobile ? (
+                <Tooltip title="Registrar Pago">
+                  <IconButton
+                    color="primary"
+                    onClick={() => setPaymentDialogOpen(true)}
+                    size="small"
+                  >
+                    <PaymentIcon />
+                  </IconButton>
+                </Tooltip>
+              ) : (
+                <Button
+                  variant="contained"
+                  startIcon={<PaymentIcon />}
+                  onClick={() => setPaymentDialogOpen(true)}
+                  size={isTablet ? 'small' : 'medium'}
+                >
+                  {isTablet ? 'Pago' : 'Registrar Pago'}
+                </Button>
+              )
             )}
             {canApplyDiscount && (
+              isMobile ? (
+                <Tooltip title="Aplicar Descuento">
+                  <IconButton
+                    color="warning"
+                    onClick={() => setDiscountDialogOpen(true)}
+                    size="small"
+                  >
+                    <DiscountIcon />
+                  </IconButton>
+                </Tooltip>
+              ) : (
+                <Button
+                  variant="outlined"
+                  startIcon={<DiscountIcon />}
+                  onClick={() => setDiscountDialogOpen(true)}
+                  color="warning"
+                  size={isTablet ? 'small' : 'medium'}
+                >
+                  {isTablet ? 'Descuento' : 'Aplicar Descuento'}
+                </Button>
+              )
+            )}
+            {isMobile ? (
+              <Tooltip title="Cambiar Estado">
+                <IconButton
+                  color="primary"
+                  onClick={handleMenuOpen}
+                  size="small"
+                >
+                  <RefreshIcon />
+                </IconButton>
+              </Tooltip>
+            ) : (
               <Button
                 variant="outlined"
-                startIcon={<DiscountIcon />}
-                onClick={() => setDiscountDialogOpen(true)}
-                color="warning"
+                onClick={handleMenuOpen}
+                endIcon={<ArrowDropDownIcon />}
+                startIcon={<RefreshIcon />}
+                size={isTablet ? 'small' : 'medium'}
               >
-                Aplicar Descuento
+                {isTablet ? 'Estado' : 'Cambiar Estado'}
               </Button>
             )}
-            <Button
-              variant="outlined"
-              onClick={handleMenuOpen}
-              endIcon={<ArrowDropDownIcon />}
-              startIcon={<RefreshIcon />}
-            >
-              Cambiar Estado
-            </Button>
             <OrderPdfButton order={order} />
-            <Button
-              variant="outlined"
-              startIcon={<AddIcon />}
-              onClick={() => navigate('/orders/new')}
-            >
-              Nueva Orden
-            </Button>
-
+            {isMobile ? (
+              <Tooltip title="Nueva Orden">
+                <IconButton
+                  color="primary"
+                  onClick={() => navigate('/orders/new')}
+                  size="small"
+                >
+                  <AddIcon />
+                </IconButton>
+              </Tooltip>
+            ) : (
+              <Button
+                variant="outlined"
+                startIcon={<AddIcon />}
+                onClick={() => navigate('/orders/new')}
+                size={isTablet ? 'small' : 'medium'}
+              >
+                {isTablet ? 'Nueva' : 'Nueva Orden'}
+              </Button>
+            )}
           </Stack>
         }
       />

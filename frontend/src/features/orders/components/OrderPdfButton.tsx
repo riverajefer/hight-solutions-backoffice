@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button } from '@mui/material';
+import { Button, IconButton, Tooltip, useTheme, useMediaQuery } from '@mui/material';
 import {
   PictureAsPdf as PdfIcon,
   Print as PrintIcon,
@@ -12,6 +12,10 @@ interface OrderPdfButtonProps {
 }
 
 export const OrderPdfButton: React.FC<OrderPdfButtonProps> = ({ order }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+
   const handleDownload = async () => {
     const doc = await generateOrderPdf(order);
     doc.save(`Orden_${order.orderNumber}.pdf`);
@@ -28,19 +32,46 @@ export const OrderPdfButton: React.FC<OrderPdfButtonProps> = ({ order }) => {
     }
   };
 
+  if (isMobile) {
+    return (
+      <>
+        <Tooltip title="Descargar PDF">
+          <IconButton
+            color="primary"
+            onClick={handleDownload}
+            size="small"
+          >
+            <PdfIcon />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Imprimir">
+          <IconButton
+            color="primary"
+            onClick={handlePrint}
+            size="small"
+          >
+            <PrintIcon />
+          </IconButton>
+        </Tooltip>
+      </>
+    );
+  }
+
   return (
     <>
       <Button
         variant="outlined"
         startIcon={<PdfIcon />}
         onClick={handleDownload}
+        size={isTablet ? 'small' : 'medium'}
       >
-        Descargar PDF
+        {isTablet ? 'PDF' : 'Descargar PDF'}
       </Button>
       <Button
         variant="outlined"
         startIcon={<PrintIcon />}
         onClick={handlePrint}
+        size={isTablet ? 'small' : 'medium'}
       >
         Imprimir
       </Button>

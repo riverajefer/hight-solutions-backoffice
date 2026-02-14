@@ -6,6 +6,10 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  IconButton,
+  Tooltip,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import { EditNote as EditNoteIcon } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
@@ -34,6 +38,9 @@ export const RequestEditPermissionButton: React.FC<
   const [open, setOpen] = useState(false);
   const { user } = useAuthStore();
   const { createMutation, activePermissionQuery } = useEditRequests(orderId);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
   const {
     control,
@@ -72,14 +79,27 @@ export const RequestEditPermissionButton: React.FC<
 
   return (
     <>
-      <Button
-        variant="outlined"
-        color="primary"
-        startIcon={<EditNoteIcon />}
-        onClick={handleOpen}
-      >
-        Solicitar Permiso de Edición
-      </Button>
+      {isMobile ? (
+        <Tooltip title="Solicitar Permiso de Edición">
+          <IconButton
+            color="primary"
+            onClick={handleOpen}
+            size="small"
+          >
+            <EditNoteIcon />
+          </IconButton>
+        </Tooltip>
+      ) : (
+        <Button
+          variant="outlined"
+          color="primary"
+          startIcon={<EditNoteIcon />}
+          onClick={handleOpen}
+          size={isTablet ? 'small' : 'medium'}
+        >
+          {isTablet ? 'Solicitar Edición' : 'Solicitar Permiso de Edición'}
+        </Button>
+      )}
 
       <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
         <DialogTitle>Solicitar Permiso de Edición</DialogTitle>
