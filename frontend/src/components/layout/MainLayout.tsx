@@ -15,12 +15,16 @@ export const MainLayout: FC<MainLayoutProps> = ({ children }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isTablet = useMediaQuery(theme.breakpoints.between('md', 'lg'));
 
   useEffect(() => {
     if (isMobile) {
       setSidebarOpen(false);
+    } else if (isTablet) {
+      // Auto-collapse sidebar en tablets para dar más espacio al contenido
+      setSidebarCollapsed(true);
     }
-  }, [isMobile]);
+  }, [isMobile, isTablet]);
 
   const handleMenuClick = () => {
     setSidebarOpen(!sidebarOpen);
@@ -68,7 +72,7 @@ export const MainLayout: FC<MainLayoutProps> = ({ children }) => {
           sx={{
             flex: 1,
             overflow: 'auto',
-            p: 3,
+            p: { xs: 2, sm: 2.5, md: 3 },
             backgroundColor: (theme) =>
               theme.palette.mode === 'dark'
                 ? '#31333b'

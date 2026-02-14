@@ -509,14 +509,14 @@ export const OrderDetailPage: React.FC = () => {
       {/* Banner de permiso activo */}
       <ActivePermissionBanner orderId={id!} />
 
-      <Grid container spacing={3} sx={{ mt: 1 }}>
+      <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ mt: 1 }}>
         {/* Info General */}
         <Grid item xs={12} md={8}>
-          <Stack spacing={3}>
+          <Stack spacing={{ xs: 2, sm: 2.5, md: 3 }}>
             {/* Estado y Fechas */}
             <Card>
-              <CardContent>
-                <Grid container spacing={2}>
+              <CardContent sx={{ p: { xs: 2, sm: 2.5, md: 3 } }}>
+                <Grid container spacing={{ xs: 1.5, sm: 2 }}>
                   <Grid item xs={12} sm={4}>
                     <Typography variant="body2" color="textSecondary">
                       Estado
@@ -553,7 +553,7 @@ export const OrderDetailPage: React.FC = () => {
 
             {/* Items */}
             <Card>
-              <CardContent>
+              <CardContent sx={{ p: { xs: 2, sm: 2.5, md: 3 } }}>
                 <Typography variant="h6" gutterBottom>
                   Items de la Orden
                 </Typography>
@@ -785,7 +785,7 @@ export const OrderDetailPage: React.FC = () => {
 
         {/* Sidebar */}
         <Grid item xs={12} md={4}>
-          <Stack spacing={3}>
+          <Stack spacing={{ xs: 2, sm: 2.5, md: 3 }}>
             {/* Cliente */}
             <Card>
               <CardContent>
