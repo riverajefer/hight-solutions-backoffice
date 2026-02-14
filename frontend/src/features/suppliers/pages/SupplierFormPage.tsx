@@ -105,9 +105,30 @@ const SupplierFormPage: React.FC = () => {
   // Reset city when department changes (only if not editing or department actually changed)
   useEffect(() => {
     if (watchDepartmentId && !isEdit) {
+      // Check if it's the default Cundinamarca -> Bogotá case
+      const cundinamarca = departments?.find(d => d.name.toLowerCase().includes('cundinamarca'));
+      if (watchDepartmentId === cundinamarca?.id) {
+        const bogota = cities?.find(c => c.name.toLowerCase().includes('bogotá') || c.name.toLowerCase().includes('bogota'));
+        if (bogota && !watch('cityId')) {
+          setValue('cityId', bogota.id);
+          return;
+        }
+      }
       setValue('cityId', '');
     }
-  }, [watchDepartmentId, setValue, isEdit]);
+  }, [watchDepartmentId, setValue, isEdit, departments, cities, watch]);
+
+  // Set default Department (Cundinamarca)
+  useEffect(() => {
+    if (departments && departments.length > 0 && !watchDepartmentId && !isEdit) {
+      const cundinamarca = departments.find(d => 
+        d.name.toLowerCase().includes('cundinamarca')
+      );
+      if (cundinamarca) {
+        setValue('departmentId', cundinamarca.id);
+      }
+    }
+  }, [departments, watchDepartmentId, setValue, isEdit]);
 
   // Clear NIT when personType changes to NATURAL
   useEffect(() => {
