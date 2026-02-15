@@ -86,6 +86,13 @@ export const useOrders = (filters?: FilterOrdersDto) => {
       });
     },
     onError: (error: any) => {
+      // Si es error 403 (Forbidden), NO mostrar snackbar
+      // Dejar que el componente lo maneje y muestre el dialog de autorización
+      if (error?.response?.status === 403) {
+        return;
+      }
+
+      // Para otros errores, mostrar snackbar normalmente
       const message =
         error?.response?.data?.message || 'Error al cambiar el estado';
       enqueueSnackbar(message, { variant: 'error' });
@@ -161,6 +168,13 @@ export const useOrder = (id: string) => {
       });
     },
     onError: (error: any) => {
+      // Si es error 403 (Forbidden), NO mostrar snackbar
+      // Dejar que el componente lo maneje y muestre el dialog de autorización
+      if (error?.response?.status === 403) {
+        return;
+      }
+
+      // Para otros errores, mostrar snackbar normalmente
       const message =
         error?.response?.data?.message || 'Error al cambiar el estado';
       enqueueSnackbar(message, { variant: 'error' });

@@ -8,6 +8,7 @@ export type OrderStatus =
   | 'IN_PRODUCTION'
   | 'READY'
   | 'DELIVERED'
+  | 'DELIVERED_ON_CREDIT'
   | 'WARRANTY'
   | 'RETURNED'
   | 'PAID';
@@ -278,6 +279,7 @@ export const ORDER_STATUS_CONFIG: Record<OrderStatus, OrderStatusConfig> = {
   IN_PRODUCTION: { label: 'En Producción', color: 'warning' },
   READY: { label: 'Lista para entrega', color: 'success' },
   DELIVERED: { label: 'Entregada', color: 'primary' },
+  DELIVERED_ON_CREDIT: { label: 'Entregado a Crédito', color: 'warning' },
   WARRANTY: { label: 'Garantía', color: 'secondary' },
   RETURNED: { label: 'Devolución', color: 'error' },
   PAID: { label: 'Pagada', color: 'success' },

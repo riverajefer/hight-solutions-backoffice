@@ -25,6 +25,7 @@ import { ProductionAreasModule } from './modules/production-areas/production-are
 import { CommercialChannelsModule } from './modules/commercial-channels/commercial-channels.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OrderEditRequestsModule } from './modules/order-edit-requests/order-edit-requests.module';
+import { OrderStatusChangeRequestsModule } from './modules/order-status-change-requests/order-status-change-requests.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { AuditContextInterceptor } from './common/interceptors/audit-context.interceptor';
@@ -70,6 +71,8 @@ import { AuditContextInterceptor } from './common/interceptors/audit-context.int
     NotificationsModule,
     // Módulo de Solicitudes de Edición de Órdenes
     OrderEditRequestsModule,
+    // Módulo de Solicitudes de Cambio de Estado de Órdenes
+    OrderStatusChangeRequestsModule,
     // Módulo de Almacenamiento (AWS S3)
     StorageModule,
   ],

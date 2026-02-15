@@ -43,6 +43,7 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import PostAddIcon from '@mui/icons-material/PostAdd';
+import PendingActionsIcon from '@mui/icons-material/PendingActions';
 import { useAuthStore } from '../../store/authStore';
 import { ROUTES, PERMISSIONS } from '../../utils/constants';
 import { gradients, neonColors, neonAccents, darkSurfaces } from '../../theme';
@@ -144,6 +145,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           icon: <PaymentsIcon />,
           path: ROUTES.PENDING_PAYMENT_ORDERS,
           permission: PERMISSIONS.READ_ORDERS,
+        },
+        {
+          label: 'Solicitudes de Cambio de Estado',
+          icon: <PendingActionsIcon />,
+          path: ROUTES.STATUS_CHANGE_REQUESTS,
+          permission: PERMISSIONS.APPROVE_ORDERS,
         },
         {
           label: 'Clientes',

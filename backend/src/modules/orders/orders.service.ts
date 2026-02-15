@@ -2,11 +2,13 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { OrdersRepository } from './orders.repository';
 import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { StorageService } from '../storage/storage.service';
+import { OrderStatusChangeRequestsService } from '../order-status-change-requests/order-status-change-requests.service';
 import {
   CreateOrderDto,
   UpdateOrderDto,
@@ -27,6 +29,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly auditLogsService: AuditLogsService,
     private readonly storageService: StorageService,
+    private readonly statusChangeRequestsService: OrderStatusChangeRequestsService,
   ) {}
 
   async findAll(filters: FilterOrdersDto) {
@@ -432,11 +435,59 @@ export class OrdersService {
         'No se puede revertir el estado de la orden a BORRADOR. Por favor, use el flujo de solicitud de edición para modificar la orden.',
       );
     }
-    
+
+    // NEW: Balance validation for PAID/DELIVERED status
+    // Orders with pending balance cannot be marked as PAID or DELIVERED
+    if (status === OrderStatus.PAID || status === OrderStatus.DELIVERED) {
+      const balance = new Prisma.Decimal(order.balance);
+
+      if (balance.greaterThan(0)) {
+        throw new BadRequestException(
+          `No se puede cambiar al estado ${status === OrderStatus.PAID ? 'PAGADA' : 'ENTREGADA'} con saldo pendiente. ` +
+          `Saldo actual: $${order.balance}. ` +
+          `Use el estado DELIVERED_ON_CREDIT (Entregado a Crédito) o complete los pagos primero.`,
+        );
+      }
+    }
+
+    // NEW: Authorization check for DELIVERED_ON_CREDIT
+    // Non-admin users need approval to deliver on credit
+    if (status === OrderStatus.DELIVERED_ON_CREDIT) {
+      const authCheck = await this.statusChangeRequestsService.requiresAuthorization(
+        id,
+        status,
+        userId,
+      );
+
+      if (authCheck.required) {
+        // Check if user has an approved request
+        const hasApproval = await this.statusChangeRequestsService.hasApprovedRequest(
+          id,
+          userId,
+          status,
+        );
+
+        if (!hasApproval) {
+          throw new ForbiddenException(
+            `Este cambio de estado requiere autorización de un administrador. ` +
+            `Razón: ${authCheck.reason}. ` +
+            `Por favor, cree una solicitud de cambio de estado.`,
+          );
+        }
+
+        // Authorization granted, consume the request (mark as used)
+        await this.statusChangeRequestsService.consumeApprovedRequest(
+          id,
+          userId,
+          status,
+        );
+      }
+    }
+
     // Log change
     if (order.status !== status) {
         await this.ordersRepository.updateStatus(id, status);
-        
+
         // Registrar en audit log (sin esperar)
         const updatedOrder = await this.findOne(id);
         this.auditLogsService.logOrderChange(

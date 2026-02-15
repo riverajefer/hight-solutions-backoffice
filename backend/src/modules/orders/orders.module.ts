@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { DatabaseModule } from '../../database/database.module';
 import { ConsecutivesModule } from '../consecutives/consecutives.module';
 import { OrderEditRequestsModule } from '../order-edit-requests/order-edit-requests.module';
+import { OrderStatusChangeRequestsModule } from '../order-status-change-requests/order-status-change-requests.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { StorageModule } from '../storage/storage.module';
 import { OrdersController } from './orders.controller';
@@ -10,7 +11,7 @@ import { OrdersRepository } from './orders.repository';
 import { CanEditOrderGuard } from '../../common/guards/can-edit-order.guard';
 
 @Module({
-  imports: [DatabaseModule, ConsecutivesModule, OrderEditRequestsModule, AuditLogsModule, StorageModule],
+  imports: [DatabaseModule, ConsecutivesModule, OrderEditRequestsModule, OrderStatusChangeRequestsModule, AuditLogsModule, StorageModule],
   controllers: [OrdersController],
   providers: [OrdersService, OrdersRepository, CanEditOrderGuard],
   exports: [OrdersService, OrdersRepository],
