@@ -186,7 +186,9 @@ export const OrderDetailPage: React.FC = () => {
     );
   }
 
-  const canEdit = order.status === 'DRAFT';
+  const canEdit = ['DRAFT', 'CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'WARRANTY', 'CANCELLED', 'COMPLETED'].includes(
+    order.status
+  );
   const canDelete = ['DRAFT', 'CANCELLED'].includes(order.status);
   const canAddPayment = ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED'].includes(
     order.status
@@ -437,7 +439,7 @@ export const OrderDetailPage: React.FC = () => {
               </Button>
             )
           )}
-          
+
           {!isMobile && (
             <RequestEditPermissionButton
               orderId={id!}
@@ -447,13 +449,13 @@ export const OrderDetailPage: React.FC = () => {
 
           {/* Divider */}
           {!isMobile && (canEdit || canAddPayment || canApplyDiscount) && (
-            <Divider 
-              orientation="vertical" 
-              flexItem 
-              sx={{ 
+            <Divider
+              orientation="vertical"
+              flexItem
+              sx={{
                 display: { xs: 'none', md: 'block' },
-                mx: 0.5 
-              }} 
+                mx: 0.5
+              }}
             />
           )}
 
@@ -489,7 +491,7 @@ export const OrderDetailPage: React.FC = () => {
               </Button>
             )
           )}
-          
+
           {canApplyDiscount && (
             isMobile ? (
               <Tooltip title="Descuento">
@@ -524,13 +526,13 @@ export const OrderDetailPage: React.FC = () => {
 
           {/* Divider */}
           {!isMobile && (
-            <Divider 
-              orientation="vertical" 
-              flexItem 
-              sx={{ 
+            <Divider
+              orientation="vertical"
+              flexItem
+              sx={{
                 display: { xs: 'none', md: 'block' },
-                mx: 0.5 
-              }} 
+                mx: 0.5
+              }}
             />
           )}
 
@@ -561,18 +563,18 @@ export const OrderDetailPage: React.FC = () => {
               Estado
             </Button>
           )}
-          
+
           <OrderPdfButton order={order} />
 
           {/* Divider */}
           {!isMobile && (
-            <Divider 
-              orientation="vertical" 
-              flexItem 
-              sx={{ 
+            <Divider
+              orientation="vertical"
+              flexItem
+              sx={{
                 display: { xs: 'none', md: 'block' },
-                mx: 0.5 
-              }} 
+                mx: 0.5
+              }}
             />
           )}
 
@@ -620,37 +622,130 @@ export const OrderDetailPage: React.FC = () => {
             {/* Estado y Fechas */}
             <Card>
               <CardContent sx={{ p: { xs: 2, sm: 2.5, md: 3 } }}>
-                <Grid container spacing={{ xs: 1.5, sm: 2 }}>
+                <Grid container spacing={{ xs: 2, sm: 3 }}>
+                  {/* Estado */}
                   <Grid item xs={12} sm={4}>
-                    <Typography variant="body2" color="textSecondary">
+                    <Typography variant="body2" color="textSecondary" gutterBottom>
                       Estado
                     </Typography>
                     <Box sx={{ mt: 1 }}>
                       <OrderStatusChip status={order.status} size="medium" />
                     </Box>
                   </Grid>
+
+                  {/* Fecha de Orden */}
                   <Grid item xs={12} sm={4}>
-                    <Typography variant="body2" color="textSecondary">
+                    <Typography variant="body2" color="textSecondary" gutterBottom>
                       Fecha de Orden
                     </Typography>
                     <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
                       <CalendarIcon fontSize="small" color="action" />
-                      <Typography variant="body1">
+                      <Typography variant="body1" fontWeight={500}>
                         {formatDate(order.orderDate)}
                       </Typography>
                     </Stack>
                   </Grid>
+
+                  {/* Fecha de Entrega */}
                   <Grid item xs={12} sm={4}>
-                    <Typography variant="body2" color="textSecondary">
+                    <Typography variant="body2" color="textSecondary" gutterBottom>
                       Fecha de Entrega
                     </Typography>
                     <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
                       <CalendarIcon fontSize="small" color="action" />
-                      <Typography variant="body1">
+                      <Typography variant="body1" fontWeight={500}>
                         {order.deliveryDate ? formatDate(order.deliveryDate) : 'No especificada'}
                       </Typography>
                     </Stack>
                   </Grid>
+
+                  {/* Información de cambio de fecha (si existe) */}
+                  {order.deliveryDateReason && (
+                    <Grid item xs={12}>
+                      <Divider sx={{ my: 1 }} />
+                      <Paper
+                        elevation={0}
+                        sx={{
+                          mt: 2,
+                          p: 2.5,
+                          bgcolor: 'warning.lighter',
+                          border: '1px solid',
+                          borderColor: 'warning.light',
+                          borderRadius: 2,
+                        }}
+                      >
+                        <Stack spacing={1.5}>
+                          {/* Header con ícono */}
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <CalendarIcon fontSize="small" color="warning" />
+                            <Typography variant="subtitle2" color="warning.dark" fontWeight={600}>
+                              Historial de Cambio de Fecha
+                            </Typography>
+                          </Stack>
+
+                          {/* Fechas anterior y nueva */}
+                          <Grid container spacing={2}>
+                            <Grid item xs={12} sm={6}>
+                              <Typography variant="caption" color="text.secondary" display="block">
+                                Fecha anterior:
+                              </Typography>
+                              <Typography variant="body2" fontWeight={500} color="text.primary">
+                                {order.previousDeliveryDate ? formatDate(order.previousDeliveryDate) : '-'}
+                              </Typography>
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                              <Typography variant="caption" color="text.secondary" display="block">
+                                Nueva fecha:
+                              </Typography>
+                              <Typography variant="body2" fontWeight={500} color="text.primary">
+                                {order.deliveryDate ? formatDate(order.deliveryDate) : '-'}
+                              </Typography>
+                            </Grid>
+                          </Grid>
+
+                          <Divider sx={{ borderStyle: 'dashed' }} />
+
+                          {/* Razón del cambio */}
+                          <Box>
+                            <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+                              Razón del cambio:
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              color="text.primary"
+                              sx={{
+                                bgcolor: 'background.paper',
+                                p: 1.5,
+                                borderRadius: 1,
+                                fontStyle: 'italic',
+                              }}
+                            >
+                              "{order.deliveryDateReason}"
+                            </Typography>
+                          </Box>
+
+                          {/* Footer con fecha y usuario de modificación */}
+                          {order.deliveryDateChangedAt && (
+                            <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between" sx={{ pt: 0.5 }}>
+                              {order.deliveryDateChangedByUser && (
+                                <Stack direction="row" spacing={0.5} alignItems="center">
+                                  <Typography variant="caption" color="text.secondary" style={{ fontStyle: "italic" }}>
+                                    Modificada por:{" "}
+                                    {order.deliveryDateChangedByUser.firstName || order.deliveryDateChangedByUser.lastName
+                                      ? `${order.deliveryDateChangedByUser.firstName || ''} ${order.deliveryDateChangedByUser.lastName || ''}`.trim()
+                                      : order.deliveryDateChangedByUser.email}
+                                  </Typography>
+                                </Stack>
+                              )}
+                              <Typography variant="caption" color="text.secondary" style={{ fontStyle: "italic" }}>
+                                El: {formatDate(order.deliveryDateChangedAt)}
+                              </Typography>
+                            </Stack>
+                          )}
+                        </Stack>
+                      </Paper>
+                    </Grid>
+                  )}
                 </Grid>
               </CardContent>
             </Card>
@@ -883,7 +978,7 @@ export const OrderDetailPage: React.FC = () => {
               canDelete={canDeleteDiscount}
               onDelete={handleRemoveDiscount}
               isDeleting={deletingDiscount}
-            />            
+            />
           </Stack>
         </Grid>
 
