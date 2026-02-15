@@ -1964,6 +1964,11 @@ async function main() {
         description: 'Entregada - requiere solicitud de edición',
       },
       {
+        orderStatus: OrderStatus.DELIVERED_ON_CREDIT,
+        allowEditRequests: true,
+        description: 'Entregado a crédito - requiere solicitud de edición',
+      },
+      {
         orderStatus: OrderStatus.WARRANTY,
         allowEditRequests: true,
         description: 'Garantía - requiere solicitud de edición',

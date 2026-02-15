@@ -118,7 +118,9 @@ export const OrdersListPage: React.FC = () => {
         status: newStatus,
       });
     } catch (error) {
-      // Error is handled by the mutation
+      // Relanzar el error para que el componente ChangeStatusDialog lo maneje
+      // Especialmente importante para errores 403 que requieren autorización
+      throw error;
     }
   };
 

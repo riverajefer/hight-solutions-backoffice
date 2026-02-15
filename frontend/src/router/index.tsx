@@ -56,6 +56,7 @@ const OrdersListPage = lazy(() => import('../features/orders/pages/OrdersListPag
 const OrderFormPage = lazy(() => import('../features/orders/pages/OrderFormPage'));
 const OrderDetailPage = lazy(() => import('../features/orders/pages/OrderDetailPage'));
 const PendingPaymentOrdersPage = lazy(() => import('../features/orders/pages/PendingPaymentOrdersPage'));
+const StatusChangeRequestsPage = lazy(() => import('../features/orders/pages/StatusChangeRequestsPage'));
 // Commercial Channels
 const CommercialChannelsListPage = lazy(() => import('../features/commercial-channels/pages/CommercialChannelsListPage'));
 const CommercialChannelFormPage = lazy(() => import('../features/commercial-channels/pages/CommercialChannelFormPage'));
@@ -872,7 +873,19 @@ const RoutesConfig: FC = () => {
             </AuthGuard>
           }
         />
-
+        {/* Status Change Requests */}
+        <Route
+          path={PATHS.STATUS_CHANGE_REQUESTS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.APPROVE_ORDERS}>
+                  <StatusChangeRequestsPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
 
         {/* Settings Routes */}
         <Route
