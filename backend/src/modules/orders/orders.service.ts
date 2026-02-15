@@ -162,9 +162,46 @@ export class OrdersService {
   async update(id: string, updateOrderDto: UpdateOrderDto, userId: string) {
     const oldOrder = await this.findOne(id);
 
+    // Validar cambio de fecha de entrega
+    if (updateOrderDto.deliveryDate) {
+      const newDeliveryDate = new Date(updateOrderDto.deliveryDate);
+      const currentDeliveryDate = oldOrder.deliveryDate ? new Date(oldOrder.deliveryDate) : null;
+
+      // Si hay una fecha anterior y la nueva es posterior (pospone), requiere razón
+      if (currentDeliveryDate && newDeliveryDate > currentDeliveryDate) {
+        if (!updateOrderDto.deliveryDateReason || updateOrderDto.deliveryDateReason.trim() === '') {
+          throw new BadRequestException(
+            'Debe proporcionar una razón para posponer la fecha de entrega'
+          );
+        }
+      }
+    }
+
     // Si viene items o initialPayment, usamos una transacción para actualizar todo el conjunto
     if (updateOrderDto.items || updateOrderDto.initialPayment) {
       const updatedOrder = await this.prisma.$transaction(async (tx) => {
+        // Preparar datos de actualización de fecha
+        const deliveryDateUpdateData: any = {};
+
+        if (updateOrderDto.deliveryDate) {
+          const newDeliveryDate = new Date(updateOrderDto.deliveryDate);
+          const currentDeliveryDate = oldOrder.deliveryDate ? new Date(oldOrder.deliveryDate) : null;
+
+          deliveryDateUpdateData.deliveryDate = newDeliveryDate;
+
+          // Si la fecha cambió, registrar auditoría
+          if (currentDeliveryDate && newDeliveryDate.getTime() !== currentDeliveryDate.getTime()) {
+            deliveryDateUpdateData.previousDeliveryDate = currentDeliveryDate;
+            deliveryDateUpdateData.deliveryDateChangedAt = new Date();
+            deliveryDateUpdateData.deliveryDateChangedBy = userId;
+
+            // Solo guardar razón si se pospone
+            if (newDeliveryDate > currentDeliveryDate && updateOrderDto.deliveryDateReason) {
+              deliveryDateUpdateData.deliveryDateReason = updateOrderDto.deliveryDateReason;
+            }
+          }
+        }
+
         // 1. Actualizar datos básicos de la orden
         await tx.order.update({
           where: { id },
@@ -172,9 +209,7 @@ export class OrdersService {
             ...(updateOrderDto.clientId && {
               client: { connect: { id: updateOrderDto.clientId } },
             }),
-            ...(updateOrderDto.deliveryDate && {
-              deliveryDate: new Date(updateOrderDto.deliveryDate),
-            }),
+            ...deliveryDateUpdateData,
             ...(updateOrderDto.notes !== undefined && {
               notes: updateOrderDto.notes,
             }),
@@ -333,13 +368,33 @@ export class OrdersService {
     }
 
     // Si no hay items ni pago, actualización normal
+    // Preparar datos de actualización de fecha
+    const deliveryDateUpdateData: any = {};
+
+    if (updateOrderDto.deliveryDate) {
+      const newDeliveryDate = new Date(updateOrderDto.deliveryDate);
+      const currentDeliveryDate = oldOrder.deliveryDate ? new Date(oldOrder.deliveryDate) : null;
+
+      deliveryDateUpdateData.deliveryDate = newDeliveryDate;
+
+      // Si la fecha cambió, registrar auditoría
+      if (currentDeliveryDate && newDeliveryDate.getTime() !== currentDeliveryDate.getTime()) {
+        deliveryDateUpdateData.previousDeliveryDate = currentDeliveryDate;
+        deliveryDateUpdateData.deliveryDateChangedAt = new Date();
+        deliveryDateUpdateData.deliveryDateChangedBy = userId;
+
+        // Solo guardar razón si se pospone
+        if (newDeliveryDate > currentDeliveryDate && updateOrderDto.deliveryDateReason) {
+          deliveryDateUpdateData.deliveryDateReason = updateOrderDto.deliveryDateReason;
+        }
+      }
+    }
+
     await this.ordersRepository.update(id, {
       ...(updateOrderDto.clientId && {
         client: { connect: { id: updateOrderDto.clientId } },
       }),
-      ...(updateOrderDto.deliveryDate && {
-        deliveryDate: new Date(updateOrderDto.deliveryDate),
-      }),
+      ...deliveryDateUpdateData,
       ...(updateOrderDto.notes !== undefined && {
         notes: updateOrderDto.notes,
       }),

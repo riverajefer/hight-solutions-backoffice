@@ -11,6 +11,13 @@ export class OrdersRepository {
     orderNumber: true,
     orderDate: true,
     deliveryDate: true,
+
+    // Auditoría de cambios de fecha de entrega
+    previousDeliveryDate: true,
+    deliveryDateReason: true,
+    deliveryDateChangedAt: true,
+    deliveryDateChangedBy: true,
+
     subtotal: true,
     taxRate: true,
     tax: true,
@@ -178,10 +185,30 @@ export class OrdersRepository {
   }
 
   async findById(id: string) {
-    return this.prisma.order.findUnique({
+    const order = await this.prisma.order.findUnique({
       where: { id },
       select: this.selectFields,
     });
+
+    // Si hay información de cambio de fecha, buscar el usuario que lo hizo
+    if (order && order.deliveryDateChangedBy) {
+      const changedByUser = await this.prisma.user.findUnique({
+        where: { id: order.deliveryDateChangedBy },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      });
+
+      return {
+        ...order,
+        deliveryDateChangedByUser: changedByUser,
+      };
+    }
+
+    return order;
   }
 
   async findByOrderNumber(orderNumber: string) {

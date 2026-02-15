@@ -23,6 +23,19 @@ export interface Order {
   orderNumber: string;
   orderDate: string;
   deliveryDate: string | null;
+
+  // Auditoría de cambios de fecha de entrega
+  previousDeliveryDate?: string | null;
+  deliveryDateReason?: string | null;
+  deliveryDateChangedAt?: string | null;
+  deliveryDateChangedBy?: string | null;
+  deliveryDateChangedByUser?: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  } | null;
+
   subtotal: string; // Decimal viene como string del backend
   taxRate: string;
   tax: string;

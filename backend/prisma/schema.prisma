@@ -382,6 +382,12 @@ model Order {
   orderDate    DateTime    @default(now()) @map("order_date")
   deliveryDate DateTime?   @map("delivery_date") // Fecha estimada de entrega
 
+  // Auditoría de cambios de fecha de entrega
+  previousDeliveryDate DateTime? @map("previous_delivery_date") // Última fecha de entrega anterior
+  deliveryDateReason   String?   @map("delivery_date_reason") // Razón del cambio de fecha
+  deliveryDateChangedAt DateTime? @map("delivery_date_changed_at") // Fecha del último cambio
+  deliveryDateChangedBy String?   @map("delivery_date_changed_by") // Usuario que cambió la fecha
+
   // Cálculos financieros
   subtotal       Decimal     // Suma de todos los items
   taxRate        Decimal     @default(0.19) @map("tax_rate") // IVA 19%

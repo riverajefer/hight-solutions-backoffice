@@ -83,6 +83,7 @@ const orderFormSchema = z
       message: 'Debe seleccionar un cliente',
     }).nullable(),
     deliveryDate: z.date().nullable(),
+    deliveryDateReason: z.string().optional(),
     notes: z.string().optional(),
     items: z.array(orderItemSchema).min(1, 'Debe agregar al menos un item'),
     applyTax: z.boolean(),
@@ -115,6 +116,17 @@ const orderFormSchema = z
     {
       message: 'El monto del abono no puede ser mayor al total de la orden',
       path: ['payment', 'amount'],
+    }
+  )
+  .refine(
+    () => {
+      // En modo edición, no validamos aquí porque la validación se hace dinámicamente
+      // en el componente con react-hook-form rules
+      return true;
+    },
+    {
+      message: 'Debe indicar la razón del cambio de fecha',
+      path: ['deliveryDateReason'],
     }
   );
 
@@ -161,6 +173,7 @@ export const OrderFormPage: React.FC = () => {
     defaultValues: {
       client: null,
       deliveryDate: null,
+      deliveryDateReason: '',
       notes: '',
       items: [
         {
@@ -189,6 +202,7 @@ export const OrderFormPage: React.FC = () => {
   const items = watch('items');
   const applyTax = watch('applyTax');
   const taxRate = watch('taxRate');
+  const deliveryDate = watch('deliveryDate');
 
   // Calculate totals
   const subtotal = items.reduce((sum, item) => sum + item.total, 0);
@@ -197,6 +211,31 @@ export const OrderFormPage: React.FC = () => {
 
   // Deshabilitar campos si no hay cliente seleccionado
   const isClientSelected = !!selectedClient;
+
+  // Detectar si se está posponiendo la fecha de entrega
+  const [isDatePostponed, setIsDatePostponed] = useState(false);
+  const [originalDeliveryDate, setOriginalDeliveryDate] = useState<Date | null>(null);
+
+  useEffect(() => {
+    if (isEdit && orderQuery.data && deliveryDate) {
+      const currentDate = orderQuery.data.deliveryDate ? new Date(orderQuery.data.deliveryDate) : null;
+      const newDate = deliveryDate;
+
+      // Guardar la fecha original cuando se carga la orden
+      if (currentDate && !originalDeliveryDate) {
+        setOriginalDeliveryDate(currentDate);
+      }
+
+      // Comparar con la fecha original guardada
+      if (originalDeliveryDate && newDate > originalDeliveryDate) {
+        setIsDatePostponed(true);
+      } else {
+        setIsDatePostponed(false);
+        // Limpiar la razón si no es posposición
+        setValue('deliveryDateReason', '');
+      }
+    }
+  }, [deliveryDate, isEdit, orderQuery.data, originalDeliveryDate, setValue]);
 
   // Actualizar IVA automáticamente según tipo de cliente (solo en modo creación)
   useEffect(() => {
@@ -268,6 +307,9 @@ export const OrderFormPage: React.FC = () => {
       const orderDto = {
         clientId: data.client!.id,
         deliveryDate: data.deliveryDate?.toISOString(),
+        ...(isEdit && isDatePostponed && data.deliveryDateReason && {
+          deliveryDateReason: data.deliveryDateReason,
+        }),
         notes: data.notes,
         items: data.items.map((item) => ({
           ...(isEdit && item.id && { id: item.id }),
@@ -401,6 +443,39 @@ export const OrderFormPage: React.FC = () => {
                     )}
                   />
                 </Grid>
+
+                {/* Razón del cambio de fecha (solo si se pospone) */}
+                {isEdit && isDatePostponed && (
+                  <Grid item xs={12}>
+                    <Controller
+                      name="deliveryDateReason"
+                      control={control}
+                      rules={{
+                        required: isDatePostponed ? 'Debe indicar la razón del cambio de fecha' : false,
+                      }}
+                      render={({ field, fieldState }) => (
+                        <TextField
+                          {...field}
+                          fullWidth
+                          multiline
+                          rows={2}
+                          label="Razón del cambio de fecha de entrega *"
+                          placeholder="Explique por qué se está posponiendo la fecha de entrega..."
+                          error={!!fieldState.error}
+                          helperText={
+                            fieldState.error?.message ||
+                            'Este campo es obligatorio cuando se pospone la fecha de entrega'
+                          }
+                          sx={{
+                            '& .MuiOutlinedInput-root': {
+                              backgroundColor: 'warning.lighter',
+                            },
+                          }}
+                        />
+                      )}
+                    />
+                  </Grid>
+                )}
 
                 {/* Creado por (readonly) */}
                 <Grid item xs={12} sm={4}>
