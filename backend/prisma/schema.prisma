@@ -250,10 +250,10 @@ model UnitOfMeasure {
 }
 
 // =============================================================================
-// MÓDULO DE CATÁLOGOS - FASE 2: CATEGORÍAS DE SERVICIOS
+// MÓDULO DE CATÁLOGOS - FASE 2: CATEGORÍAS DE PRODUCTOS
 // =============================================================================
 
-model ServiceCategory {
+model ProductCategory {
   id          String   @id @default(uuid())
   name        String   @unique
   slug        String   @unique
@@ -264,16 +264,16 @@ model ServiceCategory {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  services Service[]
+  products Product[]
 
-  @@map("service_categories")
+  @@map("product_categories")
 }
 
 // =============================================================================
-// MÓDULO DE CATÁLOGOS - FASE 3: SERVICIOS
+// MÓDULO DE CATÁLOGOS - FASE 3: PRODUCTOS
 // =============================================================================
 
-model Service {
+model Product {
   id          String   @id @default(uuid())
   name        String
   slug        String   @unique
@@ -285,12 +285,12 @@ model Service {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  category   ServiceCategory @relation(fields: [categoryId], references: [id])
+  category   ProductCategory @relation(fields: [categoryId], references: [id])
   orderItems OrderItem[]
   quoteItems QuoteItem[]
 
   @@unique([name, categoryId])
-  @@map("services")
+  @@map("products")
 }
 
 // =============================================================================
@@ -472,7 +472,7 @@ model Quote {
 model QuoteItem {
   id             String  @id @default(uuid())
   quoteId        String  @map("quote_id")
-  serviceId      String? @map("service_id")
+  productId      String? @map("product_id")
 
   description    String
   quantity       Decimal
@@ -487,11 +487,11 @@ model QuoteItem {
   updatedAt      DateTime @updatedAt @map("updated_at")
 
   quote           Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  service         Service? @relation(fields: [serviceId], references: [id])
+  product         Product? @relation(fields: [productId], references: [id])
   productionAreas QuoteItemProductionArea[]
 
   @@index([quoteId])
-  @@index([serviceId])
+  @@index([productId])
   @@index([sampleImageId])
   @@map("quote_items")
 }
@@ -510,7 +510,7 @@ model QuoteItemProductionArea {
 model OrderItem {
   id             String  @id @default(uuid())
   orderId        String  @map("order_id")
-  serviceId      String? @map("service_id") // Opcional: servicio del catálogo
+  productId      String? @map("product_id") // Opcional: producto del catálogo
 
   // Datos del item
   description    String  // Descripción del servicio/producto
@@ -527,11 +527,11 @@ model OrderItem {
 
   // Relaciones
   order           Order                        @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  service         Service?                     @relation(fields: [serviceId], references: [id])
+  product         Product?                     @relation(fields: [productId], references: [id])
   productionAreas OrderItemProductionArea[]
 
   @@index([orderId])
-  @@index([serviceId])
+  @@index([productId])
   @@map("order_items")
 }
 

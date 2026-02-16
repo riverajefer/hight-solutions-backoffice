@@ -27,8 +27,8 @@ import {
   Close as CloseIcon,
 } from '@mui/icons-material';
 import { v4 as uuidv4 } from 'uuid';
-import { useServices } from '../../portfolio/services/hooks/useServices';
-import type { Service } from '../../../types/service.types';
+import { useProducts } from '../../portfolio/products/hooks/useProducts';
+import type { Product } from '../../../types/product.types';
 import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
 import type { ProductionArea } from '../../../types/production-area.types';
 import axiosInstance from '../../../api/axios';
@@ -80,8 +80,8 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
   onImageUpload,
   onImageDelete,
 }) => {
-  const { servicesQuery } = useServices();
-  const services: Service[] = servicesQuery.data || [];
+  const { productsQuery } = useProducts();
+  const products: Product[] = productsQuery.data || [];
 
   const { productionAreasQuery } = useProductionAreas();
   const productionAreas: ProductionArea[] = productionAreasQuery.data || [];
@@ -257,20 +257,20 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
                     />
                   </TableCell>
                   <TableCell>
-                    <Autocomplete<Service>
+                    <Autocomplete<Product>
                       size="small"
-                      options={services}
+                      options={products}
                       getOptionLabel={(option) => option.name}
-                      value={services.find((s) => s.id === item.serviceId) || null}
+                      value={products.find((s) => s.id === item.serviceId) || null}
                       onChange={(_event, newValue) => {
                         const updatedItems = items.map((i) => {
                           if (i.id !== item.id) return i;
                           const quantity = parseFloat(i.quantity);
                           const hasBasePrice = newValue?.basePrice !== undefined && newValue?.basePrice !== null;
                           const basePriceValue = hasBasePrice ? Number(newValue!.basePrice!) : parseFloat(i.unitPrice);
-                          
-                          return { 
-                            ...i, 
+
+                          return {
+                            ...i,
                             serviceId: newValue?.id || undefined,
                             description: i.description || newValue?.name || '',
                             unitPrice: i.unitPrice || (hasBasePrice ? newValue!.basePrice!.toString() : ''),
@@ -280,7 +280,7 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
                         onChange(updatedItems);
                       }}
                       disabled={disabled}
-                      renderInput={(params) => <TextField {...params} size="small" placeholder="Buscar servicio..." />}
+                      renderInput={(params) => <TextField {...params} size="small" placeholder="Buscar producto..." />}
                     />
                   </TableCell>
                   <TableCell>

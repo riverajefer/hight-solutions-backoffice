@@ -76,8 +76,8 @@ export class OrdersService {
         total: itemTotal,
         specifications: item.specifications || undefined,
         sortOrder: index + 1,
-        ...(item.serviceId && {
-          service: { connect: { id: item.serviceId } },
+        ...(item.productId && {
+          product: { connect: { id: item.productId } },
         }),
         ...(item.productionAreaIds && item.productionAreaIds.length > 0 && {
           productionAreas: {
@@ -269,7 +269,7 @@ export class OrdersService {
                 unitPrice: item.unitPrice,
                 total: itemTotal,
                 specifications: item.specifications || undefined,
-                ...(item.serviceId && { serviceId: item.serviceId }),
+                ...(item.productId && { serviceId: item.productId }),
               },
             });
 
@@ -306,7 +306,7 @@ export class OrdersService {
                   total: itemTotal,
                   specifications: item.specifications || undefined,
                   sortOrder: remainingCount + i + 1,
-                  ...(item.serviceId && { serviceId: item.serviceId }),
+                  ...(item.productId && { serviceId: item.productId }),
                 },
                 select: { id: true },
               });
@@ -564,8 +564,8 @@ export class OrdersService {
           total: itemTotal,
           specifications: addItemDto.specifications,
           sortOrder,
-          ...(addItemDto.serviceId && {
-            serviceId: addItemDto.serviceId,
+          ...(addItemDto.productId && {
+            productId: addItemDto.productId,
           }),
           ...(addItemDto.productionAreaIds && addItemDto.productionAreaIds.length > 0 && {
             productionAreas: {
@@ -621,8 +621,8 @@ export class OrdersService {
         updateData.specifications = updateItemDto.specifications;
       }
 
-      if (updateItemDto.serviceId !== undefined) {
-        updateData.serviceId = updateItemDto.serviceId;
+      if (updateItemDto.productId !== undefined) {
+        updateData.productId = updateItemDto.productId;
       }
 
       // Recalcular total del item si cambió cantidad o precio
@@ -877,7 +877,7 @@ export class OrdersService {
         taxRate: true,
         items: {
           include: {
-            service: true,
+            product: true,
           },
         },
         client: true,

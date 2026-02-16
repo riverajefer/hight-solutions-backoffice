@@ -97,29 +97,29 @@ async function main() {
       description: 'Eliminar unidades de medida',
     },
 
-    // Service Categories
+    // Product Categories
     {
-      name: 'create_service_categories',
-      description: 'Crear categorías de servicios',
+      name: 'create_product_categories',
+      description: 'Crear categorías de productos',
     },
     {
-      name: 'read_service_categories',
-      description: 'Ver categorías de servicios',
+      name: 'read_product_categories',
+      description: 'Ver categorías de productos',
     },
     {
-      name: 'update_service_categories',
-      description: 'Actualizar categorías de servicios',
+      name: 'update_product_categories',
+      description: 'Actualizar categorías de productos',
     },
     {
-      name: 'delete_service_categories',
-      description: 'Eliminar categorías de servicios',
+      name: 'delete_product_categories',
+      description: 'Eliminar categorías de productos',
     },
 
-    // Services
-    { name: 'create_services', description: 'Crear servicios' },
-    { name: 'read_services', description: 'Ver servicios' },
-    { name: 'update_services', description: 'Actualizar servicios' },
-    { name: 'delete_services', description: 'Eliminar servicios' },
+    // Products
+    { name: 'create_products', description: 'Crear productos' },
+    { name: 'read_products', description: 'Ver productos' },
+    { name: 'update_products', description: 'Actualizar productos' },
+    { name: 'delete_products', description: 'Eliminar productos' },
 
     // Supply Categories
     {
@@ -285,8 +285,8 @@ async function main() {
     'read_clients',
     'read_suppliers',
     'read_units_of_measure',
-    'read_service_categories',
-    'read_services',
+    'read_product_categories',
+    'read_products',
     'read_supply_categories',
     'read_supplies',
     'create_orders',
@@ -889,7 +889,7 @@ async function main() {
   ];
 
   for (const categoryData of serviceCategoriesData) {
-    await prisma.serviceCategory.upsert({
+    await prisma.productCategory.upsert({
       where: { slug: categoryData.slug },
       update: {
         name: categoryData.name,
@@ -905,23 +905,23 @@ async function main() {
   // ============================================
   // 8. Crear Servicios de Prueba
   // ============================================
-  console.log('\n🛠️ Creating services...');
+  console.log('\n🛠️ Creating products...');
 
   // Obtener categorías para usar sus IDs
-  const impresionCategory = await prisma.serviceCategory.findUnique({
+  const impresionCategory = await prisma.productCategory.findUnique({
     where: { slug: 'impresion-gran-formato' },
   });
-  const promocionalesCategory = await prisma.serviceCategory.findUnique({
+  const promocionalesCategory = await prisma.productCategory.findUnique({
     where: { slug: 'promocionales' },
   });
-  const papeleriaCategory = await prisma.serviceCategory.findUnique({
+  const papeleriaCategory = await prisma.productCategory.findUnique({
     where: { slug: 'papeleria' },
   });
-  const senalizacionCategory = await prisma.serviceCategory.findUnique({
+  const senalizacionCategory = await prisma.productCategory.findUnique({
     where: { slug: 'senalizacion' },
   });
 
-  const servicesData = [
+  const productsData = [
     // Impresión Gran Formato
     {
       name: 'Pendón 80x200 cm',
@@ -1087,28 +1087,28 @@ async function main() {
     },
   ];
 
-  let servicesCreated = 0;
-  for (const serviceData of servicesData) {
-    if (serviceData.categoryId) {
-      await prisma.service.upsert({
-        where: { slug: serviceData.slug },
+  let productsCreated = 0;
+  for (const productData of productsData) {
+    if (productData.categoryId) {
+      await prisma.product.upsert({
+        where: { slug: productData.slug },
         update: {
-          name: serviceData.name,
-          description: serviceData.description,
-          basePrice: serviceData.basePrice,
-          priceUnit: serviceData.priceUnit,
+          name: productData.name,
+          description: productData.description,
+          basePrice: productData.basePrice,
+          priceUnit: productData.priceUnit,
         },
         create: {
-          name: serviceData.name,
-          slug: serviceData.slug,
-          description: serviceData.description,
-          basePrice: serviceData.basePrice,
-          priceUnit: serviceData.priceUnit,
-          categoryId: serviceData.categoryId,
+          name: productData.name,
+          slug: productData.slug,
+          description: productData.description,
+          basePrice: productData.basePrice,
+          priceUnit: productData.priceUnit,
+          categoryId: productData.categoryId,
         },
       });
-      console.log(`  ✓ Service: ${serviceData.name}`);
-      servicesCreated++;
+      console.log(`  ✓ Product: ${productData.name}`);
+      productsCreated++;
     }
   }
 
@@ -1658,13 +1658,13 @@ async function main() {
     where: { email: 'ventas@publicidadcreativa.com' },
   });
 
-  const tarjetasService = await prisma.service.findFirst({
+  const tarjetasProduct = await prisma.product.findFirst({
     where: { slug: 'tarjetas-presentacion-x-1000' },
   });
-  const bannerService = await prisma.service.findFirst({
+  const bannerProduct = await prisma.product.findFirst({
     where: { slug: 'banner-1x2-metros' },
   });
-  const sellosService = await prisma.service.findFirst({
+  const sellosProduct = await prisma.product.findFirst({
     where: { slug: 'sellos-automaticos' },
   });
 
@@ -1673,7 +1673,7 @@ async function main() {
   });
 
   // Orden 1: CONFIRMED con items y pago inicial
-  if (client1 && tarjetasService && bannerService && adminUserForOrders) {
+  if (client1 && tarjetasProduct && bannerProduct && adminUserForOrders) {
     const order1 = await prisma.order.create({
       data: {
         orderNumber: 'OP-2024-001' + randomUUID().slice(0, 5),
@@ -1698,7 +1698,7 @@ async function main() {
               unitPrice: 250000,
               total: 250000,
               sortOrder: 1,
-              serviceId: tarjetasService.id,
+              productId: tarjetasProduct.id,
               specifications: {
                 material: 'Propalcote 300gr',
                 tamaño: '9x5 cm',
@@ -1712,7 +1712,7 @@ async function main() {
               unitPrice: 20000,
               total: 200000,
               sortOrder: 2,
-              serviceId: bannerService.id,
+              productId: bannerProduct.id,
               specifications: {
                 material: 'Lona mate 13oz',
                 tamaño: '1x2 metros',
@@ -1737,7 +1737,7 @@ async function main() {
   }
 
   // Orden 2: IN_PRODUCTION con items y múltiples pagos
-  if (client2 && sellosService && tarjetasService && adminUserForOrders) {
+  if (client2 && sellosProduct && tarjetasProduct && adminUserForOrders) {
     const order2 = await prisma.order.create({
       data: {
         orderNumber: 'OP-2024-002',
@@ -1761,7 +1761,7 @@ async function main() {
               unitPrice: 80000,
               total: 400000,
               sortOrder: 1,
-              serviceId: sellosService.id,
+              productId: sellosProduct.id,
               specifications: {
                 tipo: 'Automático Trodat 4913',
                 tamaño: '58x22 mm',
@@ -1775,7 +1775,7 @@ async function main() {
               unitPrice: 300,
               total: 450000,
               sortOrder: 2,
-              serviceId: tarjetasService.id,
+              productId: tarjetasProduct.id,
               specifications: {
                 material: 'Cartulina Bristol 240gr',
                 tamaño: '9x5 cm',
@@ -2012,8 +2012,8 @@ async function main() {
     console.log(`   - Clients: ${clientsCreated}`);
     console.log(`   - Suppliers: ${suppliersCreated}`);
     console.log(`   - Units of Measure: ${unitsOfMeasureData.length}`);
-    console.log(`   - Service Categories: ${serviceCategoriesData.length}`);
-    console.log(`   - Services: ${servicesCreated}`);
+    console.log(`   - Product Categories: ${serviceCategoriesData.length}`);
+    console.log(`   - Products: ${productsCreated}`);
     console.log(`   - Supply Categories: ${supplyCategoriesData.length}`);
     console.log(`   - Supplies: ${suppliesCreated}`);
     console.log(`   - Orders: 2`);

@@ -189,10 +189,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           permission: PERMISSIONS.READ_PRODUCTION_AREAS,
         },
         {
-          label: 'Servicios',
+          label: 'Productos',
           icon: <MiscellaneousServicesIcon />,
-          path: ROUTES.SERVICES,
-          permission: PERMISSIONS.READ_SERVICES,
+          path: ROUTES.PRODUCTS,
+          permission: PERMISSIONS.READ_PRODUCTS,
         },
         {
           label: 'Insumos',
@@ -201,10 +201,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           permission: PERMISSIONS.READ_SUPPLIES,
         },
         {
-          label: 'Categorías Servicios',
+          label: 'Categorías Productos',
           icon: <CategoryOutlinedIcon />,
-          path: ROUTES.SERVICE_CATEGORIES,
-          permission: PERMISSIONS.READ_SERVICE_CATEGORIES,
+          path: ROUTES.PRODUCT_CATEGORIES,
+          permission: PERMISSIONS.READ_PRODUCT_CATEGORIES,
         },
         {
           label: 'Categorías Insumos',
@@ -222,9 +222,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
       permissions: [
         PERMISSIONS.READ_SUPPLIERS,
         PERMISSIONS.READ_PRODUCTION_AREAS,
-        PERMISSIONS.READ_SERVICES,
+        PERMISSIONS.READ_PRODUCTS,
         PERMISSIONS.READ_SUPPLIES,
-        PERMISSIONS.READ_SERVICE_CATEGORIES,
+        PERMISSIONS.READ_PRODUCT_CATEGORIES,
         PERMISSIONS.READ_SUPPLY_CATEGORIES,
         PERMISSIONS.READ_UNITS_OF_MEASURE,
       ],
