@@ -5,6 +5,7 @@ import {
   GridRowIdGetter,
   GridRowParams,
   GridValidRowModel,
+  GridRowClassNameParams,
 } from '@mui/x-data-grid';
 import { esES } from '@mui/x-data-grid/locales';
 import { Paper, Box, Typography, Skeleton } from '@mui/material';
@@ -26,6 +27,7 @@ interface DataTableProps<T extends GridValidRowModel> {
   searchPlaceholder?: string;
   showExport?: boolean;
   emptyMessage?: string;
+  getRowClassName?: (params: GridRowClassNameParams<T>) => string;
 }
 
 export function DataTable<T extends GridValidRowModel>({
@@ -43,6 +45,7 @@ export function DataTable<T extends GridValidRowModel>({
   searchPlaceholder,
   showExport = false,
   emptyMessage = 'No se encontraron registros',
+  getRowClassName,
 }: DataTableProps<T>) {
   const [paginationModel, setPaginationModel] = useState({
     pageSize: initialPageSize,
@@ -176,6 +179,7 @@ export function DataTable<T extends GridValidRowModel>({
         checkboxSelection={checkboxSelection}
         getRowId={getRowId}
         onRowClick={onRowClick ? handleRowClick : undefined}
+        getRowClassName={getRowClassName}
         disableRowSelectionOnClick
         autoHeight
         localeText={esES.components.MuiDataGrid.defaultProps.localeText}
