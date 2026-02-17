@@ -528,6 +528,42 @@ export class OrdersService {
     return { message: 'Order deleted successfully' };
   }
 
+  // ========== ELECTRONIC INVOICE ==========
+
+  async registerElectronicInvoice(id: string, electronicInvoiceNumber: string, userId: string) {
+    const order = await this.findOne(id);
+
+    // Solo aplicable si la orden tiene IVA (tax > 0)
+    if (parseFloat(order.tax.toString()) === 0) {
+      throw new BadRequestException(
+        'La factura electrónica solo aplica para órdenes que incluyan IVA.',
+      );
+    }
+
+    // Solo disponible cuando la orden ya fue creada (no en DRAFT)
+    if (order.status === 'DRAFT') {
+      throw new BadRequestException(
+        'No se puede registrar una factura electrónica en una orden en estado BORRADOR.',
+      );
+    }
+
+    const updatedOrder = await this.ordersRepository.registerElectronicInvoice(
+      id,
+      electronicInvoiceNumber,
+    );
+
+    // Registrar en audit log (sin esperar)
+    this.auditLogsService.logOrderChange(
+      'UPDATE',
+      id,
+      order,
+      updatedOrder,
+      userId,
+    );
+
+    return updatedOrder;
+  }
+
   // ========== ITEM MANAGEMENT ==========
 
   async addItem(orderId: string, addItemDto: AddOrderItemDto) {
