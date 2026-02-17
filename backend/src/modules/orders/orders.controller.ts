@@ -32,6 +32,7 @@ import {
   CreatePaymentDto,
   UpdateOrderStatusDto,
   ApplyDiscountDto,
+  RegisterElectronicInvoiceDto,
 } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -227,6 +228,22 @@ export class OrdersController {
     @Param('paymentId') paymentId: string,
   ) {
     return this.ordersService.deletePaymentReceipt(orderId, paymentId);
+  }
+
+  // ========== ELECTRONIC INVOICE ENDPOINT ==========
+
+  @Patch(':id/electronic-invoice')
+  @RequirePermissions('update_orders')
+  @ApiOperation({ summary: 'Register electronic invoice number (only if order has IVA and is not DRAFT)' })
+  @ApiParam({ name: 'id', description: 'Order ID' })
+  @ApiResponse({ status: 200, description: 'Electronic invoice number registered successfully' })
+  @ApiResponse({ status: 400, description: 'Order has no IVA or is in DRAFT status' })
+  registerElectronicInvoice(
+    @Param('id') id: string,
+    @Body() dto: RegisterElectronicInvoiceDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.ordersService.registerElectronicInvoice(id, dto.electronicInvoiceNumber, userId);
   }
 
   // ========== DISCOUNT MANAGEMENT ENDPOINTS ==========

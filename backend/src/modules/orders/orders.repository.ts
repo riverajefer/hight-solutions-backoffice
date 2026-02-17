@@ -27,6 +27,7 @@ export class OrdersRepository {
     balance: true,
     status: true,
     notes: true,
+    electronicInvoiceNumber: true,
     createdAt: true,
     updatedAt: true,
     commercialChannelId: true,
@@ -251,6 +252,14 @@ export class OrdersRepository {
     return this.prisma.order.update({
       where: { id },
       data: { status },
+      select: this.selectFields,
+    });
+  }
+
+  async registerElectronicInvoice(id: string, electronicInvoiceNumber: string) {
+    return this.prisma.order.update({
+      where: { id },
+      data: { electronicInvoiceNumber },
       select: this.selectFields,
     });
   }

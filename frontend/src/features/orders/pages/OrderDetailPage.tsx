@@ -51,6 +51,7 @@ import {
   Visibility as VisibilityIcon,
   Close as CloseIcon,
   Discount as DiscountIcon,
+  Receipt as ReceiptIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -167,6 +168,9 @@ export const OrderDetailPage: React.FC = () => {
     url: string;
     mimeType: string;
   }>({ open: false, url: '', mimeType: '' });
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
 
   const order = orderQuery.data;
   const payments = paymentsQuery.data || [];
@@ -201,6 +205,9 @@ export const OrderDetailPage: React.FC = () => {
   const canDeleteDiscount =
     permissions.includes('delete_discounts');
   const isAdmin = user?.role?.name === 'admin';
+  const hasIva = parseFloat(order.tax) > 0;
+  const canRegisterInvoice =
+    hasIva && order.status !== 'DRAFT' && permissions.includes('update_orders');
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -274,6 +281,34 @@ export const OrderDetailPage: React.FC = () => {
 
   const handleCloseViewReceipt = () => {
     setViewReceiptDialog({ open: false, url: '', mimeType: '' });
+  };
+
+  const handleOpenInvoiceDialog = () => {
+    setInvoiceNumber(order.electronicInvoiceNumber || '');
+    setInvoiceDialogOpen(true);
+  };
+
+  const handleCloseInvoiceDialog = () => {
+    setInvoiceDialogOpen(false);
+    setInvoiceNumber('');
+  };
+
+  const handleRegisterInvoice = async () => {
+    if (!invoiceNumber.trim()) return;
+    setInvoiceLoading(true);
+    try {
+      await ordersApi.registerElectronicInvoice(id!, invoiceNumber.trim());
+      await orderQuery.refetch();
+      enqueueSnackbar('Número de factura electrónica registrado exitosamente', { variant: 'success' });
+      handleCloseInvoiceDialog();
+    } catch (error: any) {
+      enqueueSnackbar(
+        error?.response?.data?.message || 'Error al registrar la factura electrónica',
+        { variant: 'error' }
+      );
+    } finally {
+      setInvoiceLoading(false);
+    }
   };
 
   const handleDownloadReceipt = async (receiptFileId: string) => {
@@ -520,6 +555,38 @@ export const OrderDetailPage: React.FC = () => {
                 sx={{ minWidth: { sm: 'auto', md: 120 } }}
               >
                 Descuento
+              </Button>
+            )
+          )}
+
+          {canRegisterInvoice && (
+            isMobile ? (
+              <Tooltip title={order.electronicInvoiceNumber ? 'Actualizar Factura Electrónica' : 'Registrar Factura Electrónica'}>
+                <IconButton
+                  color="info"
+                  onClick={handleOpenInvoiceDialog}
+                  size="small"
+                  sx={{
+                    bgcolor: 'info.main',
+                    color: 'info.contrastText',
+                    '&:hover': {
+                      bgcolor: 'info.dark',
+                    },
+                  }}
+                >
+                  <ReceiptIcon />
+                </IconButton>
+              </Tooltip>
+            ) : (
+              <Button
+                variant="outlined"
+                color="info"
+                startIcon={<ReceiptIcon />}
+                onClick={handleOpenInvoiceDialog}
+                size="medium"
+                sx={{ minWidth: { sm: 'auto', md: 150 } }}
+              >
+                {order.electronicInvoiceNumber ? 'Actualizar Factura' : 'Factura Electrónica'}
               </Button>
             )
           )}
@@ -1053,6 +1120,19 @@ export const OrderDetailPage: React.FC = () => {
                       {formatDateTime(order.updatedAt)}
                     </Typography>
                   </Box>
+                  {order.electronicInvoiceNumber && (
+                    <Box>
+                      <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.5 }}>
+                        <ReceiptIcon fontSize="small" color="info" />
+                        <Typography variant="body2" color="textSecondary">
+                          N° Factura Electrónica
+                        </Typography>
+                      </Stack>
+                      <Typography variant="body2" fontWeight={600} color="info.dark" fontFamily="monospace">
+                        {order.electronicInvoiceNumber}
+                      </Typography>
+                    </Box>
+                  )}
                 </Stack>
               </CardContent>
             </Card>
@@ -1330,6 +1410,61 @@ export const OrderDetailPage: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseViewReceipt}>Cerrar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog: Registrar Número de Factura Electrónica */}
+      <Dialog
+        open={invoiceDialogOpen}
+        onClose={handleCloseInvoiceDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <ReceiptIcon color="info" />
+            <span>{order.electronicInvoiceNumber ? 'Actualizar Factura Electrónica' : 'Registrar Factura Electrónica'}</span>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              Ingrese el número de factura electrónica asociado a esta orden. Este número es alfanumérico y tiene un máximo de 30 caracteres.
+            </Typography>
+            <TextField
+              fullWidth
+              label="Número de Factura Electrónica"
+              value={invoiceNumber}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^a-zA-Z0-9\-_./]/g, '');
+                if (val.length <= 30) setInvoiceNumber(val);
+              }}
+              inputProps={{ maxLength: 30 }}
+              helperText={`${invoiceNumber.length}/30 caracteres. Solo se permiten letras, números y los símbolos - _ . /`}
+              disabled={invoiceLoading}
+              autoFocus
+              placeholder="Ej: FE-2026-00123"
+            />
+            {order.electronicInvoiceNumber && (
+              <Typography variant="caption" color="text.secondary">
+                Número actual: <strong>{order.electronicInvoiceNumber}</strong>
+              </Typography>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseInvoiceDialog} disabled={invoiceLoading}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleRegisterInvoice}
+            variant="contained"
+            color="info"
+            disabled={invoiceLoading || !invoiceNumber.trim()}
+            startIcon={<ReceiptIcon />}
+          >
+            {invoiceLoading ? 'Guardando...' : 'Guardar'}
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>
