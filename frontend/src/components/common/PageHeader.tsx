@@ -55,7 +55,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             sx={{
               fontWeight: 700,
               mb: 1,
-              fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' }
+              fontSize: { xs: '1.5rem', sm: '1rem', md: '1.5rem' }
             }}
           >
             {title}

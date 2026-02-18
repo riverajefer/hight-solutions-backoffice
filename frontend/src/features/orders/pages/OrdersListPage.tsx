@@ -218,6 +218,30 @@ export const OrdersListPage: React.FC = () => {
       valueGetter: (_, row) => row.createdBy?.firstName + ' ' + row.createdBy?.lastName,
     },
     {
+      field: 'taxRate',
+      headerName: 'IVA',
+      width: 80,
+      align: 'center',
+      headerAlign: 'center',
+      renderCell: (params) => {
+        const hasIva = parseFloat(params.value) > 0;
+        return (
+          <Box
+            sx={{
+              px: 1,
+              py: 0.25,
+              borderRadius: 1,
+              color: hasIva ? 'success.dark' : 'text.secondary',
+              fontWeight: 600,
+              fontSize: '0.75rem',
+            }}
+          >
+            {hasIva ? 'SÍ' : 'NO'}
+          </Box>
+        );
+      },
+    },
+    {
       field: 'total',
       headerName: 'Total',
       width: 150,
