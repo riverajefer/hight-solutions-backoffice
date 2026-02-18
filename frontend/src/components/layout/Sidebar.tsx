@@ -46,11 +46,12 @@ import PostAddIcon from '@mui/icons-material/PostAdd';
 import PendingActionsIcon from '@mui/icons-material/PendingActions';
 import { useAuthStore } from '../../store/authStore';
 import { ROUTES, PERMISSIONS } from '../../utils/constants';
-import { gradients, neonColors, neonAccents, darkSurfaces } from '../../theme';
+import { neonColors, neonAccents } from '../../theme';
 import logo from '../../assets/logo.png';
 
 const DRAWER_WIDTH = 280;
 const DRAWER_WIDTH_COLLAPSED = 72;
+const SIDEBAR_GRADIENT = 'linear-gradient(180deg, #151c3a 0%, #1c315a 100%)';
 
 interface SidebarProps {
   open: boolean;
@@ -316,10 +317,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
         ? `0 2px 8px ${alpha(neonColors.primary.main, 0.15)}`
         : 'none',
     color: active
-      ? isDark
-        ? neonColors.primary.main
-        : neonColors.primary.dark
-      : theme.palette.text.primary,
+      ? '#FFFFFF'
+      : 'rgba(255, 255, 255, 0.7)',
     '&::before': active ? {
       content: '""',
       position: 'absolute',
@@ -333,13 +332,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
       boxShadow: isDark ? `0 0 10px ${neonColors.primary.main}` : 'none',
     } : {},
     '&:hover': {
-      backgroundColor: alpha(neonColors.primary.main, isDark ? 0.15 : 0.08),
+      backgroundColor: 'rgba(255, 255, 255, 0.08)',
       transform: 'translateX(4px)',
     },
     '& .MuiListItemIcon-root': {
       color: active
-        ? neonColors.primary.main
-        : theme.palette.text.primary,
+        ? '#FFFFFF'
+        : 'rgba(255, 255, 255, 0.7)',
       minWidth: 36,
       transition: 'all 0.3s ease',
       filter: active && isDark
@@ -358,9 +357,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        background: isDark
-          ? gradients.darkSidebar
-          : `linear-gradient(180deg, #F1F5F9 0%, #EDE9FE 100%)`,
+        background: SIDEBAR_GRADIENT,
       }}
     >
       {/* Hamburger Button - Only on Desktop */}
@@ -402,15 +399,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
             justifyContent: 'center',
             alignItems: 'center',
             borderRadius: '12px',
-            background: isDark
-              ? `linear-gradient(135deg, ${darkSurfaces.navyMist} 0%, ${darkSurfaces.cosmicPurple} 100%)`
-              : `linear-gradient(135deg, #1e293b 0%, #0f172a 100%)`,
-            boxShadow: isDark
-              ? `0 6px 20px ${alpha(neonColors.primary.main, 0.15)}, 0 0 15px ${alpha(neonAccents.vividPurple, 0.1)}`
-              : '0 8px 20px -5px rgba(0, 0, 0, 0.15)',
-            border: isDark
-              ? `1px solid ${alpha(neonAccents.vividPurple, 0.3)}`
-              : 'none',
+            background: 'rgba(0, 0, 0, 0.2)',
+            boxShadow: 'none',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
             transition: 'all 0.3s ease',
             '&:hover': {
               boxShadow: isDark
@@ -575,18 +566,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
             sx={{
               p: 2,
               borderRadius: '16px',
-              background: isDark
-                ? `linear-gradient(135deg, ${alpha(neonColors.primary.main, 0.1)}, ${alpha(neonAccents.vividPurple, 0.08)})`
-                : alpha(neonColors.primary.main, 0.04),
-              border: `1px solid ${isDark
-                ? alpha(neonAccents.vividPurple, 0.2)
-                : alpha(neonColors.primary.main, 0.1)}`,
-              boxShadow: isDark
-                ? `0 0 15px ${alpha(neonColors.primary.main, 0.1)}`
-                : 'none',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              boxShadow: 'none',
             }}
           >
-            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+            <Typography variant="body2" sx={{ fontWeight: 600, color: '#FFFFFF' }}>
               Estado de Sesión
             </Typography>
             <Typography
@@ -637,9 +622,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           sx: {
             width: DRAWER_WIDTH,
             borderRight: 'none',
-            background: isDark
-              ? gradients.darkSidebar
-              : `linear-gradient(180deg, #F1F5F9 0%, #EDE9FE 100%)`,
+            background: SIDEBAR_GRADIENT,
           }
         }}
       >
@@ -659,9 +642,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
         height: '100vh',
         position: 'sticky',
         top: 0,
-        background: isDark
-          ? gradients.darkSidebar
-          : `linear-gradient(180deg, #F1F5F9 0%, #EDE9FE 100%)`,
+        background: SIDEBAR_GRADIENT,
         transition: 'width 0.3s ease',
       }}
     >
