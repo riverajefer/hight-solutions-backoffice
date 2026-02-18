@@ -35,6 +35,7 @@ import {
   Print as PrintIcon,
   Visibility as VisibilityIcon,
   Close as CloseIcon,
+  WhatsApp as WhatsAppIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
@@ -61,6 +62,14 @@ const formatDateTime = (date: string): string => {
   return new Intl.DateTimeFormat('es-CO', {
     year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
   }).format(new Date(date));
+};
+
+const formatPhoneForWhatsApp = (phone: string): string => {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) return `57${digits}`;
+  if (digits.length === 12 && digits.startsWith('57')) return digits;
+  if (digits.length === 13 && digits.startsWith('057')) return digits.slice(1);
+  return digits;
 };
 
 export const QuoteDetailPage: React.FC = () => {
@@ -155,6 +164,48 @@ export const QuoteDetailPage: React.FC = () => {
     }
   };
 
+  const handleShareWhatsApp = async () => {
+    if (!quote) return;
+
+    if (!quote.client?.phone) {
+      enqueueSnackbar('El cliente no tiene número de teléfono registrado', { variant: 'info' });
+      return;
+    }
+
+    setIsGeneratingPdf(true);
+    try {
+      const pdfDoc = await generateQuotePdf(quote);
+      pdfDoc.save(`Cotizacion-${quote.quoteNumber}.pdf`);
+
+      const whatsappPhone = formatPhoneForWhatsApp(quote.client.phone);
+
+      const totalFormatted = formatCurrency(quote.total);
+      const validUntilFormatted = quote.validUntil ? formatDate(quote.validUntil) : 'sin fecha de vencimiento';
+
+      const message = [
+        `Hola ${quote.client.name},`,
+        ``,
+        `Adjunto encontrará la cotización *${quote.quoteNumber}* de Hight Solutions.`,
+        ``,
+        `*Resumen:*`,
+        `• Total: ${totalFormatted}`,
+        `• Válida hasta: ${validUntilFormatted}`,
+        ``,
+        `Quedamos atentos a cualquier pregunta. ¡Gracias por preferirnos!`,
+      ].join('\n');
+
+      const encodedMessage = encodeURIComponent(message);
+      window.open(`https://wa.me/${whatsappPhone}?text=${encodedMessage}`, '_blank', 'noopener,noreferrer');
+
+      enqueueSnackbar('PDF descargado. Adjúntalo en la conversación de WhatsApp que se abrió.', { variant: 'success' });
+    } catch (error) {
+      console.error('Error al compartir por WhatsApp:', error);
+      enqueueSnackbar('Error al generar el PDF para compartir', { variant: 'error' });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
   const handleViewImage = async (sampleImageId: string) => {
     try {
       const { data } = await axiosInstance.get(`/storage/${sampleImageId}/url`);
@@ -187,6 +238,23 @@ export const QuoteDetailPage: React.FC = () => {
               disabled={isGeneratingPdf}
             >
               Imprimir
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<WhatsAppIcon />}
+              onClick={handleShareWhatsApp}
+              disabled={isGeneratingPdf}
+              sx={{
+                color: 'success.dark',
+                borderColor: 'success.main',
+                '&:hover': {
+                  borderColor: 'success.dark',
+                  backgroundColor: 'success.light',
+                  color: 'success.dark',
+                },
+              }}
+            >
+              Compartir WhatsApp
             </Button>
             {canEdit && (
               <Button variant="outlined" startIcon={<EditIcon />} onClick={() => navigate(`/quotes/${id}/edit`)}>
