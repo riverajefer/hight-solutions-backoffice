@@ -27,13 +27,11 @@ import {
   FormControl,
   InputLabel,
   Select,
+  IconButton,
   FormLabel,
   Tabs,
   Tab,
-  IconButton,
-  Tooltip,
   useTheme,
-  useMediaQuery,
   Paper,
 } from '@mui/material';
 
@@ -42,7 +40,6 @@ import {
   Add as AddIcon,
   Refresh as RefreshIcon,
   Delete as DeleteIcon,
-  ArrowDropDown as ArrowDropDownIcon,
   Payment as PaymentIcon,
   Person as PersonIcon,
   CalendarToday as CalendarIcon,
@@ -63,6 +60,7 @@ import {
   OrderPdfButton,
   ApplyDiscountDialog,
   DiscountsSection,
+  ToolbarButton,
 } from '../components';
 import { ActivePermissionBanner } from '../components/ActivePermissionBanner';
 import { RequestEditPermissionButton } from '../components/RequestEditPermissionButton';
@@ -143,7 +141,6 @@ export const OrderDetailPage: React.FC = () => {
   const { user, permissions } = useAuthStore();
   const { enqueueSnackbar } = useSnackbar();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const { orderQuery, updateStatusMutation, deleteOrderMutation } = useOrder(
     id!
@@ -421,264 +418,101 @@ export const OrderDetailPage: React.FC = () => {
 
       {/* Toolbar de Acciones */}
       <Paper
-        elevation={1}
+        elevation={0}
         sx={{
           mt: 2,
           mb: 3,
-          p: { xs: 1.5, sm: 2, md: 2.5 },
+          p: 0,
           borderRadius: 2,
+          display: 'flex',
+          alignItems: 'stretch',
+          justifyContent: 'center',
           background: (theme) =>
             theme.palette.mode === 'dark'
-              ? 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)'
-              : 'linear-gradient(135deg, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.01) 100%)',
+              ? 'rgba(255, 255, 255, 0.04)'
+              : 'rgba(255, 255, 255, 0.8)',
+          backdropFilter: 'blur(8px)',
           border: (theme) =>
             `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
+          overflowX: 'auto',
+          '&::-webkit-scrollbar': { display: 'none' },
+          msOverflowStyle: 'none',
+          scrollbarWidth: 'none',
         }}
       >
         <Stack
           direction="row"
-          spacing={{ xs: 1, sm: 1.5, md: 2 }}
-          alignItems="center"
-          justifyContent="center"
-          flexWrap="wrap"
-          sx={{ gap: { xs: 1, sm: 1.5 } }}
-        >
-          {/* Grupo 1: Edición y Permisos */}
-          {canEdit && (
-            isMobile ? (
-              <Tooltip title="Editar">
-                <IconButton
-                  color="primary"
-                  onClick={() => navigate(`/orders/${id}/edit`)}
-                  size="small"
-                  sx={{
-                    bgcolor: 'primary.main',
-                    color: 'primary.contrastText',
-                    '&:hover': {
-                      bgcolor: 'primary.dark',
-                    },
-                  }}
-                >
-                  <EditIcon />
-                </IconButton>
-              </Tooltip>
-            ) : (
-              <Button
-                variant="contained"
-                startIcon={<EditIcon />}
-                onClick={() => navigate(`/orders/${id}/edit`)}
-                size="medium"
-                sx={{ minWidth: { sm: 'auto', md: 120 } }}
-              >
-                Editar
-              </Button>
-            )
-          )}
-
-          {!isMobile && (
-            <RequestEditPermissionButton
-              orderId={id!}
-              orderStatus={order.status}
-            />
-          )}
-
-          {/* Divider */}
-          {!isMobile && (canEdit || canAddPayment || canApplyDiscount) && (
+          spacing={0}
+          alignItems="stretch"
+          divider={
             <Divider
               orientation="vertical"
               flexItem
-              sx={{
-                display: { xs: 'none', md: 'block' },
-                mx: 0.5
-              }}
+              sx={{ my: 1.5, opacity: 0.5 }}
+            />
+          }
+        >
+          {canEdit && (
+            <ToolbarButton
+              icon={<EditIcon />}
+              label="Editar"
+              onClick={() => navigate(`/orders/${id}/edit`)}
+              tooltip="Editar Orden"
             />
           )}
 
-          {/* Grupo 2: Acciones Financieras */}
+          <RequestEditPermissionButton
+            orderId={id!}
+            orderStatus={order.status}
+          />
+
           {canAddPayment && balance > 0 && (
-            isMobile ? (
-              <Tooltip title="Pago">
-                <IconButton
-                  color="success"
-                  onClick={() => setPaymentDialogOpen(true)}
-                  size="small"
-                  sx={{
-                    bgcolor: 'success.main',
-                    color: 'success.contrastText',
-                    '&:hover': {
-                      bgcolor: 'success.dark',
-                    },
-                  }}
-                >
-                  <PaymentIcon />
-                </IconButton>
-              </Tooltip>
-            ) : (
-              <Button
-                variant="contained"
-                color="success"
-                startIcon={<PaymentIcon />}
-                onClick={() => setPaymentDialogOpen(true)}
-                size="medium"
-                sx={{ minWidth: { sm: 'auto', md: 120 } }}
-              >
-                Registrar Pago
-              </Button>
-            )
+            <ToolbarButton
+              icon={<PaymentIcon />}
+              label="Pago"
+              secondaryLabel="Registrar"
+              onClick={() => setPaymentDialogOpen(true)}
+              color={theme.palette.success.main}
+              tooltip="Registrar Pago"
+            />
           )}
 
           {canApplyDiscount && (
-            isMobile ? (
-              <Tooltip title="Descuento">
-                <IconButton
-                  color="warning"
-                  onClick={() => setDiscountDialogOpen(true)}
-                  size="small"
-                  sx={{
-                    bgcolor: 'warning.main',
-                    color: 'warning.contrastText',
-                    '&:hover': {
-                      bgcolor: 'warning.dark',
-                    },
-                  }}
-                >
-                  <DiscountIcon />
-                </IconButton>
-              </Tooltip>
-            ) : (
-              <Button
-                variant="contained"
-                color="warning"
-                startIcon={<DiscountIcon />}
-                onClick={() => setDiscountDialogOpen(true)}
-                size="medium"
-                sx={{ minWidth: { sm: 'auto', md: 120 } }}
-              >
-                Descuento
-              </Button>
-            )
+            <ToolbarButton
+              icon={<DiscountIcon />}
+              label="Descuento"
+              onClick={() => setDiscountDialogOpen(true)}
+              color={theme.palette.warning.main}
+              tooltip="Aplicar Descuento"
+            />
           )}
 
           {canRegisterInvoice && (
-            isMobile ? (
-              <Tooltip title={order.electronicInvoiceNumber ? 'Actualizar Factura Electrónica' : 'Registrar Factura Electrónica'}>
-                <IconButton
-                  color="info"
-                  onClick={handleOpenInvoiceDialog}
-                  size="small"
-                  sx={{
-                    bgcolor: 'info.main',
-                    color: 'info.contrastText',
-                    '&:hover': {
-                      bgcolor: 'info.dark',
-                    },
-                  }}
-                >
-                  <ReceiptIcon />
-                </IconButton>
-              </Tooltip>
-            ) : (
-              <Button
-                variant="outlined"
-                color="info"
-                startIcon={<ReceiptIcon />}
-                onClick={handleOpenInvoiceDialog}
-                size="medium"
-                sx={{ minWidth: { sm: 'auto', md: 150 } }}
-              >
-                {order.electronicInvoiceNumber ? 'Actualizar Factura' : 'Factura Electrónica'}
-              </Button>
-            )
-          )}
-
-          {/* Divider */}
-          {!isMobile && (
-            <Divider
-              orientation="vertical"
-              flexItem
-              sx={{
-                display: { xs: 'none', md: 'block' },
-                mx: 0.5
-              }}
+            <ToolbarButton
+              icon={<ReceiptIcon />}
+              label="Factura"
+              secondaryLabel={order.electronicInvoiceNumber ? 'Actualizar' : 'Registrar'}
+              onClick={handleOpenInvoiceDialog}
+              color={theme.palette.info.main}
+              tooltip={order.electronicInvoiceNumber ? 'Actualizar Factura Electrónica' : 'Registrar Factura Electrónica'}
             />
           )}
 
-          {/* Grupo 3: Estado y Documentos */}
-          {isMobile ? (
-            <Tooltip title="Estado">
-              <IconButton
-                color="primary"
-                onClick={handleMenuOpen}
-                size="small"
-                sx={{
-                  bgcolor: 'action.hover',
-                  border: (theme) => `1px solid ${theme.palette.divider}`,
-                }}
-              >
-                <RefreshIcon />
-              </IconButton>
-            </Tooltip>
-          ) : (
-            <Button
-              variant="outlined"
-              onClick={handleMenuOpen}
-              endIcon={<ArrowDropDownIcon />}
-              startIcon={<RefreshIcon />}
-              size="medium"
-              sx={{ minWidth: { sm: 'auto', md: 120 } }}
-            >
-              Estado
-            </Button>
-          )}
+          <ToolbarButton
+            icon={<RefreshIcon />}
+            label="Estado"
+            onClick={handleMenuOpen}
+            tooltip="Cambiar Estado"
+          />
 
           <OrderPdfButton order={order} />
 
-          {/* Divider */}
-          {!isMobile && (
-            <Divider
-              orientation="vertical"
-              flexItem
-              sx={{
-                display: { xs: 'none', md: 'block' },
-                mx: 0.5
-              }}
-            />
-          )}
-
-          {/* Grupo 4: Nueva Orden */}
-          {isMobile ? (
-            <Tooltip title="Nueva">
-              <IconButton
-                color="primary"
-                onClick={() => navigate('/orders/new')}
-                size="small"
-                sx={{
-                  bgcolor: 'action.hover',
-                  border: (theme) => `1px solid ${theme.palette.divider}`,
-                }}
-              >
-                <AddIcon />
-              </IconButton>
-            </Tooltip>
-          ) : (
-            <Button
-              variant="outlined"
-              startIcon={<AddIcon />}
-              onClick={() => navigate('/orders/new')}
-              size="medium"
-              sx={{ minWidth: { sm: 'auto', md: 120 } }}
-            >
-              Nueva
-            </Button>
-          )}
-
-          {/* RequestEditPermissionButton en mobile */}
-          {isMobile && (
-            <RequestEditPermissionButton
-              orderId={id!}
-              orderStatus={order.status}
-            />
-          )}
+          <ToolbarButton
+            icon={<AddIcon />}
+            label="Nueva"
+            onClick={() => navigate('/orders/new')}
+            tooltip="Nueva Orden"
+          />
         </Stack>
       </Paper>
 
