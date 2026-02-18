@@ -36,7 +36,7 @@ export interface QuoteItem {
   specifications?: any;
   sampleImageId?: string;
   sortOrder: number;
-  service?: Product;
+  product?: Product;
   createdAt: string;
   updatedAt: string;
 }

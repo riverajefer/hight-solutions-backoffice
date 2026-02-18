@@ -673,9 +673,9 @@ export const OrderDetailPage: React.FC = () => {
                       {order.items.map((item) => (
                         <TableRow key={item.id}>
                           <TableCell>
-                            {item.service && (
+                            {item.product && (
                               <Chip
-                                label={item.service.name}
+                                label={item.product.name}
                                 size="small"
                                 sx={{ mr: 1, mb: 0.5 }}
                               />

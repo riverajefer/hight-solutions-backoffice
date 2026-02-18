@@ -277,7 +277,7 @@ export const OrderFormPage: React.FC = () => {
           quantity: item.quantity.toString(),
           unitPrice: item.unitPrice,
           total: parseFloat(item.total),
-          productId: item.service?.id,
+          productId: item.product?.id,
           specifications: item.specifications || undefined,
           productionAreaIds: item.productionAreas
             ? item.productionAreas.map((pa) => pa.productionArea.id)
