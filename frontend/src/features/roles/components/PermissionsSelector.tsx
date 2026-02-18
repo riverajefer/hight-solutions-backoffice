@@ -40,20 +40,20 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   // Comercial
   Clientes: ['create_clients', 'read_clients', 'update_clients', 'delete_clients'],
   Cotizaciones: ['create_quotes', 'read_quotes', 'update_quotes', 'delete_quotes', 'convert_quotes'],
-  Órdenes: ['create_orders', 'read_orders', 'update_orders', 'delete_orders'],
+  Órdenes: ['create_orders', 'read_orders', 'update_orders', 'delete_orders', 'approve_orders', 'apply_discounts', 'delete_discounts', 'read_pending_orders'],
   'Canales Comerciales': ['create_commercial_channels', 'read_commercial_channels', 'update_commercial_channels', 'delete_commercial_channels'],
 
   // Inventario y Catálogos
   Proveedores: ['create_suppliers', 'read_suppliers', 'update_suppliers', 'delete_suppliers'],
-  Servicios: ['create_services', 'read_services', 'update_services', 'delete_services'],
-  'Categorías de Servicios': ['create_service_categories', 'read_service_categories', 'update_service_categories', 'delete_service_categories'],
+  Productos: ['create_products', 'read_products', 'update_products', 'delete_products'],
+  'Categorías de Productos': ['create_product_categories', 'read_product_categories', 'update_product_categories', 'delete_product_categories'],
   Insumos: ['create_supplies', 'read_supplies', 'update_supplies', 'delete_supplies'],
   'Categorías de Insumos': ['create_supply_categories', 'read_supply_categories', 'update_supply_categories', 'delete_supply_categories'],
   'Unidades de medida': ['create_units_of_measure', 'read_units_of_measure', 'update_units_of_measure', 'delete_units_of_measure'],
   
   // Producción y Otros
   'Áreas de Producción': ['create_production_areas', 'read_production_areas', 'update_production_areas', 'delete_production_areas'],
-  Auditoría: ['read_audit_logs'],
+  Auditoría: ['read_audit_logs', 'read_session_logs'],
 };
 
 // Mapeo de Tabs a grupos
@@ -70,8 +70,8 @@ const TABS = [
     label: 'Inventario',
     groups: [
       'Proveedores',
-      'Servicios',
-      'Categorías de Servicios',
+      'Productos',
+      'Categorías de Productos',
       'Insumos',
       'Categorías de Insumos',
       'Unidades de medida',

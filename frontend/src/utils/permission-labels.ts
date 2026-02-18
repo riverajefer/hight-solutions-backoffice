@@ -56,15 +56,15 @@ export const PERMISSION_LABELS: Record<string, string> = {
   update_units_of_measure: 'Actualizar Unidades de Medida',
   delete_units_of_measure: 'Eliminar Unidades de Medida',
 
-  create_service_categories: 'Crear Categorías de Servicios',
-  read_service_categories: 'Ver Categorías de Servicios',
-  update_service_categories: 'Actualizar Categorías de Servicios',
-  delete_service_categories: 'Eliminar Categorías de Servicios',
+  create_product_categories: 'Crear Categorías de Productos',
+  read_product_categories: 'Ver Categorías de Productos',
+  update_product_categories: 'Actualizar Categorías de Productos',
+  delete_product_categories: 'Eliminar Categorías de Productos',
 
-  create_services: 'Crear Servicios',
-  read_services: 'Ver Servicios',
-  update_services: 'Actualizar Servicios',
-  delete_services: 'Eliminar Servicios',
+  create_products: 'Crear Productos',
+  read_products: 'Ver Productos',
+  update_products: 'Actualizar Productos',
+  delete_products: 'Eliminar Productos',
 
   create_supply_categories: 'Crear Categorías de Insumos',
   read_supply_categories: 'Ver Categorías de Insumos',
@@ -99,6 +99,10 @@ export const PERMISSION_LABELS: Record<string, string> = {
    read_orders: 'Ver Órdenes',
    update_orders: 'Actualizar Órdenes',
    delete_orders: 'Eliminar Órdenes',
+   approve_orders: 'Aprobar Órdenes',
+   read_pending_orders: 'Ver Órdenes Pendientes de Pago',
+   apply_discounts: 'Aplicar Descuentos',
+   delete_discounts: 'Eliminar Descuentos',
 };
 
 /**

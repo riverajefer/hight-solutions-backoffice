@@ -162,6 +162,10 @@ async function main() {
       name: 'delete_discounts',
       description: 'Eliminar descuentos de órdenes',
     },
+    {
+      name: 'read_pending_orders',
+      description: 'Ver órdenes pendientes de pago',
+    },
 
     // Commercial Channels
     {
