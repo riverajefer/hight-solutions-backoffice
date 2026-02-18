@@ -9,7 +9,10 @@ import {
   Param,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
@@ -17,6 +20,7 @@ import {
   ApiBearerAuth,
   ApiParam,
   ApiQuery,
+  ApiConsumes,
 } from '@nestjs/swagger';
 import { OrdersService } from './orders.service';
 import {
@@ -27,6 +31,8 @@ import {
   UpdateOrderItemDto,
   CreatePaymentDto,
   UpdateOrderStatusDto,
+  ApplyDiscountDto,
+  RegisterElectronicInvoiceDto,
 } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -192,5 +198,93 @@ export class OrdersController {
   @ApiResponse({ status: 200, description: 'Payments retrieved successfully' })
   getPayments(@Param('id') orderId: string) {
     return this.ordersService.getPayments(orderId);
+  }
+
+  @Post(':orderId/payments/:paymentId/receipt')
+  @RequirePermissions('approve_orders', 'upload_files')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload payment receipt' })
+  @ApiParam({ name: 'orderId', description: 'Order ID' })
+  @ApiParam({ name: 'paymentId', description: 'Payment ID' })
+  @ApiResponse({ status: 200, description: 'Receipt uploaded successfully' })
+  async uploadPaymentReceipt(
+    @Param('orderId') orderId: string,
+    @Param('paymentId') paymentId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.ordersService.uploadPaymentReceipt(orderId, paymentId, file, userId);
+  }
+
+  @Delete(':orderId/payments/:paymentId/receipt')
+  @RequirePermissions('delete_files')
+  @ApiOperation({ summary: 'Delete payment receipt (admin only)' })
+  @ApiParam({ name: 'orderId', description: 'Order ID' })
+  @ApiParam({ name: 'paymentId', description: 'Payment ID' })
+  @ApiResponse({ status: 200, description: 'Receipt deleted successfully' })
+  async deletePaymentReceipt(
+    @Param('orderId') orderId: string,
+    @Param('paymentId') paymentId: string,
+  ) {
+    return this.ordersService.deletePaymentReceipt(orderId, paymentId);
+  }
+
+  // ========== ELECTRONIC INVOICE ENDPOINT ==========
+
+  @Patch(':id/electronic-invoice')
+  @RequirePermissions('update_orders')
+  @ApiOperation({ summary: 'Register electronic invoice number (only if order has IVA and is not DRAFT)' })
+  @ApiParam({ name: 'id', description: 'Order ID' })
+  @ApiResponse({ status: 200, description: 'Electronic invoice number registered successfully' })
+  @ApiResponse({ status: 400, description: 'Order has no IVA or is in DRAFT status' })
+  registerElectronicInvoice(
+    @Param('id') id: string,
+    @Body() dto: RegisterElectronicInvoiceDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.ordersService.registerElectronicInvoice(id, dto.electronicInvoiceNumber, userId);
+  }
+
+  // ========== DISCOUNT MANAGEMENT ENDPOINTS ==========
+
+  @Post(':id/discounts')
+  @RequirePermissions('apply_discounts')
+  @ApiOperation({ summary: 'Apply discount to order (only CONFIRMED+)' })
+  @ApiParam({ name: 'id', description: 'Order ID' })
+  @ApiResponse({ status: 201, description: 'Discount applied successfully' })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot apply discount to DRAFT order or discount exceeds total',
+  })
+  applyDiscount(
+    @Param('id') orderId: string,
+    @Body() applyDiscountDto: ApplyDiscountDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.ordersService.applyDiscount(orderId, applyDiscountDto, userId);
+  }
+
+  @Get(':id/discounts')
+  @RequirePermissions('read_orders')
+  @ApiOperation({ summary: 'Get all discounts for an order' })
+  @ApiParam({ name: 'id', description: 'Order ID' })
+  @ApiResponse({ status: 200, description: 'Discounts retrieved successfully' })
+  getDiscounts(@Param('id') orderId: string) {
+    return this.ordersService.getDiscounts(orderId);
+  }
+
+  @Delete(':id/discounts/:discountId')
+  @RequirePermissions('delete_discounts')
+  @ApiOperation({ summary: 'Remove discount from order (admin only)' })
+  @ApiParam({ name: 'id', description: 'Order ID' })
+  @ApiParam({ name: 'discountId', description: 'Discount ID' })
+  @ApiResponse({ status: 200, description: 'Discount removed successfully' })
+  @ApiResponse({ status: 404, description: 'Discount not found' })
+  removeDiscount(
+    @Param('id') orderId: string,
+    @Param('discountId') discountId: string,
+  ) {
+    return this.ordersService.removeDiscount(orderId, discountId);
   }
 }

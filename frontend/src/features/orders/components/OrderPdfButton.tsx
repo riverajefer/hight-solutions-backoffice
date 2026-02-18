@@ -1,17 +1,18 @@
 import React from 'react';
-import { Button } from '@mui/material';
 import {
   PictureAsPdf as PdfIcon,
   Print as PrintIcon,
 } from '@mui/icons-material';
 import type { Order } from '../../../types/order.types';
 import { generateOrderPdf } from '../utils/generateOrderPdf';
+import { ToolbarButton } from './ToolbarButton';
 
 interface OrderPdfButtonProps {
   order: Order;
+  showPrint?: boolean;
 }
 
-export const OrderPdfButton: React.FC<OrderPdfButtonProps> = ({ order }) => {
+export const OrderPdfButton: React.FC<OrderPdfButtonProps> = ({ order, showPrint = true }) => {
   const handleDownload = async () => {
     const doc = await generateOrderPdf(order);
     doc.save(`Orden_${order.orderNumber}.pdf`);
@@ -30,20 +31,20 @@ export const OrderPdfButton: React.FC<OrderPdfButtonProps> = ({ order }) => {
 
   return (
     <>
-      <Button
-        variant="outlined"
-        startIcon={<PdfIcon />}
+      <ToolbarButton
+        icon={<PdfIcon />}
+        label="PDF"
         onClick={handleDownload}
-      >
-        Descargar PDF
-      </Button>
-      <Button
-        variant="outlined"
-        startIcon={<PrintIcon />}
-        onClick={handlePrint}
-      >
-        Imprimir
-      </Button>
+        tooltip="Descargar PDF"
+      />
+      {showPrint && (
+        <ToolbarButton
+          icon={<PrintIcon />}
+          label="Imprimir"
+          onClick={handlePrint}
+          tooltip="Imprimir Orden"
+        />
+      )}
     </>
   );
 };

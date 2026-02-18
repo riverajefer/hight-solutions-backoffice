@@ -8,6 +8,7 @@ export type OrderStatus =
   | 'IN_PRODUCTION'
   | 'READY'
   | 'DELIVERED'
+  | 'DELIVERED_ON_CREDIT'
   | 'WARRANTY'
   | 'RETURNED'
   | 'PAID';
@@ -23,14 +24,29 @@ export interface Order {
   orderNumber: string;
   orderDate: string;
   deliveryDate: string | null;
+
+  // Auditoría de cambios de fecha de entrega
+  previousDeliveryDate?: string | null;
+  deliveryDateReason?: string | null;
+  deliveryDateChangedAt?: string | null;
+  deliveryDateChangedBy?: string | null;
+  deliveryDateChangedByUser?: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  } | null;
+
   subtotal: string; // Decimal viene como string del backend
   taxRate: string;
   tax: string;
+  discountAmount: string; // Total de descuentos aplicados
   total: string;
   paidAmount: string;
   balance: string;
   status: OrderStatus;
   notes: string | null;
+  electronicInvoiceNumber: string | null;
   createdAt: string;
   updatedAt: string;
   client: {
@@ -52,6 +68,7 @@ export interface Order {
   } | null;
   items: OrderItem[];
   payments: Payment[];
+  discounts: OrderDiscount[];
 }
 
 export interface CommercialChannel {
@@ -69,6 +86,7 @@ export interface OrderItem {
   unitPrice: string; // Decimal
   total: string; // Decimal
   specifications: Record<string, any> | null;
+  sampleImageId?: string;
   sortOrder: number;
   service: {
     id: string;
@@ -90,8 +108,22 @@ export interface Payment {
   paymentDate: string;
   reference: string | null;
   notes: string | null;
+  receiptFileId: string | null;
   createdAt: string;
   receivedBy: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
+}
+
+export interface OrderDiscount {
+  id: string;
+  amount: string; // Decimal
+  reason: string; // Motivo del descuento (obligatorio)
+  appliedAt: string; // Fecha de aplicación
+  appliedBy: {
     id: string;
     email: string;
     firstName: string | null;
@@ -111,7 +143,7 @@ export interface InitialPaymentDto {
 }
 
 export interface CreateOrderItemDto {
-  serviceId?: string;
+  productId?: string;
   description: string;
   quantity: number;
   unitPrice: number;
@@ -146,7 +178,7 @@ export interface UpdateOrderStatusDto {
 }
 
 export interface AddOrderItemDto {
-  serviceId?: string;
+  productId?: string;
   description: string;
   quantity: number;
   unitPrice: number;
@@ -159,7 +191,7 @@ export interface UpdateOrderItemDto {
   quantity?: number;
   unitPrice?: number;
   specifications?: Record<string, any>;
-  serviceId?: string;
+  productId?: string;
   productionAreaIds?: string[];
 }
 
@@ -169,6 +201,12 @@ export interface CreatePaymentDto {
   paymentDate?: string; // ISO date string
   reference?: string;
   notes?: string;
+  receiptFileId?: string;
+}
+
+export interface ApplyDiscountDto {
+  amount: number;
+  reason: string; // Motivo del descuento (obligatorio)
 }
 
 // ============================================================
@@ -208,7 +246,7 @@ export interface OrderItemRow {
   quantity: string; // String en UI para inputs controlados
   unitPrice: string; // String en UI
   total: number; // Calculado
-  serviceId?: string;
+  productId?: string;
   specifications?: Record<string, any>;
   productionAreaIds: string[];
 }
@@ -242,6 +280,7 @@ export const ORDER_STATUS_CONFIG: Record<OrderStatus, OrderStatusConfig> = {
   IN_PRODUCTION: { label: 'En Producción', color: 'warning' },
   READY: { label: 'Lista para entrega', color: 'success' },
   DELIVERED: { label: 'Entregada', color: 'primary' },
+  DELIVERED_ON_CREDIT: { label: 'Entregado a Crédito', color: 'warning' },
   WARRANTY: { label: 'Garantía', color: 'secondary' },
   RETURNED: { label: 'Devolución', color: 'error' },
   PAID: { label: 'Pagada', color: 'success' },

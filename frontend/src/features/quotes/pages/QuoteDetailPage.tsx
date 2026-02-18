@@ -19,6 +19,9 @@ import {
   IconButton,
   Menu,
   MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -28,6 +31,10 @@ import {
   Person as PersonIcon,
   CalendarToday as CalendarIcon,
   Storefront as ChannelIcon,
+  Download as DownloadIcon,
+  Print as PrintIcon,
+  Visibility as VisibilityIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
@@ -35,6 +42,9 @@ import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { useQuotes } from '../hooks/useQuotes';
 import { QuoteStatusChip } from '../components/QuoteStatusChip';
 import { QuoteStatus, QUOTE_STATUS_CONFIG, QuoteItem } from '../../../types/quote.types';
+import { generateQuotePdf } from '../utils/generateQuotePdf';
+import { useSnackbar } from 'notistack';
+import axiosInstance from '../../../api/axios';
 
 const formatCurrency = (value: string | number): string => {
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
@@ -56,6 +66,7 @@ const formatDateTime = (date: string): string => {
 export const QuoteDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { enqueueSnackbar } = useSnackbar();
 
   const { quoteQuery, updateQuoteMutation, deleteQuoteMutation, convertToOrderMutation } = useQuotes();
   const { data: quote, isLoading } = quoteQuery(id!);
@@ -63,6 +74,11 @@ export const QuoteDetailPage: React.FC = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmConvert, setConfirmConvert] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [viewImageDialog, setViewImageDialog] = useState<{
+    open: boolean;
+    url: string;
+  }>({ open: false, url: '' });
 
   if (isLoading) return <LoadingSpinner />;
   if (!quote) return (
@@ -96,6 +112,59 @@ export const QuoteDetailPage: React.FC = () => {
     navigate('/quotes');
   };
 
+  const handleDownloadPdf = async () => {
+    if (!quote) return;
+
+    setIsGeneratingPdf(true);
+    try {
+      const pdfDoc = await generateQuotePdf(quote);
+      pdfDoc.save(`Cotizacion-${quote.quoteNumber}.pdf`);
+      enqueueSnackbar('PDF descargado exitosamente', { variant: 'success' });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      enqueueSnackbar('Error al generar el PDF', { variant: 'error' });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
+  const handlePrintPdf = async () => {
+    if (!quote) return;
+
+    setIsGeneratingPdf(true);
+    try {
+      const pdfDoc = await generateQuotePdf(quote);
+      const pdfBlob = pdfDoc.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+
+      const printWindow = window.open(pdfUrl, '_blank');
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.print();
+          URL.revokeObjectURL(pdfUrl);
+        };
+      } else {
+        enqueueSnackbar('No se pudo abrir la ventana de impresión', { variant: 'warning' });
+        URL.revokeObjectURL(pdfUrl);
+      }
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      enqueueSnackbar('Error al generar el PDF para impresión', { variant: 'error' });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
+  const handleViewImage = async (sampleImageId: string) => {
+    try {
+      const { data } = await axiosInstance.get(`/storage/${sampleImageId}/url`);
+      setViewImageDialog({ open: true, url: data.url });
+    } catch (error) {
+      console.error('Error loading image:', error);
+      enqueueSnackbar('Error al cargar la imagen', { variant: 'error' });
+    }
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       <PageHeader
@@ -103,6 +172,22 @@ export const QuoteDetailPage: React.FC = () => {
         breadcrumbs={[{ label: 'Cotizaciones', path: '/quotes' }, { label: quote.quoteNumber }]}
         action={
           <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              startIcon={<DownloadIcon />}
+              onClick={handleDownloadPdf}
+              disabled={isGeneratingPdf}
+            >
+              Descargar PDF
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<PrintIcon />}
+              onClick={handlePrintPdf}
+              disabled={isGeneratingPdf}
+            >
+              Imprimir
+            </Button>
             {canEdit && (
               <Button variant="outlined" startIcon={<EditIcon />} onClick={() => navigate(`/quotes/${id}/edit`)}>
                 Editar
@@ -171,6 +256,9 @@ export const QuoteDetailPage: React.FC = () => {
                   <Table size="small">
                     <TableHead>
                       <TableRow>
+                        {quote.items?.some(item => item.sampleImageId) && (
+                          <TableCell width="60px" align="center">Imagen</TableCell>
+                        )}
                         <TableCell>Descripción</TableCell>
                         <TableCell align="right">Cant.</TableCell>
                         <TableCell align="right">P. Unit</TableCell>
@@ -180,6 +268,19 @@ export const QuoteDetailPage: React.FC = () => {
                     <TableBody>
                       {quote.items?.map((item: QuoteItem) => (
                         <TableRow key={item.id}>
+                          {quote.items?.some(i => i.sampleImageId) && (
+                            <TableCell align="center">
+                              {item.sampleImageId && (
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleViewImage(item.sampleImageId!)}
+                                  color="primary"
+                                >
+                                  <VisibilityIcon fontSize="small" />
+                                </IconButton>
+                              )}
+                            </TableCell>
+                          )}
                           <TableCell>
                             {item.service && <Chip label={item.service.name} size="small" sx={{ mr: 1, mb: 0.5 }} />}
                             <Typography variant="body2">{item.description}</Typography>
@@ -280,6 +381,37 @@ export const QuoteDetailPage: React.FC = () => {
         onCancel={() => setConfirmConvert(false)}
         isLoading={convertToOrderMutation.isPending}
       />
+
+      {/* View Image Dialog */}
+      <Dialog
+        open={viewImageDialog.open}
+        onClose={() => setViewImageDialog({ open: false, url: '' })}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          Imagen de Muestra
+          <IconButton
+            onClick={() => setViewImageDialog({ open: false, url: '' })}
+            sx={{ position: 'absolute', right: 8, top: 8 }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <Box
+            component="img"
+            src={viewImageDialog.url}
+            alt="Muestra"
+            sx={{
+              width: '100%',
+              height: 'auto',
+              maxHeight: '70vh',
+              objectFit: 'contain',
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };

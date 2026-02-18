@@ -28,25 +28,25 @@ import PaymentsIcon from '@mui/icons-material/Payments';
 import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
 
 
-import { 
-  usersApi, 
-  rolesApi, 
-  permissionsApi, 
-  clientsApi, 
-  suppliersApi, 
-  areasApi, 
-  cargosApi, 
-  auditLogsApi, 
+import {
+  usersApi,
+  rolesApi,
+  permissionsApi,
+  clientsApi,
+  suppliersApi,
+  areasApi,
+  cargosApi,
+  auditLogsApi,
   sessionLogsApi,
   ordersApi,
   quotesApi,
-  servicesApi,
+  productsApi,
   suppliesApi,
-  serviceCategoriesApi,
+  productCategoriesApi,
   supplyCategoriesApi,
   unitsOfMeasureApi,
   productionAreasApi,
-  commercialChannelsApi 
+  commercialChannelsApi
 } from '../../../api';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
@@ -354,11 +354,11 @@ const DashboardPage: React.FC = () => {
     },
   });
 
-  const { data: services = [], isLoading: servicesLoading } = useQuery({
-    queryKey: ['services'],
+  const { data: products = [], isLoading: productsLoading } = useQuery({
+    queryKey: ['products'],
     queryFn: async () => {
-      if (!hasPermission(PERMISSIONS.READ_SERVICES)) return [];
-      return servicesApi.getAll();
+      if (!hasPermission(PERMISSIONS.READ_PRODUCTS)) return [];
+      return productsApi.getAll();
     },
   });
 
@@ -386,11 +386,11 @@ const DashboardPage: React.FC = () => {
     },
   });
 
-  const { data: serviceCategories = [], isLoading: serviceCatsLoading } = useQuery({
-    queryKey: ['service-categories'],
+  const { data: productCategories = [], isLoading: productCatsLoading } = useQuery({
+    queryKey: ['product-categories'],
     queryFn: async () => {
-      if (!hasPermission(PERMISSIONS.READ_SERVICE_CATEGORIES)) return [];
-      return serviceCategoriesApi.getAll();
+      if (!hasPermission(PERMISSIONS.READ_PRODUCT_CATEGORIES)) return [];
+      return productCategoriesApi.getAll();
     },
   });
 
@@ -420,11 +420,11 @@ const DashboardPage: React.FC = () => {
     },
   });
 
-  const isLoading = 
-    usersLoading || rolesLoading || permissionsLoading || clientsLoading || 
-    suppliersLoading || areasLoading || cargosLoading || auditLogsLoading || 
-    sessionLogsLoading || ordersLoading || servicesLoading || suppliesLoading || 
-    productionAreasLoading || channelsLoading || serviceCatsLoading || 
+  const isLoading =
+    usersLoading || rolesLoading || permissionsLoading || clientsLoading ||
+    suppliersLoading || areasLoading || cargosLoading || auditLogsLoading ||
+    sessionLogsLoading || ordersLoading || productsLoading || suppliesLoading ||
+    productionAreasLoading || channelsLoading || productCatsLoading ||
     supplyCatsLoading || unitsLoading || pendingOrdersLoading || quotesLoading;
   
   // Logs de verificación de permisos específicos
@@ -462,11 +462,11 @@ const DashboardPage: React.FC = () => {
   const ordersCount = ordersData?.meta?.total || 0;
   const quotesCount = quotesData?.meta?.total || 0;
 
-  const servicesCount = Array.isArray(services) ? services.length : 0;
+  const productsCount = Array.isArray(products) ? products.length : 0;
   const suppliesCount = Array.isArray(supplies) ? supplies.length : 0;
   const productionAreasCount = Array.isArray(productionAreas) ? productionAreas.length : 0;
   const channelsCount = Array.isArray(commercialChannels) ? commercialChannels.length : 0;
-  const serviceCatsCount = Array.isArray(serviceCategories) ? serviceCategories.length : 0;
+  const productCatsCount = Array.isArray(productCategories) ? productCategories.length : 0;
   const supplyCatsCount = Array.isArray(supplyCategories) ? supplyCategories.length : 0;
   const unitsCount = Array.isArray(unitsOfMeasure) ? unitsOfMeasure.length : 0;
 
@@ -653,17 +653,17 @@ const DashboardPage: React.FC = () => {
               />
             </Grid>
           )}
-          {hasPermission(PERMISSIONS.READ_SERVICES) && (
+          {hasPermission(PERMISSIONS.READ_PRODUCTS) && (
             <Grid item xs={12} sm={6} md={4} lg={3}>
               <StatCard
-                title="Servicios"
-                value={servicesCount}
+                title="Productos"
+                value={productsCount}
                 icon={<MiscellaneousServicesIcon />}
                 color="#60A5FA"
                 neonColor={NEON_COLORS.general}
                 action={{
-                  label: 'Ver servicios',
-                  onClick: () => navigate(ROUTES.SERVICES),
+                  label: 'Ver productos',
+                  onClick: () => navigate(ROUTES.PRODUCTS),
                 }}
               />
             </Grid>
@@ -935,17 +935,17 @@ const DashboardPage: React.FC = () => {
               />
             </Grid>
           )}
-          {hasPermission(PERMISSIONS.READ_SERVICES) && (
+          {hasPermission(PERMISSIONS.READ_PRODUCTS) && (
             <Grid item xs={12} sm={6} md={4} lg={3}>
               <StatCard
-                title="Servicios"
-                value={servicesCount}
+                title="Productos"
+                value={productsCount}
                 icon={<MiscellaneousServicesIcon />}
                 color="#60A5FA"
                 neonColor={NEON_COLORS.logistics}
                 action={{
-                  label: 'Ver servicios',
-                  onClick: () => navigate(ROUTES.SERVICES),
+                  label: 'Ver productos',
+                  onClick: () => navigate(ROUTES.PRODUCTS),
                 }}
               />
             </Grid>
@@ -965,17 +965,17 @@ const DashboardPage: React.FC = () => {
               />
             </Grid>
           )}
-          {hasPermission(PERMISSIONS.READ_SERVICE_CATEGORIES) && (
+          {hasPermission(PERMISSIONS.READ_PRODUCT_CATEGORIES) && (
             <Grid item xs={12} sm={6} md={4} lg={3}>
               <StatCard
-                title="Categorías Serv."
-                value={serviceCatsCount}
+                title="Categorías Prod."
+                value={productCatsCount}
                 icon={<CategoryOutlinedIcon />}
                 color="#EC4899"
                 neonColor={NEON_COLORS.logistics}
                 action={{
                   label: 'Ver categorías',
-                  onClick: () => navigate(ROUTES.SERVICE_CATEGORIES),
+                  onClick: () => navigate(ROUTES.PRODUCT_CATEGORIES),
                 }}
               />
             </Grid>

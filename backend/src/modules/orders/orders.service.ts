@@ -2,10 +2,13 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { OrdersRepository } from './orders.repository';
 import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { StorageService } from '../storage/storage.service';
+import { OrderStatusChangeRequestsService } from '../order-status-change-requests/order-status-change-requests.service';
 import {
   CreateOrderDto,
   UpdateOrderDto,
@@ -13,6 +16,7 @@ import {
   AddOrderItemDto,
   UpdateOrderItemDto,
   CreatePaymentDto,
+  ApplyDiscountDto,
 } from './dto';
 import { OrderStatus, Prisma } from '../../generated/prisma';
 import { PrismaService } from '../../database/prisma.service';
@@ -24,6 +28,8 @@ export class OrdersService {
     private readonly consecutivesService: ConsecutivesService,
     private readonly prisma: PrismaService,
     private readonly auditLogsService: AuditLogsService,
+    private readonly storageService: StorageService,
+    private readonly statusChangeRequestsService: OrderStatusChangeRequestsService,
   ) {}
 
   async findAll(filters: FilterOrdersDto) {
@@ -70,8 +76,8 @@ export class OrdersService {
         total: itemTotal,
         specifications: item.specifications || undefined,
         sortOrder: index + 1,
-        ...(item.serviceId && {
-          service: { connect: { id: item.serviceId } },
+        ...(item.productId && {
+          product: { connect: { id: item.productId } },
         }),
         ...(item.productionAreaIds && item.productionAreaIds.length > 0 && {
           productionAreas: {
@@ -85,7 +91,8 @@ export class OrdersService {
 
     const taxRate = new Prisma.Decimal(0.19);
     const tax = subtotal.mul(taxRate);
-    const total = subtotal.add(tax);
+    const discountAmount = new Prisma.Decimal(0);
+    const total = subtotal.add(tax).sub(discountAmount);
 
     // Manejar pago inicial
     let paidAmount = new Prisma.Decimal(0);
@@ -125,6 +132,7 @@ export class OrdersService {
       subtotal,
       taxRate,
       tax,
+      discountAmount,
       total,
       paidAmount,
       balance,
@@ -157,9 +165,46 @@ export class OrdersService {
   async update(id: string, updateOrderDto: UpdateOrderDto, userId: string) {
     const oldOrder = await this.findOne(id);
 
+    // Validar cambio de fecha de entrega
+    if (updateOrderDto.deliveryDate) {
+      const newDeliveryDate = new Date(updateOrderDto.deliveryDate);
+      const currentDeliveryDate = oldOrder.deliveryDate ? new Date(oldOrder.deliveryDate) : null;
+
+      // Si hay una fecha anterior y la nueva es posterior (pospone), requiere razón
+      if (currentDeliveryDate && newDeliveryDate > currentDeliveryDate) {
+        if (!updateOrderDto.deliveryDateReason || updateOrderDto.deliveryDateReason.trim() === '') {
+          throw new BadRequestException(
+            'Debe proporcionar una razón para posponer la fecha de entrega'
+          );
+        }
+      }
+    }
+
     // Si viene items o initialPayment, usamos una transacción para actualizar todo el conjunto
     if (updateOrderDto.items || updateOrderDto.initialPayment) {
       const updatedOrder = await this.prisma.$transaction(async (tx) => {
+        // Preparar datos de actualización de fecha
+        const deliveryDateUpdateData: any = {};
+
+        if (updateOrderDto.deliveryDate) {
+          const newDeliveryDate = new Date(updateOrderDto.deliveryDate);
+          const currentDeliveryDate = oldOrder.deliveryDate ? new Date(oldOrder.deliveryDate) : null;
+
+          deliveryDateUpdateData.deliveryDate = newDeliveryDate;
+
+          // Si la fecha cambió, registrar auditoría
+          if (currentDeliveryDate && newDeliveryDate.getTime() !== currentDeliveryDate.getTime()) {
+            deliveryDateUpdateData.previousDeliveryDate = currentDeliveryDate;
+            deliveryDateUpdateData.deliveryDateChangedAt = new Date();
+            deliveryDateUpdateData.deliveryDateChangedBy = userId;
+
+            // Solo guardar razón si se pospone
+            if (newDeliveryDate > currentDeliveryDate && updateOrderDto.deliveryDateReason) {
+              deliveryDateUpdateData.deliveryDateReason = updateOrderDto.deliveryDateReason;
+            }
+          }
+        }
+
         // 1. Actualizar datos básicos de la orden
         await tx.order.update({
           where: { id },
@@ -167,9 +212,7 @@ export class OrdersService {
             ...(updateOrderDto.clientId && {
               client: { connect: { id: updateOrderDto.clientId } },
             }),
-            ...(updateOrderDto.deliveryDate && {
-              deliveryDate: new Date(updateOrderDto.deliveryDate),
-            }),
+            ...deliveryDateUpdateData,
             ...(updateOrderDto.notes !== undefined && {
               notes: updateOrderDto.notes,
             }),
@@ -226,7 +269,7 @@ export class OrdersService {
                 unitPrice: item.unitPrice,
                 total: itemTotal,
                 specifications: item.specifications || undefined,
-                ...(item.serviceId && { serviceId: item.serviceId }),
+                ...(item.productId && { productId: item.productId }),
               },
             });
 
@@ -263,7 +306,7 @@ export class OrdersService {
                   total: itemTotal,
                   specifications: item.specifications || undefined,
                   sortOrder: remainingCount + i + 1,
-                  ...(item.serviceId && { serviceId: item.serviceId }),
+                  ...(item.productId && { productId: item.productId }),
                 },
                 select: { id: true },
               });
@@ -328,13 +371,33 @@ export class OrdersService {
     }
 
     // Si no hay items ni pago, actualización normal
+    // Preparar datos de actualización de fecha
+    const deliveryDateUpdateData: any = {};
+
+    if (updateOrderDto.deliveryDate) {
+      const newDeliveryDate = new Date(updateOrderDto.deliveryDate);
+      const currentDeliveryDate = oldOrder.deliveryDate ? new Date(oldOrder.deliveryDate) : null;
+
+      deliveryDateUpdateData.deliveryDate = newDeliveryDate;
+
+      // Si la fecha cambió, registrar auditoría
+      if (currentDeliveryDate && newDeliveryDate.getTime() !== currentDeliveryDate.getTime()) {
+        deliveryDateUpdateData.previousDeliveryDate = currentDeliveryDate;
+        deliveryDateUpdateData.deliveryDateChangedAt = new Date();
+        deliveryDateUpdateData.deliveryDateChangedBy = userId;
+
+        // Solo guardar razón si se pospone
+        if (newDeliveryDate > currentDeliveryDate && updateOrderDto.deliveryDateReason) {
+          deliveryDateUpdateData.deliveryDateReason = updateOrderDto.deliveryDateReason;
+        }
+      }
+    }
+
     await this.ordersRepository.update(id, {
       ...(updateOrderDto.clientId && {
         client: { connect: { id: updateOrderDto.clientId } },
       }),
-      ...(updateOrderDto.deliveryDate && {
-        deliveryDate: new Date(updateOrderDto.deliveryDate),
-      }),
+      ...deliveryDateUpdateData,
       ...(updateOrderDto.notes !== undefined && {
         notes: updateOrderDto.notes,
       }),
@@ -372,11 +435,59 @@ export class OrdersService {
         'No se puede revertir el estado de la orden a BORRADOR. Por favor, use el flujo de solicitud de edición para modificar la orden.',
       );
     }
-    
+
+    // NEW: Balance validation for PAID/DELIVERED status
+    // Orders with pending balance cannot be marked as PAID or DELIVERED
+    if (status === OrderStatus.PAID || status === OrderStatus.DELIVERED) {
+      const balance = new Prisma.Decimal(order.balance);
+
+      if (balance.greaterThan(0)) {
+        throw new BadRequestException(
+          `No se puede cambiar al estado ${status === OrderStatus.PAID ? 'PAGADA' : 'ENTREGADA'} con saldo pendiente. ` +
+          `Saldo actual: $${order.balance}. ` +
+          `Use el estado DELIVERED_ON_CREDIT (Entregado a Crédito) o complete los pagos primero.`,
+        );
+      }
+    }
+
+    // NEW: Authorization check for DELIVERED_ON_CREDIT
+    // Non-admin users need approval to deliver on credit
+    if (status === OrderStatus.DELIVERED_ON_CREDIT) {
+      const authCheck = await this.statusChangeRequestsService.requiresAuthorization(
+        id,
+        status,
+        userId,
+      );
+
+      if (authCheck.required) {
+        // Check if user has an approved request
+        const hasApproval = await this.statusChangeRequestsService.hasApprovedRequest(
+          id,
+          userId,
+          status,
+        );
+
+        if (!hasApproval) {
+          throw new ForbiddenException(
+            `Este cambio de estado requiere autorización de un administrador. ` +
+            `Razón: ${authCheck.reason}. ` +
+            `Por favor, cree una solicitud de cambio de estado.`,
+          );
+        }
+
+        // Authorization granted, consume the request (mark as used)
+        await this.statusChangeRequestsService.consumeApprovedRequest(
+          id,
+          userId,
+          status,
+        );
+      }
+    }
+
     // Log change
     if (order.status !== status) {
         await this.ordersRepository.updateStatus(id, status);
-        
+
         // Registrar en audit log (sin esperar)
         const updatedOrder = await this.findOne(id);
         this.auditLogsService.logOrderChange(
@@ -417,6 +528,42 @@ export class OrdersService {
     return { message: 'Order deleted successfully' };
   }
 
+  // ========== ELECTRONIC INVOICE ==========
+
+  async registerElectronicInvoice(id: string, electronicInvoiceNumber: string, userId: string) {
+    const order = await this.findOne(id);
+
+    // Solo aplicable si la orden tiene IVA (tax > 0)
+    if (parseFloat(order.tax.toString()) === 0) {
+      throw new BadRequestException(
+        'La factura electrónica solo aplica para órdenes que incluyan IVA.',
+      );
+    }
+
+    // Solo disponible cuando la orden ya fue creada (no en DRAFT)
+    if (order.status === 'DRAFT') {
+      throw new BadRequestException(
+        'No se puede registrar una factura electrónica en una orden en estado BORRADOR.',
+      );
+    }
+
+    const updatedOrder = await this.ordersRepository.registerElectronicInvoice(
+      id,
+      electronicInvoiceNumber,
+    );
+
+    // Registrar en audit log (sin esperar)
+    this.auditLogsService.logOrderChange(
+      'UPDATE',
+      id,
+      order,
+      updatedOrder,
+      userId,
+    );
+
+    return updatedOrder;
+  }
+
   // ========== ITEM MANAGEMENT ==========
 
   async addItem(orderId: string, addItemDto: AddOrderItemDto) {
@@ -453,8 +600,8 @@ export class OrdersService {
           total: itemTotal,
           specifications: addItemDto.specifications,
           sortOrder,
-          ...(addItemDto.serviceId && {
-            serviceId: addItemDto.serviceId,
+          ...(addItemDto.productId && {
+            productId: addItemDto.productId,
           }),
           ...(addItemDto.productionAreaIds && addItemDto.productionAreaIds.length > 0 && {
             productionAreas: {
@@ -510,8 +657,8 @@ export class OrdersService {
         updateData.specifications = updateItemDto.specifications;
       }
 
-      if (updateItemDto.serviceId !== undefined) {
-        updateData.serviceId = updateItemDto.serviceId;
+      if (updateItemDto.productId !== undefined) {
+        updateData.productId = updateItemDto.productId;
       }
 
       // Recalcular total del item si cambió cantidad o precio
@@ -628,6 +775,7 @@ export class OrdersService {
             : new Date(),
           reference: createPaymentDto.reference,
           notes: createPaymentDto.notes,
+          receiptFileId: createPaymentDto.receiptFileId,
           receivedById,
         },
         select: {
@@ -662,6 +810,7 @@ export class OrdersService {
         paymentDate: true,
         reference: true,
         notes: true,
+        receiptFileId: true,
         createdAt: true,
         receivedBy: {
           select: {
@@ -711,7 +860,19 @@ export class OrdersService {
 
     const taxRate = order?.taxRate || new Prisma.Decimal(0.19);
     const tax = subtotal.mul(taxRate);
-    const total = subtotal.add(tax);
+
+    // Calcular discountAmount sumando todos los descuentos
+    const discounts = await tx.orderDiscount.findMany({
+      where: { orderId },
+      select: { amount: true },
+    });
+
+    let discountAmount = new Prisma.Decimal(0);
+    for (const discount of discounts) {
+      discountAmount = discountAmount.add(discount.amount);
+    }
+
+    const total = subtotal.add(tax).sub(discountAmount);
 
     // Calcular paidAmount sumando todos los pagos
     const payments = await tx.payment.findMany({
@@ -732,6 +893,7 @@ export class OrdersService {
       data: {
         subtotal,
         tax,
+        discountAmount,
         total,
         paidAmount,
         balance,
@@ -741,6 +903,7 @@ export class OrdersService {
         orderNumber: true,
         subtotal: true,
         tax: true,
+        discountAmount: true,
         total: true,
         paidAmount: true,
         balance: true,
@@ -750,12 +913,229 @@ export class OrdersService {
         taxRate: true,
         items: {
           include: {
-            service: true,
+            product: true,
           },
         },
         client: true,
         payments: true,
       },
+    });
+  }
+
+  // ========== PAYMENT RECEIPT MANAGEMENT ==========
+
+  async uploadPaymentReceipt(
+    orderId: string,
+    paymentId: string,
+    file: Express.Multer.File,
+    userId: string,
+  ) {
+    // Verificar que la orden existe
+    await this.findOne(orderId);
+
+    // Verificar que el pago existe y pertenece a la orden
+    const payment = await this.prisma.payment.findFirst({
+      where: {
+        id: paymentId,
+        orderId,
+      },
+    });
+
+    if (!payment) {
+      throw new NotFoundException(
+        `Payment ${paymentId} not found for order ${orderId}`,
+      );
+    }
+
+    // Si ya existe un comprobante, eliminarlo primero
+    if (payment.receiptFileId) {
+      await this.storageService.deleteFile(payment.receiptFileId, userId);
+    }
+
+    // Subir el nuevo archivo
+    const uploadedFile = await this.storageService.uploadFile(file, {
+      entityType: 'payment',
+      entityId: paymentId,
+      userId,
+    });
+
+    // Actualizar el payment con el ID del archivo
+    await this.prisma.payment.update({
+      where: { id: paymentId },
+      data: { receiptFileId: uploadedFile.id },
+    });
+
+    return {
+      message: 'Receipt uploaded successfully',
+      file: uploadedFile,
+    };
+  }
+
+  async deletePaymentReceipt(orderId: string, paymentId: string) {
+    // Verificar que la orden existe
+    await this.findOne(orderId);
+
+    // Verificar que el pago existe y pertenece a la orden
+    const payment = await this.prisma.payment.findFirst({
+      where: {
+        id: paymentId,
+        orderId,
+      },
+    });
+
+    if (!payment) {
+      throw new NotFoundException(
+        `Payment ${paymentId} not found for order ${orderId}`,
+      );
+    }
+
+    if (!payment.receiptFileId) {
+      throw new BadRequestException('Payment does not have a receipt');
+    }
+
+    // Eliminar el archivo (hard delete ya que es eliminación explícita por admin)
+    await this.storageService.hardDeleteFile(payment.receiptFileId);
+
+    // Actualizar el payment removiendo el ID del archivo
+    await this.prisma.payment.update({
+      where: { id: paymentId },
+      data: { receiptFileId: null },
+    });
+
+    return {
+      message: 'Receipt deleted successfully',
+    };
+  }
+
+  // ========== DISCOUNT MANAGEMENT ==========
+
+  async applyDiscount(
+    orderId: string,
+    applyDiscountDto: ApplyDiscountDto,
+    appliedById: string,
+  ) {
+    const order = await this.findOne(orderId);
+
+    // Solo se pueden aplicar descuentos a órdenes CONFIRMED en adelante
+    const allowedStatuses: OrderStatus[] = [
+      OrderStatus.CONFIRMED,
+      OrderStatus.IN_PRODUCTION,
+      OrderStatus.READY,
+      OrderStatus.DELIVERED,
+      OrderStatus.WARRANTY,
+    ];
+
+    if (!allowedStatuses.includes(order.status)) {
+      throw new BadRequestException(
+        'Los descuentos solo pueden aplicarse a órdenes CONFIRMADAS o en estado posterior',
+      );
+    }
+
+    const discountAmount = new Prisma.Decimal(applyDiscountDto.amount);
+
+    // Validar que el descuento no exceda el total de la orden
+    const currentTotal = new Prisma.Decimal(order.total);
+    const currentDiscountAmount = new Prisma.Decimal(order.discountAmount);
+    const newDiscountAmount = currentDiscountAmount.add(discountAmount);
+
+    // El total base es subtotal + tax
+    const baseTotal = new Prisma.Decimal(order.subtotal).add(order.tax);
+
+    if (newDiscountAmount.greaterThan(baseTotal)) {
+      throw new BadRequestException(
+        `El descuento total (${newDiscountAmount}) no puede exceder el subtotal + impuestos (${baseTotal})`,
+      );
+    }
+
+    // Usar transacción para crear descuento y recalcular totales
+    const discountId = await this.prisma.$transaction(async (tx) => {
+      // Crear el descuento
+      const discount = await tx.orderDiscount.create({
+        data: {
+          orderId,
+          amount: discountAmount,
+          reason: applyDiscountDto.reason,
+          appliedById,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      // Recalcular totales de la orden
+      await this.recalculateOrderTotals(orderId, tx);
+
+      return discount.id;
+    });
+
+    // Obtener el descuento completo fuera de la transacción
+    return this.prisma.orderDiscount.findUnique({
+      where: { id: discountId },
+      select: {
+        id: true,
+        amount: true,
+        reason: true,
+        appliedAt: true,
+        appliedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+  }
+
+  async getDiscounts(orderId: string) {
+    // Verificar que la orden existe
+    await this.findOne(orderId);
+
+    return this.ordersRepository.findDiscountsByOrderId(orderId);
+  }
+
+  async removeDiscount(orderId: string, discountId: string) {
+    const order = await this.findOne(orderId);
+
+    // Solo se pueden eliminar descuentos de órdenes CONFIRMED en adelante
+    const allowedStatuses: OrderStatus[] = [
+      OrderStatus.CONFIRMED,
+      OrderStatus.IN_PRODUCTION,
+      OrderStatus.READY,
+      OrderStatus.DELIVERED,
+      OrderStatus.WARRANTY,
+    ];
+
+    if (!allowedStatuses.includes(order.status)) {
+      throw new BadRequestException(
+        'Los descuentos solo pueden eliminarse de órdenes CONFIRMADAS o en estado posterior',
+      );
+    }
+
+    // Verificar que el descuento existe y pertenece a la orden
+    const discount = await this.prisma.orderDiscount.findFirst({
+      where: {
+        id: discountId,
+        orderId,
+      },
+    });
+
+    if (!discount) {
+      throw new NotFoundException(
+        `Descuento ${discountId} no encontrado para la orden ${orderId}`,
+      );
+    }
+
+    // Usar transacción para eliminar descuento y recalcular totales
+    return this.prisma.$transaction(async (tx) => {
+      // Eliminar el descuento
+      await tx.orderDiscount.delete({
+        where: { id: discountId },
+      });
+
+      // Recalcular totales
+      return this.recalculateOrderTotals(orderId, tx);
     });
   }
 }

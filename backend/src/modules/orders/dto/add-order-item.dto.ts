@@ -11,12 +11,12 @@ import {
 
 export class AddOrderItemDto {
   @ApiPropertyOptional({
-    description: 'ID del servicio del catálogo (opcional)',
+    description: 'ID del producto del catálogo (opcional)',
     example: 'uuid-service',
   })
   @IsOptional()
   @IsUUID()
-  serviceId?: string;
+  productId?: string;
 
   @ApiProperty({
     description: 'Descripción del item',

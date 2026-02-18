@@ -1,4 +1,4 @@
-import { PrismaClient, OrderStatus } from '../src/generated/prisma';
+import { PrismaClient, OrderStatus, QuoteStatus } from '../src/generated/prisma';
 import * as bcrypt from 'bcrypt';
 import { randomInt, randomUUID } from 'node:crypto';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -97,29 +97,29 @@ async function main() {
       description: 'Eliminar unidades de medida',
     },
 
-    // Service Categories
+    // Product Categories
     {
-      name: 'create_service_categories',
-      description: 'Crear categorías de servicios',
+      name: 'create_product_categories',
+      description: 'Crear categorías de productos',
     },
     {
-      name: 'read_service_categories',
-      description: 'Ver categorías de servicios',
+      name: 'read_product_categories',
+      description: 'Ver categorías de productos',
     },
     {
-      name: 'update_service_categories',
-      description: 'Actualizar categorías de servicios',
+      name: 'update_product_categories',
+      description: 'Actualizar categorías de productos',
     },
     {
-      name: 'delete_service_categories',
-      description: 'Eliminar categorías de servicios',
+      name: 'delete_product_categories',
+      description: 'Eliminar categorías de productos',
     },
 
-    // Services
-    { name: 'create_services', description: 'Crear servicios' },
-    { name: 'read_services', description: 'Ver servicios' },
-    { name: 'update_services', description: 'Actualizar servicios' },
-    { name: 'delete_services', description: 'Eliminar servicios' },
+    // Products
+    { name: 'create_products', description: 'Crear productos' },
+    { name: 'read_products', description: 'Ver productos' },
+    { name: 'update_products', description: 'Actualizar productos' },
+    { name: 'delete_products', description: 'Eliminar productos' },
 
     // Supply Categories
     {
@@ -154,6 +154,14 @@ async function main() {
       name: 'approve_orders',
       description: 'Aprobar/confirmar órdenes de pedido',
     },
+    {
+      name: 'apply_discounts',
+      description: 'Aplicar descuentos a órdenes',
+    },
+    {
+      name: 'delete_discounts',
+      description: 'Eliminar descuentos de órdenes',
+    },
 
     // Commercial Channels
     {
@@ -176,6 +184,12 @@ async function main() {
     { name: 'update_quotes', description: 'Actualizar cotizaciones' },
     { name: 'delete_quotes', description: 'Eliminar cotizaciones' },
     { name: 'convert_quotes', description: 'Convertir cotizaciones a órdenes' },
+
+    // Storage (File Upload/Management)
+    { name: 'upload_files', description: 'Subir archivos al sistema' },
+    { name: 'read_files', description: 'Ver y descargar archivos' },
+    { name: 'delete_files', description: 'Eliminar archivos' },
+    { name: 'manage_storage', description: 'Gestión completa de almacenamiento' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
@@ -271,14 +285,15 @@ async function main() {
     'read_clients',
     'read_suppliers',
     'read_units_of_measure',
-    'read_service_categories',
-    'read_services',
+    'read_product_categories',
+    'read_products',
     'read_supply_categories',
     'read_supplies',
     'create_orders',
     'read_orders',
     'update_orders',
     'approve_orders',
+    'apply_discounts',
     // Quotes (Manager)
     'create_quotes',
     'read_quotes',
@@ -835,16 +850,16 @@ async function main() {
   }
 
   // ============================================
-  // 7. Crear Categorías de Servicios
+  // 7. Crear Categorías de Productos
   // ============================================
-  console.log('\n📦 Creating service categories...');
+  console.log('\n📦 Creating product categories...');
 
-  const serviceCategoriesData = [
+  const productCategoriesData = [
     {
       name: 'Impresión Gran Formato',
       slug: 'impresion-gran-formato',
       description:
-        'Servicios de impresión en gran formato como pendones, banners y vallas',
+        'Productos de impresión en gran formato como pendones, banners y vallas',
       icon: '🖨️',
       sortOrder: 1,
     },
@@ -873,8 +888,8 @@ async function main() {
     },
   ];
 
-  for (const categoryData of serviceCategoriesData) {
-    await prisma.serviceCategory.upsert({
+  for (const categoryData of productCategoriesData) {
+    await prisma.productCategory.upsert({
       where: { slug: categoryData.slug },
       update: {
         name: categoryData.name,
@@ -888,25 +903,25 @@ async function main() {
   }
 
   // ============================================
-  // 8. Crear Servicios de Prueba
+  // 8. Crear Productos de Prueba
   // ============================================
-  console.log('\n🛠️ Creating services...');
+  console.log('\n🛠️ Creating products...');
 
   // Obtener categorías para usar sus IDs
-  const impresionCategory = await prisma.serviceCategory.findUnique({
+  const impresionCategory = await prisma.productCategory.findUnique({
     where: { slug: 'impresion-gran-formato' },
   });
-  const promocionalesCategory = await prisma.serviceCategory.findUnique({
+  const promocionalesCategory = await prisma.productCategory.findUnique({
     where: { slug: 'promocionales' },
   });
-  const papeleriaCategory = await prisma.serviceCategory.findUnique({
+  const papeleriaCategory = await prisma.productCategory.findUnique({
     where: { slug: 'papeleria' },
   });
-  const senalizacionCategory = await prisma.serviceCategory.findUnique({
+  const senalizacionCategory = await prisma.productCategory.findUnique({
     where: { slug: 'senalizacion' },
   });
 
-  const servicesData = [
+  const productsData = [
     // Impresión Gran Formato
     {
       name: 'Pendón 80x200 cm',
@@ -1072,28 +1087,28 @@ async function main() {
     },
   ];
 
-  let servicesCreated = 0;
-  for (const serviceData of servicesData) {
-    if (serviceData.categoryId) {
-      await prisma.service.upsert({
-        where: { slug: serviceData.slug },
+  let productsCreated = 0;
+  for (const productData of productsData) {
+    if (productData.categoryId) {
+      await prisma.product.upsert({
+        where: { slug: productData.slug },
         update: {
-          name: serviceData.name,
-          description: serviceData.description,
-          basePrice: serviceData.basePrice,
-          priceUnit: serviceData.priceUnit,
+          name: productData.name,
+          description: productData.description,
+          basePrice: productData.basePrice,
+          priceUnit: productData.priceUnit,
         },
         create: {
-          name: serviceData.name,
-          slug: serviceData.slug,
-          description: serviceData.description,
-          basePrice: serviceData.basePrice,
-          priceUnit: serviceData.priceUnit,
-          categoryId: serviceData.categoryId,
+          name: productData.name,
+          slug: productData.slug,
+          description: productData.description,
+          basePrice: productData.basePrice,
+          priceUnit: productData.priceUnit,
+          categoryId: productData.categoryId,
         },
       });
-      console.log(`  ✓ Service: ${serviceData.name}`);
-      servicesCreated++;
+      console.log(`  ✓ Product: ${productData.name}`);
+      productsCreated++;
     }
   }
 
@@ -1635,7 +1650,7 @@ async function main() {
   // ============================================
   console.log('\n📦 Creating test orders...');
 
-  // Obtener algunos clientes y servicios para las órdenes
+  // Obtener algunos clientes y productos para las órdenes
   const client1 = await prisma.client.findFirst({
     where: { email: 'contacto@distribuidoraelsol.com' },
   });
@@ -1643,13 +1658,13 @@ async function main() {
     where: { email: 'ventas@publicidadcreativa.com' },
   });
 
-  const tarjetasService = await prisma.service.findFirst({
+  const tarjetasProduct = await prisma.product.findFirst({
     where: { slug: 'tarjetas-presentacion-x-1000' },
   });
-  const bannerService = await prisma.service.findFirst({
+  const bannerProduct = await prisma.product.findFirst({
     where: { slug: 'banner-1x2-metros' },
   });
-  const sellosService = await prisma.service.findFirst({
+  const sellosProduct = await prisma.product.findFirst({
     where: { slug: 'sellos-automaticos' },
   });
 
@@ -1657,147 +1672,358 @@ async function main() {
     where: { email: 'admin@example.com' },
   });
 
-  // Orden 1: CONFIRMED con items y pago inicial
-  if (client1 && tarjetasService && bannerService && adminUserForOrders) {
-    const order1 = await prisma.order.create({
-      data: {
-        orderNumber: 'OP-2024-001' + randomUUID().slice(0, 5),
-        orderDate: new Date('2024-01-15'),
-        deliveryDate: new Date('2024-01-25'),
-        status: 'CONFIRMED',
-        notes: 'Cliente solicita colores corporativos: azul y blanco',
-        subtotal: 450000,
-        taxRate: 0.19,
-        tax: 85500,
-        total: 535500,
-        paidAmount: 200000,
-        balance: 335500,
-        clientId: client1.id,
-        createdById: adminUserForOrders.id,
-        items: {
-          create: [
-            {
-              description:
-                'Tarjetas de presentación full color, papel propalcote 300gr',
-              quantity: 1000,
-              unitPrice: 250000,
-              total: 250000,
-              sortOrder: 1,
-              serviceId: tarjetasService.id,
-              specifications: {
-                material: 'Propalcote 300gr',
-                tamaño: '9x5 cm',
-                acabado: 'Laminado mate',
-                colores: 'Full color (4x4)',
+  // Obtener canales de venta y áreas de producción para las órdenes
+  const channelWhatsApp = await prisma.commercialChannel.findFirst({ where: { name: 'WhatsApp' } });
+  const channelCorporativo = await prisma.commercialChannel.findFirst({ where: { name: 'Clientes Corporativos' } });
+  const channelTiendaFisica = await prisma.commercialChannel.findFirst({ where: { name: 'Tienda Física' } });
+
+  const areaPapeleria = await prisma.productionArea.findFirst({ where: { name: 'Papeleria' } });
+  const areaPloter = await prisma.productionArea.findFirst({ where: { name: 'Ploter gran formato' } });
+  const areaPromocionales = await prisma.productionArea.findFirst({ where: { name: 'Promocionales' } });
+  const areaDiseño = await prisma.productionArea.findFirst({ where: { name: 'Diseño' } });
+  const areaCostura = await prisma.productionArea.findFirst({ where: { name: 'Costura' } });
+
+  // Orden 1: CONFIRMED con IVA, canal WhatsApp, items con áreas de producción
+  if (client1 && tarjetasProduct && bannerProduct && adminUserForOrders) {
+    const existingOrder1 = await prisma.order.findFirst({
+      where: { orderNumber: 'OP-2026-0001' },
+    });
+    if (!existingOrder1) {
+      const order1 = await prisma.order.create({
+        data: {
+          orderNumber: 'OP-2026-0001',
+          orderDate: new Date('2026-01-15'),
+          deliveryDate: new Date('2026-05-25'),
+          status: 'CONFIRMED',
+          notes: 'Cliente solicita colores corporativos: azul y blanco',
+          subtotal: 450000,
+          taxRate: 0.19,
+          tax: 85500,
+          discountAmount: 0,
+          total: 535500,
+          paidAmount: 200000,
+          balance: 335500,
+          clientId: client1.id,
+          createdById: adminUserForOrders.id,
+          ...(channelWhatsApp && {
+            commercialChannelId: channelWhatsApp.id,
+          }),
+          items: {
+            create: [
+              {
+                description:
+                  'Tarjetas de presentación full color, papel propalcote 300gr',
+                quantity: 1000,
+                unitPrice: 250000,
+                total: 250000,
+                sortOrder: 1,
+                productId: tarjetasProduct.id,
+                specifications: {
+                  material: 'Propalcote 300gr',
+                  tamaño: '9x5 cm',
+                  acabado: 'Laminado mate',
+                  colores: 'Full color (4x4)',
+                },
+                ...(areaPapeleria && {
+                  productionAreas: {
+                    create: [{ productionAreaId: areaPapeleria.id }],
+                  },
+                }),
               },
-            },
-            {
-              description: 'Banner publicitario 1x2 metros',
-              quantity: 10,
-              unitPrice: 20000,
-              total: 200000,
-              sortOrder: 2,
-              serviceId: bannerService.id,
-              specifications: {
-                material: 'Lona mate 13oz',
-                tamaño: '1x2 metros',
-                impresion: 'Full color',
+              {
+                description: 'Banner publicitario 1x2 metros',
+                quantity: 10,
+                unitPrice: 20000,
+                total: 200000,
+                sortOrder: 2,
+                productId: bannerProduct.id,
+                specifications: {
+                  material: 'Lona mate 13oz',
+                  tamaño: '1x2 metros',
+                  impresion: 'Full color',
+                },
+                ...(areaPloter && {
+                  productionAreas: {
+                    create: [{ productionAreaId: areaPloter.id }],
+                  },
+                }),
               },
+            ],
+          },
+          payments: {
+            create: {
+              amount: 200000,
+              paymentMethod: 'TRANSFER',
+              paymentDate: new Date('2026-01-15'),
+              reference: 'TRANSF-001-2026',
+              notes: 'Abono inicial 40%',
+              receivedById: adminUserForOrders.id,
             },
-          ],
-        },
-        payments: {
-          create: {
-            amount: 200000,
-            paymentMethod: 'TRANSFER',
-            paymentDate: new Date('2024-01-15'),
-            reference: 'TRANSF-001-2024',
-            notes: 'Abono inicial 40%',
-            receivedById: adminUserForOrders.id,
           },
         },
-      },
-    });
-    console.log(`  ✓ Order: ${order1.orderNumber} - ${order1.status}`);
+      });
+      console.log(`  ✓ Order: ${order1.orderNumber} - ${order1.status}`);
+    } else {
+      console.log(`  ↩ Order already exists: OP-2026-0001`);
+    }
   }
 
-  // Orden 2: IN_PRODUCTION con items y múltiples pagos
-  if (client2 && sellosService && tarjetasService && adminUserForOrders) {
-    const order2 = await prisma.order.create({
-      data: {
-        orderNumber: 'OP-2024-002',
-        orderDate: new Date('2024-01-18'),
-        deliveryDate: new Date('2024-01-28'),
-        status: 'IN_PRODUCTION',
-        notes: 'Entrega urgente. Cliente requiere factura electrónica',
-        subtotal: 850000,
-        taxRate: 0.19,
-        tax: 161500,
-        total: 1011500,
-        paidAmount: 800000,
-        balance: 211500,
-        clientId: client2.id,
-        createdById: adminUserForOrders.id,
-        items: {
-          create: [
-            {
-              description: 'Sellos automáticos empresariales con logo',
-              quantity: 5,
-              unitPrice: 80000,
-              total: 400000,
-              sortOrder: 1,
-              serviceId: sellosService.id,
-              specifications: {
-                tipo: 'Automático Trodat 4913',
-                tamaño: '58x22 mm',
-                tinta: 'Negro',
-                incluye: 'Logo + texto personalizado',
-              },
-            },
-            {
-              description: 'Tarjetas de presentación premium doble cara',
-              quantity: 1500,
-              unitPrice: 300,
-              total: 450000,
-              sortOrder: 2,
-              serviceId: tarjetasService.id,
-              specifications: {
-                material: 'Cartulina Bristol 240gr',
-                tamaño: '9x5 cm',
-                acabado: 'Laminado UV brillante',
-                colores: 'Full color doble cara (4x4)',
-                extras: 'Stamping dorado',
-              },
-            },
-          ],
-        },
-        payments: {
-          create: [
-            {
-              amount: 500000,
-              paymentMethod: 'TRANSFER',
-              paymentDate: new Date('2024-01-18'),
-              reference: 'TRANSF-002-2024',
-              notes: 'Abono inicial 50%',
-              receivedById: adminUserForOrders.id,
-            },
-            {
-              amount: 300000,
-              paymentMethod: 'CARD',
-              paymentDate: new Date('2024-01-22'),
-              reference: 'CARD-003-2024',
-              notes: 'Segundo abono',
-              receivedById: adminUserForOrders.id,
-            },
-          ],
-        },
-      },
+  // Orden 2: IN_PRODUCTION con IVA, factura electrónica, canal Corporativo, áreas de producción
+  if (client2 && sellosProduct && tarjetasProduct && adminUserForOrders) {
+    const existingOrder2 = await prisma.order.findFirst({
+      where: { orderNumber: 'OP-2026-0002' },
     });
-    console.log(`  ✓ Order: ${order2.orderNumber} - ${order2.status}`);
+    if (!existingOrder2) {
+      const order2 = await prisma.order.create({
+        data: {
+          orderNumber: 'OP-2026-0002',
+          orderDate: new Date('2026-01-18'),
+          deliveryDate: new Date('2026-04-28'),
+          status: 'IN_PRODUCTION',
+          notes: 'Entrega urgente.',
+          subtotal: 850000,
+          taxRate: 0.19,
+          tax: 161500,
+          discountAmount: 0,
+          total: 1011500,
+          paidAmount: 800000,
+          balance: 211500,
+          electronicInvoiceNumber: 'FE-2026-00001',
+          clientId: client2.id,
+          createdById: adminUserForOrders.id,
+          ...(channelCorporativo && {
+            commercialChannelId: channelCorporativo.id,
+          }),
+          items: {
+            create: [
+              {
+                description: 'Sellos automáticos empresariales con logo',
+                quantity: 5,
+                unitPrice: 80000,
+                total: 400000,
+                sortOrder: 1,
+                productId: sellosProduct.id,
+                specifications: {
+                  tipo: 'Automático Trodat 4913',
+                  tamaño: '58x22 mm',
+                  tinta: 'Negro',
+                  incluye: 'Logo + texto personalizado',
+                },
+                ...(areaDiseño && {
+                  productionAreas: {
+                    create: [{ productionAreaId: areaDiseño.id }],
+                  },
+                }),
+              },
+              {
+                description: 'Tarjetas de presentación premium doble cara',
+                quantity: 1500,
+                unitPrice: 300,
+                total: 450000,
+                sortOrder: 2,
+                productId: tarjetasProduct.id,
+                specifications: {
+                  material: 'Cartulina Bristol 240gr',
+                  tamaño: '9x5 cm',
+                  acabado: 'Laminado UV brillante',
+                  colores: 'Full color doble cara (4x4)',
+                  extras: 'Stamping dorado',
+                },
+                ...(areaPapeleria && {
+                  productionAreas: {
+                    create: [{ productionAreaId: areaPapeleria.id }],
+                  },
+                }),
+              },
+            ],
+          },
+          payments: {
+            create: [
+              {
+                amount: 500000,
+                paymentMethod: 'TRANSFER',
+                paymentDate: new Date('2026-01-18'),
+                reference: 'TRANSF-002-2026',
+                notes: 'Abono inicial 50%',
+                receivedById: adminUserForOrders.id,
+              },
+              {
+                amount: 300000,
+                paymentMethod: 'CARD',
+                paymentDate: new Date('2026-01-22'),
+                reference: 'CARD-003-2026',
+                notes: 'Segundo abono',
+                receivedById: adminUserForOrders.id,
+              },
+            ],
+          },
+        },
+      });
+      console.log(`  ✓ Order: ${order2.orderNumber} - ${order2.status} (con factura electrónica: FE-2026-00001)`);
+    } else {
+      console.log(`  ↩ Order already exists: OP-2026-0002`);
+    }
+  }
+
+  // Orden 3: SIN IVA — canal Tienda Física, área de producción Promocionales + Costura
+  if (client1 && adminUserForOrders) {
+    const existingOrder3 = await prisma.order.findFirst({
+      where: { orderNumber: 'OP-2026-0003' },
+    });
+    if (!existingOrder3) {
+      const order3 = await prisma.order.create({
+        data: {
+          orderNumber: 'OP-2026-0003',
+          orderDate: new Date('2026-01-20'),
+          deliveryDate: new Date('2026-03-30'),
+          status: 'READY',
+          notes: 'Orden sin IVA. No aplica factura electrónica.',
+          subtotal: 300000,
+          taxRate: 0,
+          tax: 0,
+          discountAmount: 0,
+          total: 300000,
+          paidAmount: 300000,
+          balance: 0,
+          clientId: client1.id,
+          createdById: adminUserForOrders.id,
+          ...(channelTiendaFisica && {
+            commercialChannelId: channelTiendaFisica.id,
+          }),
+          items: {
+            create: [
+              {
+                description: 'Gorras bordadas sin IVA',
+                quantity: 10,
+                unitPrice: 30000,
+                total: 300000,
+                sortOrder: 1,
+                specifications: {
+                  color: 'Negro',
+                  logo: 'Bordado frontal',
+                },
+                productionAreas: {
+                  create: [
+                    ...(areaPromocionales ? [{ productionAreaId: areaPromocionales.id }] : []),
+                    ...(areaCostura ? [{ productionAreaId: areaCostura.id }] : []),
+                  ],
+                },
+              },
+            ],
+          },
+          payments: {
+            create: {
+              amount: 300000,
+              paymentMethod: 'CASH',
+              paymentDate: new Date('2026-01-20'),
+              reference: 'EFVO-001-2026',
+              notes: 'Pago completo en efectivo',
+              receivedById: adminUserForOrders.id,
+            },
+          },
+        },
+      });
+      console.log(`  ✓ Order: ${order3.orderNumber} - ${order3.status} (sin IVA)`);
+    } else {
+      console.log(`  ↩ Order already exists: OP-2026-0003`);
+    }
   }
 
   // ============================================
-  // 13. Crear Consecutivos Iniciales
+  // 13. Crear Cotizaciones de Prueba
+  // ============================================
+  console.log('\n📄 Creating test quotes...');
+
+  let quotesCreatedCount = 0;
+  if (client1 && client2 && tarjetasProduct && bannerProduct && adminUserForOrders) {
+    const quotesToCreateData = [
+      {
+        quoteNumber: 'COT-2026-0001',
+        clientId: client1.id,
+        quoteDate: new Date('2026-02-01'),
+        validUntil: new Date('2026-03-01'),
+        subtotal: 150000,
+        taxRate: 0.19,
+        tax: 28500,
+        total: 178500,
+        status: QuoteStatus.SENT,
+        notes: 'Cotización inicial para papelería corporativa',
+        createdById: adminUserForOrders.id,
+        items: [
+          {
+            description: 'Tarjetas de presentación x 1000',
+            quantity: 2,
+            unitPrice: 75000,
+            total: 150000,
+            productId: tarjetasProduct.id,
+            sortOrder: 1,
+            productionAreas: areaPapeleria ? [areaPapeleria.id] : [],
+          }
+        ]
+      },
+      {
+        quoteNumber: 'COT-2026-0002',
+        clientId: client2.id,
+        quoteDate: new Date('2026-02-05'),
+        validUntil: new Date('2026-03-05'),
+        subtotal: 350000,
+        taxRate: 0.19,
+        tax: 66500,
+        total: 416500,
+        status: QuoteStatus.ACCEPTED,
+        notes: 'Cliente aceptó vía correo electrónico',
+        createdById: adminUserForOrders.id,
+        items: [
+          {
+            description: 'Banner 1x2 metros',
+            quantity: 10,
+            unitPrice: 35000,
+            total: 350000,
+            productId: bannerProduct.id,
+            sortOrder: 1,
+            productionAreas: areaPloter ? [areaPloter.id] : [],
+          }
+        ]
+      }
+    ];
+
+    for (const quoteData of quotesToCreateData) {
+      const existingQuote = await prisma.quote.findFirst({
+        where: { quoteNumber: quoteData.quoteNumber },
+      });
+
+      if (!existingQuote) {
+        const { items, ...quoteBaseData } = quoteData;
+        const quote = await prisma.quote.create({
+          data: {
+            ...quoteBaseData,
+            items: {
+              create: items.map(item => ({
+                description: item.description,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                total: item.total,
+                productId: item.productId,
+                sortOrder: item.sortOrder,
+                productionAreas: {
+                  create: item.productionAreas.map(areaId => ({
+                    productionAreaId: areaId
+                  }))
+                }
+              }))
+            }
+          }
+        });
+        console.log(`  ✓ Quote: ${quote.quoteNumber} - ${quote.status}`);
+        quotesCreatedCount++;
+      } else {
+        console.log(`  ↩ Quote already exists: ${quoteData.quoteNumber}`);
+      }
+    }
+  }
+
+  // ============================================
+  // 14. Crear Consecutivos Iniciales
   // ============================================
   console.log('\n🔢 Creating initial consecutives...');
 
@@ -1806,7 +2032,7 @@ async function main() {
       type: 'ORDER',
       prefix: 'OP',
       year: new Date().getFullYear(),
-      lastNumber: 0,
+      lastNumber: 3,
     },
     {
       type: 'PRODUCTION',
@@ -1820,12 +2046,20 @@ async function main() {
       year: new Date().getFullYear(),
       lastNumber: 0,
     },
+    {
+      type: 'QUOTE',
+      prefix: 'COT',
+      year: new Date().getFullYear(),
+      lastNumber: 2,
+    },
   ];
 
   for (const consecutive of consecutivesData) {
     await prisma.consecutive.upsert({
       where: { type: consecutive.type },
-      update: {},
+      update: {
+        lastNumber: consecutive.lastNumber,
+      },
       create: consecutive,
     });
     console.log(`  ✓ Consecutive: ${consecutive.type} (${consecutive.prefix})`);
@@ -1868,145 +2102,151 @@ async function main() {
       create: productionAreaData,
     });
     console.log(`  ✓ Production Area: ${productionAreaData.name}`);
-    // 14. Crear Canales de Venta (Commercial Channels)
-    // ============================================
-    console.log('\n🛒 Creating commercial channels...');
-
-    const commercialChannelsData = [
-      {
-        name: 'Tienda Física',
-        description: 'Ventas realizadas en nuestras tiendas físicas',
-      },
-      {
-        name: 'Tienda Online',
-        description: 'Ventas a través del sitio web y plataforma e-commerce',
-      },
-      {
-        name: 'WhatsApp',
-        description: 'Ventas realizadas por pedidos vía WhatsApp',
-      },
-      {
-        name: 'Redes Sociales',
-        description:
-          'Ventas generadas desde Facebook, Instagram y otras redes sociales',
-      },
-      {
-        name: 'Marketplace',
-        description: 'Ventas en plataformas como Mercado Libre, Amazon, etc.',
-      },
-      {
-        name: 'Distribuidores',
-        description: 'Ventas a través de nuestra red de distribuidores',
-      },
-      {
-        name: 'Clientes Corporativos',
-        description: 'Ventas directas a empresas y contratos corporativos',
-      },
-    ];
-
-    let channelsCreated = 0;
-    for (const channelData of commercialChannelsData) {
-      await prisma.commercialChannel.upsert({
-        where: { name: channelData.name },
-        update: {
-          description: channelData.description,
-        },
-        create: channelData,
-      });
-      console.log(`  ✓ Channel: ${channelData.name}`);
-      channelsCreated++;
-    }
-
-    // ============================================
-    // 15. Crear Estados Editables de Órdenes
-    // ============================================
-    console.log('\n🔧 Creating editable order statuses...');
-
-    const editableStatuses = [
-      {
-        orderStatus: OrderStatus.DRAFT,
-        allowEditRequests: false,
-        description: 'Borrador - ya es editable sin solicitud',
-      },
-      {
-        orderStatus: OrderStatus.CONFIRMED,
-        allowEditRequests: true,
-        description: 'Confirmada - requiere solicitud de edición',
-      },
-      {
-        orderStatus: OrderStatus.IN_PRODUCTION,
-        allowEditRequests: true,
-        description: 'En producción - requiere solicitud de edición',
-      },
-      {
-        orderStatus: OrderStatus.READY,
-        allowEditRequests: true,
-        description: 'Lista - requiere solicitud de edición',
-      },
-      {
-        orderStatus: OrderStatus.DELIVERED,
-        allowEditRequests: true,
-        description: 'Entregada - requiere solicitud de edición',
-      },
-      {
-        orderStatus: OrderStatus.WARRANTY,
-        allowEditRequests: true,
-        description: 'Garantía - requiere solicitud de edición',
-      },
-      {
-        orderStatus: OrderStatus.RETURNED,
-        allowEditRequests: true,
-        description: 'Devolución - requiere solicitud de edición',
-      },
-      {
-        orderStatus: OrderStatus.PAID,
-        allowEditRequests: false,
-        description: 'Pagada - no se puede editar',
-      },
-    ];
-
-    for (const status of editableStatuses) {
-      await prisma.editableOrderStatus.upsert({
-        where: { orderStatus: status.orderStatus },
-        update: status,
-        create: status,
-      });
-      console.log(
-        `  ✓ ${status.orderStatus}: ${status.allowEditRequests ? 'Allow requests' : 'No requests'}`,
-      );
-    }
-
-    // ============================================
-    // Resumen
-    // ============================================
-    console.log('\n' + '='.repeat(50));
-    console.log('✅ Database seeded successfully!\n');
-    console.log('📋 Summary:');
-    console.log(`   - Permissions: ${permissionsData.length}`);
-    console.log(`   - Roles: 3 (admin, manager, user)`);
-    console.log(`   - Users: 3`);
-    console.log(`   - Areas: ${areasData.length}`);
-    console.log(`   - Cargos: ${cargosData.length}`);
-    console.log(`   - Departments: ${departmentsData.length}`);
-    console.log(`   - Cities: ${totalCities}`);
-    console.log(`   - Clients: ${clientsCreated}`);
-    console.log(`   - Suppliers: ${suppliersCreated}`);
-    console.log(`   - Units of Measure: ${unitsOfMeasureData.length}`);
-    console.log(`   - Service Categories: ${serviceCategoriesData.length}`);
-    console.log(`   - Services: ${servicesCreated}`);
-    console.log(`   - Supply Categories: ${supplyCategoriesData.length}`);
-    console.log(`   - Supplies: ${suppliesCreated}`);
-    console.log(`   - Orders: 2`);
-    console.log(`   - Consecutives: ${consecutivesData.length}`);
-    console.log(`   - Production Areas: ${productionAreasData.length}`);
-    console.log(`   - Commercial Channels: ${channelsCreated}`);
-    console.log(`   - Editable Order Statuses: ${editableStatuses.length}`);
-    console.log('\n🔐 Test Credentials:');
-    console.log('   Admin:   admin@example.com / admin123');
-    console.log('   Manager: manager@example.com / manager123');
-    console.log('   User:    user@example.com / user123');
-    console.log('='.repeat(50) + '\n');
   }
+
+  // ============================================
+  // 14. Crear Canales de Venta (Commercial Channels)
+  // ============================================
+  console.log('\n🛒 Creating commercial channels...');
+
+  const commercialChannelsData = [
+    {
+      name: 'Tienda Física',
+      description: 'Ventas realizadas en nuestras tiendas físicas',
+    },
+    {
+      name: 'Tienda Online',
+      description: 'Ventas a través del sitio web y plataforma e-commerce',
+    },
+    {
+      name: 'WhatsApp',
+      description: 'Ventas realizadas por pedidos vía WhatsApp',
+    },
+    {
+      name: 'Redes Sociales',
+      description:
+        'Ventas generadas desde Facebook, Instagram y otras redes sociales',
+    },
+    {
+      name: 'Marketplace',
+      description: 'Ventas en plataformas como Mercado Libre, Amazon, etc.',
+    },
+    {
+      name: 'Distribuidores',
+      description: 'Ventas a través de nuestra red de distribuidores',
+    },
+    {
+      name: 'Clientes Corporativos',
+      description: 'Ventas directas a empresas y contratos corporativos',
+    },
+  ];
+
+  let channelsCreated = 0;
+  for (const channelData of commercialChannelsData) {
+    await prisma.commercialChannel.upsert({
+      where: { name: channelData.name },
+      update: { description: channelData.description },
+      create: channelData,
+    });
+    console.log(`  ✓ Channel: ${channelData.name}`);
+    channelsCreated++;
+  }
+
+  // ============================================
+  // 15. Crear Estados Editables de Órdenes
+  // ============================================
+  console.log('\n🔧 Creating editable order statuses...');
+
+  const editableStatuses = [
+    {
+      orderStatus: OrderStatus.DRAFT,
+      allowEditRequests: false,
+      description: 'Borrador - ya es editable sin solicitud',
+    },
+    {
+      orderStatus: OrderStatus.CONFIRMED,
+      allowEditRequests: true,
+      description: 'Confirmada - requiere solicitud de edición',
+    },
+    {
+      orderStatus: OrderStatus.IN_PRODUCTION,
+      allowEditRequests: true,
+      description: 'En producción - requiere solicitud de edición',
+    },
+    {
+      orderStatus: OrderStatus.READY,
+      allowEditRequests: true,
+      description: 'Lista - requiere solicitud de edición',
+    },
+    {
+      orderStatus: OrderStatus.DELIVERED,
+      allowEditRequests: true,
+      description: 'Entregada - requiere solicitud de edición',
+    },
+    {
+      orderStatus: OrderStatus.DELIVERED_ON_CREDIT,
+      allowEditRequests: true,
+      description: 'Entregado a crédito - requiere solicitud de edición',
+    },
+    {
+      orderStatus: OrderStatus.WARRANTY,
+      allowEditRequests: true,
+      description: 'Garantía - requiere solicitud de edición',
+    },
+    {
+      orderStatus: OrderStatus.RETURNED,
+      allowEditRequests: true,
+      description: 'Devolución - requiere solicitud de edición',
+    },
+    {
+      orderStatus: OrderStatus.PAID,
+      allowEditRequests: false,
+      description: 'Pagada - no se puede editar',
+    },
+  ];
+
+  for (const status of editableStatuses) {
+    await prisma.editableOrderStatus.upsert({
+      where: { orderStatus: status.orderStatus },
+      update: status,
+      create: status,
+    });
+    console.log(
+      `  ✓ ${status.orderStatus}: ${status.allowEditRequests ? 'Allow requests' : 'No requests'}`,
+    );
+  }
+
+  // ============================================
+  // Resumen
+  // ============================================
+  console.log('\n' + '='.repeat(50));
+  console.log('✅ Database seeded successfully!\n');
+  console.log('📋 Summary:');
+  console.log(`   - Permissions: ${permissionsData.length}`);
+  console.log(`   - Roles: 3 (admin, manager, user)`);
+  console.log(`   - Users: 3`);
+  console.log(`   - Areas: ${areasData.length}`);
+  console.log(`   - Cargos: ${cargosData.length}`);
+  console.log(`   - Departments: ${departmentsData.length}`);
+  console.log(`   - Cities: ${totalCities}`);
+  console.log(`   - Clients: ${clientsCreated}`);
+  console.log(`   - Suppliers: ${suppliersCreated}`);
+  console.log(`   - Units of Measure: ${unitsOfMeasureData.length}`);
+  console.log(`   - Product Categories: ${productCategoriesData.length}
+   - Products: ${productsCreated}
+   - Quotes: ${quotesCreatedCount} / 2 expected`);
+  console.log(`   - Supply Categories: ${supplyCategoriesData.length}`);
+  console.log(`   - Supplies: ${suppliesCreated}`);
+  console.log(`   - Orders: 3 (2 con IVA, 1 sin IVA)`);
+  console.log(`   - Consecutives: ${consecutivesData.length}`);
+  console.log(`   - Production Areas: ${productionAreasData.length}`);
+  console.log(`   - Commercial Channels: ${channelsCreated}`);
+  console.log(`   - Editable Order Statuses: ${editableStatuses.length}`);
+  console.log('\n🔐 Test Credentials:');
+  console.log('   Admin:   admin@example.com / admin123');
+  console.log('   Manager: manager@example.com / manager123');
+  console.log('   User:    user@example.com / user123');
+  console.log('='.repeat(50) + '\n');
 }
 
 main()

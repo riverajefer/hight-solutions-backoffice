@@ -14,13 +14,23 @@ import {
   Stack,
   Autocomplete,
   Chip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
 } from '@mui/material';
-import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
+import {
+  Delete as DeleteIcon,
+  Add as AddIcon,
+  CloudUpload as UploadIcon,
+  Visibility as VisibilityIcon,
+  Close as CloseIcon,
+} from '@mui/icons-material';
 import { v4 as uuidv4 } from 'uuid';
-import { useServices } from '../../portfolio/services/hooks/useServices';
-import type { Service } from '../../../types/service.types';
+import { useProducts } from '../../portfolio/products/hooks/useProducts';
+import type { Product } from '../../../types/product.types';
 import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
 import type { ProductionArea } from '../../../types/production-area.types';
+import axiosInstance from '../../../api/axios';
 
 export interface QuoteItemRow {
   id: string;
@@ -28,9 +38,10 @@ export interface QuoteItemRow {
   quantity: string;
   unitPrice: string;
   total: number;
-  serviceId?: string;
+  productId?: string;
   specifications?: any;
   productionAreaIds?: string[];
+  sampleImageId?: string;
 }
 
 interface QuoteItemsTableProps {
@@ -38,6 +49,9 @@ interface QuoteItemsTableProps {
   onChange: (items: QuoteItemRow[]) => void;
   errors?: Record<string, any>;
   disabled?: boolean;
+  quoteId?: string; // For uploading images on existing quotes
+  onImageUpload?: (itemId: string, file: File) => Promise<void>;
+  onImageDelete?: (itemId: string) => Promise<void>;
 }
 
 const formatCurrency = (value: number): string => {
@@ -61,12 +75,22 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
   onChange,
   errors = {},
   disabled = false,
+  quoteId,
+  onImageUpload,
+  onImageDelete,
 }) => {
-  const { servicesQuery } = useServices();
-  const services: Service[] = servicesQuery.data || [];
+  const { productsQuery } = useProducts();
+  const products: Product[] = productsQuery.data || [];
 
   const { productionAreasQuery } = useProductionAreas();
   const productionAreas: ProductionArea[] = productionAreasQuery.data || [];
+
+  const [viewImageDialog, setViewImageDialog] = React.useState<{
+    open: boolean;
+    url: string;
+  }>({ open: false, url: '' });
+
+  const [uploadingItemId, setUploadingItemId] = React.useState<string | null>(null);
 
   const handleAddRow = () => {
     const newItem: QuoteItemRow = {
@@ -107,6 +131,36 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
     onChange(updatedItems);
   };
 
+  const handleImageUpload = async (itemId: string, file: File) => {
+    if (!onImageUpload) return;
+    setUploadingItemId(itemId);
+    try {
+      await onImageUpload(itemId, file);
+    } finally {
+      setUploadingItemId(null);
+    }
+  };
+
+  const handleImageDelete = async (itemId: string) => {
+    if (!onImageDelete) return;
+    setUploadingItemId(itemId);
+    try {
+      await onImageDelete(itemId);
+    } finally {
+      setUploadingItemId(null);
+    }
+  };
+
+  const handleViewImage = async (sampleImageId: string) => {
+    try {
+      // Get signed URL from storage API using axiosInstance (handles auth automatically)
+      const { data } = await axiosInstance.get(`/storage/${sampleImageId}/url`);
+      setViewImageDialog({ open: true, url: data.url });
+    } catch (error) {
+      console.error('Error loading image:', error);
+    }
+  };
+
   const subtotal = items.reduce((sum, item) => sum + item.total, 0);
 
   return (
@@ -127,12 +181,13 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
                 },
               }}
             >
-              <TableCell width="8%" align="center">Cantidad</TableCell>
-              <TableCell width="25%">Servicio (Opcional)</TableCell>
-              <TableCell width="25%">Descripción</TableCell>
-              <TableCell width="17%">Áreas de Producción</TableCell>
-              <TableCell width="12%" align="right">Valor Unitario</TableCell>
-              <TableCell width="8%" align="right">Valor Total</TableCell>
+              {quoteId && <TableCell width="8%" align="center">Imagen</TableCell>}
+              <TableCell width={quoteId ? "7%" : "8%"} align="center">Cantidad</TableCell>
+              <TableCell width={quoteId ? "22%" : "25%"}>Servicio (Opcional)</TableCell>
+              <TableCell width={quoteId ? "22%" : "25%"}>Descripción</TableCell>
+              <TableCell width={quoteId ? "15%" : "17%"}>Áreas de Producción</TableCell>
+              <TableCell width={quoteId ? "11%" : "12%"} align="right">Valor Unitario</TableCell>
+              <TableCell width={quoteId ? "10%" : "8%"} align="right">Valor Total</TableCell>
               <TableCell width="5%" align="center">Acciones</TableCell>
             </TableRow>
           </TableHead>
@@ -142,6 +197,52 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
 
               return (
                 <TableRow key={item.id} hover>
+                  {quoteId && (
+                    <TableCell align="center">
+                      {item.sampleImageId ? (
+                        <Stack direction="row" spacing={0.5} justifyContent="center">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleViewImage(item.sampleImageId!)}
+                            disabled={uploadingItemId === item.id}
+                          >
+                            <VisibilityIcon fontSize="small" />
+                          </IconButton>
+                          {onImageDelete && (
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleImageDelete(item.id)}
+                              disabled={disabled || uploadingItemId === item.id}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          )}
+                        </Stack>
+                      ) : (
+                        onImageUpload && (
+                          <IconButton
+                            size="small"
+                            component="label"
+                            disabled={disabled || uploadingItemId === item.id}
+                          >
+                            <UploadIcon fontSize="small" />
+                            <input
+                              type="file"
+                              hidden
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  handleImageUpload(item.id, file);
+                                }
+                              }}
+                            />
+                          </IconButton>
+                        )
+                      )}
+                    </TableCell>
+                  )}
                   <TableCell>
                     <TextField
                       fullWidth
@@ -155,21 +256,21 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
                     />
                   </TableCell>
                   <TableCell>
-                    <Autocomplete<Service>
+                    <Autocomplete<Product>
                       size="small"
-                      options={services}
+                      options={products}
                       getOptionLabel={(option) => option.name}
-                      value={services.find((s) => s.id === item.serviceId) || null}
+                      value={products.find((s) => s.id === item.productId) || null}
                       onChange={(_event, newValue) => {
                         const updatedItems = items.map((i) => {
                           if (i.id !== item.id) return i;
                           const quantity = parseFloat(i.quantity);
                           const hasBasePrice = newValue?.basePrice !== undefined && newValue?.basePrice !== null;
                           const basePriceValue = hasBasePrice ? Number(newValue!.basePrice!) : parseFloat(i.unitPrice);
-                          
-                          return { 
-                            ...i, 
-                            serviceId: newValue?.id || undefined,
+
+                          return {
+                            ...i,
+                            productId: newValue?.id || undefined,
                             description: i.description || newValue?.name || '',
                             unitPrice: i.unitPrice || (hasBasePrice ? newValue!.basePrice!.toString() : ''),
                             total: !isNaN(quantity) && !isNaN(basePriceValue) ? quantity * basePriceValue : i.total
@@ -178,7 +279,7 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
                         onChange(updatedItems);
                       }}
                       disabled={disabled}
-                      renderInput={(params) => <TextField {...params} size="small" placeholder="Buscar servicio..." />}
+                      renderInput={(params) => <TextField {...params} size="small" placeholder="Buscar producto..." />}
                     />
                   </TableCell>
                   <TableCell>
@@ -302,6 +403,37 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
           Agregar Ítem
         </Button>
       </Stack>
+
+      {/* View Image Dialog */}
+      <Dialog
+        open={viewImageDialog.open}
+        onClose={() => setViewImageDialog({ open: false, url: '' })}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          Imagen de Muestra
+          <IconButton
+            onClick={() => setViewImageDialog({ open: false, url: '' })}
+            sx={{ position: 'absolute', right: 8, top: 8 }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <Box
+            component="img"
+            src={viewImageDialog.url}
+            alt="Muestra"
+            sx={{
+              width: '100%',
+              height: 'auto',
+              maxHeight: '70vh',
+              objectFit: 'contain',
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };

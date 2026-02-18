@@ -1,7 +1,7 @@
 import { Client } from './client.types';
 import type { User } from './user.types';
 import { CommercialChannel } from './commercialChannel.types';
-import { Service } from './service.types';
+import { Product } from './product.types';
 
 export enum QuoteStatus {
   DRAFT = 'DRAFT',
@@ -28,14 +28,15 @@ export const QUOTE_STATUS_CONFIG: Record<
 export interface QuoteItem {
   id: string;
   quoteId: string;
-  serviceId?: string;
+  productId?: string;
   description: string;
   quantity: number | string;
   unitPrice: number | string;
   total: number | string;
   specifications?: any;
+  sampleImageId?: string;
   sortOrder: number;
-  service?: Service;
+  service?: Product;
   createdAt: string;
   updatedAt: string;
 }
@@ -72,11 +73,12 @@ export interface Quote {
 
 export interface CreateQuoteItemDto {
   id?: string;
-  serviceId?: string;
+  productId?: string;
   description: string;
   quantity: number;
   unitPrice: number;
   specifications?: any;
+  sampleImageId?: string;
 }
 
 export interface CreateQuoteDto {

@@ -12,8 +12,11 @@ import {
   useTheme,
   useMediaQuery,
   alpha,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
+import MenuIcon from '@mui/icons-material/Menu';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import SecurityIcon from '@mui/icons-material/Security';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
@@ -40,16 +43,21 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import PostAddIcon from '@mui/icons-material/PostAdd';
+import PendingActionsIcon from '@mui/icons-material/PendingActions';
 import { useAuthStore } from '../../store/authStore';
 import { ROUTES, PERMISSIONS } from '../../utils/constants';
-import { gradients, neonColors, neonAccents, darkSurfaces } from '../../theme';
+import { neonColors, neonAccents } from '../../theme';
 import logo from '../../assets/logo.png';
 
 const DRAWER_WIDTH = 280;
+const DRAWER_WIDTH_COLLAPSED = 72;
+const SIDEBAR_GRADIENT = 'linear-gradient(180deg, #151c3a 0%, #1c315a 100%)';
 
 interface SidebarProps {
   open: boolean;
   onClose?: () => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 interface NavItemSub {
@@ -72,7 +80,7 @@ interface NavItem {
 /**
  * Sidebar con navegación estilo Neón Elegante
  */
-export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = false, onToggleCollapse }) => {
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -140,6 +148,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
           permission: PERMISSIONS.READ_ORDERS,
         },
         {
+          label: 'Solicitudes de Cambio de Estado',
+          icon: <PendingActionsIcon />,
+          path: ROUTES.STATUS_CHANGE_REQUESTS,
+          permission: PERMISSIONS.APPROVE_ORDERS,
+        },
+        {
           label: 'Clientes',
           icon: <BadgeIcon />,
           path: ROUTES.CLIENTS,
@@ -176,10 +190,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
           permission: PERMISSIONS.READ_PRODUCTION_AREAS,
         },
         {
-          label: 'Servicios',
+          label: 'Productos',
           icon: <MiscellaneousServicesIcon />,
-          path: ROUTES.SERVICES,
-          permission: PERMISSIONS.READ_SERVICES,
+          path: ROUTES.PRODUCTS,
+          permission: PERMISSIONS.READ_PRODUCTS,
         },
         {
           label: 'Insumos',
@@ -188,10 +202,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
           permission: PERMISSIONS.READ_SUPPLIES,
         },
         {
-          label: 'Categorías Servicios',
+          label: 'Categorías Productos',
           icon: <CategoryOutlinedIcon />,
-          path: ROUTES.SERVICE_CATEGORIES,
-          permission: PERMISSIONS.READ_SERVICE_CATEGORIES,
+          path: ROUTES.PRODUCT_CATEGORIES,
+          permission: PERMISSIONS.READ_PRODUCT_CATEGORIES,
         },
         {
           label: 'Categorías Insumos',
@@ -209,9 +223,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
       permissions: [
         PERMISSIONS.READ_SUPPLIERS,
         PERMISSIONS.READ_PRODUCTION_AREAS,
-        PERMISSIONS.READ_SERVICES,
+        PERMISSIONS.READ_PRODUCTS,
         PERMISSIONS.READ_SUPPLIES,
-        PERMISSIONS.READ_SERVICE_CATEGORIES,
+        PERMISSIONS.READ_PRODUCT_CATEGORIES,
         PERMISSIONS.READ_SUPPLY_CATEGORIES,
         PERMISSIONS.READ_UNITS_OF_MEASURE,
       ],
@@ -303,10 +317,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
         ? `0 2px 8px ${alpha(neonColors.primary.main, 0.15)}`
         : 'none',
     color: active
-      ? isDark
-        ? neonColors.primary.main
-        : neonColors.primary.dark
-      : theme.palette.text.primary,
+      ? '#FFFFFF'
+      : 'rgba(255, 255, 255, 0.7)',
     '&::before': active ? {
       content: '""',
       position: 'absolute',
@@ -320,13 +332,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
       boxShadow: isDark ? `0 0 10px ${neonColors.primary.main}` : 'none',
     } : {},
     '&:hover': {
-      backgroundColor: alpha(neonColors.primary.main, isDark ? 0.15 : 0.08),
+      backgroundColor: 'rgba(255, 255, 255, 0.08)',
       transform: 'translateX(4px)',
     },
     '& .MuiListItemIcon-root': {
       color: active
-        ? neonColors.primary.main
-        : theme.palette.text.primary,
+        ? '#FFFFFF'
+        : 'rgba(255, 255, 255, 0.7)',
       minWidth: 36,
       transition: 'all 0.3s ease',
       filter: active && isDark
@@ -345,56 +357,78 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        background: isDark
-          ? gradients.darkSidebar
-          : `linear-gradient(180deg, #F1F5F9 0%, #EDE9FE 100%)`,
+        background: SIDEBAR_GRADIENT,
       }}
     >
-      {/* Logo Container */}
-      <Box
-        sx={{
-          p: 1.5,
-          m: 1.5,
-          mb: 2,
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          borderRadius: '12px',
-          background: isDark
-            ? `linear-gradient(135deg, ${darkSurfaces.navyMist} 0%, ${darkSurfaces.cosmicPurple} 100%)`
-            : `linear-gradient(135deg, #1e293b 0%, #0f172a 100%)`,
-          boxShadow: isDark
-            ? `0 6px 20px ${alpha(neonColors.primary.main, 0.15)}, 0 0 15px ${alpha(neonAccents.vividPurple, 0.1)}`
-            : '0 8px 20px -5px rgba(0, 0, 0, 0.15)',
-          border: isDark
-            ? `1px solid ${alpha(neonAccents.vividPurple, 0.3)}`
-            : 'none',
-          transition: 'all 0.3s ease',
-          '&:hover': {
-            boxShadow: isDark
-              ? `0 10px 30px ${alpha(neonColors.primary.main, 0.2)}, 0 0 20px ${alpha(neonAccents.vividPurple, 0.15)}`
-              : '0 12px 25px -5px rgba(0, 0, 0, 0.2)',
-            transform: 'translateY(-1.5px)',
-          },
-        }}
-      >
+      {/* Hamburger Button - Only on Desktop */}
+      {!isMobile && onToggleCollapse && (
         <Box
-          component="img"
-          src={logo}
-          alt="Hight Solutions Logo"
           sx={{
-            width: '100%',
-            maxWidth: 130,
-            height: 'auto',
-            objectFit: 'contain',
-            transition: 'transform 0.3s ease',
-            filter: isDark ? 'drop-shadow(0 0 8px rgba(46, 176, 196, 0.3))' : 'none',
-            '&:hover': {
-              transform: 'scale(1.05)',
-            }
+            display: 'flex',
+            justifyContent: collapsed ? 'center' : 'flex-end',
+            p: 1.5,
+            px: collapsed ? 1.5 : 2,
           }}
-        />
-      </Box>
+        >
+          <Tooltip title={collapsed ? 'Expandir sidebar' : 'Contraer sidebar'} placement="right">
+            <IconButton
+              onClick={onToggleCollapse}
+              sx={{
+                color: isDark ? neonColors.primary.main : neonColors.primary.dark,
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  backgroundColor: alpha(neonColors.primary.main, isDark ? 0.2 : 0.1),
+                  transform: 'scale(1.1)',
+                },
+              }}
+            >
+              <MenuIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      )}
+
+      {/* Logo Container */}
+      {!collapsed && (
+        <Box
+          sx={{
+            p: 1.5,
+            m: 1.5,
+            mb: 2,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            borderRadius: '12px',
+            background: 'rgba(0, 0, 0, 0.2)',
+            boxShadow: 'none',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              boxShadow: isDark
+                ? `0 10px 30px ${alpha(neonColors.primary.main, 0.2)}, 0 0 20px ${alpha(neonAccents.vividPurple, 0.15)}`
+                : '0 12px 25px -5px rgba(0, 0, 0, 0.2)',
+              transform: 'translateY(-1.5px)',
+            },
+          }}
+        >
+          <Box
+            component="img"
+            src={logo}
+            alt="Hight Solutions Logo"
+            sx={{
+              width: '100%',
+              maxWidth: 130,
+              height: 'auto',
+              objectFit: 'contain',
+              transition: 'transform 0.3s ease',
+              filter: isDark ? 'drop-shadow(0 0 8px rgba(46, 176, 196, 0.3))' : 'none',
+              '&:hover': {
+                transform: 'scale(1.05)',
+              }
+            }}
+          />
+        </Box>
+      )}
 
       {/* Navigation List */}
       <List 
@@ -439,16 +473,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
             return (
               <React.Fragment key={index}>
                 <ListItem disablePadding sx={{ display: 'block' }}>
-                  <ListItemButton
-                    onClick={() => handleMenuClick(menuKey)}
-                    sx={getItemStyles(isSubChildActive)}
-                  >
-                    <ListItemIcon>{item.icon}</ListItemIcon>
-                    <ListItemText primary={item.label} />
-                    {isMenuOpen ? <ExpandLess sx={{ fontSize: '1.2rem' }} /> : <ExpandMore sx={{ fontSize: '1.2rem' }} />}
-                  </ListItemButton>
+                  <Tooltip title={collapsed ? item.label : ''} placement="right">
+                    <ListItemButton
+                      onClick={() => handleMenuClick(menuKey)}
+                      sx={{
+                        ...getItemStyles(isSubChildActive),
+                        justifyContent: collapsed ? 'center' : 'flex-start',
+                      }}
+                    >
+                      <ListItemIcon sx={{ minWidth: collapsed ? 'auto' : 36 }}>{item.icon}</ListItemIcon>
+                      {!collapsed && <ListItemText primary={item.label} />}
+                      {!collapsed && (isMenuOpen ? <ExpandLess sx={{ fontSize: '1.2rem' }} /> : <ExpandMore sx={{ fontSize: '1.2rem' }} />)}
+                    </ListItemButton>
+                  </Tooltip>
                 </ListItem>
-                <Collapse in={isMenuOpen} timeout="auto" unmountOnExit>
+                <Collapse in={isMenuOpen && !collapsed} timeout="auto" unmountOnExit>
                   <List component="div" disablePadding sx={{ mb: 0.25 }}>
                     {item.submenu.map((subitem, subindex) => {
                       if (subitem.permission && !hasPermission(subitem.permission)) {
@@ -458,35 +497,37 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
                       const active = isActive(subitem.path, siblingPaths);
                       return (
                         <ListItem key={subindex} disablePadding>
-                          <ListItemButton
-                            component={RouterLink}
-                            to={subitem.path}
-                            sx={{
-                              ...getItemStyles(active),
-                              pl: 2.5,
-                              py: 0.3,
-                              mx: 1.25,
-                              '&:hover': {
-                                ...getItemStyles(active)['&:hover'],
-                                transform: 'translateX(3px)',
-                              }
-                            }}
-                          >
-                            {subitem.icon && (
-                              <ListItemIcon sx={{ minWidth: 30, '& .MuiSvgIcon-root': { fontSize: '1.05rem' } }}>
-                                {subitem.icon}
-                              </ListItemIcon>
-                            )}
-                            <ListItemText 
-                              primary={subitem.label} 
-                              primaryTypographyProps={{ 
-                                sx: { 
-                                  fontSize: '0.8rem',
-                                  fontWeight: active ? 600 : 400
-                                } 
-                              }} 
-                            />
-                          </ListItemButton>
+                          <Tooltip title={collapsed ? subitem.label : ''} placement="right">
+                            <ListItemButton
+                              component={RouterLink}
+                              to={subitem.path}
+                              sx={{
+                                ...getItemStyles(active),
+                                pl: 2.5,
+                                py: 0.3,
+                                mx: 1.25,
+                                '&:hover': {
+                                  ...getItemStyles(active)['&:hover'],
+                                  transform: 'translateX(3px)',
+                                }
+                              }}
+                            >
+                              {subitem.icon && (
+                                <ListItemIcon sx={{ minWidth: 30, '& .MuiSvgIcon-root': { fontSize: '1.05rem' } }}>
+                                  {subitem.icon}
+                                </ListItemIcon>
+                              )}
+                              <ListItemText 
+                                primary={subitem.label} 
+                                primaryTypographyProps={{ 
+                                  sx: { 
+                                    fontSize: '0.8rem',
+                                    fontWeight: active ? 600 : 400
+                                  } 
+                                }} 
+                              />
+                            </ListItemButton>
+                          </Tooltip>
                         </ListItem>
                       );
                     })}
@@ -500,73 +541,74 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
           const active = isActive(item.path!, topLevelPaths);
           return (
             <ListItem key={index} disablePadding>
-              <ListItemButton
-                component={RouterLink}
-                to={item.path!}
-                sx={getItemStyles(active)}
-              >
-                <ListItemIcon>{item.icon}</ListItemIcon>
-                <ListItemText primary={item.label} />
-              </ListItemButton>
+              <Tooltip title={collapsed ? item.label : ''} placement="right">
+                <ListItemButton
+                  component={RouterLink}
+                  to={item.path!}
+                  sx={{
+                    ...getItemStyles(active),
+                    justifyContent: collapsed ? 'center' : 'flex-start',
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: collapsed ? 'auto' : 36 }}>{item.icon}</ListItemIcon>
+                  {!collapsed && <ListItemText primary={item.label} />}
+                </ListItemButton>
+              </Tooltip>
             </ListItem>
           );
         })}
       </List>
 
       {/* Session Status Card */}
-      <Box sx={{ mt: 'auto', p: 2, mb: 1 }}>
-        <Box
-          sx={{
-            p: 2,
-            borderRadius: '16px',
-            background: isDark
-              ? `linear-gradient(135deg, ${alpha(neonColors.primary.main, 0.1)}, ${alpha(neonAccents.vividPurple, 0.08)})`
-              : alpha(neonColors.primary.main, 0.04),
-            border: `1px solid ${isDark
-              ? alpha(neonAccents.vividPurple, 0.2)
-              : alpha(neonColors.primary.main, 0.1)}`,
-            boxShadow: isDark
-              ? `0 0 15px ${alpha(neonColors.primary.main, 0.1)}`
-              : 'none',
-          }}
-        >
-          <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-            Estado de Sesión
-          </Typography>
-          <Typography
-            variant="caption"
+      {!collapsed && (
+        <Box sx={{ mt: 'auto', p: 2, mb: 1 }}>
+          <Box
             sx={{
-              color: 'success.main',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 0.5,
-              mt: 0.5,
+              p: 2,
+              borderRadius: '16px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              boxShadow: 'none',
             }}
           >
-            <Box
+            <Typography variant="body2" sx={{ fontWeight: 600, color: '#FFFFFF' }}>
+              Estado de Sesión
+            </Typography>
+            <Typography
+              variant="caption"
               sx={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                bgcolor: 'success.main',
-                boxShadow: isDark
-                  ? `0 0 8px ${theme.palette.success.main}, 0 0 16px ${alpha(theme.palette.success.main, 0.5)}`
-                  : 'none',
-                animation: isDark ? 'pulse 2s infinite' : 'none',
-                '@keyframes pulse': {
-                  '0%, 100%': {
-                    boxShadow: `0 0 8px ${theme.palette.success.main}`,
-                  },
-                  '50%': {
-                    boxShadow: `0 0 16px ${theme.palette.success.main}, 0 0 24px ${alpha(theme.palette.success.main, 0.5)}`,
-                  },
-                },
+                color: 'success.main',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                mt: 0.5,
               }}
-            />
-            En línea
-          </Typography>
+            >
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  bgcolor: 'success.main',
+                  boxShadow: isDark
+                    ? `0 0 8px ${theme.palette.success.main}, 0 0 16px ${alpha(theme.palette.success.main, 0.5)}`
+                    : 'none',
+                  animation: isDark ? 'pulse 2s infinite' : 'none',
+                  '@keyframes pulse': {
+                    '0%, 100%': {
+                      boxShadow: `0 0 8px ${theme.palette.success.main}`,
+                    },
+                    '50%': {
+                      boxShadow: `0 0 16px ${theme.palette.success.main}, 0 0 24px ${alpha(theme.palette.success.main, 0.5)}`,
+                    },
+                  },
+                }}
+              />
+              En línea
+            </Typography>
+          </Box>
         </Box>
-      </Box>
+      )}
     </Box>
   );
 
@@ -580,9 +622,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
           sx: {
             width: DRAWER_WIDTH,
             borderRight: 'none',
-            background: isDark
-              ? gradients.darkSidebar
-              : `linear-gradient(180deg, #F1F5F9 0%, #EDE9FE 100%)`,
+            background: SIDEBAR_GRADIENT,
           }
         }}
       >
@@ -594,7 +634,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
   return (
     <Box
       sx={{
-        width: DRAWER_WIDTH,
+        width: collapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH,
         flexShrink: 0,
         borderRight: `1px solid ${isDark
           ? alpha(neonAccents.vividPurple, 0.2)
@@ -602,9 +642,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
         height: '100vh',
         position: 'sticky',
         top: 0,
-        background: isDark
-          ? gradients.darkSidebar
-          : `linear-gradient(180deg, #F1F5F9 0%, #EDE9FE 100%)`,
+        background: SIDEBAR_GRADIENT,
+        transition: 'width 0.3s ease',
       }}
     >
       {content}

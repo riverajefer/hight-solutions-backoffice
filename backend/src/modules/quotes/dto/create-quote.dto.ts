@@ -27,7 +27,7 @@ export class CreateQuoteItemDto {
   })
   @IsOptional()
   @IsUUID()
-  serviceId?: string;
+  productId?: string;
 
   @ApiProperty({
     description: 'Descripción del item',
@@ -58,6 +58,14 @@ export class CreateQuoteItemDto {
   })
   @IsOptional()
   specifications?: Record<string, any>;
+
+  @ApiPropertyOptional({
+    description: 'ID de la imagen de muestra del item',
+    example: 'uuid-image',
+  })
+  @IsOptional()
+  @IsUUID()
+  sampleImageId?: string;
 
   @ApiPropertyOptional({
     description: 'IDs de las áreas de producción',

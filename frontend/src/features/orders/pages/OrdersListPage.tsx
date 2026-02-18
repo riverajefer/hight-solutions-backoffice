@@ -14,6 +14,8 @@ import { GridColDef } from '@mui/x-data-grid';
 import {
   ShoppingCart as ShoppingCartIcon,
   SwapHoriz as SwapHorizIcon,
+  WarningAmber as WarningAmberIcon,
+  Today as TodayIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -25,6 +27,31 @@ import { useClients } from '../../clients/hooks/useClients';
 import { OrderStatusChip, ChangeStatusDialog } from '../components';
 import type { Order, OrderStatus, FilterOrdersDto } from '../../../types/order.types';
 import type { Client } from '../../../types/client.types';
+
+// Estados que se consideran "finalizados" — no se alertan aunque la fecha esté vencida
+const CLOSED_STATUSES: OrderStatus[] = [
+  'DELIVERED',
+  'DELIVERED_ON_CREDIT',
+  'WARRANTY',
+  'PAID',
+];
+
+type DeliveryAlert = 'overdue' | 'due-today' | null;
+
+function getDeliveryAlert(order: Order): DeliveryAlert {
+  if (!order.deliveryDate) return null;
+  if (CLOSED_STATUSES.includes(order.status)) return null;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const delivery = new Date(order.deliveryDate);
+  delivery.setHours(0, 0, 0, 0);
+
+  if (delivery < today) return 'overdue';
+  if (delivery.getTime() === today.getTime()) return 'due-today';
+  return null;
+}
 
 const formatCurrency = (value: string): string => {
   const numValue = parseFloat(value);
@@ -118,7 +145,9 @@ export const OrdersListPage: React.FC = () => {
         status: newStatus,
       });
     } catch (error) {
-      // Error is handled by the mutation
+      // Relanzar el error para que el componente ChangeStatusDialog lo maneje
+      // Especialmente importante para errores 403 que requieren autorización
+      throw error;
     }
   };
 
@@ -149,9 +178,37 @@ export const OrdersListPage: React.FC = () => {
     {
       field: 'deliveryDate',
       headerName: 'Fecha Entrega',
-      width: 130,
-      renderCell: (params) =>
-        params.value ? formatDate(params.value) : '-',
+      width: 160,
+      renderCell: (params) => {
+        if (!params.value) return '-';
+
+        const alert = getDeliveryAlert(params.row);
+        const dateStr = formatDate(params.value);
+
+        if (alert === 'overdue') {
+          return (
+            <Tooltip title="Retraso en la entrega o el cliente no ha recogido el producto">
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'error.main', fontWeight: 600 }}>
+                <WarningAmberIcon fontSize="small" />
+                <span>{dateStr}</span>
+              </Box>
+            </Tooltip>
+          );
+        }
+
+        if (alert === 'due-today') {
+          return (
+            <Tooltip title="Se entrega hoy">
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'info.main', fontWeight: 600 }}>
+                <TodayIcon fontSize="small" />
+                <span>{dateStr}</span>
+              </Box>
+            </Tooltip>
+          );
+        }
+
+        return dateStr;
+      },
     },
     // creado por
     {
@@ -159,6 +216,30 @@ export const OrdersListPage: React.FC = () => {
       headerName: 'Creado por',
       width: 150,
       valueGetter: (_, row) => row.createdBy?.firstName + ' ' + row.createdBy?.lastName,
+    },
+    {
+      field: 'taxRate',
+      headerName: 'IVA',
+      width: 80,
+      align: 'center',
+      headerAlign: 'center',
+      renderCell: (params) => {
+        const hasIva = parseFloat(params.value) > 0;
+        return (
+          <Box
+            sx={{
+              px: 1,
+              py: 0.25,
+              borderRadius: 1,
+              color: hasIva ? 'success.dark' : 'text.secondary',
+              fontWeight: 600,
+              fontSize: '0.75rem',
+            }}
+          >
+            {hasIva ? 'SÍ' : 'NO'}
+          </Box>
+        );
+      },
     },
     {
       field: 'total',
@@ -335,6 +416,12 @@ export const OrdersListPage: React.FC = () => {
         onRowClick={handleViewOrder}
         pageSize={filters.limit}
         emptyMessage="No se encontraron órdenes"
+        getRowClassName={(params) => {
+          const alert = getDeliveryAlert(params.row);
+          if (alert === 'overdue') return 'row-overdue';
+          if (alert === 'due-today') return 'row-due-today';
+          return '';
+        }}
       />
 
       {/* Confirm Delete Dialog */}

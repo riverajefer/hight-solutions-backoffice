@@ -6,6 +6,7 @@ import {
 import { QuotesRepository } from './quotes.repository';
 import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { StorageService } from '../storage/storage.service';
 import {
   CreateQuoteDto,
   UpdateQuoteDto,
@@ -23,6 +24,7 @@ export class QuotesService {
     private readonly consecutivesService: ConsecutivesService,
     private readonly prisma: PrismaService,
     private readonly auditLogsService: AuditLogsService,
+    private readonly storageService: StorageService,
   ) {}
 
   async findAll(filters: FilterQuotesDto) {
@@ -60,8 +62,11 @@ export class QuotesService {
         total: itemTotal,
         specifications: item.specifications || undefined,
         sortOrder: index + 1,
-        ...(item.serviceId && {
-          service: { connect: { id: item.serviceId } },
+        ...(item.productId && {
+          product: { connect: { id: item.productId } },
+        }),
+        ...(item.sampleImageId && {
+          sampleImageId: item.sampleImageId,
         }),
       };
 
@@ -158,7 +163,8 @@ export class QuotesService {
               unitPrice: item.unitPrice,
               total: itemTotal,
               specifications: item.specifications || undefined,
-              ...(item.serviceId && { serviceId: item.serviceId }),
+              ...(item.productId && { productId: item.productId }),
+              ...(item.sampleImageId !== undefined && { sampleImageId: item.sampleImageId }),
             },
           });
           
@@ -186,7 +192,8 @@ export class QuotesService {
               total: itemTotal,
               specifications: item.specifications || undefined,
               sortOrder: currentItems.length - idsToDelete.length + i + 1,
-              ...(item.serviceId && { serviceId: item.serviceId }),
+              ...(item.productId && { productId: item.productId }),
+              ...(item.sampleImageId && { sampleImageId: item.sampleImageId }),
             },
           });
           
@@ -267,8 +274,9 @@ export class QuotesService {
               unitPrice: item.unitPrice,
               total: item.total,
               specifications: item.specifications || undefined,
+              sampleImageId: item.sampleImageId,
               sortOrder: item.sortOrder,
-              serviceId: item.serviceId,
+              productId: item.productId,
             })),
           },
         },
@@ -285,6 +293,94 @@ export class QuotesService {
 
       return newOrder;
     });
+  }
+
+  async uploadItemSampleImage(
+    quoteId: string,
+    itemId: string,
+    file: Express.Multer.File,
+    userId: string,
+  ) {
+    // Verify quote exists
+    const quote = await this.findOne(quoteId);
+
+    // Verify item belongs to this quote
+    const item = await this.prisma.quoteItem.findFirst({
+      where: {
+        id: itemId,
+        quoteId: quoteId,
+      },
+    });
+
+    if (!item) {
+      throw new NotFoundException(
+        `Quote item with ID ${itemId} not found in quote ${quoteId}`,
+      );
+    }
+
+    // If item already has a sample image, delete it first
+    if (item.sampleImageId) {
+      try {
+        await this.storageService.deleteFile(item.sampleImageId);
+      } catch (error) {
+        // Log error but continue - file might already be deleted
+        console.error(
+          `Failed to delete existing sample image ${item.sampleImageId}:`,
+          error,
+        );
+      }
+    }
+
+    // Upload new image
+    const uploadedFile = await this.storageService.uploadFile(file, {
+      entityType: 'quote-item',
+      entityId: itemId,
+      userId,
+    });
+
+    // Update quote item with new image ID
+    await this.prisma.quoteItem.update({
+      where: { id: itemId },
+      data: { sampleImageId: uploadedFile.id },
+    });
+
+    return uploadedFile;
+  }
+
+  async deleteItemSampleImage(quoteId: string, itemId: string) {
+    // Verify quote exists
+    const quote = await this.findOne(quoteId);
+
+    // Verify item belongs to this quote
+    const item = await this.prisma.quoteItem.findFirst({
+      where: {
+        id: itemId,
+        quoteId: quoteId,
+      },
+    });
+
+    if (!item) {
+      throw new NotFoundException(
+        `Quote item with ID ${itemId} not found in quote ${quoteId}`,
+      );
+    }
+
+    if (!item.sampleImageId) {
+      throw new BadRequestException(
+        `Quote item ${itemId} does not have a sample image`,
+      );
+    }
+
+    // Delete file from storage
+    await this.storageService.deleteFile(item.sampleImageId);
+
+    // Remove reference from quote item
+    await this.prisma.quoteItem.update({
+      where: { id: itemId },
+      data: { sampleImageId: null },
+    });
+
+    return { message: 'Sample image deleted successfully' };
   }
 
   private async recalculateQuoteTotals(id: string, tx: Prisma.TransactionClient) {
@@ -308,7 +404,7 @@ export class QuotesService {
       where: { id },
       data: { subtotal, tax, total },
       include: {
-        items: { include: { service: true } },
+        items: { include: { product: true } },
         client: true,
       },
     });

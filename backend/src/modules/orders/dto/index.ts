@@ -5,3 +5,5 @@ export * from './add-order-item.dto';
 export * from './update-order-item.dto';
 export * from './filter-orders.dto';
 export * from './update-order-status.dto';
+export * from './apply-discount.dto';
+export * from './register-electronic-invoice.dto';

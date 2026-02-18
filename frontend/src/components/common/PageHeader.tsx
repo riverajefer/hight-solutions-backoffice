@@ -41,18 +41,40 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         </Breadcrumbs>
       )}
 
-      <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-        <Box>
-          <Typography variant="h4" component="h1" sx={{ fontWeight: 700, mb: 1 }}>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="flex-start"
+        flexDirection={{ xs: 'column', sm: 'row' }}
+        gap={{ xs: 2, sm: 0 }}
+      >
+        <Box sx={{ flex: 1 }}>
+          <Typography
+            variant="h4"
+            component="h1"
+            sx={{
+              fontWeight: 700,
+              mb: 1,
+              fontSize: { xs: '1.5rem', sm: '1rem', md: '1.5rem' }
+            }}
+          >
             {title}
           </Typography>
           {subtitle && (
-            <Typography color="textSecondary" variant="body2">
+            <Typography
+              color="textSecondary"
+              variant="body2"
+              sx={{ fontSize: { xs: '0.813rem', sm: '0.875rem' } }}
+            >
               {subtitle}
             </Typography>
           )}
         </Box>
-        {action && <Box>{action}</Box>}
+        {action && (
+          <Box sx={{ width: { xs: '100%', sm: 'auto' } }}>
+            {action}
+          </Box>
+        )}
       </Box>
     </Box>
   );

@@ -11,14 +11,23 @@ export class OrdersRepository {
     orderNumber: true,
     orderDate: true,
     deliveryDate: true,
+
+    // Auditoría de cambios de fecha de entrega
+    previousDeliveryDate: true,
+    deliveryDateReason: true,
+    deliveryDateChangedAt: true,
+    deliveryDateChangedBy: true,
+
     subtotal: true,
     taxRate: true,
     tax: true,
+    discountAmount: true,
     total: true,
     paidAmount: true,
     balance: true,
     status: true,
     notes: true,
+    electronicInvoiceNumber: true,
     createdAt: true,
     updatedAt: true,
     commercialChannelId: true,
@@ -53,7 +62,7 @@ export class OrdersRepository {
         total: true,
         specifications: true,
         sortOrder: true,
-        service: {
+        product: {
           select: {
             id: true,
             name: true,
@@ -92,6 +101,23 @@ export class OrdersRepository {
         },
       },
       orderBy: { paymentDate: 'desc' as const },
+    },
+    discounts: {
+      select: {
+        id: true,
+        amount: true,
+        reason: true,
+        appliedAt: true,
+        appliedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: { appliedAt: 'desc' as const },
     },
   };
 
@@ -160,10 +186,30 @@ export class OrdersRepository {
   }
 
   async findById(id: string) {
-    return this.prisma.order.findUnique({
+    const order = await this.prisma.order.findUnique({
       where: { id },
       select: this.selectFields,
     });
+
+    // Si hay información de cambio de fecha, buscar el usuario que lo hizo
+    if (order && order.deliveryDateChangedBy) {
+      const changedByUser = await this.prisma.user.findUnique({
+        where: { id: order.deliveryDateChangedBy },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      });
+
+      return {
+        ...order,
+        deliveryDateChangedByUser: changedByUser,
+      };
+    }
+
+    return order;
   }
 
   async findByOrderNumber(orderNumber: string) {
@@ -206,6 +252,14 @@ export class OrdersRepository {
     return this.prisma.order.update({
       where: { id },
       data: { status },
+      select: this.selectFields,
+    });
+  }
+
+  async registerElectronicInvoice(id: string, electronicInvoiceNumber: string) {
+    return this.prisma.order.update({
+      where: { id },
+      data: { electronicInvoiceNumber },
       select: this.selectFields,
     });
   }
@@ -293,6 +347,7 @@ export class OrdersRepository {
         paymentDate: true,
         reference: true,
         notes: true,
+        receiptFileId: true,
         createdAt: true,
         receivedBy: {
           select: {
@@ -314,6 +369,7 @@ export class OrdersRepository {
     financials: {
       subtotal: Prisma.Decimal;
       tax: Prisma.Decimal;
+      discountAmount: Prisma.Decimal;
       total: Prisma.Decimal;
       paidAmount: Prisma.Decimal;
       balance: Prisma.Decimal;
@@ -323,6 +379,29 @@ export class OrdersRepository {
       where: { id: orderId },
       data: financials,
       select: this.selectFields,
+    });
+  }
+
+  // ========== DISCOUNT MANAGEMENT ==========
+
+  async findDiscountsByOrderId(orderId: string) {
+    return this.prisma.orderDiscount.findMany({
+      where: { orderId },
+      select: {
+        id: true,
+        amount: true,
+        reason: true,
+        appliedAt: true,
+        appliedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: { appliedAt: 'desc' },
     });
   }
 }

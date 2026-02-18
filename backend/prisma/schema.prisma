@@ -21,15 +21,18 @@ model User {
   firstName    String?
   lastName     String?
 
-  role                  Role               @relation(fields: [roleId], references: [id])
-  cargo                 Cargo?             @relation(fields: [cargoId], references: [id])
-  sessionLogs           SessionLog[]
-  createdOrders         Order[]
-  receivedPayments      Payment[]          @relation("ReceivedPayments")
-  requestedEditRequests OrderEditRequest[] @relation("RequestedEditRequests")
-  reviewedEditRequests  OrderEditRequest[] @relation("ReviewedEditRequests")
-  notifications         Notification[]
-  createdQuotes         Quote[]
+  role                         Role                       @relation(fields: [roleId], references: [id])
+  cargo                        Cargo?                     @relation(fields: [cargoId], references: [id])
+  sessionLogs                  SessionLog[]
+  createdOrders                Order[]
+  receivedPayments             Payment[]                  @relation("ReceivedPayments")
+  requestedEditRequests        OrderEditRequest[]         @relation("RequestedEditRequests")
+  reviewedEditRequests         OrderEditRequest[]         @relation("ReviewedEditRequests")
+  requestedStatusChangeRequests OrderStatusChangeRequest[] @relation("RequestedStatusChangeRequests")
+  reviewedStatusChangeRequests  OrderStatusChangeRequest[] @relation("ReviewedStatusChangeRequests")
+  notifications                Notification[]
+  createdQuotes                Quote[]
+  appliedDiscounts             OrderDiscount[]            @relation("AppliedDiscounts")
 
   @@map("users")
 }
@@ -184,18 +187,20 @@ model Client {
 }
 
 model Supplier {
-  id           String     @id @default(uuid())
-  name         String
-  phone        String?
-  address      String?
-  email        String     @unique
-  departmentId String     @map("department_id")
-  cityId       String     @map("city_id")
-  personType   PersonType @map("person_type")
-  nit          String?
-  isActive     Boolean    @default(true) @map("is_active")
-  createdAt    DateTime   @default(now()) @map("created_at")
-  updatedAt    DateTime   @updatedAt @map("updated_at")
+  id            String     @id @default(uuid())
+  name          String
+  encargado     String?
+  phone         String?
+  landlinePhone String?    @map("landline_phone")
+  address       String?
+  email         String     @unique
+  departmentId  String     @map("department_id")
+  cityId        String     @map("city_id")
+  personType    PersonType @map("person_type")
+  nit           String?
+  isActive      Boolean    @default(true) @map("is_active")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
 
   department Department @relation(fields: [departmentId], references: [id])
   city       City       @relation(fields: [cityId], references: [id])
@@ -245,10 +250,10 @@ model UnitOfMeasure {
 }
 
 // =============================================================================
-// MÓDULO DE CATÁLOGOS - FASE 2: CATEGORÍAS DE SERVICIOS
+// MÓDULO DE CATÁLOGOS - FASE 2: CATEGORÍAS DE PRODUCTOS
 // =============================================================================
 
-model ServiceCategory {
+model ProductCategory {
   id          String   @id @default(uuid())
   name        String   @unique
   slug        String   @unique
@@ -259,16 +264,16 @@ model ServiceCategory {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  services Service[]
+  products Product[]
 
-  @@map("service_categories")
+  @@map("product_categories")
 }
 
 // =============================================================================
-// MÓDULO DE CATÁLOGOS - FASE 3: SERVICIOS
+// MÓDULO DE CATÁLOGOS - FASE 3: PRODUCTOS
 // =============================================================================
 
-model Service {
+model Product {
   id          String   @id @default(uuid())
   name        String
   slug        String   @unique
@@ -280,12 +285,12 @@ model Service {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  category   ServiceCategory @relation(fields: [categoryId], references: [id])
+  category   ProductCategory @relation(fields: [categoryId], references: [id])
   orderItems OrderItem[]
   quoteItems QuoteItem[]
 
   @@unique([name, categoryId])
-  @@map("services")
+  @@map("products")
 }
 
 // =============================================================================
@@ -341,14 +346,15 @@ model Supply {
 // =============================================================================
 
 enum OrderStatus {
-  DRAFT         // Borrador (editable)
-  CONFIRMED     // Confirmada (bloqueada para edición)
-  IN_PRODUCTION // En producción
-  READY         // Lista para entrega
-  DELIVERED     // Entregada
-  WARRANTY      // Garantía
-  RETURNED      // Devolución
-  PAID          // Pagada
+  DRAFT              // Borrador (editable)
+  CONFIRMED          // Confirmada (bloqueada para edición)
+  IN_PRODUCTION      // En producción
+  READY              // Lista para entrega
+  DELIVERED          // Entregada
+  DELIVERED_ON_CREDIT // Entregado a crédito
+  WARRANTY           // Garantía
+  RETURNED           // Devolución
+  PAID               // Pagada
 }
 
 enum QuoteStatus {
@@ -379,16 +385,26 @@ model Order {
   orderDate    DateTime    @default(now()) @map("order_date")
   deliveryDate DateTime?   @map("delivery_date") // Fecha estimada de entrega
 
+  // Auditoría de cambios de fecha de entrega
+  previousDeliveryDate DateTime? @map("previous_delivery_date") // Última fecha de entrega anterior
+  deliveryDateReason   String?   @map("delivery_date_reason") // Razón del cambio de fecha
+  deliveryDateChangedAt DateTime? @map("delivery_date_changed_at") // Fecha del último cambio
+  deliveryDateChangedBy String?   @map("delivery_date_changed_by") // Usuario que cambió la fecha
+
   // Cálculos financieros
-  subtotal     Decimal     // Suma de todos los items
-  taxRate      Decimal     @default(0.19) @map("tax_rate") // IVA 19%
-  tax          Decimal     // subtotal * taxRate
-  total        Decimal     // subtotal + tax
-  paidAmount   Decimal     @default(0) @map("paid_amount") // Abonos realizados
-  balance      Decimal     // total - paidAmount (saldo pendiente)
+  subtotal       Decimal     // Suma de todos los items
+  taxRate        Decimal     @default(0.19) @map("tax_rate") // IVA 19%
+  tax            Decimal     // subtotal * taxRate
+  discountAmount Decimal     @default(0) @map("discount_amount") // Total de descuentos aplicados
+  total          Decimal     // subtotal + tax - discountAmount
+  paidAmount     Decimal     @default(0) @map("paid_amount") // Abonos realizados
+  balance        Decimal     // total - paidAmount (saldo pendiente)
 
   status       OrderStatus @default(DRAFT)
   notes        String?     // Observaciones generales
+
+  // Facturación electrónica (solo aplica cuando tax > 0)
+  electronicInvoiceNumber String? @map("electronic_invoice_number") // Número de factura electrónica (máx 30 chars)
 
   // Auditoría
   createdById  String      @map("created_by_id")
@@ -396,14 +412,16 @@ model Order {
   updatedAt    DateTime    @updatedAt @map("updated_at")
 
   // Relaciones
-  client             Client             @relation(fields: [clientId], references: [id])
-  createdBy          User               @relation(fields: [createdById], references: [id])
-  commercialChannelId String?           @map("commercial_channel_id")
-  commercialChannel   CommercialChannel? @relation(fields: [commercialChannelId], references: [id])
-  items              OrderItem[]
-  payments           Payment[]
-  editRequests       OrderEditRequest[]
-  
+  client                  Client                       @relation(fields: [clientId], references: [id])
+  createdBy               User                         @relation(fields: [createdById], references: [id])
+  commercialChannelId     String?                      @map("commercial_channel_id")
+  commercialChannel       CommercialChannel?           @relation(fields: [commercialChannelId], references: [id])
+  items                   OrderItem[]
+  payments                Payment[]
+  discounts               OrderDiscount[]
+  editRequests            OrderEditRequest[]
+  statusChangeRequests    OrderStatusChangeRequest[]
+
   // Referencia a la cotización de origen
   quoteId            String?            @unique @map("quote_id")
   quote              Quote?             @relation("QuoteToOrder")
@@ -457,7 +475,7 @@ model Quote {
 model QuoteItem {
   id             String  @id @default(uuid())
   quoteId        String  @map("quote_id")
-  serviceId      String? @map("service_id")
+  productId      String? @map("product_id")
 
   description    String
   quantity       Decimal
@@ -465,17 +483,19 @@ model QuoteItem {
   total          Decimal
 
   specifications Json?
+  sampleImageId  String? @map("sample_image_id") // ID de la imagen de muestra
 
   sortOrder      Int      @default(0) @map("sort_order")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
   quote           Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  service         Service? @relation(fields: [serviceId], references: [id])
+  product         Product? @relation(fields: [productId], references: [id])
   productionAreas QuoteItemProductionArea[]
 
   @@index([quoteId])
-  @@index([serviceId])
+  @@index([productId])
+  @@index([sampleImageId])
   @@map("quote_items")
 }
 
@@ -493,7 +513,7 @@ model QuoteItemProductionArea {
 model OrderItem {
   id             String  @id @default(uuid())
   orderId        String  @map("order_id")
-  serviceId      String? @map("service_id") // Opcional: servicio del catálogo
+  productId      String? @map("product_id") // Opcional: producto del catálogo
 
   // Datos del item
   description    String  // Descripción del servicio/producto
@@ -510,11 +530,11 @@ model OrderItem {
 
   // Relaciones
   order           Order                        @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  service         Service?                     @relation(fields: [serviceId], references: [id])
+  product         Product?                     @relation(fields: [productId], references: [id])
   productionAreas OrderItemProductionArea[]
 
   @@index([orderId])
-  @@index([serviceId])
+  @@index([productId])
   @@map("order_items")
 }
 
@@ -546,6 +566,7 @@ model Payment {
   paymentDate   DateTime      @default(now()) @map("payment_date")
   reference     String?       // Número de referencia/comprobante
   notes         String?       // Observaciones del pago
+  receiptFileId String?       @map("receipt_file_id") // ID del archivo de comprobante (relación con UploadedFile)
 
   // Auditoría
   receivedById  String        @map("received_by_id")
@@ -559,7 +580,30 @@ model Payment {
   @@index([orderId])
   @@index([receivedById])
   @@index([paymentDate])
+  @@index([receiptFileId])
   @@map("payments")
+}
+
+model OrderDiscount {
+  id          String   @id @default(uuid())
+  orderId     String   @map("order_id")
+  amount      Decimal  // Monto del descuento
+  reason      String   // Motivo/razón del descuento (obligatorio)
+
+  // Auditoría
+  appliedById String   @map("applied_by_id")
+  appliedAt   DateTime @default(now()) @map("applied_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  appliedBy   User     @relation("AppliedDiscounts", fields: [appliedById], references: [id])
+
+  @@index([orderId])
+  @@index([appliedById])
+  @@index([appliedAt])
+  @@map("order_discounts")
 }
 
 // =============================================================================
@@ -574,11 +618,14 @@ enum EditRequestStatus {
 }
 
 enum NotificationType {
-  EDIT_REQUEST_PENDING    // Nueva solicitud de edición
-  EDIT_REQUEST_APPROVED   // Solicitud aprobada
-  EDIT_REQUEST_REJECTED   // Solicitud rechazada
-  EDIT_PERMISSION_EXPIRING // Permiso por expirar (1 min antes)
-  EDIT_PERMISSION_EXPIRED  // Permiso expirado
+  EDIT_REQUEST_PENDING              // Nueva solicitud de edición
+  EDIT_REQUEST_APPROVED             // Solicitud aprobada
+  EDIT_REQUEST_REJECTED             // Solicitud rechazada
+  EDIT_PERMISSION_EXPIRING          // Permiso por expirar (1 min antes)
+  EDIT_PERMISSION_EXPIRED           // Permiso expirado
+  STATUS_CHANGE_REQUEST_PENDING     // Nueva solicitud de cambio de estado
+  STATUS_CHANGE_REQUEST_APPROVED    // Solicitud de cambio de estado aprobada
+  STATUS_CHANGE_REQUEST_REJECTED    // Solicitud de cambio de estado rechazada
 }
 
 model EditableOrderStatus {
@@ -620,6 +667,34 @@ model OrderEditRequest {
   @@index([status])
   @@index([expiresAt])
   @@map("order_edit_requests")
+}
+
+model OrderStatusChangeRequest {
+  id                String            @id @default(uuid())
+  orderId           String            @map("order_id")
+  requestedById     String            @map("requested_by_id")
+  currentStatus     OrderStatus       @map("current_status")
+  requestedStatus   OrderStatus       @map("requested_status")
+  reason            String?
+  status            EditRequestStatus @default(PENDING)
+
+  // Aprobación/rechazo
+  reviewedById      String?           @map("reviewed_by_id")
+  reviewedAt        DateTime?         @map("reviewed_at")
+  reviewNotes       String?           @map("review_notes")
+
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  // Relaciones
+  order             Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  requestedBy       User              @relation("RequestedStatusChangeRequests", fields: [requestedById], references: [id])
+  reviewedBy        User?             @relation("ReviewedStatusChangeRequests", fields: [reviewedById], references: [id])
+
+  @@index([orderId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("order_status_change_requests")
 }
 
 model Notification {
@@ -676,6 +751,27 @@ model CommercialChannel {
   quotes      Quote[]
 
   @@map("commercial_channels")
+}
+
+model UploadedFile {
+  id           String   @id @default(uuid())
+  originalName String   @map("original_name")
+  fileName     String   @unique @map("file_name")
+  mimeType     String   @map("mime_type")
+  size         Int
+  s3Key        String   @unique @map("s3_key")
+  s3Bucket     String   @map("s3_bucket")
+  entityType   String?  @map("entity_type")
+  entityId     String?  @map("entity_id")
+  uploadedBy   String?  @map("uploaded_by")
+  isDeleted    Boolean  @default(false) @map("is_deleted")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([entityType, entityId])
+  @@index([uploadedBy])
+  @@index([isDeleted])
+  @@map("uploaded_files")
 }
 
 

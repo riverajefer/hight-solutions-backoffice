@@ -107,6 +107,38 @@ export const dataGridStyles: SxProps<Theme> = {
         : alpha(theme.palette.primary.dark, 0.15),
   },
 
+  // Fila atrasada — entrega vencida y orden no finalizada
+  '& .MuiDataGrid-row.row-overdue': {
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? alpha(theme.palette.error.light, 0.15)
+        : alpha(theme.palette.error.dark, 0.25),
+    borderLeft: (theme) => `4px solid ${theme.palette.error.main}`,
+    '&:hover': {
+      backgroundColor: (theme) =>
+        theme.palette.mode === 'light'
+          ? alpha(theme.palette.error.light, 0.25)
+          : alpha(theme.palette.error.dark, 0.35),
+      transform: 'translateX(2px)',
+    },
+  },
+
+  // Fila entrega hoy — se entrega el día de hoy y orden no finalizada
+  '& .MuiDataGrid-row.row-due-today': {
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? alpha(theme.palette.info.light, 0.15)
+        : alpha(theme.palette.info.dark, 0.25),
+    borderLeft: (theme) => `4px solid ${theme.palette.info.main}`,
+    '&:hover': {
+      backgroundColor: (theme) =>
+        theme.palette.mode === 'light'
+          ? alpha(theme.palette.info.light, 0.25)
+          : alpha(theme.palette.info.dark, 0.35),
+      transform: 'translateX(2px)',
+    },
+  },
+
   // Footer
   '& .MuiDataGrid-footerContainer': {
     borderTop: '1px solid',

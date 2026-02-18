@@ -52,12 +52,12 @@ export const CustomToolbar: React.FC<CustomToolbarProps> = ({
   return (
     <Box
       sx={{
-        p: 2,
+        p: { xs: 1.5, sm: 2 },
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         flexWrap: 'wrap',
-        gap: 2,
+        gap: { xs: 1.5, sm: 2 },
         borderBottom: '1px solid',
         borderColor: 'divider',
         backgroundColor: isDark
@@ -73,8 +73,8 @@ export const CustomToolbar: React.FC<CustomToolbarProps> = ({
           gap: 1,
           alignItems: 'center',
           flex: 1,
-          minWidth: '280px',
-          maxWidth: '500px',
+          minWidth: { xs: '100%', sm: '200px', md: '280px' },
+          maxWidth: { xs: '100%', sm: '100%', md: '500px' },
         }}
       >
         {onSearchChange && (

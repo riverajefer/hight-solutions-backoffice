@@ -47,11 +47,11 @@ export class CreateClientDto {
     description: 'Número de celular',
     example: '3001234567',
     minLength: 10,
-    maxLength: 20,
+    maxLength: 10,
   })
   @IsString()
-  @MinLength(10, { message: 'El número de celular debe tener al menos 10 dígitos' })
-  @MaxLength(20, { message: 'El número de celular no puede exceder 20 caracteres' })
+  @MinLength(10, { message: 'El número de celular debe tener exactamente 10 dígitos' })
+  @MaxLength(10, { message: 'El número de celular no puede exceder 10 dígitos' })
   phone: string;
 
   @ApiPropertyOptional({
@@ -61,7 +61,7 @@ export class CreateClientDto {
   })
   @IsString()
   @IsOptional()
-  @MaxLength(20)
+  @MaxLength(10, { message: 'El teléfono fijo no puede exceder 10 dígitos' })
   landlinePhone?: string;
 
   @ApiPropertyOptional({
@@ -112,7 +112,7 @@ export class CreateClientDto {
   @IsString()
   @IsOptional()
   @MinLength(5, { message: 'El NIT debe tener al menos 5 caracteres' })
-  @MaxLength(20, { message: 'El NIT no puede exceder 20 caracteres' })
+  @MaxLength(12, { message: 'El NIT no puede exceder 11 caracteres' })
   nit?: string;
 
   @ApiPropertyOptional({
@@ -124,6 +124,6 @@ export class CreateClientDto {
   @IsString()
   @IsOptional()
   @MinLength(6, { message: 'La cédula debe tener al menos 6 caracteres' })
-  @MaxLength(15, { message: 'La cédula no puede exceder 15 caracteres' })
+  @MaxLength(10, { message: 'La cédula no puede exceder 10 dígitos' })
   cedula?: string;
 }

@@ -14,14 +14,16 @@ import {
   Stack,
   Autocomplete,
   Chip,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
 import { v4 as uuidv4 } from 'uuid';
 import type { OrderItemRow } from '../../../types/order.types';
 import { useProductionAreas } from '../../../features/production-areas/hooks/useProductionAreas';
 import type { ProductionArea } from '../../../types/production-area.types';
-import { useServices } from '../../portfolio/services/hooks/useServices';
-import type { Service } from '../../../types/service.types';
+import { useProducts } from '../../portfolio/products/hooks/useProducts';
+import type { Product } from '../../../types/product.types';
 
 interface OrderItemsTableProps {
   items: OrderItemRow[];
@@ -58,11 +60,15 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
   errors = {},
   disabled = false,
 }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('lg'));
+
   const { productionAreasQuery } = useProductionAreas();
   const productionAreas: ProductionArea[] = productionAreasQuery.data || [];
 
-  const { servicesQuery } = useServices();
-  const services: Service[] = servicesQuery.data || [];
+  const { productsQuery } = useProducts();
+  const products: Product[] = productsQuery.data || [];
 
   const handleAddRow = () => {
     const newItem: OrderItemRow = {
@@ -118,8 +124,34 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
 
   return (
     <Box>
-      <TableContainer>
-        <Table size="small">
+      {isMobile && (
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ display: 'block', mb: 1, fontStyle: 'italic' }}
+        >
+          Desliza horizontalmente para ver todas las columnas →
+        </Typography>
+      )}
+      <TableContainer
+        sx={{
+          overflowX: 'auto',
+          '&::-webkit-scrollbar': {
+            height: 8,
+          },
+          '&::-webkit-scrollbar-track': {
+            backgroundColor: 'transparent',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: 'rgba(0,0,0,0.2)',
+            borderRadius: 4,
+            '&:hover': {
+              backgroundColor: 'rgba(0,0,0,0.3)',
+            },
+          },
+        }}
+      >
+        <Table size="small" sx={{ minWidth: isMobile ? 1000 : 'auto' }}>
           <TableHead>
             <TableRow
               sx={{
@@ -141,25 +173,50 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                 },
               }}
             >
-              <TableCell width="8%" align="center">
+              <TableCell
+                width={isMobile ? '100px' : isTablet ? '8%' : '8%'}
+                align="center"
+                sx={{ minWidth: isMobile ? '100px' : 'auto' }}
+              >
                 Cantidad
               </TableCell>
-              <TableCell width="25%">
+              <TableCell
+                width={isMobile ? '200px' : isTablet ? '22%' : '25%'}
+                sx={{ minWidth: isMobile ? '200px' : 'auto' }}
+              >
                 Servicio (Opcional)
               </TableCell>
-              <TableCell width="25%">
+              <TableCell
+                width={isMobile ? '250px' : isTablet ? '25%' : '25%'}
+                sx={{ minWidth: isMobile ? '250px' : 'auto' }}
+              >
                 Descripción
               </TableCell>
-              <TableCell width="20%">
+              <TableCell
+                width={isMobile ? '220px' : isTablet ? '18%' : '20%'}
+                sx={{ minWidth: isMobile ? '220px' : 'auto' }}
+              >
                 Áreas de Producción
               </TableCell>
-              <TableCell width="12%" align="right">
+              <TableCell
+                width={isMobile ? '150px' : isTablet ? '12%' : '12%'}
+                align="right"
+                sx={{ minWidth: isMobile ? '150px' : 'auto' }}
+              >
                 Valor Unitario
               </TableCell>
-              <TableCell width="10%" align="right">
+              <TableCell
+                width={isMobile ? '120px' : isTablet ? '10%' : '10%'}
+                align="right"
+                sx={{ minWidth: isMobile ? '120px' : 'auto' }}
+              >
                 Valor Total
               </TableCell>
-              <TableCell width="5%" align="center">
+              <TableCell
+                width={isMobile ? '80px' : isTablet ? '5%' : '5%'}
+                align="center"
+                sx={{ minWidth: isMobile ? '80px' : 'auto' }}
+              >
                 Acciones
               </TableCell>
             </TableRow>
@@ -207,24 +264,24 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                     />
                   </TableCell>
 
-                  {/* Servicio */}
+                  {/* Producto */}
                   <TableCell>
-                    <Autocomplete<Service>
+                    <Autocomplete<Product>
                       size="small"
-                      options={services}
+                      options={products}
                       getOptionLabel={(option) => option.name}
-                      value={services.find((s) => s.id === item.serviceId) || null}
+                      value={products.find((s) => s.id === item.productId) || null}
                       onChange={(_event, newValue) => {
                         const updatedItems = items.map((i) => {
                           if (i.id !== item.id) return i;
-                          
+
                           const quantity = parseFloat(i.quantity);
                           const hasBasePrice = newValue?.basePrice !== undefined && newValue?.basePrice !== null;
                           const basePriceValue = hasBasePrice ? newValue!.basePrice! : parseFloat(i.unitPrice);
-                          
-                          return { 
-                            ...i, 
-                            serviceId: newValue?.id || undefined,
+
+                          return {
+                            ...i,
+                            productId: newValue?.id || undefined,
                             description: newValue?.name || '',
                             unitPrice: i.unitPrice || (hasBasePrice ? newValue!.basePrice!.toString() : ''),
                             total: !isNaN(quantity) && !isNaN(basePriceValue) ? quantity * basePriceValue : i.total
