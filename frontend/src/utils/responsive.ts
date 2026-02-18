@@ -120,7 +120,7 @@ export const createResponsiveStyles = (config: {
   gap?: keyof typeof responsiveGap;
   fontSize?: keyof typeof responsiveFontSize;
 }): SxProps<Theme> => {
-  const styles: SxProps<Theme> = {};
+  const styles: any = {};
 
   if (config.padding) {
     styles.p = responsivePadding[config.padding];
@@ -139,7 +139,7 @@ export const createResponsiveStyles = (config: {
     styles.fontSize = responsiveFontSize[config.fontSize];
   }
 
-  return styles;
+  return styles as SxProps<Theme>;
 };
 
 /**

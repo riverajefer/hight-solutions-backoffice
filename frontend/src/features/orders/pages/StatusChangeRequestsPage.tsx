@@ -21,7 +21,7 @@ import { useSnackbar } from 'notistack';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { DataTable } from '../../../components/common/DataTable';
 import { orderStatusChangeRequestsApi } from '../../../api/order-status-change-requests.api';
-import { ORDER_STATUS_CONFIG } from '../../../types/order.types';
+import { ORDER_STATUS_CONFIG, type OrderStatus } from '../../../types/order.types';
 import type { OrderStatusChangeRequest } from '../../../types/order-status-change-request.types';
 
 // ============================================================
@@ -165,7 +165,8 @@ export const StatusChangeRequestsPage: React.FC = () => {
       headerName: 'Estado Actual',
       width: 150,
       renderCell: (params) => {
-        const config = ORDER_STATUS_CONFIG[params.value];
+        const value = params.value as OrderStatus;
+        const config = ORDER_STATUS_CONFIG[value];
         return (
           <Chip
             label={config?.label || params.value}
@@ -180,7 +181,8 @@ export const StatusChangeRequestsPage: React.FC = () => {
       headerName: 'Estado Solicitado',
       width: 170,
       renderCell: (params) => {
-        const config = ORDER_STATUS_CONFIG[params.value];
+        const value = params.value as OrderStatus;
+        const config = ORDER_STATUS_CONFIG[value];
         return (
           <Chip
             label={config?.label || params.value}
@@ -240,17 +242,15 @@ export const StatusChangeRequestsPage: React.FC = () => {
 
         return [
           <GridActionsCellItem
-            icon={<CheckCircleIcon />}
+            icon={<CheckCircleIcon sx={{ color: 'success.main' }} />}
             label="Aprobar"
             onClick={() => handleApprove(params.row)}
-            color="success"
             showInMenu={false}
           />,
           <GridActionsCellItem
-            icon={<CancelIcon />}
+            icon={<CancelIcon sx={{ color: 'error.main' }} />}
             label="Rechazar"
             onClick={() => handleReject(params.row)}
-            color="error"
             showInMenu={false}
           />,
         ];
@@ -272,7 +272,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
           columns={columns}
           loading={isLoading}
           getRowId={(row) => row.id}
-          initialPageSize={25}
+          pageSize={25}
         />
       </Paper>
 
@@ -289,8 +289,8 @@ export const StatusChangeRequestsPage: React.FC = () => {
               </Typography>
               <Typography variant="body2" gutterBottom>
                 <strong>Cambio:</strong>{' '}
-                {ORDER_STATUS_CONFIG[reviewDialog.request.currentStatus]?.label} →{' '}
-                {ORDER_STATUS_CONFIG[reviewDialog.request.requestedStatus]?.label}
+                {ORDER_STATUS_CONFIG[reviewDialog.request.currentStatus as OrderStatus]?.label} →{' '}
+                {ORDER_STATUS_CONFIG[reviewDialog.request.requestedStatus as OrderStatus]?.label}
               </Typography>
               <Typography variant="body2" gutterBottom>
                 <strong>Solicitado por:</strong>{' '}
