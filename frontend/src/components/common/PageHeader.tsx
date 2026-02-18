@@ -12,6 +12,7 @@ interface PageHeaderProps {
   subtitle?: string;
   breadcrumbs?: Breadcrumb[];
   action?: React.ReactNode;
+  icon?: React.ReactNode;
 }
 
 /**
@@ -22,6 +23,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   subtitle,
   breadcrumbs = [],
   action,
+  icon,
 }) => {
   return (
     <Box sx={{ mb: 4 }}>
@@ -49,17 +51,23 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         gap={{ xs: 2, sm: 0 }}
       >
         <Box sx={{ flex: 1 }}>
-          <Typography
-            variant="h4"
-            component="h1"
-            sx={{
-              fontWeight: 700,
-              mb: 1,
-              fontSize: { xs: '1.5rem', sm: '1rem', md: '1.5rem' }
-            }}
-          >
-            {title}
-          </Typography>
+          <Box display="flex" alignItems="center" gap={1} sx={{ mb: 1 }}>
+            {icon && (
+              <Box sx={{ color: 'primary.main', display: 'flex' }}>
+                {icon}
+              </Box>
+            )}
+            <Typography
+              variant="h4"
+              component="h1"
+              sx={{
+                fontWeight: 700,
+                fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2.125rem' }
+              }}
+            >
+              {title}
+            </Typography>
+          </Box>
           {subtitle && (
             <Typography
               color="textSecondary"
