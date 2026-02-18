@@ -63,7 +63,7 @@ export class QuotesService {
         specifications: item.specifications || undefined,
         sortOrder: index + 1,
         ...(item.productId && {
-          service: { connect: { id: item.productId } },
+          product: { connect: { id: item.productId } },
         }),
         ...(item.sampleImageId && {
           sampleImageId: item.sampleImageId,

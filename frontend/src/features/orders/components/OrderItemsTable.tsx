@@ -270,7 +270,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                       size="small"
                       options={products}
                       getOptionLabel={(option) => option.name}
-                      value={products.find((s) => s.id === item.serviceId) || null}
+                      value={products.find((s) => s.id === item.productId) || null}
                       onChange={(_event, newValue) => {
                         const updatedItems = items.map((i) => {
                           if (i.id !== item.id) return i;
@@ -281,7 +281,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
 
                           return {
                             ...i,
-                            serviceId: newValue?.id || undefined,
+                            productId: newValue?.id || undefined,
                             description: newValue?.name || '',
                             unitPrice: i.unitPrice || (hasBasePrice ? newValue!.basePrice!.toString() : ''),
                             total: !isNaN(quantity) && !isNaN(basePriceValue) ? quantity * basePriceValue : i.total

@@ -143,7 +143,7 @@ export interface InitialPaymentDto {
 }
 
 export interface CreateOrderItemDto {
-  serviceId?: string;
+  productId?: string;
   description: string;
   quantity: number;
   unitPrice: number;
@@ -178,7 +178,7 @@ export interface UpdateOrderStatusDto {
 }
 
 export interface AddOrderItemDto {
-  serviceId?: string;
+  productId?: string;
   description: string;
   quantity: number;
   unitPrice: number;
@@ -191,7 +191,7 @@ export interface UpdateOrderItemDto {
   quantity?: number;
   unitPrice?: number;
   specifications?: Record<string, any>;
-  serviceId?: string;
+  productId?: string;
   productionAreaIds?: string[];
 }
 
@@ -246,7 +246,7 @@ export interface OrderItemRow {
   quantity: string; // String en UI para inputs controlados
   unitPrice: string; // String en UI
   total: number; // Calculado
-  serviceId?: string;
+  productId?: string;
   specifications?: Record<string, any>;
   productionAreaIds: string[];
 }

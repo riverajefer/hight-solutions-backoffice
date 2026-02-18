@@ -50,7 +50,7 @@ const orderItemSchema = z.object({
   quantity: z.string().min(1, 'La cantidad es requerida'),
   unitPrice: z.string().min(1, 'El precio unitario es requerido'),
   total: z.number().min(0),
-  serviceId: z.string().optional(),
+  productId: z.string().optional(),
   specifications: z.record(z.any()).optional(),
   productionAreaIds: z.array(z.string()),
 });
@@ -277,7 +277,7 @@ export const OrderFormPage: React.FC = () => {
           quantity: item.quantity.toString(),
           unitPrice: item.unitPrice,
           total: parseFloat(item.total),
-          serviceId: item.service?.id,
+          productId: item.service?.id,
           specifications: item.specifications || undefined,
           productionAreaIds: item.productionAreas
             ? item.productionAreas.map((pa) => pa.productionArea.id)
@@ -316,7 +316,7 @@ export const OrderFormPage: React.FC = () => {
           description: item.description,
           quantity: parseFloat(item.quantity),
           unitPrice: parseFloat(item.unitPrice),
-          serviceId: item.serviceId,
+          productId: item.productId,
           specifications: item.specifications,
           productionAreaIds: item.productionAreaIds,
         })),

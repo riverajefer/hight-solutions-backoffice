@@ -21,7 +21,6 @@ import {
 import {
   Delete as DeleteIcon,
   Add as AddIcon,
-  Image as ImageIcon,
   CloudUpload as UploadIcon,
   Visibility as VisibilityIcon,
   Close as CloseIcon,
@@ -39,7 +38,7 @@ export interface QuoteItemRow {
   quantity: string;
   unitPrice: string;
   total: number;
-  serviceId?: string;
+  productId?: string;
   specifications?: any;
   productionAreaIds?: string[];
   sampleImageId?: string;
@@ -261,7 +260,7 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
                       size="small"
                       options={products}
                       getOptionLabel={(option) => option.name}
-                      value={products.find((s) => s.id === item.serviceId) || null}
+                      value={products.find((s) => s.id === item.productId) || null}
                       onChange={(_event, newValue) => {
                         const updatedItems = items.map((i) => {
                           if (i.id !== item.id) return i;
@@ -271,7 +270,7 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
 
                           return {
                             ...i,
-                            serviceId: newValue?.id || undefined,
+                            productId: newValue?.id || undefined,
                             description: i.description || newValue?.name || '',
                             unitPrice: i.unitPrice || (hasBasePrice ? newValue!.basePrice!.toString() : ''),
                             total: !isNaN(quantity) && !isNaN(basePriceValue) ? quantity * basePriceValue : i.total

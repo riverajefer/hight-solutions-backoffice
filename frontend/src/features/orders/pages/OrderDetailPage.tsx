@@ -772,19 +772,6 @@ export const OrderDetailPage: React.FC = () => {
               </CardContent>
             </Card>
 
-            {/* Notas */}
-            {order.notes && (
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    Observaciones
-                  </Typography>
-                  <Divider sx={{ mb: 2 }} />
-                  <Typography variant="body2">{order.notes}</Typography>
-                </CardContent>
-              </Card>
-            )}
-
             {/* Historial de Pagos */}
             {payments.length > 0 && (
               <Card>
@@ -880,6 +867,18 @@ export const OrderDetailPage: React.FC = () => {
               onDelete={handleRemoveDiscount}
               isDeleting={deletingDiscount}
             />
+            {/* Notas */}
+            {order.notes && (
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Observaciones
+                  </Typography>
+                  <Divider sx={{ mb: 2 }} />
+                  <Typography variant="body2">{order.notes}</Typography>
+                </CardContent>
+              </Card>
+            )}            
           </Stack>
         </Grid>
 

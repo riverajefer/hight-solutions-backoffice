@@ -28,7 +28,7 @@ export const QUOTE_STATUS_CONFIG: Record<
 export interface QuoteItem {
   id: string;
   quoteId: string;
-  serviceId?: string;
+  productId?: string;
   description: string;
   quantity: number | string;
   unitPrice: number | string;
@@ -73,7 +73,7 @@ export interface Quote {
 
 export interface CreateQuoteItemDto {
   id?: string;
-  serviceId?: string;
+  productId?: string;
   description: string;
   quantity: number;
   unitPrice: number;

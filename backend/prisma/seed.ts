@@ -1,4 +1,4 @@
-import { PrismaClient, OrderStatus } from '../src/generated/prisma';
+import { PrismaClient, OrderStatus, QuoteStatus } from '../src/generated/prisma';
 import * as bcrypt from 'bcrypt';
 import { randomInt, randomUUID } from 'node:crypto';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -850,16 +850,16 @@ async function main() {
   }
 
   // ============================================
-  // 7. Crear Categorías de Servicios
+  // 7. Crear Categorías de Productos
   // ============================================
-  console.log('\n📦 Creating service categories...');
+  console.log('\n📦 Creating product categories...');
 
-  const serviceCategoriesData = [
+  const productCategoriesData = [
     {
       name: 'Impresión Gran Formato',
       slug: 'impresion-gran-formato',
       description:
-        'Servicios de impresión en gran formato como pendones, banners y vallas',
+        'Productos de impresión en gran formato como pendones, banners y vallas',
       icon: '🖨️',
       sortOrder: 1,
     },
@@ -888,7 +888,7 @@ async function main() {
     },
   ];
 
-  for (const categoryData of serviceCategoriesData) {
+  for (const categoryData of productCategoriesData) {
     await prisma.productCategory.upsert({
       where: { slug: categoryData.slug },
       update: {
@@ -903,7 +903,7 @@ async function main() {
   }
 
   // ============================================
-  // 8. Crear Servicios de Prueba
+  // 8. Crear Productos de Prueba
   // ============================================
   console.log('\n🛠️ Creating products...');
 
@@ -1650,7 +1650,7 @@ async function main() {
   // ============================================
   console.log('\n📦 Creating test orders...');
 
-  // Obtener algunos clientes y servicios para las órdenes
+  // Obtener algunos clientes y productos para las órdenes
   const client1 = await prisma.client.findFirst({
     where: { email: 'contacto@distribuidoraelsol.com' },
   });
@@ -1684,7 +1684,7 @@ async function main() {
   const areaCostura = await prisma.productionArea.findFirst({ where: { name: 'Costura' } });
 
   // Orden 1: CONFIRMED con IVA, canal WhatsApp, items con áreas de producción
-  if (client1 && tarjetasService && bannerService && adminUserForOrders) {
+  if (client1 && tarjetasProduct && bannerProduct && adminUserForOrders) {
     const existingOrder1 = await prisma.order.findFirst({
       where: { orderNumber: 'OP-2026-0001' },
     });
@@ -1717,7 +1717,7 @@ async function main() {
                 unitPrice: 250000,
                 total: 250000,
                 sortOrder: 1,
-                serviceId: tarjetasService.id,
+                productId: tarjetasProduct.id,
                 specifications: {
                   material: 'Propalcote 300gr',
                   tamaño: '9x5 cm',
@@ -1736,7 +1736,7 @@ async function main() {
                 unitPrice: 20000,
                 total: 200000,
                 sortOrder: 2,
-                serviceId: bannerService.id,
+                productId: bannerProduct.id,
                 specifications: {
                   material: 'Lona mate 13oz',
                   tamaño: '1x2 metros',
@@ -1769,7 +1769,7 @@ async function main() {
   }
 
   // Orden 2: IN_PRODUCTION con IVA, factura electrónica, canal Corporativo, áreas de producción
-  if (client2 && sellosService && tarjetasService && adminUserForOrders) {
+  if (client2 && sellosProduct && tarjetasProduct && adminUserForOrders) {
     const existingOrder2 = await prisma.order.findFirst({
       where: { orderNumber: 'OP-2026-0002' },
     });
@@ -1802,7 +1802,7 @@ async function main() {
                 unitPrice: 80000,
                 total: 400000,
                 sortOrder: 1,
-                serviceId: sellosService.id,
+                productId: sellosProduct.id,
                 specifications: {
                   tipo: 'Automático Trodat 4913',
                   tamaño: '58x22 mm',
@@ -1821,7 +1821,7 @@ async function main() {
                 unitPrice: 300,
                 total: 450000,
                 sortOrder: 2,
-                serviceId: tarjetasService.id,
+                productId: tarjetasProduct.id,
                 specifications: {
                   material: 'Cartulina Bristol 240gr',
                   tamaño: '9x5 cm',
@@ -1930,7 +1930,100 @@ async function main() {
   }
 
   // ============================================
-  // 13. Crear Consecutivos Iniciales
+  // 13. Crear Cotizaciones de Prueba
+  // ============================================
+  console.log('\n📄 Creating test quotes...');
+
+  let quotesCreatedCount = 0;
+  if (client1 && client2 && tarjetasProduct && bannerProduct && adminUserForOrders) {
+    const quotesToCreateData = [
+      {
+        quoteNumber: 'COT-2026-0001',
+        clientId: client1.id,
+        quoteDate: new Date('2026-02-01'),
+        validUntil: new Date('2026-03-01'),
+        subtotal: 150000,
+        taxRate: 0.19,
+        tax: 28500,
+        total: 178500,
+        status: QuoteStatus.SENT,
+        notes: 'Cotización inicial para papelería corporativa',
+        createdById: adminUserForOrders.id,
+        items: [
+          {
+            description: 'Tarjetas de presentación x 1000',
+            quantity: 2,
+            unitPrice: 75000,
+            total: 150000,
+            productId: tarjetasProduct.id,
+            sortOrder: 1,
+            productionAreas: areaPapeleria ? [areaPapeleria.id] : [],
+          }
+        ]
+      },
+      {
+        quoteNumber: 'COT-2026-0002',
+        clientId: client2.id,
+        quoteDate: new Date('2026-02-05'),
+        validUntil: new Date('2026-03-05'),
+        subtotal: 350000,
+        taxRate: 0.19,
+        tax: 66500,
+        total: 416500,
+        status: QuoteStatus.ACCEPTED,
+        notes: 'Cliente aceptó vía correo electrónico',
+        createdById: adminUserForOrders.id,
+        items: [
+          {
+            description: 'Banner 1x2 metros',
+            quantity: 10,
+            unitPrice: 35000,
+            total: 350000,
+            productId: bannerProduct.id,
+            sortOrder: 1,
+            productionAreas: areaPloter ? [areaPloter.id] : [],
+          }
+        ]
+      }
+    ];
+
+    for (const quoteData of quotesToCreateData) {
+      const existingQuote = await prisma.quote.findFirst({
+        where: { quoteNumber: quoteData.quoteNumber },
+      });
+
+      if (!existingQuote) {
+        const { items, ...quoteBaseData } = quoteData;
+        const quote = await prisma.quote.create({
+          data: {
+            ...quoteBaseData,
+            items: {
+              create: items.map(item => ({
+                description: item.description,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                total: item.total,
+                productId: item.productId,
+                sortOrder: item.sortOrder,
+                productionAreas: {
+                  create: item.productionAreas.map(areaId => ({
+                    productionAreaId: areaId
+                  }))
+                }
+              }))
+            }
+          }
+        });
+        console.log(`  ✓ Quote: ${quote.quoteNumber} - ${quote.status}`);
+        quotesCreatedCount++;
+      } else {
+        console.log(`  ↩ Quote already exists: ${quoteData.quoteNumber}`);
+      }
+    }
+  }
+
+  // ============================================
+  // 14. Crear Consecutivos Iniciales
   // ============================================
   console.log('\n🔢 Creating initial consecutives...');
 
@@ -1939,7 +2032,7 @@ async function main() {
       type: 'ORDER',
       prefix: 'OP',
       year: new Date().getFullYear(),
-      lastNumber: 0,
+      lastNumber: 3,
     },
     {
       type: 'PRODUCTION',
@@ -1953,12 +2046,20 @@ async function main() {
       year: new Date().getFullYear(),
       lastNumber: 0,
     },
+    {
+      type: 'QUOTE',
+      prefix: 'COT',
+      year: new Date().getFullYear(),
+      lastNumber: 2,
+    },
   ];
 
   for (const consecutive of consecutivesData) {
     await prisma.consecutive.upsert({
       where: { type: consecutive.type },
-      update: {},
+      update: {
+        lastNumber: consecutive.lastNumber,
+      },
       create: consecutive,
     });
     console.log(`  ✓ Consecutive: ${consecutive.type} (${consecutive.prefix})`);
@@ -2131,8 +2232,9 @@ async function main() {
   console.log(`   - Clients: ${clientsCreated}`);
   console.log(`   - Suppliers: ${suppliersCreated}`);
   console.log(`   - Units of Measure: ${unitsOfMeasureData.length}`);
-  console.log(`   - Service Categories: ${serviceCategoriesData.length}`);
-  console.log(`   - Services: ${servicesCreated}`);
+  console.log(`   - Product Categories: ${productCategoriesData.length}
+   - Products: ${productsCreated}
+   - Quotes: ${quotesCreatedCount} / 2 expected`);
   console.log(`   - Supply Categories: ${supplyCategoriesData.length}`);
   console.log(`   - Supplies: ${suppliesCreated}`);
   console.log(`   - Orders: 3 (2 con IVA, 1 sin IVA)`);

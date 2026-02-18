@@ -269,7 +269,7 @@ export class OrdersService {
                 unitPrice: item.unitPrice,
                 total: itemTotal,
                 specifications: item.specifications || undefined,
-                ...(item.productId && { serviceId: item.productId }),
+                ...(item.productId && { productId: item.productId }),
               },
             });
 
@@ -306,7 +306,7 @@ export class OrdersService {
                   total: itemTotal,
                   specifications: item.specifications || undefined,
                   sortOrder: remainingCount + i + 1,
-                  ...(item.productId && { serviceId: item.productId }),
+                  ...(item.productId && { productId: item.productId }),
                 },
                 select: { id: true },
               });
