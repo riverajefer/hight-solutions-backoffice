@@ -46,6 +46,7 @@ export interface Order {
   balance: string;
   status: OrderStatus;
   notes: string | null;
+  electronicInvoiceNumber: string | null;
   createdAt: string;
   updatedAt: string;
   client: {

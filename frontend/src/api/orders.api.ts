@@ -168,4 +168,18 @@ export const ordersApi = {
     );
     return data;
   },
+
+  /**
+   * Registrar número de factura electrónica (solo si tiene IVA y no está en DRAFT)
+   */
+  registerElectronicInvoice: async (
+    orderId: string,
+    electronicInvoiceNumber: string
+  ): Promise<Order> => {
+    const { data } = await axiosInstance.patch<Order>(
+      `${BASE_URL}/${orderId}/electronic-invoice`,
+      { electronicInvoiceNumber }
+    );
+    return data;
+  },
 };
