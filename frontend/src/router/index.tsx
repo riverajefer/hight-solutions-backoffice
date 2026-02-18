@@ -39,12 +39,12 @@ const ProfilePage = lazy(() => import('../features/settings/pages/ProfilePage'))
 // Portfolio - Units of Measure
 const UnitsOfMeasureListPage = lazy(() => import('../features/portfolio/units-of-measure/pages/UnitsOfMeasureListPage'));
 const UnitOfMeasureFormPage = lazy(() => import('../features/portfolio/units-of-measure/pages/UnitOfMeasureFormPage'));
-// Portfolio - Service Categories
-const ServiceCategoriesListPage = lazy(() => import('../features/portfolio/service-categories/pages/ServiceCategoriesListPage'));
-const ServiceCategoryFormPage = lazy(() => import('../features/portfolio/service-categories/pages/ServiceCategoryFormPage'));
-// Portfolio - Services
-const ServicesListPage = lazy(() => import('../features/portfolio/services/pages/ServicesListPage'));
-const ServiceFormPage = lazy(() => import('../features/portfolio/services/pages/ServiceFormPage'));
+// Portfolio - Product Categories
+const ProductCategoriesListPage = lazy(() => import('../features/portfolio/product-categories/pages/ProductCategoriesListPage'));
+const ProductCategoryFormPage = lazy(() => import('../features/portfolio/product-categories/pages/ProductCategoryFormPage'));
+// Portfolio - Products
+const ProductsListPage = lazy(() => import('../features/portfolio/products/pages/ProductsListPage'));
+const ProductFormPage = lazy(() => import('../features/portfolio/products/pages/ProductFormPage'));
 // Portfolio - Supply Categories
 const SupplyCategoriesListPage = lazy(() => import('../features/portfolio/supply-categories/pages/SupplyCategoriesListPage'));
 const SupplyCategoryFormPage = lazy(() => import('../features/portfolio/supply-categories/pages/SupplyCategoryFormPage'));
@@ -528,76 +528,76 @@ const RoutesConfig: FC = () => {
           }
         />
 
-        {/* Service Categories Routes */}
+        {/* Product Categories Routes */}
         <Route
-          path={PATHS.SERVICE_CATEGORIES}
+          path={PATHS.PRODUCT_CATEGORIES}
           element={
             <AuthGuard>
               <MainLayout>
-                <PermissionGuard permission={PERMISSIONS.READ_SERVICE_CATEGORIES}>
-                  <ServiceCategoriesListPage />
+                <PermissionGuard permission={PERMISSIONS.READ_PRODUCT_CATEGORIES}>
+                  <ProductCategoriesListPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>
           }
         />
         <Route
-          path={PATHS.SERVICE_CATEGORIES_CREATE}
+          path={PATHS.PRODUCT_CATEGORIES_CREATE}
           element={
             <AuthGuard>
               <MainLayout>
-                <PermissionGuard permission={PERMISSIONS.CREATE_SERVICE_CATEGORIES}>
-                  <ServiceCategoryFormPage />
+                <PermissionGuard permission={PERMISSIONS.CREATE_PRODUCT_CATEGORIES}>
+                  <ProductCategoryFormPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>
           }
         />
         <Route
-          path={PATHS.SERVICE_CATEGORIES_EDIT}
+          path={PATHS.PRODUCT_CATEGORIES_EDIT}
           element={
             <AuthGuard>
               <MainLayout>
-                <PermissionGuard permission={PERMISSIONS.UPDATE_SERVICE_CATEGORIES}>
-                  <ServiceCategoryFormPage />
+                <PermissionGuard permission={PERMISSIONS.UPDATE_PRODUCT_CATEGORIES}>
+                  <ProductCategoryFormPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>
           }
         />
 
-        {/* Services Routes */}
+        {/* Products Routes */}
         <Route
-          path={PATHS.SERVICES}
+          path={PATHS.PRODUCTS}
           element={
             <AuthGuard>
               <MainLayout>
-                <PermissionGuard permission={PERMISSIONS.READ_SERVICES}>
-                  <ServicesListPage />
+                <PermissionGuard permission={PERMISSIONS.READ_PRODUCTS}>
+                  <ProductsListPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>
           }
         />
         <Route
-          path={PATHS.SERVICES_CREATE}
+          path={PATHS.PRODUCTS_CREATE}
           element={
             <AuthGuard>
               <MainLayout>
-                <PermissionGuard permission={PERMISSIONS.CREATE_SERVICES}>
-                  <ServiceFormPage />
+                <PermissionGuard permission={PERMISSIONS.CREATE_PRODUCTS}>
+                  <ProductFormPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>
           }
         />
         <Route
-          path={PATHS.SERVICES_EDIT}
+          path={PATHS.PRODUCTS_EDIT}
           element={
             <AuthGuard>
               <MainLayout>
-                <PermissionGuard permission={PERMISSIONS.UPDATE_SERVICES}>
-                  <ServiceFormPage />
+                <PermissionGuard permission={PERMISSIONS.UPDATE_PRODUCTS}>
+                  <ProductFormPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

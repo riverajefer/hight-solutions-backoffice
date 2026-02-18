@@ -22,8 +22,8 @@ import { v4 as uuidv4 } from 'uuid';
 import type { OrderItemRow } from '../../../types/order.types';
 import { useProductionAreas } from '../../../features/production-areas/hooks/useProductionAreas';
 import type { ProductionArea } from '../../../types/production-area.types';
-import { useServices } from '../../portfolio/services/hooks/useServices';
-import type { Service } from '../../../types/service.types';
+import { useProducts } from '../../portfolio/products/hooks/useProducts';
+import type { Product } from '../../../types/product.types';
 
 interface OrderItemsTableProps {
   items: OrderItemRow[];
@@ -67,8 +67,8 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
   const { productionAreasQuery } = useProductionAreas();
   const productionAreas: ProductionArea[] = productionAreasQuery.data || [];
 
-  const { servicesQuery } = useServices();
-  const services: Service[] = servicesQuery.data || [];
+  const { productsQuery } = useProducts();
+  const products: Product[] = productsQuery.data || [];
 
   const handleAddRow = () => {
     const newItem: OrderItemRow = {
@@ -264,23 +264,23 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                     />
                   </TableCell>
 
-                  {/* Servicio */}
+                  {/* Producto */}
                   <TableCell>
-                    <Autocomplete<Service>
+                    <Autocomplete<Product>
                       size="small"
-                      options={services}
+                      options={products}
                       getOptionLabel={(option) => option.name}
-                      value={services.find((s) => s.id === item.serviceId) || null}
+                      value={products.find((s) => s.id === item.serviceId) || null}
                       onChange={(_event, newValue) => {
                         const updatedItems = items.map((i) => {
                           if (i.id !== item.id) return i;
-                          
+
                           const quantity = parseFloat(i.quantity);
                           const hasBasePrice = newValue?.basePrice !== undefined && newValue?.basePrice !== null;
                           const basePriceValue = hasBasePrice ? newValue!.basePrice! : parseFloat(i.unitPrice);
-                          
-                          return { 
-                            ...i, 
+
+                          return {
+                            ...i,
                             serviceId: newValue?.id || undefined,
                             description: newValue?.name || '',
                             unitPrice: i.unitPrice || (hasBasePrice ? newValue!.basePrice!.toString() : ''),

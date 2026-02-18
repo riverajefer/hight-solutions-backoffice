@@ -62,8 +62,8 @@ export class QuotesService {
         total: itemTotal,
         specifications: item.specifications || undefined,
         sortOrder: index + 1,
-        ...(item.serviceId && {
-          service: { connect: { id: item.serviceId } },
+        ...(item.productId && {
+          service: { connect: { id: item.productId } },
         }),
         ...(item.sampleImageId && {
           sampleImageId: item.sampleImageId,
@@ -163,7 +163,7 @@ export class QuotesService {
               unitPrice: item.unitPrice,
               total: itemTotal,
               specifications: item.specifications || undefined,
-              ...(item.serviceId && { serviceId: item.serviceId }),
+              ...(item.productId && { productId: item.productId }),
               ...(item.sampleImageId !== undefined && { sampleImageId: item.sampleImageId }),
             },
           });
@@ -192,7 +192,7 @@ export class QuotesService {
               total: itemTotal,
               specifications: item.specifications || undefined,
               sortOrder: currentItems.length - idsToDelete.length + i + 1,
-              ...(item.serviceId && { serviceId: item.serviceId }),
+              ...(item.productId && { productId: item.productId }),
               ...(item.sampleImageId && { sampleImageId: item.sampleImageId }),
             },
           });
@@ -276,7 +276,7 @@ export class QuotesService {
               specifications: item.specifications || undefined,
               sampleImageId: item.sampleImageId,
               sortOrder: item.sortOrder,
-              serviceId: item.serviceId,
+              productId: item.productId,
             })),
           },
         },
@@ -404,7 +404,7 @@ export class QuotesService {
       where: { id },
       data: { subtotal, tax, total },
       include: {
-        items: { include: { service: true } },
+        items: { include: { product: true } },
         client: true,
       },
     });

@@ -27,7 +27,7 @@ export class CreateQuoteItemDto {
   })
   @IsOptional()
   @IsUUID()
-  serviceId?: string;
+  productId?: string;
 
   @ApiProperty({
     description: 'Descripción del item',

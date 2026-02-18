@@ -5,7 +5,7 @@ export class AddQuoteItemDto {
   @ApiPropertyOptional({ example: 'uuid-service' })
   @IsOptional()
   @IsUUID()
-  serviceId?: string;
+  productId?: string;
 
   @ApiProperty({ example: 'Nuevo item' })
   @IsString()
