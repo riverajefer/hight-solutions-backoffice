@@ -88,7 +88,7 @@ export interface OrderItem {
   specifications: Record<string, any> | null;
   sampleImageId?: string;
   sortOrder: number;
-  service: {
+  product: {
     id: string;
     name: string;
     slug: string;

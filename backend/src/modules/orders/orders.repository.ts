@@ -62,6 +62,7 @@ export class OrdersRepository {
         total: true,
         specifications: true,
         sortOrder: true,
+        productId: true,
         product: {
           select: {
             id: true,

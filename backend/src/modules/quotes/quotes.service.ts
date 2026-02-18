@@ -268,7 +268,7 @@ export class QuotesService {
           commercialChannelId: quote.commercialChannelId,
           quote: { connect: { id: quote.id } }, // Link the quote
           items: {
-            create: quote.items.map((item) => ({
+            create: quote.items.map((item: any) => ({
               description: item.description,
               quantity: item.quantity,
               unitPrice: item.unitPrice,

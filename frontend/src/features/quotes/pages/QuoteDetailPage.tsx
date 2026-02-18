@@ -282,7 +282,7 @@ export const QuoteDetailPage: React.FC = () => {
                             </TableCell>
                           )}
                           <TableCell>
-                            {item.service && <Chip label={item.service.name} size="small" sx={{ mr: 1, mb: 0.5 }} />}
+                            {item.product && <Chip label={item.product.name} size="small" sx={{ mr: 1, mb: 0.5 }} />}
                             <Typography variant="body2">{item.description}</Typography>
                           </TableCell>
                           <TableCell align="right">{item.quantity.toString()}</TableCell>
