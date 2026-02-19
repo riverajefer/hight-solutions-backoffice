@@ -74,7 +74,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
 
   return (
     <AppBar
-      position="static"
+      position="sticky"
       elevation={0}
       sx={{
         background: isDark
@@ -231,6 +231,12 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
           onClose={handleMenuClose}
           transformOrigin={{ horizontal: 'right', vertical: 'top' }}
           anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+          BackdropProps={{
+            sx: {
+              backdropFilter: 'none', // Evita que la ventana quede en blur si hay un delay en el cierre
+              backgroundColor: 'transparent', // Menos invasivo para un menú de topbar
+            },
+          }}
           PaperProps={{
             sx: {
               mt: 1.5,
