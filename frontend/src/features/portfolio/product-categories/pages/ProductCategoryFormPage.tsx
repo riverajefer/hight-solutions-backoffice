@@ -36,16 +36,6 @@ const productCategorySchema = z.object({
     .max(500, 'La descripción no puede exceder 500 caracteres')
     .optional()
     .or(z.literal('')),
-  icon: z
-    .string()
-    .max(50, 'El icono no puede exceder 50 caracteres')
-    .optional()
-    .or(z.literal('')),
-  sortOrder: z
-    .string()
-    .regex(/^\d+$/, 'El orden debe ser un número')
-    .optional()
-    .or(z.literal('')),
 });
 
 type ProductCategoryFormData = z.infer<typeof productCategorySchema>;
@@ -73,8 +63,6 @@ const ProductCategoryFormPage: React.FC = () => {
     defaultValues: {
       name: '',
       description: '',
-      icon: '',
-      sortOrder: '',
     },
   });
 
@@ -84,8 +72,6 @@ const ProductCategoryFormPage: React.FC = () => {
       reset({
         name: productCategory.name,
         description: productCategory.description || '',
-        icon: productCategory.icon || '',
-        sortOrder: productCategory.sortOrder.toString(),
       });
     }
   }, [productCategory, isEdit, reset]);
@@ -95,7 +81,6 @@ const ProductCategoryFormPage: React.FC = () => {
       setError(null);
       const submitData = {
         ...data,
-        sortOrder: data.sortOrder ? Number(data.sortOrder) : undefined,
       };
 
       if (isEdit && id) {
@@ -181,36 +166,7 @@ const ProductCategoryFormPage: React.FC = () => {
                 )}
               />
 
-              <Controller
-                name="icon"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Icono"
-                    fullWidth
-                    error={!!errors.icon}
-                    helperText={errors.icon?.message || 'Nombre del icono Material UI (opcional)'}
-                    placeholder="Ej: Code, Business, Engineering"
-                  />
-                )}
-              />
 
-              <Controller
-                name="sortOrder"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Orden"
-                    fullWidth
-                    type="number"
-                    error={!!errors.sortOrder}
-                    helperText={errors.sortOrder?.message || 'Orden de aparición (menor número = mayor prioridad)'}
-                    placeholder="Ej: 1, 2, 3..."
-                  />
-                )}
-              />
 
               <Stack direction="row" spacing={2} justifyContent="flex-end">
                 <Button

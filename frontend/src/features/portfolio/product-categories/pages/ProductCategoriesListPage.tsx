@@ -54,13 +54,7 @@ const ProductCategoriesListPage: React.FC = () => {
       flex: 2,
       minWidth: 200,
     },
-    {
-      field: 'sortOrder',
-      headerName: 'Orden',
-      width: 100,
-      align: 'center',
-      headerAlign: 'center',
-    },
+
     {
       field: 'productsCount',
       headerName: 'Productos',
