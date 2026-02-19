@@ -73,5 +73,7 @@ export const PATHS = {
   COMMERCIAL_CHANNELS_EDIT: '/commercial-channels/:id/edit',
   COMMERCIAL_CHANNELS_VIEW: '/commercial-channels/:id',
   NOTIFICATIONS: '/notifications',
+  // Company
+  COMPANY: '/company',
 };
 

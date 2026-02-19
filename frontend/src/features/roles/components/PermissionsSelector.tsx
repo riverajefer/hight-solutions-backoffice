@@ -54,6 +54,9 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   // Producción y Otros
   'Áreas de Producción': ['create_production_areas', 'read_production_areas', 'update_production_areas', 'delete_production_areas'],
   Auditoría: ['read_audit_logs', 'read_session_logs'],
+
+  // Compañía
+  Compañía: ['read_company', 'update_company'],
 };
 
 // Mapeo de Tabs a grupos
@@ -79,7 +82,7 @@ const TABS = [
   },
   {
     label: 'Producción y Otros',
-    groups: ['Áreas de Producción', 'Auditoría'],
+    groups: ['Áreas de Producción', 'Auditoría', 'Compañía'],
   },
 ];
 

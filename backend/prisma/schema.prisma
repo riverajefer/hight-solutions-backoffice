@@ -775,4 +775,31 @@ model UploadedFile {
   @@map("uploaded_files")
 }
 
+// =============================================================================
+// MÓDULO DE INFORMACIÓN DE LA COMPAÑÍA
+// =============================================================================
+model Company {
+  id                  String   @id @default(uuid())
+  name                String
+  logoLightId         String?  @map("logo_light_id")
+  logoDarkId          String?  @map("logo_dark_id")
+  description         String?
+  phone               String?
+  mobilePhone         String?  @map("mobile_phone")
+  email               String?
+  website             String?
+  address             String?
+  nit                 String?
+  legalRepresentative String?  @map("legal_representative")
+  foundedYear         Int?     @map("founded_year")
+  taxRegime           String?  @map("tax_regime")
+  bankName            String?  @map("bank_name")
+  bankAccountNumber   String?  @map("bank_account_number")
+  bankAccountType     String?  @map("bank_account_type")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@map("company")
+}
+
 
