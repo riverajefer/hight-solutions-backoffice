@@ -239,7 +239,16 @@ const createMockContext = (user: any): ExecutionContext =>
 |---------|-------|-----------|
 | `src/common/guards/permissions.guard.spec.ts` | 11 | 100% |
 | `src/modules/auth/auth.service.spec.ts` | 23 | ~96% |
+| `src/modules/auth/strategies/jwt.strategy.spec.ts` | 4 | ~95% |
+| `src/modules/auth/strategies/local.strategy.spec.ts` | 3 | 100% |
 | `src/modules/users/users.service.spec.ts` | 20 | ~97% |
+| `src/modules/roles/roles.service.spec.ts` | 21 | 100% |
+| `src/modules/permissions/permissions.service.spec.ts` | 16 | ~97% |
+| `src/modules/areas/areas.service.spec.ts` | 16 | 100% |
+| `src/modules/cargos/cargos.service.spec.ts` | 21 | 100% |
+| `src/modules/session-logs/session-logs.service.spec.ts` | 17 | 100% |
+
+**Total: 153 tests · 10 suites**
 
 ### Qué cubre `auth.service.spec.ts`
 - `validateUser` — credenciales válidas, usuario inexistente, password incorrecto
@@ -250,12 +259,40 @@ const createMockContext = (user: any): ExecutionContext =>
 - `register` — creación con password hasheado, email duplicado, roleId inválido
 - `getUserProfile` — permisos aplanados, usuario no encontrado
 
+### Qué cubre `jwt.strategy.spec.ts`
+- `validate` — payload válido retorna AuthenticatedUser, consulta DB con `sub` correcto
+- `validate` — token tipo `refresh` → UnauthorizedException (sin consultar DB)
+- `validate` — usuario no encontrado en DB → UnauthorizedException
+
+### Qué cubre `local.strategy.spec.ts`
+- `validate` — credenciales válidas retorna usuario
+- `validate` — delega a `authService.validateUser` con email y password
+- `validate` — retorno null de authService → UnauthorizedException
+
 ### Qué cubre `users.service.spec.ts`
 - `findAll` — delegación al repository
 - `findOne` — permisos aplanados (rp.permission unwrapped), NotFoundException
 - `create` — con/sin cargo, email duplicado, roleId inválido, cargo inactivo/inexistente
 - `update` — password opcional, Prisma connect/disconnect, validaciones de email/rol/cargo
 - `remove` — eliminación exitosa, NotFoundException
+
+### Qué cubre `roles.service.spec.ts`
+- `findAll` — transformación con `usersCount` y permisos aplanados
+- `findOne` — permisos aplanados, NotFoundException
+- `create` — sin permisos, con permisos (createWithPermissions), nombre duplicado
+- `update` — actualización, NotFoundException, nombre duplicado, sin check si no cambia nombre
+- `assignPermissions` — reemplaza permisos, NotFoundException, permissionIds inválidos
+- `addPermissions` — agrega solo los nuevos (skip duplicados), sin llamada si ya están todos
+- `removePermissions` — elimina permisos, NotFoundException
+- `remove` — eliminación exitosa, NotFoundException, rol con usuarios asignados
+
+### Qué cubre `permissions.service.spec.ts`
+- `findAll` — delegación al repository
+- `findOne` — roles aplanados (rp.role unwrapped), NotFoundException
+- `create` — nombre único, nombre duplicado
+- `createMany` — todos exitosos, fallo parcial continúa, todos fallan, array vacío
+- `update` — actualización, NotFoundException, nombre duplicado, sin check si no cambia nombre
+- `remove` — eliminación exitosa, NotFoundException, permiso asignado a roles
 
 ### Qué cubre `permissions.guard.spec.ts`
 - Sin decorador `@RequirePermissions` → permite acceso
@@ -265,14 +302,36 @@ const createMockContext = (user: any): ExecutionContext =>
 - Usuario null / sin roleId → ForbiddenException
 - roleId no existe en DB → ForbiddenException
 
+### Qué cubre `areas.service.spec.ts`
+- `findAll` — transformación con `cargosCount`, `_count` queda `undefined`, flag `includeInactive`
+- `findOne` — cargos enriquecidos con `usersCount`, NotFoundException
+- `create` — nombre único, nombre duplicado
+- `update` — actualización, NotFoundException, nombre duplicado, sin check si no cambia nombre
+- `remove` (soft delete) — `isActive: false`, NotFoundException, área con cargos activos
+
+### Qué cubre `cargos.service.spec.ts`
+- `findAll` — transformación con `usersCount`, flag `includeInactive`
+- `findByArea` — validación de área, enriquecimiento, NotFoundException si área no existe
+- `findOne` — `usersCount`, NotFoundException
+- `create` — área existente/activa, nombre único dentro del área, área inactiva, nombre duplicado
+- `update` — sin área, Prisma connect para areaId, validación de nueva área inactiva/inexistente, nombre duplicado en área destino, no valida área si no cambia
+- `remove` (soft delete) — `isActive: false`, NotFoundException, cargo con usuarios asignados
+
+### Qué cubre `session-logs.service.spec.ts`
+- `createLoginLog` / `createLogoutLog` — delegación al repository con/sin parámetros opcionales
+- `findAll` — enriquecimiento con `durationMinutes` + `durationFormatted`, sesiones activas, passthrough de meta
+- `findByUserId` — enriquecimiento, defaults de paginación, paginación personalizada
+- `getActiveSessions` — duración calculada desde login hasta ahora, todas marcadas como "Sesión activa"
+- Formato de duración (vía `findAll`): `< 1m`, `Xm`, `Xh`, `Xh Ym`, `Sesión activa`
+
+> **Nota de testing:** `_count: undefined` — cuando el service hace `{ ...obj, _count: undefined }` vía spread, la clave `_count` **existe** en el objeto con valor `undefined`. Usa `expect(obj._count).toBeUndefined()` en lugar de `expect(obj).not.toHaveProperty('_count')`.
+
 ---
 
 ## Próximos Tests Recomendados
 
 En orden de impacto:
 
-1. `roles.service.spec.ts` — CRUD + asignación de permisos al rol
-2. `permissions.service.spec.ts` — CRUD + creación bulk
-3. `jwt.strategy.spec.ts` — validación de payload y carga de usuario
-4. `local.strategy.spec.ts` — delegación a `AuthService.validateUser`
-5. Tests de integración (e2e) con base de datos en memoria para los flujos completos de auth
+1. Tests de integración (e2e) con base de datos en memoria para los flujos completos de auth
+2. Tests de controllers con guards mockeados (`overrideGuard`)
+3. `clients.service.spec.ts` — validaciones multi-campo (personType, NIT/cédula, ubicaciones)
