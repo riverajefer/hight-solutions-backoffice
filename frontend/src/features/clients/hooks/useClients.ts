@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clientsApi } from '../../../api/clients.api';
-import { CreateClientDto, UpdateClientDto, ClientQueryParams } from '../../../types';
+import { CreateClientDto, UpdateClientDto, UpdateClientSpecialConditionDto, ClientQueryParams } from '../../../types';
 
 /**
  * Hook for clients CRUD operations
@@ -47,12 +47,23 @@ export const useClients = (params?: ClientQueryParams) => {
     },
   });
 
+  // Mutation for updating only the special condition field
+  const updateSpecialConditionMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateClientSpecialConditionDto }) =>
+      clientsApi.updateSpecialCondition(id, data),
+    onSuccess: (_result, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['clients', id] });
+    },
+  });
+
   return {
     clientsQuery,
     createClientMutation,
     updateClientMutation,
     deleteClientMutation,
     uploadCsvMutation,
+    updateSpecialConditionMutation,
   };
 };
 

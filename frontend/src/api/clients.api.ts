@@ -3,6 +3,7 @@ import {
   Client,
   CreateClientDto,
   UpdateClientDto,
+  UpdateClientSpecialConditionDto,
   ClientQueryParams,
   ClientListResponse,
   UploadClientsResponse,
@@ -49,6 +50,21 @@ export const clientsApi = {
   delete: async (id: string): Promise<{ message: string }> => {
     const response = await axiosInstance.delete<{ message: string }>(
       `/clients/${id}`
+    );
+    return response.data;
+  },
+
+  /**
+   * Update only the special condition field of a client.
+   * Requires 'update_client_special_condition' permission.
+   */
+  updateSpecialCondition: async (
+    id: string,
+    data: UpdateClientSpecialConditionDto,
+  ): Promise<Pick<Client, 'id' | 'name' | 'specialCondition' | 'updatedAt'>> => {
+    const response = await axiosInstance.patch(
+      `/clients/${id}/special-condition`,
+      data,
     );
     return response.data;
   },

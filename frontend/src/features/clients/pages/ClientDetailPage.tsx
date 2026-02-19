@@ -18,6 +18,7 @@ import EmailIcon from '@mui/icons-material/Email';
 import PhoneIcon from '@mui/icons-material/Phone';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import BadgeIcon from '@mui/icons-material/Badge';
+import NoteIcon from '@mui/icons-material/Note';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { useClient } from '../hooks/useClients';
@@ -177,6 +178,24 @@ const ClientDetailPage: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
+
+        {/* Special Condition Card */}
+        {client.specialCondition && (
+          <Grid item xs={12}>
+            <Card>
+              <CardContent>
+                <Stack direction="row" alignItems="center" spacing={1} mb={1}>
+                  <NoteIcon fontSize="small" color="warning" />
+                  <Typography variant="h6">Condición especial</Typography>
+                </Stack>
+                <Divider sx={{ mb: 2 }} />
+                <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+                  {client.specialCondition}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        )}
 
         {/* Status Card */}
         <Grid item xs={12} md={4}>

@@ -186,6 +186,15 @@ export class ClientsService {
   }
 
   /**
+   * Update only the special condition field of a client.
+   * Requires the 'update_client_special_condition' permission (enforced in controller).
+   */
+  async updateSpecialCondition(id: string, specialCondition?: string | null) {
+    await this.findOne(id);
+    return this.clientsRepository.updateSpecialCondition(id, specialCondition ?? null);
+  }
+
+  /**
    * Soft delete a client
    */
   async remove(id: string) {

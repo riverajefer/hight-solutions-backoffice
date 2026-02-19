@@ -172,9 +172,10 @@ model Client {
   departmentId  String     @map("department_id")
   cityId        String     @map("city_id")
   personType    PersonType @map("person_type")
-  nit           String?
-  cedula        String?
-  isActive      Boolean    @default(true) @map("is_active")
+  nit              String?
+  cedula           String?
+  specialCondition String?  @map("special_condition")
+  isActive         Boolean  @default(true) @map("is_active")
   createdAt     DateTime   @default(now()) @map("created_at")
   updatedAt     DateTime   @updatedAt @map("updated_at")
 

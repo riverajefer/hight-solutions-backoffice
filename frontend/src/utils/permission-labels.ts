@@ -44,6 +44,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   read_clients: 'Ver Clientes',
   update_clients: 'Actualizar Clientes',
   delete_clients: 'Eliminar Clientes',
+  update_client_special_condition: 'Editar Condición Especial',
 
   // Proveedores
   create_suppliers: 'Crear Proveedores',
