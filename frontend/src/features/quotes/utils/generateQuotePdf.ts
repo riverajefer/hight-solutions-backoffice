@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import logo from '../../../assets/logo-dark.webp';
 import type { Quote } from '../../../types/quote.types';
-import { formatCurrency, formatDate } from '../../../utils/formatters';
+import { formatCurrency, formatDate, formatDateTime } from '../../../utils/formatters';
 import {
   COMPANY_INFO,
   PDF_COLORS,
@@ -187,7 +187,7 @@ function drawQuoteInfo(doc: jsPDF, y: number, quote: Quote): number {
   setTextColor(doc, PDF_COLORS.bodyText);
   doc.text(quote.quoteNumber, PDF_LAYOUT.marginLeft + 35, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(formatDate(quote.quoteDate), PDF_LAYOUT.marginLeft + 35, y + 5);
+  doc.text(formatDateTime(quote.quoteDate), PDF_LAYOUT.marginLeft + 35, y + 5);
 
   // Right column labels
   const rightLabelX = PDF_LAYOUT.marginLeft + 100;
@@ -201,7 +201,7 @@ function drawQuoteInfo(doc: jsPDF, y: number, quote: Quote): number {
   // Right column values
   doc.setFontSize(PDF_FONTS.value);
   setTextColor(doc, PDF_COLORS.bodyText);
-  doc.text(formatDate(new Date()), rightLabelX + 38, y);
+  doc.text(formatDateTime(new Date()), rightLabelX + 38, y);
   if (quote.validUntil) {
     doc.text(formatDate(quote.validUntil), rightLabelX + 38, y + 5);
   }

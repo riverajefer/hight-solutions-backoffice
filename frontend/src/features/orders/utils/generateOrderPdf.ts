@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import logo from '../../../assets/logo-dark.webp';
 import type { Order } from '../../../types/order.types';
-import { formatCurrency, formatDate } from '../../../utils/formatters';
+import { formatCurrency, formatDate, formatDateTime } from '../../../utils/formatters';
 import {
   COMPANY_INFO,
   PDF_COLORS,
@@ -188,7 +188,7 @@ function drawOrderInfo(doc: jsPDF, y: number, order: Order): number {
   setTextColor(doc, PDF_COLORS.bodyText);
   doc.text(order.orderNumber, PDF_LAYOUT.marginLeft + 30, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(formatDate(order.orderDate), PDF_LAYOUT.marginLeft + 30, y + 5);
+  doc.text(formatDateTime(order.orderDate), PDF_LAYOUT.marginLeft + 30, y + 5);
 
   // Right column labels
   const rightLabelX = PDF_LAYOUT.marginLeft + 100;
@@ -202,7 +202,7 @@ function drawOrderInfo(doc: jsPDF, y: number, order: Order): number {
   // Right column values
   doc.setFontSize(PDF_FONTS.value);
   setTextColor(doc, PDF_COLORS.bodyText);
-  doc.text(formatDate(new Date()), rightLabelX + 38, y);
+  doc.text(formatDateTime(new Date()), rightLabelX + 38, y);
   if (order.deliveryDate) {
     doc.text(formatDate(order.deliveryDate), rightLabelX + 38, y + 5);
   }

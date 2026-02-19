@@ -302,7 +302,7 @@ export const QuoteDetailPage: React.FC = () => {
                   </Grid>
                   <Grid item xs={12} sm={3}>
                     <Typography variant="body2" color="textSecondary">Fecha</Typography>
-                    <Stack direction="row" spacing={1} sx={{ mt: 1 }}><CalendarIcon fontSize="small"/><Typography>{formatDate(quote.quoteDate)}</Typography></Stack>
+                    <Stack direction="row" spacing={1} sx={{ mt: 1 }}><CalendarIcon fontSize="small"/><Typography>{formatDateTime(quote.quoteDate)}</Typography></Stack>
                   </Grid>
                   <Grid item xs={12} sm={3}>
                     <Typography variant="body2" color="textSecondary">Vence</Typography>

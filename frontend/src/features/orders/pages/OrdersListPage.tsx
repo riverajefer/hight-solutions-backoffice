@@ -67,6 +67,16 @@ const formatDate = (date: string): string => {
   return new Intl.DateTimeFormat('es-CO').format(new Date(date));
 };
 
+const formatDateTime = (date: string): string => {
+  return new Intl.DateTimeFormat('es-CO', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(date));
+};
+
 const ORDER_STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
   { value: 'DRAFT', label: 'Borrador' },
   { value: 'CONFIRMED', label: 'Confirmada' },
@@ -172,8 +182,8 @@ export const OrdersListPage: React.FC = () => {
     {
       field: 'orderDate',
       headerName: 'Fecha Orden',
-      width: 130,
-      renderCell: (params) => formatDate(params.value),
+      width: 160,
+      renderCell: (params) => formatDateTime(params.value),
     },
     {
       field: 'deliveryDate',

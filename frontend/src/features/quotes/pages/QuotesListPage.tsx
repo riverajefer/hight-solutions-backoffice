@@ -41,6 +41,16 @@ const formatDate = (date: string): string => {
   return new Intl.DateTimeFormat('es-CO').format(new Date(date));
 };
 
+const formatDateTime = (date: string): string => {
+  return new Intl.DateTimeFormat('es-CO', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(date));
+};
+
 const QUOTE_STATUS_OPTIONS: { value: QuoteStatus; label: string }[] = [
   { value: QStatus.DRAFT, label: 'Borrador' },
   { value: QStatus.SENT, label: 'Enviada' },
@@ -120,8 +130,8 @@ export const QuotesListPage: React.FC = () => {
     {
       field: 'quoteDate',
       headerName: 'Fecha',
-      width: 130,
-      renderCell: (params) => formatDate(params.value),
+      width: 160,
+      renderCell: (params) => formatDateTime(params.value),
     },
     {
       field: 'validUntil',

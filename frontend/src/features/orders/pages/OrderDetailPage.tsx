@@ -542,7 +542,7 @@ export const OrderDetailPage: React.FC = () => {
                     <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
                       <CalendarIcon fontSize="small" color="action" />
                       <Typography variant="body1" fontWeight={500}>
-                        {formatDate(order.orderDate)}
+                        {formatDateTime(order.orderDate)}
                       </Typography>
                     </Stack>
                   </Grid>
