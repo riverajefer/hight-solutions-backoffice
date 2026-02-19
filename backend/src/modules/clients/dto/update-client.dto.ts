@@ -141,4 +141,14 @@ export class UpdateClientDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Condición especial del cliente (solo editable por administradores)',
+    example: 'Cliente con descuento preferencial por volumen',
+    maxLength: 500,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(500, { message: 'La condición especial no puede exceder 500 caracteres' })
+  specialCondition?: string;
 }

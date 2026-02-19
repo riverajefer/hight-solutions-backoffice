@@ -22,6 +22,8 @@ import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { useClients, useClient } from '../hooks/useClients';
 import { useDepartments, useCitiesByDepartment } from '../../locations/hooks/useLocations';
 import { CreateClientDto, UpdateClientDto, Department, City } from '../../../types';
+import { useAuthStore } from '../../../store/authStore';
+import { PERMISSIONS } from '../../../utils/constants';
 
 // Zod validation schema with conditional validations
 const clientSchema = z.object({
@@ -61,6 +63,11 @@ const clientSchema = z.object({
   }),
   nit: z.string().max(12, 'El NIT no puede exceder 12 caracteres').optional().or(z.literal('')),
   cedula: z.string().max(10, 'La cédula no puede exceder 10 dígitos').optional().or(z.literal('')),
+  specialCondition: z
+    .string()
+    .max(500, 'La condición especial no puede exceder 500 caracteres')
+    .optional()
+    .or(z.literal('')),
 }).refine(
   (data) => {
     if (data.personType === 'EMPRESA') {
@@ -81,10 +88,12 @@ const ClientFormPage: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
   const { id } = useParams<{ id: string }>();
   const [error, setError] = useState<string | null>(null);
+  const { hasPermission } = useAuthStore();
+  const canEditSpecialCondition = hasPermission(PERMISSIONS.UPDATE_CLIENT_SPECIAL_CONDITION);
 
   const isEdit = !!id;
   const { data: client, isLoading: isLoadingClient } = useClient(id || '');
-  const { createClientMutation, updateClientMutation } = useClients();
+  const { createClientMutation, updateClientMutation, updateSpecialConditionMutation } = useClients();
 
   // Location data
   const { data: departments, isLoading: isLoadingDepartments } = useDepartments();
@@ -111,6 +120,7 @@ const ClientFormPage: React.FC = () => {
       personType: 'NATURAL',
       nit: '',
       cedula: '',
+      specialCondition: '',
     },
   });
 
@@ -174,6 +184,7 @@ const ClientFormPage: React.FC = () => {
         personType: client.personType,
         nit: client.nit || '',
         cedula: client.cedula || '',
+        specialCondition: client.specialCondition || '',
       });
     }
   }, [client, isEdit, reset]);
@@ -183,14 +194,16 @@ const ClientFormPage: React.FC = () => {
       setError(null);
 
       // Clean data: remove empty strings, handle NIT/Cedula based on personType
+      // specialCondition is handled separately via its own endpoint
+      const { specialCondition, ...rest } = data;
       const cleanedData = {
-        ...data,
-        manager: data.manager || undefined,
-        encargado: data.encargado || undefined,
-        landlinePhone: data.landlinePhone || undefined,
-        address: data.address || undefined,
-        nit: data.personType === 'EMPRESA' ? data.nit : undefined,
-        cedula: data.personType === 'NATURAL' ? data.cedula : undefined,
+        ...rest,
+        manager: rest.manager || undefined,
+        encargado: rest.encargado || undefined,
+        landlinePhone: rest.landlinePhone || undefined,
+        address: rest.address || undefined,
+        nit: rest.personType === 'EMPRESA' ? rest.nit : undefined,
+        cedula: rest.personType === 'NATURAL' ? rest.cedula : undefined,
       };
 
       if (isEdit && id) {
@@ -198,9 +211,23 @@ const ClientFormPage: React.FC = () => {
           id,
           data: cleanedData as UpdateClientDto,
         });
+        // Update special condition separately if user has permission
+        if (canEditSpecialCondition) {
+          await updateSpecialConditionMutation.mutateAsync({
+            id,
+            data: { specialCondition: specialCondition || null },
+          });
+        }
         enqueueSnackbar('Cliente actualizado correctamente', { variant: 'success' });
       } else {
-        await createClientMutation.mutateAsync(cleanedData as CreateClientDto);
+        const created = await createClientMutation.mutateAsync(cleanedData as CreateClientDto);
+        // Set special condition on new client if user has permission and value is provided
+        if (canEditSpecialCondition && specialCondition) {
+          await updateSpecialConditionMutation.mutateAsync({
+            id: created.id,
+            data: { specialCondition },
+          });
+        }
         enqueueSnackbar('Cliente creado correctamente', { variant: 'success' });
       }
       navigate('/clients');
@@ -525,6 +552,32 @@ const ClientFormPage: React.FC = () => {
                   />
                 </Grid>
               )}
+
+              {/* Special Condition */}
+              <Grid item xs={12}>
+                <Controller
+                  name="specialCondition"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      label="Condición especial"
+                      fullWidth
+                      multiline
+                      rows={3}
+                      disabled={!canEditSpecialCondition}
+                      error={!!errors.specialCondition}
+                      helperText={
+                        errors.specialCondition?.message ||
+                        (!canEditSpecialCondition
+                          ? 'Requiere permiso especial para editar'
+                          : 'Información sensible: acuerdos, descuentos u observaciones especiales del cliente')
+                      }
+                      inputProps={{ maxLength: 500 }}
+                    />
+                  )}
+                />
+              </Grid>
 
               {/* Buttons */}
               <Grid item xs={12}>

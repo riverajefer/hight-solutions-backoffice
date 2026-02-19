@@ -26,6 +26,7 @@ export class ClientsRepository {
         cedula: true,
         encargado: true,
         landlinePhone: true,
+        specialCondition: true,
         isActive: true,
         createdAt: true,
         updatedAt: true,
@@ -67,6 +68,7 @@ export class ClientsRepository {
         cedula: true,
         encargado: true,
         landlinePhone: true,
+        specialCondition: true,
         isActive: true,
         createdAt: true,
         updatedAt: true,
@@ -128,6 +130,7 @@ export class ClientsRepository {
         cedula: true,
         encargado: true,
         landlinePhone: true,
+        specialCondition: true,
         isActive: true,
         createdAt: true,
         updatedAt: true,
@@ -169,6 +172,7 @@ export class ClientsRepository {
         cedula: true,
         encargado: true,
         landlinePhone: true,
+        specialCondition: true,
         isActive: true,
         createdAt: true,
         updatedAt: true,
@@ -185,6 +189,22 @@ export class ClientsRepository {
             name: true,
           },
         },
+      },
+    });
+  }
+
+  /**
+   * Update only the special condition field
+   */
+  async updateSpecialCondition(id: string, specialCondition: string | null) {
+    return this.prisma.client.update({
+      where: { id },
+      data: { specialCondition },
+      select: {
+        id: true,
+        name: true,
+        specialCondition: true,
+        updatedAt: true,
       },
     });
   }

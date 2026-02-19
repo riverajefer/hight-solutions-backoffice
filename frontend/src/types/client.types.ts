@@ -18,6 +18,7 @@ export interface Client {
   personType: PersonType;
   nit?: string;
   cedula?: string;
+  specialCondition?: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -45,6 +46,7 @@ export interface CreateClientDto {
   personType: PersonType;
   nit?: string;
   cedula?: string;
+  specialCondition?: string;
 }
 
 export interface UpdateClientDto {
@@ -61,6 +63,11 @@ export interface UpdateClientDto {
   nit?: string;
   cedula?: string;
   isActive?: boolean;
+  specialCondition?: string;
+}
+
+export interface UpdateClientSpecialConditionDto {
+  specialCondition?: string | null;
 }
 
 export interface ClientQueryParams {

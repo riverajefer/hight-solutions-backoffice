@@ -41,6 +41,7 @@ export const PERMISSIONS = {
   READ_CLIENTS: 'read_clients',
   UPDATE_CLIENTS: 'update_clients',
   DELETE_CLIENTS: 'delete_clients',
+  UPDATE_CLIENT_SPECIAL_CONDITION: 'update_client_special_condition',
   // Portfolio - Units of Measure
   CREATE_UNITS_OF_MEASURE: 'create_units_of_measure',
   READ_UNITS_OF_MEASURE: 'read_units_of_measure',

@@ -38,7 +38,7 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   Áreas: ['create_areas', 'read_areas', 'update_areas', 'delete_areas'],
 
   // Comercial
-  Clientes: ['create_clients', 'read_clients', 'update_clients', 'delete_clients'],
+  Clientes: ['create_clients', 'read_clients', 'update_clients', 'delete_clients', 'update_client_special_condition'],
   Cotizaciones: ['create_quotes', 'read_quotes', 'update_quotes', 'delete_quotes', 'convert_quotes'],
   Órdenes: ['create_orders', 'read_orders', 'update_orders', 'delete_orders', 'approve_orders', 'apply_discounts', 'delete_discounts', 'read_pending_orders'],
   'Canales Comerciales': ['create_commercial_channels', 'read_commercial_channels', 'update_commercial_channels', 'delete_commercial_channels'],

@@ -69,6 +69,10 @@ async function main() {
     { name: 'read_clients', description: 'View clients' },
     { name: 'update_clients', description: 'Update client information' },
     { name: 'delete_clients', description: 'Delete clients' },
+    {
+      name: 'update_client_special_condition',
+      description: 'Editar condición especial del cliente',
+    },
 
     // Suppliers
     { name: 'create_suppliers', description: 'Create new suppliers' },
