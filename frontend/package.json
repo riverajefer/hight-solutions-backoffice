@@ -10,7 +10,8 @@
     "build:prod": "tsc && vite build --mode production",
     "env:info": "node scripts/env-info.js",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview --host 0.0.0.0 --port $PORT"
+    "preview": "vite preview --host 0.0.0.0 --port $PORT",
+    "prepare": "cd .. && git config core.hooksPath frontend/.husky && chmod +x frontend/.husky/pre-push"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -43,6 +44,7 @@
     "eslint": "^8.56.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
+    "husky": "^9.1.7",
     "typescript": "^5.3.3",
     "vite": "^5.0.8"
   }
