@@ -944,6 +944,8 @@ describe('QuotesService', () => {
     });
 
     it('should continue if deleting existing image fails', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+
       const itemWithImage = { ...mockQuote.items[0], sampleImageId: 'old-file' };
       mockQuotesRepository.findById.mockResolvedValue(mockQuote);
       mockPrismaService.quoteItem.findFirst.mockResolvedValue(itemWithImage);
@@ -956,6 +958,12 @@ describe('QuotesService', () => {
       ).resolves.toBeDefined();
 
       expect(mockStorageService.uploadFile).toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to delete existing sample image'),
+        expect.any(Error),
+      );
+
+      consoleErrorSpy.mockRestore();
     });
 
     it('should return the uploaded file', async () => {
