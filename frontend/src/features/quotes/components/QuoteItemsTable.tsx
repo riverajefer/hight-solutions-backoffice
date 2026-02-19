@@ -75,7 +75,6 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
   onChange,
   errors = {},
   disabled = false,
-  quoteId,
   onImageUpload,
   onImageDelete,
 }) => {
