@@ -28,6 +28,7 @@ import { OrderEditRequestsModule } from './modules/order-edit-requests/order-edi
 import { OrderStatusChangeRequestsModule } from './modules/order-status-change-requests/order-status-change-requests.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
 import { StorageModule } from './modules/storage/storage.module';
+import { CompanyModule } from './modules/company/company.module';
 import { AuditContextInterceptor } from './common/interceptors/audit-context.interceptor';
 
 @Module({
@@ -75,6 +76,8 @@ import { AuditContextInterceptor } from './common/interceptors/audit-context.int
     OrderStatusChangeRequestsModule,
     // Módulo de Almacenamiento (AWS S3)
     StorageModule,
+    // Módulo de Información de la Compañía
+    CompanyModule,
   ],
   providers: [
     {

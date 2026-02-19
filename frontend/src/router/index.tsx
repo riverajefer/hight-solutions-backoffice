@@ -66,6 +66,7 @@ const QuotesListPage = lazy(() => import('../features/quotes/pages/QuotesListPag
 const QuoteFormPage = lazy(() => import('../features/quotes/pages/QuoteFormPage'));
 const QuoteDetailPage = lazy(() => import('../features/quotes/pages/QuoteDetailPage'));
 const NotificationsPage = lazy(() => import('../features/notifications/pages/NotificationsPage'));
+const CompanyPage = lazy(() => import('../features/company/pages/CompanyPage'));
 
 
 const RoutesConfig: FC = () => {
@@ -881,6 +882,20 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.APPROVE_ORDERS}>
                   <StatusChangeRequestsPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Company Route */}
+        <Route
+          path={PATHS.COMPANY}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_COMPANY}>
+                  <CompanyPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>
