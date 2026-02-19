@@ -28,6 +28,7 @@ import { QuoteItemsTable } from '../components/QuoteItemsTable';
 import { OrderTotals } from '../../orders/components/OrderTotals';
 import type { Client } from '../../../types/client.types';
 import { quotesApi } from '../../../api/quotes.api';
+import { storageApi } from '../../../api/storage.api';
 import { useSnackbar } from 'notistack';
 
 const quoteItemSchema = z.object({
@@ -170,12 +171,36 @@ export const QuoteFormPage: React.FC = () => {
   };
 
   const handleImageUpload = async (itemId: string, file: File) => {
-    if (!isEdit || !id) {
-      enqueueSnackbar('Guarda la cotización primero para subir imágenes', { variant: 'warning' });
+    if (!isEdit) {
+      // Create mode: upload via standalone storage endpoint
+      const currentItems = getValues('items');
+      const existingItem = currentItems.find(i => i.id === itemId);
+
+      // If replacing an existing image, delete the old one first
+      if (existingItem?.sampleImageId) {
+        try {
+          await storageApi.deleteFile(existingItem.sampleImageId);
+        } catch (err) {
+          console.error('Could not delete previous image before replacing:', err);
+        }
+      }
+
+      try {
+        const uploadedFile = await storageApi.uploadFile(file, { entityType: 'quote' });
+        const updatedItems = currentItems.map((item) =>
+          item.id === itemId ? { ...item, sampleImageId: uploadedFile.id } : item
+        );
+        setValue('items', updatedItems);
+        enqueueSnackbar('Imagen subida exitosamente', { variant: 'success' });
+      } catch (error: any) {
+        console.error('Error uploading image:', error);
+        const errorMessage = error.response?.data?.message || 'Error al subir la imagen';
+        enqueueSnackbar(errorMessage, { variant: 'error' });
+      }
       return;
     }
 
-    // Check if the item exists in the database (has been saved)
+    // Edit mode: requires saved quote item
     const currentItem = currentQuote?.items?.find(item => item.id === itemId);
     if (!currentItem) {
       enqueueSnackbar('Guarda los cambios de la cotización antes de subir imágenes a items nuevos', { variant: 'warning' });
@@ -183,9 +208,8 @@ export const QuoteFormPage: React.FC = () => {
     }
 
     try {
-      const uploadedFile = await quotesApi.uploadItemSampleImage(id, itemId, file);
+      const uploadedFile = await quotesApi.uploadItemSampleImage(id!, itemId, file);
 
-      // Update the item in the form with the new sampleImageId
       const currentItems = getValues('items');
       const updatedItems = currentItems.map((item) =>
         item.id === itemId ? { ...item, sampleImageId: uploadedFile.id } : item
@@ -193,8 +217,6 @@ export const QuoteFormPage: React.FC = () => {
       setValue('items', updatedItems);
 
       enqueueSnackbar('Imagen subida exitosamente', { variant: 'success' });
-
-      // Invalidate quote cache to refresh data
       queryClient.invalidateQueries({ queryKey: ['quote', id] });
     } catch (error: any) {
       console.error('Error uploading image:', error);
@@ -204,12 +226,29 @@ export const QuoteFormPage: React.FC = () => {
   };
 
   const handleImageDelete = async (itemId: string) => {
-    if (!isEdit || !id) return;
+    if (!isEdit) {
+      // Create mode: delete via standalone storage endpoint
+      const currentItems = getValues('items');
+      const item = currentItems.find(i => i.id === itemId);
+      if (item?.sampleImageId) {
+        try {
+          await storageApi.deleteFile(item.sampleImageId);
+        } catch (error) {
+          console.error('Error deleting image from storage:', error);
+        }
+      }
+      const updatedItems = currentItems.map((i) =>
+        i.id === itemId ? { ...i, sampleImageId: undefined } : i
+      );
+      setValue('items', updatedItems);
+      enqueueSnackbar('Imagen eliminada', { variant: 'success' });
+      return;
+    }
 
+    // Edit mode: existing logic unchanged
     try {
-      await quotesApi.deleteItemSampleImage(id, itemId);
+      await quotesApi.deleteItemSampleImage(id!, itemId);
 
-      // Update the item in the form to remove sampleImageId
       const currentItems = getValues('items');
       const updatedItems = currentItems.map((item) =>
         item.id === itemId ? { ...item, sampleImageId: undefined } : item
@@ -217,8 +256,6 @@ export const QuoteFormPage: React.FC = () => {
       setValue('items', updatedItems);
 
       enqueueSnackbar('Imagen eliminada exitosamente', { variant: 'success' });
-
-      // Invalidate quote cache to refresh data
       queryClient.invalidateQueries({ queryKey: ['quote', id] });
     } catch (error) {
       console.error('Error deleting image:', error);
@@ -312,8 +349,8 @@ export const QuoteFormPage: React.FC = () => {
                     errors={errors}
                     disabled={!isClientSelected}
                     quoteId={isEdit ? id : undefined}
-                    onImageUpload={isEdit ? handleImageUpload : undefined}
-                    onImageDelete={isEdit ? handleImageDelete : undefined}
+                    onImageUpload={handleImageUpload}
+                    onImageDelete={handleImageDelete}
                   />
                 )}
               />
