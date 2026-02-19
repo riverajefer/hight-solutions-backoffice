@@ -122,9 +122,13 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
       newErrors.email = 'Email inválido';
     }
     if (!formData.phone.trim()) {
-      newErrors.phone = 'El número de celular es requerido';
-    } else if (formData.phone.length < 10) {
-      newErrors.phone = 'El número de celular debe tener 10 dígitos';
+      newErrors.phone = 'El celular es requerido';
+    } else if (formData.phone.length !== 10) {
+      newErrors.phone = 'El celular debe tener exactamente 10 dígitos';
+    }
+
+    if (formData.landlinePhone && formData.landlinePhone.trim() && formData.landlinePhone.length !== 10) {
+      newErrors.landlinePhone = 'El teléfono fijo debe tener exactamente 10 dígitos';
     }
     if (!formData.departmentId) {
       newErrors.departmentId = 'El departamento es requerido';

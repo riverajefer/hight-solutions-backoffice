@@ -61,7 +61,8 @@ export class CreateClientDto {
   })
   @IsString()
   @IsOptional()
-  @MaxLength(10, { message: 'El teléfono fijo no puede exceder 10 dígitos' })
+  @MinLength(10, { message: 'El teléfono fijo debe tener exactamente 10 dígitos' })
+  @MaxLength(10, { message: 'El teléfono fijo debe tener exactamente 10 dígitos' })
   landlinePhone?: string;
 
   @ApiPropertyOptional({

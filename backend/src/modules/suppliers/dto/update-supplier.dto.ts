@@ -42,7 +42,8 @@ export class UpdateSupplierDto {
   })
   @IsString()
   @IsOptional()
-  @MaxLength(10)
+  @MinLength(10, { message: 'El celular debe tener exactamente 10 dígitos' })
+  @MaxLength(10, { message: 'El celular debe tener exactamente 10 dígitos' })
   phone?: string;
 
   @ApiPropertyOptional({
@@ -52,7 +53,8 @@ export class UpdateSupplierDto {
   })
   @IsString()
   @IsOptional()
-  @MaxLength(10)
+  @MinLength(10, { message: 'El teléfono fijo debe tener exactamente 10 dígitos' })
+  @MaxLength(10, { message: 'El teléfono fijo debe tener exactamente 10 dígitos' })
   landlinePhone?: string;
 
   @ApiPropertyOptional({

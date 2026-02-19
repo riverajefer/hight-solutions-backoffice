@@ -36,12 +36,12 @@ const supplierSchema = z.object({
     .or(z.literal('')),
   phone: z
     .string()
-    .max(10, 'El celular no puede exceder 10 dígitos')
+    .length(10, 'El celular debe tener exactamente 10 dígitos')
     .optional()
     .or(z.literal('')),
   landlinePhone: z
     .string()
-    .max(10, 'El teléfono fijo no puede exceder 10 dígitos')
+    .length(10, 'El teléfono fijo debe tener exactamente 10 dígitos')
     .optional()
     .or(z.literal('')),
   address: z
