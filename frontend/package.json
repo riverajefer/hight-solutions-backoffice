@@ -11,7 +11,7 @@
     "env:info": "node scripts/env-info.js",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview --host 0.0.0.0 --port $PORT",
-    "prepare": "cd .. && git config core.hooksPath frontend/.husky && chmod +x frontend/.husky/pre-push"
+    "prepare": "if [ -d \"../.git\" ]; then cd .. && git config core.hooksPath frontend/.husky && chmod +x frontend/.husky/pre-push; fi"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
