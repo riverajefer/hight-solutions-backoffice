@@ -17,6 +17,7 @@ import {
 import MenuIcon from '@mui/icons-material/Menu';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
+import BusinessIcon from '@mui/icons-material/Business';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
@@ -38,7 +39,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isDark = theme.palette.mode === 'dark';
-  const { user, logout } = useAuthStore();
+  const { user, logout, hasPermission } = useAuthStore();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -58,6 +59,11 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
   const handleProfile = () => {
     handleMenuClose();
     navigate(ROUTES.PROFILE);
+  };
+
+  const handleCompany = () => {
+    handleMenuClose();
+    navigate(ROUTES.COMPANY);
   };
 
   const userName = user ? formatFullName(user.firstName, user.lastName) : 'Usuario';
@@ -314,6 +320,42 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
               Mi Perfil
             </Typography>
           </MenuItem>
+
+          {hasPermission('read_company') && (
+            <MenuItem
+              onClick={handleCompany}
+              sx={{
+                py: 1.5,
+                mx: 1,
+                my: 0.5,
+                borderRadius: '10px',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  background: isDark
+                    ? alpha(neonColors.primary.main, 0.15)
+                    : alpha(neonColors.primary.main, 0.08),
+                  transform: 'translateX(4px)',
+                },
+              }}
+            >
+              <ListItemIcon>
+                <BusinessIcon
+                  fontSize="small"
+                  sx={{
+                    color: isDark ? neonColors.primary.main : neonColors.primary.dark,
+                  }}
+                />
+              </ListItemIcon>
+              <Typography
+                sx={{
+                  color: isDark ? 'white' : 'text.primary',
+                  fontWeight: 500,
+                }}
+              >
+                Información de Compañía
+              </Typography>
+            </MenuItem>
+          )}
 
           <Divider
             sx={{

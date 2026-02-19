@@ -85,6 +85,9 @@ export const PERMISSIONS = {
   UPDATE_QUOTES: 'update_quotes',
   DELETE_QUOTES: 'delete_quotes',
   CONVERT_QUOTES: 'convert_quotes',
+  // Company
+  READ_COMPANY: 'read_company',
+  UPDATE_COMPANY: 'update_company',
 };
 
 export const ROUTES = {
@@ -157,6 +160,8 @@ export const ROUTES = {
   QUOTES_CREATE: '/quotes/new',
   QUOTES_EDIT: '/quotes/:id/edit',
   QUOTES_DETAIL: '/quotes/:id',
+  // Company
+  COMPANY: '/company',
 };
 
 export const DEFAULT_PAGINATION = {

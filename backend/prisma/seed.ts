@@ -198,6 +198,10 @@ async function main() {
     { name: 'read_files', description: 'Ver y descargar archivos' },
     { name: 'delete_files', description: 'Eliminar archivos' },
     { name: 'manage_storage', description: 'Gestión completa de almacenamiento' },
+
+    // Company (Información institucional)
+    { name: 'read_company', description: 'Ver información de la compañía' },
+    { name: 'update_company', description: 'Editar información de la compañía' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
@@ -2234,6 +2238,31 @@ async function main() {
   console.log(`   - Roles: 3 (admin, manager, user)`);
   console.log(`   - Users: 3`);
   console.log(`   - Areas: ${areasData.length}`);
+  // ============================================
+  // Company - Información institucional inicial
+  // ============================================
+  console.log('\n🏢 Creating company info...');
+
+  await prisma.company.upsert({
+    where: { id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
+    update: {},
+    create: {
+      id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+      name: 'Hight Solutions S.A.S',
+      description: 'Empresa especializada en soluciones de software y tecnología empresarial.',
+      email: 'contacto@hightsolutions.com',
+      phone: '6012345678',
+      mobilePhone: '3001234567',
+      website: 'https://www.hightsolutions.com',
+      address: 'Bogotá, Colombia',
+      nit: '900000000-0',
+      legalRepresentative: 'Representante Legal',
+      foundedYear: 2020,
+      taxRegime: 'Régimen Simple de Tributación',
+    },
+  });
+  console.log('  ✓ Company info created');
+
   console.log(`   - Cargos: ${cargosData.length}`);
   console.log(`   - Departments: ${departmentsData.length}`);
   console.log(`   - Cities: ${totalCities}`);

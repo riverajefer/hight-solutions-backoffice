@@ -104,6 +104,10 @@ export const PERMISSION_LABELS: Record<string, string> = {
    read_pending_orders: 'Ver Órdenes Pendientes de Pago',
    apply_discounts: 'Aplicar Descuentos',
    delete_discounts: 'Eliminar Descuentos',
+
+  // Compañía
+  read_company: 'Ver Información de Compañía',
+  update_company: 'Editar Información de Compañía',
 };
 
 /**
