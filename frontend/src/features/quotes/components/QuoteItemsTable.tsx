@@ -163,6 +163,8 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
 
   const subtotal = items.reduce((sum, item) => sum + item.total, 0);
 
+  const showImageColumn = !!onImageUpload || !!onImageDelete || items.some(item => !!item.sampleImageId);
+
   return (
     <Box>
       <TableContainer>
@@ -181,13 +183,13 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
                 },
               }}
             >
-              {quoteId && <TableCell width="8%" align="center">Imagen</TableCell>}
-              <TableCell width={quoteId ? "7%" : "8%"} align="center">Cantidad</TableCell>
-              <TableCell width={quoteId ? "22%" : "25%"}>Servicio (Opcional)</TableCell>
-              <TableCell width={quoteId ? "22%" : "25%"}>Descripción</TableCell>
-              <TableCell width={quoteId ? "15%" : "17%"}>Áreas de Producción</TableCell>
-              <TableCell width={quoteId ? "11%" : "12%"} align="right">Valor Unitario</TableCell>
-              <TableCell width={quoteId ? "10%" : "8%"} align="right">Valor Total</TableCell>
+              {showImageColumn && <TableCell width="8%" align="center">Imagen</TableCell>}
+              <TableCell width={showImageColumn ? "7%" : "8%"} align="center">Cantidad</TableCell>
+              <TableCell width={showImageColumn ? "22%" : "25%"}>Servicio (Opcional)</TableCell>
+              <TableCell width={showImageColumn ? "22%" : "25%"}>Descripción</TableCell>
+              <TableCell width={showImageColumn ? "15%" : "17%"}>Áreas de Producción</TableCell>
+              <TableCell width={showImageColumn ? "11%" : "12%"} align="right">Valor Unitario</TableCell>
+              <TableCell width={showImageColumn ? "10%" : "8%"} align="right">Valor Total</TableCell>
               <TableCell width="5%" align="center">Acciones</TableCell>
             </TableRow>
           </TableHead>
@@ -197,7 +199,7 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
 
               return (
                 <TableRow key={item.id} hover>
-                  {quoteId && (
+                  {showImageColumn && (
                     <TableCell align="center">
                       {item.sampleImageId ? (
                         <Stack direction="row" spacing={0.5} justifyContent="center">
@@ -378,7 +380,7 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
               );
             })}
             <TableRow sx={{ backgroundColor: 'action.hover' }}>
-              <TableCell colSpan={5} align="right">
+              <TableCell colSpan={showImageColumn ? 6 : 5} align="right">
                 <Typography variant="body2" fontWeight={700}>SUBTOTAL:</Typography>
               </TableCell>
               <TableCell align="right">

@@ -37,4 +37,21 @@ export const storageApi = {
     const { data} = await axiosInstance.delete(`${BASE_URL}/${fileId}`);
     return data;
   },
+
+  /**
+   * Subir un archivo de forma independiente
+   */
+  uploadFile: async (
+    file: File,
+    options?: { entityType?: string; entityId?: string }
+  ): Promise<{ id: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (options?.entityType) formData.append('entityType', options.entityType);
+    if (options?.entityId) formData.append('entityId', options.entityId);
+    const { data } = await axiosInstance.post(`${BASE_URL}/upload`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data;
+  },
 };
