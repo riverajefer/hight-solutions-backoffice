@@ -2,6 +2,7 @@
 jest.mock('uuid', () => ({ v4: jest.fn(() => 'mock-uuid') }));
 
 import { Test, TestingModule } from '@nestjs/testing';
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { StorageService } from './storage.service';
 import { StorageRepository } from './storage.repository';
@@ -189,6 +190,7 @@ describe('StorageService', () => {
     });
 
     it('should throw FileUploadFailedException and attempt S3 rollback when repository.create fails', async () => {
+      const loggerErrorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
       mockStorageRepository.create.mockRejectedValue(new Error('DB error'));
       mockStorageS3Service.deleteFile.mockResolvedValue(undefined);
 
@@ -200,6 +202,8 @@ describe('StorageService', () => {
 
       // Rollback: S3 file should be deleted
       expect(mockStorageS3Service.deleteFile).toHaveBeenCalled();
+
+      loggerErrorSpy.mockRestore();
     });
   });
 
@@ -360,11 +364,14 @@ describe('StorageService', () => {
     });
 
     it('should throw FileUploadFailedException when S3 deletion fails', async () => {
+      const loggerErrorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
       mockStorageS3Service.deleteFile.mockRejectedValue(new Error('S3 error'));
 
       await expect(service.hardDeleteFile('file-1')).rejects.toThrow(
         FileUploadFailedException,
       );
+
+      loggerErrorSpy.mockRestore();
     });
   });
 });

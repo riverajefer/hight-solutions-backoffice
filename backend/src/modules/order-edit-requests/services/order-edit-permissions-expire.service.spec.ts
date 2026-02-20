@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { Logger } from '@nestjs/common';
 import { OrderEditPermissionsExpireService } from './order-edit-permissions-expire.service';
 import { PrismaService } from '../../../database/prisma.service';
 import { NotificationsService } from '../../notifications/notifications.service';
@@ -115,6 +116,7 @@ describe('OrderEditPermissionsExpireService', () => {
     });
 
     it('should continue notifying remaining users even if one notification fails', async () => {
+      const loggerErrorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
       const expired = [
         makeExpiredRequest('req-1', 'user-1', 'OP-001'),
         makeExpiredRequest('req-2', 'user-2', 'OP-002'),
@@ -129,6 +131,8 @@ describe('OrderEditPermissionsExpireService', () => {
 
       // Despite the first notification failing, the second one was still attempted
       expect(mockNotificationsService.create).toHaveBeenCalledTimes(2);
+
+      loggerErrorSpy.mockRestore();
     });
   });
 
@@ -180,6 +184,7 @@ describe('OrderEditPermissionsExpireService', () => {
     });
 
     it('should continue notifying remaining users even if one notification fails', async () => {
+      const loggerErrorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
       const expiring = [
         { ...makeExpiredRequest('req-1', 'user-1', 'OP-001'), expiresAt: new Date(Date.now() + 30000) },
         { ...makeExpiredRequest('req-2', 'user-2', 'OP-002'), expiresAt: new Date(Date.now() + 45000) },
@@ -192,6 +197,8 @@ describe('OrderEditPermissionsExpireService', () => {
       await service.notifyExpiringPermissions();
 
       expect(mockNotificationsService.create).toHaveBeenCalledTimes(2);
+
+      loggerErrorSpy.mockRestore();
     });
   });
 });

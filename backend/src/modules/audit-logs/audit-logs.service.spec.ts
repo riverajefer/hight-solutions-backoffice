@@ -55,11 +55,14 @@ describe('AuditLogsService', () => {
     });
 
     it('should NOT throw when prisma.auditLog.create rejects (swallows error)', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
       prisma.auditLog.create.mockRejectedValue(new Error('DB error'));
 
       await expect(
         service.logCreate('User', 'user-1', {}),
       ).resolves.not.toThrow();
+
+      consoleErrorSpy.mockRestore();
     });
   });
 
@@ -99,11 +102,14 @@ describe('AuditLogsService', () => {
     });
 
     it('should NOT throw when prisma.auditLog.create rejects', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
       prisma.auditLog.create.mockRejectedValue(new Error('DB error'));
 
       await expect(
         service.logUpdate('Order', 'order-1', {}, {}),
       ).resolves.not.toThrow();
+
+      consoleErrorSpy.mockRestore();
     });
   });
 
@@ -141,11 +147,14 @@ describe('AuditLogsService', () => {
     });
 
     it('should NOT throw when prisma.auditLog.create rejects', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
       prisma.auditLog.create.mockRejectedValue(new Error('DB error'));
 
       await expect(
         service.logDelete('Permission', 'perm-1', {}),
       ).resolves.not.toThrow();
+
+      consoleErrorSpy.mockRestore();
     });
   });
 
@@ -245,11 +254,14 @@ describe('AuditLogsService', () => {
     });
 
     it('should NOT throw even if prisma.auditLog.create rejects inside setImmediate', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
       prisma.auditLog.create.mockRejectedValue(new Error('DB crash'));
 
       await service.logOrderChange('DELETE', 'order-1', mockOrder, null);
       // Flush setImmediate — should not throw
       await expect(flushSetImmediate()).resolves.not.toThrow();
+
+      consoleErrorSpy.mockRestore();
     });
   });
 });
