@@ -321,7 +321,7 @@ export const OrdersListPage: React.FC = () => {
   ];
 
   const hasActiveFilters =
-    filters.status || filters.clientId || filters.orderDateFrom || filters.orderDateTo;
+    filters.status || filters.clientId || filters.orderDateFrom || filters.orderDateTo || filters.search;
 
   return (
     <Box sx={{ p: 3 }}>
@@ -425,6 +425,10 @@ export const OrdersListPage: React.FC = () => {
         getRowId={(row) => row.id}
         onRowClick={handleViewOrder}
         pageSize={filters.limit}
+        searchValue={filters.search || ''}
+        onSearchChange={(value) => handleFilterChange('search', value)}
+        serverSideSearch={true}
+        searchPlaceholder="Buscar por número, cliente, notas..."
         emptyMessage="No se encontraron órdenes"
         getRowClassName={(params) => {
           const alert = getDeliveryAlert(params.row);

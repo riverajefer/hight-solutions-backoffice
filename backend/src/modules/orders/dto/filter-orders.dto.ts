@@ -20,6 +20,13 @@ export class FilterOrdersDto {
   status?: OrderStatus;
 
   @ApiPropertyOptional({
+    description: 'Búsqueda general (número de orden, cliente, etc.)',
+    example: 'ORD-001',
+  })
+  @IsOptional()
+  search?: string;
+
+  @ApiPropertyOptional({
     description: 'Filtrar por cliente',
     example: 'uuid-client',
   })

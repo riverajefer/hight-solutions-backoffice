@@ -134,18 +134,30 @@ export class OrdersRepository {
 
   async findAllWithFilters(filters: {
     status?: OrderStatus;
+    search?: string;
     clientId?: string;
     orderDateFrom?: Date;
     orderDateTo?: Date;
     page?: number;
     limit?: number;
   }) {
-    const { status, clientId, orderDateFrom, orderDateTo, page = 1, limit = 20 } = filters;
+    const { status, search, clientId, orderDateFrom, orderDateTo, page = 1, limit = 20 } = filters;
 
     const where: Prisma.OrderWhereInput = {};
 
     if (status) {
       where.status = status;
+    }
+
+    if (search) {
+      where.OR = [
+        { orderNumber: { contains: search, mode: 'insensitive' } },
+        { client: { name: { contains: search, mode: 'insensitive' } } },
+        { client: { email: { contains: search, mode: 'insensitive' } } },
+        { client: { phone: { contains: search, mode: 'insensitive' } } },
+        { notes: { contains: search, mode: 'insensitive' } },
+        { electronicInvoiceNumber: { contains: search, mode: 'insensitive' } },
+      ];
     }
 
     if (clientId) {

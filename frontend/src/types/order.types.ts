@@ -215,6 +215,7 @@ export interface ApplyDiscountDto {
 
 export interface FilterOrdersDto {
   status?: OrderStatus;
+  search?: string;
   clientId?: string;
   orderDateFrom?: string; // ISO date string
   orderDateTo?: string; // ISO date string

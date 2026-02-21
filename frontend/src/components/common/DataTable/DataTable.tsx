@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   DataGrid,
   GridColDef,
@@ -25,6 +25,9 @@ interface DataTableProps<T extends GridValidRowModel> {
   onAdd?: () => void;
   addButtonText?: string;
   searchPlaceholder?: string;
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
+  serverSideSearch?: boolean;
   showExport?: boolean;
   emptyMessage?: string;
   getRowClassName?: (params: GridRowClassNameParams<T>) => string;
@@ -43,6 +46,9 @@ export function DataTable<T extends GridValidRowModel>({
   onAdd,
   addButtonText,
   searchPlaceholder,
+  searchValue,
+  onSearchChange,
+  serverSideSearch = false,
   showExport = false,
   emptyMessage = 'No se encontraron registros',
   getRowClassName,
@@ -51,36 +57,66 @@ export function DataTable<T extends GridValidRowModel>({
     pageSize: initialPageSize,
     page: 0,
   });
-  const [searchText, setSearchText] = useState('');
+  const [internalSearchText, setInternalSearchText] = useState(searchValue || '');
   const [debouncedSearchText, setDebouncedSearchText] = useState('');
+
+  const isControlledSearch = searchValue !== undefined && onSearchChange !== undefined;
+
+  const prevSearchValueRef = useRef(searchValue);
+
+  // Sync internal state with external prop if it changes externally
+  useEffect(() => {
+    if (searchValue !== undefined && searchValue !== prevSearchValueRef.current) {
+      setInternalSearchText(searchValue);
+      prevSearchValueRef.current = searchValue;
+    }
+  }, [searchValue]);
+
+  const handleSearchChange = (value: string) => {
+    setInternalSearchText(value);
+  };
 
   // Debounce search text
   useEffect(() => {
     const handler = setTimeout(() => {
-      setDebouncedSearchText(searchText);
+      if (isControlledSearch && onSearchChange) {
+        // Only call onSearchChange if the value actually changed to avoid infinite loops
+        if (searchValue !== internalSearchText) {
+          onSearchChange(internalSearchText);
+        }
+      } else {
+        setDebouncedSearchText(internalSearchText);
+      }
     }, 300);
 
     return () => {
       clearTimeout(handler);
     };
-  }, [searchText]);
+  }, [internalSearchText, isControlledSearch, onSearchChange, searchValue]);
 
   // Reset to first page when search changes
   useEffect(() => {
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
-  }, [debouncedSearchText]);
+  }, [debouncedSearchText, searchValue]);
 
   const filteredRows = useMemo(() => {
-    if (!debouncedSearchText) return rows;
+    if (serverSideSearch || !debouncedSearchText) return rows;
 
     const lowerSearchText = debouncedSearchText.toLowerCase();
-    return rows.filter((row) => {
-      return Object.values(row).some((value) => {
-        if (value === null || value === undefined) return false;
-        return String(value).toLowerCase().includes(lowerSearchText);
-      });
-    });
-  }, [rows, debouncedSearchText]);
+
+    const searchInObject = (obj: any): boolean => {
+      if (obj === null || obj === undefined) return false;
+      if (typeof obj === 'object') {
+        if (obj instanceof Date) {
+          return obj.toISOString().toLowerCase().includes(lowerSearchText);
+        }
+        return Object.values(obj).some(searchInObject);
+      }
+      return String(obj).toLowerCase().includes(lowerSearchText);
+    };
+
+    return rows.filter(searchInObject);
+  }, [rows, debouncedSearchText, serverSideSearch]);
 
   // Agregar columna de numeración automática
   const columnsWithRowNumber = useMemo<GridColDef[]>(() => {
@@ -163,8 +199,8 @@ export function DataTable<T extends GridValidRowModel>({
           onAdd={onAdd}
           addButtonText={addButtonText}
           searchPlaceholder={searchPlaceholder}
-          searchValue={searchText}
-          onSearchChange={setSearchText}
+          searchValue={internalSearchText}
+          onSearchChange={handleSearchChange}
           showExport={showExport}
         />
       )}
