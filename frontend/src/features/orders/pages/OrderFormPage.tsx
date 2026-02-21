@@ -16,7 +16,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { commercialChannelsApi } from '../../../api/commercialChannels.api';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, type SubmitHandler, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { DatePicker } from '@mui/x-date-pickers';
@@ -179,7 +179,7 @@ export const OrderFormPage: React.FC = () => {
     setValue,
     formState: { errors, isValid },
   } = useForm<OrderFormData>({
-    resolver: zodResolver(orderFormSchema),
+    resolver: zodResolver(orderFormSchema) as Resolver<OrderFormData>,
     mode: 'onChange',
     defaultValues: {
       client: null,
@@ -317,7 +317,7 @@ export const OrderFormPage: React.FC = () => {
   }, [isEdit, orderQuery.data, id, navigate, setValue, isAdmin, activePermissionQuery.data]);
 
   // Handle form submission
-  const onSubmit = async (data: OrderFormData) => {
+  const onSubmit: SubmitHandler<OrderFormData> = async (data) => {
     setIsSubmitting(true);
 
     try {
