@@ -88,6 +88,11 @@ export const PERMISSIONS = {
   // Company
   READ_COMPANY: 'read_company',
   UPDATE_COMPANY: 'update_company',
+  // Work Orders
+  CREATE_WORK_ORDERS: 'create_work_orders',
+  READ_WORK_ORDERS: 'read_work_orders',
+  UPDATE_WORK_ORDERS: 'update_work_orders',
+  DELETE_WORK_ORDERS: 'delete_work_orders',
 };
 
 export const ROUTES = {
@@ -162,6 +167,11 @@ export const ROUTES = {
   QUOTES_DETAIL: '/quotes/:id',
   // Company
   COMPANY: '/company',
+  // Work Orders
+  WORK_ORDERS: '/work-orders',
+  WORK_ORDERS_CREATE: '/work-orders/new',
+  WORK_ORDERS_DETAIL: '/work-orders/:id',
+  WORK_ORDERS_EDIT: '/work-orders/:id/edit',
 };
 
 export const DEFAULT_PAGINATION = {

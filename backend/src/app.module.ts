@@ -29,6 +29,7 @@ import { OrderStatusChangeRequestsModule } from './modules/order-status-change-r
 import { QuotesModule } from './modules/quotes/quotes.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { CompanyModule } from './modules/company/company.module';
+import { WorkOrdersModule } from './modules/work-orders/work-orders.module';
 import { AuditContextInterceptor } from './common/interceptors/audit-context.interceptor';
 
 @Module({
@@ -78,6 +79,8 @@ import { AuditContextInterceptor } from './common/interceptors/audit-context.int
     StorageModule,
     // Módulo de Información de la Compañía
     CompanyModule,
+    // Módulo de Órdenes de Trabajo
+    WorkOrdersModule,
   ],
   providers: [
     {

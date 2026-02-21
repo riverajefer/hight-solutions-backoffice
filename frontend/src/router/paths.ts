@@ -75,5 +75,10 @@ export const PATHS = {
   NOTIFICATIONS: '/notifications',
   // Company
   COMPANY: '/company',
+  // Work Orders Routes
+  WORK_ORDERS: '/work-orders',
+  WORK_ORDERS_CREATE: '/work-orders/new',
+  WORK_ORDERS_EDIT: '/work-orders/:id/edit',
+  WORK_ORDERS_DETAIL: '/work-orders/:id',
 };
 

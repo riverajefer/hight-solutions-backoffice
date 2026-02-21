@@ -11,4 +11,5 @@ export * from './client.types';
 export * from './supplier.types';
 export * from './session-log.types';
 export * from './production-area.types';
+export * from './work-order.types';
 

@@ -44,6 +44,7 @@ import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import PostAddIcon from '@mui/icons-material/PostAdd';
 import PendingActionsIcon from '@mui/icons-material/PendingActions';
+import BuildIcon from '@mui/icons-material/Build';
 import { useAuthStore } from '../../store/authStore';
 import { ROUTES, PERMISSIONS } from '../../utils/constants';
 import { neonColors, neonAccents } from '../../theme';
@@ -142,6 +143,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           permission: PERMISSIONS.READ_ORDERS,
         },
         {
+          label: 'Órdenes de Trabajo',
+          icon: <BuildIcon />,
+          path: ROUTES.WORK_ORDERS,
+          permission: PERMISSIONS.READ_WORK_ORDERS,
+        },
+        {
           label: 'Órdenes Pendientes de Pago',
           icon: <PaymentsIcon />,
           path: ROUTES.PENDING_PAYMENT_ORDERS,
@@ -168,6 +175,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
       ],
       permissions: [
         PERMISSIONS.READ_ORDERS,
+        PERMISSIONS.READ_WORK_ORDERS,
         PERMISSIONS.READ_CLIENTS,
         PERMISSIONS.READ_COMMERCIAL_CHANNELS,
       ],

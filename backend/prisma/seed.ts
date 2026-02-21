@@ -202,6 +202,12 @@ async function main() {
     // Company (Información institucional)
     { name: 'read_company', description: 'Ver información de la compañía' },
     { name: 'update_company', description: 'Editar información de la compañía' },
+
+    // Work Orders (Órdenes de Trabajo)
+    { name: 'create_work_orders', description: 'Crear órdenes de trabajo' },
+    { name: 'read_work_orders', description: 'Ver órdenes de trabajo' },
+    { name: 'update_work_orders', description: 'Actualizar órdenes de trabajo' },
+    { name: 'delete_work_orders', description: 'Eliminar órdenes de trabajo' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
@@ -311,6 +317,10 @@ async function main() {
     'read_quotes',
     'update_quotes',
     'convert_quotes',
+    // Work Orders (Manager)
+    'create_work_orders',
+    'read_work_orders',
+    'update_work_orders',
   ]);
 
   // User - solo lectura básica
@@ -2063,6 +2073,12 @@ async function main() {
       prefix: 'COT',
       year: new Date().getFullYear(),
       lastNumber: 2,
+    },
+    {
+      type: 'WORK_ORDER',
+      prefix: 'OT',
+      year: new Date().getFullYear(),
+      lastNumber: 0,
     },
   ];
 
