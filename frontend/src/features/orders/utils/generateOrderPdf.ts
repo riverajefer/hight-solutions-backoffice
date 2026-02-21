@@ -410,6 +410,15 @@ function drawFinancials(doc: jsPDF, y: number, order: Order): number {
     y += lineH;
   }
 
+  // Prueba de Color
+  if (order.requiresColorProof) {
+    doc.setFont('helvetica', 'normal');
+    doc.text('Prueba de Color:', labelX, y);
+    doc.setFont('helvetica', 'bold');
+    doc.text(formatCurrency(order.colorProofPrice), valueRight, y, { align: 'right' });
+    y += lineH;
+  }
+
   // Descuentos — only if discountAmount > 0
   if (parseFloat(order.discountAmount) > 0) {
     doc.setFont('helvetica', 'normal');
@@ -456,7 +465,7 @@ function drawFinancials(doc: jsPDF, y: number, order: Order): number {
 }
 
 function drawNotes(doc: jsPDF, y: number, order: Order): number {
-  if (!order.notes) return y;
+  if (!order.notes && !order.requiresColorProof) return y;
 
   // Separator
   setDrawColor(doc, PDF_COLORS.tableHeaderBg);
@@ -468,22 +477,33 @@ function drawNotes(doc: jsPDF, y: number, order: Order): number {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(PDF_FONTS.sectionTitle);
   setTextColor(doc, PDF_COLORS.sectionTitleText);
-  doc.text('Observaciones', PDF_LAYOUT.marginLeft, y);
+  doc.text('Observaciones y Detalles', PDF_LAYOUT.marginLeft, y);
   y += 5;
 
+  // Prueba de color
+  if (order.requiresColorProof) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(PDF_FONTS.tableBody);
+    setTextColor(doc, [0, 102, 204]); // Un azul para destacar
+    doc.text('✓ Requiere prueba de color', PDF_LAYOUT.marginLeft, y);
+    y += 5;
+  }
+
   // Text (wrapped)
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(PDF_FONTS.tableBody);
-  setTextColor(doc, PDF_COLORS.bodyText);
-  const lines = doc.splitTextToSize(order.notes, PDF_LAYOUT.contentWidth);
-  lines.forEach((line: string) => {
-    if (y > PDF_LAYOUT.pageHeight - PDF_LAYOUT.marginBottom - 6) {
-      doc.addPage();
-      y = PDF_LAYOUT.marginTop;
-    }
-    doc.text(line, PDF_LAYOUT.marginLeft, y);
-    y += 4;
-  });
+  if (order.notes) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(PDF_FONTS.tableBody);
+    setTextColor(doc, PDF_COLORS.bodyText);
+    const lines = doc.splitTextToSize(order.notes, PDF_LAYOUT.contentWidth);
+    lines.forEach((line: string) => {
+      if (y > PDF_LAYOUT.pageHeight - PDF_LAYOUT.marginBottom - 6) {
+        doc.addPage();
+        y = PDF_LAYOUT.marginTop;
+      }
+      doc.text(line, PDF_LAYOUT.marginLeft, y);
+      y += 4;
+    });
+  }
 
   return y + 3;
 }

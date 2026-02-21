@@ -157,4 +157,20 @@ export class CreateOrderDto {
   @IsOptional()
   @IsUUID()
   commercialChannelId?: string;
+
+  @ApiPropertyOptional({
+    description: '¿Requiere prueba de color?',
+    example: true,
+  })
+  @IsOptional()
+  requiresColorProof?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Precio de la prueba de color',
+    example: 15000,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  colorProofPrice?: number;
 }

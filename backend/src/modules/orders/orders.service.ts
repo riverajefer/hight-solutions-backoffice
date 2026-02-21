@@ -93,7 +93,13 @@ export class OrdersService {
     const taxRate = new Prisma.Decimal(0.19);
     const tax = subtotal.mul(taxRate);
     const discountAmount = new Prisma.Decimal(0);
-    const total = subtotal.add(tax).sub(discountAmount);
+    
+    const requiresColorProof = createOrderDto.requiresColorProof || false;
+    const colorProofPrice = requiresColorProof && createOrderDto.colorProofPrice 
+      ? new Prisma.Decimal(createOrderDto.colorProofPrice) 
+      : new Prisma.Decimal(0);
+      
+    const total = subtotal.add(tax).sub(discountAmount).add(colorProofPrice);
 
     // Manejar pago inicial
     let paidAmount = new Prisma.Decimal(0);
@@ -134,6 +140,8 @@ export class OrdersService {
       taxRate,
       tax,
       discountAmount,
+      requiresColorProof,
+      colorProofPrice,
       total,
       paidAmount,
       balance,
@@ -222,6 +230,12 @@ export class OrdersService {
             }),
             ...(updateOrderDto.commercialChannelId && {
               commercialChannel: { connect: { id: updateOrderDto.commercialChannelId } },
+            }),
+            ...(updateOrderDto.requiresColorProof !== undefined && {
+              requiresColorProof: updateOrderDto.requiresColorProof,
+            }),
+            ...(updateOrderDto.colorProofPrice !== undefined && {
+              colorProofPrice: new Prisma.Decimal(updateOrderDto.colorProofPrice),
             }),
           },
         });
@@ -408,7 +422,18 @@ export class OrdersService {
       ...(updateOrderDto.commercialChannelId && {
         commercialChannel: { connect: { id: updateOrderDto.commercialChannelId } },
       }),
+      ...(updateOrderDto.requiresColorProof !== undefined && {
+        requiresColorProof: updateOrderDto.requiresColorProof,
+      }),
+      ...(updateOrderDto.colorProofPrice !== undefined && {
+        colorProofPrice: new Prisma.Decimal(updateOrderDto.colorProofPrice),
+      }),
     });
+
+    // Si se actualizó el precio de la prueba de color, recalcular totales
+    if (updateOrderDto.colorProofPrice !== undefined || updateOrderDto.requiresColorProof !== undefined) {
+      await this.recalculateOrderTotals(id, this.prisma);
+    }
 
     // Retornar la orden actualizada con sus relaciones
     const updatedOrder = await this.findOne(id);
@@ -853,10 +878,10 @@ export class OrdersService {
       subtotal = subtotal.add(item.total);
     }
 
-    // Obtener taxRate de la orden
+    // Obtener taxRate y colorProof de la orden
     const order = await tx.order.findUnique({
       where: { id: orderId },
-      select: { taxRate: true },
+      select: { taxRate: true, requiresColorProof: true, colorProofPrice: true },
     });
 
     const taxRate = order?.taxRate || new Prisma.Decimal(0.19);
@@ -873,7 +898,11 @@ export class OrdersService {
       discountAmount = discountAmount.add(discount.amount);
     }
 
-    const total = subtotal.add(tax).sub(discountAmount);
+    const colorProofPrice = order?.requiresColorProof && order?.colorProofPrice 
+      ? new Prisma.Decimal(order.colorProofPrice) 
+      : new Prisma.Decimal(0);
+
+    const total = subtotal.add(tax).sub(discountAmount).add(colorProofPrice);
 
     // Calcular paidAmount sumando todos los pagos
     const payments = await tx.payment.findMany({

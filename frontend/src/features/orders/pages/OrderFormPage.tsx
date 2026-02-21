@@ -85,6 +85,8 @@ const orderFormSchema = z
     deliveryDate: z.date().nullable(),
     deliveryDateReason: z.string().optional(),
     notes: z.string().optional(),
+    requiresColorProof: z.boolean().default(false),
+    colorProofPrice: z.number().min(0).optional(),
     items: z.array(orderItemSchema).min(1, 'Debe agregar al menos un item'),
     applyTax: z.boolean(),
     taxRate: z.number().min(0).max(100),
@@ -110,7 +112,8 @@ const orderFormSchema = z
       // Validar que el monto del abono no exceda el total
       const subtotal = data.items.reduce((sum, item) => sum + item.total, 0);
       const tax = data.applyTax ? subtotal * (data.taxRate / 100) : 0;
-      const total = subtotal + tax;
+      const colorProofPrice = data.requiresColorProof ? (data.colorProofPrice || 0) : 0;
+      const total = subtotal + tax + colorProofPrice;
       return data.payment.amount <= total;
     },
     {
@@ -131,6 +134,14 @@ const orderFormSchema = z
   );
 
 type OrderFormData = z.infer<typeof orderFormSchema>;
+
+// Formatea moneda mientras se escribe (similar al valor unitario)
+const formatCurrencyInput = (value: string): string => {
+  const numericValue = value.replace(/\D/g, '');
+  if (!numericValue) return '';
+  const number = parseInt(numericValue, 10);
+  return new Intl.NumberFormat('es-CO').format(number);
+};
 
 // ============================================================
 // COMPONENT
@@ -175,6 +186,8 @@ export const OrderFormPage: React.FC = () => {
       deliveryDate: null,
       deliveryDateReason: '',
       notes: '',
+      requiresColorProof: false,
+      colorProofPrice: undefined,
       items: [
         {
           id: uuidv4(),
@@ -203,11 +216,13 @@ export const OrderFormPage: React.FC = () => {
   const applyTax = watch('applyTax');
   const taxRate = watch('taxRate');
   const deliveryDate = watch('deliveryDate');
+  const requiresColorProof = watch('requiresColorProof');
+  const colorProofPrice = requiresColorProof ? watch('colorProofPrice') || 0 : 0;
 
   // Calculate totals
   const subtotal = items.reduce((sum, item) => sum + item.total, 0);
   const tax = applyTax ? subtotal * (taxRate / 100) : 0;
-  const total = subtotal + tax;
+  const total = subtotal + tax + colorProofPrice;
 
   // Deshabilitar campos si no hay cliente seleccionado
   const isClientSelected = !!selectedClient;
@@ -269,6 +284,8 @@ export const OrderFormPage: React.FC = () => {
       setValue('client', order.client as any);
       setValue('deliveryDate', order.deliveryDate ? new Date(order.deliveryDate) : null);
       setValue('notes', order.notes || '');
+      setValue('requiresColorProof', order.requiresColorProof || false);
+      setValue('colorProofPrice', order.colorProofPrice ? parseFloat(order.colorProofPrice) : 0);
       setValue(
         'items',
         order.items.map((item) => ({
@@ -311,6 +328,8 @@ export const OrderFormPage: React.FC = () => {
           deliveryDateReason: data.deliveryDateReason,
         }),
         notes: data.notes,
+        requiresColorProof: data.requiresColorProof,
+        colorProofPrice: data.requiresColorProof ? data.colorProofPrice : 0,
         items: data.items.map((item) => ({
           ...(isEdit && item.id && { id: item.id }),
           description: item.description,
@@ -490,6 +509,7 @@ export const OrderFormPage: React.FC = () => {
                     helperText="Usuario responsable"
                   />
                 </Grid>
+
               </Grid>
             </CardContent>
           </Card>
@@ -534,6 +554,8 @@ export const OrderFormPage: React.FC = () => {
                     items={items}
                     applyTax={applyTaxField.value}
                     taxRate={taxRateField.value}
+                    requiresColorProof={requiresColorProof}
+                    colorProofPrice={colorProofPrice}
                     onApplyTaxChange={applyTaxField.onChange}
                     onTaxRateChange={taxRateField.onChange}
                     disabled={!isClientSelected}
@@ -601,11 +623,81 @@ export const OrderFormPage: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Sección 6: Notas */}
+          {/* Sección 6: Prueba de Color */}
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
-                6. Observaciones
+                6. Prueba de Color
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+
+              <Grid container spacing={3}>
+                <Grid item xs={12} sm={6}>
+                  <Controller
+                    name="requiresColorProof"
+                    control={control}
+                    render={({ field }) => (
+                      <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                        <input
+                          type="checkbox"
+                          id="requiresColorProof"
+                          checked={field.value}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                          disabled={!isClientSelected}
+                          style={{ marginRight: '8px', width: '18px', height: '18px' }}
+                        />
+                        <label htmlFor="requiresColorProof" style={{ cursor: 'pointer', userSelect: 'none' }}>
+                          ¿Requiere prueba de color?
+                        </label>
+                      </Box>
+                    )}
+                  />
+                </Grid>
+
+                {requiresColorProof && (
+                  <Grid item xs={12} sm={6}>
+                    <Controller
+                      name="colorProofPrice"
+                      control={control}
+                      render={({ field, fieldState }) => (
+                        <TextField
+                          {...field}
+                          fullWidth
+                          label="Valor de la prueba de color"
+                          size="small"
+                          disabled={!isClientSelected}
+                          error={!!fieldState.error}
+                          helperText={fieldState.error?.message}
+                          InputProps={{
+                            startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>,
+                            inputProps: {
+                              inputMode: 'numeric',
+                            },
+                          }}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/\D/g, '');
+                            if (raw === '') {
+                              field.onChange(undefined);
+                              return;
+                            }
+                            const val = parseInt(raw, 10);
+                            field.onChange(isNaN(val) ? undefined : val);
+                          }}
+                          value={field.value !== undefined ? formatCurrencyInput(field.value.toString()) : ''}
+                        />
+                      )}
+                    />
+                  </Grid>
+                )}
+              </Grid>
+            </CardContent>
+          </Card>
+
+          {/* Sección 7: Notas */}
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
+                7. Observaciones
               </Typography>
               <Divider sx={{ mb: 2 }} />
               <Controller

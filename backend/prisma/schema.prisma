@@ -397,7 +397,9 @@ model Order {
   taxRate        Decimal     @default(0.19) @map("tax_rate") // IVA 19%
   tax            Decimal     // subtotal * taxRate
   discountAmount Decimal     @default(0) @map("discount_amount") // Total de descuentos aplicados
-  total          Decimal     // subtotal + tax - discountAmount
+  requiresColorProof Boolean @default(false) @map("requires_color_proof") // ¿Requiere prueba de color?
+  colorProofPrice Decimal    @default(0) @map("color_proof_price") // Precio de la prueba de color
+  total          Decimal     // subtotal + tax - discountAmount + colorProofPrice
   paidAmount     Decimal     @default(0) @map("paid_amount") // Abonos realizados
   balance        Decimal     // total - paidAmount (saldo pendiente)
 

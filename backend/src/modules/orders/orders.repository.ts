@@ -25,6 +25,8 @@ export class OrdersRepository {
     total: true,
     paidAmount: true,
     balance: true,
+    requiresColorProof: true,
+    colorProofPrice: true,
     status: true,
     notes: true,
     electronicInvoiceNumber: true,

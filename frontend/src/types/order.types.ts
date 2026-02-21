@@ -37,6 +37,9 @@ export interface Order {
     lastName: string | null;
   } | null;
 
+  requiresColorProof: boolean;
+  colorProofPrice: string; // Decimal viene como string del backend
+
   subtotal: string; // Decimal viene como string del backend
   taxRate: string;
   tax: string;
@@ -155,6 +158,8 @@ export interface CreateOrderDto {
   clientId: string;
   deliveryDate?: string; // ISO date string
   notes?: string;
+  requiresColorProof?: boolean;
+  colorProofPrice?: number;
   items: CreateOrderItemDto[];
   initialPayment?: InitialPaymentDto;
   commercialChannelId?: string;
@@ -168,6 +173,8 @@ export interface UpdateOrderDto {
   clientId?: string;
   deliveryDate?: string;
   notes?: string;
+  requiresColorProof?: boolean;
+  colorProofPrice?: number;
   items?: CreateOrderItemDto[];
   initialPayment?: InitialPaymentDto;
   commercialChannelId?: string;

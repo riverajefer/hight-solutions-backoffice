@@ -735,6 +735,16 @@ export const OrderDetailPage: React.FC = () => {
                         </Typography>
                       </Box>
                     )}
+                    {order.requiresColorProof && (
+                      <Box display="flex" justifyContent="space-between">
+                        <Typography>
+                          Prueba de Color:
+                        </Typography>
+                        <Typography fontWeight={500}>
+                          {formatCurrency(order.colorProofPrice)}
+                        </Typography>
+                      </Box>
+                    )}
                     {parseFloat(order.discountAmount) > 0 && (
                       <Box display="flex" justifyContent="space-between">
                         <Typography color="error.main">
@@ -867,15 +877,22 @@ export const OrderDetailPage: React.FC = () => {
               onDelete={handleRemoveDiscount}
               isDeleting={deletingDiscount}
             />
-            {/* Notas */}
-            {order.notes && (
+            {/* Notas y Detalles Adicionales */}
+            {(order.notes || order.requiresColorProof) && (
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
-                    Observaciones
+                    Observaciones y Detalles
                   </Typography>
                   <Divider sx={{ mb: 2 }} />
-                  <Typography variant="body2">{order.notes}</Typography>
+                  {order.requiresColorProof && (
+                    <Typography variant="body2" sx={{ mb: order.notes ? 1 : 0, fontWeight: 500, color: 'primary.main' }}>
+                      ✓ Requiere prueba de color
+                    </Typography>
+                  )}
+                  {order.notes && (
+                    <Typography variant="body2">{order.notes}</Typography>
+                  )}
                 </CardContent>
               </Card>
             )}            

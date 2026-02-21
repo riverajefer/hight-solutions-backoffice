@@ -16,6 +16,8 @@ interface OrderTotalsProps {
   items: OrderItemRow[];
   applyTax: boolean;
   taxRate: number;
+  requiresColorProof?: boolean;
+  colorProofPrice?: number;
   onApplyTaxChange: (value: boolean) => void;
   onTaxRateChange: (value: number) => void;
   disabled?: boolean;
@@ -34,6 +36,8 @@ export const OrderTotals: React.FC<OrderTotalsProps> = ({
   items,
   applyTax,
   taxRate,
+  requiresColorProof = false,
+  colorProofPrice = 0,
   onApplyTaxChange,
   onTaxRateChange: _onTaxRateChange, // Ignorado ya que no se edita manualmente
   disabled = false,
@@ -45,7 +49,7 @@ export const OrderTotals: React.FC<OrderTotalsProps> = ({
   const tax = applyTax ? subtotal * (taxRate / 100) : 0;
 
   // Calcular total
-  const total = subtotal + tax;
+  const total = subtotal + tax + (requiresColorProof ? colorProofPrice : 0);
 
   return (
     <Card variant="outlined" sx={{ borderRadius: 2 }}>
@@ -101,6 +105,22 @@ export const OrderTotals: React.FC<OrderTotalsProps> = ({
                   </Typography>
                   <Typography variant="body1" fontWeight={500}>
                     {formatCurrency(tax)}
+                  </Typography>
+                </Box>
+              )}
+
+              {/* Prueba de Color */}
+              {requiresColorProof && (
+                <Box
+                  display="flex"
+                  justifyContent="space-between"
+                  alignItems="center"
+                >
+                  <Typography variant="body1">
+                    Prueba de Color:
+                  </Typography>
+                  <Typography variant="body1" fontWeight={500}>
+                    {formatCurrency(colorProofPrice)}
                   </Typography>
                 </Box>
               )}
