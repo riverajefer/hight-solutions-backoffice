@@ -6,7 +6,6 @@ import {
   MenuItem,
   TextField,
   Autocomplete,
-  Chip,
   Button,
   IconButton,
   Tooltip,
