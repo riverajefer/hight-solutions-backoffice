@@ -129,6 +129,8 @@ export function DataTable<T extends GridValidRowModel>({
       disableColumnMenu: true,
       align: 'center',
       headerAlign: 'center',
+      headerClassName: 'sticky-column-row-number',
+      cellClassName: 'sticky-column-row-number',
       renderCell: (params) => {
         const rowIndex = filteredRows.findIndex(
           (row) => (getRowId ? getRowId(row) : row.id) === params.id

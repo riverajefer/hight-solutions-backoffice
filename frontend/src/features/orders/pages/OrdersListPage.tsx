@@ -6,6 +6,7 @@ import {
   MenuItem,
   TextField,
   Autocomplete,
+  Chip,
   Button,
   IconButton,
   Tooltip,
@@ -25,7 +26,11 @@ import { ActionsCell } from '../../../components/common/DataTable/ActionsCell';
 import { useOrders } from '../hooks';
 import { useClients } from '../../clients/hooks/useClients';
 import { OrderStatusChip, ChangeStatusDialog } from '../components';
-import type { Order, OrderStatus, FilterOrdersDto } from '../../../types/order.types';
+import type {
+  Order,
+  OrderStatus,
+  FilterOrdersDto,
+} from '../../../types/order.types';
 import type { Client } from '../../../types/client.types';
 
 // Estados que se consideran "finalizados" — no se alertan aunque la fecha esté vencida
@@ -77,6 +82,17 @@ const formatDateTime = (date: string): string => {
   }).format(new Date(date));
 };
 
+const getDaysSince = (date: string): number => {
+  const created = new Date(date);
+  created.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const diffMs = today.getTime() - created.getTime();
+  return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+};
+
 const ORDER_STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
   { value: 'DRAFT', label: 'Borrador' },
   { value: 'CONFIRMED', label: 'Confirmada' },
@@ -99,10 +115,13 @@ export const OrdersListPage: React.FC = () => {
 
   // UI state
   const [confirmDelete, setConfirmDelete] = useState<Order | null>(null);
-  const [changeStatusOrder, setChangeStatusOrder] = useState<Order | null>(null);
+  const [changeStatusOrder, setChangeStatusOrder] = useState<Order | null>(
+    null,
+  );
 
   // Queries
-  const { ordersQuery, deleteOrderMutation, updateStatusMutation } = useOrders(filters);
+  const { ordersQuery, deleteOrderMutation, updateStatusMutation } =
+    useOrders(filters);
   const { clientsQuery } = useClients({ includeInactive: false });
 
   const orders = ordersQuery.data?.data || [];
@@ -167,12 +186,15 @@ export const OrdersListPage: React.FC = () => {
       field: 'orderNumber',
       headerName: 'Nº Orden',
       width: 150,
+      headerClassName: 'sticky-column-order-number',
+      cellClassName: 'sticky-column-order-number',
       renderCell: (params) => (
         <Box sx={{ fontWeight: 600, color: 'primary.main' }}>
           {params.value}
         </Box>
       ),
     },
+
     {
       field: 'client',
       headerName: 'Cliente',
@@ -186,6 +208,22 @@ export const OrdersListPage: React.FC = () => {
       renderCell: (params) => formatDateTime(params.value),
     },
     {
+      field: 'daysSinceCreation',
+      headerName: 'Días desde creación',
+      width: 170,
+      sortable: false,
+      filterable: false,
+      align: 'center',
+      headerAlign: 'center',
+      valueGetter: (_, row) => getDaysSince(row.createdAt),
+      renderCell: (params) => {
+        const days = params.value as number;
+        if (days === 0) return 'Hoy';
+        if (days === 1) return '1 día';
+        return `${days} días`;
+      },
+    },
+    {
       field: 'deliveryDate',
       headerName: 'Fecha Entrega',
       width: 160,
@@ -197,9 +235,17 @@ export const OrdersListPage: React.FC = () => {
 
         if (alert === 'overdue') {
           return (
-            <Tooltip title="Retraso en la entrega o el cliente no ha recogido el producto">
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'error.main', fontWeight: 600 }}>
-                <WarningAmberIcon fontSize="small" />
+            <Tooltip title='Retraso en la entrega o el cliente no ha recogido el producto'>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  color: 'error.main',
+                  fontWeight: 600,
+                }}
+              >
+                <WarningAmberIcon fontSize='small' />
                 <span>{dateStr}</span>
               </Box>
             </Tooltip>
@@ -208,9 +254,17 @@ export const OrdersListPage: React.FC = () => {
 
         if (alert === 'due-today') {
           return (
-            <Tooltip title="Se entrega hoy">
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'info.main', fontWeight: 600 }}>
-                <TodayIcon fontSize="small" />
+            <Tooltip title='Se entrega hoy'>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  color: 'info.main',
+                  fontWeight: 600,
+                }}
+              >
+                <TodayIcon fontSize='small' />
                 <span>{dateStr}</span>
               </Box>
             </Tooltip>
@@ -225,7 +279,8 @@ export const OrdersListPage: React.FC = () => {
       field: 'createdBy',
       headerName: 'Creado por',
       width: 150,
-      valueGetter: (_, row) => row.createdBy?.firstName + ' ' + row.createdBy?.lastName,
+      valueGetter: (_, row) =>
+        row.createdBy?.firstName + ' ' + row.createdBy?.lastName,
     },
     {
       field: 'taxRate',
@@ -250,6 +305,25 @@ export const OrdersListPage: React.FC = () => {
           </Box>
         );
       },
+    },
+    {
+      field: 'requiresColorProof',
+      headerName: 'Prueba de color',
+      width: 170,
+      renderCell: (params) => (
+        <Box
+          sx={{
+            px: 1,
+            py: 0.25,
+            borderRadius: 1,
+            color: params.value ? 'success.dark' : 'text.secondary',
+            fontWeight: 600,
+            fontSize: '0.75rem',
+          }}
+        >
+          {params.value ? 'Sí' : 'No'}
+        </Box>
+      ),
     },
     {
       field: 'total',
@@ -299,19 +373,21 @@ export const OrdersListPage: React.FC = () => {
             <ActionsCell
               onView={() => handleViewOrder(params.row)}
               onEdit={canEdit ? () => handleEditOrder(params.row) : undefined}
-              onDelete={canDelete ? () => setConfirmDelete(params.row) : undefined}
+              onDelete={
+                canDelete ? () => setConfirmDelete(params.row) : undefined
+              }
             />
             {/* Botón para cambiar estado */}
-            <Tooltip title="Cambiar estado">
+            <Tooltip title='Cambiar estado'>
               <IconButton
-                size="small"
-                color="primary"
+                size='small'
+                color='primary'
                 onClick={(e) => {
                   e.stopPropagation();
                   setChangeStatusOrder(params.row);
                 }}
               >
-                <SwapHorizIcon fontSize="small" />
+                <SwapHorizIcon fontSize='small' />
               </IconButton>
             </Tooltip>
           </Box>
@@ -321,16 +397,20 @@ export const OrdersListPage: React.FC = () => {
   ];
 
   const hasActiveFilters =
-    filters.status || filters.clientId || filters.orderDateFrom || filters.orderDateTo || filters.search;
+    filters.status ||
+    filters.clientId ||
+    filters.orderDateFrom ||
+    filters.orderDateTo ||
+    filters.search;
 
   return (
     <Box sx={{ p: 3 }}>
       <PageHeader
-        title="Órdenes de Pedido"
+        title='Órdenes de Pedido'
         breadcrumbs={[{ label: 'Órdenes' }]}
         action={
           <Button
-            variant="outlined"
+            variant='outlined'
             startIcon={<ShoppingCartIcon />}
             onClick={() => navigate('/orders/new')}
           >
@@ -348,15 +428,15 @@ export const OrdersListPage: React.FC = () => {
         {/* Estado */}
         <TextField
           select
-          label="Estado"
+          label='Estado'
           value={filters.status || ''}
           onChange={(e) =>
             handleFilterChange('status', e.target.value || undefined)
           }
           sx={{ minWidth: 200 }}
-          size="small"
+          size='small'
         >
-          <MenuItem value="">Todos los estados</MenuItem>
+          <MenuItem value=''>Todos los estados</MenuItem>
           {ORDER_STATUS_OPTIONS.map((option) => (
             <MenuItem key={option.value} value={option.value}>
               {option.label}
@@ -367,7 +447,7 @@ export const OrdersListPage: React.FC = () => {
         {/* Cliente */}
         <Autocomplete
           sx={{ minWidth: 300 }}
-          size="small"
+          size='small'
           options={clients}
           value={selectedClient}
           onChange={(_, newValue) =>
@@ -375,14 +455,18 @@ export const OrdersListPage: React.FC = () => {
           }
           getOptionLabel={(option: Client) => option.name}
           renderInput={(params) => (
-            <TextField {...params} label="Cliente" placeholder="Todos los clientes" />
+            <TextField
+              {...params}
+              label='Cliente'
+              placeholder='Todos los clientes'
+            />
           )}
           loading={clientsQuery.isLoading}
         />
 
         {/* Fecha Desde */}
         <DatePicker
-          label="Fecha Desde"
+          label='Fecha Desde'
           value={filters.orderDateFrom ? new Date(filters.orderDateFrom) : null}
           onChange={(date) =>
             handleFilterChange('orderDateFrom', date?.toISOString())
@@ -394,7 +478,7 @@ export const OrdersListPage: React.FC = () => {
 
         {/* Fecha Hasta */}
         <DatePicker
-          label="Fecha Hasta"
+          label='Fecha Hasta'
           value={filters.orderDateTo ? new Date(filters.orderDateTo) : null}
           onChange={(date) =>
             handleFilterChange('orderDateTo', date?.toISOString())
@@ -407,9 +491,9 @@ export const OrdersListPage: React.FC = () => {
         {/* Limpiar Filtros */}
         {hasActiveFilters && (
           <Button
-            variant="outlined"
+            variant='outlined'
             onClick={handleClearFilters}
-            size="small"
+            size='small'
             sx={{ minWidth: 120 }}
           >
             Limpiar Filtros
@@ -428,8 +512,8 @@ export const OrdersListPage: React.FC = () => {
         searchValue={filters.search || ''}
         onSearchChange={(value) => handleFilterChange('search', value)}
         serverSideSearch={true}
-        searchPlaceholder="Buscar por número, cliente, notas..."
-        emptyMessage="No se encontraron órdenes"
+        searchPlaceholder='Buscar por número, cliente, notas...'
+        emptyMessage='No se encontraron órdenes'
         getRowClassName={(params) => {
           const alert = getDeliveryAlert(params.row);
           if (alert === 'overdue') return 'row-overdue';
@@ -441,7 +525,7 @@ export const OrdersListPage: React.FC = () => {
       {/* Confirm Delete Dialog */}
       <ConfirmDialog
         open={!!confirmDelete}
-        title="Eliminar Orden"
+        title='Eliminar Orden'
         message={`¿Está seguro que desea eliminar la orden ${confirmDelete?.orderNumber}? Esta acción no se puede deshacer.`}
         onConfirm={handleDeleteOrder}
         onCancel={() => setConfirmDelete(null)}

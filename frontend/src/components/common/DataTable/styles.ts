@@ -187,6 +187,31 @@ export const dataGridStyles: SxProps<Theme> = {
     backgroundColor: (theme) => theme.palette.background.default,
   },
 
+  // Columnas pegajosas (row number + Nº Orden)
+  '& .sticky-column-row-number': {
+    position: 'sticky',
+    left: 0,
+    zIndex: 3,
+    backgroundColor: (theme) => theme.palette.background.paper,
+    boxShadow: 'inset -1px 0 0 rgba(0,0,0,0.05)',
+  },
+
+  '& .MuiDataGrid-columnHeader.sticky-column-row-number': {
+    zIndex: 4,
+  },
+
+  '& .sticky-column-order-number': {
+    position: 'sticky',
+    left: 70,
+    zIndex: 2,
+    backgroundColor: (theme) => theme.palette.background.paper,
+    boxShadow: 'inset -1px 0 0 rgba(0,0,0,0.05)',
+  },
+
+  '& .MuiDataGrid-columnHeader.sticky-column-order-number': {
+    zIndex: 4,
+  },
+
   // Menu de columnas
   '& .MuiDataGrid-menuIcon': {
     color: (theme) =>
