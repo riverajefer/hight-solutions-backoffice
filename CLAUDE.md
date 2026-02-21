@@ -658,8 +658,10 @@ npm run db:setup            # Migración inicial + seed
 npm run db:reset            # Resetear BD + seed
 
 # Testing
-npm run test                # Ejecutar tests
-npm run test:e2e            # Tests e2e
+npm run test                # Ejecutar todos los tests
+npm run test:watch          # Watch mode
+npm run test:cov            # Reporte de cobertura
+npm run test:ci             # CI mode (--runInBand, coverage)
 
 # Producción
 npm run build               # Compilar
@@ -776,6 +778,7 @@ npm run lint                # Ejecutar ESLint
 - **[backend/docs/ai-guides/03-GUARDS-DECORATORS-GUIDE.md](./backend/docs/ai-guides/03-GUARDS-DECORATORS-GUIDE.md)** - Guards y decoradores
 - **[backend/docs/ai-guides/04-DTOS-VALIDATION-GUIDE.md](./backend/docs/ai-guides/04-DTOS-VALIDATION-GUIDE.md)** - Validación de DTOs
 - **[backend/docs/ai-guides/05-AI-PROMPT-TEMPLATE.md](./backend/docs/ai-guides/05-AI-PROMPT-TEMPLATE.md)** - Template de prompts
+- **[backend/docs/ai-guides/06-TESTING-GUIDE.md](./backend/docs/ai-guides/06-TESTING-GUIDE.md)** - Guía de testing unitario (setup, patrones, mocks)
 
 ### Frontend
 

@@ -71,6 +71,7 @@ http://localhost:3000/api/v1
 | [03-GUARDS-DECORATORS-GUIDE.md](./03-GUARDS-DECORATORS-GUIDE.md) | Authentication & authorization patterns |
 | [04-DTOS-VALIDATION-GUIDE.md](./04-DTOS-VALIDATION-GUIDE.md) | Data validation best practices |
 | [05-AI-PROMPT-TEMPLATE.md](./05-AI-PROMPT-TEMPLATE.md) | Template for AI coding assistance prompts |
+| [06-TESTING-GUIDE.md](./06-TESTING-GUIDE.md) | Unit testing guide: setup, patterns, mocks, existing tests |
 
 ### Additional Resources
 | Document | Description |
