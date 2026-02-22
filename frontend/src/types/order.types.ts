@@ -72,6 +72,12 @@ export interface Order {
   items: OrderItem[];
   payments: Payment[];
   discounts: OrderDiscount[];
+  /** OT activa (no cancelada) vinculada a esta orden, si existe */
+  workOrders?: {
+    id: string;
+    workOrderNumber: string;
+    status: string;
+  }[];
 }
 
 export interface CommercialChannel {
@@ -228,6 +234,8 @@ export interface FilterOrdersDto {
   orderDateTo?: string; // ISO date string
   page?: number;
   limit?: number;
+  /** Si true, excluye órdenes que ya tienen una OT activa (no cancelada) */
+  excludeWithWorkOrder?: boolean;
 }
 
 // ============================================================

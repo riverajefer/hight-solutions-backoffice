@@ -183,6 +183,11 @@ export const dataGridStyles: SxProps<Theme> = {
     backgroundColor: 'background.paper',
   },
 
+  // Ensure sticky columns position relative to render zone
+  '& .MuiDataGrid-virtualScrollerRenderZone': {
+    position: 'relative',
+  },
+
   '& .all-columns-header': {
     backgroundColor: (theme) => theme.palette.background.default,
   },
@@ -191,25 +196,25 @@ export const dataGridStyles: SxProps<Theme> = {
   '& .sticky-column-row-number': {
     position: 'sticky',
     left: 0,
-    zIndex: 3,
+    zIndex: 8,
     backgroundColor: (theme) => theme.palette.background.paper,
     boxShadow: 'inset -1px 0 0 rgba(0,0,0,0.05)',
   },
 
   '& .MuiDataGrid-columnHeader.sticky-column-row-number': {
-    zIndex: 4,
+    zIndex: 10,
   },
 
   '& .sticky-column-order-number': {
     position: 'sticky',
     left: 70,
-    zIndex: 2,
+    zIndex: 7,
     backgroundColor: (theme) => theme.palette.background.paper,
     boxShadow: 'inset -1px 0 0 rgba(0,0,0,0.05)',
   },
 
   '& .MuiDataGrid-columnHeader.sticky-column-order-number': {
-    zIndex: 4,
+    zIndex: 10,
   },
 
   // Menu de columnas

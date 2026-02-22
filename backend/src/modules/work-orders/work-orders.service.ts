@@ -56,6 +56,21 @@ export class WorkOrdersService {
       );
     }
 
+    // 1b. Verify the Order does not already have an active (non-cancelled) work order
+    const existingWorkOrder = await this.prisma.workOrder.findFirst({
+      where: {
+        orderId: dto.orderId,
+        status: { not: WorkOrderStatus.CANCELLED },
+      },
+      select: { workOrderNumber: true },
+    });
+
+    if (existingWorkOrder) {
+      throw new BadRequestException(
+        `La orden ${order.orderNumber} ya tiene una OT activa (${existingWorkOrder.workOrderNumber}). Solo se permite una OT activa por orden de pedido.`,
+      );
+    }
+
     // 2. Validate all orderItemIds belong to this order
     const orderItemIds = new Set(order.items.map((item) => item.id));
     for (const item of dto.items) {

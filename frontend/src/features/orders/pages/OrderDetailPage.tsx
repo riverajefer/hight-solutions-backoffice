@@ -49,6 +49,8 @@ import {
   Close as CloseIcon,
   Discount as DiscountIcon,
   Receipt as ReceiptIcon,
+  Build as BuildIcon,
+  OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -70,6 +72,7 @@ import { ordersApi } from '../../../api/orders.api';
 import { storageApi } from '../../../api/storage.api';
 import axiosInstance from '../../../api/axios';
 import { useAuthStore } from '../../../store/authStore';
+import { ROUTES } from '../../../utils/constants';
 import type {
   OrderStatus,
   PaymentMethod,
@@ -983,6 +986,30 @@ export const OrderDetailPage: React.FC = () => {
                       </Typography>
                     </Box>
                   )}
+                  {/* Orden de Trabajo vinculada */}
+                  <Box>
+                    <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.5 }}>
+                      <BuildIcon fontSize="small" color={order.workOrders?.[0] ? 'primary' : 'disabled'} />
+                      <Typography variant="body2" color="textSecondary">
+                        Orden de Trabajo
+                      </Typography>
+                    </Stack>
+                    {order.workOrders?.[0] ? (
+                      <Chip
+                        icon={<OpenInNewIcon sx={{ fontSize: '0.85rem !important' }} />}
+                        label={order.workOrders[0].workOrderNumber}
+                        size="small"
+                        variant="outlined"
+                        color="primary"
+                        onClick={() => navigate(ROUTES.WORK_ORDERS_DETAIL.replace(':id', order.workOrders![0].id))}
+                        sx={{ cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
+                      />
+                    ) : (
+                      <Typography variant="body2" color="text.disabled">
+                        Sin OT asignada
+                      </Typography>
+                    )}
+                  </Box>
                 </Stack>
               </CardContent>
             </Card>

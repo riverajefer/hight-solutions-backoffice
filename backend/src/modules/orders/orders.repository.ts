@@ -122,6 +122,17 @@ export class OrdersRepository {
       },
       orderBy: { appliedAt: 'desc' as const },
     },
+    workOrders: {
+      where: {
+        status: { not: 'CANCELLED' as const },
+      },
+      select: {
+        id: true,
+        workOrderNumber: true,
+        status: true,
+      },
+      take: 1,
+    },
   };
 
   async findAll(status?: OrderStatus) {
@@ -142,8 +153,9 @@ export class OrdersRepository {
     orderDateTo?: Date;
     page?: number;
     limit?: number;
+    excludeWithWorkOrder?: boolean;
   }) {
-    const { status, search, clientId, orderDateFrom, orderDateTo, page = 1, limit = 20 } = filters;
+    const { status, search, clientId, orderDateFrom, orderDateTo, page = 1, limit = 20, excludeWithWorkOrder } = filters;
 
     const where: Prisma.OrderWhereInput = {};
 
@@ -174,6 +186,14 @@ export class OrdersRepository {
       if (orderDateTo) {
         where.orderDate.lte = orderDateTo;
       }
+    }
+
+    if (excludeWithWorkOrder) {
+      where.workOrders = {
+        none: {
+          status: { not: 'CANCELLED' },
+        },
+      };
     }
 
     const skip = (page - 1) * limit;

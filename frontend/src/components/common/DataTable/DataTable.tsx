@@ -127,6 +127,7 @@ export function DataTable<T extends GridValidRowModel>({
       sortable: false,
       filterable: false,
       disableColumnMenu: true,
+      resizable: false,
       align: 'center',
       headerAlign: 'center',
       headerClassName: 'sticky-column-row-number',

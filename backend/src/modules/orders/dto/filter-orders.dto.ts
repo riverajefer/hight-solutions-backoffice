@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsBoolean,
   IsEnum,
   IsOptional,
   IsUUID,
@@ -7,7 +8,7 @@ import {
   IsInt,
   Min,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { OrderStatus } from '../../../generated/prisma';
 
 export class FilterOrdersDto {
@@ -71,4 +72,13 @@ export class FilterOrdersDto {
   @IsInt()
   @Min(1)
   limit?: number = 20;
+
+  @ApiPropertyOptional({
+    description: 'Si es true, excluye órdenes que ya tienen una OT activa (no cancelada)',
+    example: true,
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  excludeWithWorkOrder?: boolean;
 }

@@ -11,11 +11,13 @@ import {
   Tooltip,
 } from '@mui/material';
 import { GridColDef } from '@mui/x-data-grid';
+import { Chip } from '@mui/material';
 import {
   ShoppingCart as ShoppingCartIcon,
   SwapHoriz as SwapHorizIcon,
   WarningAmber as WarningAmberIcon,
   Today as TodayIcon,
+  Build as BuildIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -25,6 +27,7 @@ import { ActionsCell } from '../../../components/common/DataTable/ActionsCell';
 import { useOrders } from '../hooks';
 import { useClients } from '../../clients/hooks/useClients';
 import { OrderStatusChip, ChangeStatusDialog } from '../components';
+import { ROUTES } from '../../../utils/constants';
 import type {
   Order,
   OrderStatus,
@@ -185,6 +188,7 @@ export const OrdersListPage: React.FC = () => {
       field: 'orderNumber',
       headerName: 'Nº Orden',
       width: 150,
+      resizable: false,
       headerClassName: 'sticky-column-order-number',
       cellClassName: 'sticky-column-order-number',
       renderCell: (params) => (
@@ -201,27 +205,44 @@ export const OrdersListPage: React.FC = () => {
       valueGetter: (_, row) => row.client.name,
     },
     {
+      field: 'workOrders',
+      headerName: 'OT',
+      width: 160,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => {
+        const workOrder = params.row.workOrders?.[0];
+        if (!workOrder)
+          return (
+            <Box sx={{ color: 'text.disabled', fontSize: '0.8rem' }}>—</Box>
+          );
+        return (
+          <Tooltip title='Ver Orden de Trabajo'>
+            <Chip
+              icon={<BuildIcon sx={{ fontSize: '0.85rem !important' }} />}
+              label={workOrder.workOrderNumber}
+              size='small'
+              variant='outlined'
+              color='primary'
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(
+                  ROUTES.WORK_ORDERS_DETAIL.replace(':id', workOrder.id),
+                );
+              }}
+              sx={{ cursor: 'pointer', fontWeight: 600, fontSize: '0.75rem' }}
+            />
+          </Tooltip>
+        );
+      },
+    },
+    {
       field: 'orderDate',
       headerName: 'Fecha Orden',
       width: 160,
       renderCell: (params) => formatDateTime(params.value),
     },
-    {
-      field: 'daysSinceCreation',
-      headerName: 'Días desde creación',
-      width: 170,
-      sortable: false,
-      filterable: false,
-      align: 'center',
-      headerAlign: 'center',
-      valueGetter: (_, row) => getDaysSince(row.createdAt),
-      renderCell: (params) => {
-        const days = params.value as number;
-        if (days === 0) return 'Hoy';
-        if (days === 1) return '1 día';
-        return `${days} días`;
-      },
-    },
+
     {
       field: 'deliveryDate',
       headerName: 'Fecha Entrega',
@@ -271,6 +292,22 @@ export const OrdersListPage: React.FC = () => {
         }
 
         return dateStr;
+      },
+    },
+    {
+      field: 'daysSinceCreation',
+      headerName: 'Días desde creación',
+      width: 170,
+      sortable: false,
+      filterable: false,
+      align: 'center',
+      headerAlign: 'center',
+      valueGetter: (_, row) => getDaysSince(row.createdAt),
+      renderCell: (params) => {
+        const days = params.value as number;
+        if (days === 0) return 'Hoy';
+        if (days === 1) return '1 día';
+        return `${days} días`;
       },
     },
     // creado por
@@ -352,6 +389,7 @@ export const OrdersListPage: React.FC = () => {
         );
       },
     },
+
     {
       field: 'status',
       headerName: 'Estado',
