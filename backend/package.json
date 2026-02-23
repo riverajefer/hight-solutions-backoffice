@@ -40,7 +40,9 @@
     ],
     "coveragePathIgnorePatterns": [
       "<rootDir>/generated/",
-      "<rootDir>/coverage-phase1/"
+      "<rootDir>/coverage-phase1/",
+      "<rootDir>/config/",
+      "<rootDir>/database/seeds/"
     ],
     "collectCoverageFrom": [
       "**/*.(t|j)s",
