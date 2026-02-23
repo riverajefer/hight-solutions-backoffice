@@ -290,4 +290,182 @@ describe('OrdersRepository', () => {
       expect(result[0].id).toBe('disc-2');
     });
   });
+
+  // ─────────────────────────────────────────────
+  // update
+  // ─────────────────────────────────────────────
+  describe('update', () => {
+    it('should update order and return updated data', async () => {
+      const updateData = { notes: 'Updated notes' };
+      const updatedOrder = { ...mockOrderRow, ...updateData };
+      (prisma.order.update as jest.Mock).mockResolvedValue(updatedOrder);
+
+      const result = await repository.update('order-1', updateData);
+
+      expect(prisma.order.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'order-1' },
+          data: updateData,
+        }),
+      );
+      expect(result).toMatchObject(updatedOrder);
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // delete
+  // ─────────────────────────────────────────────
+  describe('delete', () => {
+    it('should delete order', async () => {
+      (prisma.order.delete as jest.Mock).mockResolvedValue(mockOrderRow);
+
+      await repository.delete('order-1');
+
+      expect(prisma.order.delete).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'order-1' },
+        }),
+      );
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // createPayment
+  // ─────────────────────────────────────────────
+  describe('createPayment', () => {
+    it('should create payment', async () => {
+      const paymentData = {
+        order: { connect: { id: 'order-1' } },
+        amount: '50.00',
+        paymentMethod: 'CASH' as const,
+        paymentDate: new Date(),
+        reference: 'REF-001',
+        notes: 'Payment notes',
+        receivedBy: { connect: { id: 'user-1' } },
+      };
+      const createdPayment = { id: 'pay-1', amount: '50.00', paymentMethod: 'CASH', paymentDate: new Date(), reference: 'REF-001', notes: 'Payment notes' };
+
+      (prisma.payment.create as jest.Mock).mockResolvedValue(createdPayment);
+
+      const result = await repository.createPayment(paymentData);
+
+      expect(prisma.payment.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: paymentData,
+        }),
+      );
+      expect(result).toMatchObject(createdPayment);
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // findByOrderNumber
+  // ─────────────────────────────────────────────
+  describe('findByOrderNumber', () => {
+    it('should return order by order number', async () => {
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue(mockOrderRow);
+
+      const result = await repository.findByOrderNumber('OP-2026-001');
+
+      expect(prisma.order.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { orderNumber: 'OP-2026-001' },
+        }),
+      );
+      expect(result).toMatchObject(mockOrderRow);
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // getTotalsByClient
+  // ─────────────────────────────────────────────
+  describe('getTotalsByClient', () => {
+    it('should return totals for client', async () => {
+      const mockTotals = {
+        _sum: { total: '100.00', paidAmount: '50.00', balance: '50.00' },
+        _count: 5,
+      };
+      (prisma.order.aggregate as jest.Mock).mockResolvedValue(mockTotals);
+
+      const result = await repository.getTotalsByClient('client-1');
+
+      expect(prisma.order.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { clientId: 'client-1' },
+          _sum: {
+            total: true,
+            paidAmount: true,
+            balance: true,
+          },
+          _count: true,
+        }),
+      );
+      expect(result).toEqual(mockTotals);
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // createItem
+  // ─────────────────────────────────────────────
+  describe('createItem', () => {
+    it('should create order item', async () => {
+      const itemData = {
+        order: { connect: { id: 'order-1' } },
+        description: 'Test item',
+        quantity: 1,
+        unitPrice: '10.00',
+        total: '10.00',
+      };
+      const createdItem = { id: 'item-1', description: 'Test item', quantity: 1, unitPrice: '10.00', total: '10.00' };
+      (prisma.orderItem.create as jest.Mock).mockResolvedValue(createdItem);
+
+      const result = await repository.createItem(itemData);
+
+      expect(prisma.orderItem.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: itemData,
+        }),
+      );
+      expect(result).toMatchObject(createdItem);
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // updateItem
+  // ─────────────────────────────────────────────
+  describe('updateItem', () => {
+    it('should update order item', async () => {
+      const updateData = { description: 'Updated description' };
+      const updatedItem = { id: 'item-1', ...updateData };
+      (prisma.orderItem.update as jest.Mock).mockResolvedValue(updatedItem);
+
+      const result = await repository.updateItem('item-1', updateData);
+
+      expect(prisma.orderItem.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'item-1' },
+          data: updateData,
+        }),
+      );
+      expect(result).toMatchObject(updatedItem);
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // deleteItem
+  // ─────────────────────────────────────────────
+  describe('deleteItem', () => {
+    it('should delete order item', async () => {
+      const mockItem = { id: 'item-1', description: 'Test item' };
+      (prisma.orderItem.delete as jest.Mock).mockResolvedValue(mockItem);
+
+      await repository.deleteItem('item-1');
+
+      expect(prisma.orderItem.delete).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'item-1' },
+        }),
+      );
+    });
+  });
 });
