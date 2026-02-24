@@ -80,5 +80,10 @@ export const PATHS = {
   WORK_ORDERS_CREATE: '/work-orders/new',
   WORK_ORDERS_EDIT: '/work-orders/:id/edit',
   WORK_ORDERS_DETAIL: '/work-orders/:id',
+  // Expense Orders Routes
+  EXPENSE_ORDERS: '/expense-orders',
+  EXPENSE_ORDERS_CREATE: '/expense-orders/new',
+  EXPENSE_ORDERS_EDIT: '/expense-orders/:id/edit',
+  EXPENSE_ORDERS_DETAIL: '/expense-orders/:id',
 };
 

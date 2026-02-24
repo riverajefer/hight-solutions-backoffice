@@ -30,6 +30,8 @@ import { QuotesModule } from './modules/quotes/quotes.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { CompanyModule } from './modules/company/company.module';
 import { WorkOrdersModule } from './modules/work-orders/work-orders.module';
+import { ExpenseTypesModule } from './modules/expense-types/expense-types.module';
+import { ExpenseOrdersModule } from './modules/expense-orders/expense-orders.module';
 import { AuditContextInterceptor } from './common/interceptors/audit-context.interceptor';
 
 @Module({
@@ -81,6 +83,10 @@ import { AuditContextInterceptor } from './common/interceptors/audit-context.int
     CompanyModule,
     // Módulo de Órdenes de Trabajo
     WorkOrdersModule,
+    // Módulo de Tipos de Gasto
+    ExpenseTypesModule,
+    // Módulo de Órdenes de Gastos
+    ExpenseOrdersModule,
   ],
   providers: [
     {

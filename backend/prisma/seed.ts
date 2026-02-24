@@ -208,6 +208,19 @@ async function main() {
     { name: 'read_work_orders', description: 'Ver órdenes de trabajo' },
     { name: 'update_work_orders', description: 'Actualizar órdenes de trabajo' },
     { name: 'delete_work_orders', description: 'Eliminar órdenes de trabajo' },
+
+    // Expense Types (Tipos de Gasto)
+    { name: 'create_expense_types', description: 'Crear tipos de gasto' },
+    { name: 'read_expense_types', description: 'Ver tipos de gasto' },
+    { name: 'update_expense_types', description: 'Actualizar tipos de gasto' },
+    { name: 'delete_expense_types', description: 'Eliminar tipos de gasto' },
+
+    // Expense Orders (Órdenes de Gastos)
+    { name: 'create_expense_orders', description: 'Crear órdenes de gasto' },
+    { name: 'read_expense_orders', description: 'Ver órdenes de gasto' },
+    { name: 'update_expense_orders', description: 'Actualizar órdenes de gasto' },
+    { name: 'delete_expense_orders', description: 'Eliminar órdenes de gasto' },
+    { name: 'approve_expense_orders', description: 'Aprobar/marcar como pagada una OG' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
@@ -321,6 +334,12 @@ async function main() {
     'create_work_orders',
     'read_work_orders',
     'update_work_orders',
+    // Expense Types (Manager)
+    'read_expense_types',
+    // Expense Orders (Manager)
+    'create_expense_orders',
+    'read_expense_orders',
+    'update_expense_orders',
   ]);
 
   // User - solo lectura básica
@@ -2291,6 +2310,75 @@ async function main() {
   console.log(`   - Supply Categories: ${supplyCategoriesData.length}`);
   console.log(`   - Supplies: ${suppliesCreated}`);
   console.log(`   - Orders: 3 (2 con IVA, 1 sin IVA)`);
+  // ============================================
+  // Expense Types & Subcategories
+  // ============================================
+  console.log('\n💸 Creating expense types and subcategories...');
+
+  const expenseTypesData = [
+    {
+      name: 'Operativos',
+      description: 'Gastos necesarios para el funcionamiento diario',
+      subcategories: [
+        'Insumos internos',
+        'Papelería',
+        'Herramientas',
+        'Combustible',
+        'Alimentación',
+        'Mensajería',
+        'Mantenimiento',
+      ],
+    },
+    {
+      name: 'Producción',
+      description: 'Gastos asociados directamente a generar ingresos (requiere OT)',
+      subcategories: [
+        'Compra de materiales para cliente',
+        'Servicios subcontratados',
+        'Costos directos de orden de trabajo',
+      ],
+    },
+    {
+      name: 'Administrativos',
+      description: 'Gastos de gestión y soporte',
+      subcategories: [
+        'Contador',
+        'Asesoría legal',
+        'Software',
+        'Bancos',
+        'Comisiones',
+        'Notaría',
+      ],
+    },
+    {
+      name: 'Personal',
+      description: 'Gastos relacionados con empleados',
+      subcategories: ['Anticipos', 'Viáticos', 'Reembolsos', 'Capacitación'],
+    },
+    {
+      name: 'Servicios recurrentes',
+      description: 'Pagos periódicos',
+      subcategories: ['Arriendo', 'Internet', 'Luz / agua', 'Hosting', 'Licencias'],
+    },
+  ];
+
+  for (const typeData of expenseTypesData) {
+    const expenseType = await prisma.expenseType.upsert({
+      where: { name: typeData.name },
+      update: { description: typeData.description },
+      create: { name: typeData.name, description: typeData.description },
+    });
+    console.log(`  ✓ ExpenseType: ${typeData.name}`);
+
+    for (const subcatName of typeData.subcategories) {
+      await prisma.expenseSubcategory.upsert({
+        where: { name_expenseTypeId: { name: subcatName, expenseTypeId: expenseType.id } },
+        update: {},
+        create: { name: subcatName, expenseTypeId: expenseType.id },
+      });
+    }
+  }
+
   console.log(`   - Consecutives: ${consecutivesData.length}`);
   console.log(`   - Production Areas: ${productionAreasData.length}`);
   console.log(`   - Commercial Channels: ${channelsCreated}`);

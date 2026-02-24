@@ -35,6 +35,9 @@ model User {
   appliedDiscounts             OrderDiscount[]            @relation("AppliedDiscounts")
   advisedWorkOrders            WorkOrder[]                @relation("WorkOrderAdvisor")
   designedWorkOrders           WorkOrder[]                @relation("WorkOrderDesigner")
+  authorizedExpenseOrders      ExpenseOrder[]             @relation("AuthorizedExpenseOrders")
+  responsibleExpenseOrders     ExpenseOrder[]             @relation("ResponsibleExpenseOrders")
+  createdExpenseOrders         ExpenseOrder[]             @relation("CreatedExpenseOrders")
 
   @@map("users")
 }
@@ -205,8 +208,9 @@ model Supplier {
   createdAt     DateTime   @default(now()) @map("created_at")
   updatedAt     DateTime   @updatedAt @map("updated_at")
 
-  department Department @relation(fields: [departmentId], references: [id])
-  city       City       @relation(fields: [cityId], references: [id])
+  department        Department         @relation(fields: [departmentId], references: [id])
+  city              City               @relation(fields: [cityId], references: [id])
+  expenseOrderItems ExpenseOrderItem[]
 
   @@map("suppliers")
 }
@@ -739,9 +743,10 @@ model ProductionArea {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  orderItems     OrderItemProductionArea[]
-  quoteItems     QuoteItemProductionArea[]
-  workOrderItems WorkOrderItemProductionArea[]
+  orderItems          OrderItemProductionArea[]
+  quoteItems          QuoteItemProductionArea[]
+  workOrderItems      WorkOrderItemProductionArea[]
+  expenseOrderItems   ExpenseOrderItemProductionArea[]
 
   @@map("production_areas")
 }
@@ -811,10 +816,11 @@ model WorkOrder {
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
 
-  order    Order          @relation(fields: [orderId], references: [id])
-  advisor  User           @relation("WorkOrderAdvisor", fields: [advisorId], references: [id])
-  designer User?          @relation("WorkOrderDesigner", fields: [designerId], references: [id])
-  items    WorkOrderItem[]
+  order         Order          @relation(fields: [orderId], references: [id])
+  advisor       User           @relation("WorkOrderAdvisor", fields: [advisorId], references: [id])
+  designer      User?          @relation("WorkOrderDesigner", fields: [designerId], references: [id])
+  items         WorkOrderItem[]
+  expenseOrders ExpenseOrder[]
 
   @@index([orderId])
   @@index([advisorId])
@@ -868,6 +874,116 @@ model WorkOrderItemSupply {
   @@index([workOrderItemId])
   @@index([supplyId])
   @@map("work_order_item_supplies")
+}
+
+// =============================================================================
+// MÓDULO DE ÓRDENES DE GASTOS (OG)
+// =============================================================================
+
+enum ExpenseOrderStatus {
+  DRAFT      // Borrador (editable)
+  CREATED    // Creada
+  AUTHORIZED // Autorizada
+  PAID       // Pagada
+}
+
+model ExpenseType {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  subcategories  ExpenseSubcategory[]
+  expenseOrders  ExpenseOrder[]
+
+  @@map("expense_types")
+}
+
+model ExpenseSubcategory {
+  id            String   @id @default(uuid())
+  name          String
+  description   String?
+  expenseTypeId String   @map("expense_type_id")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  expenseType   ExpenseType    @relation(fields: [expenseTypeId], references: [id])
+  expenseOrders ExpenseOrder[]
+
+  @@unique([name, expenseTypeId])
+  @@map("expense_subcategories")
+}
+
+model ExpenseOrder {
+  id                   String              @id @default(uuid())
+  ogNumber             String              @unique @map("og_number") // "OG-2026-001"
+  expenseTypeId        String              @map("expense_type_id")
+  expenseSubcategoryId String              @map("expense_subcategory_id")
+  workOrderId          String?             @map("work_order_id") // Opcional: OT asociada
+  authorizedToId       String              @map("authorized_to_id") // Usuario autorizado
+  responsibleId        String?             @map("responsible_id") // Responsable (opcional)
+  observations         String?
+  areaOrMachine        String?             @map("area_or_machine")
+  status               ExpenseOrderStatus  @default(DRAFT)
+
+  // Auditoría
+  createdById String   @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  expenseType        ExpenseType        @relation(fields: [expenseTypeId], references: [id])
+  expenseSubcategory ExpenseSubcategory @relation(fields: [expenseSubcategoryId], references: [id])
+  workOrder          WorkOrder?         @relation(fields: [workOrderId], references: [id])
+  authorizedTo       User               @relation("AuthorizedExpenseOrders", fields: [authorizedToId], references: [id])
+  responsible        User?              @relation("ResponsibleExpenseOrders", fields: [responsibleId], references: [id])
+  createdBy          User               @relation("CreatedExpenseOrders", fields: [createdById], references: [id])
+  items              ExpenseOrderItem[]
+
+  @@index([status])
+  @@index([workOrderId])
+  @@index([createdById])
+  @@index([createdAt])
+  @@map("expense_orders")
+}
+
+model ExpenseOrderItem {
+  id              String        @id @default(uuid())
+  expenseOrderId  String        @map("expense_order_id")
+  quantity        Decimal
+  name            String        // Nombre del gasto
+  description     String?
+  supplierId      String?       @map("supplier_id") // Proveedor (opcional)
+  unitPrice       Decimal       @map("unit_price")
+  total           Decimal       // quantity * unitPrice
+  paymentMethod   PaymentMethod @default(CASH) @map("payment_method")
+  receiptFileId   String?       @map("receipt_file_id") // Comprobante de pago
+
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  expenseOrder    ExpenseOrder                       @relation(fields: [expenseOrderId], references: [id], onDelete: Cascade)
+  supplier        Supplier?                          @relation(fields: [supplierId], references: [id])
+  productionAreas ExpenseOrderItemProductionArea[]
+
+  @@index([expenseOrderId])
+  @@map("expense_order_items")
+}
+
+model ExpenseOrderItemProductionArea {
+  expenseOrderItemId String
+  productionAreaId   String
+  assignedAt         DateTime @default(now()) @map("assigned_at")
+
+  expenseOrderItem ExpenseOrderItem @relation(fields: [expenseOrderItemId], references: [id], onDelete: Cascade)
+  productionArea   ProductionArea   @relation(fields: [productionAreaId], references: [id], onDelete: Cascade)
+
+  @@id([expenseOrderItemId, productionAreaId])
+  @@map("expense_order_item_production_areas")
 }
 
 // =============================================================================
