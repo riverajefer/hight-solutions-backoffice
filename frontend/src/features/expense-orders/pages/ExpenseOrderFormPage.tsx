@@ -177,8 +177,8 @@ export const ExpenseOrderFormPage = () => {
   const { data: expenseTypes = [], isLoading: loadingTypes } = useExpenseTypes();
   const { workOrdersQuery } = useWorkOrders({ limit: 100 });
   const workOrders = workOrdersQuery.data?.data ?? [];
-  const { data: usersData } = useUsers({ limit: 200 });
-  const users = usersData?.data ?? [];
+  const { usersQuery } = useUsers();
+  const users = usersQuery.data?.data ?? [];
   const { productionAreasQuery } = useProductionAreas();
   const productionAreas = productionAreasQuery.data?.data ?? [];
 
@@ -535,7 +535,7 @@ export const ExpenseOrderFormPage = () => {
               {hasWorkOrder && (
                 <Autocomplete
                   multiple
-                  options={productionAreas.filter((pa) => (pa as any).isActive !== false)}
+                  options={productionAreas.filter((pa: any) => pa.isActive !== false)}
                   getOptionLabel={(pa) => (pa as any).name}
                   value={productionAreas.filter((pa) =>
                     item.productionAreaIds.includes((pa as any).id),

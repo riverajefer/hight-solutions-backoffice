@@ -210,11 +210,11 @@ export const ExpenseOrdersListPage = () => {
         columns={columns}
         rows={expenseOrders}
         loading={expenseOrdersQuery.isLoading}
-        totalRows={meta?.total ?? 0}
+        total={meta?.total ?? 0}
         page={(filters.page ?? 1) - 1}
         pageSize={filters.limit ?? 20}
-        onPageChange={(page) => handleFilterChange('page', page + 1)}
-        onPageSizeChange={(size) => handleFilterChange('limit', size)}
+        onPageChange={(page: number) => handleFilterChange('page', page + 1)}
+        onPageSizeChange={(size: number) => handleFilterChange('limit', size)}
       />
 
       <ConfirmDialog
