@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
@@ -15,6 +15,7 @@ import {
   Card,
   CardContent,
   InputAdornment,
+  Chip,
   alpha,
   useTheme,
 } from '@mui/material';
@@ -28,6 +29,9 @@ import {
   Person as PersonIcon,
   ReceiptLong as ReceiptLongIcon,
   Notes as NotesIcon,
+  AttachFile as AttachFileIcon,
+  Close as CloseIcon,
+  Image as ImageIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { useExpenseOrders, useExpenseOrder, useExpenseTypes } from '../hooks';
@@ -35,6 +39,7 @@ import { useUsers } from '../../users/hooks/useUsers';
 import { useWorkOrders } from '../../work-orders/hooks';
 import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
 import { useSuppliers } from '../../suppliers/hooks/useSuppliers';
+import { storageApi } from '../../../api/storage.api';
 import { ROUTES } from '../../../utils/constants';
 import {
   PaymentMethod,
@@ -214,6 +219,9 @@ export const ExpenseOrderFormPage = () => {
 
   // ─── Step 3: Items ──────────────────────────────────────────────────────────
   const [items, setItems] = useState<ExpenseItemForm[]>([defaultItem()]);
+  // receiptFiles[i] holds the File selected for items[i] (not yet uploaded)
+  const [receiptFiles, setReceiptFiles] = useState<(File | null)[]>([null]);
+  const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // ─── Data queries ───────────────────────────────────────────────────────────
   const { data: expenseTypes = [], isLoading: loadingTypes } = useExpenseTypes();
@@ -253,6 +261,8 @@ export const ExpenseOrderFormPage = () => {
             receiptFileId: item.receiptFileId ?? '',
           })),
         );
+        // Initialize receiptFiles array with nulls (no new files selected yet)
+        setReceiptFiles(existingOG.items.map(() => null));
       }
       // En edición, todos los pasos ya fueron completados previamente
       setVisitedSteps(new Set([0, 1, 2, 3]));
@@ -285,12 +295,43 @@ export const ExpenseOrderFormPage = () => {
     }).format(value);
 
   // ─── Item helpers ─────────────────────────────────────────────────────────────
-  const addItem = () => setItems((prev) => [...prev, defaultItem()]);
+  const addItem = () => {
+    setItems((prev) => [...prev, defaultItem()]);
+    setReceiptFiles((prev) => [...prev, null]);
+  };
 
-  const removeItem = (index: number) => setItems((prev) => prev.filter((_, i) => i !== index));
+  const removeItem = (index: number) => {
+    setItems((prev) => prev.filter((_, i) => i !== index));
+    setReceiptFiles((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const updateItem = (index: number, field: keyof ExpenseItemForm, value: unknown) => {
     setItems((prev) => prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)));
+  };
+
+  const setReceiptFileForItem = (index: number, file: File | null) => {
+    setReceiptFiles((prev) => prev.map((f, i) => (i === index ? file : f)));
+  };
+
+  const clearReceiptForItem = (index: number) => {
+    setReceiptFileForItem(index, null);
+    // If there was an existing uploaded fileId, clear it too
+    updateItem(index, 'receiptFileId', '');
+    if (fileInputRefs.current[index]) {
+      fileInputRefs.current[index]!.value = '';
+    }
+  };
+
+  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+  const handleReceiptFileChange = (index: number, file: File | null) => {
+    if (!file) return;
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      return; // Invalid type — input accept already filters, but double-check
+    }
+    setReceiptFileForItem(index, file);
+    // Clear any previously stored fileId for this item so we know to re-upload
+    updateItem(index, 'receiptFileId', '');
   };
 
   // ─── Validation per step ──────────────────────────────────────────────────────
@@ -304,7 +345,25 @@ export const ExpenseOrderFormPage = () => {
   );
 
   // ─── Submit ───────────────────────────────────────────────────────────────────
-  const buildPayload = (): CreateExpenseOrderDto => ({
+
+  /**
+   * Upload any pending receipt files and return the resolved receiptFileIds
+   * per item (preserving existing fileIds when no new file was chosen).
+   */
+  const uploadPendingReceipts = async (): Promise<(string | undefined)[]> => {
+    return Promise.all(
+      items.map(async (item, index) => {
+        const file = receiptFiles[index];
+        if (file) {
+          const uploaded = await storageApi.uploadFile(file, { entityType: 'expense_order' });
+          return uploaded.id;
+        }
+        return item.receiptFileId || undefined;
+      }),
+    );
+  };
+
+  const buildPayload = (resolvedFileIds: (string | undefined)[]): CreateExpenseOrderDto => ({
     expenseTypeId,
     expenseSubcategoryId,
     workOrderId: workOrderId || undefined,
@@ -312,7 +371,7 @@ export const ExpenseOrderFormPage = () => {
     responsibleId: responsibleId || undefined,
     observations: observations || undefined,
     areaOrMachine: areaOrMachine || undefined,
-    items: items.map((item) => ({
+    items: items.map((item, index) => ({
       quantity: parseFloat(item.quantity),
       name: item.name.trim(),
       description: item.description || undefined,
@@ -322,29 +381,31 @@ export const ExpenseOrderFormPage = () => {
       productionAreaIds: hasWorkOrder && item.productionAreaIds.length
         ? item.productionAreaIds
         : undefined,
-      receiptFileId: item.receiptFileId || undefined,
+      receiptFileId: resolvedFileIds[index],
     })) as CreateExpenseItemDto[],
   });
 
   const handleSaveDraft = async () => {
+    const resolvedFileIds = await uploadPendingReceipts();
+    const payload = buildPayload(resolvedFileIds);
     if (isEditing) {
-      const payload = buildPayload();
       await updateExpenseOrderMutation.mutateAsync({ id: id!, dto: payload as UpdateExpenseOrderDto });
       navigate(ROUTES.EXPENSE_ORDERS_DETAIL.replace(':id', id!));
     } else {
-      const og = await createExpenseOrderMutation.mutateAsync({ dto: buildPayload() });
+      const og = await createExpenseOrderMutation.mutateAsync({ dto: payload });
       navigate(ROUTES.EXPENSE_ORDERS_DETAIL.replace(':id', og.id));
     }
   };
 
   const handleCreate = async () => {
+    const resolvedFileIds = await uploadPendingReceipts();
+    const payload = buildPayload(resolvedFileIds);
     if (isEditing) {
-      const payload = buildPayload();
       await updateExpenseOrderMutation.mutateAsync({ id: id!, dto: payload as UpdateExpenseOrderDto });
       navigate(ROUTES.EXPENSE_ORDERS_DETAIL.replace(':id', id!));
     } else {
       const og = await createExpenseOrderMutation.mutateAsync({
-        dto: buildPayload(),
+        dto: payload,
         confirmed: true,
       });
       navigate(ROUTES.EXPENSE_ORDERS_DETAIL.replace(':id', og.id));
@@ -620,6 +681,76 @@ export const ExpenseOrderFormPage = () => {
                   )}
                 />
               )}
+
+              {/* ── Comprobante de pago ── */}
+              <Box>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  Comprobante de pago (imagen)
+                </Typography>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  hidden
+                  ref={(el) => { fileInputRefs.current[index] = el; }}
+                  onChange={(e) => handleReceiptFileChange(index, e.target.files?.[0] ?? null)}
+                />
+
+                {/* No file selected and no existing fileId */}
+                {!receiptFiles[index] && !item.receiptFileId && (
+                  <Button
+                    variant="outlined"
+                    startIcon={<AttachFileIcon />}
+                    size="small"
+                    onClick={() => fileInputRefs.current[index]?.click()}
+                    sx={{ textTransform: 'none' }}
+                  >
+                    Adjuntar imagen
+                  </Button>
+                )}
+
+                {/* New file selected (pending upload) */}
+                {receiptFiles[index] && (
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <Chip
+                      icon={<ImageIcon />}
+                      label={`${receiptFiles[index]!.name} (${(receiptFiles[index]!.size / 1024).toFixed(1)} KB)`}
+                      color="primary"
+                      variant="outlined"
+                      size="small"
+                      onDelete={() => clearReceiptForItem(index)}
+                      deleteIcon={<CloseIcon />}
+                      sx={{ maxWidth: 320 }}
+                    />
+                    <Typography variant="caption" color="text.secondary">
+                      Se subirá al guardar
+                    </Typography>
+                  </Stack>
+                )}
+
+                {/* Existing uploaded file (edit mode, no new file chosen) */}
+                {!receiptFiles[index] && item.receiptFileId && (
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <Chip
+                      icon={<ImageIcon />}
+                      label="Comprobante adjunto"
+                      color="success"
+                      variant="outlined"
+                      size="small"
+                      onDelete={() => clearReceiptForItem(index)}
+                      deleteIcon={<CloseIcon />}
+                    />
+                    <Button
+                      size="small"
+                      variant="text"
+                      startIcon={<AttachFileIcon />}
+                      onClick={() => fileInputRefs.current[index]?.click()}
+                      sx={{ textTransform: 'none' }}
+                    >
+                      Cambiar imagen
+                    </Button>
+                  </Stack>
+                )}
+              </Box>
             </Stack>
           </CardContent>
         </Card>

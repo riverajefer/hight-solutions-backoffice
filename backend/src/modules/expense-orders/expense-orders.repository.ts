@@ -243,6 +243,46 @@ export class ExpenseOrdersRepository {
     });
   }
 
+  async addItem(
+    expenseOrderId: string,
+    item: {
+      quantity: number;
+      name: string;
+      description?: string;
+      supplierId?: string;
+      unitPrice: number;
+      total: number;
+      paymentMethod: string;
+      receiptFileId?: string;
+      productionAreaIds?: string[];
+      sortOrder: number;
+    },
+  ) {
+    const created = await this.prisma.expenseOrderItem.create({
+      data: {
+        expenseOrderId,
+        quantity: item.quantity,
+        name: item.name,
+        description: item.description,
+        supplierId: item.supplierId,
+        unitPrice: item.unitPrice,
+        total: item.total,
+        paymentMethod: item.paymentMethod as any,
+        receiptFileId: item.receiptFileId,
+        sortOrder: item.sortOrder,
+        productionAreas: item.productionAreaIds?.length
+          ? {
+              create: item.productionAreaIds.map((productionAreaId) => ({
+                productionAreaId,
+              })),
+            }
+          : undefined,
+      },
+    });
+
+    return created;
+  }
+
   async updateStatus(id: string, status: ExpenseOrderStatus) {
     return this.prisma.expenseOrder.update({
       where: { id },

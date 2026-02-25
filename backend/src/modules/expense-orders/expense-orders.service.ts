@@ -9,6 +9,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { ExpenseOrdersRepository } from './expense-orders.repository';
 import {
+  CreateExpenseItemDto,
   CreateExpenseOrderDto,
   FilterExpenseOrdersDto,
   UpdateExpenseOrderDto,
@@ -187,6 +188,45 @@ export class ExpenseOrdersService {
       await this.repository.replaceItems(id, itemsData);
     }
 
+    return this.repository.findById(id);
+  }
+
+  async addItem(id: string, dto: CreateExpenseItemDto) {
+    const expenseOrder = await this.repository.findById(id);
+    if (!expenseOrder) {
+      throw new NotFoundException(`OG con id ${id} no encontrada`);
+    }
+
+    if (!EDITABLE_STATUSES.includes(expenseOrder.status as ExpenseOrderStatus)) {
+      throw new BadRequestException(
+        `No se puede agregar ítems a una OG en estado ${expenseOrder.status}. Solo se permite en estados DRAFT o CREATED.`,
+      );
+    }
+
+    // Validate: productionAreaIds only allowed when OG has a workOrder
+    if (dto.productionAreaIds?.length && !expenseOrder.workOrder) {
+      throw new BadRequestException(
+        'Las áreas de producción en los ítems solo se permiten cuando la OG está asociada a una OT',
+      );
+    }
+
+    // Compute sortOrder as next after existing items
+    const sortOrder = expenseOrder.items.length;
+
+    await this.repository.addItem(id, {
+      quantity: dto.quantity,
+      name: dto.name,
+      description: dto.description,
+      supplierId: dto.supplierId,
+      unitPrice: dto.unitPrice,
+      total: dto.quantity * dto.unitPrice,
+      paymentMethod: dto.paymentMethod,
+      receiptFileId: dto.receiptFileId,
+      productionAreaIds: dto.productionAreaIds,
+      sortOrder,
+    });
+
+    // Return the full updated expense order
     return this.repository.findById(id);
   }
 

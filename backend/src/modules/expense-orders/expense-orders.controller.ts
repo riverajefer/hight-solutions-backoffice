@@ -21,6 +21,7 @@ import {
 } from '@nestjs/swagger';
 import { ExpenseOrdersService } from './expense-orders.service';
 import {
+  CreateExpenseItemDto,
   CreateExpenseOrderDto,
   FilterExpenseOrdersDto,
   UpdateExpenseOrderDto,
@@ -79,6 +80,20 @@ export class ExpenseOrdersController {
         ? ExpenseOrderStatus.CREATED
         : ExpenseOrderStatus.DRAFT;
     return this.service.create(dto, user.id, initialStatus);
+  }
+
+  @Post(':id/items')
+  @RequirePermissions('update_expense_orders')
+  @ApiOperation({ summary: 'Agregar un ítem a una OG existente (solo en DRAFT o CREATED)' })
+  @ApiParam({ name: 'id', description: 'ID de la OG' })
+  @ApiResponse({ status: 201, description: 'Ítem agregado correctamente' })
+  @ApiResponse({ status: 400, description: 'No se puede agregar ítems en el estado actual' })
+  @ApiResponse({ status: 404, description: 'OG no encontrada' })
+  addItem(
+    @Param('id') id: string,
+    @Body() dto: CreateExpenseItemDto,
+  ) {
+    return this.service.addItem(id, dto);
   }
 
   @Patch(':id')

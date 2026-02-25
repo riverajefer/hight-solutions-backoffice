@@ -3,6 +3,7 @@ import { useSnackbar } from 'notistack';
 import { expenseOrdersApi } from '../../../api/expense-orders.api';
 import type {
   FilterExpenseOrdersDto,
+  CreateExpenseItemDto,
   CreateExpenseOrderDto,
   UpdateExpenseOrderDto,
   UpdateExpenseOrderStatusDto,
@@ -105,10 +106,25 @@ export const useExpenseOrder = (id?: string) => {
     },
   });
 
+  const addExpenseItemMutation = useMutation({
+    mutationFn: ({ id: ogId, dto }: { id: string; dto: CreateExpenseItemDto }) =>
+      expenseOrdersApi.addItem(ogId, dto),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: expenseOrdersKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: expenseOrdersKeys.detail(variables.id) });
+      enqueueSnackbar('Ítem agregado correctamente', { variant: 'success' });
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || 'Error al agregar el ítem';
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+
   return {
     expenseOrderQuery,
     updateExpenseOrderMutation,
     updateStatusMutation,
+    addExpenseItemMutation,
   };
 };
 

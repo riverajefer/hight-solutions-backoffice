@@ -4,6 +4,7 @@ import type {
   ExpenseOrdersListResponse,
   ExpenseType,
   ExpenseSubcategory,
+  CreateExpenseItemDto,
   CreateExpenseOrderDto,
   UpdateExpenseOrderDto,
   UpdateExpenseOrderStatusDto,
@@ -62,6 +63,11 @@ export const expenseOrdersApi = {
       `/expense-orders/${id}/status`,
       dto,
     );
+    return response.data;
+  },
+
+  addItem: async (id: string, dto: CreateExpenseItemDto): Promise<ExpenseOrder> => {
+    const response = await axiosInstance.post<ExpenseOrder>(`/expense-orders/${id}/items`, dto);
     return response.data;
   },
 

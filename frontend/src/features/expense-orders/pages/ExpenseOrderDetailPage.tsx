@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
@@ -23,21 +23,38 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  InputAdornment,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   Edit as EditIcon,
   ArrowBack as ArrowBackIcon,
   SwapHoriz as SwapHorizIcon,
+  Add as AddIcon,
+  AttachFile as AttachFileIcon,
+  Close as CloseIcon,
+  Image as ImageIcon,
+  Receipt as ReceiptIcon,
+  Download as DownloadIcon,
+  Visibility as VisibilityIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { useExpenseOrder } from '../hooks';
+import { useSuppliers } from '../../suppliers/hooks/useSuppliers';
+import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
 import { useAuthStore } from '../../../store/authStore';
+import { storageApi } from '../../../api/storage.api';
 import { PERMISSIONS, ROUTES } from '../../../utils/constants';
 import {
   ExpenseOrderStatus,
   EXPENSE_ORDER_STATUS_CONFIG,
   PAYMENT_METHOD_LABELS,
+  PaymentMethod,
+  type CreateExpenseItemDto,
 } from '../../../types/expense-order.types';
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const formatDate = (date?: string | null): string => {
   if (!date) return '-';
@@ -73,20 +90,70 @@ const userName = (user?: { firstName?: string | null; lastName?: string | null; 
   return full || user.email;
 };
 
+// ─── Default item form ────────────────────────────────────────────────────────
+
+interface ItemForm {
+  name: string;
+  quantity: string;
+  unitPrice: string;
+  description: string;
+  paymentMethod: PaymentMethod;
+  supplierId: string;
+  productionAreaIds: string[];
+}
+
+const defaultItemForm = (): ItemForm => ({
+  name: '',
+  quantity: '1',
+  unitPrice: '',
+  description: '',
+  paymentMethod: PaymentMethod.CASH,
+  supplierId: '',
+  productionAreaIds: [],
+});
+
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
 export const ExpenseOrderDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { hasPermission } = useAuthStore();
 
-  const { expenseOrderQuery, updateStatusMutation } = useExpenseOrder(id);
+  const { expenseOrderQuery, updateStatusMutation, addExpenseItemMutation } = useExpenseOrder(id);
+  const { suppliersQuery } = useSuppliers();
+  const { productionAreasQuery } = useProductionAreas();
+
+  const suppliers = suppliersQuery.data ?? [];
+  const productionAreas = productionAreasQuery.data ?? [];
+
+  // ── Status dialog ────────────────────────────────────────────────────────────
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [newStatus, setNewStatus] = useState<ExpenseOrderStatus | ''>('');
+
+  // ── Add item dialog ──────────────────────────────────────────────────────────
+  const [itemDialogOpen, setItemDialogOpen] = useState(false);
+  const [itemForm, setItemForm] = useState<ItemForm>(defaultItemForm());
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // ── View receipt dialog ──────────────────────────────────────────────────────
+  const [receiptDialog, setReceiptDialog] = useState<{
+    open: boolean;
+    url: string;
+    mimeType: string;
+    originalName: string;
+    fileId: string;
+  }>({ open: false, url: '', mimeType: '', originalName: '', fileId: '' });
+  const [loadingReceiptId, setLoadingReceiptId] = useState<string | null>(null);
 
   const canUpdate = hasPermission(PERMISSIONS.UPDATE_EXPENSE_ORDERS);
   const canApprove = hasPermission(PERMISSIONS.APPROVE_EXPENSE_ORDERS);
 
   const og = expenseOrderQuery.data;
 
+  // ── Status change ────────────────────────────────────────────────────────────
   const handleStatusChange = async () => {
     if (!id || !newStatus) return;
     await updateStatusMutation.mutateAsync({ id, dto: { status: newStatus as ExpenseOrderStatus } });
@@ -94,6 +161,97 @@ export const ExpenseOrderDetailPage = () => {
     setNewStatus('');
   };
 
+  // ── Add item ─────────────────────────────────────────────────────────────────
+  const handleOpenItemDialog = () => {
+    setItemForm(defaultItemForm());
+    setReceiptFile(null);
+    setItemDialogOpen(true);
+  };
+
+  const handleCloseItemDialog = () => {
+    setItemDialogOpen(false);
+    setItemForm(defaultItemForm());
+    setReceiptFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleReceiptFileChange = (file: File | null) => {
+    if (!file) return;
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) return;
+    setReceiptFile(file);
+  };
+
+  const isItemFormValid =
+    itemForm.name.trim().length > 0 &&
+    parseFloat(itemForm.quantity) > 0 &&
+    parseFloat(itemForm.unitPrice) > 0;
+
+  const handleAddItem = async () => {
+    if (!id || !isItemFormValid) return;
+
+    let receiptFileId: string | undefined;
+
+    if (receiptFile) {
+      const uploaded = await storageApi.uploadFile(receiptFile, { entityType: 'expense_order' });
+      receiptFileId = uploaded.id;
+    }
+
+    const dto: CreateExpenseItemDto = {
+      name: itemForm.name.trim(),
+      quantity: parseFloat(itemForm.quantity),
+      unitPrice: parseFloat(itemForm.unitPrice),
+      description: itemForm.description || undefined,
+      paymentMethod: itemForm.paymentMethod,
+      supplierId: itemForm.supplierId || undefined,
+      productionAreaIds:
+        og?.workOrder && itemForm.productionAreaIds.length
+          ? itemForm.productionAreaIds
+          : undefined,
+      receiptFileId,
+    };
+
+    await addExpenseItemMutation.mutateAsync({ id, dto });
+    handleCloseItemDialog();
+  };
+
+  // ── View / download receipt ───────────────────────────────────────────────────
+  const handleViewReceipt = async (fileId: string) => {
+    setLoadingReceiptId(fileId);
+    try {
+      const [urlResponse, fileData] = await Promise.all([
+        storageApi.getFileUrl(fileId),
+        storageApi.getFile(fileId),
+      ]);
+      setReceiptDialog({
+        open: true,
+        url: urlResponse.url,
+        mimeType: fileData.mimeType,
+        originalName: fileData.originalName,
+        fileId,
+      });
+    } finally {
+      setLoadingReceiptId(null);
+    }
+  };
+
+  const handleDownloadReceipt = async (fileId: string, originalName: string) => {
+    try {
+      const response = await import('../../../api/axios').then(({ default: axiosInstance }) =>
+        axiosInstance.get(`/storage/${fileId}/download`, { responseType: 'blob' }),
+      );
+      const blob = new Blob([response.data]);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = originalName || 'comprobante';
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      // silently ignore — user can try again
+    }
+  };
+
+  // ── Loading / not found ───────────────────────────────────────────────────────
   if (expenseOrderQuery.isLoading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="300px">
@@ -141,6 +299,16 @@ export const ExpenseOrderDetailPage = () => {
             onClick={() => navigate(ROUTES.EXPENSE_ORDERS_EDIT.replace(':id', og.id))}
           >
             Editar
+          </Button>
+        )}
+        {canUpdate && isEditable && (
+          <Button
+            startIcon={<AddIcon />}
+            variant="outlined"
+            color="secondary"
+            onClick={handleOpenItemDialog}
+          >
+            Agregar Ítem
           </Button>
         )}
         {availableTransitions.length > 0 && (
@@ -217,9 +385,22 @@ export const ExpenseOrderDetailPage = () => {
           {/* Items table */}
           <Card variant="outlined">
             <CardContent>
-              <Typography variant="subtitle1" fontWeight={700} mb={2}>
-                Ítems de Gasto
-              </Typography>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                <Typography variant="subtitle1" fontWeight={700}>
+                  Ítems de Gasto
+                </Typography>
+                {canUpdate && isEditable && (
+                  <Button
+                    startIcon={<AddIcon />}
+                    size="small"
+                    variant="outlined"
+                    color="secondary"
+                    onClick={handleOpenItemDialog}
+                  >
+                    Agregar Ítem
+                  </Button>
+                )}
+              </Stack>
               <Table size="small">
                 <TableHead>
                   <TableRow>
@@ -230,6 +411,7 @@ export const ExpenseOrderDetailPage = () => {
                     <TableCell>Método de Pago</TableCell>
                     <TableCell>Proveedor</TableCell>
                     {og.workOrder && <TableCell>Áreas</TableCell>}
+                    <TableCell align="center">Comprobante</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -240,7 +422,7 @@ export const ExpenseOrderDetailPage = () => {
                           {item.name}
                         </Typography>
                         {item.description && (
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" color="text.secondary" display="block">
                             {item.description}
                           </Typography>
                         )}
@@ -267,6 +449,30 @@ export const ExpenseOrderDetailPage = () => {
                             : '—'}
                         </TableCell>
                       )}
+                      <TableCell align="center">
+                        {item.receiptFileId ? (
+                          <Tooltip title="Ver comprobante">
+                            <span>
+                              <IconButton
+                                size="small"
+                                color="success"
+                                onClick={() => handleViewReceipt(item.receiptFileId!)}
+                                disabled={loadingReceiptId === item.receiptFileId}
+                              >
+                                {loadingReceiptId === item.receiptFileId ? (
+                                  <CircularProgress size={16} color="inherit" />
+                                ) : (
+                                  <VisibilityIcon fontSize="small" />
+                                )}
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        ) : (
+                          <Typography variant="caption" color="text.disabled">
+                            —
+                          </Typography>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                   <TableRow>
@@ -276,7 +482,7 @@ export const ExpenseOrderDetailPage = () => {
                         {formatCurrency(totalAmount)}
                       </Typography>
                     </TableCell>
-                    <TableCell colSpan={og.workOrder ? 3 : 2} />
+                    <TableCell colSpan={og.workOrder ? 4 : 3} />
                   </TableRow>
                 </TableBody>
               </Table>
@@ -314,7 +520,7 @@ export const ExpenseOrderDetailPage = () => {
         )}
       </Grid>
 
-      {/* Status change dialog */}
+      {/* ── Status change dialog ─────────────────────────────────────────────── */}
       <Dialog open={statusDialogOpen} onClose={() => setStatusDialogOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Cambiar Estado de la OG</DialogTitle>
         <DialogContent>
@@ -345,6 +551,284 @@ export const ExpenseOrderDetailPage = () => {
             disabled={!newStatus || updateStatusMutation.isPending}
           >
             {updateStatusMutation.isPending ? <CircularProgress size={20} /> : 'Confirmar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Add item dialog ──────────────────────────────────────────────────── */}
+      <Dialog open={itemDialogOpen} onClose={handleCloseItemDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Agregar Ítem de Gasto</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2.5} sx={{ mt: 1 }}>
+
+            {/* Name */}
+            <TextField
+              label="Nombre del gasto *"
+              value={itemForm.name}
+              onChange={(e) => setItemForm((f) => ({ ...f, name: e.target.value }))}
+              inputProps={{ maxLength: 200 }}
+              fullWidth
+              autoFocus
+            />
+
+            {/* Quantity + Unit price */}
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label="Cantidad *"
+                type="number"
+                value={itemForm.quantity}
+                onChange={(e) => setItemForm((f) => ({ ...f, quantity: e.target.value }))}
+                inputProps={{ min: 0.01, step: 0.01 }}
+                sx={{ flex: 1 }}
+              />
+              <TextField
+                label="Precio unitario *"
+                type="number"
+                value={itemForm.unitPrice}
+                onChange={(e) => setItemForm((f) => ({ ...f, unitPrice: e.target.value }))}
+                inputProps={{ min: 0, step: 100 }}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                }}
+                sx={{ flex: 1 }}
+              />
+            </Stack>
+
+            {/* Total preview */}
+            {parseFloat(itemForm.quantity) > 0 && parseFloat(itemForm.unitPrice) > 0 && (
+              <Typography variant="body2" color="text.secondary">
+                Total:{' '}
+                <strong>
+                  {formatCurrency(
+                    (parseFloat(itemForm.quantity) || 0) * (parseFloat(itemForm.unitPrice) || 0),
+                  )}
+                </strong>
+              </Typography>
+            )}
+
+            {/* Description */}
+            <TextField
+              label="Descripción"
+              value={itemForm.description}
+              onChange={(e) => setItemForm((f) => ({ ...f, description: e.target.value }))}
+              multiline
+              rows={2}
+              placeholder="Detalle adicional del gasto..."
+              fullWidth
+            />
+
+            {/* Payment method + Supplier */}
+            <Stack direction="row" spacing={2}>
+              <TextField
+                select
+                label="Método de pago"
+                value={itemForm.paymentMethod}
+                onChange={(e) =>
+                  setItemForm((f) => ({ ...f, paymentMethod: e.target.value as PaymentMethod }))
+                }
+                sx={{ flex: 1 }}
+              >
+                {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => (
+                  <MenuItem key={value} value={value}>
+                    {label}
+                  </MenuItem>
+                ))}
+              </TextField>
+
+              <TextField
+                select
+                label="Proveedor"
+                value={itemForm.supplierId}
+                onChange={(e) => setItemForm((f) => ({ ...f, supplierId: e.target.value }))}
+                sx={{ flex: 1 }}
+              >
+                <MenuItem value="">Sin proveedor</MenuItem>
+                {suppliers
+                  .filter((s) => s.isActive !== false)
+                  .map((s) => (
+                    <MenuItem key={s.id} value={s.id}>
+                      {s.name}
+                    </MenuItem>
+                  ))}
+              </TextField>
+            </Stack>
+
+            {/* Production areas (only if OG has workOrder) */}
+            {og.workOrder && (
+              <TextField
+                select
+                label="Áreas de producción"
+                value={itemForm.productionAreaIds}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setItemForm((f) => ({
+                    ...f,
+                    productionAreaIds: typeof value === 'string' ? value.split(',') : value as string[],
+                  }));
+                }}
+                SelectProps={{ multiple: true }}
+                helperText="Solo disponible cuando hay OT asociada"
+                fullWidth
+              >
+                {productionAreas
+                  .filter((pa) => pa.isActive !== false)
+                  .map((pa) => (
+                    <MenuItem key={pa.id} value={pa.id}>
+                      {pa.name}
+                    </MenuItem>
+                  ))}
+              </TextField>
+            )}
+
+            {/* Receipt image upload */}
+            <Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Comprobante de pago (imagen)
+              </Typography>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                hidden
+                ref={fileInputRef}
+                onChange={(e) => handleReceiptFileChange(e.target.files?.[0] ?? null)}
+              />
+
+              {!receiptFile ? (
+                <Button
+                  variant="outlined"
+                  startIcon={<AttachFileIcon />}
+                  size="small"
+                  onClick={() => fileInputRef.current?.click()}
+                  sx={{ textTransform: 'none' }}
+                >
+                  Adjuntar imagen
+                </Button>
+              ) : (
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <Chip
+                    icon={<ImageIcon />}
+                    label={`${receiptFile.name} (${(receiptFile.size / 1024).toFixed(1)} KB)`}
+                    color="primary"
+                    variant="outlined"
+                    size="small"
+                    onDelete={() => {
+                      setReceiptFile(null);
+                      if (fileInputRef.current) fileInputRef.current.value = '';
+                    }}
+                    deleteIcon={<CloseIcon />}
+                    sx={{ maxWidth: 300 }}
+                  />
+                  <IconButton
+                    size="small"
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Cambiar imagen"
+                  >
+                    <AttachFileIcon fontSize="small" />
+                  </IconButton>
+                </Stack>
+              )}
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseItemDialog} disabled={addExpenseItemMutation.isPending}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleAddItem}
+            disabled={!isItemFormValid || addExpenseItemMutation.isPending}
+            startIcon={addExpenseItemMutation.isPending ? <CircularProgress size={16} /> : <AddIcon />}
+          >
+            {addExpenseItemMutation.isPending ? 'Guardando...' : 'Agregar Ítem'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      {/* ── View receipt dialog ──────────────────────────────────────────────── */}
+      <Dialog
+        open={receiptDialog.open}
+        onClose={() => setReceiptDialog((d) => ({ ...d, open: false }))}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <ReceiptIcon color="success" fontSize="small" />
+              <Typography variant="subtitle1" fontWeight={600}>
+                Comprobante de pago
+              </Typography>
+              {receiptDialog.originalName && (
+                <Typography variant="caption" color="text.secondary">
+                  — {receiptDialog.originalName}
+                </Typography>
+              )}
+            </Stack>
+            <Stack direction="row" spacing={1}>
+              <Tooltip title="Descargar">
+                <IconButton
+                  size="small"
+                  onClick={() =>
+                    handleDownloadReceipt(receiptDialog.fileId, receiptDialog.originalName)
+                  }
+                >
+                  <DownloadIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <IconButton
+                size="small"
+                onClick={() => setReceiptDialog((d) => ({ ...d, open: false }))}
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Stack>
+          </Stack>
+        </DialogTitle>
+        <DialogContent sx={{ p: 0 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              minHeight: 400,
+              bgcolor: 'grey.100',
+              p: 2,
+            }}
+          >
+            {receiptDialog.mimeType.startsWith('image/') ? (
+              <Box
+                component="img"
+                src={receiptDialog.url}
+                alt="Comprobante de pago"
+                sx={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: 1 }}
+              />
+            ) : receiptDialog.mimeType === 'application/pdf' ? (
+              <iframe
+                src={receiptDialog.url}
+                title="Comprobante de pago"
+                style={{ width: '100%', height: '70vh', border: 'none' }}
+              />
+            ) : (
+              <Typography color="text.secondary">
+                No se puede previsualizar este tipo de archivo.
+              </Typography>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            startIcon={<DownloadIcon />}
+            onClick={() =>
+              handleDownloadReceipt(receiptDialog.fileId, receiptDialog.originalName)
+            }
+          >
+            Descargar
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => setReceiptDialog((d) => ({ ...d, open: false }))}
+          >
+            Cerrar
           </Button>
         </DialogActions>
       </Dialog>
