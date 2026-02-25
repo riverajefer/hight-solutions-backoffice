@@ -104,9 +104,29 @@ export interface ExpenseOrder {
   workOrder?: {
     id: string;
     workOrderNumber: string;
+    status: string;
+    fileName?: string | null;
+    observations?: string | null;
+    advisor: {
+      id: string;
+      firstName?: string | null;
+      lastName?: string | null;
+      email: string;
+    };
+    designer?: {
+      id: string;
+      firstName?: string | null;
+      lastName?: string | null;
+      email: string;
+    } | null;
     order: {
       id: string;
       orderNumber: string;
+      status: string;
+      deliveryDate?: string | null;
+      total: string;
+      paidAmount: string;
+      balance: string;
       client: {
         id: string;
         name: string;

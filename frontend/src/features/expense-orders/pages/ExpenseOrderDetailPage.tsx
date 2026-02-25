@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
 import {
   Box,
   Stack,
@@ -38,6 +38,9 @@ import {
   Receipt as ReceiptIcon,
   Download as DownloadIcon,
   Visibility as VisibilityIcon,
+  OpenInNew as OpenInNewIcon,
+  Person as PersonIcon,
+  Brush as BrushIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { useExpenseOrder } from '../hooks';
@@ -53,6 +56,8 @@ import {
   PaymentMethod,
   type CreateExpenseItemDto,
 } from '../../../types/expense-order.types';
+import { WORK_ORDER_STATUS_CONFIG, WorkOrderStatus } from '../../../types/work-order.types';
+import { ORDER_STATUS_CONFIG, type OrderStatus } from '../../../types/order.types';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -84,6 +89,15 @@ const STATUS_TRANSITIONS: Record<ExpenseOrderStatus, ExpenseOrderStatus[]> = {
   [ExpenseOrderStatus.PAID]: [],
 };
 
+const formatShortDate = (date?: string | null): string => {
+  if (!date) return '-';
+  return new Intl.DateTimeFormat('es-CO', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  }).format(new Date(date));
+};
+
 const userName = (user?: { firstName?: string | null; lastName?: string | null; email: string } | null) => {
   if (!user) return '—';
   const full = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
@@ -113,6 +127,14 @@ const defaultItemForm = (): ItemForm => ({
 });
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+const formatCurrencyInput = (value: string | number): string => {
+  const str = typeof value === 'number' ? value.toString() : value;
+  const numericValue = str.replace(/\D/g, '');
+  if (!numericValue) return '';
+  const number = parseInt(numericValue, 10);
+  return new Intl.NumberFormat('es-CO').format(number);
+};
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -318,16 +340,6 @@ export const ExpenseOrderDetailPage = () => {
             Editar
           </Button>
         )}
-        {canUpdate && isEditable && (
-          <Button
-            startIcon={<AddIcon />}
-            variant="outlined"
-            color="secondary"
-            onClick={handleOpenItemDialog}
-          >
-            Agregar Ítem
-          </Button>
-        )}
         {availableTransitions.length > 0 && (
           <Button
             startIcon={<SwapHorizIcon />}
@@ -411,7 +423,7 @@ export const ExpenseOrderDetailPage = () => {
                     startIcon={<AddIcon />}
                     size="small"
                     variant="outlined"
-                    color="secondary"
+                    color="primary"
                     onClick={handleOpenItemDialog}
                   >
                     Agregar Ítem
@@ -512,23 +524,121 @@ export const ExpenseOrderDetailPage = () => {
           <Grid item xs={12} md={4}>
             <Card variant="outlined">
               <CardContent>
-                <Typography variant="subtitle1" fontWeight={700} mb={2}>
-                  Orden de Trabajo Asociada
-                </Typography>
+                {/* ── Work Order Section ────────────────────────────── */}
+                <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1.5}>
+                  <Typography variant="subtitle1" fontWeight={700}>
+                    Orden de Trabajo
+                  </Typography>
+                  <Chip
+                    label={WORK_ORDER_STATUS_CONFIG[og.workOrder.status as WorkOrderStatus]?.label ?? og.workOrder.status}
+                    color={WORK_ORDER_STATUS_CONFIG[og.workOrder.status as WorkOrderStatus]?.color ?? 'default'}
+                    size="small"
+                  />
+                </Stack>
+
                 <Stack spacing={1}>
-                  <Stack direction="row" justifyContent="space-between">
-                    <Typography variant="caption" color="text.secondary">Número</Typography>
-                    <Typography variant="body2" fontWeight={500}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                    <Typography variant="caption" color="text.secondary">Número OT</Typography>
+                    <Button
+                      component={RouterLink}
+                      to={ROUTES.WORK_ORDERS_DETAIL.replace(':id', og.workOrder.id)}
+                      size="small"
+                      endIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />}
+                      sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.875rem' }}
+                    >
                       {og.workOrder.workOrderNumber}
-                    </Typography>
+                    </Button>
                   </Stack>
+
+                  {og.workOrder.advisor && (
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <PersonIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                        <Typography variant="caption" color="text.secondary">Asesor</Typography>
+                      </Stack>
+                      <Typography variant="body2">{userName(og.workOrder.advisor)}</Typography>
+                    </Stack>
+                  )}
+
+                  {og.workOrder.designer && (
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <BrushIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                        <Typography variant="caption" color="text.secondary">Diseñador</Typography>
+                      </Stack>
+                      <Typography variant="body2">{userName(og.workOrder.designer)}</Typography>
+                    </Stack>
+                  )}
+
+                  {og.workOrder.observations && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Observaciones</Typography>
+                      <Typography variant="body2" sx={{ mt: 0.25, whiteSpace: 'pre-line' }}>
+                        {og.workOrder.observations}
+                      </Typography>
+                    </Box>
+                  )}
+                </Stack>
+
+                <Divider sx={{ my: 2 }} />
+
+                {/* ── Order Section ─────────────────────────────────── */}
+                <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1.5}>
+                  <Typography variant="subtitle1" fontWeight={700}>
+                    Orden de Producción
+                  </Typography>
+                  <Chip
+                    label={ORDER_STATUS_CONFIG[og.workOrder.order.status as OrderStatus]?.label ?? og.workOrder.order.status}
+                    color={ORDER_STATUS_CONFIG[og.workOrder.order.status as OrderStatus]?.color ?? 'default'}
+                    size="small"
+                  />
+                </Stack>
+
+                <Stack spacing={1}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                    <Typography variant="caption" color="text.secondary">Número OP</Typography>
+                    <Button
+                      component={RouterLink}
+                      to={ROUTES.ORDERS_DETAIL.replace(':id', og.workOrder.order.id)}
+                      size="small"
+                      endIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />}
+                      sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.875rem' }}
+                    >
+                      {og.workOrder.order.orderNumber}
+                    </Button>
+                  </Stack>
+
                   <Stack direction="row" justifyContent="space-between">
                     <Typography variant="caption" color="text.secondary">Cliente</Typography>
-                    <Typography variant="body2">{og.workOrder.order.client.name}</Typography>
+                    <Typography variant="body2" fontWeight={500}>{og.workOrder.order.client.name}</Typography>
+                  </Stack>
+
+                  {og.workOrder.order.deliveryDate && (
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography variant="caption" color="text.secondary">Fecha de entrega</Typography>
+                      <Typography variant="body2">{formatShortDate(og.workOrder.order.deliveryDate)}</Typography>
+                    </Stack>
+                  )}
+
+                  <Divider sx={{ my: 0.5 }} />
+
+                  <Stack direction="row" justifyContent="space-between">
+                    <Typography variant="caption" color="text.secondary">Total OP</Typography>
+                    <Typography variant="body2" fontWeight={600}>{formatCurrency(og.workOrder.order.total)}</Typography>
                   </Stack>
                   <Stack direction="row" justifyContent="space-between">
-                    <Typography variant="caption" color="text.secondary">Orden</Typography>
-                    <Typography variant="body2">{og.workOrder.order.orderNumber}</Typography>
+                    <Typography variant="caption" color="text.secondary">Pagado</Typography>
+                    <Typography variant="body2" color="success.main">{formatCurrency(og.workOrder.order.paidAmount)}</Typography>
+                  </Stack>
+                  <Stack direction="row" justifyContent="space-between">
+                    <Typography variant="caption" color="text.secondary">Saldo</Typography>
+                    <Typography
+                      variant="body2"
+                      fontWeight={600}
+                      color={parseFloat(og.workOrder.order.balance || '0') > 0 ? 'warning.main' : 'success.main'}
+                    >
+                      {formatCurrency(og.workOrder.order.balance)}
+                    </Typography>
                   </Stack>
                 </Stack>
               </CardContent>
@@ -600,13 +710,15 @@ export const ExpenseOrderDetailPage = () => {
               />
               <TextField
                 label="Precio unitario *"
-                type="number"
-                value={itemForm.unitPrice}
-                onChange={(e) => setItemForm((f) => ({ ...f, unitPrice: e.target.value }))}
-                inputProps={{ min: 0, step: 100 }}
+                value={itemForm.unitPrice ? formatCurrencyInput(itemForm.unitPrice) : ''}
+                onChange={(e) => {
+                  const rawValue = e.target.value.replace(/\D/g, '');
+                  setItemForm((f) => ({ ...f, unitPrice: rawValue }));
+                }}
                 InputProps={{
                   startAdornment: <InputAdornment position="start">$</InputAdornment>,
                 }}
+                inputProps={{ style: { textAlign: 'right' } }}
                 sx={{ flex: 1 }}
               />
             </Stack>
@@ -811,6 +923,7 @@ export const ExpenseOrderDetailPage = () => {
           </Button>
           <Button
             variant="contained"
+            color="primary"
             onClick={handleAddItem}
             disabled={!isItemFormValid || addExpenseItemMutation.isPending}
             startIcon={addExpenseItemMutation.isPending ? <CircularProgress size={16} /> : <AddIcon />}

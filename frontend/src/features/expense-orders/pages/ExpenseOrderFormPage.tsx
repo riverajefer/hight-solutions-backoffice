@@ -294,6 +294,14 @@ export const ExpenseOrderFormPage = () => {
       minimumFractionDigits: 0,
     }).format(value);
 
+  const formatCurrencyInput = (value: string | number): string => {
+    const str = typeof value === 'number' ? value.toString() : value;
+    const numericValue = str.replace(/\D/g, '');
+    if (!numericValue) return '';
+    const number = parseInt(numericValue, 10);
+    return new Intl.NumberFormat('es-CO').format(number);
+  };
+
   // ─── Item helpers ─────────────────────────────────────────────────────────────
   const addItem = () => {
     setItems((prev) => [...prev, defaultItem()]);
@@ -569,7 +577,7 @@ export const ExpenseOrderFormPage = () => {
         <Typography variant="h6" fontWeight={600}>
           Ítems de Gasto
         </Typography>
-        <Button startIcon={<AddIcon />} onClick={addItem} variant="outlined" size="small">
+        <Button startIcon={<AddIcon />} onClick={addItem} variant="outlined" color='primary' size="small">
           Agregar ítem
         </Button>
       </Stack>
@@ -607,13 +615,15 @@ export const ExpenseOrderFormPage = () => {
                 />
                 <TextField
                   label="Precio unitario *"
-                  type="number"
-                  value={item.unitPrice}
-                  onChange={(e) => updateItem(index, 'unitPrice', e.target.value)}
-                  inputProps={{ min: 0, step: 100 }}
+                  value={item.unitPrice ? formatCurrencyInput(item.unitPrice) : ''}
+                  onChange={(e) => {
+                    const rawValue = e.target.value.replace(/\D/g, '');
+                    updateItem(index, 'unitPrice', rawValue);
+                  }}
                   InputProps={{
                     startAdornment: <InputAdornment position="start">$</InputAdornment>,
                   }}
+                  inputProps={{ style: { textAlign: 'right' } }}
                   sx={{ flex: 1 }}
                 />
               </Stack>

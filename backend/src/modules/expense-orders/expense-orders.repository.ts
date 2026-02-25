@@ -25,10 +25,24 @@ export class ExpenseOrdersRepository {
       select: {
         id: true,
         workOrderNumber: true,
+        status: true,
+        fileName: true,
+        observations: true,
+        advisor: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+        designer: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
         order: {
           select: {
             id: true,
             orderNumber: true,
+            status: true,
+            deliveryDate: true,
+            total: true,
+            paidAmount: true,
+            balance: true,
             client: { select: { id: true, name: true } },
           },
         },
