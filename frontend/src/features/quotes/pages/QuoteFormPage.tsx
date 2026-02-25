@@ -9,8 +9,9 @@ import {
   Grid,
   Typography,
   Divider,
-  Paper,
   MenuItem,
+  alpha,
+  useTheme,
 } from '@mui/material';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { commercialChannelsApi } from '../../../api/commercialChannels.api';
@@ -20,6 +21,15 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { DatePicker } from '@mui/x-date-pickers';
 import { v4 as uuidv4 } from 'uuid';
+import {
+  ArrowBack as ArrowBackIcon,
+  Save as SaveIcon,
+  CheckCircle as CheckCircleIcon,
+  Person as PersonIcon,
+  ShoppingCart as ShoppingCartIcon,
+  AttachMoney as AttachMoneyIcon,
+  Notes as NotesIcon,
+} from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { useQuotes } from '../hooks/useQuotes';
@@ -30,6 +40,10 @@ import type { Client } from '../../../types/client.types';
 import { quotesApi } from '../../../api/quotes.api';
 import { storageApi } from '../../../api/storage.api';
 import { useSnackbar } from 'notistack';
+
+// ============================================================
+// VALIDATION SCHEMA
+// ============================================================
 
 const quoteItemSchema = z.object({
   id: z.string(),
@@ -64,6 +78,142 @@ const quoteFormSchema = z.object({
 
 type QuoteFormData = z.infer<typeof quoteFormSchema>;
 
+const formatCurrency = (value: number): string =>
+  new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    minimumFractionDigits: 0,
+  }).format(value);
+
+// ============================================================
+// STEP CONFIG
+// ============================================================
+
+interface StepConfig {
+  label: string;
+  subtitle: string;
+  icon: React.ReactNode;
+}
+
+const STEPS: StepConfig[] = [
+  { label: 'Cliente e Info General', subtitle: 'Datos del cliente y canal de ventas', icon: <PersonIcon fontSize="small" /> },
+  { label: 'Ítems', subtitle: 'Productos y cantidades', icon: <ShoppingCartIcon fontSize="small" /> },
+  { label: 'Totales e IVA', subtitle: 'Cálculo de impuestos y totales', icon: <AttachMoneyIcon fontSize="small" /> },
+  { label: 'Observaciones y Confirmar', subtitle: 'Notas finales y guardar', icon: <NotesIcon fontSize="small" /> },
+];
+
+// ============================================================
+// STEP HEADER COMPONENT
+// ============================================================
+
+interface StepHeaderProps {
+  index: number;
+  config: StepConfig;
+  status: 'active' | 'completed' | 'visited' | 'pending';
+  clickable?: boolean;
+  onClick?: () => void;
+}
+
+const StepHeader: React.FC<StepHeaderProps> = ({ index, config, status, clickable, onClick }) => {
+  const theme = useTheme();
+  const isActive = status === 'active';
+  const isCompleted = status === 'completed';
+  const isVisited = status === 'visited';
+
+  const successGreen = theme.palette.success.dark;
+
+  const numberBg = isActive
+    ? theme.palette.primary.main
+    : isCompleted
+    ? successGreen
+    : isVisited
+    ? theme.palette.warning.main
+    : theme.palette.action.disabled;
+
+  const borderColor = isActive
+    ? alpha(theme.palette.primary.main, 0.2)
+    : isVisited
+    ? alpha(theme.palette.warning.main, 0.2)
+    : 'transparent';
+
+  const bgColor = isActive
+    ? alpha(theme.palette.primary.main, 0.06)
+    : isVisited
+    ? alpha(theme.palette.warning.main, 0.06)
+    : 'transparent';
+
+  const labelColor = isActive
+    ? theme.palette.primary.main
+    : isCompleted
+    ? successGreen
+    : isVisited
+    ? theme.palette.warning.main
+    : theme.palette.text.primary;
+
+  return (
+    <Box
+      onClick={clickable ? onClick : undefined}
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5,
+        p: 2,
+        cursor: clickable ? 'pointer' : 'default',
+        borderRadius: 2,
+        bgcolor: bgColor,
+        border: `1px solid ${borderColor}`,
+        transition: 'all 0.2s ease',
+        '&:hover': clickable ? { bgcolor: alpha(theme.palette.action.hover, 0.08) } : {},
+      }}
+    >
+      <Box sx={{ position: 'relative', flexShrink: 0 }}>
+        <Box
+          sx={{
+            width: 32,
+            height: 32,
+            borderRadius: '50%',
+            bgcolor: numberBg,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#fff',
+            fontWeight: 700,
+            fontSize: 14,
+          }}
+        >
+          {index + 1}
+        </Box>
+        {isCompleted && (
+          <CheckCircleIcon
+            sx={{
+              position: 'absolute',
+              bottom: -4,
+              right: -6,
+              fontSize: 16,
+              color: successGreen,
+              bgcolor: 'background.paper',
+              borderRadius: '50%',
+            }}
+          />
+        )}
+      </Box>
+
+      <Box>
+        <Typography variant="subtitle2" fontWeight={600} sx={{ color: labelColor }}>
+          {config.label}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {config.subtitle}
+        </Typography>
+      </Box>
+    </Box>
+  );
+};
+
+// ============================================================
+// MAIN COMPONENT
+// ============================================================
+
 export const QuoteFormPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -76,6 +226,8 @@ export const QuoteFormPage: React.FC = () => {
   const isLoadingQuote = isEdit && quoteQuery(id!).isLoading;
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeStep, setActiveStep] = useState(0);
+  const [visitedSteps, setVisitedSteps] = useState<Set<number>>(new Set([0]));
 
   const { data: channels = [], isLoading: channelsLoading } = useQuery({
     queryKey: ['commercial-channels'],
@@ -107,14 +259,21 @@ export const QuoteFormPage: React.FC = () => {
   const items = watch('items');
   const applyTax = watch('applyTax');
   const taxRate = watch('taxRate');
+  const commercialChannelId = watch('commercialChannelId');
   const isClientSelected = !!selectedClient;
 
+  const subtotal = items.reduce((sum, item) => sum + item.total, 0);
+  const tax = applyTax ? subtotal * (taxRate / 100) : 0;
+  const total = subtotal + tax;
+
+  // Auto-apply tax based on client type
   useEffect(() => {
     if (!isEdit && selectedClient) {
       setValue('applyTax', selectedClient.personType === 'EMPRESA');
     }
   }, [selectedClient, setValue, isEdit]);
 
+  // Load edit data
   useEffect(() => {
     if (isEdit && currentQuote) {
       setValue('client', currentQuote.client as any);
@@ -136,8 +295,37 @@ export const QuoteFormPage: React.FC = () => {
       setValue('applyTax', parseFloat(currentQuote.taxRate.toString()) > 0);
       setValue('taxRate', parseFloat(currentQuote.taxRate.toString()) * 100);
       setValue('commercialChannelId', currentQuote.commercialChannelId || '');
+      // En edición todos los pasos ya fueron completados
+      setVisitedSteps(new Set([0, 1, 2, 3]));
     }
   }, [isEdit, currentQuote, setValue]);
+
+  // ── Step navigation ──────────────────────────────────────────────────────────
+
+  const goToStep = (step: number) => {
+    setActiveStep(step);
+    setVisitedSteps((prev) => new Set([...prev, step]));
+  };
+
+  const getStepStatus = (i: number): 'active' | 'completed' | 'visited' | 'pending' => {
+    if (i === activeStep) return 'active';
+    if (!visitedSteps.has(i)) return 'pending';
+    const validByStep = [
+      isClientSelected,  // paso 0
+      items.length > 0 && items.every((item) => item.description && item.quantity && item.unitPrice), // paso 1
+      true,              // paso 2 — totales siempre ok
+      true,              // paso 3
+    ];
+    return validByStep[i] ? 'completed' : 'visited';
+  };
+
+  const canGoNext = () => {
+    if (activeStep === 0) return isClientSelected;
+    if (activeStep === 1) return items.length > 0;
+    return true;
+  };
+
+  // ── Submit ───────────────────────────────────────────────────────────────────
 
   const onSubmit = async (data: QuoteFormData) => {
     setIsSubmitting(true);
@@ -170,103 +358,260 @@ export const QuoteFormPage: React.FC = () => {
     }
   };
 
+  // ── Image handlers ────────────────────────────────────────────────────────────
+
   const handleImageUpload = async (itemId: string, file: File) => {
     if (!isEdit) {
-      // Create mode: upload via standalone storage endpoint
       const currentItems = getValues('items');
       const existingItem = currentItems.find(i => i.id === itemId);
-
-      // If replacing an existing image, delete the old one first
       if (existingItem?.sampleImageId) {
-        try {
-          await storageApi.deleteFile(existingItem.sampleImageId);
-        } catch (err) {
-          console.error('Could not delete previous image before replacing:', err);
-        }
+        try { await storageApi.deleteFile(existingItem.sampleImageId); } catch (err) { /* ignore */ }
       }
-
       try {
         const uploadedFile = await storageApi.uploadFile(file, { entityType: 'quote' });
-        const updatedItems = currentItems.map((item) =>
+        setValue('items', currentItems.map((item) =>
           item.id === itemId ? { ...item, sampleImageId: uploadedFile.id } : item
-        );
-        setValue('items', updatedItems);
+        ));
         enqueueSnackbar('Imagen subida exitosamente', { variant: 'success' });
       } catch (error: any) {
-        console.error('Error uploading image:', error);
-        const errorMessage = error.response?.data?.message || 'Error al subir la imagen';
-        enqueueSnackbar(errorMessage, { variant: 'error' });
+        enqueueSnackbar(error.response?.data?.message || 'Error al subir la imagen', { variant: 'error' });
       }
       return;
     }
 
-    // Edit mode: requires saved quote item
     const currentItem = currentQuote?.items?.find(item => item.id === itemId);
     if (!currentItem) {
-      enqueueSnackbar('Guarda los cambios de la cotización antes de subir imágenes a items nuevos', { variant: 'warning' });
+      enqueueSnackbar('Guarda los cambios antes de subir imágenes a ítems nuevos', { variant: 'warning' });
       return;
     }
-
     try {
       const uploadedFile = await quotesApi.uploadItemSampleImage(id!, itemId, file);
-
       const currentItems = getValues('items');
-      const updatedItems = currentItems.map((item) =>
+      setValue('items', currentItems.map((item) =>
         item.id === itemId ? { ...item, sampleImageId: uploadedFile.id } : item
-      );
-      setValue('items', updatedItems);
-
+      ));
       enqueueSnackbar('Imagen subida exitosamente', { variant: 'success' });
       queryClient.invalidateQueries({ queryKey: ['quote', id] });
     } catch (error: any) {
-      console.error('Error uploading image:', error);
-      const errorMessage = error.response?.data?.message || 'Error al subir la imagen';
-      enqueueSnackbar(errorMessage, { variant: 'error' });
+      enqueueSnackbar(error.response?.data?.message || 'Error al subir la imagen', { variant: 'error' });
     }
   };
 
   const handleImageDelete = async (itemId: string) => {
     if (!isEdit) {
-      // Create mode: delete via standalone storage endpoint
       const currentItems = getValues('items');
       const item = currentItems.find(i => i.id === itemId);
       if (item?.sampleImageId) {
-        try {
-          await storageApi.deleteFile(item.sampleImageId);
-        } catch (error) {
-          console.error('Error deleting image from storage:', error);
-        }
+        try { await storageApi.deleteFile(item.sampleImageId); } catch { /* ignore */ }
       }
-      const updatedItems = currentItems.map((i) =>
-        i.id === itemId ? { ...i, sampleImageId: undefined } : i
-      );
-      setValue('items', updatedItems);
+      setValue('items', currentItems.map((i) => i.id === itemId ? { ...i, sampleImageId: undefined } : i));
       enqueueSnackbar('Imagen eliminada', { variant: 'success' });
       return;
     }
-
-    // Edit mode: existing logic unchanged
     try {
       await quotesApi.deleteItemSampleImage(id!, itemId);
-
       const currentItems = getValues('items');
-      const updatedItems = currentItems.map((item) =>
+      setValue('items', currentItems.map((item) =>
         item.id === itemId ? { ...item, sampleImageId: undefined } : item
-      );
-      setValue('items', updatedItems);
-
+      ));
       enqueueSnackbar('Imagen eliminada exitosamente', { variant: 'success' });
       queryClient.invalidateQueries({ queryKey: ['quote', id] });
-    } catch (error) {
-      console.error('Error deleting image:', error);
+    } catch {
       enqueueSnackbar('Error al eliminar la imagen', { variant: 'error' });
     }
   };
 
+  // ── Loading ──────────────────────────────────────────────────────────────────
+
   if (isLoadingQuote) return <LoadingSpinner />;
 
+  // ── Step renderers ────────────────────────────────────────────────────────────
+
+  const renderStep0 = () => (
+    <Stack spacing={3}>
+      <Typography variant="h6" fontWeight={600}>
+        Cliente e Información General
+      </Typography>
+
+      <Controller
+        name="client"
+        control={control}
+        render={({ field }) => (
+          <ClientSelector
+            value={field.value}
+            onChange={field.onChange}
+            error={!!errors.client}
+            helperText={errors.client?.message}
+          />
+        )}
+      />
+
+      <Grid container spacing={2}>
+        <Grid item xs={12} sm={6}>
+          <Controller
+            name="validUntil"
+            control={control}
+            render={({ field }) => (
+              <DatePicker
+                label="Válida hasta"
+                value={field.value}
+                onChange={field.onChange}
+                disabled={!isClientSelected}
+                minDate={new Date()}
+                slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+              />
+            )}
+          />
+        </Grid>
+
+        <Grid item xs={12} sm={6}>
+          <Controller
+            name="commercialChannelId"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                select
+                fullWidth
+                label="Canal de Venta *"
+                size="small"
+                error={!!errors.commercialChannelId}
+                helperText={errors.commercialChannelId?.message}
+                disabled={!isClientSelected || channelsLoading}
+              >
+                {channels.map((c) => (
+                  <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
+                ))}
+              </TextField>
+            )}
+          />
+        </Grid>
+      </Grid>
+    </Stack>
+  );
+
+  const renderStep1 = () => (
+    <Stack spacing={3}>
+      <Typography variant="h6" fontWeight={600}>
+        Ítems de la Cotización
+      </Typography>
+
+      {!isClientSelected && (
+        <Typography variant="body2" color="text.secondary">
+          Primero debe seleccionar un cliente para agregar ítems.
+        </Typography>
+      )}
+
+      <Controller
+        name="items"
+        control={control}
+        render={({ field }) => (
+          <QuoteItemsTable
+            items={field.value}
+            onChange={field.onChange}
+            errors={errors}
+            disabled={!isClientSelected}
+            quoteId={isEdit ? id : undefined}
+            onImageUpload={handleImageUpload}
+            onImageDelete={handleImageDelete}
+          />
+        )}
+      />
+    </Stack>
+  );
+
+  const renderStep2 = () => (
+    <Stack spacing={3}>
+      <Typography variant="h6" fontWeight={600}>
+        Totales e IVA
+      </Typography>
+
+      <Controller
+        name="applyTax"
+        control={control}
+        render={({ field: applyTaxField }) => (
+          <Controller
+            name="taxRate"
+            control={control}
+            render={({ field: taxRateField }) => (
+              <OrderTotals
+                items={items as any}
+                applyTax={applyTaxField.value}
+                taxRate={taxRateField.value}
+                onApplyTaxChange={applyTaxField.onChange}
+                onTaxRateChange={taxRateField.onChange}
+                disabled={!isClientSelected}
+              />
+            )}
+          />
+        )}
+      />
+    </Stack>
+  );
+
+  const renderStep3 = () => (
+    <Stack spacing={3}>
+      <Typography variant="h6" fontWeight={600}>
+        Observaciones y Confirmar
+      </Typography>
+
+      <Controller
+        name="notes"
+        control={control}
+        render={({ field }) => (
+          <TextField
+            {...field}
+            fullWidth
+            multiline
+            rows={4}
+            label="Notas u Observaciones"
+            placeholder="Información adicional para el cliente..."
+            disabled={!isClientSelected}
+          />
+        )}
+      />
+
+      {/* Resumen */}
+      <Card variant="outlined">
+        <CardContent>
+          <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" gutterBottom>
+            RESUMEN
+          </Typography>
+          <Stack spacing={0.5}>
+            <Typography variant="body2">
+              <strong>Cliente:</strong> {selectedClient?.name ?? '—'}
+            </Typography>
+            <Typography variant="body2">
+              <strong>Canal:</strong>{' '}
+              {channels.find((c) => c.id === commercialChannelId)?.name ?? '—'}
+            </Typography>
+            <Typography variant="body2">
+              <strong>Ítems:</strong> {items.length}
+            </Typography>
+            <Typography variant="body2">
+              <strong>Subtotal:</strong> {formatCurrency(subtotal)}
+            </Typography>
+            {applyTax && (
+              <Typography variant="body2">
+                <strong>IVA ({taxRate}%):</strong> {formatCurrency(tax)}
+              </Typography>
+            )}
+            <Divider sx={{ my: 0.5 }} />
+            <Typography variant="body2" fontWeight={700}>
+              <strong>Total:</strong> {formatCurrency(total)}
+            </Typography>
+          </Stack>
+        </CardContent>
+      </Card>
+    </Stack>
+  );
+
+  // ── Render ───────────────────────────────────────────────────────────────────
+
   return (
-    <Box sx={{ p: 3 }}>
+    <Box>
+      {isSubmitting && <LoadingSpinner fullScreen message={isEdit ? 'Guardando cambios...' : 'Creando cotización...'} />}
+
       <PageHeader
         title={isEdit ? 'Editar Cotización' : 'Nueva Cotización'}
         breadcrumbs={[
@@ -275,128 +620,66 @@ export const QuoteFormPage: React.FC = () => {
         ]}
       />
 
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <Stack spacing={3} sx={{ mt: 3 }}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom color="primary">1. Información General</Typography>
-              <Divider sx={{ mb: 2 }} />
-              <Grid container spacing={3}>
-                <Grid item xs={12}>
-                  <Controller
-                    name="client"
-                    control={control}
-                    render={({ field }) => (
-                      <ClientSelector
-                        value={field.value}
-                        onChange={field.onChange}
-                        error={!!errors.client}
-                        helperText={errors.client?.message}
-                      />
-                    )}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Controller
-                    name="validUntil"
-                    control={control}
-                    render={({ field }) => (
-                      <DatePicker
-                        label="Válida hasta"
-                        value={field.value}
-                        onChange={field.onChange}
-                        disabled={!isClientSelected}
-                        minDate={new Date()}
-                        slotProps={{ textField: { fullWidth: true, size: 'small' } }}
-                      />
-                    )}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Controller
-                    name="commercialChannelId"
-                    control={control}
-                    render={({ field }) => (
-                      <TextField
-                        {...field}
-                        select
-                        fullWidth
-                        label="Canal de Venta"
-                        size="small"
-                        error={!!errors.commercialChannelId}
-                        disabled={!isClientSelected || channelsLoading}
-                      >
-                        {channels.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
-                      </TextField>
-                    )}
-                  />
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom color="primary">2. Ítems</Typography>
-              <Divider sx={{ mb: 2 }} />
-              <Controller
-                name="items"
-                control={control}
-                render={({ field }) => (
-                  <QuoteItemsTable
-                    items={field.value}
-                    onChange={field.onChange}
-                    errors={errors}
-                    disabled={!isClientSelected}
-                    quoteId={isEdit ? id : undefined}
-                    onImageUpload={handleImageUpload}
-                    onImageDelete={handleImageDelete}
-                  />
-                )}
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} sx={{ mt: 2 }}>
+        {/* ── Sidebar de pasos ── */}
+        <Box sx={{ width: { xs: '100%', md: 280 }, flexShrink: 0 }}>
+          <Stack spacing={1}>
+            {STEPS.map((step, i) => (
+              <StepHeader
+                key={i}
+                index={i}
+                config={step}
+                status={getStepStatus(i)}
+                clickable={visitedSteps.has(i) && i !== activeStep}
+                onClick={() => goToStep(i)}
               />
-            </CardContent>
-          </Card>
+            ))}
+          </Stack>
+        </Box>
 
-          <OrderTotals
-            items={items as any}
-            applyTax={applyTax}
-            taxRate={taxRate}
-            onApplyTaxChange={(val: boolean) => setValue('applyTax', val)}
-            onTaxRateChange={(val: number) => setValue('taxRate', val)}
-            disabled={!isClientSelected}
-          />
+        <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', md: 'block' } }} />
 
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom color="primary">3. Observaciones</Typography>
-              <Divider sx={{ mb: 2 }} />
-              <Controller
-                name="notes"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    fullWidth
-                    multiline
-                    rows={4}
-                    label="Notas"
-                    disabled={!isClientSelected}
-                  />
-                )}
-              />
-            </CardContent>
-          </Card>
+        {/* ── Contenido del paso activo ── */}
+        <Box flex={1}>
+          {activeStep === 0 && renderStep0()}
+          {activeStep === 1 && renderStep1()}
+          {activeStep === 2 && renderStep2()}
+          {activeStep === 3 && renderStep3()}
 
-          <Paper sx={{ p: 2 }}>
-            <Stack direction="row" spacing={2} justifyContent="flex-end">
-              <Button variant="outlined" color="error" onClick={() => navigate('/quotes')}>Cancelar</Button>
-              <Button type="submit" variant="contained" color="success" disabled={isSubmitting || !isValid}>
-                {isSubmitting ? 'Guardando...' : 'Guardar Cotización'}
+          {/* Navegación */}
+          <Stack direction="row" justifyContent="space-between" sx={{ mt: 4 }}>
+            <Button
+              startIcon={<ArrowBackIcon />}
+              onClick={() =>
+                activeStep === 0 ? navigate('/quotes') : goToStep(activeStep - 1)
+              }
+              disabled={isSubmitting}
+            >
+              {activeStep === 0 ? 'Cancelar' : 'Anterior'}
+            </Button>
+
+            {activeStep < STEPS.length - 1 ? (
+              <Button
+                variant="contained"
+                onClick={() => goToStep(activeStep + 1)}
+                disabled={!canGoNext() || isSubmitting}
+              >
+                Siguiente
               </Button>
-            </Stack>
-          </Paper>
-        </Stack>
-      </form>
+            ) : (
+              <Button
+                variant="contained"
+                color="success"
+                startIcon={<SaveIcon />}
+                disabled={isSubmitting || !isValid}
+                onClick={handleSubmit(onSubmit)}
+              >
+                {isSubmitting ? 'Guardando...' : isEdit ? 'Guardar Cambios' : 'Guardar Cotización'}
+              </Button>
+            )}
+          </Stack>
+        </Box>
+      </Stack>
     </Box>
   );
 };

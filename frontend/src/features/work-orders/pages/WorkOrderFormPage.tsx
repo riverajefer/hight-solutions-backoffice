@@ -6,7 +6,6 @@ import {
   Stack,
   Card,
   CardContent,
-  CardActionArea,
   Typography,
   TextField,
   Autocomplete,
@@ -14,7 +13,6 @@ import {
   Divider,
   CircularProgress,
   Alert,
-  Collapse,
   alpha,
   useTheme,
 } from '@mui/material';
@@ -23,8 +21,6 @@ import {
   ArrowBack as ArrowBackIcon,
   Save as SaveIcon,
   CheckCircle as CheckCircleIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
   EditNote as EditNoteIcon,
   AssignmentTurnedIn as AssignmentTurnedInIcon,
   Inventory2 as Inventory2Icon,
@@ -64,6 +60,8 @@ interface WorkOrderItemForm {
   observations: string;
 }
 
+// ─── Step config ──────────────────────────────────────────────────────────────
+
 interface StepConfig {
   label: string;
   subtitle: string;
@@ -77,123 +75,110 @@ const STEPS: StepConfig[] = [
   { label: 'Observaciones y Confirmar', subtitle: 'Notas finales y guardar', icon: <NotesIcon fontSize="small" /> },
 ];
 
-// ─── Step Header (clickable row) ─────────────────────────────────────────────
+// ─── StepHeader component ─────────────────────────────────────────────────────
+
 interface StepHeaderProps {
   index: number;
   config: StepConfig;
-  status: 'active' | 'completed' | 'pending';
-  summary?: React.ReactNode;
+  status: 'active' | 'completed' | 'visited' | 'pending';
+  clickable?: boolean;
   onClick?: () => void;
 }
 
-const StepHeader: React.FC<StepHeaderProps> = ({ index, config, status, summary, onClick }) => {
+const StepHeader: React.FC<StepHeaderProps> = ({ index, config, status, clickable, onClick }) => {
   const theme = useTheme();
-  const isDark = theme.palette.mode === 'dark';
-
   const isActive = status === 'active';
   const isCompleted = status === 'completed';
-  const isPending = status === 'pending';
+  const isVisited = status === 'visited';
+
+  const successGreen = theme.palette.success.dark; // #10B981
 
   const numberBg = isActive
     ? theme.palette.primary.main
     : isCompleted
-    ? theme.palette.success.main
-    : alpha(theme.palette.text.primary, 0.12);
+    ? successGreen
+    : isVisited
+    ? theme.palette.warning.main
+    : theme.palette.action.disabled;
 
-  const numberColor = isPending
-    ? theme.palette.text.disabled
-    : '#fff';
+  const borderColor = isActive
+    ? alpha(theme.palette.primary.main, 0.2)
+    : isVisited
+    ? alpha(theme.palette.warning.main, 0.2)
+    : 'transparent';
+
+  const bgColor = isActive
+    ? alpha(theme.palette.primary.main, 0.06)
+    : isVisited
+    ? alpha(theme.palette.warning.main, 0.06)
+    : 'transparent';
+
+  const labelColor = isActive
+    ? theme.palette.primary.main
+    : isCompleted
+    ? successGreen
+    : isVisited
+    ? theme.palette.warning.main
+    : theme.palette.text.primary;
 
   return (
-    <CardActionArea
-      onClick={isCompleted && onClick ? onClick : undefined}
-      disabled={isPending || isActive}
+    <Box
+      onClick={clickable ? onClick : undefined}
       sx={{
-        borderRadius: 0,
-        cursor: isCompleted ? 'pointer' : 'default',
-        '&.Mui-disabled': { opacity: 1 },
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5,
+        p: 2,
+        cursor: clickable ? 'pointer' : 'default',
+        borderRadius: 2,
+        bgcolor: bgColor,
+        border: `1px solid ${borderColor}`,
+        transition: 'all 0.2s ease',
+        '&:hover': clickable ? { bgcolor: alpha(theme.palette.action.hover, 0.08) } : {},
       }}
     >
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 2,
-          px: 3,
-          py: 2,
-          background: isActive
-            ? isDark
-              ? alpha(theme.palette.primary.main, 0.08)
-              : alpha(theme.palette.primary.main, 0.04)
-            : 'transparent',
-          borderLeft: isActive
-            ? `4px solid ${theme.palette.primary.main}`
-            : '4px solid transparent',
-          transition: 'all 0.25s ease',
-        }}
-      >
-        {/* Step number circle */}
+      {/* Número + badge de check */}
+      <Box sx={{ position: 'relative', flexShrink: 0 }}>
         <Box
           sx={{
-            width: 36,
-            height: 36,
+            width: 32,
+            height: 32,
             borderRadius: '50%',
-            background: numberBg,
-            color: numberColor,
+            bgcolor: numberBg,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            flexShrink: 0,
+            color: '#fff',
             fontWeight: 700,
-            fontSize: '0.85rem',
-            transition: 'background 0.25s ease',
-            boxShadow: isActive
-              ? `0 0 0 4px ${alpha(theme.palette.primary.main, 0.15)}`
-              : 'none',
+            fontSize: 14,
           }}
         >
-          {isCompleted ? <CheckCircleIcon sx={{ fontSize: 18 }} /> : index + 1}
+          {index + 1}
         </Box>
-
-        {/* Labels */}
-        <Box flex={1} minWidth={0}>
-          <Typography
-            variant="subtitle2"
-            fontWeight={isActive ? 700 : 600}
-            color={isPending ? 'text.disabled' : isActive ? 'primary' : 'text.primary'}
-            sx={{ lineHeight: 1.2 }}
-          >
-            {config.label}
-          </Typography>
-          {isCompleted && summary ? (
-            <Typography variant="caption" color="text.secondary" noWrap>
-              {summary}
-            </Typography>
-          ) : (
-            <Typography
-              variant="caption"
-              color={isPending ? 'text.disabled' : 'text.secondary'}
-            >
-              {config.subtitle}
-            </Typography>
-          )}
-        </Box>
-
-        {/* Expand/collapse icon for completed */}
         {isCompleted && (
-          <ExpandMoreIcon
-            fontSize="small"
-            sx={{ color: 'text.secondary', flexShrink: 0 }}
-          />
-        )}
-        {isActive && (
-          <ExpandLessIcon
-            fontSize="small"
-            sx={{ color: 'primary.main', flexShrink: 0 }}
+          <CheckCircleIcon
+            sx={{
+              position: 'absolute',
+              bottom: -4,
+              right: -6,
+              fontSize: 16,
+              color: successGreen,
+              bgcolor: 'background.paper',
+              borderRadius: '50%',
+            }}
           />
         )}
       </Box>
-    </CardActionArea>
+
+      <Box>
+        <Typography variant="subtitle2" fontWeight={600} sx={{ color: labelColor }}>
+          {config.label}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {config.subtitle}
+        </Typography>
+      </Box>
+    </Box>
   );
 };
 
@@ -202,15 +187,13 @@ export const WorkOrderFormPage = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const isEdit = !!id;
-  const theme = useTheme();
 
   const { user } = useAuthStore();
   const { createWorkOrderMutation } = useWorkOrders();
   const { workOrderQuery, updateWorkOrderMutation } = useWorkOrder(id);
 
   const [activeStep, setActiveStep] = useState(0);
-  // For accordion: track which completed step is expanded (null = none)
-  const [expandedCompleted, setExpandedCompleted] = useState<number | null>(null);
+  const [visitedSteps, setVisitedSteps] = useState<Set<number>>(new Set([0]));
 
   // Step 1: Order selection
   const [orderSearch, setOrderSearch] = useState('');
@@ -232,7 +215,7 @@ export const WorkOrderFormPage = () => {
     search: orderSearch,
     limit: 30,
     status: undefined,
-    excludeWithWorkOrder: !isEdit, // En creación, excluir órdenes con OT activa
+    excludeWithWorkOrder: !isEdit,
   });
   const { usersQuery } = useUsers();
   const { productionAreasQuery } = useProductionAreas();
@@ -265,12 +248,13 @@ export const WorkOrderFormPage = () => {
           observations: item.observations ?? '',
         })),
       );
-      // In edit mode start on step 1 (order is fixed)
+      // En edición todos los pasos ya estuvieron completados
       setActiveStep(1);
+      setVisitedSteps(new Set([0, 1, 2, 3]));
     }
   }, [isEdit, workOrderQuery.data]);
 
-  // When order is selected, initialize item forms from order items (pre-fill production areas)
+  // When order is selected, initialize item forms
   useEffect(() => {
     if (selectedOrder && !isEdit) {
       setItemsForms(
@@ -285,20 +269,23 @@ export const WorkOrderFormPage = () => {
     }
   }, [selectedOrder, isEdit]);
 
-  const handleNext = () => {
-    setExpandedCompleted(null);
-    setActiveStep((prev) => prev + 1);
-  };
-
-  const handleBack = () => {
-    setExpandedCompleted(null);
-    setActiveStep((prev) => prev - 1);
-  };
+  // ─── Navigation ──────────────────────────────────────────────────────────────
 
   const goToStep = (step: number) => {
-    if (step < activeStep) {
-      setExpandedCompleted(expandedCompleted === step ? null : step);
-    }
+    setActiveStep(step);
+    setVisitedSteps((prev) => new Set([...prev, step]));
+  };
+
+  const getStepStatus = (i: number): 'active' | 'completed' | 'visited' | 'pending' => {
+    if (i === activeStep) return 'active';
+    if (!visitedSteps.has(i)) return 'pending';
+    const validByStep = [
+      isEdit || !!selectedOrder,   // step 0
+      !fileNameError,               // step 1
+      true,                         // step 2 — siempre válido
+      true,                         // step 3
+    ];
+    return validByStep[i] ? 'completed' : 'visited';
   };
 
   const handleFileNameChange = (value: string) => {
@@ -313,6 +300,14 @@ export const WorkOrderFormPage = () => {
       return updated;
     });
   };
+
+  const canGoNext = () => {
+    if (activeStep === 0) return isEdit || !!selectedOrder;
+    if (activeStep === 1) return !fileNameError;
+    return true;
+  };
+
+  // ─── Build DTOs ───────────────────────────────────────────────────────────────
 
   const buildCreateDto = (): CreateWorkOrderDto => {
     const items: CreateWorkOrderItemDto[] = itemsForms.map((form) => ({
@@ -369,31 +364,15 @@ export const WorkOrderFormPage = () => {
 
   const isSaving = createWorkOrderMutation.isPending || updateWorkOrderMutation.isPending;
 
-  const canGoNext = () => {
-    if (activeStep === 0) return isEdit || !!selectedOrder;
-    if (activeStep === 1) return !fileNameError;
-    return true;
-  };
+  // ─── Summaries ────────────────────────────────────────────────────────────────
 
-  // ── Summaries for completed steps ──────────────────────────────────────────
   const step0Summary = isEdit
     ? `${workOrderQuery.data?.order.orderNumber} — ${workOrderQuery.data?.order.client.name}`
     : selectedOrder
     ? `${selectedOrder.orderNumber} — ${selectedOrder.client?.name}`
     : '';
 
-  const step1Summary = [
-    fileName && `Archivo: ${fileName}`,
-    designerId && availableUsers.find((u) => u.id === designerId)
-      ? `Diseñador: ${(`${availableUsers.find((u) => u.id === designerId)?.firstName ?? ''} ${availableUsers.find((u) => u.id === designerId)?.lastName ?? ''}`).trim()}`
-      : '',
-  ]
-    .filter(Boolean)
-    .join(' · ') || 'Sin archivo ni diseñador';
-
-  const step2Summary = `${itemsForms.length} producto(s)`;
-
-  const stepSummaries = [step0Summary, step1Summary, step2Summary, ''];
+  // ─── Loading ──────────────────────────────────────────────────────────────────
 
   if (isEdit && workOrderQuery.isLoading) {
     return (
@@ -403,7 +382,290 @@ export const WorkOrderFormPage = () => {
     );
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ─── Step renderers ───────────────────────────────────────────────────────────
+
+  const renderStep0 = () => (
+    <Stack spacing={3}>
+      <Typography variant="h6" fontWeight={600}>
+        Seleccionar Orden de Pedido
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        Busca y selecciona la orden de pedido base para la OT. Solo órdenes en estado{' '}
+        <strong>CONFIRMADA</strong>, <strong>EN PRODUCCIÓN</strong> o <strong>LISTA</strong>.
+      </Typography>
+
+      {isEdit ? (
+        <Alert severity="info" sx={{ borderRadius: 2 }}>
+          Vinculada a la orden <strong>{workOrderQuery.data?.order.orderNumber}</strong> —{' '}
+          <strong>{workOrderQuery.data?.order.client.name}</strong>
+        </Alert>
+      ) : (
+        <Stack spacing={2.5}>
+          <Autocomplete
+            options={availableOrders}
+            getOptionLabel={(o) => `${o.orderNumber} — ${o.client?.name ?? ''}`}
+            value={selectedOrder}
+            onChange={(_, value) => setSelectedOrder(value)}
+            inputValue={orderSearch}
+            onInputChange={(_, value) => setOrderSearch(value)}
+            loading={ordersQuery.isLoading}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Buscar orden por número o cliente"
+                placeholder="Escribe para buscar..."
+                InputProps={{
+                  ...params.InputProps,
+                  startAdornment: (
+                    <>
+                      <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                      {params.InputProps.startAdornment}
+                    </>
+                  ),
+                }}
+              />
+            )}
+            noOptionsText="No se encontraron órdenes"
+          />
+
+          {selectedOrder && (
+            <Card variant="outlined" sx={{ borderRadius: 2, borderColor: 'primary.main' }}>
+              <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+                <Stack direction="row" spacing={3} flexWrap="wrap" useFlexGap>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Orden</Typography>
+                    <Typography variant="body2" fontWeight={600}>{selectedOrder.orderNumber}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Cliente</Typography>
+                    <Typography variant="body2" fontWeight={600}>{selectedOrder.client?.name}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Total</Typography>
+                    <Typography variant="body2" fontWeight={600}>{formatCurrency(selectedOrder.total)}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Ítems</Typography>
+                    <Typography variant="body2" fontWeight={600}>{selectedOrder.items?.length ?? 0} producto(s)</Typography>
+                  </Box>
+                </Stack>
+              </CardContent>
+            </Card>
+          )}
+        </Stack>
+      )}
+    </Stack>
+  );
+
+  const renderStep1 = () => (
+    <Stack spacing={3}>
+      <Typography variant="h6" fontWeight={600}>
+        Datos de la Orden de Trabajo
+      </Typography>
+
+      <TextField
+        label="Nº OT"
+        value={
+          isEdit
+            ? workOrderQuery.data?.workOrderNumber ?? 'Cargando...'
+            : 'Se asignará automáticamente (OT-XXXX-XXXX)'
+        }
+        disabled
+        fullWidth
+        size="small"
+      />
+
+      <TextField
+        label="Asesor"
+        value={
+          `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || user?.email || ''
+        }
+        disabled
+        fullWidth
+        size="small"
+      />
+
+      <Autocomplete
+        options={availableUsers}
+        getOptionLabel={(u) =>
+          `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email
+        }
+        value={availableUsers.find((u) => u.id === designerId) ?? null}
+        onChange={(_, value) => setDesignerId(value?.id ?? null)}
+        renderInput={(params) => (
+          <TextField {...params} label="Diseñador (opcional)" size="small" />
+        )}
+        clearOnEscape
+      />
+
+      <TextField
+        label="Nombre del archivo"
+        value={fileName}
+        onChange={(e) => handleFileNameChange(e.target.value)}
+        error={!!fileNameError}
+        helperText={fileNameError || `${fileName.length}/30 caracteres`}
+        inputProps={{ maxLength: 30 }}
+        fullWidth
+        size="small"
+      />
+    </Stack>
+  );
+
+  const renderStep2 = () => (
+    <Stack spacing={3}>
+      <Typography variant="h6" fontWeight={600}>
+        Productos e Insumos
+      </Typography>
+
+      {itemsForms.length === 0 && (
+        <Alert severity="warning" sx={{ borderRadius: 2 }}>
+          No hay ítems para configurar. Vuelve al paso 1 y selecciona una orden.
+        </Alert>
+      )}
+
+      {itemsForms.map((itemForm, i) => {
+        const sourceItem = isEdit
+          ? workOrderQuery.data?.items[i]?.orderItem
+          : selectedOrder?.items[i];
+
+        return (
+          <Card key={itemForm.orderItemId} variant="outlined" sx={{ borderRadius: 2 }}>
+            <CardContent>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" mb={0.5}>
+                <Typography variant="subtitle2" fontWeight={700}>
+                  Producto {i + 1}
+                </Typography>
+                {sourceItem?.quantity != null && (
+                  <Chip label={`Cant: ${sourceItem.quantity}`} size="small" variant="outlined" />
+                )}
+              </Stack>
+              <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+                Original: {sourceItem?.description}
+              </Typography>
+              <Divider sx={{ my: 1.5 }} />
+
+              <Stack spacing={2}>
+                <TextField
+                  label="Descripción"
+                  value={itemForm.productDescription}
+                  onChange={(e) => updateItemForm(i, 'productDescription', e.target.value)}
+                  fullWidth
+                  multiline
+                  rows={2}
+                  size="small"
+                />
+
+                <Autocomplete
+                  multiple
+                  options={productionAreas}
+                  getOptionLabel={(pa) => pa.name}
+                  value={productionAreas.filter((pa) => itemForm.productionAreaIds.includes(pa.id))}
+                  onChange={(_, value) =>
+                    updateItemForm(i, 'productionAreaIds', value.map((v) => v.id))
+                  }
+                  renderTags={(value, getTagProps) =>
+                    value.map((option, ti) => (
+                      <Chip label={option.name} {...getTagProps({ index: ti })} key={option.id} size="small" />
+                    ))
+                  }
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Áreas de producción"
+                      placeholder="Selecciona una o más áreas"
+                      size="small"
+                    />
+                  )}
+                />
+
+                <Autocomplete
+                  multiple
+                  options={supplies}
+                  getOptionLabel={(s) => s.sku ? `${s.name} (${s.sku})` : s.name}
+                  value={supplies.filter((s) => itemForm.supplies.some((si) => si.supplyId === s.id))}
+                  onChange={(_, value) =>
+                    updateItemForm(i, 'supplies', value.map((v) => ({ supplyId: v.id })))
+                  }
+                  renderTags={(value, getTagProps) =>
+                    value.map((option, ti) => (
+                      <Chip label={option.name} {...getTagProps({ index: ti })} key={option.id} size="small" />
+                    ))
+                  }
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Insumos (opcional)"
+                      placeholder="Selecciona insumos necesarios"
+                      size="small"
+                    />
+                  )}
+                />
+
+                <TextField
+                  label="Observaciones del ítem"
+                  value={itemForm.observations}
+                  onChange={(e) => updateItemForm(i, 'observations', e.target.value)}
+                  fullWidth
+                  multiline
+                  rows={2}
+                  size="small"
+                />
+              </Stack>
+            </CardContent>
+          </Card>
+        );
+      })}
+    </Stack>
+  );
+
+  const renderStep3 = () => {
+    return (
+      <Stack spacing={3}>
+        <Typography variant="h6" fontWeight={600}>
+          Observaciones y Confirmar
+        </Typography>
+
+        <TextField
+          label="Observaciones generales de la OT"
+          value={observations}
+          onChange={(e) => setObservations(e.target.value)}
+          fullWidth
+          multiline
+          rows={4}
+          size="small"
+          placeholder="Instrucciones especiales, notas de producción..."
+        />
+
+        <Card variant="outlined" sx={{ borderRadius: 2 }}>
+          <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+            <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" gutterBottom>
+              RESUMEN
+            </Typography>
+            <Stack spacing={0.5}>
+              <Typography variant="body2">
+                <strong>Orden:</strong> {step0Summary}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Archivo:</strong> {fileName || '—'}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Productos:</strong> {itemsForms.length}
+              </Typography>
+              {designerId && availableUsers.find((u) => u.id === designerId) && (
+                <Typography variant="body2">
+                  <strong>Diseñador:</strong>{' '}
+                  {`${availableUsers.find((u) => u.id === designerId)?.firstName ?? ''} ${availableUsers.find((u) => u.id === designerId)?.lastName ?? ''}`.trim()}
+                </Typography>
+              )}
+            </Stack>
+          </CardContent>
+        </Card>
+      </Stack>
+    );
+  };
+
+  // ─── Render ───────────────────────────────────────────────────────────────────
+
   return (
     <Box>
       <PageHeader
@@ -415,482 +677,83 @@ export const WorkOrderFormPage = () => {
         }
       />
 
-      <Stack
-        direction="row"
-        spacing={0}
-        sx={{ mb: 3 }}
-      >
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate(ROUTES.WORK_ORDERS)}
-          size="small"
-          sx={{ color: 'text.secondary' }}
-        >
-          Volver al listado
-        </Button>
-      </Stack>
-
-      {/* ─── Vertical Accordion Stepper ────────────────────────────────────── */}
-      <Card
-        elevation={0}
-        sx={{
-          border: `1px solid ${theme.palette.divider}`,
-          borderRadius: 3,
-          overflow: 'hidden',
-        }}
-      >
-        {STEPS.map((stepConfig, index) => {
-          const status =
-            index === activeStep
-              ? 'active'
-              : index < activeStep
-              ? 'completed'
-              : 'pending';
-
-          const isExpanded = index === activeStep || expandedCompleted === index;
-          const showDivider = index < STEPS.length - 1;
-
-          return (
-            <Box key={index}>
-              {/* Step Header */}
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} sx={{ mt: 2 }}>
+        {/* ── Sidebar de pasos ── */}
+        <Box sx={{ width: { xs: '100%', md: 280 }, flexShrink: 0 }}>
+          <Stack spacing={1}>
+            {STEPS.map((step, i) => (
               <StepHeader
-                index={index}
-                config={stepConfig}
-                status={status}
-                summary={stepSummaries[index]}
-                onClick={() => goToStep(index)}
+                key={i}
+                index={i}
+                config={step}
+                status={getStepStatus(i)}
+                clickable={visitedSteps.has(i) && i !== activeStep}
+                onClick={() => goToStep(i)}
               />
+            ))}
+          </Stack>
+        </Box>
 
-              {/* Step Content (accordion body) */}
-              <Collapse in={isExpanded} timeout={280} unmountOnExit>
-                <Box
-                  sx={{
-                    px: 3,
-                    pt: 1,
-                    pb: 3,
-                    borderLeft: `4px solid ${
-                      status === 'completed'
-                        ? theme.palette.success.main
-                        : theme.palette.primary.main
-                    }`,
-                    ml: 0,
-                    background:
-                      status === 'completed'
-                        ? alpha(theme.palette.success.main, 0.02)
-                        : 'transparent',
-                  }}
+        <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', md: 'block' } }} />
+
+        {/* ── Contenido del paso activo ── */}
+        <Box flex={1}>
+          {activeStep === 0 && renderStep0()}
+          {activeStep === 1 && renderStep1()}
+          {activeStep === 2 && renderStep2()}
+          {activeStep === 3 && renderStep3()}
+
+          {/* Navegación */}
+          <Stack direction="row" justifyContent="space-between" sx={{ mt: 4 }}>
+            <Button
+              startIcon={<ArrowBackIcon />}
+              onClick={() =>
+                activeStep === 0 ? navigate(ROUTES.WORK_ORDERS) : goToStep(activeStep - 1)
+              }
+              disabled={isSaving}
+            >
+              {activeStep === 0 ? 'Cancelar' : 'Anterior'}
+            </Button>
+
+            {activeStep < STEPS.length - 1 ? (
+              <Button
+                variant="contained"
+                endIcon={<AssignmentTurnedInIcon />}
+                onClick={() => goToStep(activeStep + 1)}
+                disabled={!canGoNext() || isSaving}
+              >
+                Siguiente
+              </Button>
+            ) : (
+              <Stack direction="row" spacing={2}>
+                <Button
+                  variant="outlined"
+                  startIcon={<SaveIcon />}
+                  onClick={handleSaveDraft}
+                  disabled={isSaving}
                 >
-                  {/* ── STEP 0: Seleccionar Orden ── */}
-                  {index === 0 && (
-                    <Box>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        Busca y selecciona la orden de pedido base para la OT.
-                        Solo órdenes en estado <strong>CONFIRMADA</strong>, <strong>EN PRODUCCIÓN</strong> o <strong>LISTA</strong>.
-                      </Typography>
-
-                      {isEdit ? (
-                        <Alert severity="info" sx={{ borderRadius: 2 }}>
-                          Vinculada a la orden{' '}
-                          <strong>{workOrderQuery.data?.order.orderNumber}</strong> —{' '}
-                          <strong>{workOrderQuery.data?.order.client.name}</strong>
-                        </Alert>
-                      ) : (
-                        <Stack spacing={2.5}>
-                          <Autocomplete
-                            options={availableOrders}
-                            getOptionLabel={(o) => `${o.orderNumber} — ${o.client?.name ?? ''}`}
-                            value={selectedOrder}
-                            onChange={(_, value) => setSelectedOrder(value)}
-                            inputValue={orderSearch}
-                            onInputChange={(_, value) => setOrderSearch(value)}
-                            loading={ordersQuery.isLoading}
-                            renderInput={(params) => (
-                              <TextField
-                                {...params}
-                                label="Buscar orden por número o cliente"
-                                placeholder="Escribe para buscar..."
-                                InputProps={{
-                                  ...params.InputProps,
-                                  startAdornment: (
-                                    <>
-                                      <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />
-                                      {params.InputProps.startAdornment}
-                                    </>
-                                  ),
-                                }}
-                              />
-                            )}
-                            noOptionsText="No se encontraron órdenes"
-                          />
-
-                          {selectedOrder && (
-                            <Card
-                              variant="outlined"
-                              sx={{ borderRadius: 2, borderColor: 'primary.main' }}
-                            >
-                              <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-                                <Stack
-                                  direction="row"
-                                  spacing={3}
-                                  flexWrap="wrap"
-                                  useFlexGap
-                                >
-                                  <Box>
-                                    <Typography variant="caption" color="text.secondary">
-                                      Orden
-                                    </Typography>
-                                    <Typography variant="body2" fontWeight={600}>
-                                      {selectedOrder.orderNumber}
-                                    </Typography>
-                                  </Box>
-                                  <Box>
-                                    <Typography variant="caption" color="text.secondary">
-                                      Cliente
-                                    </Typography>
-                                    <Typography variant="body2" fontWeight={600}>
-                                      {selectedOrder.client?.name}
-                                    </Typography>
-                                  </Box>
-                                  <Box>
-                                    <Typography variant="caption" color="text.secondary">
-                                      Total
-                                    </Typography>
-                                    <Typography variant="body2" fontWeight={600}>
-                                      {formatCurrency(selectedOrder.total)}
-                                    </Typography>
-                                  </Box>
-                                  <Box>
-                                    <Typography variant="caption" color="text.secondary">
-                                      Ítems
-                                    </Typography>
-                                    <Typography variant="body2" fontWeight={600}>
-                                      {selectedOrder.items?.length ?? 0} producto(s)
-                                    </Typography>
-                                  </Box>
-                                </Stack>
-                              </CardContent>
-                            </Card>
-                          )}
-                        </Stack>
-                      )}
-                    </Box>
+                  {isSaving ? <CircularProgress size={16} /> : 'Guardar Borrador'}
+                </Button>
+                <Button
+                  variant="contained"
+                  color="success"
+                  startIcon={<CheckCircleIcon />}
+                  onClick={handleConfirm}
+                  disabled={isSaving}
+                >
+                  {isSaving ? (
+                    <CircularProgress size={16} />
+                  ) : isEdit ? (
+                    'Guardar'
+                  ) : (
+                    'Crear OT'
                   )}
-
-                  {/* ── STEP 1: Datos de la OT ── */}
-                  {index === 1 && (
-                    <Stack spacing={2.5}>
-                      <TextField
-                        label="Nº OT"
-                        value={
-                          isEdit
-                            ? workOrderQuery.data?.workOrderNumber ?? 'Cargando...'
-                            : 'Se asignará automáticamente (OT-XXXX-XXXX)'
-                        }
-                        disabled
-                        fullWidth
-                        size="small"
-                      />
-
-                      <TextField
-                        label="Asesor"
-                        value={
-                          `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() ||
-                          user?.email ||
-                          ''
-                        }
-                        disabled
-                        fullWidth
-                        size="small"
-                      />
-
-                      <Autocomplete
-                        options={availableUsers}
-                        getOptionLabel={(u) =>
-                          `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email
-                        }
-                        value={availableUsers.find((u) => u.id === designerId) ?? null}
-                        onChange={(_, value) => setDesignerId(value?.id ?? null)}
-                        renderInput={(params) => (
-                          <TextField {...params} label="Diseñador (opcional)" size="small" />
-                        )}
-                        clearOnEscape
-                      />
-
-                      <TextField
-                        label="Nombre del archivo"
-                        value={fileName}
-                        onChange={(e) => handleFileNameChange(e.target.value)}
-                        error={!!fileNameError}
-                        helperText={fileNameError || `${fileName.length}/30 caracteres`}
-                        inputProps={{ maxLength: 30 }}
-                        fullWidth
-                        size="small"
-                      />
-                    </Stack>
-                  )}
-
-                  {/* ── STEP 2: Productos e Insumos ── */}
-                  {index === 2 && (
-                    <Stack spacing={2.5}>
-                      {itemsForms.length === 0 && (
-                        <Alert severity="warning" sx={{ borderRadius: 2 }}>
-                          No hay ítems para configurar. Vuelve al paso 1 y selecciona una orden.
-                        </Alert>
-                      )}
-                      {itemsForms.map((itemForm, i) => {
-                        const sourceItem = isEdit
-                          ? workOrderQuery.data?.items[i]?.orderItem
-                          : selectedOrder?.items[i];
-
-                        return (
-                          <Card
-                            key={itemForm.orderItemId}
-                            variant="outlined"
-                            sx={{ borderRadius: 2 }}
-                          >
-                            <CardContent>
-                              <Stack
-                                direction="row"
-                                alignItems="center"
-                                justifyContent="space-between"
-                                mb={0.5}
-                              >
-                                <Typography variant="subtitle2" fontWeight={700}>
-                                  Producto {i + 1}
-                                </Typography>
-                                {sourceItem?.quantity != null && (
-                                  <Chip
-                                    label={`Cant: ${sourceItem.quantity}`}
-                                    size="small"
-                                    variant="outlined"
-                                  />
-                                )}
-                              </Stack>
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                display="block"
-                                gutterBottom
-                              >
-                                Original: {sourceItem?.description}
-                              </Typography>
-                              <Divider sx={{ my: 1.5 }} />
-
-                              <Stack spacing={2}>
-                                <TextField
-                                  label="Descripción"
-                                  value={itemForm.productDescription}
-                                  onChange={(e) =>
-                                    updateItemForm(i, 'productDescription', e.target.value)
-                                  }
-                                  fullWidth
-                                  multiline
-                                  rows={2}
-                                  size="small"
-                                />
-
-                                <Autocomplete
-                                  multiple
-                                  options={productionAreas}
-                                  getOptionLabel={(pa) => pa.name}
-                                  value={productionAreas.filter((pa) =>
-                                    itemForm.productionAreaIds.includes(pa.id),
-                                  )}
-                                  onChange={(_, value) =>
-                                    updateItemForm(
-                                      i,
-                                      'productionAreaIds',
-                                      value.map((v) => v.id),
-                                    )
-                                  }
-                                  renderTags={(value, getTagProps) =>
-                                    value.map((option, ti) => (
-                                      <Chip
-                                        label={option.name}
-                                        {...getTagProps({ index: ti })}
-                                        key={option.id}
-                                        size="small"
-                                      />
-                                    ))
-                                  }
-                                  renderInput={(params) => (
-                                    <TextField
-                                      {...params}
-                                      label="Áreas de producción"
-                                      placeholder="Selecciona una o más áreas"
-                                      size="small"
-                                    />
-                                  )}
-                                />
-
-                                <Autocomplete
-                                  multiple
-                                  options={supplies}
-                                  getOptionLabel={(s) =>
-                                    s.sku ? `${s.name} (${s.sku})` : s.name
-                                  }
-                                  value={supplies.filter((s) =>
-                                    itemForm.supplies.some((si) => si.supplyId === s.id),
-                                  )}
-                                  onChange={(_, value) =>
-                                    updateItemForm(
-                                      i,
-                                      'supplies',
-                                      value.map((v) => ({ supplyId: v.id })),
-                                    )
-                                  }
-                                  renderTags={(value, getTagProps) =>
-                                    value.map((option, ti) => (
-                                      <Chip
-                                        label={option.name}
-                                        {...getTagProps({ index: ti })}
-                                        key={option.id}
-                                        size="small"
-                                      />
-                                    ))
-                                  }
-                                  renderInput={(params) => (
-                                    <TextField
-                                      {...params}
-                                      label="Insumos (opcional)"
-                                      placeholder="Selecciona insumos necesarios"
-                                      size="small"
-                                    />
-                                  )}
-                                />
-
-                                <TextField
-                                  label="Observaciones del ítem"
-                                  value={itemForm.observations}
-                                  onChange={(e) =>
-                                    updateItemForm(i, 'observations', e.target.value)
-                                  }
-                                  fullWidth
-                                  multiline
-                                  rows={2}
-                                  size="small"
-                                />
-                              </Stack>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                    </Stack>
-                  )}
-
-                  {/* ── STEP 3: Observaciones y Confirmar ── */}
-                  {index === 3 && (
-                    <Stack spacing={2.5}>
-                      <TextField
-                        label="Observaciones generales de la OT"
-                        value={observations}
-                        onChange={(e) => setObservations(e.target.value)}
-                        fullWidth
-                        multiline
-                        rows={4}
-                        size="small"
-                        placeholder="Instrucciones especiales, notas de producción..."
-                      />
-
-                      {/* Mini resumen */}
-                      <Card
-                        variant="outlined"
-                        sx={{ borderRadius: 2, bgcolor: alpha(theme.palette.primary.main, 0.03) }}
-                      >
-                        <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-                          <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" gutterBottom>
-                            RESUMEN
-                          </Typography>
-                          <Stack spacing={0.5}>
-                            <Typography variant="body2">
-                              <strong>Orden:</strong> {step0Summary}
-                            </Typography>
-                            <Typography variant="body2">
-                              <strong>Archivo:</strong> {fileName || '—'}
-                            </Typography>
-                            <Typography variant="body2">
-                              <strong>Productos:</strong> {itemsForms.length}
-                            </Typography>
-                            {designerId && availableUsers.find((u) => u.id === designerId) && (
-                              <Typography variant="body2">
-                                <strong>Diseñador:</strong>{' '}
-                                {`${availableUsers.find((u) => u.id === designerId)?.firstName ?? ''} ${availableUsers.find((u) => u.id === designerId)?.lastName ?? ''}`.trim()}
-                              </Typography>
-                            )}
-                          </Stack>
-                        </CardContent>
-                      </Card>
-                    </Stack>
-                  )}
-
-                  {/* ── Navigation actions (active step only) ── */}
-                  {status === 'active' && (
-                    <Stack
-                      direction="row"
-                      justifyContent="flex-end"
-                      spacing={1.5}
-                      sx={{ mt: 3 }}
-                    >
-                      {activeStep > 0 && (
-                        <Button
-                          size="small"
-                          onClick={handleBack}
-                          disabled={isSaving}
-                          sx={{ color: 'text.secondary' }}
-                        >
-                          Anterior
-                        </Button>
-                      )}
-
-                      {activeStep < STEPS.length - 1 ? (
-                        <Button
-                          variant="contained"
-                          size="small"
-                          onClick={handleNext}
-                          disabled={!canGoNext() || isSaving}
-                          endIcon={<AssignmentTurnedInIcon />}
-                        >
-                          Siguiente paso
-                        </Button>
-                      ) : (
-                        <>
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            startIcon={<SaveIcon />}
-                            onClick={handleSaveDraft}
-                            disabled={isSaving}
-                          >
-                            {isSaving ? <CircularProgress size={16} /> : 'Guardar Borrador'}
-                          </Button>
-                          <Button
-                            variant="contained"
-                            size="small"
-                            color="success"
-                            startIcon={<CheckCircleIcon />}
-                            onClick={handleConfirm}
-                            disabled={isSaving}
-                          >
-                            {isSaving ? (
-                              <CircularProgress size={16} />
-                            ) : isEdit ? (
-                              'Guardar'
-                            ) : (
-                              'Crear OT'
-                            )}
-                          </Button>
-                        </>
-                      )}
-                    </Stack>
-                  )}
-                </Box>
-              </Collapse>
-
-              {showDivider && <Divider />}
-            </Box>
-          );
-        })}
-      </Card>
+                </Button>
+              </Stack>
+            )}
+          </Stack>
+        </Box>
+      </Stack>
     </Box>
   );
 };
