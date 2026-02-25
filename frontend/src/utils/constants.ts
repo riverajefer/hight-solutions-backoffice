@@ -93,6 +93,17 @@ export const PERMISSIONS = {
   READ_WORK_ORDERS: 'read_work_orders',
   UPDATE_WORK_ORDERS: 'update_work_orders',
   DELETE_WORK_ORDERS: 'delete_work_orders',
+  // Expense Types
+  CREATE_EXPENSE_TYPES: 'create_expense_types',
+  READ_EXPENSE_TYPES: 'read_expense_types',
+  UPDATE_EXPENSE_TYPES: 'update_expense_types',
+  DELETE_EXPENSE_TYPES: 'delete_expense_types',
+  // Expense Orders
+  CREATE_EXPENSE_ORDERS: 'create_expense_orders',
+  READ_EXPENSE_ORDERS: 'read_expense_orders',
+  UPDATE_EXPENSE_ORDERS: 'update_expense_orders',
+  DELETE_EXPENSE_ORDERS: 'delete_expense_orders',
+  APPROVE_EXPENSE_ORDERS: 'approve_expense_orders',
 };
 
 export const ROUTES = {
@@ -172,6 +183,11 @@ export const ROUTES = {
   WORK_ORDERS_CREATE: '/work-orders/new',
   WORK_ORDERS_DETAIL: '/work-orders/:id',
   WORK_ORDERS_EDIT: '/work-orders/:id/edit',
+  // Expense Orders
+  EXPENSE_ORDERS: '/expense-orders',
+  EXPENSE_ORDERS_CREATE: '/expense-orders/new',
+  EXPENSE_ORDERS_EDIT: '/expense-orders/:id/edit',
+  EXPENSE_ORDERS_DETAIL: '/expense-orders/:id',
 };
 
 export const DEFAULT_PAGINATION = {

@@ -71,6 +71,10 @@ const CompanyPage = lazy(() => import('../features/company/pages/CompanyPage'));
 const WorkOrdersListPage = lazy(() => import('../features/work-orders/pages/WorkOrdersListPage'));
 const WorkOrderFormPage = lazy(() => import('../features/work-orders/pages/WorkOrderFormPage'));
 const WorkOrderDetailPage = lazy(() => import('../features/work-orders/pages/WorkOrderDetailPage'));
+// Expense Orders
+const ExpenseOrdersListPage = lazy(() => import('../features/expense-orders/pages/ExpenseOrdersListPage'));
+const ExpenseOrderFormPage = lazy(() => import('../features/expense-orders/pages/ExpenseOrderFormPage'));
+const ExpenseOrderDetailPage = lazy(() => import('../features/expense-orders/pages/ExpenseOrderDetailPage'));
 
 
 const RoutesConfig: FC = () => {
@@ -950,6 +954,56 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.READ_WORK_ORDERS}>
                   <WorkOrderDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Expense Orders Routes */}
+        <Route
+          path={PATHS.EXPENSE_ORDERS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_EXPENSE_ORDERS}>
+                  <ExpenseOrdersListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.EXPENSE_ORDERS_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_EXPENSE_ORDERS}>
+                  <ExpenseOrderFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.EXPENSE_ORDERS_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_EXPENSE_ORDERS}>
+                  <ExpenseOrderFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.EXPENSE_ORDERS_DETAIL}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_EXPENSE_ORDERS}>
+                  <ExpenseOrderDetailPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

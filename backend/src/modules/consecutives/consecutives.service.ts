@@ -45,7 +45,7 @@ export class ConsecutivesService {
     const prefixMap: Record<ConsecutiveType, string> = {
       ORDER: 'OP',
       PRODUCTION: 'PROD',
-      EXPENSE: 'GAS',
+      EXPENSE: 'OG',
       QUOTE: 'COT',
       WORK_ORDER: 'OT',
     };
