@@ -6,7 +6,6 @@ import {
   TextField,
   Button,
   Stack,
-  Grid,
   Typography,
   Divider,
   MenuItem,
@@ -307,21 +306,24 @@ export const QuoteFormPage: React.FC = () => {
     setVisitedSteps((prev) => new Set([...prev, step]));
   };
 
+  const hasValidItems = items.length > 0 && items.some((item) => item.description && item.quantity && item.unitPrice);
+
   const getStepStatus = (i: number): 'active' | 'completed' | 'visited' | 'pending' => {
     if (i === activeStep) return 'active';
     if (!visitedSteps.has(i)) return 'pending';
     const validByStep = [
-      isClientSelected,  // paso 0
-      items.length > 0 && items.every((item) => item.description && item.quantity && item.unitPrice), // paso 1
-      true,              // paso 2 — totales siempre ok
+      isClientSelected && !!commercialChannelId,  // paso 0: cliente + canal de ventas
+      hasValidItems,     // paso 1: al menos un item completo
+      hasValidItems,     // paso 2: requiere items para tener sentido
       true,              // paso 3
     ];
     return validByStep[i] ? 'completed' : 'visited';
   };
 
   const canGoNext = () => {
-    if (activeStep === 0) return isClientSelected;
-    if (activeStep === 1) return items.length > 0;
+    if (activeStep === 0) return isClientSelected && !!commercialChannelId;
+    if (activeStep === 1) return hasValidItems;
+    if (activeStep === 2) return hasValidItems;
     return true;
   };
 
@@ -446,47 +448,42 @@ export const QuoteFormPage: React.FC = () => {
         )}
       />
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} sm={6}>
-          <Controller
-            name="validUntil"
-            control={control}
-            render={({ field }) => (
-              <DatePicker
-                label="Válida hasta"
-                value={field.value}
-                onChange={field.onChange}
-                disabled={!isClientSelected}
-                minDate={new Date()}
-                slotProps={{ textField: { fullWidth: true, size: 'small' } }}
-              />
-            )}
-          />
-        </Grid>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+        <Controller
+          name="validUntil"
+          control={control}
+          render={({ field }) => (
+            <DatePicker
+              label="Válida hasta"
+              value={field.value}
+              onChange={field.onChange}
+              disabled={!isClientSelected}
+              minDate={new Date()}
+              slotProps={{ textField: { fullWidth: true } }}
+            />
+          )}
+        />
 
-        <Grid item xs={12} sm={6}>
-          <Controller
-            name="commercialChannelId"
-            control={control}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                select
-                fullWidth
-                label="Canal de Venta *"
-                size="small"
-                error={!!errors.commercialChannelId}
-                helperText={errors.commercialChannelId?.message}
-                disabled={!isClientSelected || channelsLoading}
-              >
-                {channels.map((c) => (
-                  <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
-                ))}
-              </TextField>
-            )}
-          />
-        </Grid>
-      </Grid>
+        <Controller
+          name="commercialChannelId"
+          control={control}
+          render={({ field }) => (
+            <TextField
+              {...field}
+              select
+              fullWidth
+              label="Canal de Venta *"
+              error={!!errors.commercialChannelId}
+              helperText={errors.commercialChannelId?.message}
+              disabled={!isClientSelected || channelsLoading}
+            >
+              {channels.map((c) => (
+                <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
+              ))}
+            </TextField>
+          )}
+        />
+      </Stack>
     </Stack>
   );
 
@@ -620,7 +617,7 @@ export const QuoteFormPage: React.FC = () => {
         ]}
       />
 
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} sx={{ mt: 2 }}>
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} sx={{ mt: 2, pr: { xs: 2, md: 4 } }}>
         {/* ── Sidebar de pasos ── */}
         <Box sx={{ width: { xs: '100%', md: 280 }, flexShrink: 0 }}>
           <Stack spacing={1}>

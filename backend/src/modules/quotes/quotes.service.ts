@@ -274,13 +274,40 @@ export class QuotesService {
               unitPrice: item.unitPrice,
               total: item.total,
               specifications: item.specifications || undefined,
-              sampleImageId: item.sampleImageId,
               sortOrder: item.sortOrder,
               productId: item.productId,
             })),
           },
         },
+        include: {
+          items: true,
+        },
       });
+
+      // 2.5 Copy production areas from quote items to order items
+      const productionAreaInserts: { orderItemId: string; productionAreaId: string }[] = [];
+      for (const quoteItem of quote.items as any[]) {
+        if (quoteItem.productionAreas?.length > 0) {
+          // Match order item by sortOrder (same mapping order)
+          const orderItem = newOrder.items.find(
+            (oi) => oi.sortOrder === quoteItem.sortOrder,
+          );
+          if (orderItem) {
+            for (const pa of quoteItem.productionAreas) {
+              productionAreaInserts.push({
+                orderItemId: orderItem.id,
+                productionAreaId: pa.productionArea.id,
+              });
+            }
+          }
+        }
+      }
+
+      if (productionAreaInserts.length > 0) {
+        await tx.orderItemProductionArea.createMany({
+          data: productionAreaInserts,
+        });
+      }
 
       // 3. Update Quote status
       await tx.quote.update({

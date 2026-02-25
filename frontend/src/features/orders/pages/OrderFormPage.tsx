@@ -343,6 +343,7 @@ export const OrderFormPage: React.FC = () => {
   const deliveryDate = watch('deliveryDate');
   const requiresColorProof = watch('requiresColorProof');
   const colorProofPrice = requiresColorProof ? watch('colorProofPrice') || 0 : 0;
+  const commercialChannelId = watch('commercialChannelId');
 
   const subtotal = items.reduce((sum, item) => sum + item.total, 0);
   const tax = applyTax ? subtotal * (taxRate / 100) : 0;
@@ -430,22 +431,25 @@ export const OrderFormPage: React.FC = () => {
     setVisitedSteps((prev) => new Set([...prev, step]));
   };
 
+  const hasValidItems = items.length > 0 && items.some((item) => item.description && item.quantity && item.unitPrice);
+
   const getStepStatus = (i: number): 'active' | 'completed' | 'visited' | 'pending' => {
     if (i === activeStep) return 'active';
     if (!visitedSteps.has(i)) return 'pending';
     // Validación básica por paso
     const validByStep = [
-      isClientSelected,               // paso 0: cliente seleccionado
-      items.length > 0 && items.every((item) => item.description && item.quantity && item.unitPrice), // paso 1
-      true,                           // paso 2: totales/pago — siempre válido para avanzar
+      isClientSelected && !!commercialChannelId,  // paso 0: cliente + canal de ventas
+      hasValidItems,                  // paso 1: al menos un item completo
+      hasValidItems,                  // paso 2: requiere items para tener sentido
       true,                           // paso 3
     ];
     return validByStep[i] ? 'completed' : 'visited';
   };
 
   const canGoNext = () => {
-    if (activeStep === 0) return isClientSelected;
-    if (activeStep === 1) return items.length > 0;
+    if (activeStep === 0) return isClientSelected && !!commercialChannelId;
+    if (activeStep === 1) return hasValidItems;
+    if (activeStep === 2) return hasValidItems;
     return true;
   };
 
@@ -523,53 +527,44 @@ export const OrderFormPage: React.FC = () => {
         )}
       />
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} sm={4}>
-          <TextField
-            fullWidth
-            label="Fecha de Orden"
-            size="small"
-            value={new Date().toLocaleDateString('es-CO')}
-            disabled={!isClientSelected}
-            InputProps={{ readOnly: true }}
-            helperText="Fecha de registro"
-          />
-        </Grid>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+        <TextField
+          fullWidth
+          label="Fecha de Orden"
+          value={new Date().toLocaleDateString('es-CO')}
+          disabled={!isClientSelected}
+          InputProps={{ readOnly: true }}
+          helperText="Fecha de registro"
+        />
 
-        <Grid item xs={12} sm={4}>
-          <Controller
-            name="deliveryDate"
-            control={control}
-            render={({ field }) => (
-              <DatePicker
-                label="Fecha de Entrega (Opcional)"
-                value={field.value}
-                onChange={field.onChange}
-                disabled={!isClientSelected}
-                minDate={new Date()}
-                slotProps={{
-                  textField: {
-                    fullWidth: true,
-                    size: 'small',
-                    helperText: isClientSelected ? 'Fecha estimada' : 'Seleccione cliente',
-                  },
-                }}
-              />
-            )}
-          />
-        </Grid>
+        <Controller
+          name="deliveryDate"
+          control={control}
+          render={({ field }) => (
+            <DatePicker
+              label="Fecha de Entrega (Opcional)"
+              value={field.value}
+              onChange={field.onChange}
+              disabled={!isClientSelected}
+              minDate={new Date()}
+              slotProps={{
+                textField: {
+                  fullWidth: true,
+                  helperText: isClientSelected ? 'Fecha estimada' : 'Seleccione cliente',
+                },
+              }}
+            />
+          )}
+        />
 
-        <Grid item xs={12} sm={4}>
-          <TextField
-            fullWidth
-            label="Creado por"
-            size="small"
-            value={currentUserFullName}
-            InputProps={{ readOnly: true }}
-            helperText="Usuario responsable"
-          />
-        </Grid>
-      </Grid>
+        <TextField
+          fullWidth
+          label="Creado por"
+          value={currentUserFullName}
+          InputProps={{ readOnly: true }}
+          helperText="Usuario responsable"
+        />
+      </Stack>
 
       {isEdit && isDatePostponed && (
         <Controller
@@ -847,7 +842,7 @@ export const OrderFormPage: React.FC = () => {
 
       {isEdit && id && <ActivePermissionBanner orderId={id} />}
 
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} sx={{ mt: 2 }}>
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} sx={{ mt: 2, pr: { xs: 2, md: 4 } }}>
           {/* ── Sidebar de pasos ── */}
           <Box sx={{ width: { xs: '100%', md: 280 }, flexShrink: 0 }}>
             <Stack spacing={1}>

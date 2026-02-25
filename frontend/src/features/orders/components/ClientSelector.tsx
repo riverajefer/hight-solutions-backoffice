@@ -119,7 +119,7 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
   // Si no hay cliente, mostrar autocomplete
   return (
     <Box>
-      <Stack direction="row" spacing={2} alignItems="flex-start">
+      <Stack direction="row" spacing={2} alignItems="center">
         <Autocomplete
           fullWidth
           options={clients}
