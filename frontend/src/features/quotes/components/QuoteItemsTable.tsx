@@ -26,7 +26,6 @@ import {
   CloudUpload as UploadIcon,
   Visibility as VisibilityIcon,
   Close as CloseIcon,
-  ContentPaste as PasteIcon,
   Image as ImageIcon,
 } from '@mui/icons-material';
 import { v4 as uuidv4 } from 'uuid';
