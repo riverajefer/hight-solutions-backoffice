@@ -17,6 +17,8 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
+  Tooltip,
+  CircularProgress,
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
@@ -24,6 +26,8 @@ import {
   CloudUpload as UploadIcon,
   Visibility as VisibilityIcon,
   Close as CloseIcon,
+  ContentPaste as PasteIcon,
+  Image as ImageIcon,
 } from '@mui/icons-material';
 import { v4 as uuidv4 } from 'uuid';
 import { useProducts } from '../../portfolio/products/hooks/useProducts';
@@ -90,6 +94,53 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
   }>({ open: false, url: '' });
 
   const [uploadingItemId, setUploadingItemId] = React.useState<string | null>(null);
+  const [thumbnailUrls, setThumbnailUrls] = React.useState<Record<string, string>>({});
+
+  // Fetch thumbnail URLs for items that have sampleImageId
+  React.useEffect(() => {
+    const fetchThumbnails = async () => {
+      const itemsWithImages = items.filter(
+        (item) => item.sampleImageId && !thumbnailUrls[item.sampleImageId]
+      );
+      if (itemsWithImages.length === 0) return;
+
+      const newUrls: Record<string, string> = {};
+      await Promise.all(
+        itemsWithImages.map(async (item) => {
+          try {
+            const { data } = await axiosInstance.get(`/storage/${item.sampleImageId}/url`);
+            newUrls[item.sampleImageId!] = data.url;
+          } catch {
+            // ignore
+          }
+        })
+      );
+      if (Object.keys(newUrls).length > 0) {
+        setThumbnailUrls((prev) => ({ ...prev, ...newUrls }));
+      }
+    };
+    fetchThumbnails();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.map((i) => i.sampleImageId).join(',')]);
+
+  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+  const handlePasteForItem = (itemId: string, e: React.ClipboardEvent) => {
+    const clipItems = e.clipboardData?.items;
+    if (!clipItems || !onImageUpload) return;
+    for (let i = 0; i < clipItems.length; i++) {
+      if (clipItems[i].type.indexOf('image') !== -1) {
+        const file = clipItems[i].getAsFile();
+        if (file && ALLOWED_IMAGE_TYPES.includes(file.type)) {
+          const extension = file.type.split('/')[1] || 'png';
+          const newFile = new File([file], `pasted-image-${Date.now()}.${extension}`, { type: file.type });
+          handleImageUpload(itemId, newFile);
+          e.preventDefault();
+          break;
+        }
+      }
+    }
+  };
 
   const handleAddRow = () => {
     const newItem: QuoteItemRow = {
@@ -199,47 +250,116 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
               return (
                 <TableRow key={item.id} hover>
                   {showImageColumn && (
-                    <TableCell align="center">
-                      {item.sampleImageId ? (
-                        <Stack direction="row" spacing={0.5} justifyContent="center">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleViewImage(item.sampleImageId!)}
-                            disabled={uploadingItemId === item.id}
-                          >
-                            <VisibilityIcon fontSize="small" />
-                          </IconButton>
-                          {onImageDelete && (
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => handleImageDelete(item.id)}
-                              disabled={disabled || uploadingItemId === item.id}
+                    <TableCell
+                      align="center"
+                      onPaste={(e) => !item.sampleImageId && handlePasteForItem(item.id, e)}
+                    >
+                      {uploadingItemId === item.id ? (
+                        <CircularProgress size={20} />
+                      ) : item.sampleImageId ? (
+                        <Stack spacing={0.5} alignItems="center">
+                          {/* Thumbnail */}
+                          {thumbnailUrls[item.sampleImageId] ? (
+                            <Box
+                              component="img"
+                              src={thumbnailUrls[item.sampleImageId]}
+                              alt="Muestra"
+                              onClick={() => handleViewImage(item.sampleImageId!)}
+                              sx={{
+                                width: 48,
+                                height: 48,
+                                objectFit: 'cover',
+                                borderRadius: 0.5,
+                                border: '1px solid',
+                                borderColor: 'grey.300',
+                                cursor: 'pointer',
+                                transition: 'opacity 0.2s',
+                                '&:hover': { opacity: 0.8 },
+                              }}
+                            />
+                          ) : (
+                            <Box
+                              onClick={() => handleViewImage(item.sampleImageId!)}
+                              sx={{
+                                width: 48,
+                                height: 48,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                borderRadius: 0.5,
+                                border: '1px solid',
+                                borderColor: 'grey.300',
+                                bgcolor: 'grey.50',
+                                cursor: 'pointer',
+                              }}
                             >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
+                              <ImageIcon fontSize="small" color="disabled" />
+                            </Box>
                           )}
+                          <Stack direction="row" spacing={0} justifyContent="center">
+                            <Tooltip title="Ver imagen">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleViewImage(item.sampleImageId!)}
+                              >
+                                <VisibilityIcon sx={{ fontSize: 16 }} />
+                              </IconButton>
+                            </Tooltip>
+                            {onImageDelete && (
+                              <Tooltip title="Eliminar imagen">
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => handleImageDelete(item.id)}
+                                  disabled={disabled}
+                                >
+                                  <DeleteIcon sx={{ fontSize: 16 }} />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Stack>
                         </Stack>
                       ) : (
                         onImageUpload && (
-                          <IconButton
-                            size="small"
-                            component="label"
-                            disabled={disabled || uploadingItemId === item.id}
+                          <Box
+                            tabIndex={0}
+                            onPaste={(e) => handlePasteForItem(item.id, e)}
+                            sx={{
+                              border: '2px dashed',
+                              borderColor: 'grey.300',
+                              borderRadius: 1,
+                              p: 0.75,
+                              textAlign: 'center',
+                              cursor: 'pointer',
+                              transition: 'border-color 0.2s, background-color 0.2s',
+                              minWidth: 64,
+                              '&:hover, &:focus': {
+                                borderColor: 'primary.main',
+                                bgcolor: 'action.hover',
+                              },
+                            }}
+                            onClick={() => {
+                              // Trigger file input via the hidden input
+                              const input = document.getElementById(`quote-img-input-${item.id}`);
+                              input?.click();
+                            }}
                           >
-                            <UploadIcon fontSize="small" />
+                            <UploadIcon sx={{ fontSize: 20, color: 'grey.400' }} />
+                            <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.65rem', lineHeight: 1.2, mt: 0.25 }}>
+                              Subir o pegar
+                            </Typography>
                             <input
+                              id={`quote-img-input-${item.id}`}
                               type="file"
                               hidden
-                              accept="image/*"
+                              accept="image/jpeg,image/png,image/gif,image/webp"
                               onChange={(e) => {
                                 const file = e.target.files?.[0];
-                                if (file) {
-                                  handleImageUpload(item.id, file);
-                                }
+                                if (file) handleImageUpload(item.id, file);
+                                e.target.value = '';
                               }}
                             />
-                          </IconButton>
+                          </Box>
                         )
                       )}
                     </TableCell>

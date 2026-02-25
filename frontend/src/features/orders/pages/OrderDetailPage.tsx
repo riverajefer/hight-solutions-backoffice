@@ -51,6 +51,7 @@ import {
   Receipt as ReceiptIcon,
   Build as BuildIcon,
   OpenInNew as OpenInNewIcon,
+  Image as ImageIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -161,7 +162,25 @@ export const OrderDetailPage: React.FC = () => {
     paymentDate: new Date().toISOString(),
   });
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const receiptFileInputRef = React.useRef<HTMLInputElement | null>(null);
   const [deletingReceipt, setDeletingReceipt] = useState<string | null>(null);
+
+  const handleReceiptPaste = (e: React.ClipboardEvent) => {
+    const clipItems = e.clipboardData?.items;
+    if (!clipItems) return;
+    for (let i = 0; i < clipItems.length; i++) {
+      if (clipItems[i].type.indexOf('image') !== -1) {
+        const file = clipItems[i].getAsFile();
+        if (file) {
+          const extension = file.type.split('/')[1] || 'png';
+          const newFile = new File([file], `pasted-receipt-${Date.now()}.${extension}`, { type: file.type });
+          setReceiptFile(newFile);
+          e.preventDefault();
+          break;
+        }
+      }
+    }
+  };
   const [deletingDiscount, setDeletingDiscount] = useState(false);
   const [viewReceiptDialog, setViewReceiptDialog] = useState<{
     open: boolean;
@@ -1071,7 +1090,7 @@ export const OrderDetailPage: React.FC = () => {
         fullWidth
       >
         <DialogTitle>Registrar Pago</DialogTitle>
-        <DialogContent>
+        <DialogContent onPaste={handleReceiptPaste}>
           <Stack spacing={3} sx={{ mt: 2 }}>
             <TextField
               fullWidth
@@ -1156,38 +1175,106 @@ export const OrderDetailPage: React.FC = () => {
               <FormLabel sx={{ mb: 1, display: 'block' }}>
                 Comprobante de Pago (Opcional)
               </FormLabel>
-              <Button
-                variant="outlined"
-                component="label"
-                startIcon={<AttachFileIcon />}
-                fullWidth
-              >
-                {receiptFile ? receiptFile.name : 'Seleccionar archivo (imagen o PDF)'}
-                <input
-                  type="file"
-                  hidden
-                  accept="image/*,.pdf"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      setReceiptFile(file);
-                    }
-                  }}
-                />
-              </Button>
-              {receiptFile && (
-                <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    {(receiptFile.size / 1024).toFixed(2)} KB
-                  </Typography>
-                  <IconButton
+              <input
+                type="file"
+                hidden
+                accept="image/jpeg,image/png,image/gif,image/webp,.pdf"
+                ref={receiptFileInputRef}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) setReceiptFile(file);
+                  if (e.target) e.target.value = '';
+                }}
+              />
+
+              {!receiptFile ? (
+                <Stack spacing={1}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<AttachFileIcon />}
                     size="small"
-                    onClick={() => setReceiptFile(null)}
-                    color="error"
+                    onClick={() => receiptFileInputRef.current?.click()}
+                    sx={{ textTransform: 'none', alignSelf: 'flex-start' }}
                   >
-                    <CloseIcon fontSize="small" />
-                  </IconButton>
-                </Box>
+                    Adjuntar imagen o PDF
+                  </Button>
+                  <Box
+                    onPaste={handleReceiptPaste}
+                    tabIndex={0}
+                    sx={{
+                      border: '2px dashed',
+                      borderColor: 'grey.300',
+                      borderRadius: 1,
+                      p: 2,
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      transition: 'border-color 0.2s, background-color 0.2s',
+                      '&:hover, &:focus': {
+                        borderColor: 'primary.main',
+                        bgcolor: 'action.hover',
+                      },
+                    }}
+                  >
+                    <ImageIcon sx={{ fontSize: 28, color: 'grey.400', mb: 0.5 }} />
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      O pega una imagen aquí (Ctrl+V / ⌘+V)
+                    </Typography>
+                  </Box>
+                </Stack>
+              ) : (
+                <Stack spacing={1.5}>
+                  {/* Thumbnail preview (only for images) */}
+                  {receiptFile.type.startsWith('image/') && (
+                    <Box
+                      sx={{
+                        position: 'relative',
+                        width: 'fit-content',
+                        border: '1px solid',
+                        borderColor: 'grey.300',
+                        borderRadius: 1,
+                        overflow: 'hidden',
+                        bgcolor: 'grey.50',
+                      }}
+                    >
+                      <Box
+                        component="img"
+                        src={URL.createObjectURL(receiptFile)}
+                        alt="Vista previa"
+                        sx={{
+                          display: 'block',
+                          maxWidth: 200,
+                          maxHeight: 140,
+                          objectFit: 'contain',
+                        }}
+                        onLoad={(e) => {
+                          URL.revokeObjectURL((e.target as HTMLImageElement).src);
+                        }}
+                      />
+                    </Box>
+                  )}
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <Chip
+                      icon={receiptFile.type.startsWith('image/') ? <ImageIcon /> : <AttachFileIcon />}
+                      label={`${receiptFile.name} (${(receiptFile.size / 1024).toFixed(1)} KB)`}
+                      color="primary"
+                      variant="outlined"
+                      size="small"
+                      onDelete={() => {
+                        setReceiptFile(null);
+                        if (receiptFileInputRef.current) receiptFileInputRef.current.value = '';
+                      }}
+                      deleteIcon={<CloseIcon />}
+                      sx={{ maxWidth: 320 }}
+                    />
+                    <IconButton
+                      size="small"
+                      onClick={() => receiptFileInputRef.current?.click()}
+                      title="Cambiar archivo"
+                    >
+                      <AttachFileIcon fontSize="small" />
+                    </IconButton>
+                  </Stack>
+                </Stack>
               )}
             </Box>
           </Stack>

@@ -334,6 +334,23 @@ export const ExpenseOrderFormPage = () => {
     updateItem(index, 'receiptFileId', '');
   };
 
+  const handlePasteForItem = (index: number, e: React.ClipboardEvent) => {
+    const clipItems = e.clipboardData?.items;
+    if (!clipItems) return;
+    for (let i = 0; i < clipItems.length; i++) {
+      if (clipItems[i].type.indexOf('image') !== -1) {
+        const file = clipItems[i].getAsFile();
+        if (file) {
+          const extension = file.type.split('/')[1] || 'png';
+          const newFile = new File([file], `pasted-image-${Date.now()}.${extension}`, { type: file.type });
+          handleReceiptFileChange(index, newFile);
+          e.preventDefault();
+          break;
+        }
+      }
+    }
+  };
+
   // ─── Validation per step ──────────────────────────────────────────────────────
   const isStep1Valid = !!expenseTypeId && !!expenseSubcategoryId;
   const isStep2Valid = !!authorizedToId;
@@ -697,33 +714,86 @@ export const ExpenseOrderFormPage = () => {
 
                 {/* No file selected and no existing fileId */}
                 {!receiptFiles[index] && !item.receiptFileId && (
-                  <Button
-                    variant="outlined"
-                    startIcon={<AttachFileIcon />}
-                    size="small"
-                    onClick={() => fileInputRefs.current[index]?.click()}
-                    sx={{ textTransform: 'none' }}
-                  >
-                    Adjuntar imagen
-                  </Button>
+                  <Stack spacing={1}>
+                    <Button
+                      variant="outlined"
+                      startIcon={<AttachFileIcon />}
+                      size="small"
+                      onClick={() => fileInputRefs.current[index]?.click()}
+                      sx={{ textTransform: 'none', alignSelf: 'flex-start' }}
+                    >
+                      Adjuntar imagen
+                    </Button>
+                    <Box
+                      onPaste={(e) => handlePasteForItem(index, e)}
+                      tabIndex={0}
+                      sx={{
+                        border: '2px dashed',
+                        borderColor: 'grey.300',
+                        borderRadius: 1,
+                        p: 2,
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        transition: 'border-color 0.2s, background-color 0.2s',
+                        '&:hover, &:focus': {
+                          borderColor: 'primary.main',
+                          bgcolor: 'action.hover',
+                        },
+                      }}
+                    >
+                      <ImageIcon sx={{ fontSize: 28, color: 'grey.400', mb: 0.5 }} />
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        O pega una imagen aquí (Ctrl+V / ⌘+V)
+                      </Typography>
+                    </Box>
+                  </Stack>
                 )}
 
                 {/* New file selected (pending upload) */}
                 {receiptFiles[index] && (
-                  <Stack direction="row" alignItems="center" spacing={1}>
-                    <Chip
-                      icon={<ImageIcon />}
-                      label={`${receiptFiles[index]!.name} (${(receiptFiles[index]!.size / 1024).toFixed(1)} KB)`}
-                      color="primary"
-                      variant="outlined"
-                      size="small"
-                      onDelete={() => clearReceiptForItem(index)}
-                      deleteIcon={<CloseIcon />}
-                      sx={{ maxWidth: 320 }}
-                    />
-                    <Typography variant="caption" color="text.secondary">
-                      Se subirá al guardar
-                    </Typography>
+                  <Stack spacing={1.5}>
+                    {/* Thumbnail preview */}
+                    <Box
+                      sx={{
+                        position: 'relative',
+                        width: 'fit-content',
+                        border: '1px solid',
+                        borderColor: 'grey.300',
+                        borderRadius: 1,
+                        overflow: 'hidden',
+                        bgcolor: 'grey.50',
+                      }}
+                    >
+                      <Box
+                        component="img"
+                        src={URL.createObjectURL(receiptFiles[index]!)}
+                        alt="Vista previa"
+                        sx={{
+                          display: 'block',
+                          maxWidth: 200,
+                          maxHeight: 140,
+                          objectFit: 'contain',
+                        }}
+                        onLoad={(e) => {
+                          URL.revokeObjectURL((e.target as HTMLImageElement).src);
+                        }}
+                      />
+                    </Box>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <Chip
+                        icon={<ImageIcon />}
+                        label={`${receiptFiles[index]!.name} (${(receiptFiles[index]!.size / 1024).toFixed(1)} KB)`}
+                        color="primary"
+                        variant="outlined"
+                        size="small"
+                        onDelete={() => clearReceiptForItem(index)}
+                        deleteIcon={<CloseIcon />}
+                        sx={{ maxWidth: 320 }}
+                      />
+                      <Typography variant="caption" color="text.secondary">
+                        Se subirá al guardar
+                      </Typography>
+                    </Stack>
                   </Stack>
                 )}
 

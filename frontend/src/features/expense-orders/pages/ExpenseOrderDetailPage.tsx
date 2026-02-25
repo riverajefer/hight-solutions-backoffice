@@ -181,6 +181,23 @@ export const ExpenseOrderDetailPage = () => {
     setReceiptFile(file);
   };
 
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          const extension = file.type.split('/')[1] || 'png';
+          const newFile = new File([file], `pasted-image-${Date.now()}.${extension}`, { type: file.type });
+          handleReceiptFileChange(newFile);
+          e.preventDefault();
+          break;
+        }
+      }
+    }
+  };
+
   const isItemFormValid =
     itemForm.name.trim().length > 0 &&
     parseFloat(itemForm.quantity) > 0 &&
@@ -558,7 +575,7 @@ export const ExpenseOrderDetailPage = () => {
       {/* ── Add item dialog ──────────────────────────────────────────────────── */}
       <Dialog open={itemDialogOpen} onClose={handleCloseItemDialog} maxWidth="sm" fullWidth>
         <DialogTitle>Agregar Ítem de Gasto</DialogTitle>
-        <DialogContent>
+        <DialogContent onPaste={handlePaste}>
           <Stack spacing={2.5} sx={{ mt: 1 }}>
 
             {/* Name */}
@@ -694,37 +711,95 @@ export const ExpenseOrderDetailPage = () => {
               />
 
               {!receiptFile ? (
-                <Button
-                  variant="outlined"
-                  startIcon={<AttachFileIcon />}
-                  size="small"
-                  onClick={() => fileInputRef.current?.click()}
-                  sx={{ textTransform: 'none' }}
-                >
-                  Adjuntar imagen
-                </Button>
-              ) : (
-                <Stack direction="row" alignItems="center" spacing={1}>
-                  <Chip
-                    icon={<ImageIcon />}
-                    label={`${receiptFile.name} (${(receiptFile.size / 1024).toFixed(1)} KB)`}
-                    color="primary"
+                <Stack spacing={1}>
+                  <Button
                     variant="outlined"
-                    size="small"
-                    onDelete={() => {
-                      setReceiptFile(null);
-                      if (fileInputRef.current) fileInputRef.current.value = '';
-                    }}
-                    deleteIcon={<CloseIcon />}
-                    sx={{ maxWidth: 300 }}
-                  />
-                  <IconButton
+                    startIcon={<AttachFileIcon />}
                     size="small"
                     onClick={() => fileInputRef.current?.click()}
-                    title="Cambiar imagen"
+                    sx={{ textTransform: 'none', alignSelf: 'flex-start' }}
                   >
-                    <AttachFileIcon fontSize="small" />
-                  </IconButton>
+                    Adjuntar imagen
+                  </Button>
+                  <Box
+                    onPaste={handlePaste}
+                    tabIndex={0}
+                    sx={{
+                      border: '2px dashed',
+                      borderColor: 'grey.300',
+                      borderRadius: 1,
+                      p: 2,
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      transition: 'border-color 0.2s, background-color 0.2s',
+                      '&:hover, &:focus': {
+                        borderColor: 'primary.main',
+                        bgcolor: 'action.hover',
+                      },
+                    }}
+                    onClick={() => {
+                      // Focus the box so paste events work
+                      (document.activeElement as HTMLElement)?.blur();
+                    }}
+                  >
+                    <ImageIcon sx={{ fontSize: 28, color: 'grey.400', mb: 0.5 }} />
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      O pega una imagen aquí (Ctrl+V / ⌘+V)
+                    </Typography>
+                  </Box>
+                </Stack>
+              ) : (
+                <Stack spacing={1.5}>
+                  {/* Thumbnail preview */}
+                  <Box
+                    sx={{
+                      position: 'relative',
+                      width: 'fit-content',
+                      border: '1px solid',
+                      borderColor: 'grey.300',
+                      borderRadius: 1,
+                      overflow: 'hidden',
+                      bgcolor: 'grey.50',
+                    }}
+                  >
+                    <Box
+                      component="img"
+                      src={URL.createObjectURL(receiptFile)}
+                      alt="Vista previa"
+                      sx={{
+                        display: 'block',
+                        maxWidth: 200,
+                        maxHeight: 140,
+                        objectFit: 'contain',
+                      }}
+                      onLoad={(e) => {
+                        // Revoke URL after load to free memory
+                        URL.revokeObjectURL((e.target as HTMLImageElement).src);
+                      }}
+                    />
+                  </Box>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <Chip
+                      icon={<ImageIcon />}
+                      label={`${receiptFile.name} (${(receiptFile.size / 1024).toFixed(1)} KB)`}
+                      color="primary"
+                      variant="outlined"
+                      size="small"
+                      onDelete={() => {
+                        setReceiptFile(null);
+                        if (fileInputRef.current) fileInputRef.current.value = '';
+                      }}
+                      deleteIcon={<CloseIcon />}
+                      sx={{ maxWidth: 300 }}
+                    />
+                    <IconButton
+                      size="small"
+                      onClick={() => fileInputRef.current?.click()}
+                      title="Cambiar imagen"
+                    >
+                      <AttachFileIcon fontSize="small" />
+                    </IconButton>
+                  </Stack>
                 </Stack>
               )}
             </Box>
