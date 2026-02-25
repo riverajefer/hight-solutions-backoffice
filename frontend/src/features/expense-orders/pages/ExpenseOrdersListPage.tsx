@@ -76,7 +76,6 @@ export const ExpenseOrdersListPage = () => {
   };
 
   const expenseOrders = expenseOrdersQuery.data?.data ?? [];
-  const meta = expenseOrdersQuery.data?.meta;
 
   const columns: GridColDef<ExpenseOrder>[] = [
     {
@@ -210,11 +209,7 @@ export const ExpenseOrdersListPage = () => {
         columns={columns}
         rows={expenseOrders}
         loading={expenseOrdersQuery.isLoading}
-        total={meta?.total ?? 0}
-        page={(filters.page ?? 1) - 1}
         pageSize={filters.limit ?? 20}
-        onPageChange={(page: number) => handleFilterChange('page', page + 1)}
-        onPageSizeChange={(size: number) => handleFilterChange('limit', size)}
       />
 
       <ConfirmDialog
@@ -223,7 +218,7 @@ export const ExpenseOrdersListPage = () => {
         message={`¿Está seguro que desea eliminar la OG ${confirmDelete?.ogNumber}? Esta acción no se puede deshacer.`}
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(null)}
-        loading={deleteExpenseOrderMutation.isPending}
+        isLoading={deleteExpenseOrderMutation.isPending}
       />
     </Box>
   );

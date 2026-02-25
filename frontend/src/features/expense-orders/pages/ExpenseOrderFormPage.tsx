@@ -34,7 +34,6 @@ import { useExpenseOrders, useExpenseOrder, useExpenseTypes } from '../hooks';
 import { useUsers } from '../../users/hooks/useUsers';
 import { useWorkOrders } from '../../work-orders/hooks';
 import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
-import { useAuthStore } from '../../../store/authStore';
 import { ROUTES } from '../../../utils/constants';
 import {
   PaymentMethod,
@@ -154,7 +153,6 @@ const StepHeader: React.FC<StepHeaderProps> = ({ index, config, status, onClick 
 export const ExpenseOrderFormPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user } = useAuthStore();
   const isEditing = !!id;
 
   const [activeStep, setActiveStep] = useState(0);
@@ -178,9 +176,9 @@ export const ExpenseOrderFormPage = () => {
   const { workOrdersQuery } = useWorkOrders({ limit: 100 });
   const workOrders = workOrdersQuery.data?.data ?? [];
   const { usersQuery } = useUsers();
-  const users = usersQuery.data?.data ?? [];
+  const users = usersQuery.data ?? [];
   const { productionAreasQuery } = useProductionAreas();
-  const productionAreas = productionAreasQuery.data?.data ?? [];
+  const productionAreas = productionAreasQuery.data ?? [];
 
   // ─── Edit: load existing OG ──────────────────────────────────────────────────
   const { expenseOrderQuery } = useExpenseOrder(id);
@@ -368,7 +366,7 @@ export const ExpenseOrderFormPage = () => {
       <Autocomplete
         options={workOrders.filter((wo) => wo.status !== 'CANCELLED')}
         getOptionLabel={(wo) =>
-          `${(wo as any).workOrderNumber} — ${(wo as any).order?.client?.name ?? ''}`
+          `${wo.workOrderNumber} — ${wo.order?.client?.name ?? ''}`
         }
         value={workOrders.find((wo) => wo.id === workOrderId) ?? null}
         onChange={(_, val) => setWorkOrderId(val?.id ?? '')}
@@ -535,16 +533,16 @@ export const ExpenseOrderFormPage = () => {
               {hasWorkOrder && (
                 <Autocomplete
                   multiple
-                  options={productionAreas.filter((pa: any) => pa.isActive !== false)}
-                  getOptionLabel={(pa) => (pa as any).name}
+                  options={productionAreas.filter((pa) => pa.isActive !== false)}
+                  getOptionLabel={(pa) => pa.name}
                   value={productionAreas.filter((pa) =>
-                    item.productionAreaIds.includes((pa as any).id),
+                    item.productionAreaIds.includes(pa.id),
                   )}
                   onChange={(_, val) =>
                     updateItem(
                       index,
                       'productionAreaIds',
-                      val.map((pa) => (pa as any).id),
+                      val.map((pa) => pa.id),
                     )
                   }
                   renderInput={(params) => (
