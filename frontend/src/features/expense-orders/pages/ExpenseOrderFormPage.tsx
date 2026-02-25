@@ -34,6 +34,7 @@ import { useExpenseOrders, useExpenseOrder, useExpenseTypes } from '../hooks';
 import { useUsers } from '../../users/hooks/useUsers';
 import { useWorkOrders } from '../../work-orders/hooks';
 import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
+import { useSuppliers } from '../../suppliers/hooks/useSuppliers';
 import { ROUTES } from '../../../utils/constants';
 import {
   PaymentMethod,
@@ -90,54 +91,96 @@ const STEPS: StepConfig[] = [
 interface StepHeaderProps {
   index: number;
   config: StepConfig;
-  status: 'active' | 'completed' | 'pending';
+  status: 'active' | 'completed' | 'visited' | 'pending';
+  clickable?: boolean;
   onClick?: () => void;
 }
 
-const StepHeader: React.FC<StepHeaderProps> = ({ index, config, status, onClick }) => {
+const StepHeader: React.FC<StepHeaderProps> = ({ index, config, status, clickable, onClick }) => {
   const theme = useTheme();
   const isActive = status === 'active';
   const isCompleted = status === 'completed';
+  const isVisited = status === 'visited';
+
+  const successGreen = theme.palette.success.dark; // #10B981 — verde real del tema
 
   const numberBg = isActive
     ? theme.palette.primary.main
     : isCompleted
-    ? theme.palette.success.main
+    ? successGreen
+    : isVisited
+    ? theme.palette.warning.main
     : theme.palette.action.disabled;
+
+  const borderColor = isActive
+    ? alpha(theme.palette.primary.main, 0.2)
+    : isVisited
+    ? alpha(theme.palette.warning.main, 0.2)
+    : 'transparent';
+
+  const bgColor = isActive
+    ? alpha(theme.palette.primary.main, 0.06)
+    : isVisited
+    ? alpha(theme.palette.warning.main, 0.06)
+    : 'transparent';
+
+  const labelColor = isActive
+    ? theme.palette.primary.main
+    : isCompleted
+    ? successGreen
+    : isVisited
+    ? theme.palette.warning.main
+    : theme.palette.text.primary;
 
   return (
     <Box
-      onClick={isCompleted ? onClick : undefined}
+      onClick={clickable ? onClick : undefined}
       sx={{
         display: 'flex',
         alignItems: 'center',
         gap: 1.5,
         p: 2,
-        cursor: isCompleted ? 'pointer' : 'default',
+        cursor: clickable ? 'pointer' : 'default',
         borderRadius: 2,
-        bgcolor: isActive ? alpha(theme.palette.primary.main, 0.06) : 'transparent',
-        border: isActive ? `1px solid ${alpha(theme.palette.primary.main, 0.2)}` : '1px solid transparent',
+        bgcolor: bgColor,
+        border: `1px solid ${borderColor}`,
+        transition: 'all 0.2s ease',
+        '&:hover': clickable ? { bgcolor: alpha(theme.palette.action.hover, 0.08) } : {},
       }}
     >
-      <Box
-        sx={{
-          width: 32,
-          height: 32,
-          borderRadius: '50%',
-          bgcolor: numberBg,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#fff',
-          fontWeight: 700,
-          fontSize: 14,
-          flexShrink: 0,
-        }}
-      >
-        {isCompleted ? <CheckCircleIcon sx={{ fontSize: 18 }} /> : index + 1}
+      <Box sx={{ position: 'relative', flexShrink: 0 }}>
+        <Box
+          sx={{
+            width: 32,
+            height: 32,
+            borderRadius: '50%',
+            bgcolor: numberBg,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#fff',
+            fontWeight: 700,
+            fontSize: 14,
+          }}
+        >
+          {index + 1}
+        </Box>
+        {isCompleted && (
+          <CheckCircleIcon
+            sx={{
+              position: 'absolute',
+              bottom: -4,
+              right: -6,
+              fontSize: 16,
+              color: successGreen,
+              bgcolor: 'background.paper',
+              borderRadius: '50%',
+            }}
+          />
+        )}
       </Box>
       <Box>
-        <Typography variant="subtitle2" fontWeight={600} color={isActive ? 'primary' : 'text.primary'}>
+        <Typography variant="subtitle2" fontWeight={600} sx={{ color: labelColor }}>
           {config.label}
         </Typography>
         <Typography variant="caption" color="text.secondary">
@@ -156,6 +199,7 @@ export const ExpenseOrderFormPage = () => {
   const isEditing = !!id;
 
   const [activeStep, setActiveStep] = useState(0);
+  const [visitedSteps, setVisitedSteps] = useState<Set<number>>(new Set([0]));
 
   // ─── Step 1: Type & OT ──────────────────────────────────────────────────────
   const [expenseTypeId, setExpenseTypeId] = useState('');
@@ -179,6 +223,8 @@ export const ExpenseOrderFormPage = () => {
   const users = usersQuery.data ?? [];
   const { productionAreasQuery } = useProductionAreas();
   const productionAreas = productionAreasQuery.data ?? [];
+  const { suppliersQuery } = useSuppliers();
+  const suppliers = suppliersQuery.data ?? [];
 
   // ─── Edit: load existing OG ──────────────────────────────────────────────────
   const { expenseOrderQuery } = useExpenseOrder(id);
@@ -208,6 +254,8 @@ export const ExpenseOrderFormPage = () => {
           })),
         );
       }
+      // En edición, todos los pasos ya fueron completados previamente
+      setVisitedSteps(new Set([0, 1, 2, 3]));
     }
   }, [existingOG]);
 
@@ -218,6 +266,7 @@ export const ExpenseOrderFormPage = () => {
   // ─── Derived ─────────────────────────────────────────────────────────────────
   const selectedType = expenseTypes.find((t) => t.id === expenseTypeId);
   const subcategories = selectedType?.subcategories ?? [];
+  const isProduccionType = selectedType?.name?.toLowerCase() === 'producción';
   const hasWorkOrder = !!workOrderId;
 
   const totalAmount = useMemo(() => {
@@ -343,8 +392,12 @@ export const ExpenseOrderFormPage = () => {
         getOptionLabel={(opt) => opt.name}
         value={expenseTypes.find((t) => t.id === expenseTypeId) ?? null}
         onChange={(_, val) => {
+          const newType = val?.name?.toLowerCase();
           setExpenseTypeId(val?.id ?? '');
           setExpenseSubcategoryId('');
+          if (newType !== 'producción') {
+            setWorkOrderId('');
+          }
         }}
         loading={loadingTypes}
         renderInput={(params) => (
@@ -363,21 +416,23 @@ export const ExpenseOrderFormPage = () => {
         )}
       />
 
-      <Autocomplete
-        options={workOrders.filter((wo) => wo.status !== 'CANCELLED')}
-        getOptionLabel={(wo) =>
-          `${wo.workOrderNumber} — ${wo.order?.client?.name ?? ''}`
-        }
-        value={workOrders.find((wo) => wo.id === workOrderId) ?? null}
-        onChange={(_, val) => setWorkOrderId(val?.id ?? '')}
-        renderInput={(params) => (
-          <TextField
-            {...params}
-            label="Orden de Trabajo (OT)"
-            placeholder="Asociar a una OT (opcional)..."
-          />
-        )}
-      />
+      {isProduccionType && (
+        <Autocomplete
+          options={workOrders.filter((wo) => wo.status !== 'CANCELLED')}
+          getOptionLabel={(wo) =>
+            `${wo.workOrderNumber} — ${wo.order?.client?.name ?? ''}`
+          }
+          value={workOrders.find((wo) => wo.id === workOrderId) ?? null}
+          onChange={(_, val) => setWorkOrderId(val?.id ?? '')}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Orden de Trabajo (OT)"
+              placeholder="Asociar a una OT (opcional)..."
+            />
+          )}
+        />
+      )}
 
       <TextField
         label="Área encargada o máquina"
@@ -520,12 +575,22 @@ export const ExpenseOrderFormPage = () => {
                   ))}
                 </TextField>
 
-                <TextField
-                  label="Proveedor"
-                  value={item.supplierLabel}
-                  onChange={(e) => updateItem(index, 'supplierLabel', e.target.value)}
-                  placeholder="Nombre del proveedor..."
-                  helperText="Ingrese el nombre del proveedor"
+                <Autocomplete
+                  options={suppliers.filter((s) => s.isActive !== false)}
+                  getOptionLabel={(s) => s.name}
+                  value={suppliers.find((s) => s.id === item.supplierId) ?? null}
+                  onChange={(_, val) => {
+                    updateItem(index, 'supplierId', val?.id ?? '');
+                    updateItem(index, 'supplierLabel', val?.name ?? '');
+                  }}
+                  loading={suppliersQuery.isLoading}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Proveedor"
+                      placeholder="Buscar proveedor..."
+                    />
+                  )}
                   sx={{ flex: 2 }}
                 />
               </Stack>
@@ -638,6 +703,19 @@ export const ExpenseOrderFormPage = () => {
 
   const canSubmit = isStep1Valid && isStep2Valid && isStep3Valid;
 
+  // ─── Step navigation ──────────────────────────────────────────────────────────
+  const goToStep = (step: number) => {
+    setActiveStep(step);
+    setVisitedSteps((prev) => new Set([...prev, step]));
+  };
+
+  const getStepStatus = (i: number): 'active' | 'completed' | 'visited' | 'pending' => {
+    if (i === activeStep) return 'active';
+    if (!visitedSteps.has(i)) return 'pending';
+    const validByStep = [isStep1Valid, isStep2Valid, isStep3Valid, canSubmit];
+    return validByStep[i] ? 'completed' : 'visited';
+  };
+
   return (
     <Box>
       <PageHeader
@@ -654,8 +732,9 @@ export const ExpenseOrderFormPage = () => {
                 key={i}
                 index={i}
                 config={step}
-                status={i === activeStep ? 'active' : i < activeStep ? 'completed' : 'pending'}
-                onClick={() => i < activeStep && setActiveStep(i)}
+                status={getStepStatus(i)}
+                clickable={visitedSteps.has(i) && i !== activeStep}
+                onClick={() => goToStep(i)}
               />
             ))}
           </Stack>
@@ -681,7 +760,7 @@ export const ExpenseOrderFormPage = () => {
               onClick={() =>
                 activeStep === 0
                   ? navigate(-1)
-                  : setActiveStep((prev) => prev - 1)
+                  : goToStep(activeStep - 1)
               }
               disabled={isSubmitting}
             >
@@ -691,7 +770,7 @@ export const ExpenseOrderFormPage = () => {
             {activeStep < STEPS.length - 1 ? (
               <Button
                 variant="contained"
-                onClick={() => setActiveStep((prev) => prev + 1)}
+                onClick={() => goToStep(activeStep + 1)}
                 disabled={
                   (activeStep === 0 && !isStep1Valid) ||
                   (activeStep === 1 && !isStep2Valid) ||
