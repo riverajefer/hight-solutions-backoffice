@@ -194,27 +194,44 @@ export const dataGridStyles: SxProps<Theme> = {
 
   // Columnas pegajosas (row number + Nº Orden)
   '& .sticky-column-row-number': {
-    position: 'sticky',
-    left: 0,
-    zIndex: 8,
-    backgroundColor: (theme) => theme.palette.background.paper,
-    boxShadow: 'inset -1px 0 0 rgba(0,0,0,0.05)',
+    position: 'sticky !important' as any,
+    left: '0px !important',
+    zIndex: '4 !important',
+    backgroundColor: 'inherit',
   },
 
   '& .MuiDataGrid-columnHeader.sticky-column-row-number': {
-    zIndex: 10,
+    position: 'sticky !important' as any,
+    left: '0px !important',
+    zIndex: '10 !important',
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? alpha(theme.palette.primary.main, 0.08)
+        : alpha(theme.palette.primary.main, 0.15),
   },
 
   '& .sticky-column-order-number': {
-    position: 'sticky',
-    left: 70,
-    zIndex: 7,
-    backgroundColor: (theme) => theme.palette.background.paper,
-    boxShadow: 'inset -1px 0 0 rgba(0,0,0,0.05)',
+    position: 'sticky !important' as any,
+    left: '70px !important',
+    zIndex: '3 !important',
+    backgroundColor: 'inherit',
+    boxShadow: '2px 0 4px rgba(0,0,0,0.08)',
   },
 
   '& .MuiDataGrid-columnHeader.sticky-column-order-number': {
-    zIndex: 10,
+    position: 'sticky !important' as any,
+    left: '70px !important',
+    zIndex: '10 !important',
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? alpha(theme.palette.primary.main, 0.08)
+        : alpha(theme.palette.primary.main, 0.15),
+    boxShadow: '2px 0 4px rgba(0,0,0,0.08)',
+  },
+
+  // Asegurar que las filas con estados especiales hereden el fondo a las sticky columns
+  '& .MuiDataGrid-row .sticky-column-row-number, & .MuiDataGrid-row .sticky-column-order-number': {
+    backgroundColor: 'inherit',
   },
 
   // Menu de columnas

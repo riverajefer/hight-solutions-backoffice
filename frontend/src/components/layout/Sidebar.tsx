@@ -46,6 +46,7 @@ import PostAddIcon from '@mui/icons-material/PostAdd';
 import PendingActionsIcon from '@mui/icons-material/PendingActions';
 import BuildIcon from '@mui/icons-material/Build';
 import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import { useAuthStore } from '../../store/authStore';
 import { ROUTES, PERMISSIONS } from '../../utils/constants';
 import { neonColors, neonAccents } from '../../theme';
@@ -166,6 +167,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           icon: <PendingActionsIcon />,
           path: ROUTES.STATUS_CHANGE_REQUESTS,
           permission: PERMISSIONS.APPROVE_ORDERS,
+        },
+        {
+          label: 'Trazabilidad',
+          icon: <AccountTreeIcon />,
+          path: ROUTES.ORDER_FLOW_BASE,
+          permission: PERMISSIONS.READ_ORDERS,
         },
         {
           label: 'Clientes',

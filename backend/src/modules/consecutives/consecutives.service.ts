@@ -38,6 +38,19 @@ export class ConsecutivesService {
   }
 
   /**
+   * Sincroniza el contador con los datos reales de la tabla correspondiente.
+   * Se usa para recuperarse de desincronizaciones.
+   */
+  async syncWorkOrderCounter(): Promise<void> {
+    return this.consecutivesRepository.syncCounterFromTable(
+      'WORK_ORDER',
+      'work_orders',
+      'work_order_number',
+      'OT',
+    );
+  }
+
+  /**
    * Mapeo de tipos a prefijos
    * Centraliza la lógica de prefijos
    */

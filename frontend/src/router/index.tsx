@@ -75,6 +75,8 @@ const WorkOrderDetailPage = lazy(() => import('../features/work-orders/pages/Wor
 const ExpenseOrdersListPage = lazy(() => import('../features/expense-orders/pages/ExpenseOrdersListPage'));
 const ExpenseOrderFormPage = lazy(() => import('../features/expense-orders/pages/ExpenseOrderFormPage'));
 const ExpenseOrderDetailPage = lazy(() => import('../features/expense-orders/pages/ExpenseOrderDetailPage'));
+// Order Timeline
+const OrderFlowPage = lazy(() => import('../features/order-timeline/pages/OrderFlowPage'));
 
 
 const RoutesConfig: FC = () => {
@@ -733,6 +735,32 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.READ_ORDERS}>
                   <OrderDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Order Timeline Routes */}
+        <Route
+          path={PATHS.ORDER_FLOW}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_ORDERS}>
+                  <OrderFlowPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.ORDER_FLOW_BASE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_ORDERS}>
+                  <OrderFlowPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

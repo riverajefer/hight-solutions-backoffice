@@ -23,6 +23,7 @@ import {
   Edit as EditIcon,
   ArrowBack as ArrowBackIcon,
   SwapHoriz as SwapHorizIcon,
+  AccountTree as AccountTreeIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { useWorkOrder } from '../hooks';
@@ -133,6 +134,13 @@ export const WorkOrderDetailPage = () => {
                 Cambiar Estado
               </Button>
             )}
+            <Button
+              variant="outlined"
+              startIcon={<AccountTreeIcon />}
+              onClick={() => navigate(`/orders/flow/work-order/${id}`)}
+            >
+              Trazabilidad
+            </Button>
           </Stack>
         }
       />

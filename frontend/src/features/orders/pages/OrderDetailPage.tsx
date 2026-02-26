@@ -52,6 +52,7 @@ import {
   Build as BuildIcon,
   OpenInNew as OpenInNewIcon,
   Image as ImageIcon,
+  AccountTree as AccountTreeIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -528,6 +529,13 @@ export const OrderDetailPage: React.FC = () => {
           />
 
           <OrderPdfButton order={order} />
+
+          <ToolbarButton
+            icon={<AccountTreeIcon />}
+            label="Trazabilidad"
+            onClick={() => navigate(`/orders/flow/order/${id}`)}
+            tooltip="Ver Trazabilidad"
+          />
 
           <ToolbarButton
             icon={<AddIcon />}

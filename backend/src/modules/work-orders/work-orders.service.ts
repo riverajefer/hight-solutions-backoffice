@@ -81,10 +81,7 @@ export class WorkOrdersService {
       }
     }
 
-    // 3. Generate work order number
-    const workOrderNumber = await this.consecutivesService.generateNumber('WORK_ORDER');
-
-    // 4. Build items with productDescription from OrderItem if not provided
+    // 3. Build items with productDescription from OrderItem if not provided
     const orderItemMap = new Map(order.items.map((item) => [item.id, item]));
     const itemsData = dto.items.map((item) => ({
       orderItemId: item.orderItemId,
@@ -98,17 +95,32 @@ export class WorkOrdersService {
       })),
     }));
 
-    // 5. Create the work order
-    return this.workOrdersRepository.create({
-      workOrderNumber,
-      orderId: dto.orderId,
-      advisorId,
-      designerId: dto.designerId,
-      fileName: dto.fileName,
-      observations: dto.observations,
-      status,
-      items: itemsData,
-    });
+    // 4. Generate work order number and create (with retry on unique constraint)
+    const MAX_RETRIES = 3;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      const workOrderNumber = await this.consecutivesService.generateNumber('WORK_ORDER');
+
+      try {
+        return await this.workOrdersRepository.create({
+          workOrderNumber,
+          orderId: dto.orderId,
+          advisorId,
+          designerId: dto.designerId,
+          fileName: dto.fileName,
+          observations: dto.observations,
+          status,
+          items: itemsData,
+        });
+      } catch (error: any) {
+        const isUniqueViolation = error?.code === 'P2002';
+        if (isUniqueViolation && attempt < MAX_RETRIES - 1) {
+          // Sync the counter with actual DB values and retry
+          await this.consecutivesService.syncWorkOrderCounter();
+          continue;
+        }
+        throw error;
+      }
+    }
   }
 
   async findAll(filters: FilterWorkOrdersDto) {

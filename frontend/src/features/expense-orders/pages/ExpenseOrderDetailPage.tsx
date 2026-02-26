@@ -41,6 +41,7 @@ import {
   OpenInNew as OpenInNewIcon,
   Person as PersonIcon,
   Brush as BrushIcon,
+  AccountTree as AccountTreeIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { useExpenseOrder } from '../hooks';
@@ -349,6 +350,13 @@ export const ExpenseOrderDetailPage = () => {
             Cambiar Estado
           </Button>
         )}
+        <Button
+          variant="outlined"
+          startIcon={<AccountTreeIcon />}
+          onClick={() => navigate(`/orders/flow/expense-order/${og.id}`)}
+        >
+          Trazabilidad
+        </Button>
       </Stack>
 
       <Grid container spacing={3}>

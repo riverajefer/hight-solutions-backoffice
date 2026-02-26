@@ -60,6 +60,7 @@ const mockWorkOrdersRepository = {
 
 const mockConsecutivesService = {
   generateNumber: jest.fn(),
+  syncWorkOrderCounter: jest.fn(),
 };
 
 describe('WorkOrdersService', () => {

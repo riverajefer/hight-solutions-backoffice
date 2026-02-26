@@ -34,79 +34,17 @@ describe('ConsecutivesRepository', () => {
   // getNextNumber
   // ---------------------------------------------------------------------------
   describe('getNextNumber', () => {
-    it('should use upsert with lastNumber=1 when no existing record', async () => {
-      prisma.consecutive.findUnique.mockResolvedValue(null);
-      prisma.consecutive.upsert.mockResolvedValue({
-        type: 'ORDER',
-        prefix: 'OP',
-        year: CURRENT_YEAR,
-        lastNumber: 1,
-      });
+    it('should call $queryRaw with atomic INSERT ON CONFLICT and return formatted number', async () => {
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ last_number: 1 }]);
 
-      await repository.getNextNumber('ORDER', 'OP');
+      const result = await repository.getNextNumber('ORDER', 'OP');
 
-      expect(prisma.consecutive.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { type: 'ORDER' },
-          create: expect.objectContaining({ lastNumber: 1, year: CURRENT_YEAR }),
-          update: expect.objectContaining({ lastNumber: 1, year: CURRENT_YEAR }),
-        }),
-      );
+      expect(prisma.$queryRaw).toHaveBeenCalled();
+      expect(result).toBe(`OP-${CURRENT_YEAR}-0001`);
     });
 
-    it('should use upsert with reset when existing record has a different year', async () => {
-      prisma.consecutive.findUnique.mockResolvedValue({
-        type: 'ORDER',
-        year: CURRENT_YEAR - 1, // previous year
-        lastNumber: 100,
-      });
-      prisma.consecutive.upsert.mockResolvedValue({
-        type: 'ORDER',
-        prefix: 'OP',
-        year: CURRENT_YEAR,
-        lastNumber: 1,
-      });
-
-      await repository.getNextNumber('ORDER', 'OP');
-
-      expect(prisma.consecutive.upsert).toHaveBeenCalled();
-      expect(prisma.consecutive.update).not.toHaveBeenCalled();
-    });
-
-    it('should use update with increment when existing record has the same year', async () => {
-      prisma.consecutive.findUnique.mockResolvedValue({
-        type: 'ORDER',
-        year: CURRENT_YEAR,
-        lastNumber: 5,
-      });
-      prisma.consecutive.update.mockResolvedValue({
-        type: 'ORDER',
-        prefix: 'OP',
-        year: CURRENT_YEAR,
-        lastNumber: 6,
-      });
-
-      await repository.getNextNumber('ORDER', 'OP');
-
-      expect(prisma.consecutive.update).toHaveBeenCalledWith({
-        where: { type: 'ORDER' },
-        data: { lastNumber: { increment: 1 } },
-      });
-      expect(prisma.consecutive.upsert).not.toHaveBeenCalled();
-    });
-
-    it('should return formatted string with prefix, year, and zero-padded number', async () => {
-      prisma.consecutive.findUnique.mockResolvedValue({
-        type: 'ORDER',
-        year: CURRENT_YEAR,
-        lastNumber: 42,
-      });
-      prisma.consecutive.update.mockResolvedValue({
-        type: 'ORDER',
-        prefix: 'OP',
-        year: CURRENT_YEAR,
-        lastNumber: 43,
-      });
+    it('should return formatted string with zero-padded number', async () => {
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ last_number: 43 }]);
 
       const result = await repository.getNextNumber('ORDER', 'OP');
 
@@ -114,13 +52,7 @@ describe('ConsecutivesRepository', () => {
     });
 
     it('should pad numbers to 4 digits (e.g. 1 → "0001")', async () => {
-      prisma.consecutive.findUnique.mockResolvedValue(null);
-      prisma.consecutive.upsert.mockResolvedValue({
-        type: 'QUOTE',
-        prefix: 'COT',
-        year: CURRENT_YEAR,
-        lastNumber: 1,
-      });
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ last_number: 1 }]);
 
       const result = await repository.getNextNumber('QUOTE', 'COT');
 
@@ -128,17 +60,19 @@ describe('ConsecutivesRepository', () => {
     });
 
     it('should use the provided year parameter when given', async () => {
-      prisma.consecutive.findUnique.mockResolvedValue(null);
-      prisma.consecutive.upsert.mockResolvedValue({
-        type: 'ORDER',
-        prefix: 'OP',
-        year: 2025,
-        lastNumber: 1,
-      });
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ last_number: 1 }]);
 
       const result = await repository.getNextNumber('ORDER', 'OP', 2025);
 
       expect(result).toBe('OP-2025-0001');
+    });
+
+    it('should handle bigint values from PostgreSQL', async () => {
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ last_number: BigInt(7) }]);
+
+      const result = await repository.getNextNumber('ORDER', 'OP');
+
+      expect(result).toBe(`OP-${CURRENT_YEAR}-0007`);
     });
   });
 

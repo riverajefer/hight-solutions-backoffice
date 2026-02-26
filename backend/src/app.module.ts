@@ -32,6 +32,7 @@ import { CompanyModule } from './modules/company/company.module';
 import { WorkOrdersModule } from './modules/work-orders/work-orders.module';
 import { ExpenseTypesModule } from './modules/expense-types/expense-types.module';
 import { ExpenseOrdersModule } from './modules/expense-orders/expense-orders.module';
+import { OrderTimelineModule } from './modules/order-timeline/order-timeline.module';
 import { AuditContextInterceptor } from './common/interceptors/audit-context.interceptor';
 
 @Module({
@@ -87,6 +88,8 @@ import { AuditContextInterceptor } from './common/interceptors/audit-context.int
     ExpenseTypesModule,
     // Módulo de Órdenes de Gastos
     ExpenseOrdersModule,
+    // Módulo de Trazabilidad de Órdenes
+    OrderTimelineModule,
   ],
   providers: [
     {

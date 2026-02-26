@@ -304,6 +304,7 @@ export const createMockPrismaService = () => ({
   },
   $transaction: jest.fn(),
   $queryRaw: jest.fn(),
+  $queryRawUnsafe: jest.fn(),
   $connect: jest.fn(),
   $disconnect: jest.fn(),
 });

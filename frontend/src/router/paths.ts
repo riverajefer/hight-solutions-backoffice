@@ -62,6 +62,9 @@ export const PATHS = {
   ORDERS_DETAIL: '/orders/:id',
   PENDING_PAYMENT_ORDERS: '/orders/pending-payment',
   STATUS_CHANGE_REQUESTS: '/orders/status-change-requests',
+  // Order Timeline
+  ORDER_FLOW: '/orders/flow/:type/:id',
+  ORDER_FLOW_BASE: '/orders/flow',
   // Quotes Routes
   QUOTES: '/quotes',
   QUOTES_CREATE: '/quotes/new',

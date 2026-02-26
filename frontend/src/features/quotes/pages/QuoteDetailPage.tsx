@@ -36,6 +36,7 @@ import {
   Visibility as VisibilityIcon,
   Close as CloseIcon,
   WhatsApp as WhatsAppIcon,
+  AccountTree as AccountTreeIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
@@ -266,6 +267,13 @@ export const QuoteDetailPage: React.FC = () => {
                 Convertir a Orden
               </Button>
             )}
+            <Button
+              variant="outlined"
+              startIcon={<AccountTreeIcon />}
+              onClick={() => navigate(`/orders/flow/quote/${id}`)}
+            >
+              Trazabilidad
+            </Button>
             <IconButton onClick={(e) => setAnchorEl(e.currentTarget)}><MoreVertIcon /></IconButton>
           </Stack>
         }
