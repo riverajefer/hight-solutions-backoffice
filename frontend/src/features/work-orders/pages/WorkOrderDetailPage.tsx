@@ -18,14 +18,16 @@ import {
   DialogActions,
   CircularProgress,
   Alert,
+  Paper,
+  useTheme,
 } from '@mui/material';
 import {
   Edit as EditIcon,
-  ArrowBack as ArrowBackIcon,
   SwapHoriz as SwapHorizIcon,
   AccountTree as AccountTreeIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { ToolbarButton } from '../../orders/components/ToolbarButton';
 import { useWorkOrder } from '../hooks';
 import { WorkOrderStatusChip } from '../components';
 import { useAuthStore } from '../../../store/authStore';
@@ -65,6 +67,7 @@ const STATUS_TRANSITIONS: Record<WorkOrderStatus, WorkOrderStatus[]> = {
 export const WorkOrderDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const theme = useTheme();
   const { hasPermission } = useAuthStore();
 
   const { workOrderQuery, updateStatusMutation } = useWorkOrder(id);
@@ -104,46 +107,80 @@ export const WorkOrderDetailPage = () => {
     : '-';
 
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
       <PageHeader
         title={workOrder.workOrderNumber}
         subtitle="Detalle de la Orden de Trabajo"
-        action={
-          <Stack direction="row" spacing={1}>
-            <Button
-              startIcon={<ArrowBackIcon />}
-              onClick={() => navigate(ROUTES.WORK_ORDERS)}
-            >
-              Volver
-            </Button>
-            {canUpdate && ['DRAFT', 'CONFIRMED'].includes(currentStatus) && (
-              <Button
-                variant="outlined"
-                startIcon={<EditIcon />}
-                onClick={() => navigate(ROUTES.WORK_ORDERS_EDIT.replace(':id', id!))}
-              >
-                Editar
-              </Button>
-            )}
-            {canUpdate && allowedTransitions.length > 0 && (
-              <Button
-                variant="contained"
-                startIcon={<SwapHorizIcon />}
-                onClick={() => setStatusDialogOpen(true)}
-              >
-                Cambiar Estado
-              </Button>
-            )}
-            <Button
-              variant="outlined"
-              startIcon={<AccountTreeIcon />}
-              onClick={() => navigate(`/orders/flow/work-order/${id}`)}
-            >
-              Trazabilidad
-            </Button>
-          </Stack>
-        }
+        breadcrumbs={[
+          { label: 'Órdenes de Trabajo', path: ROUTES.WORK_ORDERS },
+          { label: workOrder.workOrderNumber },
+        ]}
       />
+
+      {/* Toolbar de Acciones */}
+      <Paper
+        elevation={0}
+        sx={{
+          mt: 2,
+          mb: 3,
+          p: 0,
+          borderRadius: 2,
+          display: 'flex',
+          alignItems: 'stretch',
+          justifyContent: 'center',
+          background: (theme) =>
+            theme.palette.mode === 'dark'
+              ? 'rgba(255, 255, 255, 0.04)'
+              : 'rgba(255, 255, 255, 0.8)',
+          backdropFilter: 'blur(8px)',
+          border: (theme) =>
+            `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
+          overflowX: 'auto',
+          '&::-webkit-scrollbar': { display: 'none' },
+          msOverflowStyle: 'none',
+          scrollbarWidth: 'none',
+        }}
+      >
+        <Stack
+          direction="row"
+          spacing={0}
+          alignItems="stretch"
+          divider={
+            <Divider
+              orientation="vertical"
+              flexItem
+              sx={{ my: 1.5, opacity: 0.5 }}
+            />
+          }
+        >
+          {canUpdate && ['DRAFT', 'CONFIRMED'].includes(currentStatus) && (
+            <ToolbarButton
+              icon={<EditIcon />}
+              label="Editar"
+              onClick={() => navigate(ROUTES.WORK_ORDERS_EDIT.replace(':id', id!))}
+              tooltip="Editar Orden de Trabajo"
+            />
+          )}
+
+          {canUpdate && allowedTransitions.length > 0 && (
+            <ToolbarButton
+              icon={<SwapHorizIcon />}
+              label="Estado"
+              secondaryLabel="Cambiar"
+              onClick={() => setStatusDialogOpen(true)}
+              color={theme.palette.info.main}
+              tooltip="Cambiar Estado"
+            />
+          )}
+
+          <ToolbarButton
+            icon={<AccountTreeIcon />}
+            label="Trazabilidad"
+            onClick={() => navigate(`/orders/flow/work-order/${id}`)}
+            tooltip="Ver Trazabilidad"
+          />
+        </Stack>
+      </Paper>
 
       <Grid container spacing={3}>
         {/* Info general */}
@@ -223,18 +260,6 @@ export const WorkOrderDetailPage = () => {
           </Card>
         </Grid>
 
-        {/* Observaciones */}
-        {workOrder.observations && (
-          <Grid item xs={12}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>Observaciones Generales</Typography>
-                <Typography variant="body1">{workOrder.observations}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        )}
-
         {/* Items / Productos */}
         <Grid item xs={12}>
           <Card>
@@ -290,6 +315,18 @@ export const WorkOrderDetailPage = () => {
             </CardContent>
           </Card>
         </Grid>
+
+        {/* Observaciones */}
+        {workOrder.observations && (
+          <Grid item xs={12}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>Observaciones Generales</Typography>
+                <Typography variant="body1">{workOrder.observations}</Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        )}        
       </Grid>
 
       {/* Dialog: Cambiar Estado */}

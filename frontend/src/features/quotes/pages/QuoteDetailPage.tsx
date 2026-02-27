@@ -22,11 +22,12 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  Paper,
+  useTheme,
 } from '@mui/material';
 import {
   Edit as EditIcon,
   Delete as DeleteIcon,
-  MoreVert as MoreVertIcon,
   ShoppingCartCheckout as ConvertIcon,
   ChangeCircle as ChangeIcon,
   Person as PersonIcon,
@@ -38,12 +39,14 @@ import {
   Close as CloseIcon,
   WhatsApp as WhatsAppIcon,
   AccountTree as AccountTreeIcon,
+  Add as AddIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { useQuotes } from '../hooks/useQuotes';
 import { QuoteStatusChip } from '../components/QuoteStatusChip';
+import { ToolbarButton } from '../../orders/components/ToolbarButton';
 import {
   QuoteStatus,
   QUOTE_STATUS_CONFIG,
@@ -92,6 +95,7 @@ const formatPhoneForWhatsApp = (phone: string): string => {
 
 export const QuoteDetailPage: React.FC = () => {
   const navigate = useNavigate();
+  const theme = useTheme();
   const { id } = useParams<{ id: string }>();
   const { enqueueSnackbar } = useSnackbar();
 
@@ -268,79 +272,115 @@ export const QuoteDetailPage: React.FC = () => {
           { label: 'Cotizaciones', path: '/quotes' },
           { label: quote.quoteNumber },
         ]}
-        action={
-          <Stack direction='row' spacing={1}>
-            <Button
-              variant='outlined'
-              startIcon={<DownloadIcon />}
-              onClick={handleDownloadPdf}
-              disabled={isGeneratingPdf}
-            >
-              Descargar PDF
-            </Button>
-            <Button
-              variant='outlined'
-              startIcon={<PrintIcon />}
-              onClick={handlePrintPdf}
-              disabled={isGeneratingPdf}
-            >
-              Imprimir
-            </Button>
-            <Button
-              variant='outlined'
-              startIcon={<WhatsAppIcon />}
-              onClick={handleShareWhatsApp}
-              disabled={isGeneratingPdf}
-              sx={{
-                color: 'success.dark',
-                borderColor: 'success.main',
-                '&:hover': {
-                  borderColor: 'success.dark',
-                  backgroundColor: 'success.light',
-                  color: 'success.dark',
-                },
-              }}
-            >
-              Compartir WhatsApp
-            </Button>
-            {canEdit && (
-              <Button
-                variant='outlined'
-                startIcon={<EditIcon />}
-                onClick={() => navigate(`/quotes/${id}/edit`)}
-              >
-                Editar
-              </Button>
-            )}
-            {canConvert && (
-              <Button
-                variant='contained'
-                color='success'
-                startIcon={<ConvertIcon />}
-                onClick={() => setConfirmConvert(true)}
-              >
-                Convertir a Orden
-              </Button>
-            )}
-            <Button
-              variant='outlined'
-              startIcon={<AccountTreeIcon />}
-              onClick={() => navigate(`/orders/flow/quote/${id}`)}
-            >
-              Trazabilidad
-            </Button>
-            {!isConverted && (
-              <Button
-                variant='outlined'
-                startIcon={<ChangeIcon />}
-                onClick={(e) => setAnchorEl(e.currentTarget)}
-              >
-                Cambiar estado
-              </Button>
-            )}
-          </Stack>
-        }
       />
+
+      {/* Toolbar de Acciones */}
+      <Paper
+        elevation={0}
+        sx={{
+          mt: 2,
+          mb: 3,
+          p: 0,
+          borderRadius: 2,
+          display: 'flex',
+          alignItems: 'stretch',
+          justifyContent: 'center',
+          background: (theme) =>
+            theme.palette.mode === 'dark'
+              ? 'rgba(255, 255, 255, 0.04)'
+              : 'rgba(255, 255, 255, 0.8)',
+          backdropFilter: 'blur(8px)',
+          border: (theme) =>
+            `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
+          overflowX: 'auto',
+          '&::-webkit-scrollbar': { display: 'none' },
+          msOverflowStyle: 'none',
+          scrollbarWidth: 'none',
+        }}
+      >
+        <Stack
+          direction="row"
+          spacing={0}
+          alignItems="stretch"
+          divider={
+            <Divider
+              orientation="vertical"
+              flexItem
+              sx={{ my: 1.5, opacity: 0.5 }}
+            />
+          }
+        >
+          {canEdit && (
+            <ToolbarButton
+              icon={<EditIcon />}
+              label="Editar"
+              onClick={() => navigate(`/quotes/${id}/edit`)}
+              tooltip="Editar Cotización"
+            />
+          )}
+
+          {canConvert && (
+            <ToolbarButton
+              icon={<ConvertIcon />}
+              label="Convertir"
+              secondaryLabel="a Orden"
+              onClick={() => setConfirmConvert(true)}
+              color={theme.palette.success.main}
+              tooltip="Convertir a Orden"
+            />
+          )}
+
+          {!isConverted && (
+            <ToolbarButton
+              icon={<ChangeIcon />}
+              label="Estado"
+              onClick={(e) => setAnchorEl(e.currentTarget)}
+              tooltip="Cambiar estado"
+            />
+          )}
+
+          <ToolbarButton
+            icon={<DownloadIcon />}
+            label="Descargar"
+            secondaryLabel="PDF"
+            onClick={handleDownloadPdf}
+            disabled={isGeneratingPdf}
+            tooltip="Descargar PDF"
+          />
+
+          <ToolbarButton
+            icon={<PrintIcon />}
+            label="Imprimir"
+            onClick={handlePrintPdf}
+            disabled={isGeneratingPdf}
+            tooltip="Imprimir"
+          />
+
+          <ToolbarButton
+            icon={<WhatsAppIcon />}
+            label="WhatsApp"
+            secondaryLabel="Compartir"
+            onClick={handleShareWhatsApp}
+            disabled={isGeneratingPdf}
+            color={theme.palette.success.main}
+            tooltip="Compartir por WhatsApp"
+          />
+
+          <ToolbarButton
+            icon={<AccountTreeIcon />}
+            label="Trazabilidad"
+            onClick={() => navigate(`/orders/flow/quote/${id}`)}
+            tooltip="Ver Trazabilidad"
+          />
+
+          <ToolbarButton
+            icon={<AddIcon />}
+            label="Nueva"
+            onClick={() => navigate('/quotes/new')}
+            tooltip="Nueva Cotización"
+          />
+        </Stack>
+      </Paper>
 
       {isConverted && quote.order && (
         <Card
