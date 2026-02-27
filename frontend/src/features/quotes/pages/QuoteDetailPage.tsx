@@ -43,7 +43,7 @@ import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { useQuotes } from '../hooks/useQuotes';
 import { QuoteStatusChip } from '../components/QuoteStatusChip';
-import { QuoteStatus, QUOTE_STATUS_CONFIG, QuoteItem } from '../../../types/quote.types';
+import { QuoteStatus, QUOTE_STATUS_CONFIG, ALLOWED_QUOTE_TRANSITIONS, QuoteItem } from '../../../types/quote.types';
 import { generateQuotePdf } from '../utils/generateQuotePdf';
 import { useSnackbar } from 'notistack';
 import axiosInstance from '../../../api/axios';
@@ -99,9 +99,9 @@ export const QuoteDetailPage: React.FC = () => {
   );
 
   const isConverted = quote.status === QuoteStatus.CONVERTED;
-  const canEdit = !isConverted && quote.status !== QuoteStatus.CANCELLED;
+  const canEdit = !isConverted;
   const canDelete = !isConverted;
-  const canConvert = !isConverted && quote.status === QuoteStatus.ACCEPTED;
+  const canConvert = quote.status === QuoteStatus.ACCEPTED;
 
   const handleMenuClose = () => setAnchorEl(null);
 
@@ -427,11 +427,30 @@ export const QuoteDetailPage: React.FC = () => {
       </Grid>
 
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
-        {Object.entries(QUOTE_STATUS_CONFIG).map(([status, config]) => (
-          <MenuItem key={status} onClick={() => handleChangeStatus(status as QuoteStatus)} disabled={quote.status === status}>
-            <Chip label={config.label} color={config.color} size="small" />
-          </MenuItem>
-        ))}
+        {Object.entries(QUOTE_STATUS_CONFIG).map(([status, config]) => {
+          const validNext = ALLOWED_QUOTE_TRANSITIONS[quote.status] || [];
+          const isCurrentStatus = quote.status === status;
+          const isAllowed = validNext.includes(status as QuoteStatus);
+          return (
+            <MenuItem
+              key={status}
+              onClick={() => handleChangeStatus(status as QuoteStatus)}
+              disabled={!isAllowed}
+            >
+              <Chip
+                label={config.label}
+                color={isCurrentStatus || isAllowed ? config.color : 'default'}
+                size="small"
+                variant={isCurrentStatus ? 'filled' : isAllowed ? 'outlined' : 'filled'}
+                sx={{
+                  mr: 1,
+                  ...(!isAllowed && !isCurrentStatus && { opacity: 0.4 }),
+                  ...(isCurrentStatus && { fontWeight: 'bold', border: '2px solid' }),
+                }}
+              />
+            </MenuItem>
+          );
+        })}
         <Divider />
         {canDelete && (
           <MenuItem onClick={() => setConfirmDelete(true)} sx={{ color: 'error.main' }}>

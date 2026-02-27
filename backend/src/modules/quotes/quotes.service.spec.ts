@@ -734,21 +734,10 @@ describe('QuotesService', () => {
       expect(result.message).toBeDefined();
     });
 
-    it('should allow deletion of REJECTED quotes', async () => {
+    it('should allow deletion of NO_RESPONSE quotes', async () => {
       mockQuotesRepository.findById.mockResolvedValue({
         ...mockQuote,
-        status: QuoteStatus.REJECTED,
-      });
-      mockQuotesRepository.delete.mockResolvedValue(mockQuote);
-
-      const result = await service.remove('quote-1');
-      expect(result.message).toBeDefined();
-    });
-
-    it('should allow deletion of CANCELLED quotes', async () => {
-      mockQuotesRepository.findById.mockResolvedValue({
-        ...mockQuote,
-        status: QuoteStatus.CANCELLED,
+        status: QuoteStatus.NO_RESPONSE,
       });
       mockQuotesRepository.delete.mockResolvedValue(mockQuote);
 

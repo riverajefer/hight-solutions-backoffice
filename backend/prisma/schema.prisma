@@ -368,9 +368,8 @@ enum QuoteStatus {
   DRAFT
   SENT
   ACCEPTED
-  REJECTED
+  NO_RESPONSE   // Sin respuesta
   CONVERTED
-  CANCELLED
 }
 
 model Consecutive {

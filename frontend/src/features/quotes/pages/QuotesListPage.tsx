@@ -52,12 +52,11 @@ const formatDateTime = (date: string): string => {
 };
 
 const QUOTE_STATUS_OPTIONS: { value: QuoteStatus; label: string }[] = [
-  { value: QStatus.DRAFT, label: 'Borrador' },
-  { value: QStatus.SENT, label: 'Enviada' },
-  { value: QStatus.ACCEPTED, label: 'Aceptada' },
-  { value: QStatus.REJECTED, label: 'Rechazada' },
-  { value: QStatus.CONVERTED, label: 'Convertida' },
-  { value: QStatus.CANCELLED, label: 'Cancelada' },
+  { value: QStatus.DRAFT,       label: 'Borrador' },
+  { value: QStatus.SENT,        label: 'Enviada' },
+  { value: QStatus.ACCEPTED,    label: 'Aceptada' },
+  { value: QStatus.NO_RESPONSE, label: 'Sin respuesta' },
+  { value: QStatus.CONVERTED,   label: 'Convertida' },
 ];
 
 export const QuotesListPage: React.FC = () => {
@@ -160,9 +159,9 @@ export const QuotesListPage: React.FC = () => {
       sortable: false,
       renderCell: (params) => {
         const isConverted = params.row.status === QStatus.CONVERTED;
-        const canEdit = !isConverted && params.row.status !== QStatus.CANCELLED;
+        const canEdit = !isConverted;
         const canDelete = !isConverted;
-        const canConvert = !isConverted && params.row.status === QStatus.ACCEPTED;
+        const canConvert = params.row.status === QStatus.ACCEPTED;
 
         return (
           <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>

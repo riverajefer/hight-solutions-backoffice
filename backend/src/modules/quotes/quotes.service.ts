@@ -15,6 +15,7 @@ import {
   UpdateQuoteItemDto,
 } from './dto';
 import { QuoteStatus, OrderStatus, Prisma } from '../../generated/prisma';
+import { isValidQuoteTransition, getValidNextQuoteStatuses } from './quote-status-transitions';
 import { PrismaService } from '../../database/prisma.service';
 
 @Injectable()
@@ -113,6 +114,17 @@ export class QuotesService {
 
     if (oldQuote.status === QuoteStatus.CONVERTED) {
       throw new BadRequestException('Cannot update a converted quote');
+    }
+
+    // Validar transición de estado
+    if (updateQuoteDto.status && updateQuoteDto.status !== oldQuote.status) {
+      if (!isValidQuoteTransition(oldQuote.status as QuoteStatus, updateQuoteDto.status)) {
+        const validNext = getValidNextQuoteStatuses(oldQuote.status as QuoteStatus);
+        throw new BadRequestException(
+          `Transición no permitida: ${oldQuote.status} → ${updateQuoteDto.status}. ` +
+          `Transiciones válidas: ${validNext.length ? validNext.join(', ') : 'ninguna (estado terminal)'}.`,
+        );
+      }
     }
 
     const isConverting = updateQuoteDto.status === QuoteStatus.CONVERTED;
