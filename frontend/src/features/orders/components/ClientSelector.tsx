@@ -128,7 +128,7 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
           getOptionLabel={(option) => {
             const parts = [option.name];
             if (option.nit) parts.push(`NIT: ${option.nit}`);
-            if (option.documentNumber) parts.push(`CC: ${option.documentNumber}`);
+            if (option.cedula) parts.push(`CC: ${option.cedula}`);
             if (option.phone) parts.push(`Tel: ${option.phone}`);
             return parts.join(' - ');
           }}
@@ -138,7 +138,7 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
               const searchableString = [
                 option.name,
                 option.nit,
-                option.documentNumber,
+                option.cedula,
                 option.phone,
                 option.email
               ].filter(Boolean).join(' ').toLowerCase();
@@ -159,7 +159,7 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
                   <Typography variant="caption" color="textSecondary">
                     {[
                       option.nit ? `NIT: ${option.nit}` : null,
-                      option.documentNumber ? `CC: ${option.documentNumber}` : null,
+                      option.cedula ? `CC: ${option.cedula}` : null,
                       option.phone ? `Tel: ${option.phone}` : null,
                       option.email
                     ].filter(Boolean).join(' • ')}
