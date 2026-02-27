@@ -23,6 +23,10 @@ export interface OrderTreeNode {
   advisorName?: string | null;
   /** Solo presente en nodos OT: nombre del diseñador asignado. */
   designerName?: string | null;
+  /** Solo presente en nodos OG: usuario al que se le autoriza el gasto. */
+  authorizedToName?: string | null;
+  /** Solo presente en nodos OG: usuario responsable del gasto. */
+  responsibleName?: string | null;
 }
 
 export interface OrderTreeEdge {
@@ -105,6 +109,9 @@ export class OrderTimelineService {
                 ogNumber: true,
                 status: true,
                 createdAt: true,
+                createdBy: { select: { firstName: true, lastName: true } },
+                authorizedTo: { select: { firstName: true, lastName: true } },
+                responsible: { select: { firstName: true, lastName: true } },
                 items: {
                   select: { total: true },
                 },
@@ -205,6 +212,11 @@ export class OrderTimelineService {
           detailPath: `/expense-orders/${eo.id}`,
           createdAt: eo.createdAt.toISOString(),
           endedAt: null,
+          createdByName: this.buildUserDisplayName(eo.createdBy),
+          authorizedToName: this.buildUserDisplayName(eo.authorizedTo),
+          responsibleName: eo.responsible
+            ? this.buildUserDisplayName(eo.responsible)
+            : null,
         });
         edges.push({ source: wo.id, target: eo.id });
       }
@@ -469,6 +481,9 @@ export class OrderTimelineService {
         ogNumber: true,
         status: true,
         createdAt: true,
+        createdBy: { select: { firstName: true, lastName: true } },
+        authorizedTo: { select: { firstName: true, lastName: true } },
+        responsible: { select: { firstName: true, lastName: true } },
         items: { select: { total: true } },
       },
     });
@@ -496,6 +511,11 @@ export class OrderTimelineService {
           detailPath: `/expense-orders/${eo.id}`,
           createdAt: eo.createdAt.toISOString(),
           endedAt: null,
+          createdByName: this.buildUserDisplayName(eo.createdBy),
+          authorizedToName: this.buildUserDisplayName(eo.authorizedTo),
+          responsibleName: eo.responsible
+            ? this.buildUserDisplayName(eo.responsible)
+            : null,
         },
       ],
       edges: [],

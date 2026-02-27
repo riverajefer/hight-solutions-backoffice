@@ -2,7 +2,7 @@ import dagre from '@dagrejs/dagre';
 import type { Node, Edge } from '@xyflow/react';
 
 const NODE_WIDTH = 280;
-const NODE_HEIGHT = 140;
+const NODE_HEIGHT = 230;
 
 export function getLayoutedElements(
   nodes: Node[],
@@ -14,8 +14,8 @@ export function getLayoutedElements(
 
   dagreGraph.setGraph({
     rankdir: direction,
-    nodesep: 60,
-    ranksep: 100,
+    nodesep: 80,
+    ranksep: 120,
     marginx: 40,
     marginy: 40,
   });

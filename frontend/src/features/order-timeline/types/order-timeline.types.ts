@@ -21,6 +21,10 @@ export interface OrderTreeNode {
   advisorName?: string | null;
   /** Solo presente en nodos OT: nombre del diseñador asignado. */
   designerName?: string | null;
+  /** Solo presente en nodos OG: usuario al que se le autoriza el gasto. */
+  authorizedToName?: string | null;
+  /** Solo presente en nodos OG: usuario responsable del gasto. */
+  responsibleName?: string | null;
 }
 
 export interface OrderTreeEdge {

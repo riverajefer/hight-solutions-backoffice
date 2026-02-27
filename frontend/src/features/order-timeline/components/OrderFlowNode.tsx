@@ -15,6 +15,8 @@ import CampaignOutlinedIcon from '@mui/icons-material/CampaignOutlined';
 import EventOutlinedIcon from '@mui/icons-material/EventOutlined';
 import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined';
 import BrushOutlinedIcon from '@mui/icons-material/BrushOutlined';
+import AssignmentIndOutlinedIcon from '@mui/icons-material/AssignmentIndOutlined';
+import HowToRegOutlinedIcon from '@mui/icons-material/HowToRegOutlined';
 import type { OrderTreeNode } from '../types/order-timeline.types';
 
 function formatDuration(ms: number): string {
@@ -316,6 +318,75 @@ function OrderFlowNode({ data }: NodeProps) {
                     sx={{ fontSize: '0.68rem', color: theme.palette.text.secondary, lineHeight: 1.3 }}
                   >
                     {nodeData.designerName}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          )}
+
+          {/* OG metadata: fecha, creador, autorizado a y responsable */}
+          {nodeData.type === 'OG' && (
+            <Box
+              sx={{
+                mt: 0.75,
+                pt: 0.75,
+                borderTop: `1px dashed ${alpha(config.color, 0.25)}`,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 0.4,
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <EventOutlinedIcon sx={{ fontSize: 11, color: theme.palette.text.disabled, flexShrink: 0 }} />
+                <Typography
+                  variant="caption"
+                  sx={{ fontSize: '0.68rem', color: theme.palette.text.secondary, lineHeight: 1.3 }}
+                >
+                  {new Date(nodeData.createdAt).toLocaleString('es-CO', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </Typography>
+              </Box>
+
+              {nodeData.createdByName && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <PersonOutlineIcon sx={{ fontSize: 11, color: theme.palette.text.disabled, flexShrink: 0 }} />
+                  <Typography
+                    noWrap
+                    variant="caption"
+                    sx={{ fontSize: '0.68rem', color: theme.palette.text.secondary, lineHeight: 1.3 }}
+                  >
+                    {nodeData.createdByName}
+                  </Typography>
+                </Box>
+              )}
+
+              {nodeData.authorizedToName && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <HowToRegOutlinedIcon sx={{ fontSize: 11, color: theme.palette.text.disabled, flexShrink: 0 }} />
+                  <Typography
+                    noWrap
+                    variant="caption"
+                    sx={{ fontSize: '0.68rem', color: theme.palette.text.secondary, lineHeight: 1.3 }}
+                  >
+                    {nodeData.authorizedToName}
+                  </Typography>
+                </Box>
+              )}
+
+              {nodeData.responsibleName && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <AssignmentIndOutlinedIcon sx={{ fontSize: 11, color: theme.palette.text.disabled, flexShrink: 0 }} />
+                  <Typography
+                    noWrap
+                    variant="caption"
+                    sx={{ fontSize: '0.68rem', color: theme.palette.text.secondary, lineHeight: 1.3 }}
+                  >
+                    {nodeData.responsibleName}
                   </Typography>
                 </Box>
               )}
