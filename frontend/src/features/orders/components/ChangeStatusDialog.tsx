@@ -13,6 +13,7 @@ import {
   Alert,
 } from '@mui/material';
 import type { Order, OrderStatus } from '../../../types/order.types';
+import { ORDER_STATUS_CONFIG, ALLOWED_TRANSITIONS } from '../../../types/order.types';
 import { StatusChangeAuthRequestDialog } from './StatusChangeAuthRequestDialog';
 
 interface ChangeStatusDialogProps {
@@ -22,18 +23,6 @@ interface ChangeStatusDialogProps {
   onConfirm: (newStatus: OrderStatus) => Promise<void>;
   isLoading?: boolean;
 }
-
-const ORDER_STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
-  { value: 'DRAFT', label: 'Borrador' },
-  { value: 'CONFIRMED', label: 'Confirmada' },
-  { value: 'IN_PRODUCTION', label: 'En Producción' },
-  { value: 'READY', label: 'Lista para entrega' },
-  { value: 'DELIVERED', label: 'Entregada' },
-  { value: 'DELIVERED_ON_CREDIT', label: 'Entregado a Crédito' },
-  { value: 'WARRANTY', label: 'Garantía' },
-  { value: 'RETURNED', label: 'Devolución' },
-  { value: 'PAID', label: 'Pagada' },
-];
 
 export const ChangeStatusDialog: React.FC<ChangeStatusDialogProps> = ({
   open,
@@ -46,28 +35,39 @@ export const ChangeStatusDialog: React.FC<ChangeStatusDialogProps> = ({
   const [showAuthRequestDialog, setShowAuthRequestDialog] = useState(false);
   const [authorizationError, setAuthorizationError] = useState<string | null>(null);
 
+  // Calcular opciones de estado válidas según el estado actual
+  const availableStatuses = useMemo(() => {
+    if (!order) return [];
+    const nextStatuses = ALLOWED_TRANSITIONS[order.status] || [];
+    return nextStatuses.map((status) => ({
+      value: status,
+      label: ORDER_STATUS_CONFIG[status]?.label || status,
+    }));
+  }, [order]);
+
   React.useEffect(() => {
     if (order && open) {
-      setSelectedStatus(order.status);
+      // Auto-seleccionar si solo hay una opción válida
+      const nextStatuses = ALLOWED_TRANSITIONS[order.status] || [];
+      setSelectedStatus(nextStatuses.length === 1 ? nextStatuses[0] : '');
       setAuthorizationError(null);
     }
   }, [order, open]);
 
   // Validar si el cambio de estado es permitido
   const statusValidation = useMemo(() => {
-    if (!order || !selectedStatus || selectedStatus === order.status) {
+    if (!order || !selectedStatus) {
       return { allowed: true, reason: null };
     }
 
     const balance = parseFloat(order.balance);
 
-    // Validación de saldo para PAID y DELIVERED
-    if (selectedStatus === 'PAID' || selectedStatus === 'DELIVERED') {
+    // Validación de saldo para PAID
+    if (selectedStatus === 'PAID') {
       if (balance > 0) {
-        const statusLabel = selectedStatus === 'PAID' ? 'PAGADA' : 'ENTREGADA';
         return {
           allowed: false,
-          reason: `No se puede cambiar al estado ${statusLabel} con saldo pendiente ($${order.balance}). Use el estado "Entregado a Crédito" o complete los pagos primero.`,
+          reason: `No se puede cambiar al estado PAGADA con saldo pendiente ($${order.balance}). Use el estado "Entregado a Crédito" o complete los pagos primero.`,
         };
       }
     }
@@ -76,7 +76,7 @@ export const ChangeStatusDialog: React.FC<ChangeStatusDialogProps> = ({
   }, [order, selectedStatus]);
 
   const handleConfirm = async () => {
-    if (!selectedStatus || selectedStatus === order?.status) {
+    if (!selectedStatus) {
       onClose();
       return;
     }
@@ -118,7 +118,7 @@ export const ChangeStatusDialog: React.FC<ChangeStatusDialogProps> = ({
   if (!order) return null;
 
   const currentStatusLabel =
-    ORDER_STATUS_OPTIONS.find((opt) => opt.value === order.status)?.label || order.status;
+    ORDER_STATUS_CONFIG[order.status]?.label || order.status;
 
   return (
     <>
@@ -145,26 +145,28 @@ export const ChangeStatusDialog: React.FC<ChangeStatusDialogProps> = ({
             </Alert>
           )}
 
-          <TextField
-            select
-            fullWidth
-            label="Nuevo Estado"
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value as OrderStatus)}
-            disabled={isLoading}
-            required
-            sx={{ mt: 2 }}
-          >
-            {ORDER_STATUS_OPTIONS.map((option) => (
-              <MenuItem
-                key={option.value}
-                value={option.value}
-                disabled={option.value === order.status}
-              >
-                {option.label}
-              </MenuItem>
-            ))}
-          </TextField>
+          {availableStatuses.length === 0 ? (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              Este estado no tiene transiciones disponibles.
+            </Alert>
+          ) : (
+            <TextField
+              select
+              fullWidth
+              label="Nuevo Estado"
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value as OrderStatus)}
+              disabled={isLoading}
+              required
+              sx={{ mt: 2 }}
+            >
+              {availableStatuses.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
 
           {!statusValidation.allowed && (
             <Alert severity="error" sx={{ mt: 2 }}>
@@ -182,7 +184,7 @@ export const ChangeStatusDialog: React.FC<ChangeStatusDialogProps> = ({
             disabled={
               isLoading ||
               !selectedStatus ||
-              selectedStatus === order.status ||
+              availableStatuses.length === 0 ||
               !statusValidation.allowed
             }
           >

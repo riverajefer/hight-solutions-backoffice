@@ -19,6 +19,7 @@ import {
   ApplyDiscountDto,
 } from './dto';
 import { OrderStatus, Prisma } from '../../generated/prisma';
+import { isValidTransition, getValidNextStatuses } from './order-status-transitions';
 import { PrismaService } from '../../database/prisma.service';
 
 @Injectable()
@@ -454,31 +455,37 @@ export class OrdersService {
   async updateStatus(id: string, status: OrderStatus, userId: string) {
     const order = await this.findOne(id);
 
-    // SECURITY: Prevent reverting to DRAFT status to bypass edit restrictions
-    // If an order is already processed (CONFIRMED, etc), it should not go back to DRAFT.
-    // Users should use the "Edit Request" flow instead.
-    if (status === OrderStatus.DRAFT && order.status !== OrderStatus.DRAFT) {
+    // No-op si el estado es el mismo
+    if (order.status === status) {
+      return order;
+    }
+
+    // Validar que la transición sea permitida por el flujo secuencial
+    if (!isValidTransition(order.status as OrderStatus, status)) {
+      const validNext = getValidNextStatuses(order.status as OrderStatus);
+      const validLabels = validNext.length > 0
+        ? validNext.join(', ')
+        : 'ninguno (estado terminal)';
       throw new BadRequestException(
-        'No se puede revertir el estado de la orden a BORRADOR. Por favor, use el flujo de solicitud de edición para modificar la orden.',
+        `Transición de estado no permitida: ${order.status} → ${status}. ` +
+        `Las transiciones válidas desde ${order.status} son: ${validLabels}.`,
       );
     }
 
-    // NEW: Balance validation for PAID/DELIVERED status
-    // Orders with pending balance cannot be marked as PAID or DELIVERED
-    if (status === OrderStatus.PAID || status === OrderStatus.DELIVERED) {
+    // Validación de saldo para PAID
+    if (status === OrderStatus.PAID) {
       const balance = new Prisma.Decimal(order.balance);
 
       if (balance.greaterThan(0)) {
         throw new BadRequestException(
-          `No se puede cambiar al estado ${status === OrderStatus.PAID ? 'PAGADA' : 'ENTREGADA'} con saldo pendiente. ` +
+          `No se puede cambiar al estado PAGADA con saldo pendiente. ` +
           `Saldo actual: $${order.balance}. ` +
           `Use el estado DELIVERED_ON_CREDIT (Entregado a Crédito) o complete los pagos primero.`,
         );
       }
     }
 
-    // NEW: Authorization check for DELIVERED_ON_CREDIT
-    // Non-admin users need approval to deliver on credit
+    // Autorización para DELIVERED_ON_CREDIT (usuarios no-admin necesitan aprobación)
     if (status === OrderStatus.DELIVERED_ON_CREDIT) {
       const authCheck = await this.statusChangeRequestsService.requiresAuthorization(
         id,
@@ -487,7 +494,6 @@ export class OrdersService {
       );
 
       if (authCheck.required) {
-        // Check if user has an approved request
         const hasApproval = await this.statusChangeRequestsService.hasApprovedRequest(
           id,
           userId,
@@ -502,7 +508,6 @@ export class OrdersService {
           );
         }
 
-        // Authorization granted, consume the request (mark as used)
         await this.statusChangeRequestsService.consumeApprovedRequest(
           id,
           userId,
@@ -511,23 +516,17 @@ export class OrdersService {
       }
     }
 
-    // Log change
-    if (order.status !== status) {
-        await this.ordersRepository.updateStatus(id, status);
+    await this.ordersRepository.updateStatus(id, status);
 
-        // Registrar en audit log (sin esperar)
-        const updatedOrder = await this.findOne(id);
-        this.auditLogsService.logOrderChange(
-          'UPDATE',
-          id,
-          order,
-          updatedOrder,
-          userId,
-        );
-        return updatedOrder;
-    }
-
-    return order;
+    const updatedOrder = await this.findOne(id);
+    this.auditLogsService.logOrderChange(
+      'UPDATE',
+      id,
+      order,
+      updatedOrder,
+      userId,
+    );
+    return updatedOrder;
   }
 
   async remove(id: string, userId?: string) {
@@ -771,6 +770,8 @@ export class OrdersService {
       OrderStatus.IN_PRODUCTION,
       OrderStatus.READY,
       OrderStatus.DELIVERED,
+      OrderStatus.DELIVERED_ON_CREDIT,
+      OrderStatus.PAID,
       OrderStatus.WARRANTY,
     ];
 
@@ -1053,6 +1054,8 @@ export class OrdersService {
       OrderStatus.IN_PRODUCTION,
       OrderStatus.READY,
       OrderStatus.DELIVERED,
+      OrderStatus.DELIVERED_ON_CREDIT,
+      OrderStatus.PAID,
       OrderStatus.WARRANTY,
     ];
 
@@ -1135,6 +1138,8 @@ export class OrdersService {
       OrderStatus.IN_PRODUCTION,
       OrderStatus.READY,
       OrderStatus.DELIVERED,
+      OrderStatus.DELIVERED_ON_CREDIT,
+      OrderStatus.PAID,
       OrderStatus.WARRANTY,
     ];
 

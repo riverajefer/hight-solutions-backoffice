@@ -361,7 +361,6 @@ enum OrderStatus {
   DELIVERED          // Entregada
   DELIVERED_ON_CREDIT // Entregado a crédito
   WARRANTY           // Garantía
-  RETURNED           // Devolución
   PAID               // Pagada
 }
 

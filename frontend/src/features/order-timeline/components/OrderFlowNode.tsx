@@ -36,7 +36,6 @@ const STATUS_COLORS: Record<string, string> = {
   DELIVERED: '#10B981',
   DELIVERED_ON_CREDIT: '#FBBF24',
   WARRANTY: '#F97316',
-  RETURNED: '#FF2D95',
   PAID: '#10B981',
   // WorkOrder statuses
   COMPLETED: '#10B981',
@@ -58,7 +57,6 @@ const STATUS_LABELS: Record<string, string> = {
   DELIVERED: 'Entregada',
   DELIVERED_ON_CREDIT: 'Entregada a Crédito',
   WARRANTY: 'Garantía',
-  RETURNED: 'Devuelta',
   PAID: 'Pagada',
   COMPLETED: 'Completada',
   CREATED: 'Creada',

@@ -2241,11 +2241,6 @@ async function main() {
       description: 'Garantía - requiere solicitud de edición',
     },
     {
-      orderStatus: OrderStatus.RETURNED,
-      allowEditRequests: true,
-      description: 'Devolución - requiere solicitud de edición',
-    },
-    {
       orderStatus: OrderStatus.PAID,
       allowEditRequests: false,
       description: 'Pagada - no se puede editar',

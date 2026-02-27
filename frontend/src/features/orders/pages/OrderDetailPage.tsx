@@ -84,6 +84,7 @@ import type {
 import {
   ORDER_STATUS_CONFIG,
   PAYMENT_METHOD_LABELS,
+  ALLOWED_TRANSITIONS,
 } from '../../../types/order.types';
 
 const formatCurrency = (value: string): string => {
@@ -214,12 +215,12 @@ export const OrderDetailPage: React.FC = () => {
     order.status
   );
   const canDelete = ['DRAFT', 'CANCELLED'].includes(order.status);
-  const canAddPayment = ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED'].includes(
+  const canAddPayment = ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'DELIVERED_ON_CREDIT', 'PAID'].includes(
     order.status
   );
   const canApplyDiscount =
     permissions.includes('apply_discounts') &&
-    ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'WARRANTY'].includes(
+    ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'DELIVERED_ON_CREDIT', 'PAID', 'WARRANTY'].includes(
       order.status
     );
   const canDeleteDiscount =
@@ -1067,20 +1068,30 @@ export const OrderDetailPage: React.FC = () => {
             Cambiar Estado de la Orden
           </Typography>
         </MenuItem>
-        {Object.entries(ORDER_STATUS_CONFIG).map(([status, config]) => (
-          <MenuItem
-            key={status}
-            onClick={() => handleChangeStatus(status as OrderStatus)}
-            disabled={order.status === status}
-          >
-            <Chip
-              label={config.label}
-              color={config.color}
-              size="small"
-              sx={{ mr: 1 }}
-            />
-          </MenuItem>
-        ))}
+        {Object.entries(ORDER_STATUS_CONFIG).map(([status, config]) => {
+          const validNextStatuses = ALLOWED_TRANSITIONS[order.status] || [];
+          const isCurrentStatus = order.status === status;
+          const isAllowed = validNextStatuses.includes(status as OrderStatus);
+          return (
+            <MenuItem
+              key={status}
+              onClick={() => handleChangeStatus(status as OrderStatus)}
+              disabled={!isAllowed}
+            >
+              <Chip
+                label={config.label}
+                color={isCurrentStatus || isAllowed ? config.color : 'default'}
+                size="small"
+                variant={isCurrentStatus ? 'filled' : isAllowed ? 'outlined' : 'filled'}
+                sx={{
+                  mr: 1,
+                  ...((!isAllowed && !isCurrentStatus) && { opacity: 0.4 }),
+                  ...(isCurrentStatus && { fontWeight: 'bold', border: '2px solid' }),
+                }}
+              />
+            </MenuItem>
+          );
+        })}
         <Divider />
         {canDelete && (
           <MenuItem onClick={() => setConfirmDelete(true)} sx={{ color: 'error.main' }}>

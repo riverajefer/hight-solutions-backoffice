@@ -101,8 +101,8 @@ const ORDER_STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
   { value: 'IN_PRODUCTION', label: 'En Producción' },
   { value: 'READY', label: 'Lista para entrega' },
   { value: 'DELIVERED', label: 'Entregada' },
+  { value: 'DELIVERED_ON_CREDIT', label: 'Entregado a Crédito' },
   { value: 'WARRANTY', label: 'Garantía' },
-  { value: 'RETURNED', label: 'Devolución' },
   { value: 'PAID', label: 'Pagada' },
 ];
 
