@@ -76,10 +76,10 @@ function loadImage(url: string): Promise<string> {
 }
 
 const SERVICES_LIST = [
-  ['+Papelería empresarial', '+Cuadernos, agendas', '+Vinilo', '+Banner', '+Etiquetas'],
-  ['+Impresión gran formato', '+Impresión sobre rígidos', '+Sublimación textil', '+Roll ups, arañas', '+Calandra'],
-  ['+Señalización', '+Promocionales', '+Confección', '+Mugs', '+DTF UV'],
-  ['+DTF textil', '+Gorras', '+Bordados']
+  ['• Papelería empresarial', '• Cuadernos, agendas', '• Vinilo', '• Banner', '• Etiquetas'],
+  ['• Impresión gran formato', '• Impresión sobre rígidos', '• Sublimación textil', '• Roll ups, arañas', '• Calandra'],
+  ['• Señalización', '• Promocionales', '• Confección', '• Mugs', '• DTF UV'],
+  ['• DTF textil', '• Gorras', '• Bordados']
 ];
 
 // ---------------------------------------------------------------------------
@@ -153,8 +153,38 @@ async function drawHeader(doc: jsPDF): Promise<number> {
   setFillColor(doc, [0, 0, 0]);
   doc.rect(logoX + logoW + 5, barY, PDF_LAYOUT.pageWidth - (logoX + logoW + 5), barHeight, 'F');
   
-  // Services List
+  // Company Info
   let y = logoY + logoH + 8;
+  
+  // Title
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  setTextColor(doc, [0, 0, 0]);
+  doc.text('High Solutions', PDF_LAYOUT.pageWidth / 2, y, { align: 'center' });
+  y += 5;
+
+  // Websites
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  setTextColor(doc, [41, 171, 226]); // Cyan color for links
+  doc.text('HS-group.com.co  |  highsolutions.com.co', PDF_LAYOUT.pageWidth / 2, y, { align: 'center' });
+  y += 5;
+
+  // Address & Contact
+  doc.setFontSize(8);
+  setTextColor(doc, [100, 100, 100]); // Gray color for address
+  doc.text('Cra 28 #10-18, Bogotá D.C - Barrio Ricaurte', PDF_LAYOUT.pageWidth / 2, y, { align: 'center' });
+  y += 4;
+  doc.text('Tel: 305 451 8018 / 304 484 8835 / 305 4525079 | comercial1@hsgroup.com.co | hsolutionssas@gmail.com', PDF_LAYOUT.pageWidth / 2, y, { align: 'center' });
+  y += 6;
+
+  // Separator
+  setDrawColor(doc, [220, 220, 220]);
+  doc.setLineWidth(0.3);
+  doc.line(PDF_LAYOUT.marginLeft, y, PDF_LAYOUT.pageWidth - PDF_LAYOUT.marginRight, y);
+  y += 5;
+
+  // Services List
   doc.setFontSize(7);
   doc.setFont('helvetica', 'normal'); // Font style looks like a techno font in image, using normal for now
   setTextColor(doc, [0, 0, 0]);
@@ -527,6 +557,22 @@ function drawAttendedBy(doc: jsPDF, y: number, order: Order): number {
 
   doc.setFont('helvetica', 'bold');
   doc.text(name, PDF_LAYOUT.marginLeft + strWidthMm(doc, 'Atendido por: '), y);
+
+  // Move legal notes closer to the footer
+  // The footer separator line is at: PDF_LAYOUT.pageHeight - PDF_LAYOUT.marginBottom - 4
+  // We'll place the notes just above that line
+  const notesY = PDF_LAYOUT.pageHeight - PDF_LAYOUT.marginBottom - 15;
+
+  // Legal Notes
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  setTextColor(doc, [200, 80, 90]); // Softer red color
+  
+  const note1 = 'NOTA: NO SE ENTREGARÁ TRABAJO SIN CANCELAR LA TOTALIDAD DEL VALOR, SIN EXCEPCIONES.';
+  const note2 = 'EN 30 DÍAS VENCE LA FECHA DE ENTREGA, NO SE RESPONDE POR NINGÚN TRABAJO.';
+
+  doc.text(note1, PDF_LAYOUT.pageWidth / 2, notesY, { align: 'center' });
+  doc.text(note2, PDF_LAYOUT.pageWidth / 2, notesY + 4, { align: 'center' });
 
   return y + 6;
 }
