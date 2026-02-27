@@ -26,10 +26,11 @@ import {
   InputAdornment,
   IconButton,
   Tooltip,
+  Paper,
+  useTheme,
 } from '@mui/material';
 import {
   Edit as EditIcon,
-  ArrowBack as ArrowBackIcon,
   SwapHoriz as SwapHorizIcon,
   Add as AddIcon,
   AttachFile as AttachFileIcon,
@@ -44,6 +45,7 @@ import {
   AccountTree as AccountTreeIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { ToolbarButton } from '../../orders/components/ToolbarButton';
 import { useExpenseOrder } from '../hooks';
 import { useSuppliers } from '../../suppliers/hooks/useSuppliers';
 import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
@@ -142,6 +144,7 @@ const formatCurrencyInput = (value: string | number): string => {
 export const ExpenseOrderDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const theme = useTheme();
   const { hasPermission } = useAuthStore();
 
   const { expenseOrderQuery, updateStatusMutation, addExpenseItemMutation } = useExpenseOrder(id);
@@ -321,43 +324,80 @@ export const ExpenseOrderDetailPage = () => {
   });
 
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
       <PageHeader
         title={og.ogNumber}
         subtitle={`${og.expenseType.name} / ${og.expenseSubcategory.name}`}
+        breadcrumbs={[
+          { label: 'Costos directos de la O.T', path: ROUTES.EXPENSE_ORDERS },
+          { label: og.ogNumber },
+        ]}
       />
 
-      {/* Header actions */}
-      <Stack direction="row" spacing={2} mb={3} flexWrap="wrap">
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(ROUTES.EXPENSE_ORDERS)}>
-          Volver
-        </Button>
-        {canUpdate && isEditable && (
-          <Button
-            startIcon={<EditIcon />}
-            variant="outlined"
-            onClick={() => navigate(ROUTES.EXPENSE_ORDERS_EDIT.replace(':id', og.id))}
-          >
-            Editar
-          </Button>
-        )}
-        {availableTransitions.length > 0 && (
-          <Button
-            startIcon={<SwapHorizIcon />}
-            variant="contained"
-            onClick={() => setStatusDialogOpen(true)}
-          >
-            Cambiar Estado
-          </Button>
-        )}
-        <Button
-          variant="outlined"
-          startIcon={<AccountTreeIcon />}
-          onClick={() => navigate(`/orders/flow/expense-order/${og.id}`)}
+      {/* Toolbar de Acciones */}
+      <Paper
+        elevation={0}
+        sx={{
+          mt: 2,
+          mb: 3,
+          p: 0,
+          borderRadius: 2,
+          display: 'flex',
+          alignItems: 'stretch',
+          justifyContent: 'center',
+          background: (theme) =>
+            theme.palette.mode === 'dark'
+              ? 'rgba(255, 255, 255, 0.04)'
+              : 'rgba(255, 255, 255, 0.8)',
+          backdropFilter: 'blur(8px)',
+          border: (theme) =>
+            `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
+          overflowX: 'auto',
+          '&::-webkit-scrollbar': { display: 'none' },
+          msOverflowStyle: 'none',
+          scrollbarWidth: 'none',
+        }}
+      >
+        <Stack
+          direction="row"
+          spacing={0}
+          alignItems="stretch"
+          divider={
+            <Divider
+              orientation="vertical"
+              flexItem
+              sx={{ my: 1.5, opacity: 0.5 }}
+            />
+          }
         >
-          Trazabilidad
-        </Button>
-      </Stack>
+          {canUpdate && isEditable && (
+            <ToolbarButton
+              icon={<EditIcon />}
+              label="Editar"
+              onClick={() => navigate(ROUTES.EXPENSE_ORDERS_EDIT.replace(':id', og.id))}
+              tooltip="Editar Costo Directo"
+            />
+          )}
+
+          {availableTransitions.length > 0 && (
+            <ToolbarButton
+              icon={<SwapHorizIcon />}
+              label="Estado"
+              secondaryLabel="Cambiar"
+              onClick={() => setStatusDialogOpen(true)}
+              color={theme.palette.info.main}
+              tooltip="Cambiar Estado"
+            />
+          )}
+
+          <ToolbarButton
+            icon={<AccountTreeIcon />}
+            label="Trazabilidad"
+            onClick={() => navigate(`/orders/flow/expense-order/${og.id}`)}
+            tooltip="Ver Trazabilidad"
+          />
+        </Stack>
+      </Paper>
 
       <Grid container spacing={3}>
         {/* Left column */}

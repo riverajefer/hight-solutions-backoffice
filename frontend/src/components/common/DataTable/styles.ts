@@ -55,6 +55,8 @@ export const dataGridStyles: SxProps<Theme> = {
     alignItems: 'center',
     padding: (theme) => theme.spacing(1, 2),
     transition: 'all 0.2s ease',
+    position: 'relative' as any,
+    zIndex: 1,
     '&:focus': {
       outline: 'none',
     },
@@ -196,7 +198,7 @@ export const dataGridStyles: SxProps<Theme> = {
   '& .sticky-column-row-number': {
     position: 'sticky !important' as any,
     left: '0px !important',
-    zIndex: '4 !important',
+    zIndex: '5 !important',
     backgroundColor: 'inherit',
   },
 
@@ -206,15 +208,18 @@ export const dataGridStyles: SxProps<Theme> = {
     zIndex: '10 !important',
     backgroundColor: (theme) =>
       theme.palette.mode === 'light'
-        ? alpha(theme.palette.primary.main, 0.08)
-        : alpha(theme.palette.primary.main, 0.15),
+        ? '#e8eaf6'
+        : '#1e1e3a',
   },
 
   '& .sticky-column-order-number': {
     position: 'sticky !important' as any,
     left: '70px !important',
-    zIndex: '3 !important',
-    backgroundColor: 'inherit',
+    zIndex: '4 !important',
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? '#e8eaf6'
+        : '#1e1e3a',
     boxShadow: '2px 0 4px rgba(0,0,0,0.08)',
   },
 
@@ -224,14 +229,47 @@ export const dataGridStyles: SxProps<Theme> = {
     zIndex: '10 !important',
     backgroundColor: (theme) =>
       theme.palette.mode === 'light'
-        ? alpha(theme.palette.primary.main, 0.08)
-        : alpha(theme.palette.primary.main, 0.15),
+        ? '#e8eaf6'
+        : '#1e1e3a',
     boxShadow: '2px 0 4px rgba(0,0,0,0.08)',
   },
 
-  // Asegurar que las filas con estados especiales hereden el fondo a las sticky columns
-  '& .MuiDataGrid-row .sticky-column-row-number, & .MuiDataGrid-row .sticky-column-order-number': {
-    backgroundColor: 'inherit',
+  // Fondos OPACOS para sticky columns en filas normales (evitan transparencia al hacer scroll)
+  '& .MuiDataGrid-row:nth-of-type(odd) .sticky-column-row-number, & .MuiDataGrid-row:nth-of-type(odd) .sticky-column-order-number': {
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? theme.palette.background.paper
+        : '#1a1a2e',
+  },
+
+  '& .MuiDataGrid-row:nth-of-type(even) .sticky-column-row-number, & .MuiDataGrid-row:nth-of-type(even) .sticky-column-order-number': {
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? '#f5f5f5'
+        : '#1e1e3a',
+  },
+
+  // Fondos opacos para filas con estados especiales
+  '& .MuiDataGrid-row.row-overdue .sticky-column-row-number, & .MuiDataGrid-row.row-overdue .sticky-column-order-number': {
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? '#fce4ec'
+        : '#3d1c1c',
+  },
+
+  '& .MuiDataGrid-row.row-due-today .sticky-column-row-number, & .MuiDataGrid-row.row-due-today .sticky-column-order-number': {
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? '#e3f2fd'
+        : '#1c2a3d',
+  },
+
+  // Hover en sticky columns: fondo opaco consistente
+  '& .MuiDataGrid-row:hover .sticky-column-row-number, & .MuiDataGrid-row:hover .sticky-column-order-number': {
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? '#e8eaf6'
+        : '#262650',
   },
 
   // Menu de columnas

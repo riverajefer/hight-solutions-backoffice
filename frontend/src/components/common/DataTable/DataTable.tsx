@@ -221,6 +221,7 @@ export function DataTable<T extends GridValidRowModel>({
         getRowClassName={getRowClassName}
         disableRowSelectionOnClick
         autoHeight
+        disableVirtualization
         localeText={esES.components.MuiDataGrid.defaultProps.localeText}
         sx={dataGridStyles}
         slots={{
