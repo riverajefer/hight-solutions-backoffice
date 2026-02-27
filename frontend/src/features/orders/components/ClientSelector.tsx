@@ -125,7 +125,27 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
           options={clients}
           value={value}
           onChange={(_, newValue) => onChange(newValue)}
-          getOptionLabel={(option) => option.name}
+          getOptionLabel={(option) => {
+            const parts = [option.name];
+            if (option.nit) parts.push(`NIT: ${option.nit}`);
+            if (option.documentNumber) parts.push(`CC: ${option.documentNumber}`);
+            if (option.phone) parts.push(`Tel: ${option.phone}`);
+            return parts.join(' - ');
+          }}
+          filterOptions={(options, { inputValue }) => {
+            const searchTerms = inputValue.toLowerCase().split(' ');
+            return options.filter((option) => {
+              const searchableString = [
+                option.name,
+                option.nit,
+                option.documentNumber,
+                option.phone,
+                option.email
+              ].filter(Boolean).join(' ').toLowerCase();
+              
+              return searchTerms.every(term => searchableString.includes(term));
+            });
+          }}
           renderOption={(props, option) => (
             <li {...props} key={option.id}>
               <Stack direction="row" spacing={1} alignItems="center">
@@ -137,8 +157,12 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
                 <Box>
                   <Typography variant="body2">{option.name}</Typography>
                   <Typography variant="caption" color="textSecondary">
-                    {option.phone && `${option.phone} • `}
-                    {option.email}
+                    {[
+                      option.nit ? `NIT: ${option.nit}` : null,
+                      option.documentNumber ? `CC: ${option.documentNumber}` : null,
+                      option.phone ? `Tel: ${option.phone}` : null,
+                      option.email
+                    ].filter(Boolean).join(' • ')}
                   </Typography>
                 </Box>
               </Stack>
@@ -148,7 +172,7 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
             <TextField
               {...params}
               label="Cliente"
-              placeholder="Buscar cliente..."
+              placeholder="Buscar por nombre, NIT, documento o celular..."
               error={error}
               helperText={helperText}
               InputProps={{

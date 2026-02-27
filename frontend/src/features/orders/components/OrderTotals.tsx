@@ -55,7 +55,7 @@ export const OrderTotals: React.FC<OrderTotalsProps> = ({
     <Card variant="outlined" sx={{ borderRadius: 2 }}>
       <CardContent sx={{ pb: '16px !important' }}>
         <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
-          3. IVA
+          IVA
         </Typography>
         <Divider sx={{ mb: 2 }} />
 

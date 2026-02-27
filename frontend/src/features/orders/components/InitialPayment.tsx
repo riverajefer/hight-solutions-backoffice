@@ -79,7 +79,7 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
     <Card variant="outlined" sx={{ borderRadius: 2 }}>
       <CardContent sx={{ pb: '16px !important' }}>
         <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
-          4. Abono Inicial
+          Abono Inicial
         </Typography>
         <Divider sx={{ mb: 2 }} />
 

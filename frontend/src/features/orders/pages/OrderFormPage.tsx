@@ -510,178 +510,166 @@ export const OrderFormPage: React.FC = () => {
 
   const renderStep0 = () => (
     <Stack spacing={3}>
-      <Typography variant="h6" fontWeight={600}>
-        Cliente y Fechas
-      </Typography>
+      <Card variant="outlined" sx={{ borderRadius: 2 }}>
+        <CardContent sx={{ pb: '16px !important' }}>
+          <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
+            Cliente y Fechas
+          </Typography>
+          <Divider sx={{ mb: 3 }} />
 
-      <Controller
-        name="client"
-        control={control}
-        render={({ field }) => (
-          <ClientSelector
-            value={field.value}
-            onChange={field.onChange}
-            error={!!errors.client}
-            helperText={errors.client?.message}
-          />
-        )}
-      />
-
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-        <TextField
-          fullWidth
-          label="Fecha de Orden"
-          value={new Date().toLocaleDateString('es-CO')}
-          disabled={!isClientSelected}
-          InputProps={{ readOnly: true }}
-          helperText="Fecha de registro"
-        />
-
-        <Controller
-          name="deliveryDate"
-          control={control}
-          render={({ field }) => (
-            <DatePicker
-              label="Fecha de Entrega (Opcional)"
-              value={field.value}
-              onChange={field.onChange}
-              disabled={!isClientSelected}
-              minDate={new Date()}
-              slotProps={{
-                textField: {
-                  fullWidth: true,
-                  helperText: isClientSelected ? 'Fecha estimada' : 'Seleccione cliente',
-                },
-              }}
+          <Stack spacing={3}>
+            <Controller
+              name="client"
+              control={control}
+              render={({ field }) => (
+                <ClientSelector
+                  value={field.value}
+                  onChange={field.onChange}
+                  error={!!errors.client}
+                  helperText={errors.client?.message}
+                />
+              )}
             />
-          )}
-        />
 
-        <TextField
-          fullWidth
-          label="Creado por"
-          value={currentUserFullName}
-          InputProps={{ readOnly: true }}
-          helperText="Usuario responsable"
-        />
-      </Stack>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <TextField
+                fullWidth
+                label="Fecha de Orden"
+                value={new Date().toLocaleDateString('es-CO')}
+                disabled={!isClientSelected}
+                InputProps={{ readOnly: true }}
+                helperText="Fecha de registro"
+              />
 
-      {isEdit && isDatePostponed && (
-        <Controller
-          name="deliveryDateReason"
-          control={control}
-          rules={{ required: isDatePostponed ? 'Debe indicar la razón del cambio de fecha' : false }}
-          render={({ field, fieldState }) => (
-            <TextField
-              {...field}
-              fullWidth
-              multiline
-              rows={2}
-              label="Razón del cambio de fecha de entrega *"
-              placeholder="Explique por qué se está posponiendo la fecha de entrega..."
-              error={!!fieldState.error}
-              helperText={fieldState.error?.message || 'Este campo es obligatorio cuando se pospone la fecha de entrega'}
-              sx={{ '& .MuiOutlinedInput-root': { backgroundColor: 'warning.lighter' } }}
-            />
-          )}
-        />
-      )}
+              <Controller
+                name="deliveryDate"
+                control={control}
+                render={({ field }) => (
+                  <DatePicker
+                    label="Fecha de Entrega (Opcional)"
+                    value={field.value}
+                    onChange={field.onChange}
+                    disabled={!isClientSelected}
+                    minDate={new Date()}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        helperText: isClientSelected ? 'Fecha estimada' : 'Seleccione cliente',
+                      },
+                    }}
+                  />
+                )}
+              />
 
-      <Controller
-        name="commercialChannelId"
-        control={control}
-        render={({ field }) => (
-          <TextField
-            {...field}
-            select
-            fullWidth
-            label="Canal de Ventas *"
-            error={!!errors.commercialChannelId}
-            helperText={errors.commercialChannelId?.message || 'Canal por el cual se realizó la venta'}
-            disabled={!isClientSelected || channelsLoading}
-            InputProps={{
-              startAdornment: channelsLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null,
-            }}
-          >
-            {channels.length > 0 ? (
-              channels.map((channel) => (
-                <MenuItem key={channel.id} value={channel.id}>
-                  {channel.name}
-                </MenuItem>
-              ))
-            ) : (
-              <MenuItem disabled value="">
-                No hay canales disponibles
-              </MenuItem>
+              <TextField
+                fullWidth
+                label="Creado por"
+                value={currentUserFullName}
+                InputProps={{ readOnly: true }}
+                helperText="Usuario responsable"
+              />
+            </Stack>
+
+            {isEdit && isDatePostponed && (
+              <Controller
+                name="deliveryDateReason"
+                control={control}
+                rules={{ required: isDatePostponed ? 'Debe indicar la razón del cambio de fecha' : false }}
+                render={({ field, fieldState }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    multiline
+                    rows={2}
+                    label="Razón del cambio de fecha de entrega *"
+                    placeholder="Explique por qué se está posponiendo la fecha de entrega..."
+                    error={!!fieldState.error}
+                    helperText={fieldState.error?.message || 'Este campo es obligatorio cuando se pospone la fecha de entrega'}
+                    sx={{ '& .MuiOutlinedInput-root': { backgroundColor: 'warning.lighter' } }}
+                  />
+                )}
+              />
             )}
-          </TextField>
-        )}
-      />
+
+            <Controller
+              name="commercialChannelId"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  select
+                  fullWidth
+                  label="Canal de Ventas *"
+                  error={!!errors.commercialChannelId}
+                  helperText={errors.commercialChannelId?.message || 'Canal por el cual se realizó la venta'}
+                  disabled={!isClientSelected || channelsLoading}
+                  InputProps={{
+                    startAdornment: channelsLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null,
+                  }}
+                >
+                  {channels.length > 0 ? (
+                    channels.map((channel) => (
+                      <MenuItem key={channel.id} value={channel.id}>
+                        {channel.name}
+                      </MenuItem>
+                    ))
+                  ) : (
+                    <MenuItem disabled value="">
+                      No hay canales disponibles
+                    </MenuItem>
+                  )}
+                </TextField>
+              )}
+            />
+          </Stack>
+        </CardContent>
+      </Card>
     </Stack>
   );
 
   const renderStep1 = () => (
     <Stack spacing={3}>
-      <Typography variant="h6" fontWeight={600}>
-        Ítems de la Orden
-      </Typography>
+      <Card variant="outlined" sx={{ borderRadius: 2 }}>
+        <CardContent sx={{ pb: '16px !important' }}>
+          <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
+            Ítems de la Orden
+          </Typography>
+          <Divider sx={{ mb: 3 }} />
 
-      {!isClientSelected && (
-        <Typography variant="body2" color="text.secondary">
-          Primero debe seleccionar un cliente para agregar ítems a la orden.
-        </Typography>
-      )}
+          <Stack spacing={3}>
+            {!isClientSelected && (
+              <Typography variant="body2" color="text.secondary">
+                Primero debe seleccionar un cliente para agregar ítems a la orden.
+              </Typography>
+            )}
 
-      <Controller
-        name="items"
-        control={control}
-        render={({ field }) => (
-          <OrderItemsTable
-            items={field.value}
-            onChange={field.onChange}
-            errors={errors}
-            disabled={!isClientSelected}
-          />
-        )}
-      />
+            <Controller
+              name="items"
+              control={control}
+              render={({ field }) => (
+                <OrderItemsTable
+                  items={field.value}
+                  onChange={field.onChange}
+                  errors={errors}
+                  disabled={!isClientSelected}
+                />
+              )}
+            />
+          </Stack>
+        </CardContent>
+      </Card>
     </Stack>
   );
 
   const renderStep2 = () => (
     <Stack spacing={3}>
-      <Typography variant="h6" fontWeight={600}>
-        Totales y Pago Inicial
-      </Typography>
-
-      <Controller
-        name="applyTax"
-        control={control}
-        render={({ field: applyTaxField }) => (
-          <Controller
-            name="taxRate"
-            control={control}
-            render={({ field: taxRateField }) => (
-              <OrderTotals
-                items={items}
-                applyTax={applyTaxField.value}
-                taxRate={taxRateField.value}
-                requiresColorProof={requiresColorProof}
-                colorProofPrice={colorProofPrice}
-                onApplyTaxChange={applyTaxField.onChange}
-                onTaxRateChange={taxRateField.onChange}
-                disabled={!isClientSelected}
-              />
-            )}
-          />
-        )}
-      />
-
       {/* Prueba de color */}
-      <Card variant="outlined">
-        <CardContent>
-          <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+      <Card variant="outlined" sx={{ borderRadius: 2 }}>
+        <CardContent sx={{ pb: '16px !important' }}>
+          <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
             Prueba de Color
           </Typography>
+          <Divider sx={{ mb: 2 }} />
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} sm={6}>
               <Controller
@@ -739,6 +727,29 @@ export const OrderFormPage: React.FC = () => {
       </Card>
 
       <Controller
+        name="applyTax"
+        control={control}
+        render={({ field: applyTaxField }) => (
+          <Controller
+            name="taxRate"
+            control={control}
+            render={({ field: taxRateField }) => (
+              <OrderTotals
+                items={items}
+                applyTax={applyTaxField.value}
+                taxRate={taxRateField.value}
+                requiresColorProof={requiresColorProof}
+                colorProofPrice={colorProofPrice}
+                onApplyTaxChange={applyTaxField.onChange}
+                onTaxRateChange={taxRateField.onChange}
+                disabled={!isClientSelected}
+              />
+            )}
+          />
+        )}
+      />
+
+      <Controller
         name="payment"
         control={control}
         render={({ field: paymentField }) => (
@@ -759,37 +770,43 @@ export const OrderFormPage: React.FC = () => {
 
   const renderStep3 = () => (
     <Stack spacing={3}>
-      <Typography variant="h6" fontWeight={600}>
-        Observaciones y Confirmar
-      </Typography>
+      <Card variant="outlined" sx={{ borderRadius: 2 }}>
+        <CardContent sx={{ pb: '16px !important' }}>
+          <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
+            Observaciones y Confirmar
+          </Typography>
+          <Divider sx={{ mb: 3 }} />
 
-      <Controller
-        name="notes"
-        control={control}
-        render={({ field }) => (
-          <TextField
-            {...field}
-            fullWidth
-            multiline
-            rows={4}
-            label="Notas u Observaciones"
-            placeholder="Agregue cualquier información adicional sobre esta orden..."
-            helperText={
-              isClientSelected
-                ? 'Opcional: instrucciones especiales, detalles importantes, etc.'
-                : 'Primero seleccione un cliente'
-            }
-            disabled={!isClientSelected}
+          <Controller
+            name="notes"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                fullWidth
+                multiline
+                rows={4}
+                label="Notas u Observaciones"
+                placeholder="Agregue cualquier información adicional sobre esta orden..."
+                helperText={
+                  isClientSelected
+                    ? 'Opcional: instrucciones especiales, detalles importantes, etc.'
+                    : 'Primero seleccione un cliente'
+                }
+                disabled={!isClientSelected}
+              />
+            )}
           />
-        )}
-      />
+        </CardContent>
+      </Card>
 
       {/* Resumen */}
-      <Card variant="outlined">
-        <CardContent>
-          <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" gutterBottom>
-            RESUMEN
+      <Card variant="outlined" sx={{ borderRadius: 2 }}>
+        <CardContent sx={{ pb: '16px !important' }}>
+          <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
+            Resumen
           </Typography>
+          <Divider sx={{ mb: 2 }} />
           <Stack spacing={0.5}>
             <Typography variant="body2">
               <strong>Cliente:</strong> {selectedClient?.name ?? '—'}
@@ -817,6 +834,26 @@ export const OrderFormPage: React.FC = () => {
             <Divider sx={{ my: 0.5 }} />
             <Typography variant="body2" fontWeight={700}>
               <strong>Total:</strong> {formatCurrency(total)}
+            </Typography>
+            <Divider sx={{ my: 0.5 }} />
+            <Typography variant="body2" color="primary.main" fontWeight={600}>
+              <strong>Anticipo:</strong> {formatCurrency(watch('payment.amount') || 0)}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              <strong>Método de pago:</strong> {
+                {
+                  CASH: 'Efectivo',
+                  TRANSFER: 'Transferencia',
+                  CARD: 'Tarjeta',
+                  CHECK: 'Cheque',
+                  CREDIT: 'Crédito',
+                  OTHER: 'Otro'
+                }[watch('payment.paymentMethod')] || watch('payment.paymentMethod')
+              }
+            </Typography>
+            <Divider sx={{ my: 0.5 }} />
+            <Typography variant="body2" color="error.main" fontWeight={700}>
+              <strong>Saldo por pagar:</strong> {formatCurrency(total - (watch('payment.amount') || 0))}
             </Typography>
           </Stack>
         </CardContent>
