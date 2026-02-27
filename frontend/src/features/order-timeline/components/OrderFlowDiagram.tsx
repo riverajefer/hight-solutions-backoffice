@@ -28,15 +28,45 @@ export default function OrderFlowDiagram({ data }: OrderFlowDiagramProps) {
   const isDark = theme.palette.mode === 'dark';
 
   const { layoutedNodes, layoutedEdges } = useMemo(() => {
-    const nodes: Node[] = data.nodes.map((node) => ({
-      id: node.id,
-      type: 'orderNode' as const,
-      position: { x: 0, y: 0 },
-      data: {
-        ...node,
-        isFocused: node.id === data.focusedId,
-      } as Record<string, unknown>,
-    }));
+    const createdAtMap: Record<string, number> = Object.fromEntries(
+      data.nodes.map((n) => [n.id, new Date(n.createdAt).getTime()]),
+    );
+    const childrenMap: Record<string, string[]> = {};
+    data.edges.forEach((e) => {
+      if (!childrenMap[e.source]) childrenMap[e.source] = [];
+      childrenMap[e.source].push(e.target);
+    });
+
+    const nodes: Node[] = data.nodes.map((node) => {
+      const children = childrenMap[node.id] ?? [];
+
+      let endTime: number;
+      if (node.endedAt) {
+        // OT completada/cancelada: el reloj se detiene en su propio timestamp de cierre
+        endTime = new Date(node.endedAt).getTime();
+      } else if (node.type !== 'OT' && children.length > 0) {
+        // COT y OP: el tiempo corre hasta que nació el primer documento hijo
+        endTime = Math.min(...children.map((cId) => createdAtMap[cId]));
+      } else {
+        // OT activa, OG, o nodo sin hijos: tiempo en curso hasta ahora
+        endTime = Date.now();
+      }
+
+      const durationMs = endTime - new Date(node.createdAt).getTime();
+      const isOngoing = !node.endedAt && (node.type === 'OT' || children.length === 0);
+
+      return {
+        id: node.id,
+        type: 'orderNode' as const,
+        position: { x: 0, y: 0 },
+        data: {
+          ...node,
+          isFocused: node.id === data.focusedId,
+          durationMs,
+          isOngoing,
+        } as Record<string, unknown>,
+      };
+    });
 
     const edges: Edge[] = data.edges.map((edge) => ({
       id: `e-${edge.source}-${edge.target}`,

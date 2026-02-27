@@ -10,6 +10,19 @@ export interface OrderTreeNode {
   clientName: string;
   total: number | null;
   detailPath: string;
+  createdAt: string;
+  /** ISO timestamp de cierre del nodo; solo presente en OT cuando su estado es terminal (COMPLETED/CANCELLED). */
+  endedAt: string | null;
+  /** Presente en COT y OP: nombre del usuario que creó el documento. */
+  createdByName?: string | null;
+  /** Solo presente en nodos COT: nombre del canal comercial asociado. */
+  commercialChannelName?: string | null;
+  /** Solo presente en nodos OP: saldo pendiente de pago (balance = total - paidAmount). */
+  pendingBalance?: number | null;
+  /** Solo presente en nodos OT: nombre del asesor que gestiona la orden de trabajo. */
+  advisorName?: string | null;
+  /** Solo presente en nodos OT: nombre del diseñador asignado. */
+  designerName?: string | null;
 }
 
 export interface OrderTreeEdge {
@@ -28,6 +41,18 @@ export interface OrderTreeResponse {
 export class OrderTimelineService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private buildUserDisplayName(user: {
+    firstName: string | null;
+    lastName: string | null;
+  }): string | null {
+    const fullName = [user.firstName, user.lastName]
+      .filter((part): part is string => Boolean(part && part.trim()))
+      .join(' ')
+      .trim();
+
+    return fullName || null;
+  }
+
   async getOrderTree(
     entityId: string,
     entityType: EntityType,
@@ -43,6 +68,9 @@ export class OrderTimelineService {
         orderNumber: true,
         status: true,
         total: true,
+        balance: true,
+        createdAt: true,
+        createdBy: { select: { firstName: true, lastName: true } },
         client: { select: { name: true } },
         quote: {
           select: {
@@ -50,7 +78,10 @@ export class OrderTimelineService {
             quoteNumber: true,
             status: true,
             total: true,
+            createdAt: true,
             client: { select: { name: true } },
+            createdBy: { select: { firstName: true, lastName: true } },
+            commercialChannel: { select: { name: true } },
           },
         },
         workOrders: {
@@ -58,6 +89,10 @@ export class OrderTimelineService {
             id: true,
             workOrderNumber: true,
             status: true,
+            createdAt: true,
+            updatedAt: true,
+            advisor: { select: { firstName: true, lastName: true } },
+            designer: { select: { firstName: true, lastName: true } },
             order: {
               select: {
                 total: true,
@@ -69,6 +104,7 @@ export class OrderTimelineService {
                 id: true,
                 ogNumber: true,
                 status: true,
+                createdAt: true,
                 items: {
                   select: { total: true },
                 },
@@ -98,6 +134,8 @@ export class OrderTimelineService {
     const edges: OrderTreeEdge[] = [];
     const clientName = order.client.name;
 
+    const OT_TERMINAL_STATUSES = ['COMPLETED', 'CANCELLED'];
+
     // Add Quote node if exists
     if (order.quote) {
       nodes.push({
@@ -108,6 +146,10 @@ export class OrderTimelineService {
         clientName: order.quote.client.name,
         total: order.quote.total ? Number(order.quote.total) : null,
         detailPath: `/quotes/${order.quote.id}`,
+        createdAt: order.quote.createdAt.toISOString(),
+        endedAt: null,
+        createdByName: this.buildUserDisplayName(order.quote.createdBy),
+        commercialChannelName: order.quote.commercialChannel?.name ?? null,
       });
       edges.push({ source: order.quote.id, target: order.id });
     }
@@ -121,6 +163,10 @@ export class OrderTimelineService {
       clientName,
       total: order.total ? Number(order.total) : null,
       detailPath: `/orders/${order.id}`,
+      createdAt: order.createdAt.toISOString(),
+      endedAt: null,
+      createdByName: this.buildUserDisplayName(order.createdBy),
+      pendingBalance: order.balance != null ? Number(order.balance) : null,
     });
 
     // Add WorkOrder nodes and their ExpenseOrders
@@ -133,6 +179,14 @@ export class OrderTimelineService {
         clientName,
         total: null,
         detailPath: `/work-orders/${wo.id}`,
+        createdAt: wo.createdAt.toISOString(),
+        endedAt: OT_TERMINAL_STATUSES.includes(wo.status)
+          ? wo.updatedAt.toISOString()
+          : null,
+        advisorName: this.buildUserDisplayName(wo.advisor),
+        designerName: wo.designer
+          ? this.buildUserDisplayName(wo.designer)
+          : null,
       });
       edges.push({ source: order.id, target: wo.id });
 
@@ -149,6 +203,8 @@ export class OrderTimelineService {
           clientName,
           total: eoTotal || null,
           detailPath: `/expense-orders/${eo.id}`,
+          createdAt: eo.createdAt.toISOString(),
+          endedAt: null,
         });
         edges.push({ source: wo.id, target: eo.id });
       }
@@ -367,7 +423,10 @@ export class OrderTimelineService {
         quoteNumber: true,
         status: true,
         total: true,
+        createdAt: true,
         client: { select: { name: true } },
+        createdBy: { select: { firstName: true, lastName: true } },
+        commercialChannel: { select: { name: true } },
       },
     });
 
@@ -385,6 +444,10 @@ export class OrderTimelineService {
           clientName: quote.client.name,
           total: quote.total ? Number(quote.total) : null,
           detailPath: `/quotes/${quote.id}`,
+          createdAt: quote.createdAt.toISOString(),
+          endedAt: null,
+          createdByName: this.buildUserDisplayName(quote.createdBy),
+          commercialChannelName: quote.commercialChannel?.name ?? null,
         },
       ],
       edges: [],
@@ -405,6 +468,7 @@ export class OrderTimelineService {
         id: true,
         ogNumber: true,
         status: true,
+        createdAt: true,
         items: { select: { total: true } },
       },
     });
@@ -430,6 +494,8 @@ export class OrderTimelineService {
           clientName: 'Sin cliente',
           total: total || null,
           detailPath: `/expense-orders/${eo.id}`,
+          createdAt: eo.createdAt.toISOString(),
+          endedAt: null,
         },
       ],
       edges: [],

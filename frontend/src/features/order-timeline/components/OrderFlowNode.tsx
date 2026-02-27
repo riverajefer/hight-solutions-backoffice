@@ -9,7 +9,27 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import BuildIcon from '@mui/icons-material/Build';
 import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
+import CampaignOutlinedIcon from '@mui/icons-material/CampaignOutlined';
+import EventOutlinedIcon from '@mui/icons-material/EventOutlined';
+import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined';
+import BrushOutlinedIcon from '@mui/icons-material/BrushOutlined';
 import type { OrderTreeNode } from '../types/order-timeline.types';
+
+function formatDuration(ms: number): string {
+  const minutes = Math.floor(ms / 60000);
+  const hours = Math.floor(ms / 3600000);
+  const days = Math.floor(ms / 86400000);
+  const weeks = Math.floor(days / 7);
+  const months = Math.floor(days / 30);
+
+  if (months >= 1) return `${months} ${months === 1 ? 'mes' : 'meses'}`;
+  if (weeks >= 1) return `${weeks} sem`;
+  if (days >= 1) return `${days} ${days === 1 ? 'día' : 'días'}`;
+  if (hours >= 1) return `${hours} ${hours === 1 ? 'hora' : 'horas'}`;
+  return `${minutes} min`;
+}
 
 const TYPE_CONFIG: Record<
   string,
@@ -65,6 +85,8 @@ const STATUS_LABELS: Record<string, string> = {
 
 export interface OrderFlowNodeData extends OrderTreeNode {
   isFocused: boolean;
+  durationMs: number;
+  isOngoing: boolean;
   [key: string]: unknown;
 }
 
@@ -183,17 +205,213 @@ function OrderFlowNode({ data }: NodeProps) {
               })}
             </Typography>
           )}
+
+          {/* OP metadata: fecha, creador y saldo pendiente */}
+          {nodeData.type === 'OP' && (
+            <Box
+              sx={{
+                mt: 0.75,
+                pt: 0.75,
+                borderTop: `1px dashed ${alpha(config.color, 0.25)}`,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 0.4,
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <EventOutlinedIcon sx={{ fontSize: 11, color: theme.palette.text.disabled, flexShrink: 0 }} />
+                <Typography
+                  variant="caption"
+                  sx={{ fontSize: '0.68rem', color: theme.palette.text.secondary, lineHeight: 1.3 }}
+                >
+                  {new Date(nodeData.createdAt).toLocaleString('es-CO', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </Typography>
+              </Box>
+
+              {nodeData.createdByName && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <PersonOutlineIcon sx={{ fontSize: 11, color: theme.palette.text.disabled, flexShrink: 0 }} />
+                  <Typography
+                    noWrap
+                    variant="caption"
+                    sx={{ fontSize: '0.68rem', color: theme.palette.text.secondary, lineHeight: 1.3 }}
+                  >
+                    {nodeData.createdByName}
+                  </Typography>
+                </Box>
+              )}
+
+              {nodeData.pendingBalance != null && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <AccountBalanceWalletOutlinedIcon sx={{ fontSize: 11, color: nodeData.pendingBalance > 0 ? '#F97316' : '#10B981', flexShrink: 0 }} />
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontSize: '0.68rem',
+                      fontWeight: 600,
+                      color: nodeData.pendingBalance > 0 ? '#F97316' : '#10B981',
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    {nodeData.pendingBalance > 0
+                      ? `Saldo: $${nodeData.pendingBalance.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+                      : 'Pagado'}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          )}
+
+          {/* OT metadata: fecha, asesor y diseñador */}
+          {nodeData.type === 'OT' && (
+            <Box
+              sx={{
+                mt: 0.75,
+                pt: 0.75,
+                borderTop: `1px dashed ${alpha(config.color, 0.25)}`,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 0.4,
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <EventOutlinedIcon sx={{ fontSize: 11, color: theme.palette.text.disabled, flexShrink: 0 }} />
+                <Typography
+                  variant="caption"
+                  sx={{ fontSize: '0.68rem', color: theme.palette.text.secondary, lineHeight: 1.3 }}
+                >
+                  {new Date(nodeData.createdAt).toLocaleString('es-CO', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </Typography>
+              </Box>
+
+              {nodeData.advisorName && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <PersonOutlineIcon sx={{ fontSize: 11, color: theme.palette.text.disabled, flexShrink: 0 }} />
+                  <Typography
+                    noWrap
+                    variant="caption"
+                    sx={{ fontSize: '0.68rem', color: theme.palette.text.secondary, lineHeight: 1.3 }}
+                  >
+                    {nodeData.advisorName}
+                  </Typography>
+                </Box>
+              )}
+
+              {nodeData.designerName && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <BrushOutlinedIcon sx={{ fontSize: 11, color: theme.palette.text.disabled, flexShrink: 0 }} />
+                  <Typography
+                    noWrap
+                    variant="caption"
+                    sx={{ fontSize: '0.68rem', color: theme.palette.text.secondary, lineHeight: 1.3 }}
+                  >
+                    {nodeData.designerName}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          )}
+
+          {/* COT metadata: fecha, creador y canal comercial */}
+          {nodeData.type === 'COT' && (
+            <Box
+              sx={{
+                mt: 0.75,
+                pt: 0.75,
+                borderTop: `1px dashed ${alpha(config.color, 0.25)}`,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 0.4,
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <EventOutlinedIcon sx={{ fontSize: 11, color: theme.palette.text.disabled, flexShrink: 0 }} />
+                <Typography
+                  variant="caption"
+                  sx={{ fontSize: '0.68rem', color: theme.palette.text.secondary, lineHeight: 1.3 }}
+                >
+                  {new Date(nodeData.createdAt).toLocaleString('es-CO', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </Typography>
+              </Box>
+
+              {nodeData.createdByName && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <PersonOutlineIcon sx={{ fontSize: 11, color: theme.palette.text.disabled, flexShrink: 0 }} />
+                  <Typography
+                    noWrap
+                    variant="caption"
+                    sx={{ fontSize: '0.68rem', color: theme.palette.text.secondary, lineHeight: 1.3 }}
+                  >
+                    {nodeData.createdByName}
+                  </Typography>
+                </Box>
+              )}
+
+              {nodeData.commercialChannelName && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <CampaignOutlinedIcon sx={{ fontSize: 11, color: theme.palette.text.disabled, flexShrink: 0 }} />
+                  <Typography
+                    noWrap
+                    variant="caption"
+                    sx={{ fontSize: '0.68rem', color: theme.palette.text.secondary, lineHeight: 1.3 }}
+                  >
+                    {nodeData.commercialChannelName}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          )}
         </Box>
 
-        {/* Footer with status */}
+        {/* Footer with status and duration */}
         <Box
           sx={{
             px: 1.5,
             pb: 1,
             display: 'flex',
-            justifyContent: 'flex-end',
+            justifyContent: nodeData.type === 'OG' ? 'flex-end' : 'space-between',
+            alignItems: 'center',
           }}
         >
+          {nodeData.type !== 'OG' && (
+            <Chip
+              icon={<AccessTimeIcon sx={{ fontSize: '0.65rem !important' }} />}
+              label={formatDuration(nodeData.durationMs)}
+              size="small"
+              sx={{
+                bgcolor: nodeData.isOngoing
+                  ? alpha(config.color, 0.12)
+                  : alpha('#9CA3AF', 0.12),
+                color: nodeData.isOngoing ? config.color : '#9CA3AF',
+                fontWeight: 600,
+                fontSize: '0.62rem',
+                height: 20,
+                '& .MuiChip-label': { px: 0.75 },
+                '& .MuiChip-icon': {
+                  color: nodeData.isOngoing ? config.color : '#9CA3AF',
+                  ml: 0.5,
+                },
+              }}
+            />
+          )}
           <Chip
             label={statusLabel}
             size="small"
