@@ -25,6 +25,7 @@ import {
   Edit as EditIcon,
   SwapHoriz as SwapHorizIcon,
   AccountTree as AccountTreeIcon,
+  ReceiptLong as ReceiptLongIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { ToolbarButton } from '../../orders/components/ToolbarButton';
@@ -75,6 +76,7 @@ export const WorkOrderDetailPage = () => {
   const [newStatus, setNewStatus] = useState<WorkOrderStatus | ''>('');
 
   const canUpdate = hasPermission(PERMISSIONS.UPDATE_WORK_ORDERS);
+  const canCreateExpenseOrder = hasPermission(PERMISSIONS.CREATE_EXPENSE_ORDERS);
 
   const workOrder = workOrderQuery.data;
 
@@ -105,6 +107,7 @@ export const WorkOrderDetailPage = () => {
   const designerName = workOrder.designer
     ? `${workOrder.designer.firstName ?? ''} ${workOrder.designer.lastName ?? ''}`.trim() || workOrder.designer.email
     : '-';
+  const expenseOrders = workOrder.expenseOrders ?? [];
 
   return (
     <Box sx={{ p: 3 }}>
@@ -153,7 +156,7 @@ export const WorkOrderDetailPage = () => {
             />
           }
         >
-          {canUpdate && ['DRAFT', 'CONFIRMED'].includes(currentStatus) && (
+          {canUpdate && ['DRAFT', 'CONFIRMED', 'IN_PRODUCTION'].includes(currentStatus) && (
             <ToolbarButton
               icon={<EditIcon />}
               label="Editar"
@@ -179,6 +182,19 @@ export const WorkOrderDetailPage = () => {
             onClick={() => navigate(`/orders/flow/work-order/${id}`)}
             tooltip="Ver Trazabilidad"
           />
+
+          {canCreateExpenseOrder && (
+            <ToolbarButton
+              icon={<ReceiptLongIcon />}
+              label="Gasto"
+              secondaryLabel="Nuevo"
+              onClick={() =>
+                navigate(`${ROUTES.EXPENSE_ORDERS_CREATE}?workOrderId=${id}`)
+              }
+              color={theme.palette.warning.main}
+              tooltip="Crear Orden de Gasto"
+            />
+          )}
         </Stack>
       </Paper>
 
@@ -259,6 +275,40 @@ export const WorkOrderDetailPage = () => {
             </CardContent>
           </Card>
         </Grid>
+
+        {/* Gastos asociados (OG) */}
+        {expenseOrders.length > 0 && (
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Gastos Asociados (OG)
+                </Typography>
+                <Stack spacing={1.5} divider={<Divider />}>
+                  {expenseOrders.map((expenseOrder) => (
+                    <Box key={expenseOrder.id}>
+                      <Typography variant="caption" color="text.secondary">
+                        Orden de Gasto
+                      </Typography>
+                      <Typography
+                        variant="body1"
+                        component="span"
+                        sx={{ cursor: 'pointer', color: 'primary.main', display: 'block' }}
+                        onClick={() =>
+                          navigate(
+                            ROUTES.EXPENSE_ORDERS_DETAIL.replace(':id', expenseOrder.id),
+                          )
+                        }
+                      >
+                        {expenseOrder.ogNumber}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+        )}
 
         {/* Items / Productos */}
         <Grid item xs={12}>

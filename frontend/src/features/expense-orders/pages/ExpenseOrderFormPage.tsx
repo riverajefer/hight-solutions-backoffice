@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -201,6 +201,7 @@ const StepHeader: React.FC<StepHeaderProps> = ({ index, config, status, clickabl
 export const ExpenseOrderFormPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const isEditing = !!id;
 
   const [activeStep, setActiveStep] = useState(0);
@@ -222,6 +223,7 @@ export const ExpenseOrderFormPage = () => {
   // receiptFiles[i] holds the File selected for items[i] (not yet uploaded)
   const [receiptFiles, setReceiptFiles] = useState<(File | null)[]>([null]);
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const prefillAppliedRef = useRef(false);
 
   // ─── Data queries ───────────────────────────────────────────────────────────
   const { data: expenseTypes = [], isLoading: loadingTypes } = useExpenseTypes();
@@ -278,6 +280,50 @@ export const ExpenseOrderFormPage = () => {
   const subcategories = selectedType?.subcategories ?? [];
   const isProduccionType = selectedType?.name?.toLowerCase() === 'producción';
   const hasWorkOrder = !!workOrderId;
+
+  const normalizeText = (value: string) =>
+    value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+
+  // ─── Prefill desde detalle de OT (solo en creación) ─────────────────────────
+  useEffect(() => {
+    if (isEditing || prefillAppliedRef.current || expenseTypes.length === 0) {
+      return;
+    }
+
+    const queryParams = new URLSearchParams(location.search);
+    const prefillWorkOrderId = queryParams.get('workOrderId');
+    if (!prefillWorkOrderId) {
+      prefillAppliedRef.current = true;
+      return;
+    }
+
+    const productionType = expenseTypes.find(
+      (type) => normalizeText(type.name) === 'produccion',
+    );
+
+    if (!productionType) {
+      prefillAppliedRef.current = true;
+      return;
+    }
+
+    const directCostSubcategory =
+      productionType.subcategories?.find(
+        (subcategory) =>
+          normalizeText(subcategory.name) ===
+          'costos directos de orden de trabajo',
+      ) ?? null;
+
+    setExpenseTypeId(productionType.id);
+    if (directCostSubcategory) {
+      setExpenseSubcategoryId(directCostSubcategory.id);
+    }
+    setWorkOrderId(prefillWorkOrderId);
+    prefillAppliedRef.current = true;
+  }, [expenseTypes, isEditing, location.search]);
 
   const totalAmount = useMemo(() => {
     return items.reduce((acc, item) => {

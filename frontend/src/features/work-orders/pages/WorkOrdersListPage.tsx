@@ -6,9 +6,14 @@ import {
   MenuItem,
   TextField,
   Button,
+  Chip,
+  Typography,
 } from '@mui/material';
 import { GridColDef } from '@mui/x-data-grid';
-import { Add as AddIcon } from '@mui/icons-material';
+import {
+  Add as AddIcon,
+  ReceiptLong as ReceiptLongIcon,
+} from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { DataTable } from '../../../components/common/DataTable';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
@@ -28,6 +33,21 @@ const formatDate = (date: string): string => {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(date));
+};
+
+const getOgChipColor = (
+  status: string,
+): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
+  switch (status) {
+    case 'PAID':
+      return 'success';
+    case 'AUTHORIZED':
+      return 'warning';
+    case 'CREATED':
+      return 'info';
+    default:
+      return 'default';
+  }
 };
 
 const STATUS_OPTIONS: { value: WorkOrderStatus | ''; label: string }[] = [
@@ -89,6 +109,47 @@ export const WorkOrdersListPage = () => {
       valueGetter: (_, row) => row.order?.orderNumber ?? '-',
     },
     {
+      field: 'expenseOrders',
+      headerName: 'OG',
+      width: 280,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => {
+        const expenseOrders = params.row.expenseOrders ?? [];
+
+        if (!expenseOrders.length) {
+          return <Typography variant="body2" color="text.disabled">—</Typography>;
+        }
+
+        return (
+          <Stack
+            direction="row"
+            spacing={0.75}
+            alignItems="center"
+            flexWrap="wrap"
+            useFlexGap
+            sx={{ py: 0.5, maxWidth: '100%' }}
+          >
+            {expenseOrders.map((og) => (
+              <Chip
+                key={og.id}
+                icon={<ReceiptLongIcon sx={{ fontSize: '0.85rem !important' }} />}
+                label={og.ogNumber}
+                size="small"
+                variant="outlined"
+                color={getOgChipColor(og.status)}
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  navigate(ROUTES.EXPENSE_ORDERS_DETAIL.replace(':id', og.id));
+                }}
+                sx={{ cursor: 'pointer', fontWeight: 600, fontSize: '0.75rem' }}
+              />
+            ))}
+          </Stack>
+        );
+      },
+    },
+    {
       field: 'client',
       headerName: 'Cliente',
       width: 220,
@@ -125,7 +186,7 @@ export const WorkOrdersListPage = () => {
         <ActionsCell
           onView={() => handleView(params.row)}
           onEdit={
-            canUpdate && ['DRAFT', 'CONFIRMED'].includes(params.row.status)
+            canUpdate && ['DRAFT', 'CONFIRMED', 'IN_PRODUCTION'].includes(params.row.status)
               ? () => handleEdit(params.row)
               : undefined
           }

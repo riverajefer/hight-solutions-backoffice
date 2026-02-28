@@ -26,6 +26,7 @@ const ALLOWED_TRANSITIONS: Record<WorkOrderStatus, WorkOrderStatus[]> = {
 const EDITABLE_STATUSES: WorkOrderStatus[] = [
   WorkOrderStatus.DRAFT,
   WorkOrderStatus.CONFIRMED,
+  WorkOrderStatus.IN_PRODUCTION,
 ];
 
 @Injectable()
@@ -143,7 +144,7 @@ export class WorkOrdersService {
 
     if (!EDITABLE_STATUSES.includes(workOrder.status as WorkOrderStatus)) {
       throw new BadRequestException(
-        `No se puede modificar una OT en estado ${workOrder.status}. Solo se permite editar en estados DRAFT o CONFIRMED.`,
+        `No se puede modificar una OT en estado ${workOrder.status}. Solo se permite editar en estados DRAFT, CONFIRMED o IN_PRODUCTION.`,
       );
     }
 

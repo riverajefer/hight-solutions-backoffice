@@ -280,15 +280,14 @@ describe('WorkOrdersService', () => {
       expect(mockWorkOrdersRepository.update).toHaveBeenCalled();
     });
 
-    it('should throw BadRequestException when work order is IN_PRODUCTION', async () => {
-      (mockWorkOrdersRepository.findById as jest.Mock).mockResolvedValue({
-        ...mockWorkOrder,
-        status: WorkOrderStatus.IN_PRODUCTION,
-      });
+    it('should update scalar fields on an IN_PRODUCTION work order', async () => {
+      const inProductionWorkOrder = { ...mockWorkOrder, status: WorkOrderStatus.IN_PRODUCTION };
+      (mockWorkOrdersRepository.findById as jest.Mock).mockResolvedValue(inProductionWorkOrder);
+      (mockWorkOrdersRepository.update as jest.Mock).mockResolvedValue(inProductionWorkOrder);
 
-      await expect(service.update('wo-1', { fileName: 'x.pdf' } as any)).rejects.toThrow(
-        BadRequestException,
-      );
+      await service.update('wo-1', { fileName: 'updated-in-production.pdf' } as any);
+
+      expect(mockWorkOrdersRepository.update).toHaveBeenCalled();
     });
 
     it('should throw BadRequestException when work order is COMPLETED', async () => {

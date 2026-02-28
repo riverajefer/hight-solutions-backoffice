@@ -243,8 +243,8 @@ export class QuotesService {
 
   async remove(id: string) {
     const quote = await this.findOne(id);
-    if (quote.status === QuoteStatus.CONVERTED) {
-      throw new BadRequestException('Cannot delete a converted quote');
+    if (quote.status !== QuoteStatus.DRAFT) {
+      throw new BadRequestException('Only draft quotes can be deleted');
     }
     await this.quotesRepository.delete(id);
     return { message: 'Quote deleted successfully' };

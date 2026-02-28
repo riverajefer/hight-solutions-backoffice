@@ -127,7 +127,7 @@ export const QuoteDetailPage: React.FC = () => {
 
   const isConverted = quote.status === QuoteStatus.CONVERTED;
   const canEdit = !isConverted;
-  const canDelete = !isConverted;
+  const canDelete = quote.status === QuoteStatus.DRAFT;
   const canConvert = quote.status === QuoteStatus.ACCEPTED;
 
   const handleMenuClose = () => setAnchorEl(null);

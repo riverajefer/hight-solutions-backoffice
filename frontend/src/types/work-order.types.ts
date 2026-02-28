@@ -80,6 +80,11 @@ export interface WorkOrder {
     lastName?: string | null;
     email: string;
   } | null;
+  expenseOrders?: Array<{
+    id: string;
+    ogNumber: string;
+    status: string;
+  }>;
   items: WorkOrderItem[];
   createdAt: string;
   updatedAt: string;

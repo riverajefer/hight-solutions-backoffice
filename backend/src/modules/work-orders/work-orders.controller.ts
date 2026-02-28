@@ -78,7 +78,7 @@ export class WorkOrdersController {
 
   @Patch(':id')
   @RequirePermissions('update_work_orders')
-  @ApiOperation({ summary: 'Actualizar una OT (solo en DRAFT o CONFIRMED)' })
+  @ApiOperation({ summary: 'Actualizar una OT (solo en DRAFT, CONFIRMED o IN_PRODUCTION)' })
   @ApiParam({ name: 'id', description: 'ID de la OT' })
   @ApiResponse({ status: 200, description: 'OT actualizada correctamente' })
   @ApiResponse({ status: 400, description: 'No se puede modificar en el estado actual' })

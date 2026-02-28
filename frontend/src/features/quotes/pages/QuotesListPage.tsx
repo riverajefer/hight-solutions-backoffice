@@ -160,7 +160,7 @@ export const QuotesListPage: React.FC = () => {
       renderCell: (params) => {
         const isConverted = params.row.status === QStatus.CONVERTED;
         const canEdit = !isConverted;
-        const canDelete = !isConverted;
+        const canDelete = params.row.status === QStatus.DRAFT;
         const canConvert = params.row.status === QStatus.ACCEPTED;
 
         return (

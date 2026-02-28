@@ -45,6 +45,16 @@ export class WorkOrdersRepository {
         email: true,
       },
     },
+    expenseOrders: {
+      select: {
+        id: true,
+        ogNumber: true,
+        status: true,
+      },
+      orderBy: {
+        createdAt: 'desc' as const,
+      },
+    },
     items: {
       select: {
         id: true,

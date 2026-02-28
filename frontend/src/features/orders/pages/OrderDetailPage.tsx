@@ -28,6 +28,7 @@ import {
   InputLabel,
   Select,
   IconButton,
+  CircularProgress,
   FormLabel,
   Tabs,
   Tab,
@@ -156,6 +157,7 @@ export const OrderDetailPage: React.FC = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [discountDialogOpen, setDiscountDialogOpen] = useState(false);
   const [tabValue, setTabValue] = useState(0);
   const [paymentData, setPaymentData] = useState<CreatePaymentDto>({
@@ -214,7 +216,6 @@ export const OrderDetailPage: React.FC = () => {
   const canEdit = ['DRAFT', 'CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'WARRANTY', 'CANCELLED', 'COMPLETED'].includes(
     order.status
   );
-  const canDelete = ['DRAFT', 'CANCELLED'].includes(order.status);
   const canAddPayment = ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'DELIVERED_ON_CREDIT', 'PAID'].includes(
     order.status
   );
@@ -235,6 +236,7 @@ export const OrderDetailPage: React.FC = () => {
   };
 
   const handleMenuClose = () => {
+    if (updateStatusMutation.isPending) return;
     setAnchorEl(null);
   };
 
@@ -249,33 +251,43 @@ export const OrderDetailPage: React.FC = () => {
   };
 
   const handleAddPayment = async () => {
-    const payment = await addPaymentMutation.mutateAsync(paymentData);
+    if (paymentSubmitting) return;
 
-    // Si hay archivo, subirlo
-    if (receiptFile && payment) {
-      try {
-        await ordersApi.uploadPaymentReceipt(id!, payment.id, receiptFile);
-        await paymentsQuery.refetch();
-        enqueueSnackbar('Pago registrado con comprobante exitosamente', {
-          variant: 'success'
-        });
-      } catch (error) {
-        console.error('Error uploading receipt:', error);
-        enqueueSnackbar('Pago registrado pero hubo un error al subir el comprobante', {
-          variant: 'warning'
-        });
+    setPaymentSubmitting(true);
+    try {
+      const payment = await addPaymentMutation.mutateAsync(paymentData);
+
+      // Si hay archivo, subirlo
+      if (receiptFile && payment) {
+        try {
+          await ordersApi.uploadPaymentReceipt(id!, payment.id, receiptFile);
+          await paymentsQuery.refetch();
+          enqueueSnackbar('Pago registrado con comprobante exitosamente', {
+            variant: 'success'
+          });
+        } catch (error) {
+          console.error('Error uploading receipt:', error);
+          enqueueSnackbar('Pago registrado pero hubo un error al subir el comprobante', {
+            variant: 'warning'
+          });
+        }
+      } else {
+        enqueueSnackbar('Pago registrado exitosamente', { variant: 'success' });
       }
-    } else {
-      enqueueSnackbar('Pago registrado exitosamente', { variant: 'success' });
-    }
 
-    setPaymentDialogOpen(false);
-    setPaymentData({
-      amount: 0,
-      paymentMethod: 'CASH',
-      paymentDate: new Date().toISOString(),
-    });
-    setReceiptFile(null);
+      setPaymentDialogOpen(false);
+      setPaymentData({
+        amount: 0,
+        paymentMethod: 'CASH',
+        paymentDate: new Date().toISOString(),
+      });
+      setReceiptFile(null);
+    } catch (error) {
+      console.error('Error adding payment:', error);
+      enqueueSnackbar('Error al registrar el pago', { variant: 'error' });
+    } finally {
+      setPaymentSubmitting(false);
+    }
   };
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
@@ -526,6 +538,7 @@ export const OrderDetailPage: React.FC = () => {
             icon={<RefreshIcon />}
             label="Estado"
             onClick={handleMenuOpen}
+            disabled={updateStatusMutation.isPending}
             tooltip="Cambiar Estado"
           />
 
@@ -1062,11 +1075,20 @@ export const OrderDetailPage: React.FC = () => {
       </Box>
 
       {/* Menu de Acciones */}
-      <Menu anchorEl={anchorEl} open={openMenu} onClose={handleMenuClose}>
+      <Menu
+        anchorEl={anchorEl}
+        open={openMenu}
+        onClose={handleMenuClose}
+      >
         <MenuItem disabled>
-          <Typography variant="caption" color="textSecondary">
-            Cambiar Estado de la Orden
-          </Typography>
+          <Stack direction="row" spacing={1} alignItems="center">
+            {updateStatusMutation.isPending && <CircularProgress size={14} />}
+            <Typography variant="caption" color="textSecondary">
+              {updateStatusMutation.isPending
+                ? 'Actualizando estado...'
+                : 'Cambiar Estado de la Orden'}
+            </Typography>
+          </Stack>
         </MenuItem>
         {Object.entries(ORDER_STATUS_CONFIG).map(([status, config]) => {
           const validNextStatuses = ALLOWED_TRANSITIONS[order.status] || [];
@@ -1076,7 +1098,7 @@ export const OrderDetailPage: React.FC = () => {
             <MenuItem
               key={status}
               onClick={() => handleChangeStatus(status as OrderStatus)}
-              disabled={!isAllowed}
+              disabled={!isAllowed || updateStatusMutation.isPending}
             >
               <Chip
                 label={config.label}
@@ -1092,19 +1114,23 @@ export const OrderDetailPage: React.FC = () => {
             </MenuItem>
           );
         })}
-        <Divider />
+{/*         <Divider />
         {canDelete && (
           <MenuItem onClick={() => setConfirmDelete(true)} sx={{ color: 'error.main' }}>
             <DeleteIcon sx={{ mr: 1 }} fontSize="small" />
             Eliminar Orden
           </MenuItem>
-        )}
+        )} */}
       </Menu>
 
       {/* Dialog: Registrar Pago */}
       <Dialog
         open={paymentDialogOpen}
-        onClose={() => setPaymentDialogOpen(false)}
+        onClose={() => {
+          if (!paymentSubmitting) {
+            setPaymentDialogOpen(false);
+          }
+        }}
         maxWidth="sm"
         fullWidth
       >
@@ -1299,15 +1325,20 @@ export const OrderDetailPage: React.FC = () => {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setPaymentDialogOpen(false)}>Cancelar</Button>
+          <Button
+            onClick={() => setPaymentDialogOpen(false)}
+            disabled={paymentSubmitting}
+          >
+            Cancelar
+          </Button>
           <Button
             onClick={handleAddPayment}
             variant="contained"
             disabled={
-              addPaymentMutation.isPending || paymentData.amount <= 0
+              paymentSubmitting || addPaymentMutation.isPending || paymentData.amount <= 0
             }
           >
-            Registrar Pago
+            {paymentSubmitting ? 'Registrando...' : 'Registrar Pago'}
           </Button>
         </DialogActions>
       </Dialog>
