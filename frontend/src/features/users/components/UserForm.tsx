@@ -141,37 +141,6 @@ export const UserForm: React.FC<UserFormProps> = ({
         )}
 
         <Box component="form" onSubmit={handleSubmit(handleFormSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Controller
-            name="email"
-            control={control}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                label="Email (opcional)"
-                type="email"
-                fullWidth
-                error={!!errors.email}
-                helperText={errors.email?.message}
-                disabled={isLoading}
-              />
-            )}
-          />
-
-          <Controller
-            name="username"
-            control={control}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                label="Usuario"
-                fullWidth
-                error={!!errors.username}
-                helperText={errors.username?.message || (!isEdit ? 'Se auto-genera a partir del nombre y apellido' : undefined)}
-                disabled={isLoading}
-              />
-            )}
-          />
-
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
               <Controller
@@ -206,6 +175,37 @@ export const UserForm: React.FC<UserFormProps> = ({
               />
             </Grid>
           </Grid>
+
+          <Controller
+            name="email"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Email (opcional)"
+                type="email"
+                fullWidth
+                error={!!errors.email}
+                helperText={errors.email?.message}
+                disabled={isLoading}
+              />
+            )}
+          />
+
+          <Controller
+            name="username"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Usuario"
+                fullWidth
+                error={!!errors.username}
+                helperText={errors.username?.message || (!isEdit ? 'Se auto-genera a partir del nombre y apellido' : undefined)}
+                disabled={isLoading}
+              />
+            )}
+          />
 
           {!isEdit && (
             <>
