@@ -30,7 +30,7 @@ import {
 import { PageHeader } from '../../../components/common/PageHeader';
 import { ToolbarButton } from '../../orders/components/ToolbarButton';
 import { useWorkOrder } from '../hooks';
-import { WorkOrderStatusChip } from '../components';
+import { WorkOrderStatusChip, WorkOrderPdfButton } from '../components';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS, ROUTES } from '../../../utils/constants';
 import { WorkOrderStatus, WORK_ORDER_STATUS_CONFIG } from '../../../types/work-order.types';
@@ -196,6 +196,8 @@ export const WorkOrderDetailPage = () => {
               tooltip="Crear Orden de Gasto"
             />
           )}
+
+          <WorkOrderPdfButton workOrder={workOrder} />
         </Stack>
       </Paper>
 

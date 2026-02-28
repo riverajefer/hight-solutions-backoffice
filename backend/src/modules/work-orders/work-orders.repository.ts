@@ -27,6 +27,14 @@ export class WorkOrdersRepository {
             name: true,
           },
         },
+        createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
       },
     },
     advisor: {

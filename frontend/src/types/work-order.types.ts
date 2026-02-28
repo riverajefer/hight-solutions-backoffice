@@ -67,6 +67,12 @@ export interface WorkOrder {
       id: string;
       name: string;
     };
+    createdBy: {
+      id: string;
+      firstName?: string | null;
+      lastName?: string | null;
+      email: string;
+    };
   };
   advisor: {
     id: string;
