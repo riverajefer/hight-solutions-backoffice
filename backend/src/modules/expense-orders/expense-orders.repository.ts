@@ -57,6 +57,11 @@ export class ExpenseOrdersRepository {
     createdBy: {
       select: { id: true, firstName: true, lastName: true, email: true },
     },
+    authorizedById: true,
+    authorizedAt: true,
+    authorizedBy: {
+      select: { id: true, firstName: true, lastName: true, email: true },
+    },
     items: {
       select: {
         id: true,
@@ -297,10 +302,19 @@ export class ExpenseOrdersRepository {
     return created;
   }
 
-  async updateStatus(id: string, status: ExpenseOrderStatus) {
+  async updateStatus(
+    id: string,
+    status: ExpenseOrderStatus,
+    authorizedById?: string,
+    authorizedAt?: Date,
+  ) {
     return this.prisma.expenseOrder.update({
       where: { id },
-      data: { status },
+      data: {
+        status,
+        ...(authorizedById !== undefined && { authorizedById }),
+        ...(authorizedAt !== undefined && { authorizedAt }),
+      },
       select: this.selectFields,
     });
   }

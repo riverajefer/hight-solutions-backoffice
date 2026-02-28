@@ -151,6 +151,14 @@ export interface ExpenseOrder {
     lastName?: string | null;
     email: string;
   };
+  authorizedById?: string | null;
+  authorizedAt?: string | null;
+  authorizedBy?: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    email: string;
+  } | null;
   items: ExpenseOrderItem[];
 }
 

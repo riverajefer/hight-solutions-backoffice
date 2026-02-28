@@ -101,6 +101,8 @@ export const useExpenseOrder = (id?: string) => {
       enqueueSnackbar('Estado actualizado correctamente', { variant: 'success' });
     },
     onError: (error: any) => {
+      // Si es 403, el componente maneja el error (muestra diálogo de solicitud de autorización)
+      if (error?.response?.status === 403) return;
       const message = error?.response?.data?.message || 'Error al cambiar el estado';
       enqueueSnackbar(message, { variant: 'error' });
     },

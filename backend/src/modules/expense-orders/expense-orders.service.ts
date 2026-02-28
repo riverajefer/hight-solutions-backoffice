@@ -16,6 +16,7 @@ import {
   UpdateExpenseOrderStatusDto,
 } from './dto';
 import { AuthenticatedUser } from '../../common/interfaces/auth.interface';
+import { ExpenseOrderAuthRequestsService } from '../expense-order-auth-requests/expense-order-auth-requests.service';
 
 const ALLOWED_TRANSITIONS: Record<ExpenseOrderStatus, ExpenseOrderStatus[]> = {
   [ExpenseOrderStatus.DRAFT]: [ExpenseOrderStatus.CREATED, ExpenseOrderStatus.AUTHORIZED],
@@ -35,6 +36,7 @@ export class ExpenseOrdersService {
     private readonly repository: ExpenseOrdersRepository,
     private readonly consecutivesService: ConsecutivesService,
     private readonly prisma: PrismaService,
+    private readonly authRequestsService: ExpenseOrderAuthRequestsService,
   ) {}
 
   async create(
@@ -243,6 +245,34 @@ export class ExpenseOrdersService {
       throw new BadRequestException(
         `No se puede cambiar el estado de ${currentStatus} a ${dto.status}. Transiciones permitidas: ${allowedNext.join(', ') || 'ninguna'}`,
       );
+    }
+
+    // Solo admin puede cambiar a AUTHORIZED directamente; no-admins necesitan solicitud aprobada
+    if (dto.status === ExpenseOrderStatus.AUTHORIZED) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: currentUser.id },
+        include: { role: true },
+      });
+
+      const isAdmin = user?.role?.name === 'admin';
+
+      if (isAdmin) {
+        // Admin autoriza directo — registrar quién autorizó
+        return this.repository.updateStatus(id, dto.status, currentUser.id, new Date());
+      }
+
+      // No-admin: verificar si tiene solicitud aprobada
+      const hasApproval = await this.authRequestsService.hasApprovedRequest(id, currentUser.id);
+      if (!hasApproval) {
+        throw new ForbiddenException(
+          'Autorizar una OG requiere aprobación de un administrador. Por favor, cree una solicitud de autorización.',
+        );
+      }
+
+      // Obtener el admin que aprobó y registrarlo como autorizador
+      const approvedRequest = await this.authRequestsService.getApprovedRequest(id, currentUser.id);
+      await this.authRequestsService.consumeApprovedRequest(id, currentUser.id);
+      return this.repository.updateStatus(id, dto.status, approvedRequest!.reviewedById!, new Date());
     }
 
     // Only users with 'approve_expense_orders' permission can mark as PAID

@@ -21,6 +21,7 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import PendingActionsIcon from '@mui/icons-material/PendingActions';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -28,9 +29,12 @@ import { DataTable } from '../../../components/common/DataTable';
 import { useAuthStore } from '../../../store/authStore';
 import { orderStatusChangeRequestsApi } from '../../../api/order-status-change-requests.api';
 import { editRequestsApi } from '../../../api/edit-requests.api';
+import { expenseOrderAuthRequestsApi } from '../../../api/expense-order-auth-requests.api';
 import { ORDER_STATUS_CONFIG, type OrderStatus } from '../../../types/order.types';
+import { EXPENSE_ORDER_STATUS_CONFIG, ExpenseOrderStatus } from '../../../types/expense-order.types';
 import type { OrderStatusChangeRequest } from '../../../types/order-status-change-request.types';
 import type { OrderEditRequest } from '../../../types/edit-request.types';
+import type { ExpenseOrderAuthRequest } from '../../../types/expense-order-auth-request.types';
 
 // ============================================================
 // CONSTANTES
@@ -88,6 +92,14 @@ export const StatusChangeRequestsPage: React.FC = () => {
   }>({ open: false, request: null, action: null });
   const [editReviewNotes, setEditReviewNotes] = useState('');
 
+  // --- Expense Order Auth Requests ---
+  const [ogAuthReviewDialog, setOgAuthReviewDialog] = useState<{
+    open: boolean;
+    request: ExpenseOrderAuthRequest | null;
+    action: 'approve' | 'reject' | null;
+  }>({ open: false, request: null, action: null });
+  const [ogAuthReviewNotes, setOgAuthReviewNotes] = useState('');
+
   // ============================================================
   // QUERIES
   // ============================================================
@@ -100,6 +112,12 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const { data: editRequests, isLoading: editLoading } = useQuery({
     queryKey: ['editRequests', 'pending'],
     queryFn: () => editRequestsApi.findAllPending(),
+  });
+
+  const { data: ogAuthRequests, isLoading: ogAuthLoading } = useQuery({
+    queryKey: ['ogAuthRequests', 'pending'],
+    queryFn: () => expenseOrderAuthRequestsApi.findPending(),
+    enabled: isAdmin,
   });
 
   // ============================================================
@@ -167,6 +185,42 @@ export const StatusChangeRequestsPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['edit-requests'] });
       enqueueSnackbar('Solicitud de edición rechazada', { variant: 'info' });
       handleCloseEditReviewDialog();
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(
+        error.response?.data?.message || 'Error al rechazar solicitud',
+        { variant: 'error' }
+      );
+    },
+  });
+
+  // ============================================================
+  // OG AUTH REQUEST MUTATIONS
+  // ============================================================
+
+  const approveOgAuthMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
+      expenseOrderAuthRequestsApi.approve(id, notes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ogAuthRequests'] });
+      enqueueSnackbar('Solicitud de autorización aprobada', { variant: 'success' });
+      handleCloseOgAuthReviewDialog();
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(
+        error.response?.data?.message || 'Error al aprobar solicitud',
+        { variant: 'error' }
+      );
+    },
+  });
+
+  const rejectOgAuthMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes: string }) =>
+      expenseOrderAuthRequestsApi.reject(id, notes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ogAuthRequests'] });
+      enqueueSnackbar('Solicitud de autorización rechazada', { variant: 'info' });
+      handleCloseOgAuthReviewDialog();
     },
     onError: (error: any) => {
       enqueueSnackbar(
@@ -254,8 +308,51 @@ export const StatusChangeRequestsPage: React.FC = () => {
     setEditReviewNotes('');
   };
 
+  // ============================================================
+  // HANDLERS - OG AUTH REQUESTS
+  // ============================================================
+
+  const handleApproveOgAuth = (request: ExpenseOrderAuthRequest) => {
+    setOgAuthReviewDialog({ open: true, request, action: 'approve' });
+    setOgAuthReviewNotes('');
+  };
+
+  const handleRejectOgAuth = (request: ExpenseOrderAuthRequest) => {
+    setOgAuthReviewDialog({ open: true, request, action: 'reject' });
+    setOgAuthReviewNotes('');
+  };
+
+  const handleConfirmOgAuthReview = () => {
+    if (!ogAuthReviewDialog.request) return;
+
+    if (ogAuthReviewDialog.action === 'approve') {
+      approveOgAuthMutation.mutate({
+        id: ogAuthReviewDialog.request.id,
+        notes: ogAuthReviewNotes || undefined,
+      });
+    } else if (ogAuthReviewDialog.action === 'reject') {
+      if (!ogAuthReviewNotes.trim()) {
+        enqueueSnackbar('Debe proporcionar una razón para rechazar', { variant: 'warning' });
+        return;
+      }
+      rejectOgAuthMutation.mutate({
+        id: ogAuthReviewDialog.request.id,
+        notes: ogAuthReviewNotes,
+      });
+    }
+  };
+
+  const handleCloseOgAuthReviewDialog = () => {
+    setOgAuthReviewDialog({ open: false, request: null, action: null });
+    setOgAuthReviewNotes('');
+  };
+
   const handleViewOrder = (orderId: string) => {
     navigate(`/orders/${orderId}`);
+  };
+
+  const handleViewExpenseOrder = (expenseOrderId: string) => {
+    navigate(`/expense-orders/${expenseOrderId}`);
   };
 
   // ============================================================
@@ -460,11 +557,119 @@ export const StatusChangeRequestsPage: React.FC = () => {
   ];
 
   // ============================================================
+  // COLUMNAS - OG AUTH REQUESTS
+  // ============================================================
+
+  const ogAuthColumns: GridColDef<ExpenseOrderAuthRequest>[] = [
+    {
+      field: 'ogNumber',
+      headerName: 'Nº OG',
+      width: 150,
+      valueGetter: (_, row) => row.expenseOrder?.ogNumber || '-',
+      renderCell: (params) => (
+        <Box
+          sx={{ fontWeight: 600, color: 'primary.main', cursor: 'pointer' }}
+          onClick={() => params.row.expenseOrder && handleViewExpenseOrder(params.row.expenseOrder.id)}
+        >
+          {params.value}
+        </Box>
+      ),
+    },
+    {
+      field: 'ogStatus',
+      headerName: 'Estado OG',
+      width: 130,
+      valueGetter: (_, row) => row.expenseOrder?.status || '-',
+      renderCell: (params) => {
+        const config = EXPENSE_ORDER_STATUS_CONFIG[params.value as keyof typeof EXPENSE_ORDER_STATUS_CONFIG];
+        return config ? (
+          <Chip label={config.label} color={config.color} size="small" />
+        ) : (
+          <Typography variant="body2">{params.value}</Typography>
+        );
+      },
+    },
+    {
+      field: 'requestedStatus',
+      headerName: 'Estado Solicitado',
+      width: 150,
+      renderCell: () => {
+        const config = EXPENSE_ORDER_STATUS_CONFIG[ExpenseOrderStatus.AUTHORIZED];
+        return <Chip label={config.label} color={config.color} size="small" variant="outlined" />;
+      },
+    },
+    {
+      field: 'requestedBy',
+      headerName: 'Solicitado por',
+      width: 200,
+      valueGetter: (_, row) => getUserName(row.requestedBy),
+    },
+    {
+      field: 'reason',
+      headerName: 'Razón',
+      width: 250,
+      renderCell: (params) => (
+        <Typography variant="body2" noWrap title={params.value || ''}>
+          {params.value || '-'}
+        </Typography>
+      ),
+    },
+    {
+      field: 'status',
+      headerName: 'Estado Solicitud',
+      width: 130,
+      renderCell: (params) => {
+        const statusConfig = STATUS_LABELS[params.value] || { label: params.value, color: 'default' };
+        return (
+          <Chip
+            label={statusConfig.label}
+            color={statusConfig.color}
+            size="small"
+          />
+        );
+      },
+    },
+    {
+      field: 'createdAt',
+      headerName: 'Fecha Solicitud',
+      width: 150,
+      valueFormatter: (value) => formatDateTime(value),
+    },
+    ...(isAdmin ? [{
+      field: 'actions',
+      type: 'actions' as const,
+      headerName: 'Acciones',
+      width: 120,
+      getActions: (params: any) => {
+        if (params.row.status !== 'PENDING') {
+          return [];
+        }
+
+        return [
+          <GridActionsCellItem
+            icon={<CheckCircleIcon sx={{ color: 'success.main' }} />}
+            label="Aprobar"
+            onClick={() => handleApproveOgAuth(params.row)}
+            showInMenu={false}
+          />,
+          <GridActionsCellItem
+            icon={<CancelIcon sx={{ color: 'error.main' }} />}
+            label="Rechazar"
+            onClick={() => handleRejectOgAuth(params.row)}
+            showInMenu={false}
+          />,
+        ];
+      },
+    }] : []),
+  ];
+
+  // ============================================================
   // RENDER
   // ============================================================
 
   const statusCount = statusRequests?.length || 0;
   const editCount = editRequests?.length || 0;
+  const ogAuthCount = ogAuthRequests?.length || 0;
 
   return (
     <Box>
@@ -498,6 +703,15 @@ export const StatusChangeRequestsPage: React.FC = () => {
               </Badge>
             }
           />
+          <Tab
+            icon={<ReceiptLongIcon />}
+            iconPosition="start"
+            label={
+              <Badge badgeContent={ogAuthCount} color="warning" sx={{ '& .MuiBadge-badge': { right: -12, top: 2 } }}>
+                Autorización OG
+              </Badge>
+            }
+          />
         </Tabs>
 
         {/* Tab: Cambio de Estado */}
@@ -517,6 +731,17 @@ export const StatusChangeRequestsPage: React.FC = () => {
             rows={editRequests || []}
             columns={editColumns}
             loading={editLoading}
+            getRowId={(row) => row.id}
+            pageSize={25}
+          />
+        )}
+
+        {/* Tab: Autorización OG */}
+        {tabValue === 2 && (
+          <DataTable
+            rows={ogAuthRequests || []}
+            columns={ogAuthColumns}
+            loading={ogAuthLoading}
             getRowId={(row) => row.id}
             pageSize={25}
           />
@@ -639,6 +864,66 @@ export const StatusChangeRequestsPage: React.FC = () => {
             }
           >
             {editReviewDialog.action === 'approve' ? 'Aprobar' : 'Rechazar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog: Revisión de Autorización de OG */}
+      <Dialog open={ogAuthReviewDialog.open} onClose={handleCloseOgAuthReviewDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {ogAuthReviewDialog.action === 'approve'
+            ? 'Aprobar Solicitud de Autorización de OG'
+            : 'Rechazar Solicitud de Autorización de OG'}
+        </DialogTitle>
+        <DialogContent>
+          {ogAuthReviewDialog.request && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                <strong>OG:</strong> {ogAuthReviewDialog.request.expenseOrder?.ogNumber}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Estado solicitado:</strong> Autorizada
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Solicitado por:</strong> {getUserName(ogAuthReviewDialog.request.requestedBy)}
+              </Typography>
+              {ogAuthReviewDialog.request.reason && (
+                <Typography variant="body2">
+                  <strong>Razón:</strong> {ogAuthReviewDialog.request.reason}
+                </Typography>
+              )}
+            </Box>
+          )}
+
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            label={ogAuthReviewDialog.action === 'approve' ? 'Notas (opcional)' : 'Razón del rechazo *'}
+            value={ogAuthReviewNotes}
+            onChange={(e) => setOgAuthReviewNotes(e.target.value)}
+            placeholder={
+              ogAuthReviewDialog.action === 'approve'
+                ? 'Agregue notas adicionales...'
+                : 'Explique por qué se rechaza la solicitud...'
+            }
+            required={ogAuthReviewDialog.action === 'reject'}
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseOgAuthReviewDialog}>Cancelar</Button>
+          <Button
+            onClick={handleConfirmOgAuthReview}
+            variant="contained"
+            color={ogAuthReviewDialog.action === 'approve' ? 'success' : 'error'}
+            disabled={
+              approveOgAuthMutation.isPending ||
+              rejectOgAuthMutation.isPending ||
+              (ogAuthReviewDialog.action === 'reject' && !ogAuthReviewNotes.trim())
+            }
+          >
+            {ogAuthReviewDialog.action === 'approve' ? 'Aprobar' : 'Rechazar'}
           </Button>
         </DialogActions>
       </Dialog>

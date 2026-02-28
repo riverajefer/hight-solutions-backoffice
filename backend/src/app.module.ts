@@ -26,6 +26,7 @@ import { CommercialChannelsModule } from './modules/commercial-channels/commerci
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OrderEditRequestsModule } from './modules/order-edit-requests/order-edit-requests.module';
 import { OrderStatusChangeRequestsModule } from './modules/order-status-change-requests/order-status-change-requests.module';
+import { ExpenseOrderAuthRequestsModule } from './modules/expense-order-auth-requests/expense-order-auth-requests.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { CompanyModule } from './modules/company/company.module';
@@ -88,6 +89,8 @@ import { AuditContextInterceptor } from './common/interceptors/audit-context.int
     ExpenseTypesModule,
     // Módulo de Órdenes de Gastos
     ExpenseOrdersModule,
+    // Módulo de Solicitudes de Autorización de Órdenes de Gasto
+    ExpenseOrderAuthRequestsModule,
     // Módulo de Trazabilidad de Órdenes
     OrderTimelineModule,
   ],

@@ -46,6 +46,7 @@ import {
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { ToolbarButton } from '../../orders/components/ToolbarButton';
+import { ExpenseOrderAuthRequestDialog } from '../components/ExpenseOrderAuthRequestDialog';
 import { useExpenseOrder } from '../hooks';
 import { useSuppliers } from '../../suppliers/hooks/useSuppliers';
 import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
@@ -157,6 +158,7 @@ export const ExpenseOrderDetailPage = () => {
   // ── Status dialog ────────────────────────────────────────────────────────────
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [newStatus, setNewStatus] = useState<ExpenseOrderStatus | ''>('');
+  const [authRequestDialogOpen, setAuthRequestDialogOpen] = useState(false);
 
   // ── Add item dialog ──────────────────────────────────────────────────────────
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
@@ -182,9 +184,19 @@ export const ExpenseOrderDetailPage = () => {
   // ── Status change ────────────────────────────────────────────────────────────
   const handleStatusChange = async () => {
     if (!id || !newStatus) return;
-    await updateStatusMutation.mutateAsync({ id, dto: { status: newStatus as ExpenseOrderStatus } });
-    setStatusDialogOpen(false);
-    setNewStatus('');
+    try {
+      await updateStatusMutation.mutateAsync({ id, dto: { status: newStatus as ExpenseOrderStatus } });
+      setStatusDialogOpen(false);
+      setNewStatus('');
+    } catch (error: any) {
+      if (error?.response?.status === 403) {
+        const message = error.response?.data?.message || '';
+        if (message.includes('autorización')) {
+          setStatusDialogOpen(false);
+          setAuthRequestDialogOpen(true);
+        }
+      }
+    }
   };
 
   // ── Add item ─────────────────────────────────────────────────────────────────
@@ -445,6 +457,12 @@ export const ExpenseOrderDetailPage = () => {
                   <Typography variant="caption" color="text.secondary">Creado por</Typography>
                   <Typography variant="body2">{userName(og.createdBy)}</Typography>
                 </Grid>
+                {og.authorizedBy && (
+                  <Grid item xs={6} sm={3}>
+                    <Typography variant="caption" color="text.secondary">Autorizado por</Typography>
+                    <Typography variant="body2">{userName(og.authorizedBy)}</Typography>
+                  </Grid>
+                )}
               </Grid>
 
               {og.observations && (
@@ -980,6 +998,13 @@ export const ExpenseOrderDetailPage = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      {/* ── Auth request dialog ──────────────────────────────────────────────── */}
+      <ExpenseOrderAuthRequestDialog
+        open={authRequestDialogOpen}
+        onClose={() => setAuthRequestDialogOpen(false)}
+        expenseOrder={og}
+      />
+
       {/* ── View receipt dialog ──────────────────────────────────────────────── */}
       <Dialog
         open={receiptDialog.open}

@@ -38,6 +38,9 @@ model User {
   authorizedExpenseOrders      ExpenseOrder[]             @relation("AuthorizedExpenseOrders")
   responsibleExpenseOrders     ExpenseOrder[]             @relation("ResponsibleExpenseOrders")
   createdExpenseOrders         ExpenseOrder[]             @relation("CreatedExpenseOrders")
+  approvedExpenseOrders        ExpenseOrder[]             @relation("ApprovedExpenseOrders")
+  requestedExpenseOrderAuthRequests  ExpenseOrderAuthRequest[]  @relation("RequestedExpenseOrderAuthRequests")
+  reviewedExpenseOrderAuthRequests   ExpenseOrderAuthRequest[]  @relation("ReviewedExpenseOrderAuthRequests")
 
   @@map("users")
 }
@@ -637,6 +640,9 @@ enum NotificationType {
   STATUS_CHANGE_REQUEST_PENDING     // Nueva solicitud de cambio de estado
   STATUS_CHANGE_REQUEST_APPROVED    // Solicitud de cambio de estado aprobada
   STATUS_CHANGE_REQUEST_REJECTED    // Solicitud de cambio de estado rechazada
+  EXPENSE_ORDER_AUTH_REQUEST_PENDING   // Nueva solicitud de autorización de OG
+  EXPENSE_ORDER_AUTH_REQUEST_APPROVED  // Solicitud de autorización de OG aprobada
+  EXPENSE_ORDER_AUTH_REQUEST_REJECTED  // Solicitud de autorización de OG rechazada
 }
 
 model EditableOrderStatus {
@@ -928,9 +934,13 @@ model ExpenseOrder {
   status               ExpenseOrderStatus  @default(DRAFT)
 
   // Auditoría
-  createdById String   @map("created_by_id")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById    String    @map("created_by_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  // Autorización (quién aprobó el cambio a AUTHORIZED)
+  authorizedById String?   @map("authorized_by_id")
+  authorizedAt   DateTime? @map("authorized_at")
 
   // Relaciones
   expenseType        ExpenseType        @relation(fields: [expenseTypeId], references: [id])
@@ -939,7 +949,9 @@ model ExpenseOrder {
   authorizedTo       User               @relation("AuthorizedExpenseOrders", fields: [authorizedToId], references: [id])
   responsible        User?              @relation("ResponsibleExpenseOrders", fields: [responsibleId], references: [id])
   createdBy          User               @relation("CreatedExpenseOrders", fields: [createdById], references: [id])
+  authorizedBy       User?              @relation("ApprovedExpenseOrders", fields: [authorizedById], references: [id])
   items              ExpenseOrderItem[]
+  authRequests       ExpenseOrderAuthRequest[]
 
   @@index([status])
   @@index([workOrderId])
@@ -982,6 +994,28 @@ model ExpenseOrderItemProductionArea {
 
   @@id([expenseOrderItemId, productionAreaId])
   @@map("expense_order_item_production_areas")
+}
+
+model ExpenseOrderAuthRequest {
+  id              String            @id @default(uuid())
+  expenseOrderId  String            @map("expense_order_id")
+  requestedById   String            @map("requested_by_id")
+  reason          String?
+  status          EditRequestStatus @default(PENDING)
+  reviewedById    String?           @map("reviewed_by_id")
+  reviewedAt      DateTime?         @map("reviewed_at")
+  reviewNotes     String?           @map("review_notes")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  expenseOrder ExpenseOrder @relation(fields: [expenseOrderId], references: [id], onDelete: Cascade)
+  requestedBy  User         @relation("RequestedExpenseOrderAuthRequests", fields: [requestedById], references: [id])
+  reviewedBy   User?        @relation("ReviewedExpenseOrderAuthRequests", fields: [reviewedById], references: [id])
+
+  @@index([expenseOrderId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("expense_order_auth_requests")
 }
 
 // =============================================================================
