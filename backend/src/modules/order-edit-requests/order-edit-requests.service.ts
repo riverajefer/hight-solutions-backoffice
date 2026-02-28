@@ -326,6 +326,41 @@ export class OrderEditRequestsService {
   }
 
   /**
+   * Obtener todas las solicitudes pendientes (para admins)
+   */
+  async findAllPending() {
+    return this.prisma.orderEditRequest.findMany({
+      where: { status: EditRequestStatus.PENDING },
+      include: {
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true,
+          },
+        },
+        requestedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        reviewedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
    * Obtener todas las solicitudes de una orden
    */
   async findByOrder(orderId: string) {
@@ -351,6 +386,39 @@ export class OrderEditRequestsService {
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  /**
+   * Obtener solicitud por ID (sin requerir orderId)
+   */
+  async findOneById(requestId: string) {
+    const request = await this.prisma.orderEditRequest.findUnique({
+      where: { id: requestId },
+      include: {
+        requestedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        reviewedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    if (!request) {
+      throw new NotFoundException('Edit request not found');
+    }
+
+    return request;
   }
 
   /**

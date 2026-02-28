@@ -163,7 +163,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           permission: PERMISSIONS.READ_ORDERS,
         },
         {
-          label: 'Solicitudes de Cambio de Estado',
+          label: 'Solicitudes Pendientes',
           icon: <PendingActionsIcon />,
           path: ROUTES.STATUS_CHANGE_REQUESTS,
           permission: PERMISSIONS.APPROVE_ORDERS,

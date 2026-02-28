@@ -70,6 +70,8 @@ import {
 import { ActivePermissionBanner } from '../components/ActivePermissionBanner';
 import { RequestEditPermissionButton } from '../components/RequestEditPermissionButton';
 import { EditRequestsList } from '../components/EditRequestsList';
+import { StatusChangeAuthRequestDialog } from '../components/StatusChangeAuthRequestDialog';
+import { useEditRequests } from '../../../hooks/useEditRequests';
 import { OrderChangeHistoryTab } from '../components/OrderChangeHistoryTab';
 import { ordersApi } from '../../../api/orders.api';
 import { storageApi } from '../../../api/storage.api';
@@ -153,6 +155,7 @@ export const OrderDetailPage: React.FC = () => {
     id!
   );
   const { paymentsQuery, addPaymentMutation } = useOrderPayments(id!);
+  const { activePermissionQuery } = useEditRequests(id || '');
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -194,6 +197,8 @@ export const OrderDetailPage: React.FC = () => {
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [statusAuthDialogOpen, setStatusAuthDialogOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<OrderStatus | null>(null);
 
   const order = orderQuery.data;
   const payments = paymentsQuery.data || [];
@@ -219,14 +224,16 @@ export const OrderDetailPage: React.FC = () => {
   const canAddPayment = ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'DELIVERED_ON_CREDIT', 'PAID'].includes(
     order.status
   );
+  const isAdmin = user?.role?.name === 'admin';
+  const hasActiveEditPermission = !!activePermissionQuery.data;
   const canApplyDiscount =
     permissions.includes('apply_discounts') &&
     ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'DELIVERED_ON_CREDIT', 'PAID', 'WARRANTY'].includes(
       order.status
-    );
+    ) &&
+    (isAdmin || hasActiveEditPermission);
   const canDeleteDiscount =
     permissions.includes('delete_discounts');
-  const isAdmin = user?.role?.name === 'admin';
   const hasIva = parseFloat(order.tax) > 0;
   const canRegisterInvoice =
     hasIva && order.status !== 'DRAFT' && permissions.includes('update_orders');
@@ -241,8 +248,21 @@ export const OrderDetailPage: React.FC = () => {
   };
 
   const handleChangeStatus = async (newStatus: OrderStatus) => {
-    await updateStatusMutation.mutateAsync(newStatus);
-    handleMenuClose();
+    try {
+      await updateStatusMutation.mutateAsync(newStatus);
+      handleMenuClose();
+    } catch (error: any) {
+      handleMenuClose();
+      if (error?.response?.status === 403) {
+        const errorMessage = error.response?.data?.message || '';
+        if (errorMessage.includes('autorización')) {
+          setPendingStatus(newStatus);
+          setStatusAuthDialogOpen(true);
+          return;
+        }
+      }
+      // Otros errores ya se manejan en el hook
+    }
   };
 
   const handleDelete = async () => {
@@ -1481,6 +1501,18 @@ export const OrderDetailPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      {/* Dialog: Solicitar Autorización de Cambio de Estado */}
+      {statusAuthDialogOpen && pendingStatus && order && (
+        <StatusChangeAuthRequestDialog
+          open={statusAuthDialogOpen}
+          onClose={() => {
+            setStatusAuthDialogOpen(false);
+            setPendingStatus(null);
+          }}
+          order={order}
+          requestedStatus={pendingStatus}
+        />
+      )}
     </Box>
   );
 };

@@ -11,18 +11,26 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  Tabs,
+  Tab,
+  Badge,
 } from '@mui/material';
 import { GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import PendingActionsIcon from '@mui/icons-material/PendingActions';
+import EditNoteIcon from '@mui/icons-material/EditNote';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { DataTable } from '../../../components/common/DataTable';
+import { useAuthStore } from '../../../store/authStore';
 import { orderStatusChangeRequestsApi } from '../../../api/order-status-change-requests.api';
+import { editRequestsApi } from '../../../api/edit-requests.api';
 import { ORDER_STATUS_CONFIG, type OrderStatus } from '../../../types/order.types';
 import type { OrderStatusChangeRequest } from '../../../types/order-status-change-request.types';
+import type { OrderEditRequest } from '../../../types/edit-request.types';
 
 // ============================================================
 // CONSTANTES
@@ -35,6 +43,22 @@ const STATUS_LABELS: Record<string, { label: string; color: 'success' | 'error' 
   EXPIRED: { label: 'Expirada', color: 'default' },
 };
 
+const formatDateTime = (value: string) =>
+  new Intl.DateTimeFormat('es-CO', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+
+const getUserName = (user?: { firstName: string | null; lastName: string | null; email: string }) => {
+  if (!user) return '-';
+  return user.firstName && user.lastName
+    ? `${user.firstName} ${user.lastName}`
+    : user.email;
+};
+
 // ============================================================
 // COMPONENTE
 // ============================================================
@@ -43,7 +67,12 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
   const queryClient = useQueryClient();
+  const { user } = useAuthStore();
+  const isAdmin = user?.role?.name === 'admin';
 
+  const [tabValue, setTabValue] = useState(0);
+
+  // --- Status Change Requests ---
   const [reviewDialog, setReviewDialog] = useState<{
     open: boolean;
     request: OrderStatusChangeRequest | null;
@@ -51,13 +80,32 @@ export const StatusChangeRequestsPage: React.FC = () => {
   }>({ open: false, request: null, action: null });
   const [reviewNotes, setReviewNotes] = useState('');
 
-  // Query para obtener solicitudes pendientes
-  const { data: requests, isLoading } = useQuery({
+  // --- Edit Requests ---
+  const [editReviewDialog, setEditReviewDialog] = useState<{
+    open: boolean;
+    request: OrderEditRequest | null;
+    action: 'approve' | 'reject' | null;
+  }>({ open: false, request: null, action: null });
+  const [editReviewNotes, setEditReviewNotes] = useState('');
+
+  // ============================================================
+  // QUERIES
+  // ============================================================
+
+  const { data: statusRequests, isLoading: statusLoading } = useQuery({
     queryKey: ['statusChangeRequests', 'pending'],
     queryFn: () => orderStatusChangeRequestsApi.findPending(),
   });
 
-  // Mutation para aprobar
+  const { data: editRequests, isLoading: editLoading } = useQuery({
+    queryKey: ['editRequests', 'pending'],
+    queryFn: () => editRequestsApi.findAllPending(),
+  });
+
+  // ============================================================
+  // STATUS CHANGE MUTATIONS
+  // ============================================================
+
   const approveMutation = useMutation({
     mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
       orderStatusChangeRequestsApi.approve(id, { reviewNotes: notes }),
@@ -74,7 +122,6 @@ export const StatusChangeRequestsPage: React.FC = () => {
     },
   });
 
-  // Mutation para rechazar
   const rejectMutation = useMutation({
     mutationFn: ({ id, notes }: { id: string; notes: string }) =>
       orderStatusChangeRequestsApi.reject(id, { reviewNotes: notes }),
@@ -90,6 +137,48 @@ export const StatusChangeRequestsPage: React.FC = () => {
       );
     },
   });
+
+  // ============================================================
+  // EDIT REQUEST MUTATIONS
+  // ============================================================
+
+  const approveEditMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
+      editRequestsApi.approveGlobal(id, { reviewNotes: notes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['editRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['edit-requests'] });
+      enqueueSnackbar('Solicitud de edición aprobada exitosamente', { variant: 'success' });
+      handleCloseEditReviewDialog();
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(
+        error.response?.data?.message || 'Error al aprobar solicitud',
+        { variant: 'error' }
+      );
+    },
+  });
+
+  const rejectEditMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes: string }) =>
+      editRequestsApi.rejectGlobal(id, { reviewNotes: notes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['editRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['edit-requests'] });
+      enqueueSnackbar('Solicitud de edición rechazada', { variant: 'info' });
+      handleCloseEditReviewDialog();
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(
+        error.response?.data?.message || 'Error al rechazar solicitud',
+        { variant: 'error' }
+      );
+    },
+  });
+
+  // ============================================================
+  // HANDLERS - STATUS CHANGE
+  // ============================================================
 
   const handleApprove = (request: OrderStatusChangeRequest) => {
     setReviewDialog({ open: true, request, action: 'approve' });
@@ -126,15 +215,54 @@ export const StatusChangeRequestsPage: React.FC = () => {
     setReviewNotes('');
   };
 
+  // ============================================================
+  // HANDLERS - EDIT REQUESTS
+  // ============================================================
+
+  const handleApproveEdit = (request: OrderEditRequest) => {
+    setEditReviewDialog({ open: true, request, action: 'approve' });
+    setEditReviewNotes('');
+  };
+
+  const handleRejectEdit = (request: OrderEditRequest) => {
+    setEditReviewDialog({ open: true, request, action: 'reject' });
+    setEditReviewNotes('');
+  };
+
+  const handleConfirmEditReview = () => {
+    if (!editReviewDialog.request) return;
+
+    if (editReviewDialog.action === 'approve') {
+      approveEditMutation.mutate({
+        id: editReviewDialog.request.id,
+        notes: editReviewNotes || undefined,
+      });
+    } else if (editReviewDialog.action === 'reject') {
+      if (!editReviewNotes.trim()) {
+        enqueueSnackbar('Debe proporcionar una razón para rechazar', { variant: 'warning' });
+        return;
+      }
+      rejectEditMutation.mutate({
+        id: editReviewDialog.request.id,
+        notes: editReviewNotes,
+      });
+    }
+  };
+
+  const handleCloseEditReviewDialog = () => {
+    setEditReviewDialog({ open: false, request: null, action: null });
+    setEditReviewNotes('');
+  };
+
   const handleViewOrder = (orderId: string) => {
     navigate(`/orders/${orderId}`);
   };
 
   // ============================================================
-  // COLUMNAS
+  // COLUMNAS - STATUS CHANGE REQUESTS
   // ============================================================
 
-  const columns: GridColDef<OrderStatusChangeRequest>[] = [
+  const statusColumns: GridColDef<OrderStatusChangeRequest>[] = [
     {
       field: 'orderNumber',
       headerName: 'Nº Orden',
@@ -153,12 +281,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
       field: 'requestedBy',
       headerName: 'Solicitado por',
       width: 200,
-      valueGetter: (_, row) => {
-        const user = row.requestedBy;
-        return user?.firstName && user?.lastName
-          ? `${user.firstName} ${user.lastName}`
-          : user?.email || '-';
-      },
+      valueGetter: (_, row) => getUserName(row.requestedBy),
     },
     {
       field: 'currentStatus',
@@ -222,20 +345,14 @@ export const StatusChangeRequestsPage: React.FC = () => {
       field: 'createdAt',
       headerName: 'Fecha Solicitud',
       width: 150,
-      valueFormatter: (value) => new Intl.DateTimeFormat('es-CO', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      }).format(new Date(value)),
+      valueFormatter: (value) => formatDateTime(value),
     },
-    {
+    ...(isAdmin ? [{
       field: 'actions',
-      type: 'actions',
+      type: 'actions' as const,
       headerName: 'Acciones',
       width: 120,
-      getActions: (params) => {
+      getActions: (params: any) => {
         if (params.row.status !== 'PENDING') {
           return [];
         }
@@ -255,28 +372,158 @@ export const StatusChangeRequestsPage: React.FC = () => {
           />,
         ];
       },
-    },
+    }] : []),
   ];
+
+  // ============================================================
+  // COLUMNAS - EDIT REQUESTS
+  // ============================================================
+
+  const editColumns: GridColDef<OrderEditRequest>[] = [
+    {
+      field: 'orderNumber',
+      headerName: 'Nº Orden',
+      width: 150,
+      valueGetter: (_, row) => row.order?.orderNumber || '-',
+      renderCell: (params) => (
+        <Box
+          sx={{ fontWeight: 600, color: 'primary.main', cursor: 'pointer' }}
+          onClick={() => params.row.orderId && handleViewOrder(params.row.orderId)}
+        >
+          {params.value}
+        </Box>
+      ),
+    },
+    {
+      field: 'requestedBy',
+      headerName: 'Solicitado por',
+      width: 200,
+      valueGetter: (_, row) => getUserName(row.requestedBy),
+    },
+    {
+      field: 'observations',
+      headerName: 'Observaciones',
+      width: 300,
+      renderCell: (params) => (
+        <Typography variant="body2" noWrap title={params.value || ''}>
+          {params.value || '-'}
+        </Typography>
+      ),
+    },
+    {
+      field: 'status',
+      headerName: 'Estado Solicitud',
+      width: 130,
+      renderCell: (params) => {
+        const statusConfig = STATUS_LABELS[params.value] || { label: params.value, color: 'default' };
+        return (
+          <Chip
+            label={statusConfig.label}
+            color={statusConfig.color}
+            size="small"
+          />
+        );
+      },
+    },
+    {
+      field: 'createdAt',
+      headerName: 'Fecha Solicitud',
+      width: 170,
+      valueFormatter: (value) => formatDateTime(value),
+    },
+    ...(isAdmin ? [{
+      field: 'actions',
+      type: 'actions' as const,
+      headerName: 'Acciones',
+      width: 120,
+      getActions: (params: any) => {
+        if (params.row.status !== 'PENDING') {
+          return [];
+        }
+
+        return [
+          <GridActionsCellItem
+            icon={<CheckCircleIcon sx={{ color: 'success.main' }} />}
+            label="Aprobar"
+            onClick={() => handleApproveEdit(params.row)}
+            showInMenu={false}
+          />,
+          <GridActionsCellItem
+            icon={<CancelIcon sx={{ color: 'error.main' }} />}
+            label="Rechazar"
+            onClick={() => handleRejectEdit(params.row)}
+            showInMenu={false}
+          />,
+        ];
+      },
+    }] : []),
+  ];
+
+  // ============================================================
+  // RENDER
+  // ============================================================
+
+  const statusCount = statusRequests?.length || 0;
+  const editCount = editRequests?.length || 0;
 
   return (
     <Box>
       <PageHeader
-        title="Solicitudes de Cambio de Estado"
+        title="Solicitudes Pendientes"
         subtitle="Gestionar solicitudes pendientes de aprobación"
         icon={<PendingActionsIcon />}
       />
 
       <Paper sx={{ p: 3 }}>
-        <DataTable
-          rows={requests || []}
-          columns={columns}
-          loading={isLoading}
-          getRowId={(row) => row.id}
-          pageSize={25}
-        />
+        <Tabs
+          value={tabValue}
+          onChange={(_, v) => setTabValue(v)}
+          sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}
+        >
+          <Tab
+            icon={<SwapHorizIcon />}
+            iconPosition="start"
+            label={
+              <Badge badgeContent={statusCount} color="warning" sx={{ '& .MuiBadge-badge': { right: -12, top: 2 } }}>
+                Cambio de Estado
+              </Badge>
+            }
+          />
+          <Tab
+            icon={<EditNoteIcon />}
+            iconPosition="start"
+            label={
+              <Badge badgeContent={editCount} color="warning" sx={{ '& .MuiBadge-badge': { right: -12, top: 2 } }}>
+                Edición de Orden
+              </Badge>
+            }
+          />
+        </Tabs>
+
+        {/* Tab: Cambio de Estado */}
+        {tabValue === 0 && (
+          <DataTable
+            rows={statusRequests || []}
+            columns={statusColumns}
+            loading={statusLoading}
+            getRowId={(row) => row.id}
+            pageSize={25}
+          />
+        )}
+
+        {/* Tab: Edición de Orden */}
+        {tabValue === 1 && (
+          <DataTable
+            rows={editRequests || []}
+            columns={editColumns}
+            loading={editLoading}
+            getRowId={(row) => row.id}
+            pageSize={25}
+          />
+        )}
       </Paper>
 
-      {/* Dialog de revisión */}
+      {/* Dialog: Revisión de Cambio de Estado */}
       <Dialog open={reviewDialog.open} onClose={handleCloseReviewDialog} maxWidth="sm" fullWidth>
         <DialogTitle>
           {reviewDialog.action === 'approve' ? 'Aprobar Solicitud' : 'Rechazar Solicitud'}
@@ -293,10 +540,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
                 {ORDER_STATUS_CONFIG[reviewDialog.request.requestedStatus as OrderStatus]?.label}
               </Typography>
               <Typography variant="body2" gutterBottom>
-                <strong>Solicitado por:</strong>{' '}
-                {reviewDialog.request.requestedBy?.firstName && reviewDialog.request.requestedBy?.lastName
-                  ? `${reviewDialog.request.requestedBy.firstName} ${reviewDialog.request.requestedBy.lastName}`
-                  : reviewDialog.request.requestedBy?.email}
+                <strong>Solicitado por:</strong> {getUserName(reviewDialog.request.requestedBy)}
               </Typography>
               {reviewDialog.request.reason && (
                 <Typography variant="body2">
@@ -335,6 +579,66 @@ export const StatusChangeRequestsPage: React.FC = () => {
             }
           >
             {reviewDialog.action === 'approve' ? 'Aprobar' : 'Rechazar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog: Revisión de Edición de Orden */}
+      <Dialog open={editReviewDialog.open} onClose={handleCloseEditReviewDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {editReviewDialog.action === 'approve' ? 'Aprobar Solicitud de Edición' : 'Rechazar Solicitud de Edición'}
+        </DialogTitle>
+        <DialogContent>
+          {editReviewDialog.request && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                <strong>Orden:</strong> {editReviewDialog.request.order?.orderNumber || '-'}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Solicitado por:</strong> {getUserName(editReviewDialog.request.requestedBy)}
+              </Typography>
+              {editReviewDialog.request.observations && (
+                <Typography variant="body2">
+                  <strong>Observaciones:</strong> {editReviewDialog.request.observations}
+                </Typography>
+              )}
+              {editReviewDialog.action === 'approve' && (
+                <Typography variant="body2" color="info.main" sx={{ mt: 1 }}>
+                  Al aprobar, el usuario tendrá 5 minutos para realizar cambios en la orden.
+                </Typography>
+              )}
+            </Box>
+          )}
+
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            label={editReviewDialog.action === 'approve' ? 'Notas (opcional)' : 'Razón del rechazo *'}
+            value={editReviewNotes}
+            onChange={(e) => setEditReviewNotes(e.target.value)}
+            placeholder={
+              editReviewDialog.action === 'approve'
+                ? 'Agregue notas adicionales...'
+                : 'Explique por qué se rechaza la solicitud...'
+            }
+            required={editReviewDialog.action === 'reject'}
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseEditReviewDialog}>Cancelar</Button>
+          <Button
+            onClick={handleConfirmEditReview}
+            variant="contained"
+            color={editReviewDialog.action === 'approve' ? 'success' : 'error'}
+            disabled={
+              approveEditMutation.isPending ||
+              rejectEditMutation.isPending ||
+              (editReviewDialog.action === 'reject' && !editReviewNotes.trim())
+            }
+          >
+            {editReviewDialog.action === 'approve' ? 'Aprobar' : 'Rechazar'}
           </Button>
         </DialogActions>
       </Dialog>
