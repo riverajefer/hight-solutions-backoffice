@@ -25,6 +25,8 @@ export interface OrderTreeNode {
   authorizedToName?: string | null;
   /** Solo presente en nodos OG: usuario responsable del gasto. */
   responsibleName?: string | null;
+  /** Solo presente en nodos OG: administrador que autorizó el estado AUTHORIZED. */
+  authorizedByName?: string | null;
 }
 
 export interface OrderTreeEdge {

@@ -27,6 +27,8 @@ export interface OrderTreeNode {
   authorizedToName?: string | null;
   /** Solo presente en nodos OG: usuario responsable del gasto. */
   responsibleName?: string | null;
+  /** Solo presente en nodos OG: usuario administrador que autorizó el estado AUTHORIZED. */
+  authorizedByName?: string | null;
 }
 
 export interface OrderTreeEdge {
@@ -111,6 +113,7 @@ export class OrderTimelineService {
                 createdAt: true,
                 createdBy: { select: { firstName: true, lastName: true } },
                 authorizedTo: { select: { firstName: true, lastName: true } },
+                authorizedBy: { select: { firstName: true, lastName: true } },
                 responsible: { select: { firstName: true, lastName: true } },
                 items: {
                   select: { total: true },
@@ -214,6 +217,9 @@ export class OrderTimelineService {
           endedAt: null,
           createdByName: this.buildUserDisplayName(eo.createdBy),
           authorizedToName: this.buildUserDisplayName(eo.authorizedTo),
+          authorizedByName: eo.authorizedBy
+            ? this.buildUserDisplayName(eo.authorizedBy)
+            : null,
           responsibleName: eo.responsible
             ? this.buildUserDisplayName(eo.responsible)
             : null,
@@ -483,6 +489,7 @@ export class OrderTimelineService {
         createdAt: true,
         createdBy: { select: { firstName: true, lastName: true } },
         authorizedTo: { select: { firstName: true, lastName: true } },
+        authorizedBy: { select: { firstName: true, lastName: true } },
         responsible: { select: { firstName: true, lastName: true } },
         items: { select: { total: true } },
       },
@@ -513,6 +520,9 @@ export class OrderTimelineService {
           endedAt: null,
           createdByName: this.buildUserDisplayName(eo.createdBy),
           authorizedToName: this.buildUserDisplayName(eo.authorizedTo),
+          authorizedByName: eo.authorizedBy
+            ? this.buildUserDisplayName(eo.authorizedBy)
+            : null,
           responsibleName: eo.responsible
             ? this.buildUserDisplayName(eo.responsible)
             : null,

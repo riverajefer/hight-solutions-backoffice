@@ -17,6 +17,7 @@ import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalance
 import BrushOutlinedIcon from '@mui/icons-material/BrushOutlined';
 import AssignmentIndOutlinedIcon from '@mui/icons-material/AssignmentIndOutlined';
 import HowToRegOutlinedIcon from '@mui/icons-material/HowToRegOutlined';
+import AdminPanelSettingsOutlinedIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
 import type { OrderTreeNode } from '../types/order-timeline.types';
 
 function formatDuration(ms: number): string {
@@ -387,6 +388,19 @@ function OrderFlowNode({ data }: NodeProps) {
                     sx={{ fontSize: '0.68rem', color: theme.palette.text.secondary, lineHeight: 1.3 }}
                   >
                     {nodeData.responsibleName}
+                  </Typography>
+                </Box>
+              )}
+
+              {nodeData.authorizedByName && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <AdminPanelSettingsOutlinedIcon sx={{ fontSize: 11, color: '#22D3EE', flexShrink: 0 }} />
+                  <Typography
+                    noWrap
+                    variant="caption"
+                    sx={{ fontSize: '0.68rem', color: '#22D3EE', fontWeight: 600, lineHeight: 1.3 }}
+                  >
+                    Auth: {nodeData.authorizedByName}
                   </Typography>
                 </Box>
               )}
