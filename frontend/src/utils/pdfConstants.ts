@@ -1,5 +1,5 @@
 export const COMPANY_INFO = {
-  name: 'Hight Solutions',
+  name: 'High Solutions',
   address: 'Cra 28 #10-18',
   city: 'Bogotá D.C. / Colombia',
   phones: ['305 451 8018', '304 484 8835'],

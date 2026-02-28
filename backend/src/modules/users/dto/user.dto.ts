@@ -9,13 +9,22 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateUserDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
+    example: 'johndoe',
+    description: 'Username (auto-generated from first and last name if not provided)'
+  })
+  @IsString()
+  @MinLength(3, { message: 'Username must be at least 3 characters' })
+  @IsOptional()
+  username?: string;
+
+  @ApiPropertyOptional({
     example: 'user@example.com',
-    description: 'User email address'
+    description: 'User email address (optional)'
   })
   @IsEmail({}, { message: 'Please provide a valid email address' })
-  @IsNotEmpty({ message: 'Email is required' })
-  email: string;
+  @IsOptional()
+  email?: string;
 
   @ApiProperty({
     example: 'password123',
@@ -61,6 +70,15 @@ export class CreateUserDto {
 }
 
 export class UpdateUserDto {
+  @ApiPropertyOptional({
+    example: 'johndoe',
+    description: 'Username'
+  })
+  @IsString()
+  @MinLength(3, { message: 'Username must be at least 3 characters' })
+  @IsOptional()
+  username?: string;
+
   @ApiPropertyOptional({
     example: 'user@example.com',
     description: 'User email address'

@@ -13,6 +13,7 @@ import {
 import EditIcon from '@mui/icons-material/Edit';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EmailIcon from '@mui/icons-material/Email';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import BadgeIcon from '@mui/icons-material/Badge';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
@@ -153,16 +154,25 @@ export const UserDetail: React.FC<UserDetailProps> = ({
               Información Personal
             </Typography>
             <Box display="flex" flexDirection="column" gap={3}>
-              <DetailItem 
-                icon={<BadgeIcon />} 
-                label="Nombre Completo" 
-                value={fullName} 
+              <DetailItem
+                icon={<BadgeIcon />}
+                label="Nombre Completo"
+                value={fullName}
               />
-              <DetailItem 
-                icon={<EmailIcon />} 
-                label="Correo Electrónico" 
-                value={user.email} 
-              />
+              {user.username && (
+                <DetailItem
+                  icon={<AccountCircleIcon />}
+                  label="Usuario"
+                  value={user.username}
+                />
+              )}
+              {user.email && (
+                <DetailItem
+                  icon={<EmailIcon />}
+                  label="Correo Electrónico"
+                  value={user.email}
+                />
+              )}
             </Box>
           </Grid>
           

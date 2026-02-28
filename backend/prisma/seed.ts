@@ -357,14 +357,17 @@ async function main() {
   const adminPassword = await bcrypt.hash('admin123', 12);
 
   const adminUser = await prisma.user.upsert({
-    where: { email: 'admin@example.com' },
+    where: { username: 'adminsistema' },
     update: {
+      username: 'adminsistema',
+      email: 'admin@example.com',
       password: adminPassword,
       roleId: adminRole.id,
       firstName: 'Admin',
       lastName: 'Sistema',
     },
     create: {
+      username: 'adminsistema',
       email: 'admin@example.com',
       password: adminPassword,
       roleId: adminRole.id,
@@ -372,49 +375,55 @@ async function main() {
       lastName: 'Sistema',
     },
   });
-  console.log(`  ✓ Admin user: ${adminUser.email}`);
+  console.log(`  ✓ Admin user: ${adminUser.username}`);
 
   // Crear usuario de prueba con rol manager
   const managerPassword = await bcrypt.hash('manager123', 12);
 
   const managerUser = await prisma.user.upsert({
-    where: { email: 'manager@example.com' },
+    where: { username: 'managersistema' },
     update: {
-      password: managerPassword,
-      roleId: managerRole.id,
-      firstName: 'Manager',
-      lastName: 'Gerente',
-    },
-    create: {
+      username: 'managersistema',
       email: 'manager@example.com',
       password: managerPassword,
       roleId: managerRole.id,
       firstName: 'Manager',
-      lastName: 'Gerente',
+      lastName: 'Sistema',
+    },
+    create: {
+      username: 'managersistema',
+      email: 'manager@example.com',
+      password: managerPassword,
+      roleId: managerRole.id,
+      firstName: 'Manager',
+      lastName: 'Sistema',
     },
   });
-  console.log(`  ✓ Manager user: ${managerUser.email}`);
+  console.log(`  ✓ Manager user: ${managerUser.username}`);
 
   // Crear usuario de prueba con rol user
   const userPassword = await bcrypt.hash('user123', 12);
 
   const regularUser = await prisma.user.upsert({
-    where: { email: 'user@example.com' },
+    where: { username: 'usuariosistema' },
     update: {
+      username: 'usuariosistema',
+      email: 'user@example.com',
       password: userPassword,
       roleId: userRole.id,
       firstName: 'Usuario',
-      lastName: 'Regular',
+      lastName: 'Sistema',
     },
     create: {
+      username: 'usuariosistema',
       email: 'user@example.com',
       password: userPassword,
       firstName: 'Usuario',
-      lastName: 'Regular',
+      lastName: 'Sistema',
       roleId: userRole.id,
     },
   });
-  console.log(`  ✓ Regular user: ${regularUser.email}`);
+  console.log(`  ✓ Regular user: ${regularUser.username}`);
 
   // ============================================
   // 5. Crear Áreas de Ejemplo
@@ -1710,7 +1719,7 @@ async function main() {
   });
 
   const adminUserForOrders = await prisma.user.findFirst({
-    where: { email: 'admin@example.com' },
+    where: { username: 'adminsistema' },
   });
 
   // Obtener canales de venta y áreas de producción para las órdenes
@@ -2278,12 +2287,12 @@ async function main() {
     update: {},
     create: {
       id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-      name: 'Hight Solutions S.A.S',
+      name: 'High Solutions S.A.S',
       description: 'Empresa especializada en soluciones de software y tecnología empresarial.',
-      email: 'contacto@hightsolutions.com',
+      email: 'contacto@highsolutions.com',
       phone: '6012345678',
       mobilePhone: '3001234567',
-      website: 'https://www.hightsolutions.com',
+      website: 'https://www.highsolutions.com',
       address: 'Bogotá, Colombia',
       nit: '900000000-0',
       legalRepresentative: 'Representante Legal',
@@ -2378,10 +2387,10 @@ async function main() {
   console.log(`   - Production Areas: ${productionAreasData.length}`);
   console.log(`   - Commercial Channels: ${channelsCreated}`);
   console.log(`   - Editable Order Statuses: ${editableStatuses.length}`);
-  console.log('\n🔐 Test Credentials:');
-  console.log('   Admin:   admin@example.com / admin123');
-  console.log('   Manager: manager@example.com / manager123');
-  console.log('   User:    user@example.com / user123');
+  console.log('\n🔐 Test Credentials (username / password):');
+  console.log('   Admin:   adminsistema / admin123');
+  console.log('   Manager: managersistema / manager123');
+  console.log('   User:    usuariosistema / user123');
   console.log('='.repeat(50) + '\n');
 }
 

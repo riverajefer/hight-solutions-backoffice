@@ -585,7 +585,7 @@ export const ExpenseOrderFormPage = () => {
       <Autocomplete
         options={users}
         getOptionLabel={(u) =>
-          `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email
+          `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email || u.username || ''
         }
         value={users.find((u) => u.id === authorizedToId) ?? null}
         onChange={(_, val) => setAuthorizedToId(val?.id ?? '')}
@@ -597,7 +597,7 @@ export const ExpenseOrderFormPage = () => {
       <Autocomplete
         options={users}
         getOptionLabel={(u) =>
-          `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email
+          `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email || u.username || ''
         }
         value={users.find((u) => u.id === responsibleId) ?? null}
         onChange={(_, val) => setResponsibleId(val?.id ?? '')}

@@ -23,7 +23,7 @@ describe('JwtStrategy', () => {
 
   const validAccessPayload: JwtPayload = {
     sub: 'user-1',
-    email: 'test@example.com',
+    username: 'testuser',
     roleId: 'role-1',
     type: 'access',
   };

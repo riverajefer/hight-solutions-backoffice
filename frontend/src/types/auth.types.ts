@@ -1,6 +1,7 @@
 export interface User {
   id: string;
-  email: string;
+  username?: string | null;
+  email?: string | null;
   firstName?: string;
   lastName?: string;
   profilePhoto?: string | null;
@@ -33,7 +34,7 @@ export interface UpdateProfilePhotoDto {
 }
 
 export interface LoginDto {
-  email: string;
+  username: string;
   password: string;
 }
 
@@ -45,7 +46,8 @@ export interface RegisterDto {
 }
 
 export interface CreateUserDto {
-  email: string;
+  username?: string;
+  email?: string;
   password: string;
   firstName?: string;
   lastName?: string;
@@ -54,6 +56,7 @@ export interface CreateUserDto {
 }
 
 export interface UpdateUserDto {
+  username?: string;
   email?: string;
   password?: string;
   firstName?: string;

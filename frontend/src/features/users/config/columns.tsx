@@ -35,10 +35,18 @@ export const getUserColumns = ({
     },
   },
   {
+    field: 'username',
+    headerName: 'Usuario',
+    flex: 1,
+    minWidth: 150,
+    valueGetter: (_, row) => row.username || '—',
+  },
+  {
     field: 'email',
     headerName: 'Email',
     flex: 1,
     minWidth: 200,
+    valueGetter: (_, row) => row.email || '—',
   },
   {
     field: 'role',

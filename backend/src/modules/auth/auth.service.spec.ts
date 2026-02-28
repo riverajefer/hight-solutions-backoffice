@@ -43,6 +43,7 @@ describe('AuthService', () => {
 
   const mockUser: AuthenticatedUser = {
     id: 'user-1',
+    username: 'testuser',
     email: 'test@example.com',
     roleId: 'role-1',
     firstName: 'John',

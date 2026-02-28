@@ -1,6 +1,6 @@
 # CLAUDE.md - Guía para IA
 
-## Proyecto: Hight Solutions Backoffice
+## Proyecto: High Solutions Backoffice
 
 Sistema completo de backoffice con autenticación JWT y control de acceso basado en roles (RBAC).
 
@@ -23,7 +23,7 @@ Sistema completo de backoffice con autenticación JWT y control de acceso basado
 
 ## Descripción General
 
-**Hight Solutions Backoffice** es un sistema fullstack profesional que proporciona:
+**High Solutions Backoffice** es un sistema fullstack profesional que proporciona:
 
 - **Backend**: API REST con NestJS + Prisma + PostgreSQL
 - **Frontend**: Aplicación React con Material UI + Zustand + React Query
@@ -920,4 +920,4 @@ Para preguntas o problemas:
 
 **Versión del proyecto**: 1.0.0
 
-**Mantenedor**: Hight Solutions Team
+**Mantenedor**: High Solutions Team

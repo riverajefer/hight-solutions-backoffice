@@ -8,7 +8,7 @@ import {
 
 const mockCompany = {
   id: 'company-1',
-  name: 'Hight Solutions',
+  name: 'High Solutions',
   nit: '900123456',
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -48,9 +48,9 @@ describe('CompanyRepository', () => {
   describe('create', () => {
     it('should call company.create with the provided data', async () => {
       prisma.company.create.mockResolvedValue(mockCompany);
-      await repository.create({ name: 'Hight Solutions' } as any);
+      await repository.create({ name: 'High Solutions' } as any);
       expect(prisma.company.create).toHaveBeenCalledWith({
-        data: { name: 'Hight Solutions' },
+        data: { name: 'High Solutions' },
       });
     });
   });

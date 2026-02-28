@@ -1,6 +1,6 @@
 # ✅ VERIFICACIÓN DEL PROYECTO FRONTEND
 
-## Proyecto Completado: Hight Solutions Backoffice Frontend
+## Proyecto Completado: High Solutions Backoffice Frontend
 
 **Fecha:** 17 de enero de 2026
 **Estado:** ✅ COMPLETO Y FUNCIONAL
@@ -266,7 +266,7 @@ Contraseña: user123
 ### Variables de Entorno
 ```env
 VITE_API_URL=http://localhost:3000/api/v1
-VITE_APP_NAME=Hight Solutions Backoffice
+VITE_APP_NAME=High Solutions Backoffice
 ```
 
 ### ESLint

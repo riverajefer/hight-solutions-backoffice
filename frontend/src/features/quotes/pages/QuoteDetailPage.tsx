@@ -224,7 +224,7 @@ export const QuoteDetailPage: React.FC = () => {
       const message = [
         `Hola ${quote.client.name},`,
         ``,
-        `Adjunto encontrará la cotización *${quote.quoteNumber}* de Hight Solutions.`,
+        `Adjunto encontrará la cotización *${quote.quoteNumber}* de High Solutions.`,
         ``,
         `*Resumen:*`,
         `• Total: ${totalFormatted}`,

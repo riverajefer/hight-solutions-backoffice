@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Box, Card, CardContent, TextField, Button, Grid, Alert, Autocomplete } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,7 +10,8 @@ import { Role, Cargo } from '../../../types';
 
 // Schema base del formulario
 const userFormSchema = z.object({
-  email: z.string().email('Email inválido'),
+  username: z.string().optional(),
+  email: z.string().email('Email inválido').optional().or(z.literal('')),
   firstName: z.string().min(1, 'El nombre es requerido'),
   lastName: z.string().min(1, 'El apellido es requerido'),
   password: z.string().optional(),
@@ -47,10 +48,27 @@ export const UserForm: React.FC<UserFormProps> = ({
       }
     : undefined;
 
-  const { control, handleSubmit, formState: { errors }, setError } = useForm<UserFormData>({
+  const { control, handleSubmit, formState: { errors }, setError, watch, setValue } = useForm<UserFormData>({
     resolver: zodResolver(userFormSchema),
     defaultValues,
   });
+
+  const firstName = watch('firstName');
+  const lastName = watch('lastName');
+
+  // Auto-populate username from firstName + lastName in create mode
+  useEffect(() => {
+    if (!isEdit) {
+      const preview = [firstName, lastName]
+        .filter(Boolean)
+        .join('')
+        .toLowerCase()
+        .replace(/\s+/g, '');
+      if (preview) {
+        setValue('username', preview);
+      }
+    }
+  }, [firstName, lastName, isEdit, setValue]);
 
   const { data: roles = [] } = useQuery({
     queryKey: ['roles'],
@@ -102,10 +120,12 @@ export const UserForm: React.FC<UserFormProps> = ({
       }
     }
 
-    // Eliminar confirmPassword y transformar cargoId vacío a undefined
-    const { confirmPassword, cargoId, ...rest } = data;
+    // Eliminar confirmPassword y transformar cargoId/email vacío a undefined
+    const { confirmPassword, cargoId, email, username, ...rest } = data;
     const submitData = {
       ...rest,
+      username: username || undefined,
+      email: email || undefined,
       cargoId: cargoId || undefined,
     };
     await onSubmit(submitData);
@@ -127,12 +147,27 @@ export const UserForm: React.FC<UserFormProps> = ({
             render={({ field }) => (
               <TextField
                 {...field}
-                label="Email"
+                label="Email (opcional)"
                 type="email"
                 fullWidth
                 error={!!errors.email}
                 helperText={errors.email?.message}
-                disabled={isLoading || isEdit}
+                disabled={isLoading}
+              />
+            )}
+          />
+
+          <Controller
+            name="username"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Usuario"
+                fullWidth
+                error={!!errors.username}
+                helperText={errors.username?.message || (!isEdit ? 'Se auto-genera a partir del nombre y apellido' : undefined)}
+                disabled={isLoading}
               />
             )}
           />

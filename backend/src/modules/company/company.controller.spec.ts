@@ -13,7 +13,7 @@ const mockCompanyService = {
 
 const mockCompany = {
   id: 'company-1',
-  name: 'Hight Solutions SAS',
+  name: 'High Solutions SAS',
   nit: '900123456-7',
   logoLightUrl: 'https://s3.example.com/logo-light.png',
   logoDarkUrl: null,

@@ -147,7 +147,7 @@ Abre `05-AI-PROMPT-TEMPLATE.md`, copia el template apropiado, rellena los detall
 
 Si quisieras crear un módulo de **Productos** ahora mismo, usarías este prompt:
 ```
-Necesito crear un módulo de Products para el proyecto Hight Solutions Backoffice.
+Necesito crear un módulo de Products para el proyecto High Solutions Backoffice.
 
 Lee primero:
 - docs/ai-guides/00-ARCHITECTURE-OVERVIEW.md

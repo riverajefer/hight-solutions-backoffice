@@ -7,7 +7,7 @@ Usa este prompt como base para pedirle a la IA que genere un nuevo módulo sigui
 ## Prompt Base
 
 ```
-Necesito crear un nuevo módulo para el proyecto Hight Solutions Backoffice (NestJS + Prisma + PostgreSQL).
+Necesito crear un nuevo módulo para el proyecto High Solutions Backoffice (NestJS + Prisma + PostgreSQL).
 
 **Nombre del módulo**: [NOMBRE_DEL_MODULO]
 
@@ -55,7 +55,7 @@ Sigue estas guías del proyecto:
 ## Ejemplo Específico: Módulo de Clientes
 
 ```
-Necesito crear un nuevo módulo para el proyecto Hight Solutions Backoffice (NestJS + Prisma + PostgreSQL).
+Necesito crear un nuevo módulo para el proyecto High Solutions Backoffice (NestJS + Prisma + PostgreSQL).
 
 **Nombre del módulo**: Customers (Clientes)
 
@@ -115,7 +115,7 @@ Sigue estas guías del proyecto:
 ## Ejemplo con Relaciones Complejas: Módulo de Órdenes
 
 ```
-Necesito crear un nuevo módulo para el proyecto Hight Solutions Backoffice (NestJS + Prisma + PostgreSQL).
+Necesito crear un nuevo módulo para el proyecto High Solutions Backoffice (NestJS + Prisma + PostgreSQL).
 
 **Nombre del módulo**: Orders (Órdenes de Pedido)
 

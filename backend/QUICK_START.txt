@@ -1,5 +1,5 @@
 ╔═══════════════════════════════════════════════════════════════════╗
-║   HIGHT SOLUTIONS BACKOFFICE - FRONTEND COMPLETADO! ✅           ║
+║   HIGH SOLUTIONS BACKOFFICE - FRONTEND COMPLETADO! ✅           ║
 ╚═══════════════════════════════════════════════════════════════════╝
 
 📁 UBICACIÓN: /frontend

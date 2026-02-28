@@ -37,25 +37,69 @@ export class UsersService {
     }
 
     // Transformar la estructura de permisos para mejor legibilidad
+    const userResult = user as any;
     return {
-      ...user,
+      ...userResult,
       role: {
-        id: user.role.id,
-        name: user.role.name,
-        permissions: user.role.permissions.map((rp) => rp.permission),
+        id: userResult.role.id,
+        name: userResult.role.name,
+        permissions: userResult.role.permissions.map((rp: any) => rp.permission),
       },
     };
+  }
+
+  /**
+   * Genera un username único a partir del nombre y apellido.
+   * Si el username base ya existe, agrega un sufijo numérico incremental.
+   */
+  private async generateUniqueUsername(
+    firstName?: string,
+    lastName?: string,
+  ): Promise<string> {
+    const parts = [firstName, lastName].filter(Boolean).join('');
+    const base = parts.toLowerCase().replace(/\s+/g, '') || 'user';
+
+    const exists = await this.usersRepository.findByUsername(base);
+    if (!exists) return base;
+
+    for (let counter = 1; counter <= 999; counter++) {
+      const candidate = `${base}${counter}`;
+      const taken = await this.usersRepository.findByUsername(candidate);
+      if (!taken) return candidate;
+    }
+
+    throw new BadRequestException(
+      'Could not generate a unique username. Please provide one manually.',
+    );
   }
 
   /**
    * Crea un nuevo usuario
    */
   async create(createUserDto: CreateUserDto) {
-    // Verificar si el email ya existe
-    const existingUser = await this.usersRepository.findByEmail(createUserDto.email);
+    // Determinar el username
+    let username: string;
+    if (createUserDto.username) {
+      const existingByUsername = await this.usersRepository.findByUsername(
+        createUserDto.username,
+      );
+      if (existingByUsername) {
+        throw new BadRequestException('Username already taken');
+      }
+      username = createUserDto.username;
+    } else {
+      username = await this.generateUniqueUsername(
+        createUserDto.firstName,
+        createUserDto.lastName,
+      );
+    }
 
-    if (existingUser) {
-      throw new BadRequestException('Email already registered');
+    // Verificar si el email ya existe (si se proporciona)
+    if (createUserDto.email) {
+      const existingUser = await this.usersRepository.findByEmail(createUserDto.email);
+      if (existingUser) {
+        throw new BadRequestException('Email already registered');
+      }
     }
 
     // Verificar si el rol existe
@@ -86,7 +130,8 @@ export class UsersService {
 
     // Crear el usuario
     return this.usersRepository.create({
-      email: createUserDto.email,
+      username: username as string,
+      ...(createUserDto.email && { email: createUserDto.email }),
       password: hashedPassword,
       firstName: createUserDto.firstName,
       lastName: createUserDto.lastName,
@@ -107,6 +152,18 @@ export class UsersService {
   async update(id: string, updateUserDto: UpdateUserDto) {
     // Verificar que el usuario existe
     await this.findOne(id);
+
+    // Si se actualiza el username, verificar unicidad
+    if (updateUserDto.username) {
+      const existingByUsername =
+        await this.usersRepository.findByUsernameExcludingId(
+          updateUserDto.username,
+          id,
+        );
+      if (existingByUsername) {
+        throw new BadRequestException('Username already taken');
+      }
+    }
 
     // Si se actualiza el email, verificar que no exista
     if (updateUserDto.email) {
@@ -143,7 +200,12 @@ export class UsersService {
     }
 
     // Preparar datos de actualización
-    const { password, roleId, cargoId, ...updateData } = updateUserDto;
+    const { password, roleId, cargoId, username, ...updateData } = updateUserDto;
+
+    // Incluir username si fue provisto
+    if (username) {
+      (updateData as any).username = username;
+    }
 
     // Si se actualiza el password, hashearlo
     if (password) {

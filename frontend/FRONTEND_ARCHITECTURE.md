@@ -1,4 +1,4 @@
-# Documentación Técnica - Frontend Hight Solutions Backoffice
+# Documentación Técnica - Frontend High Solutions Backoffice
 
 ## Índice
 

@@ -1,6 +1,6 @@
 # Environment Setup Guide
 
-This guide explains how to configure and manage the three environments for the Hight Solutions Backoffice project:
+This guide explains how to configure and manage the three environments for the High Solutions Backoffice project:
 
 - **Development**: Local development with Supabase PostgreSQL
 - **Staging**: QA environment on Railway with PostgreSQL
@@ -151,7 +151,7 @@ Edit `.env.development`:
 VITE_API_URL=http://localhost:3000/api/v1
 
 # Application Name
-VITE_APP_NAME=Hight Solutions Backoffice
+VITE_APP_NAME=High Solutions Backoffice
 
 # Environment
 VITE_ENVIRONMENT=development
@@ -274,7 +274,7 @@ Railway will automatically deploy when you push to the configured branch.
 **For Staging:**
 ```
 VITE_API_URL=https://your-staging-backend.up.railway.app/api/v1
-VITE_APP_NAME=Hight Solutions Backoffice (QA)
+VITE_APP_NAME=High Solutions Backoffice (QA)
 VITE_ENVIRONMENT=staging
 VITE_SHOW_DEMO_CREDENTIALS=false
 ```
@@ -282,7 +282,7 @@ VITE_SHOW_DEMO_CREDENTIALS=false
 **For Production:**
 ```
 VITE_API_URL=https://your-production-backend.up.railway.app/api/v1
-VITE_APP_NAME=Hight Solutions Backoffice
+VITE_APP_NAME=High Solutions Backoffice
 VITE_ENVIRONMENT=production
 VITE_SHOW_DEMO_CREDENTIALS=false
 ```

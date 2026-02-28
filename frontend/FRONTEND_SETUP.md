@@ -1,4 +1,4 @@
-# Guía de Inicio Rápido - Hight Solutions Backoffice
+# Guía de Inicio Rápido - High Solutions Backoffice
 
 ## Requisitos
 
@@ -20,7 +20,7 @@ Las variables ya están configuradas en `frontend/.env`, pero puedes ajustarlas 
 
 ```env
 VITE_API_URL=http://localhost:3000/api/v1
-VITE_APP_NAME=Hight Solutions Backoffice
+VITE_APP_NAME=High Solutions Backoffice
 ```
 
 ### 3. Iniciar el Frontend

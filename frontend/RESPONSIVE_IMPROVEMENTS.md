@@ -339,4 +339,4 @@ xl: 1920px+            // Desktop grande
 
 **Última actualización**: 2026-02-14
 **Versión**: 1.0.0
-**Mantenedor**: Hight Solutions Team
+**Mantenedor**: High Solutions Team
