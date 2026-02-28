@@ -84,6 +84,13 @@ export interface WorkOrder {
     id: string;
     ogNumber: string;
     status: string;
+    createdAt: string;
+    expenseType: {
+      name: string;
+    };
+    expenseSubcategory: {
+      name: string;
+    };
   }>;
   items: WorkOrderItem[];
   createdAt: string;

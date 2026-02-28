@@ -50,6 +50,17 @@ export class WorkOrdersRepository {
         id: true,
         ogNumber: true,
         status: true,
+        createdAt: true,
+        expenseType: {
+          select: {
+            name: true,
+          },
+        },
+        expenseSubcategory: {
+          select: {
+            name: true,
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc' as const,

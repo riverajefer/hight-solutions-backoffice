@@ -643,14 +643,15 @@ export const ExpenseOrderFormPage = () => {
                 )}
               </Stack>
 
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <TextField
-                  label="Nombre del gasto *"
-                  value={item.name}
-                  onChange={(e) => updateItem(index, 'name', e.target.value)}
-                  inputProps={{ maxLength: 200 }}
-                  sx={{ flex: 2 }}
-                />
+              <TextField
+                label="Nombre del gasto *"
+                value={item.name}
+                onChange={(e) => updateItem(index, 'name', e.target.value)}
+                inputProps={{ maxLength: 200 }}
+                fullWidth
+              />
+
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="stretch">
                 <TextField
                   label="Cantidad *"
                   type="number"
@@ -672,16 +673,29 @@ export const ExpenseOrderFormPage = () => {
                   inputProps={{ style: { textAlign: 'right' } }}
                   sx={{ flex: 1 }}
                 />
-              </Stack>
 
-              <Typography variant="body2" color="text.secondary">
-                Total:{' '}
-                <strong>
-                  {formatCurrency(
-                    (parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0),
-                  )}
-                </strong>
-              </Typography>
+                <Box
+                  sx={{
+                    px: 1.5,
+                    py: 0,
+                    borderRadius: 1.5,
+                    bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08),
+                    minWidth: { xs: '100%', sm: 190 },
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.25 }}>
+                    Total del ítem
+                  </Typography>
+                  <Typography variant="subtitle1" fontWeight={800} color="primary.main">
+                    {formatCurrency(
+                      (parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0),
+                    )}
+                  </Typography>
+                </Box>
+              </Stack>
 
               <TextField
                 label="Descripción"
