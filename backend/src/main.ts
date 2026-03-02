@@ -48,8 +48,10 @@ async function bootstrap() {
     }),
   );
 
-  // Prefijo global para la API
-  app.setGlobalPrefix('api/v1');
+  // Prefijo global para la API — excluye /health para que sea accesible sin prefijo
+  app.setGlobalPrefix('api/v1', {
+    exclude: ['health'],
+  });
 
   // CORS
   app.enableCors({
@@ -62,6 +64,7 @@ async function bootstrap() {
 
   await app.listen(port);
   console.log(`🚀 Application is running on: http://localhost:${port}/api/v1`);
+  console.log(`❤️  Health check available at: http://localhost:${port}/health`);
 }
 
 bootstrap();

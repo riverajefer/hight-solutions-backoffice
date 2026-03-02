@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule } from './config/config.module';
@@ -36,9 +36,13 @@ import { ExpenseTypesModule } from './modules/expense-types/expense-types.module
 import { ExpenseOrdersModule } from './modules/expense-orders/expense-orders.module';
 import { OrderTimelineModule } from './modules/order-timeline/order-timeline.module';
 import { AuditContextInterceptor } from './common/interceptors/audit-context.interceptor';
+import { MaintenanceMiddleware } from './common/middleware/maintenance.middleware';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
+    // Health check (sin prefijo /api/v1, siempre disponible)
+    HealthModule,
     // Configuración centralizada
     ConfigModule,
     // Cron Jobs
@@ -104,4 +108,10 @@ import { AuditContextInterceptor } from './common/interceptors/audit-context.int
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer
+      .apply(MaintenanceMiddleware)
+      .forRoutes('*');
+  }
+}
