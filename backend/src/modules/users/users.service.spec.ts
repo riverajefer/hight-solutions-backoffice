@@ -21,6 +21,7 @@ const mockUsersRepository = {
   findByUsernameExcludingId: jest.fn(),
   create: jest.fn(),
   update: jest.fn(),
+  deactivate: jest.fn(),
   updateRefreshToken: jest.fn(),
   delete: jest.fn(),
 };
@@ -51,6 +52,7 @@ describe('UsersService', () => {
   const mockUserFromRepo = {
     id: 'user-1',
     email: 'test@example.com',
+    isActive: true,
     firstName: 'John',
     lastName: 'Doe',
     profilePhoto: null,
@@ -292,21 +294,95 @@ describe('UsersService', () => {
   // remove
   // ─────────────────────────────────────────────
   describe('remove', () => {
+    const adminUser = {
+      id: 'admin-1',
+      role: { id: 'role-1', name: 'admin' },
+    } as any;
+
+    const managerUser = {
+      id: 'manager-1',
+      role: { id: 'role-2', name: 'manager' },
+    } as any;
+
     it('should delete user and return success message', async () => {
+      mockRolesRepository.findById.mockResolvedValue({ id: 'role-1', name: 'admin' });
       mockUsersRepository.findById.mockResolvedValue(mockUserFromRepo);
       mockUsersRepository.delete.mockResolvedValue(mockUserFromRepo);
 
-      const result = await service.remove('user-1');
+      const result = await service.remove('user-1', adminUser);
 
       expect(mockUsersRepository.delete).toHaveBeenCalledWith('user-1');
       expect(result).toEqual({ message: 'User with ID user-1 deleted successfully' });
     });
 
+    it('should throw ForbiddenException when current user is not admin', async () => {
+      mockRolesRepository.findById.mockResolvedValue({ id: 'role-2', name: 'manager' });
+      await expect(service.remove('user-1', managerUser)).rejects.toThrow('Only admin users can deactivate users');
+      expect(mockUsersRepository.findById).not.toHaveBeenCalled();
+      expect(mockUsersRepository.delete).not.toHaveBeenCalled();
+    });
+
     it('should throw NotFoundException when user does not exist', async () => {
+      mockRolesRepository.findById.mockResolvedValue({ id: 'role-1', name: 'admin' });
       mockUsersRepository.findById.mockResolvedValue(null);
 
-      await expect(service.remove('bad-id')).rejects.toThrow(NotFoundException);
+      await expect(service.remove('bad-id', adminUser)).rejects.toThrow(NotFoundException);
       expect(mockUsersRepository.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('deactivate', () => {
+    const adminUser = {
+      id: 'admin-1',
+      role: { id: 'role-1', name: 'admin' },
+    } as any;
+
+    const managerUser = {
+      id: 'manager-1',
+      role: { id: 'role-2', name: 'manager' },
+    } as any;
+
+    it('should deactivate user and return success message', async () => {
+      mockRolesRepository.findById.mockResolvedValue({ id: 'role-1', name: 'admin' });
+      mockUsersRepository.findById.mockResolvedValue(mockUserFromRepo);
+      mockUsersRepository.deactivate.mockResolvedValue({ ...mockUserFromRepo, isActive: false });
+
+      const result = await service.deactivate('user-1', adminUser);
+
+      expect(mockUsersRepository.deactivate).toHaveBeenCalledWith('user-1');
+      expect(result).toEqual(
+        expect.objectContaining({
+          message: 'User with ID user-1 deactivated successfully',
+          user: expect.objectContaining({ id: 'user-1', isActive: false }),
+        }),
+      );
+    });
+
+    it('should throw ForbiddenException when current user is not admin', async () => {
+      mockRolesRepository.findById.mockResolvedValue({ id: 'role-2', name: 'manager' });
+      await expect(service.deactivate('user-1', managerUser)).rejects.toThrow(
+        'Only admin users can deactivate users',
+      );
+      expect(mockUsersRepository.findById).not.toHaveBeenCalled();
+      expect(mockUsersRepository.deactivate).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException when user does not exist', async () => {
+      mockRolesRepository.findById.mockResolvedValue({ id: 'role-1', name: 'admin' });
+      mockUsersRepository.findById.mockResolvedValue(null);
+
+      await expect(service.deactivate('bad-id', adminUser)).rejects.toThrow(NotFoundException);
+      expect(mockUsersRepository.deactivate).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when user is already inactive', async () => {
+      mockRolesRepository.findById.mockResolvedValue({ id: 'role-1', name: 'admin' });
+      mockUsersRepository.findById.mockResolvedValue({ ...mockUserFromRepo, isActive: false });
+
+      await expect(service.deactivate('user-1', adminUser)).rejects.toThrow(
+        'User is already deactivated',
+      );
+      expect(mockUsersRepository.deactivate).not.toHaveBeenCalled();
     });
   });
 });

@@ -2,12 +2,14 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto, UpdateUserDto } from './dto';
 import { UsersRepository } from './users.repository';
 import { RolesRepository } from '../roles/roles.repository';
 import { CargosRepository } from '../cargos/cargos.repository';
+import { AuthenticatedUser } from '../../common/interfaces';
 
 @Injectable()
 export class UsersService {
@@ -18,6 +20,15 @@ export class UsersService {
     private readonly rolesRepository: RolesRepository,
     private readonly cargosRepository: CargosRepository,
   ) {}
+
+  private async assertAdmin(currentUser: AuthenticatedUser): Promise<void> {
+    const role = await this.rolesRepository.findById(currentUser.roleId);
+    const roleName = role?.name?.toLowerCase();
+
+    if (roleName !== 'admin') {
+      throw new ForbiddenException('Only admin users can deactivate users');
+    }
+  }
 
   /**
    * Obtiene todos los usuarios con su rol
@@ -235,11 +246,37 @@ export class UsersService {
   /**
    * Elimina un usuario
    */
-  async remove(id: string) {
+  async remove(id: string, currentUser: AuthenticatedUser) {
+    await this.assertAdmin(currentUser);
+
     await this.findOne(id);
 
     await this.usersRepository.delete(id);
 
     return { message: `User with ID ${id} deleted successfully` };
+  }
+
+  /**
+   * Desactiva un usuario (soft delete)
+   */
+  async deactivate(id: string, currentUser: AuthenticatedUser) {
+    await this.assertAdmin(currentUser);
+
+    const user = await this.usersRepository.findById(id);
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    if (user.isActive === false) {
+      throw new BadRequestException('User is already deactivated');
+    }
+
+    const deactivatedUser = await this.usersRepository.deactivate(id);
+
+    return {
+      message: `User with ID ${id} deactivated successfully`,
+      user: deactivatedUser,
+    };
   }
 }

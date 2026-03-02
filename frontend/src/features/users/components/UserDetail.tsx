@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import BlockIcon from '@mui/icons-material/Block';
 import EmailIcon from '@mui/icons-material/Email';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import BadgeIcon from '@mui/icons-material/Badge';
@@ -27,7 +28,9 @@ interface UserDetailProps {
   user: User;
   onEdit: () => void;
   onBack: () => void;
+  onDeactivate?: () => void;
   canEdit?: boolean;
+  canDeactivate?: boolean;
 }
 
 const DetailItem: React.FC<{ 
@@ -81,7 +84,9 @@ export const UserDetail: React.FC<UserDetailProps> = ({
   user, 
   onEdit, 
   onBack,
-  canEdit = false 
+  onDeactivate,
+  canEdit = false,
+  canDeactivate = false,
 }) => {
   const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
 
@@ -140,6 +145,16 @@ export const UserDetail: React.FC<UserDetailProps> = ({
                 onClick={onEdit}
               >
                 Editar
+              </Button>
+            )}
+            {canDeactivate && (
+              <Button
+                variant="outlined"
+                color="warning"
+                startIcon={<BlockIcon />}
+                onClick={onDeactivate}
+              >
+                Desactivar usuario
               </Button>
             )}
           </Box>

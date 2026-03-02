@@ -21,6 +21,7 @@ model User {
   updatedAt    DateTime @updatedAt
   firstName    String?
   lastName     String?
+  isActive     Boolean  @default(true)
 
   role                         Role                       @relation(fields: [roleId], references: [id])
   cargo                        Cargo?                     @relation(fields: [cargoId], references: [id])

@@ -15,6 +15,7 @@ export class UsersRepository {
         id: true,
         username: true,
         email: true,
+        isActive: true,
         roleId: true,
         cargoId: true,
         createdAt: true,
@@ -54,6 +55,7 @@ export class UsersRepository {
         id: true,
         username: true,
         email: true,
+        isActive: true,
         roleId: true,
         cargoId: true,
         createdAt: true,
@@ -104,6 +106,7 @@ export class UsersRepository {
         id: true,
         username: true,
         email: true,
+        isActive: true,
         password: true,
         roleId: true,
         refreshToken: true,
@@ -135,6 +138,7 @@ export class UsersRepository {
         id: true,
         username: true,
         email: true,
+        isActive: true,
         password: true,
         roleId: true,
         refreshToken: true,
@@ -166,6 +170,7 @@ export class UsersRepository {
         id: true,
         username: true,
         email: true,
+        isActive: true,
         roleId: true,
         cargoId: true,
         createdAt: true,
@@ -204,6 +209,7 @@ export class UsersRepository {
         id: true,
         username: true,
         email: true,
+        isActive: true,
         roleId: true,
         cargoId: true,
         createdAt: true,
@@ -239,6 +245,46 @@ export class UsersRepository {
     return this.prisma.user.update({
       where: { id },
       data: { refreshToken },
+    });
+  }
+
+  /**
+   * Desactiva un usuario (soft delete)
+   */
+  async deactivate(id: string) {
+    return this.prisma.user.update({
+      where: { id },
+      data: { isActive: false, refreshToken: null },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        isActive: true,
+        roleId: true,
+        cargoId: true,
+        createdAt: true,
+        updatedAt: true,
+        firstName: true,
+        lastName: true,
+        role: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        cargo: {
+          select: {
+            id: true,
+            name: true,
+            area: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
     });
   }
 

@@ -41,6 +41,14 @@ export const usersApi = {
   },
 
   /**
+   * Desactivar usuario
+   */
+  deactivate: async (id: string): Promise<{ message: string; user: User }> => {
+    const response = await axiosInstance.patch<{ message: string; user: User }>(`/users/${id}/deactivate`);
+    return response.data;
+  },
+
+  /**
    * Eliminar usuario
    */
   delete: async (id: string): Promise<void> => {

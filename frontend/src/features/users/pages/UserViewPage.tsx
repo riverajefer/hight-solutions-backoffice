@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Box } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useSnackbar } from 'notistack';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
+import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { UserDetail } from '../components/UserDetail';
 import { useUsers } from '../hooks/useUsers';
 import { ROUTES, PERMISSIONS } from '../../../utils/constants';
@@ -14,10 +16,28 @@ import { useAuthStore } from '../../../store/authStore';
 const UserViewPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { hasPermission } = useAuthStore();
+  const { enqueueSnackbar } = useSnackbar();
+  const { hasPermission, user: currentUser } = useAuthStore();
+  const [confirmDeactivateOpen, setConfirmDeactivateOpen] = useState(false);
   
-  const { getUserQuery } = useUsers();
+  const { getUserQuery, deactivateUserMutation } = useUsers();
   const { data: user, isLoading, isError } = getUserQuery(id || '');
+
+  const isAdmin = currentUser?.role?.name?.toLowerCase() === 'admin';
+  const canDeactivate = isAdmin && user?.isActive !== false;
+
+  const handleDeactivate = async () => {
+    if (!id) return;
+
+    try {
+      await deactivateUserMutation.mutateAsync(id);
+      enqueueSnackbar('Usuario desactivado correctamente', { variant: 'success' });
+      navigate(ROUTES.USERS);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Error al desactivar usuario';
+      enqueueSnackbar(message, { variant: 'error' });
+    }
+  };
 
   if (isLoading) {
     return <LoadingSpinner />;
@@ -41,7 +61,20 @@ const UserViewPage: React.FC = () => {
         user={user}
         onBack={() => navigate(ROUTES.USERS)}
         onEdit={() => navigate(ROUTES.USERS_EDIT.replace(':id', user.id))}
+        onDeactivate={() => setConfirmDeactivateOpen(true)}
         canEdit={hasPermission(PERMISSIONS.UPDATE_USERS)}
+        canDeactivate={canDeactivate}
+      />
+
+      <ConfirmDialog
+        open={confirmDeactivateOpen}
+        title="Desactivar Usuario"
+        message={`¿Estás seguro de que deseas desactivar al usuario ${user.email || user.username || user.id}?`}
+        onConfirm={handleDeactivate}
+        onCancel={() => setConfirmDeactivateOpen(false)}
+        isLoading={deactivateUserMutation.isPending}
+        confirmText="Desactivar"
+        severity="warning"
       />
     </Box>
   );

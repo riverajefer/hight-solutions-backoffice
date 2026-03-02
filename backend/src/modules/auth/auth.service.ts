@@ -39,6 +39,7 @@ export class AuthService {
         id: true,
         username: true,
         email: true,
+        isActive: true,
         password: true,
         roleId: true,
         firstName: true,
@@ -67,6 +68,10 @@ export class AuthService {
     });
 
     if (!user) {
+      return null;
+    }
+
+    if (!user.isActive) {
       return null;
     }
 
@@ -185,6 +190,7 @@ export class AuthService {
         id: true,
         username: true,
         email: true,
+        isActive: true,
         roleId: true,
       },
     });
@@ -203,6 +209,7 @@ export class AuthService {
         id: true,
         username: true,
         email: true,
+        isActive: true,
         roleId: true,
         firstName: true,
         lastName: true,
@@ -230,7 +237,7 @@ export class AuthService {
       },
     });
 
-    if (!user || !user.refreshToken) {
+    if (!user || !user.refreshToken || !user.isActive) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
@@ -316,6 +323,10 @@ export class AuthService {
 
     if (!user) {
       throw new UnauthorizedException('User not found');
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('User inactive');
     }
 
     // Extraer solo los nombres de los permisos
@@ -418,6 +429,10 @@ export class AuthService {
     });
 
     if (!user) {
+      return [];
+    }
+
+    if (!user.isActive) {
       return [];
     }
 
