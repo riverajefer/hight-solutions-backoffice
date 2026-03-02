@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Alert,
   Box,
   Card,
   CardContent,
@@ -15,6 +16,7 @@ import type {
   PaymentMethod,
 } from '../../../types/order.types';
 import { PAYMENT_METHOD_LABELS } from '../../../types/order.types';
+import { useAuthStore } from '../../../store/authStore';
 
 interface InitialPaymentProps {
   total: number;
@@ -82,6 +84,13 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
           Abono Inicial
         </Typography>
         <Divider sx={{ mb: 2 }} />
+
+        {/* Alerta: anticipo requiere aprobación de Caja */}
+        {enabled && !useAuthStore.getState().permissions.includes('approve_advance_payments') && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            El anticipo debe ser aprobado por Caja antes de que la orden pueda avanzar de estado.
+          </Alert>
+        )}
 
         <Collapse in={enabled || required}>
           <Grid container spacing={2} sx={{ mt: 0.5 }}>

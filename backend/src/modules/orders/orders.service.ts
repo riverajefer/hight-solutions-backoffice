@@ -9,6 +9,7 @@ import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { StorageService } from '../storage/storage.service';
 import { OrderStatusChangeRequestsService } from '../order-status-change-requests/order-status-change-requests.service';
+import { AdvancePaymentApprovalsService } from '../advance-payment-approvals/advance-payment-approvals.service';
 import {
   CreateOrderDto,
   UpdateOrderDto,
@@ -31,6 +32,7 @@ export class OrdersService {
     private readonly auditLogsService: AuditLogsService,
     private readonly storageService: StorageService,
     private readonly statusChangeRequestsService: OrderStatusChangeRequestsService,
+    private readonly advancePaymentApprovalsService: AdvancePaymentApprovalsService,
   ) {}
 
   async findAll(filters: FilterOrdersDto) {
@@ -132,32 +134,62 @@ export class OrdersService {
     const balance = total.sub(paidAmount);
 
     // Crear orden con items y pago inicial (en transacción)
-    const newOrder = await this.ordersRepository.create({
-      orderNumber,
-      orderDate: new Date(),
-      deliveryDate: createOrderDto.deliveryDate
-        ? new Date(createOrderDto.deliveryDate)
-        : undefined,
-      subtotal,
-      taxRate,
-      tax,
-      discountAmount,
-      requiresColorProof,
-      colorProofPrice,
-      total,
-      paidAmount,
-      balance,
-      notes: createOrderDto.notes,
-      client: { connect: { id: createOrderDto.clientId } },
-      createdBy: { connect: { id: createdById } },
-      ...(createOrderDto.commercialChannelId && {
-        commercialChannel: { connect: { id: createOrderDto.commercialChannelId } },
-      }),
-      items: {
-        create: items,
-      },
-      ...(payments && { payments }),
-    });
+    // Se implementa un mecanismo de reintento en caso de colisión de número de orden (P2002)
+    let newOrder;
+    let attempts = 0;
+    const maxAttempts = 3;
+    let currentOrderNumber = orderNumber;
+
+    while (attempts < maxAttempts) {
+      try {
+        newOrder = await this.ordersRepository.create({
+          orderNumber: currentOrderNumber,
+          orderDate: new Date(),
+          deliveryDate: createOrderDto.deliveryDate
+            ? new Date(createOrderDto.deliveryDate)
+            : undefined,
+          subtotal,
+          taxRate,
+          tax,
+          discountAmount,
+          requiresColorProof,
+          colorProofPrice,
+          total,
+          paidAmount,
+          balance,
+          notes: createOrderDto.notes,
+          client: { connect: { id: createOrderDto.clientId } },
+          createdBy: { connect: { id: createdById } },
+          ...(createOrderDto.commercialChannelId && {
+            commercialChannel: { connect: { id: createOrderDto.commercialChannelId } },
+          }),
+          items: {
+            create: items,
+          },
+          ...(payments && { payments }),
+        });
+        break; // Éxito, salir del bucle
+      } catch (error) {
+        attempts++;
+        
+        // Determinar si es un error de duplicado de order_number
+        // Prisma puede devolver el target en diferentes formatos dependiendo de la configuración
+        const isUniqueConstraintError = error.code === 'P2002';
+        const target = JSON.stringify(error.meta?.target || '');
+        const isOrderNumberTarget = 
+          target.includes('order_number') || 
+          target.includes('orders_order_number_key') ||
+          (error.meta?.modelName === 'Order' && (error.meta?.target === undefined || target === '""'));
+
+        if (isUniqueConstraintError && isOrderNumberTarget && attempts < maxAttempts) {
+          // Sincronizar el contador de consecutivos y generar un nuevo número
+          await this.consecutivesService.syncCounter('ORDER');
+          currentOrderNumber = await this.consecutivesService.generateNumber('ORDER');
+          continue;
+        }
+        throw error; // Re-lanzar si no es P2002 o se agotaron los intentos
+      }
+    }
 
     // Registrar en audit log (fuera de la transacción, sin esperar para no afectar performance)
     if (newOrder) {
@@ -168,6 +200,30 @@ export class OrdersService {
         newOrder,
         createdById,
       );
+    }
+
+    // Verificar si el anticipo requiere aprobación (usuario no-admin/no-caja)
+    if (newOrder && createOrderDto.initialPayment && paidAmount.greaterThan(0)) {
+      const approvalCheck = await this.advancePaymentApprovalsService.requiresApproval(createdById);
+
+      if (approvalCheck.required) {
+        // Buscar el payment recién creado
+        const payment = await this.prisma.payment.findFirst({
+          where: { orderId: newOrder.id },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        if (payment) {
+          await this.advancePaymentApprovalsService.createFromOrderCreation(
+            createdById,
+            newOrder.id,
+            payment.id,
+          );
+        }
+
+        // Re-fetch para devolver la orden con el advancePaymentStatus actualizado
+        return this.findOne(newOrder.id);
+      }
     }
 
     return newOrder;
@@ -458,6 +514,20 @@ export class OrdersService {
     // No-op si el estado es el mismo
     if (order.status === status) {
       return order;
+    }
+
+    // Bloquear cambio de estado si el anticipo está pendiente de aprobación
+    if (order.advancePaymentStatus === 'PENDING') {
+      throw new BadRequestException(
+        'No se puede cambiar el estado de esta orden porque tiene un anticipo pendiente de aprobación por Caja.',
+      );
+    }
+
+    // Bloquear cambio de estado si el anticipo fue rechazado
+    if (order.advancePaymentStatus === 'REJECTED') {
+      throw new BadRequestException(
+        'No se puede cambiar el estado de esta orden porque el anticipo fue rechazado.',
+      );
     }
 
     // Validar que la transición sea permitida por el flujo secuencial

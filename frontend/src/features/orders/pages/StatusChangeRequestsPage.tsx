@@ -22,6 +22,7 @@ import PendingActionsIcon from '@mui/icons-material/PendingActions';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import PaymentIcon from '@mui/icons-material/Payment';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -30,11 +31,13 @@ import { useAuthStore } from '../../../store/authStore';
 import { orderStatusChangeRequestsApi } from '../../../api/order-status-change-requests.api';
 import { editRequestsApi } from '../../../api/edit-requests.api';
 import { expenseOrderAuthRequestsApi } from '../../../api/expense-order-auth-requests.api';
-import { ORDER_STATUS_CONFIG, type OrderStatus } from '../../../types/order.types';
+import { advancePaymentApprovalsApi } from '../../../api/advance-payment-approvals.api';
+import { ORDER_STATUS_CONFIG, PAYMENT_METHOD_LABELS, type OrderStatus } from '../../../types/order.types';
 import { EXPENSE_ORDER_STATUS_CONFIG, ExpenseOrderStatus } from '../../../types/expense-order.types';
 import type { OrderStatusChangeRequest } from '../../../types/order-status-change-request.types';
 import type { OrderEditRequest } from '../../../types/edit-request.types';
 import type { ExpenseOrderAuthRequest } from '../../../types/expense-order-auth-request.types';
+import type { AdvancePaymentApproval } from '../../../types/advance-payment-approval.types';
 
 // ============================================================
 // CONSTANTES
@@ -100,6 +103,14 @@ export const StatusChangeRequestsPage: React.FC = () => {
   }>({ open: false, request: null, action: null });
   const [ogAuthReviewNotes, setOgAuthReviewNotes] = useState('');
 
+  // --- Advance Payment Approvals ---
+  const [advanceReviewDialog, setAdvanceReviewDialog] = useState<{
+    open: boolean;
+    request: AdvancePaymentApproval | null;
+    action: 'approve' | 'reject' | null;
+  }>({ open: false, request: null, action: null });
+  const [advanceReviewNotes, setAdvanceReviewNotes] = useState('');
+
   // ============================================================
   // QUERIES
   // ============================================================
@@ -118,6 +129,11 @@ export const StatusChangeRequestsPage: React.FC = () => {
     queryKey: ['ogAuthRequests', 'pending'],
     queryFn: () => expenseOrderAuthRequestsApi.findPending(),
     enabled: isAdmin,
+  });
+
+  const { data: advancePaymentRequests, isLoading: advanceLoading } = useQuery({
+    queryKey: ['advancePaymentApprovals', 'pending'],
+    queryFn: () => advancePaymentApprovalsApi.findPending(),
   });
 
   // ============================================================
@@ -225,6 +241,44 @@ export const StatusChangeRequestsPage: React.FC = () => {
     onError: (error: any) => {
       enqueueSnackbar(
         error.response?.data?.message || 'Error al rechazar solicitud',
+        { variant: 'error' }
+      );
+    },
+  });
+
+  // ============================================================
+  // ADVANCE PAYMENT MUTATIONS
+  // ============================================================
+
+  const approveAdvanceMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
+      advancePaymentApprovalsApi.approve(id, notes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['advancePaymentApprovals'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      enqueueSnackbar('Anticipo aprobado exitosamente', { variant: 'success' });
+      handleCloseAdvanceReviewDialog();
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(
+        error.response?.data?.message || 'Error al aprobar anticipo',
+        { variant: 'error' }
+      );
+    },
+  });
+
+  const rejectAdvanceMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes: string }) =>
+      advancePaymentApprovalsApi.reject(id, notes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['advancePaymentApprovals'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      enqueueSnackbar('Anticipo rechazado. El pago ha sido revertido.', { variant: 'info' });
+      handleCloseAdvanceReviewDialog();
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(
+        error.response?.data?.message || 'Error al rechazar anticipo',
         { variant: 'error' }
       );
     },
@@ -345,6 +399,45 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const handleCloseOgAuthReviewDialog = () => {
     setOgAuthReviewDialog({ open: false, request: null, action: null });
     setOgAuthReviewNotes('');
+  };
+
+  // ============================================================
+  // HANDLERS - ADVANCE PAYMENT
+  // ============================================================
+
+  const handleApproveAdvance = (request: AdvancePaymentApproval) => {
+    setAdvanceReviewDialog({ open: true, request, action: 'approve' });
+    setAdvanceReviewNotes('');
+  };
+
+  const handleRejectAdvance = (request: AdvancePaymentApproval) => {
+    setAdvanceReviewDialog({ open: true, request, action: 'reject' });
+    setAdvanceReviewNotes('');
+  };
+
+  const handleConfirmAdvanceReview = () => {
+    if (!advanceReviewDialog.request) return;
+
+    if (advanceReviewDialog.action === 'approve') {
+      approveAdvanceMutation.mutate({
+        id: advanceReviewDialog.request.id,
+        notes: advanceReviewNotes || undefined,
+      });
+    } else if (advanceReviewDialog.action === 'reject') {
+      if (!advanceReviewNotes.trim()) {
+        enqueueSnackbar('Debe proporcionar una razón para rechazar', { variant: 'warning' });
+        return;
+      }
+      rejectAdvanceMutation.mutate({
+        id: advanceReviewDialog.request.id,
+        notes: advanceReviewNotes,
+      });
+    }
+  };
+
+  const handleCloseAdvanceReviewDialog = () => {
+    setAdvanceReviewDialog({ open: false, request: null, action: null });
+    setAdvanceReviewNotes('');
   };
 
   const handleViewOrder = (orderId: string) => {
@@ -664,12 +757,111 @@ export const StatusChangeRequestsPage: React.FC = () => {
   ];
 
   // ============================================================
+  // COLUMNAS - ADVANCE PAYMENT APPROVALS
+  // ============================================================
+
+  const advanceColumns: GridColDef<AdvancePaymentApproval>[] = [
+    {
+      field: 'orderNumber',
+      headerName: 'Nº Orden',
+      width: 150,
+      valueGetter: (_, row) => row.order?.orderNumber || '-',
+      renderCell: (params) => (
+        <Box
+          sx={{ fontWeight: 600, color: 'primary.main', cursor: 'pointer' }}
+          onClick={() => params.row.order && handleViewOrder(params.row.order.id)}
+        >
+          {params.value}
+        </Box>
+      ),
+    },
+    {
+      field: 'paymentAmount',
+      headerName: 'Monto',
+      width: 150,
+      valueGetter: (_, row) => row.payment?.amount || '0',
+      renderCell: (params) => {
+        const amount = parseFloat(params.value);
+        return (
+          <Typography variant="body2" fontWeight={600}>
+            {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(amount)}
+          </Typography>
+        );
+      },
+    },
+    {
+      field: 'paymentMethod',
+      headerName: 'Método',
+      width: 130,
+      valueGetter: (_, row) => row.payment?.paymentMethod || '-',
+      renderCell: (params) => {
+        const label = PAYMENT_METHOD_LABELS[params.value as keyof typeof PAYMENT_METHOD_LABELS];
+        return <Chip label={label || params.value} size="small" />;
+      },
+    },
+    {
+      field: 'requestedBy',
+      headerName: 'Solicitado por',
+      width: 200,
+      valueGetter: (_, row) => getUserName(row.requestedBy),
+    },
+    {
+      field: 'status',
+      headerName: 'Estado Solicitud',
+      width: 130,
+      renderCell: (params) => {
+        const statusConfig = STATUS_LABELS[params.value] || { label: params.value, color: 'default' };
+        return (
+          <Chip
+            label={statusConfig.label}
+            color={statusConfig.color}
+            size="small"
+          />
+        );
+      },
+    },
+    {
+      field: 'createdAt',
+      headerName: 'Fecha Solicitud',
+      width: 150,
+      valueFormatter: (value) => formatDateTime(value),
+    },
+    {
+      field: 'actions',
+      type: 'actions' as const,
+      headerName: 'Acciones',
+      width: 120,
+      getActions: (params: any) => {
+        if (params.row.status !== 'PENDING') {
+          return [];
+        }
+
+        return [
+          <GridActionsCellItem
+            icon={<CheckCircleIcon sx={{ color: 'success.main' }} />}
+            label="Aprobar"
+            onClick={() => handleApproveAdvance(params.row)}
+            showInMenu={false}
+          />,
+          <GridActionsCellItem
+            icon={<CancelIcon sx={{ color: 'error.main' }} />}
+            label="Rechazar"
+            onClick={() => handleRejectAdvance(params.row)}
+            showInMenu={false}
+          />,
+        ];
+      },
+    },
+  ];
+
+  // ============================================================
   // RENDER
   // ============================================================
 
   const statusCount = statusRequests?.length || 0;
   const editCount = editRequests?.length || 0;
   const ogAuthCount = ogAuthRequests?.length || 0;
+  const advanceCount = advancePaymentRequests?.length || 0;
 
   return (
     <Box>
@@ -712,6 +904,15 @@ export const StatusChangeRequestsPage: React.FC = () => {
               </Badge>
             }
           />
+          <Tab
+            icon={<PaymentIcon />}
+            iconPosition="start"
+            label={
+              <Badge badgeContent={advanceCount} color="warning" sx={{ '& .MuiBadge-badge': { right: -12, top: 2 } }}>
+                Anticipo OP
+              </Badge>
+            }
+          />
         </Tabs>
 
         {/* Tab: Cambio de Estado */}
@@ -742,6 +943,17 @@ export const StatusChangeRequestsPage: React.FC = () => {
             rows={ogAuthRequests || []}
             columns={ogAuthColumns}
             loading={ogAuthLoading}
+            getRowId={(row) => row.id}
+            pageSize={25}
+          />
+        )}
+
+        {/* Tab: Anticipo OP */}
+        {tabValue === 3 && (
+          <DataTable
+            rows={advancePaymentRequests || []}
+            columns={advanceColumns}
+            loading={advanceLoading}
             getRowId={(row) => row.id}
             pageSize={25}
           />
@@ -864,6 +1076,73 @@ export const StatusChangeRequestsPage: React.FC = () => {
             }
           >
             {editReviewDialog.action === 'approve' ? 'Aprobar' : 'Rechazar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog: Revisión de Anticipo OP */}
+      <Dialog open={advanceReviewDialog.open} onClose={handleCloseAdvanceReviewDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {advanceReviewDialog.action === 'approve'
+            ? 'Aprobar Anticipo de Orden'
+            : 'Rechazar Anticipo de Orden'}
+        </DialogTitle>
+        <DialogContent>
+          {advanceReviewDialog.request && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                <strong>Orden:</strong> {advanceReviewDialog.request.order?.orderNumber}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Monto:</strong>{' '}
+                {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(
+                  parseFloat(advanceReviewDialog.request.payment?.amount || '0')
+                )}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Método:</strong>{' '}
+                {PAYMENT_METHOD_LABELS[advanceReviewDialog.request.payment?.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS] || advanceReviewDialog.request.payment?.paymentMethod}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Solicitado por:</strong> {getUserName(advanceReviewDialog.request.requestedBy)}
+              </Typography>
+              {advanceReviewDialog.action === 'reject' && (
+                <Typography variant="body2" color="error.main" sx={{ mt: 1 }}>
+                  Al rechazar, el pago será eliminado y el saldo de la orden será revertido.
+                </Typography>
+              )}
+            </Box>
+          )}
+
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            label={advanceReviewDialog.action === 'approve' ? 'Notas (opcional)' : 'Razón del rechazo *'}
+            value={advanceReviewNotes}
+            onChange={(e) => setAdvanceReviewNotes(e.target.value)}
+            placeholder={
+              advanceReviewDialog.action === 'approve'
+                ? 'Agregue notas adicionales...'
+                : 'Explique por qué se rechaza el anticipo...'
+            }
+            required={advanceReviewDialog.action === 'reject'}
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseAdvanceReviewDialog}>Cancelar</Button>
+          <Button
+            onClick={handleConfirmAdvanceReview}
+            variant="contained"
+            color={advanceReviewDialog.action === 'approve' ? 'success' : 'error'}
+            disabled={
+              approveAdvanceMutation.isPending ||
+              rejectAdvanceMutation.isPending ||
+              (advanceReviewDialog.action === 'reject' && !advanceReviewNotes.trim())
+            }
+          >
+            {advanceReviewDialog.action === 'approve' ? 'Aprobar' : 'Rechazar'}
           </Button>
         </DialogActions>
       </Dialog>

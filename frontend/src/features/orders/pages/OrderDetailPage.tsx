@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import {
+  Alert,
   Box,
   Card,
   CardContent,
@@ -54,6 +55,7 @@ import {
   OpenInNew as OpenInNewIcon,
   Image as ImageIcon,
   AccountTree as AccountTreeIcon,
+  Warning as WarningIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -471,6 +473,18 @@ export const OrderDetailPage: React.FC = () => {
 
       {/* Banner de permiso activo */}
       <ActivePermissionBanner orderId={id!} />
+
+      {/* Alertas de anticipo */}
+      {order.advancePaymentStatus === 'PENDING' && (
+        <Alert severity="warning" icon={<WarningIcon />} sx={{ mt: 2 }}>
+          <strong>Anticipo pendiente de aprobación.</strong> El anticipo de esta orden está siendo revisado por Caja. No se puede cambiar el estado hasta que sea aprobado.
+        </Alert>
+      )}
+      {order.advancePaymentStatus === 'REJECTED' && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          <strong>Anticipo rechazado.</strong> El anticipo de esta orden fue rechazado por Caja. El pago ha sido revertido.
+        </Alert>
+      )}
 
       {/* Toolbar de Acciones */}
       <Paper

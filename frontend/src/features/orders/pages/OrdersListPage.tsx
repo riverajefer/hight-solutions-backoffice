@@ -391,6 +391,22 @@ export const OrdersListPage: React.FC = () => {
     },
 
     {
+      field: 'advancePaymentStatus',
+      headerName: 'Anticipo',
+      width: 130,
+      renderCell: (params) => {
+        const status = params.value;
+        if (!status) return <Box sx={{ color: 'text.disabled', fontSize: '0.8rem' }}>—</Box>;
+        const config: Record<string, { label: string; color: 'warning' | 'success' | 'error' }> = {
+          PENDING: { label: 'Pendiente', color: 'warning' },
+          APPROVED: { label: 'Aprobado', color: 'success' },
+          REJECTED: { label: 'Rechazado', color: 'error' },
+        };
+        const c = config[status];
+        return c ? <Chip label={c.label} color={c.color} size='small' /> : <>{status}</>;
+      },
+    },
+    {
       field: 'status',
       headerName: 'Estado',
       width: 150,
@@ -552,6 +568,9 @@ export const OrdersListPage: React.FC = () => {
         searchPlaceholder='Buscar por número, cliente, notas...'
         emptyMessage='No se encontraron órdenes'
         getRowClassName={(params) => {
+          // Anticipo pendiente/rechazado tiene prioridad visual
+          if (params.row.advancePaymentStatus === 'PENDING') return 'row-advance-pending';
+          if (params.row.advancePaymentStatus === 'REJECTED') return 'row-advance-rejected';
           const alert = getDeliveryAlert(params.row);
           if (alert === 'overdue') return 'row-overdue';
           if (alert === 'due-today') return 'row-due-today';

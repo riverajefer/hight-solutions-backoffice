@@ -46,6 +46,7 @@ export interface Order {
   total: string;
   paidAmount: string;
   balance: string;
+  advancePaymentStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   status: OrderStatus;
   notes: string | null;
   electronicInvoiceNumber: string | null;

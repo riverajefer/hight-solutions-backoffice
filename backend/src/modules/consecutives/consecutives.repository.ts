@@ -31,9 +31,23 @@ export class ConsecutivesRepository {
       RETURNING last_number
     `;
 
+    if (!result || result.length === 0) {
+      throw new Error(`Failed to generate next number for ${type}`);
+    }
+
     const lastNumber = Number(result[0].last_number);
     const numberStr = lastNumber.toString().padStart(4, '0');
     return `${prefix}-${year}-${numberStr}`;
+  }
+
+  /**
+   * Obtiene el valor actual de un consecutivo sin incrementarlo.
+   */
+  async getCurrentNumber(type: string): Promise<number> {
+    const consecutive = await this.prisma.consecutive.findUnique({
+      where: { type },
+    });
+    return consecutive ? consecutive.lastNumber : 0;
   }
 
   async findAll() {

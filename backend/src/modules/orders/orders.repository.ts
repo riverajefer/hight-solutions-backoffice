@@ -25,6 +25,7 @@ export class OrdersRepository {
     total: true,
     paidAmount: true,
     balance: true,
+    advancePaymentStatus: true,
     requiresColorProof: true,
     colorProofPrice: true,
     status: true,

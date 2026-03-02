@@ -24,6 +24,31 @@ export class ConsecutivesService {
   }
 
   /**
+   * Sincroniza el contador con los datos reales de la tabla correspondiente.
+   * Se usa para recuperarse de desincronizaciones cuando falla la creación por número duplicado.
+   */
+  async syncCounter(type: ConsecutiveType): Promise<void> {
+    const prefix = this.getPrefixForType(type);
+    const syncConfig: Record<ConsecutiveType, { table: string; column: string }> = {
+      ORDER: { table: 'orders', column: 'order_number' },
+      PRODUCTION: { table: 'productions', column: 'production_number' },
+      EXPENSE: { table: 'expense_orders', column: 'expense_number' },
+      QUOTE: { table: 'quotes', column: 'quote_number' },
+      WORK_ORDER: { table: 'work_orders', column: 'work_order_number' },
+    };
+
+    const config = syncConfig[type];
+    if (!config) return;
+
+    return this.consecutivesRepository.syncCounterFromTable(
+      type,
+      config.table,
+      config.column,
+      prefix,
+    );
+  }
+
+  /**
    * Obtiene todos los consecutivos
    */
   async findAll() {

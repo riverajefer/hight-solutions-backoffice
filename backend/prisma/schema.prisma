@@ -42,6 +42,8 @@ model User {
   approvedExpenseOrders        ExpenseOrder[]             @relation("ApprovedExpenseOrders")
   requestedExpenseOrderAuthRequests  ExpenseOrderAuthRequest[]  @relation("RequestedExpenseOrderAuthRequests")
   reviewedExpenseOrderAuthRequests   ExpenseOrderAuthRequest[]  @relation("ReviewedExpenseOrderAuthRequests")
+  requestedAdvancePaymentApprovals   AdvancePaymentApproval[]   @relation("RequestedAdvancePaymentApprovals")
+  reviewedAdvancePaymentApprovals    AdvancePaymentApproval[]   @relation("ReviewedAdvancePaymentApprovals")
 
   @@map("users")
 }
@@ -412,6 +414,9 @@ model Order {
   paidAmount     Decimal     @default(0) @map("paid_amount") // Abonos realizados
   balance        Decimal     // total - paidAmount (saldo pendiente)
 
+  // Estado de aprobación del anticipo (null = sin anticipo o auto-aprobado por admin/caja)
+  advancePaymentStatus  EditRequestStatus?  @map("advance_payment_status")
+
   status       OrderStatus @default(DRAFT)
   notes        String?     // Observaciones generales
 
@@ -433,6 +438,7 @@ model Order {
   discounts               OrderDiscount[]
   editRequests            OrderEditRequest[]
   statusChangeRequests    OrderStatusChangeRequest[]
+  advancePaymentApprovals AdvancePaymentApproval[]
 
   // Referencia a la cotización de origen
   quoteId            String?            @unique @map("quote_id")
@@ -591,6 +597,7 @@ model Payment {
   // Relaciones
   order       Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
   receivedBy  User  @relation("ReceivedPayments", fields: [receivedById], references: [id])
+  advancePaymentApproval  AdvancePaymentApproval?
 
   @@index([orderId])
   @@index([receivedById])
@@ -644,6 +651,9 @@ enum NotificationType {
   EXPENSE_ORDER_AUTH_REQUEST_PENDING   // Nueva solicitud de autorización de OG
   EXPENSE_ORDER_AUTH_REQUEST_APPROVED  // Solicitud de autorización de OG aprobada
   EXPENSE_ORDER_AUTH_REQUEST_REJECTED  // Solicitud de autorización de OG rechazada
+  ADVANCE_PAYMENT_APPROVAL_PENDING    // Nueva solicitud de aprobación de anticipo
+  ADVANCE_PAYMENT_APPROVAL_APPROVED   // Anticipo aprobado
+  ADVANCE_PAYMENT_APPROVAL_REJECTED   // Anticipo rechazado
 }
 
 model EditableOrderStatus {
@@ -1017,6 +1027,34 @@ model ExpenseOrderAuthRequest {
   @@index([requestedById])
   @@index([status])
   @@map("expense_order_auth_requests")
+}
+
+// =============================================================================
+// MÓDULO DE APROBACIÓN DE ANTICIPOS
+// =============================================================================
+
+model AdvancePaymentApproval {
+  id              String            @id @default(uuid())
+  orderId         String            @map("order_id")
+  paymentId       String            @unique @map("payment_id")
+  requestedById   String            @map("requested_by_id")
+  reason          String?
+  status          EditRequestStatus @default(PENDING)
+  reviewedById    String?           @map("reviewed_by_id")
+  reviewedAt      DateTime?         @map("reviewed_at")
+  reviewNotes     String?           @map("review_notes")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  order        Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  payment      Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  requestedBy  User    @relation("RequestedAdvancePaymentApprovals", fields: [requestedById], references: [id])
+  reviewedBy   User?   @relation("ReviewedAdvancePaymentApprovals", fields: [reviewedById], references: [id])
+
+  @@index([orderId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("advance_payment_approvals")
 }
 
 // =============================================================================

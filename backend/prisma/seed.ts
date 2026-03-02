@@ -221,6 +221,9 @@ async function main() {
     { name: 'update_expense_orders', description: 'Actualizar órdenes de gasto' },
     { name: 'delete_expense_orders', description: 'Eliminar órdenes de gasto' },
     { name: 'approve_expense_orders', description: 'Aprobar/marcar como pagada una OG' },
+
+    // Advance Payment Approvals
+    { name: 'approve_advance_payments', description: 'Aprobar/rechazar anticipos de órdenes' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
@@ -266,6 +269,14 @@ async function main() {
     create: { name: 'user' },
   });
   console.log(`  ✓ Role: user`);
+
+  // Caja Role - gestión de pagos y anticipos
+  const cajaRole = await prisma.role.upsert({
+    where: { name: 'caja' },
+    update: {},
+    create: { name: 'caja', description: 'Rol de Caja - Gestión de pagos y anticipos' },
+  });
+  console.log(`  ✓ Role: caja`);
 
   // ============================================
   // 3. Asignar Permisos a Roles
@@ -347,6 +358,19 @@ async function main() {
     'read_users',
     'read_roles',
     'read_orders',
+  ]);
+
+  // Caja - gestión de pagos y anticipos
+  await assignPermissionsToRole(cajaRole.id, 'caja', [
+    'approve_advance_payments',
+    'read_orders',
+    'read_clients',
+    'read_users',
+    'read_roles',
+    'read_products',
+    'read_production_areas',
+    'read_commercial_channels',
+    'read_pending_orders',
   ]);
 
   // ============================================

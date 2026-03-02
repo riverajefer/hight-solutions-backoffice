@@ -141,6 +141,38 @@ export const dataGridStyles: SxProps<Theme> = {
     },
   },
 
+  // Fila anticipo pendiente — anticipo esperando aprobación de Caja
+  '& .MuiDataGrid-row.row-advance-pending': {
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? alpha(theme.palette.warning.light, 0.15)
+        : alpha(theme.palette.warning.dark, 0.25),
+    borderLeft: (theme) => `4px solid ${theme.palette.warning.main}`,
+    '&:hover': {
+      backgroundColor: (theme) =>
+        theme.palette.mode === 'light'
+          ? alpha(theme.palette.warning.light, 0.25)
+          : alpha(theme.palette.warning.dark, 0.35),
+      transform: 'translateX(2px)',
+    },
+  },
+
+  // Fila anticipo rechazado — anticipo rechazado por Caja
+  '& .MuiDataGrid-row.row-advance-rejected': {
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? alpha(theme.palette.error.light, 0.12)
+        : alpha(theme.palette.error.dark, 0.2),
+    borderLeft: (theme) => `4px solid ${theme.palette.error.main}`,
+    '&:hover': {
+      backgroundColor: (theme) =>
+        theme.palette.mode === 'light'
+          ? alpha(theme.palette.error.light, 0.22)
+          : alpha(theme.palette.error.dark, 0.3),
+      transform: 'translateX(2px)',
+    },
+  },
+
   // Footer
   '& .MuiDataGrid-footerContainer': {
     borderTop: '1px solid',
@@ -262,6 +294,20 @@ export const dataGridStyles: SxProps<Theme> = {
       theme.palette.mode === 'light'
         ? '#e3f2fd'
         : '#1c2a3d',
+  },
+
+  '& .MuiDataGrid-row.row-advance-pending .sticky-column-row-number, & .MuiDataGrid-row.row-advance-pending .sticky-column-order-number': {
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? '#fff3e0'
+        : '#3d2e1c',
+  },
+
+  '& .MuiDataGrid-row.row-advance-rejected .sticky-column-row-number, & .MuiDataGrid-row.row-advance-rejected .sticky-column-order-number': {
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? '#fce4ec'
+        : '#3d1c1c',
   },
 
   // Hover en sticky columns: fondo opaco consistente

@@ -139,6 +139,18 @@ export const ChangeStatusDialog: React.FC<ChangeStatusDialogProps> = ({
             )}
           </Box>
 
+          {/* Bloqueo por anticipo pendiente o rechazado */}
+          {order.advancePaymentStatus === 'PENDING' && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              El anticipo de esta orden está pendiente de aprobación por Caja. No se puede cambiar el estado hasta que sea aprobado.
+            </Alert>
+          )}
+          {order.advancePaymentStatus === 'REJECTED' && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              El anticipo de esta orden fue rechazado por Caja. No se puede cambiar el estado.
+            </Alert>
+          )}
+
           {authorizationError && (
             <Alert severity="warning" sx={{ mb: 2 }}>
               {authorizationError}
@@ -185,7 +197,9 @@ export const ChangeStatusDialog: React.FC<ChangeStatusDialogProps> = ({
               isLoading ||
               !selectedStatus ||
               availableStatuses.length === 0 ||
-              !statusValidation.allowed
+              !statusValidation.allowed ||
+              order.advancePaymentStatus === 'PENDING' ||
+              order.advancePaymentStatus === 'REJECTED'
             }
           >
             {isLoading ? <CircularProgress size={24} /> : 'Cambiar Estado'}
