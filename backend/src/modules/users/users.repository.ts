@@ -13,7 +13,9 @@ export class UsersRepository {
     return this.prisma.user.findMany({
       select: {
         id: true,
+        username: true,
         email: true,
+        isActive: true,
         roleId: true,
         cargoId: true,
         createdAt: true,
@@ -51,7 +53,9 @@ export class UsersRepository {
       where: { id },
       select: {
         id: true,
+        username: true,
         email: true,
+        isActive: true,
         roleId: true,
         cargoId: true,
         createdAt: true,
@@ -100,7 +104,9 @@ export class UsersRepository {
       where: { email },
       select: {
         id: true,
+        username: true,
         email: true,
+        isActive: true,
         password: true,
         roleId: true,
         refreshToken: true,
@@ -123,6 +129,38 @@ export class UsersRepository {
   }
 
   /**
+   * Encuentra un usuario por username
+   */
+  async findByUsername(username: string) {
+    return this.prisma.user.findUnique({
+      where: { username },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        isActive: true,
+        password: true,
+        roleId: true,
+        refreshToken: true,
+        firstName: true,
+        lastName: true,
+      },
+    });
+  }
+
+  /**
+   * Encuentra un usuario por username excluyendo un ID específico
+   */
+  async findByUsernameExcludingId(username: string, excludeId: string) {
+    return this.prisma.user.findFirst({
+      where: {
+        username,
+        NOT: { id: excludeId },
+      },
+    });
+  }
+
+  /**
    * Crea un nuevo usuario
    */
   async create(data: Prisma.UserCreateInput) {
@@ -130,7 +168,9 @@ export class UsersRepository {
       data,
       select: {
         id: true,
+        username: true,
         email: true,
+        isActive: true,
         roleId: true,
         cargoId: true,
         createdAt: true,
@@ -167,7 +207,9 @@ export class UsersRepository {
       data,
       select: {
         id: true,
+        username: true,
         email: true,
+        isActive: true,
         roleId: true,
         cargoId: true,
         createdAt: true,
@@ -203,6 +245,46 @@ export class UsersRepository {
     return this.prisma.user.update({
       where: { id },
       data: { refreshToken },
+    });
+  }
+
+  /**
+   * Desactiva un usuario (soft delete)
+   */
+  async deactivate(id: string) {
+    return this.prisma.user.update({
+      where: { id },
+      data: { isActive: false, refreshToken: null },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        isActive: true,
+        roleId: true,
+        cargoId: true,
+        createdAt: true,
+        updatedAt: true,
+        firstName: true,
+        lastName: true,
+        role: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        cargo: {
+          select: {
+            id: true,
+            name: true,
+            area: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
     });
   }
 

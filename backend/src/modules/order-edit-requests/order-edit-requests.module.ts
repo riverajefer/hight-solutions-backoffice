@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { OrderEditRequestsController } from './order-edit-requests.controller';
+import { OrderEditRequestsGlobalController } from './order-edit-requests-global.controller';
 import { OrderEditRequestsService } from './order-edit-requests.service';
 import { OrderEditPermissionsExpireService } from './services/order-edit-permissions-expire.service';
 import { DatabaseModule } from '../../database/database.module';
@@ -7,7 +8,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [DatabaseModule, NotificationsModule],
-  controllers: [OrderEditRequestsController],
+  controllers: [OrderEditRequestsController, OrderEditRequestsGlobalController],
   providers: [
     OrderEditRequestsService,
     OrderEditPermissionsExpireService,

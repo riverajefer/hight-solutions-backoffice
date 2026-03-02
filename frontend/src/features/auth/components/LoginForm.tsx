@@ -8,7 +8,7 @@ import { showDemoCredentials } from '../../../utils/environment';
 import logo from '../../../assets/logo.png';
 
 const loginSchema = z.object({
-  email: z.string().email('Email inválido'),
+  username: z.string().min(1, 'El usuario es requerido'),
   password: z.string().min(1, 'La contraseña es requerida'),
 });
 
@@ -32,7 +32,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading = fals
   } = useForm<LoginDto>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: showDemoCredentials() ? 'admin@example.com' : '',
+      username: showDemoCredentials() ? 'adminsistema' : '',
       password: showDemoCredentials() ? 'admin123' : '',
     },
   });
@@ -61,7 +61,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading = fals
           <Box
             component="img"
             src={logo}
-            alt="Hight Solutions"
+            alt="High Solutions"
             sx={{
               width: { xs: '180px', sm: '200px' },
               height: 'auto',
@@ -76,7 +76,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading = fals
           Iniciar Sesión
         </Typography>
         <Typography color="textSecondary" sx={{ mb: 4, textAlign: 'center' }}>
-          Bienvenido a Hight Solutions Backoffice
+          Bienvenido a High Solutions Backoffice
         </Typography>
 
         {error && (
@@ -87,13 +87,14 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading = fals
 
         <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <TextField
-            label="Email"
-            type="email"
+            label="Usuario"
+            type="text"
             fullWidth
-            {...register('email')}
-            error={!!errors.email}
-            helperText={errors.email?.message}
+            {...register('username')}
+            error={!!errors.username}
+            helperText={errors.username?.message}
             disabled={isLoading}
+            autoComplete="username"
           />
 
           <TextField
@@ -125,13 +126,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading = fals
                 Usuarios de Prueba:
               </Typography>
               <Typography variant="caption" display="block" sx={{ color: isDark ? 'rgba(148, 163, 184, 0.9)' : 'inherit' }}>
-                Admin: admin@example.com / admin123
+                Admin: adminsistema / admin123
               </Typography>
               <Typography variant="caption" display="block" sx={{ color: isDark ? 'rgba(148, 163, 184, 0.9)' : 'inherit' }}>
-                Manager: manager@example.com / manager123
+                Manager: managersistema / manager123
               </Typography>
               <Typography variant="caption" display="block" sx={{ color: isDark ? 'rgba(148, 163, 184, 0.9)' : 'inherit' }}>
-                User: user@example.com / user123
+                User: usuariosistema / user123
               </Typography>
             </Box>
           )}

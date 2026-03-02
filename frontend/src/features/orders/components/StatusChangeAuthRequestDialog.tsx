@@ -40,7 +40,8 @@ export const StatusChangeAuthRequestDialog: React.FC<StatusChangeAuthRequestDial
         'Solicitud enviada exitosamente. Espere la aprobación de un administrador.',
         { variant: 'success' }
       );
-      handleClose();
+      setReason('');
+      onClose();
     },
     onError: (error: any) => {
       enqueueSnackbar(

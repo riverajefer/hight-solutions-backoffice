@@ -2,7 +2,7 @@
 
 # Script para iniciar Frontend y Backend en paralelo
 
-echo "🚀 Iniciando Hight Solutions Backoffice..."
+echo "🚀 Iniciando High Solutions Backoffice..."
 echo ""
 
 # Colores

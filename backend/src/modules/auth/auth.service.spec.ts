@@ -43,6 +43,7 @@ describe('AuthService', () => {
 
   const mockUser: AuthenticatedUser = {
     id: 'user-1',
+    username: 'testuser',
     email: 'test@example.com',
     roleId: 'role-1',
     firstName: 'John',
@@ -55,6 +56,7 @@ describe('AuthService', () => {
 
   const mockUserFromDb = {
     ...mockUser,
+    isActive: true,
     password: 'hashed-password-in-db',
   };
 
@@ -121,8 +123,20 @@ describe('AuthService', () => {
       await service.validateUser('test@example.com', 'password');
 
       expect(prisma.user.findUnique).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { email: 'test@example.com' } }),
+        expect.objectContaining({ where: { username: 'test@example.com' } }),
       );
+    });
+
+    it('should return null when user is inactive', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        ...mockUserFromDb,
+        isActive: false,
+      });
+
+      const result = await service.validateUser('test@example.com', 'password');
+
+      expect(result).toBeNull();
+      expect(bcrypt.compare).not.toHaveBeenCalled();
     });
   });
 
@@ -191,6 +205,7 @@ describe('AuthService', () => {
       (prisma.user.update as jest.Mock).mockResolvedValue({});
       // getUserPermissions call
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        isActive: true,
         role: {
           permissions: [{ permission: { name: 'read_users' } }],
         },
@@ -220,6 +235,7 @@ describe('AuthService', () => {
 
     it('should return empty permissions array when user role has no permissions', async () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        isActive: true,
         role: { permissions: [] },
       });
 
@@ -246,6 +262,7 @@ describe('AuthService', () => {
     it('should return new token pair and user when refresh token is valid', async () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({
         ...mockUserFromDb,
+        isActive: true,
         refreshToken: storedRefreshHash,
       });
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
@@ -270,6 +287,7 @@ describe('AuthService', () => {
     it('should throw UnauthorizedException when stored refreshToken is null', async () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({
         ...mockUserFromDb,
+        isActive: true,
         refreshToken: null,
       });
 
@@ -281,6 +299,7 @@ describe('AuthService', () => {
     it('should throw UnauthorizedException when refresh token hash does not match', async () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({
         ...mockUserFromDb,
+        isActive: true,
         refreshToken: storedRefreshHash,
       });
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
@@ -293,6 +312,7 @@ describe('AuthService', () => {
     it('should not update DB when refresh token is invalid', async () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({
         ...mockUserFromDb,
+        isActive: true,
         refreshToken: storedRefreshHash,
       });
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
@@ -307,6 +327,7 @@ describe('AuthService', () => {
     it('should update the refreshToken in DB with a new hash after successful refresh', async () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({
         ...mockUserFromDb,
+        isActive: true,
         refreshToken: storedRefreshHash,
       });
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
@@ -317,6 +338,18 @@ describe('AuthService', () => {
         where: { id: mockUser.id },
         data: { refreshToken: 'new-hashed-refresh-token' },
       });
+    });
+
+    it('should throw UnauthorizedException when user is inactive', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        ...mockUserFromDb,
+        isActive: false,
+        refreshToken: storedRefreshHash,
+      });
+
+      await expect(service.refreshTokens(mockUser.id, 'incoming-refresh-token')).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
   });
 
@@ -411,6 +444,7 @@ describe('AuthService', () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({
         id: mockUser.id,
         email: mockUser.email,
+        isActive: true,
         firstName: mockUser.firstName,
         lastName: mockUser.lastName,
         profilePhoto: null,
@@ -433,6 +467,16 @@ describe('AuthService', () => {
 
       expect(result.permissions).toEqual(['read_users', 'create_users']);
       expect(result.user).toMatchObject({ id: mockUser.id, email: mockUser.email });
+    });
+
+    it('should throw UnauthorizedException when user is inactive', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: mockUser.id,
+        isActive: false,
+      });
+
+      await expect(service.getUserProfile(mockUser.id)).rejects.toThrow(UnauthorizedException);
+      await expect(service.getUserProfile(mockUser.id)).rejects.toThrow('User inactive');
     });
 
     it('should throw UnauthorizedException when user is not found', async () => {

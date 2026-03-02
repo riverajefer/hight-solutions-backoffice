@@ -1,6 +1,6 @@
 # Plantilla para Crear CRUD Completo
 
-Esta plantilla te ayuda a crear un CRUD completo (Backend + Frontend) siguiendo los patrones del proyecto Hight Solutions Backoffice.
+Esta plantilla te ayuda a crear un CRUD completo (Backend + Frontend) siguiendo los patrones del proyecto High Solutions Backoffice.
 
 ---
 

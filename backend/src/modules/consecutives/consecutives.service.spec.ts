@@ -6,6 +6,7 @@ const mockConsecutivesRepository = {
   getNextNumber: jest.fn(),
   findAll: jest.fn(),
   reset: jest.fn(),
+  syncCounterFromTable: jest.fn(),
 };
 
 describe('ConsecutivesService', () => {

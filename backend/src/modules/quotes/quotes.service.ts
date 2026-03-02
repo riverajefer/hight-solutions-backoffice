@@ -15,6 +15,7 @@ import {
   UpdateQuoteItemDto,
 } from './dto';
 import { QuoteStatus, OrderStatus, Prisma } from '../../generated/prisma';
+import { isValidQuoteTransition, getValidNextQuoteStatuses } from './quote-status-transitions';
 import { PrismaService } from '../../database/prisma.service';
 
 @Injectable()
@@ -113,6 +114,17 @@ export class QuotesService {
 
     if (oldQuote.status === QuoteStatus.CONVERTED) {
       throw new BadRequestException('Cannot update a converted quote');
+    }
+
+    // Validar transición de estado
+    if (updateQuoteDto.status && updateQuoteDto.status !== oldQuote.status) {
+      if (!isValidQuoteTransition(oldQuote.status as QuoteStatus, updateQuoteDto.status)) {
+        const validNext = getValidNextQuoteStatuses(oldQuote.status as QuoteStatus);
+        throw new BadRequestException(
+          `Transición no permitida: ${oldQuote.status} → ${updateQuoteDto.status}. ` +
+          `Transiciones válidas: ${validNext.length ? validNext.join(', ') : 'ninguna (estado terminal)'}.`,
+        );
+      }
     }
 
     const isConverting = updateQuoteDto.status === QuoteStatus.CONVERTED;
@@ -231,8 +243,8 @@ export class QuotesService {
 
   async remove(id: string) {
     const quote = await this.findOne(id);
-    if (quote.status === QuoteStatus.CONVERTED) {
-      throw new BadRequestException('Cannot delete a converted quote');
+    if (quote.status !== QuoteStatus.DRAFT) {
+      throw new BadRequestException('Only draft quotes can be deleted');
     }
     await this.quotesRepository.delete(id);
     return { message: 'Quote deleted successfully' };
@@ -274,13 +286,40 @@ export class QuotesService {
               unitPrice: item.unitPrice,
               total: item.total,
               specifications: item.specifications || undefined,
-              sampleImageId: item.sampleImageId,
               sortOrder: item.sortOrder,
               productId: item.productId,
             })),
           },
         },
+        include: {
+          items: true,
+        },
       });
+
+      // 2.5 Copy production areas from quote items to order items
+      const productionAreaInserts: { orderItemId: string; productionAreaId: string }[] = [];
+      for (const quoteItem of quote.items as any[]) {
+        if (quoteItem.productionAreas?.length > 0) {
+          // Match order item by sortOrder (same mapping order)
+          const orderItem = newOrder.items.find(
+            (oi) => oi.sortOrder === quoteItem.sortOrder,
+          );
+          if (orderItem) {
+            for (const pa of quoteItem.productionAreas) {
+              productionAreaInserts.push({
+                orderItemId: orderItem.id,
+                productionAreaId: pa.productionArea.id,
+              });
+            }
+          }
+        }
+      }
+
+      if (productionAreaInserts.length > 0) {
+        await tx.orderItemProductionArea.createMany({
+          data: productionAreaInserts,
+        });
+      }
 
       // 3. Update Quote status
       await tx.quote.update({

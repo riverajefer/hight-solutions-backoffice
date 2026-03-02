@@ -67,6 +67,16 @@ const QuoteFormPage = lazy(() => import('../features/quotes/pages/QuoteFormPage'
 const QuoteDetailPage = lazy(() => import('../features/quotes/pages/QuoteDetailPage'));
 const NotificationsPage = lazy(() => import('../features/notifications/pages/NotificationsPage'));
 const CompanyPage = lazy(() => import('../features/company/pages/CompanyPage'));
+// Work Orders
+const WorkOrdersListPage = lazy(() => import('../features/work-orders/pages/WorkOrdersListPage'));
+const WorkOrderFormPage = lazy(() => import('../features/work-orders/pages/WorkOrderFormPage'));
+const WorkOrderDetailPage = lazy(() => import('../features/work-orders/pages/WorkOrderDetailPage'));
+// Expense Orders
+const ExpenseOrdersListPage = lazy(() => import('../features/expense-orders/pages/ExpenseOrdersListPage'));
+const ExpenseOrderFormPage = lazy(() => import('../features/expense-orders/pages/ExpenseOrderFormPage'));
+const ExpenseOrderDetailPage = lazy(() => import('../features/expense-orders/pages/ExpenseOrderDetailPage'));
+// Order Timeline
+const OrderFlowPage = lazy(() => import('../features/order-timeline/pages/OrderFlowPage'));
 
 
 const RoutesConfig: FC = () => {
@@ -731,6 +741,32 @@ const RoutesConfig: FC = () => {
           }
         />
 
+        {/* Order Timeline Routes */}
+        <Route
+          path={PATHS.ORDER_FLOW}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_ORDERS}>
+                  <OrderFlowPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.ORDER_FLOW_BASE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_ORDERS}>
+                  <OrderFlowPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
         {/* Quotes Routes */}
         <Route
           path={PATHS.QUOTES}
@@ -896,6 +932,106 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.READ_COMPANY}>
                   <CompanyPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Work Orders Routes */}
+        <Route
+          path={PATHS.WORK_ORDERS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_WORK_ORDERS}>
+                  <WorkOrdersListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.WORK_ORDERS_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_WORK_ORDERS}>
+                  <WorkOrderFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.WORK_ORDERS_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_WORK_ORDERS}>
+                  <WorkOrderFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.WORK_ORDERS_DETAIL}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_WORK_ORDERS}>
+                  <WorkOrderDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Expense Orders Routes */}
+        <Route
+          path={PATHS.EXPENSE_ORDERS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_EXPENSE_ORDERS}>
+                  <ExpenseOrdersListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.EXPENSE_ORDERS_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_EXPENSE_ORDERS}>
+                  <ExpenseOrderFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.EXPENSE_ORDERS_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_EXPENSE_ORDERS}>
+                  <ExpenseOrderFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.EXPENSE_ORDERS_DETAIL}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_EXPENSE_ORDERS}>
+                  <ExpenseOrderDetailPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

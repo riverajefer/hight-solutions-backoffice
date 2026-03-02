@@ -12,7 +12,9 @@ import {
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import BlockIcon from '@mui/icons-material/Block';
 import EmailIcon from '@mui/icons-material/Email';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import BadgeIcon from '@mui/icons-material/Badge';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
@@ -26,7 +28,9 @@ interface UserDetailProps {
   user: User;
   onEdit: () => void;
   onBack: () => void;
+  onDeactivate?: () => void;
   canEdit?: boolean;
+  canDeactivate?: boolean;
 }
 
 const DetailItem: React.FC<{ 
@@ -80,7 +84,9 @@ export const UserDetail: React.FC<UserDetailProps> = ({
   user, 
   onEdit, 
   onBack,
-  canEdit = false 
+  onDeactivate,
+  canEdit = false,
+  canDeactivate = false,
 }) => {
   const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
 
@@ -141,6 +147,16 @@ export const UserDetail: React.FC<UserDetailProps> = ({
                 Editar
               </Button>
             )}
+            {canDeactivate && (
+              <Button
+                variant="outlined"
+                color="warning"
+                startIcon={<BlockIcon />}
+                onClick={onDeactivate}
+              >
+                Desactivar usuario
+              </Button>
+            )}
           </Box>
         </Box>
 
@@ -153,16 +169,25 @@ export const UserDetail: React.FC<UserDetailProps> = ({
               Información Personal
             </Typography>
             <Box display="flex" flexDirection="column" gap={3}>
-              <DetailItem 
-                icon={<BadgeIcon />} 
-                label="Nombre Completo" 
-                value={fullName} 
+              <DetailItem
+                icon={<BadgeIcon />}
+                label="Nombre Completo"
+                value={fullName}
               />
-              <DetailItem 
-                icon={<EmailIcon />} 
-                label="Correo Electrónico" 
-                value={user.email} 
-              />
+              {user.username && (
+                <DetailItem
+                  icon={<AccountCircleIcon />}
+                  label="Usuario"
+                  value={user.username}
+                />
+              )}
+              {user.email && (
+                <DetailItem
+                  icon={<EmailIcon />}
+                  label="Correo Electrónico"
+                  value={user.email}
+                />
+              )}
             </Box>
           </Grid>
           

@@ -1,6 +1,6 @@
 # 🚀 GUÍA COMPLETA - EJECUCIÓN DEL SISTEMA COMPLETO
 
-## Hight Solutions Backoffice - Frontend + Backend
+## High Solutions Backoffice - Frontend + Backend
 
 ### Requisitos Previos
 
@@ -85,7 +85,7 @@ El archivo `.env` ya está configurado correctamente:
 
 ```env
 VITE_API_URL=http://localhost:3000/api/v1
-VITE_APP_NAME=Hight Solutions Backoffice
+VITE_APP_NAME=High Solutions Backoffice
 ```
 
 Si necesitas cambiar algo:

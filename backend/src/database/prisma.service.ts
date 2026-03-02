@@ -10,8 +10,25 @@ export class PrismaService
   extends PrismaClient
   implements OnModuleInit, OnModuleDestroy
 {
+  private pool: Pool;
+
   constructor() {
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    // Extraer connection_limit de la URL si existe, de lo contrario usar un default menor para evitar MaxClientsInSessionMode
+    let maxConnections = 3;
+    try {
+      if (process.env.DATABASE_URL) {
+        const url = new URL(process.env.DATABASE_URL);
+        const limitStr = url.searchParams.get('connection_limit');
+        if (limitStr) maxConnections = parseInt(limitStr, 10);
+      }
+    } catch {
+      // Ignorar errores de parseo
+    }
+
+    const pool = new Pool({ 
+      connectionString: process.env.DATABASE_URL,
+      max: maxConnections 
+    });
     const adapter = new PrismaPg(pool);
     super({
       adapter,
@@ -25,8 +42,10 @@ export class PrismaService
       },
     });
 
+    this.pool = pool;
+
     // Aplicar extensión de auditoría
-    return this.$extends(
+    const extended = this.$extends(
       auditLogExtension({
         // Obtener contexto para los registros de auditoría
         getContext: () => {
@@ -71,7 +90,20 @@ export class PrismaService
           );
         },
       })
-    ) as unknown as PrismaService;
+    );
+
+    // Asegurar que el pool y métodos de NestJS estén en el proxy devuelto
+    Object.assign(extended, {
+      pool,
+      onModuleInit: this.onModuleInit.bind(this),
+      onModuleDestroy: async () => {
+        await this.$disconnect();
+        if (pool) await pool.end();
+      },
+      cleanDatabase: this.cleanDatabase.bind(this)
+    });
+
+    return extended as unknown as PrismaService;
   }
 
   async onModuleInit() {

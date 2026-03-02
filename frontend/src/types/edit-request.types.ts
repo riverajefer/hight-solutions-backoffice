@@ -35,6 +35,11 @@ export interface OrderEditRequest {
   expiresAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  order?: {
+    id: string;
+    orderNumber: string;
+    status?: string;
+  };
 }
 
 export interface Notification {

@@ -23,7 +23,7 @@ describe('JwtStrategy', () => {
 
   const validAccessPayload: JwtPayload = {
     sub: 'user-1',
-    email: 'test@example.com',
+    username: 'testuser',
     roleId: 'role-1',
     type: 'access',
   };
@@ -36,6 +36,7 @@ describe('JwtStrategy', () => {
   const mockUserFromDb = {
     id: 'user-1',
     email: 'test@example.com',
+    isActive: true,
     roleId: 'role-1',
   };
 
@@ -95,6 +96,16 @@ describe('JwtStrategy', () => {
 
       await expect(strategy.validate(validAccessPayload)).rejects.toThrow(UnauthorizedException);
       await expect(strategy.validate(validAccessPayload)).rejects.toThrow('User not found');
+    });
+
+    it('should throw UnauthorizedException when user is inactive', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        ...mockUserFromDb,
+        isActive: false,
+      });
+
+      await expect(strategy.validate(validAccessPayload)).rejects.toThrow(UnauthorizedException);
+      await expect(strategy.validate(validAccessPayload)).rejects.toThrow('User inactive');
     });
   });
 });

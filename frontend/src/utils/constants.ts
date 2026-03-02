@@ -88,6 +88,22 @@ export const PERMISSIONS = {
   // Company
   READ_COMPANY: 'read_company',
   UPDATE_COMPANY: 'update_company',
+  // Work Orders
+  CREATE_WORK_ORDERS: 'create_work_orders',
+  READ_WORK_ORDERS: 'read_work_orders',
+  UPDATE_WORK_ORDERS: 'update_work_orders',
+  DELETE_WORK_ORDERS: 'delete_work_orders',
+  // Expense Types
+  CREATE_EXPENSE_TYPES: 'create_expense_types',
+  READ_EXPENSE_TYPES: 'read_expense_types',
+  UPDATE_EXPENSE_TYPES: 'update_expense_types',
+  DELETE_EXPENSE_TYPES: 'delete_expense_types',
+  // Expense Orders
+  CREATE_EXPENSE_ORDERS: 'create_expense_orders',
+  READ_EXPENSE_ORDERS: 'read_expense_orders',
+  UPDATE_EXPENSE_ORDERS: 'update_expense_orders',
+  DELETE_EXPENSE_ORDERS: 'delete_expense_orders',
+  APPROVE_EXPENSE_ORDERS: 'approve_expense_orders',
 };
 
 export const ROUTES = {
@@ -155,6 +171,9 @@ export const ROUTES = {
   ORDERS_DETAIL: '/orders/:id',
   PENDING_PAYMENT_ORDERS: '/orders/pending-payment',
   STATUS_CHANGE_REQUESTS: '/orders/status-change-requests',
+  // Order Timeline
+  ORDER_FLOW: '/orders/flow/:type/:id',
+  ORDER_FLOW_BASE: '/orders/flow',
   // Quotes
   QUOTES: '/quotes',
   QUOTES_CREATE: '/quotes/new',
@@ -162,6 +181,16 @@ export const ROUTES = {
   QUOTES_DETAIL: '/quotes/:id',
   // Company
   COMPANY: '/company',
+  // Work Orders
+  WORK_ORDERS: '/work-orders',
+  WORK_ORDERS_CREATE: '/work-orders/new',
+  WORK_ORDERS_DETAIL: '/work-orders/:id',
+  WORK_ORDERS_EDIT: '/work-orders/:id/edit',
+  // Expense Orders
+  EXPENSE_ORDERS: '/expense-orders',
+  EXPENSE_ORDERS_CREATE: '/expense-orders/new',
+  EXPENSE_ORDERS_EDIT: '/expense-orders/:id/edit',
+  EXPENSE_ORDERS_DETAIL: '/expense-orders/:id',
 };
 
 export const DEFAULT_PAGINATION = {

@@ -57,7 +57,7 @@ const UserFormPage: React.FC = () => {
       />
 
       <UserForm
-        initialData={isEdit ? userQuery.data : undefined}
+        initialData={isEdit && userQuery.data ? { ...userQuery.data, username: userQuery.data.username ?? undefined, email: userQuery.data.email ?? undefined } : undefined}
         onSubmit={handleSubmit}
         isLoading={createUserMutation.isPending || updateUserMutation.isPending}
         error={error}

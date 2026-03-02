@@ -9,6 +9,7 @@ import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { StorageService } from '../storage/storage.service';
 import { OrderStatusChangeRequestsService } from '../order-status-change-requests/order-status-change-requests.service';
+import { AdvancePaymentApprovalsService } from '../advance-payment-approvals/advance-payment-approvals.service';
 import {
   CreateOrderDto,
   UpdateOrderDto,
@@ -19,6 +20,7 @@ import {
   ApplyDiscountDto,
 } from './dto';
 import { OrderStatus, Prisma } from '../../generated/prisma';
+import { isValidTransition, getValidNextStatuses } from './order-status-transitions';
 import { PrismaService } from '../../database/prisma.service';
 
 @Injectable()
@@ -30,18 +32,21 @@ export class OrdersService {
     private readonly auditLogsService: AuditLogsService,
     private readonly storageService: StorageService,
     private readonly statusChangeRequestsService: OrderStatusChangeRequestsService,
+    private readonly advancePaymentApprovalsService: AdvancePaymentApprovalsService,
   ) {}
 
   async findAll(filters: FilterOrdersDto) {
-    const { status, clientId, orderDateFrom, orderDateTo, page, limit } = filters;
+    const { status, search, clientId, orderDateFrom, orderDateTo, page, limit, excludeWithWorkOrder } = filters;
 
     return this.ordersRepository.findAllWithFilters({
       status,
+      search,
       clientId,
       orderDateFrom: orderDateFrom ? new Date(orderDateFrom) : undefined,
       orderDateTo: orderDateTo ? new Date(orderDateTo) : undefined,
       page,
       limit,
+      excludeWithWorkOrder,
     });
   }
 
@@ -92,7 +97,13 @@ export class OrdersService {
     const taxRate = new Prisma.Decimal(0.19);
     const tax = subtotal.mul(taxRate);
     const discountAmount = new Prisma.Decimal(0);
-    const total = subtotal.add(tax).sub(discountAmount);
+    
+    const requiresColorProof = createOrderDto.requiresColorProof || false;
+    const colorProofPrice = requiresColorProof && createOrderDto.colorProofPrice 
+      ? new Prisma.Decimal(createOrderDto.colorProofPrice) 
+      : new Prisma.Decimal(0);
+      
+    const total = subtotal.add(tax).sub(discountAmount).add(colorProofPrice);
 
     // Manejar pago inicial
     let paidAmount = new Prisma.Decimal(0);
@@ -123,30 +134,62 @@ export class OrdersService {
     const balance = total.sub(paidAmount);
 
     // Crear orden con items y pago inicial (en transacción)
-    const newOrder = await this.ordersRepository.create({
-      orderNumber,
-      orderDate: new Date(),
-      deliveryDate: createOrderDto.deliveryDate
-        ? new Date(createOrderDto.deliveryDate)
-        : undefined,
-      subtotal,
-      taxRate,
-      tax,
-      discountAmount,
-      total,
-      paidAmount,
-      balance,
-      notes: createOrderDto.notes,
-      client: { connect: { id: createOrderDto.clientId } },
-      createdBy: { connect: { id: createdById } },
-      ...(createOrderDto.commercialChannelId && {
-        commercialChannel: { connect: { id: createOrderDto.commercialChannelId } },
-      }),
-      items: {
-        create: items,
-      },
-      ...(payments && { payments }),
-    });
+    // Se implementa un mecanismo de reintento en caso de colisión de número de orden (P2002)
+    let newOrder;
+    let attempts = 0;
+    const maxAttempts = 3;
+    let currentOrderNumber = orderNumber;
+
+    while (attempts < maxAttempts) {
+      try {
+        newOrder = await this.ordersRepository.create({
+          orderNumber: currentOrderNumber,
+          orderDate: new Date(),
+          deliveryDate: createOrderDto.deliveryDate
+            ? new Date(createOrderDto.deliveryDate)
+            : undefined,
+          subtotal,
+          taxRate,
+          tax,
+          discountAmount,
+          requiresColorProof,
+          colorProofPrice,
+          total,
+          paidAmount,
+          balance,
+          notes: createOrderDto.notes,
+          client: { connect: { id: createOrderDto.clientId } },
+          createdBy: { connect: { id: createdById } },
+          ...(createOrderDto.commercialChannelId && {
+            commercialChannel: { connect: { id: createOrderDto.commercialChannelId } },
+          }),
+          items: {
+            create: items,
+          },
+          ...(payments && { payments }),
+        });
+        break; // Éxito, salir del bucle
+      } catch (error) {
+        attempts++;
+        
+        // Determinar si es un error de duplicado de order_number
+        // Prisma puede devolver el target en diferentes formatos dependiendo de la configuración
+        const isUniqueConstraintError = error.code === 'P2002';
+        const target = JSON.stringify(error.meta?.target || '');
+        const isOrderNumberTarget = 
+          target.includes('order_number') || 
+          target.includes('orders_order_number_key') ||
+          (error.meta?.modelName === 'Order' && (error.meta?.target === undefined || target === '""'));
+
+        if (isUniqueConstraintError && isOrderNumberTarget && attempts < maxAttempts) {
+          // Sincronizar el contador de consecutivos y generar un nuevo número
+          await this.consecutivesService.syncCounter('ORDER');
+          currentOrderNumber = await this.consecutivesService.generateNumber('ORDER');
+          continue;
+        }
+        throw error; // Re-lanzar si no es P2002 o se agotaron los intentos
+      }
+    }
 
     // Registrar en audit log (fuera de la transacción, sin esperar para no afectar performance)
     if (newOrder) {
@@ -157,6 +200,30 @@ export class OrdersService {
         newOrder,
         createdById,
       );
+    }
+
+    // Verificar si el anticipo requiere aprobación (usuario no-admin/no-caja)
+    if (newOrder && createOrderDto.initialPayment && paidAmount.greaterThan(0)) {
+      const approvalCheck = await this.advancePaymentApprovalsService.requiresApproval(createdById);
+
+      if (approvalCheck.required) {
+        // Buscar el payment recién creado
+        const payment = await this.prisma.payment.findFirst({
+          where: { orderId: newOrder.id },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        if (payment) {
+          await this.advancePaymentApprovalsService.createFromOrderCreation(
+            createdById,
+            newOrder.id,
+            payment.id,
+          );
+        }
+
+        // Re-fetch para devolver la orden con el advancePaymentStatus actualizado
+        return this.findOne(newOrder.id);
+      }
     }
 
     return newOrder;
@@ -221,6 +288,12 @@ export class OrdersService {
             }),
             ...(updateOrderDto.commercialChannelId && {
               commercialChannel: { connect: { id: updateOrderDto.commercialChannelId } },
+            }),
+            ...(updateOrderDto.requiresColorProof !== undefined && {
+              requiresColorProof: updateOrderDto.requiresColorProof,
+            }),
+            ...(updateOrderDto.colorProofPrice !== undefined && {
+              colorProofPrice: new Prisma.Decimal(updateOrderDto.colorProofPrice),
             }),
           },
         });
@@ -407,7 +480,18 @@ export class OrdersService {
       ...(updateOrderDto.commercialChannelId && {
         commercialChannel: { connect: { id: updateOrderDto.commercialChannelId } },
       }),
+      ...(updateOrderDto.requiresColorProof !== undefined && {
+        requiresColorProof: updateOrderDto.requiresColorProof,
+      }),
+      ...(updateOrderDto.colorProofPrice !== undefined && {
+        colorProofPrice: new Prisma.Decimal(updateOrderDto.colorProofPrice),
+      }),
     });
+
+    // Si se actualizó el precio de la prueba de color, recalcular totales
+    if (updateOrderDto.colorProofPrice !== undefined || updateOrderDto.requiresColorProof !== undefined) {
+      await this.recalculateOrderTotals(id, this.prisma);
+    }
 
     // Retornar la orden actualizada con sus relaciones
     const updatedOrder = await this.findOne(id);
@@ -427,31 +511,51 @@ export class OrdersService {
   async updateStatus(id: string, status: OrderStatus, userId: string) {
     const order = await this.findOne(id);
 
-    // SECURITY: Prevent reverting to DRAFT status to bypass edit restrictions
-    // If an order is already processed (CONFIRMED, etc), it should not go back to DRAFT.
-    // Users should use the "Edit Request" flow instead.
-    if (status === OrderStatus.DRAFT && order.status !== OrderStatus.DRAFT) {
+    // No-op si el estado es el mismo
+    if (order.status === status) {
+      return order;
+    }
+
+    // Bloquear cambio de estado si el anticipo está pendiente de aprobación
+    if (order.advancePaymentStatus === 'PENDING') {
       throw new BadRequestException(
-        'No se puede revertir el estado de la orden a BORRADOR. Por favor, use el flujo de solicitud de edición para modificar la orden.',
+        'No se puede cambiar el estado de esta orden porque tiene un anticipo pendiente de aprobación por Caja.',
       );
     }
 
-    // NEW: Balance validation for PAID/DELIVERED status
-    // Orders with pending balance cannot be marked as PAID or DELIVERED
-    if (status === OrderStatus.PAID || status === OrderStatus.DELIVERED) {
+    // Bloquear cambio de estado si el anticipo fue rechazado
+    if (order.advancePaymentStatus === 'REJECTED') {
+      throw new BadRequestException(
+        'No se puede cambiar el estado de esta orden porque el anticipo fue rechazado.',
+      );
+    }
+
+    // Validar que la transición sea permitida por el flujo secuencial
+    if (!isValidTransition(order.status as OrderStatus, status)) {
+      const validNext = getValidNextStatuses(order.status as OrderStatus);
+      const validLabels = validNext.length > 0
+        ? validNext.join(', ')
+        : 'ninguno (estado terminal)';
+      throw new BadRequestException(
+        `Transición de estado no permitida: ${order.status} → ${status}. ` +
+        `Las transiciones válidas desde ${order.status} son: ${validLabels}.`,
+      );
+    }
+
+    // Validación de saldo para PAID
+    if (status === OrderStatus.PAID) {
       const balance = new Prisma.Decimal(order.balance);
 
       if (balance.greaterThan(0)) {
         throw new BadRequestException(
-          `No se puede cambiar al estado ${status === OrderStatus.PAID ? 'PAGADA' : 'ENTREGADA'} con saldo pendiente. ` +
+          `No se puede cambiar al estado PAGADA con saldo pendiente. ` +
           `Saldo actual: $${order.balance}. ` +
           `Use el estado DELIVERED_ON_CREDIT (Entregado a Crédito) o complete los pagos primero.`,
         );
       }
     }
 
-    // NEW: Authorization check for DELIVERED_ON_CREDIT
-    // Non-admin users need approval to deliver on credit
+    // Autorización para DELIVERED_ON_CREDIT (usuarios no-admin necesitan aprobación)
     if (status === OrderStatus.DELIVERED_ON_CREDIT) {
       const authCheck = await this.statusChangeRequestsService.requiresAuthorization(
         id,
@@ -460,7 +564,6 @@ export class OrdersService {
       );
 
       if (authCheck.required) {
-        // Check if user has an approved request
         const hasApproval = await this.statusChangeRequestsService.hasApprovedRequest(
           id,
           userId,
@@ -475,7 +578,6 @@ export class OrdersService {
           );
         }
 
-        // Authorization granted, consume the request (mark as used)
         await this.statusChangeRequestsService.consumeApprovedRequest(
           id,
           userId,
@@ -484,23 +586,17 @@ export class OrdersService {
       }
     }
 
-    // Log change
-    if (order.status !== status) {
-        await this.ordersRepository.updateStatus(id, status);
+    await this.ordersRepository.updateStatus(id, status);
 
-        // Registrar en audit log (sin esperar)
-        const updatedOrder = await this.findOne(id);
-        this.auditLogsService.logOrderChange(
-          'UPDATE',
-          id,
-          order,
-          updatedOrder,
-          userId,
-        );
-        return updatedOrder;
-    }
-
-    return order;
+    const updatedOrder = await this.findOne(id);
+    this.auditLogsService.logOrderChange(
+      'UPDATE',
+      id,
+      order,
+      updatedOrder,
+      userId,
+    );
+    return updatedOrder;
   }
 
   async remove(id: string, userId?: string) {
@@ -744,6 +840,8 @@ export class OrdersService {
       OrderStatus.IN_PRODUCTION,
       OrderStatus.READY,
       OrderStatus.DELIVERED,
+      OrderStatus.DELIVERED_ON_CREDIT,
+      OrderStatus.PAID,
       OrderStatus.WARRANTY,
     ];
 
@@ -852,10 +950,10 @@ export class OrdersService {
       subtotal = subtotal.add(item.total);
     }
 
-    // Obtener taxRate de la orden
+    // Obtener taxRate y colorProof de la orden
     const order = await tx.order.findUnique({
       where: { id: orderId },
-      select: { taxRate: true },
+      select: { taxRate: true, requiresColorProof: true, colorProofPrice: true },
     });
 
     const taxRate = order?.taxRate || new Prisma.Decimal(0.19);
@@ -872,7 +970,11 @@ export class OrdersService {
       discountAmount = discountAmount.add(discount.amount);
     }
 
-    const total = subtotal.add(tax).sub(discountAmount);
+    const colorProofPrice = order?.requiresColorProof && order?.colorProofPrice 
+      ? new Prisma.Decimal(order.colorProofPrice) 
+      : new Prisma.Decimal(0);
+
+    const total = subtotal.add(tax).sub(discountAmount).add(colorProofPrice);
 
     // Calcular paidAmount sumando todos los pagos
     const payments = await tx.payment.findMany({
@@ -1022,6 +1124,8 @@ export class OrdersService {
       OrderStatus.IN_PRODUCTION,
       OrderStatus.READY,
       OrderStatus.DELIVERED,
+      OrderStatus.DELIVERED_ON_CREDIT,
+      OrderStatus.PAID,
       OrderStatus.WARRANTY,
     ];
 
@@ -1104,6 +1208,8 @@ export class OrdersService {
       OrderStatus.IN_PRODUCTION,
       OrderStatus.READY,
       OrderStatus.DELIVERED,
+      OrderStatus.DELIVERED_ON_CREDIT,
+      OrderStatus.PAID,
       OrderStatus.WARRANTY,
     ];
 

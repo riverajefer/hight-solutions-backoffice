@@ -1,6 +1,6 @@
-# Hight Solutions Backoffice - Frontend
+# High Solutions Backoffice - Frontend
 
-Frontend React + Vite para el sistema de backoffice de Hight Solutions.
+Frontend React + Vite para el sistema de backoffice de High Solutions.
 
 ## Requisitos Previos
 
@@ -273,4 +273,4 @@ Para contribuir al proyecto:
 
 ## Licencia
 
-Propiedad de Hight Solutions
+Propiedad de High Solutions

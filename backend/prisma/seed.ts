@@ -202,6 +202,28 @@ async function main() {
     // Company (Información institucional)
     { name: 'read_company', description: 'Ver información de la compañía' },
     { name: 'update_company', description: 'Editar información de la compañía' },
+
+    // Work Orders (Órdenes de Trabajo)
+    { name: 'create_work_orders', description: 'Crear órdenes de trabajo' },
+    { name: 'read_work_orders', description: 'Ver órdenes de trabajo' },
+    { name: 'update_work_orders', description: 'Actualizar órdenes de trabajo' },
+    { name: 'delete_work_orders', description: 'Eliminar órdenes de trabajo' },
+
+    // Expense Types (Tipos de Gasto)
+    { name: 'create_expense_types', description: 'Crear tipos de gasto' },
+    { name: 'read_expense_types', description: 'Ver tipos de gasto' },
+    { name: 'update_expense_types', description: 'Actualizar tipos de gasto' },
+    { name: 'delete_expense_types', description: 'Eliminar tipos de gasto' },
+
+    // Expense Orders (Órdenes de Gastos)
+    { name: 'create_expense_orders', description: 'Crear órdenes de gasto' },
+    { name: 'read_expense_orders', description: 'Ver órdenes de gasto' },
+    { name: 'update_expense_orders', description: 'Actualizar órdenes de gasto' },
+    { name: 'delete_expense_orders', description: 'Eliminar órdenes de gasto' },
+    { name: 'approve_expense_orders', description: 'Aprobar/marcar como pagada una OG' },
+
+    // Advance Payment Approvals
+    { name: 'approve_advance_payments', description: 'Aprobar/rechazar anticipos de órdenes' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
@@ -247,6 +269,14 @@ async function main() {
     create: { name: 'user' },
   });
   console.log(`  ✓ Role: user`);
+
+  // Caja Role - gestión de pagos y anticipos
+  const cajaRole = await prisma.role.upsert({
+    where: { name: 'caja' },
+    update: {},
+    create: { name: 'caja', description: 'Rol de Caja - Gestión de pagos y anticipos' },
+  });
+  console.log(`  ✓ Role: caja`);
 
   // ============================================
   // 3. Asignar Permisos a Roles
@@ -311,6 +341,16 @@ async function main() {
     'read_quotes',
     'update_quotes',
     'convert_quotes',
+    // Work Orders (Manager)
+    'create_work_orders',
+    'read_work_orders',
+    'update_work_orders',
+    // Expense Types (Manager)
+    'read_expense_types',
+    // Expense Orders (Manager)
+    'create_expense_orders',
+    'read_expense_orders',
+    'update_expense_orders',
   ]);
 
   // User - solo lectura básica
@@ -318,6 +358,19 @@ async function main() {
     'read_users',
     'read_roles',
     'read_orders',
+  ]);
+
+  // Caja - gestión de pagos y anticipos
+  await assignPermissionsToRole(cajaRole.id, 'caja', [
+    'approve_advance_payments',
+    'read_orders',
+    'read_clients',
+    'read_users',
+    'read_roles',
+    'read_products',
+    'read_production_areas',
+    'read_commercial_channels',
+    'read_pending_orders',
   ]);
 
   // ============================================
@@ -328,14 +381,17 @@ async function main() {
   const adminPassword = await bcrypt.hash('admin123', 12);
 
   const adminUser = await prisma.user.upsert({
-    where: { email: 'admin@example.com' },
+    where: { username: 'adminsistema' },
     update: {
+      username: 'adminsistema',
+      email: 'admin@example.com',
       password: adminPassword,
       roleId: adminRole.id,
       firstName: 'Admin',
       lastName: 'Sistema',
     },
     create: {
+      username: 'adminsistema',
       email: 'admin@example.com',
       password: adminPassword,
       roleId: adminRole.id,
@@ -343,49 +399,55 @@ async function main() {
       lastName: 'Sistema',
     },
   });
-  console.log(`  ✓ Admin user: ${adminUser.email}`);
+  console.log(`  ✓ Admin user: ${adminUser.username}`);
 
   // Crear usuario de prueba con rol manager
   const managerPassword = await bcrypt.hash('manager123', 12);
 
   const managerUser = await prisma.user.upsert({
-    where: { email: 'manager@example.com' },
+    where: { username: 'managersistema' },
     update: {
-      password: managerPassword,
-      roleId: managerRole.id,
-      firstName: 'Manager',
-      lastName: 'Gerente',
-    },
-    create: {
+      username: 'managersistema',
       email: 'manager@example.com',
       password: managerPassword,
       roleId: managerRole.id,
       firstName: 'Manager',
-      lastName: 'Gerente',
+      lastName: 'Sistema',
+    },
+    create: {
+      username: 'managersistema',
+      email: 'manager@example.com',
+      password: managerPassword,
+      roleId: managerRole.id,
+      firstName: 'Manager',
+      lastName: 'Sistema',
     },
   });
-  console.log(`  ✓ Manager user: ${managerUser.email}`);
+  console.log(`  ✓ Manager user: ${managerUser.username}`);
 
   // Crear usuario de prueba con rol user
   const userPassword = await bcrypt.hash('user123', 12);
 
   const regularUser = await prisma.user.upsert({
-    where: { email: 'user@example.com' },
+    where: { username: 'usuariosistema' },
     update: {
+      username: 'usuariosistema',
+      email: 'user@example.com',
       password: userPassword,
       roleId: userRole.id,
       firstName: 'Usuario',
-      lastName: 'Regular',
+      lastName: 'Sistema',
     },
     create: {
+      username: 'usuariosistema',
       email: 'user@example.com',
       password: userPassword,
       firstName: 'Usuario',
-      lastName: 'Regular',
+      lastName: 'Sistema',
       roleId: userRole.id,
     },
   });
-  console.log(`  ✓ Regular user: ${regularUser.email}`);
+  console.log(`  ✓ Regular user: ${regularUser.username}`);
 
   // ============================================
   // 5. Crear Áreas de Ejemplo
@@ -1681,7 +1743,7 @@ async function main() {
   });
 
   const adminUserForOrders = await prisma.user.findFirst({
-    where: { email: 'admin@example.com' },
+    where: { username: 'adminsistema' },
   });
 
   // Obtener canales de venta y áreas de producción para las órdenes
@@ -2064,6 +2126,12 @@ async function main() {
       year: new Date().getFullYear(),
       lastNumber: 2,
     },
+    {
+      type: 'WORK_ORDER',
+      prefix: 'OT',
+      year: new Date().getFullYear(),
+      lastNumber: 0,
+    },
   ];
 
   for (const consecutive of consecutivesData) {
@@ -2206,11 +2274,6 @@ async function main() {
       description: 'Garantía - requiere solicitud de edición',
     },
     {
-      orderStatus: OrderStatus.RETURNED,
-      allowEditRequests: true,
-      description: 'Devolución - requiere solicitud de edición',
-    },
-    {
       orderStatus: OrderStatus.PAID,
       allowEditRequests: false,
       description: 'Pagada - no se puede editar',
@@ -2248,12 +2311,12 @@ async function main() {
     update: {},
     create: {
       id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-      name: 'Hight Solutions S.A.S',
+      name: 'High Solutions S.A.S',
       description: 'Empresa especializada en soluciones de software y tecnología empresarial.',
-      email: 'contacto@hightsolutions.com',
+      email: 'contacto@highsolutions.com',
       phone: '6012345678',
       mobilePhone: '3001234567',
-      website: 'https://www.hightsolutions.com',
+      website: 'https://www.highsolutions.com',
       address: 'Bogotá, Colombia',
       nit: '900000000-0',
       legalRepresentative: 'Representante Legal',
@@ -2275,14 +2338,83 @@ async function main() {
   console.log(`   - Supply Categories: ${supplyCategoriesData.length}`);
   console.log(`   - Supplies: ${suppliesCreated}`);
   console.log(`   - Orders: 3 (2 con IVA, 1 sin IVA)`);
+  // ============================================
+  // Expense Types & Subcategories
+  // ============================================
+  console.log('\n💸 Creating expense types and subcategories...');
+
+  const expenseTypesData = [
+    {
+      name: 'Operativos',
+      description: 'Gastos necesarios para el funcionamiento diario',
+      subcategories: [
+        'Insumos internos',
+        'Papelería',
+        'Herramientas',
+        'Combustible',
+        'Alimentación',
+        'Mensajería',
+        'Mantenimiento',
+      ],
+    },
+    {
+      name: 'Producción',
+      description: 'Gastos asociados directamente a generar ingresos (requiere OT)',
+      subcategories: [
+        'Compra de materiales para cliente',
+        'Servicios subcontratados',
+        'Costos directos de orden de trabajo',
+      ],
+    },
+    {
+      name: 'Administrativos',
+      description: 'Gastos de gestión y soporte',
+      subcategories: [
+        'Contador',
+        'Asesoría legal',
+        'Software',
+        'Bancos',
+        'Comisiones',
+        'Notaría',
+      ],
+    },
+    {
+      name: 'Personal',
+      description: 'Gastos relacionados con empleados',
+      subcategories: ['Anticipos', 'Viáticos', 'Reembolsos', 'Capacitación'],
+    },
+    {
+      name: 'Servicios recurrentes',
+      description: 'Pagos periódicos',
+      subcategories: ['Arriendo', 'Internet', 'Luz / agua', 'Hosting', 'Licencias'],
+    },
+  ];
+
+  for (const typeData of expenseTypesData) {
+    const expenseType = await prisma.expenseType.upsert({
+      where: { name: typeData.name },
+      update: { description: typeData.description },
+      create: { name: typeData.name, description: typeData.description },
+    });
+    console.log(`  ✓ ExpenseType: ${typeData.name}`);
+
+    for (const subcatName of typeData.subcategories) {
+      await prisma.expenseSubcategory.upsert({
+        where: { name_expenseTypeId: { name: subcatName, expenseTypeId: expenseType.id } },
+        update: {},
+        create: { name: subcatName, expenseTypeId: expenseType.id },
+      });
+    }
+  }
+
   console.log(`   - Consecutives: ${consecutivesData.length}`);
   console.log(`   - Production Areas: ${productionAreasData.length}`);
   console.log(`   - Commercial Channels: ${channelsCreated}`);
   console.log(`   - Editable Order Statuses: ${editableStatuses.length}`);
-  console.log('\n🔐 Test Credentials:');
-  console.log('   Admin:   admin@example.com / admin123');
-  console.log('   Manager: manager@example.com / manager123');
-  console.log('   User:    user@example.com / user123');
+  console.log('\n🔐 Test Credentials (username / password):');
+  console.log('   Admin:   adminsistema / admin123');
+  console.log('   Manager: managersistema / manager123');
+  console.log('   User:    usuariosistema / user123');
   console.log('='.repeat(50) + '\n');
 }
 

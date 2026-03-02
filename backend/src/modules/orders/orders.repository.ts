@@ -25,6 +25,9 @@ export class OrdersRepository {
     total: true,
     paidAmount: true,
     balance: true,
+    advancePaymentStatus: true,
+    requiresColorProof: true,
+    colorProofPrice: true,
     status: true,
     notes: true,
     electronicInvoiceNumber: true,
@@ -120,6 +123,17 @@ export class OrdersRepository {
       },
       orderBy: { appliedAt: 'desc' as const },
     },
+    workOrders: {
+      where: {
+        status: { not: 'CANCELLED' as const },
+      },
+      select: {
+        id: true,
+        workOrderNumber: true,
+        status: true,
+      },
+      take: 1,
+    },
   };
 
   async findAll(status?: OrderStatus) {
@@ -134,18 +148,31 @@ export class OrdersRepository {
 
   async findAllWithFilters(filters: {
     status?: OrderStatus;
+    search?: string;
     clientId?: string;
     orderDateFrom?: Date;
     orderDateTo?: Date;
     page?: number;
     limit?: number;
+    excludeWithWorkOrder?: boolean;
   }) {
-    const { status, clientId, orderDateFrom, orderDateTo, page = 1, limit = 20 } = filters;
+    const { status, search, clientId, orderDateFrom, orderDateTo, page = 1, limit = 20, excludeWithWorkOrder } = filters;
 
     const where: Prisma.OrderWhereInput = {};
 
     if (status) {
       where.status = status;
+    }
+
+    if (search) {
+      where.OR = [
+        { orderNumber: { contains: search, mode: 'insensitive' } },
+        { client: { name: { contains: search, mode: 'insensitive' } } },
+        { client: { email: { contains: search, mode: 'insensitive' } } },
+        { client: { phone: { contains: search, mode: 'insensitive' } } },
+        { notes: { contains: search, mode: 'insensitive' } },
+        { electronicInvoiceNumber: { contains: search, mode: 'insensitive' } },
+      ];
     }
 
     if (clientId) {
@@ -160,6 +187,14 @@ export class OrdersRepository {
       if (orderDateTo) {
         where.orderDate.lte = orderDateTo;
       }
+    }
+
+    if (excludeWithWorkOrder) {
+      where.workOrders = {
+        none: {
+          status: { not: 'CANCELLED' },
+        },
+      };
     }
 
     const skip = (page - 1) * limit;

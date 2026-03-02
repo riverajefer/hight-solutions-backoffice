@@ -30,14 +30,16 @@ export class AuthService {
    * Retorna el usuario sin el password si es válido, null si no
    */
   async validateUser(
-    email: string,
+    username: string,
     password: string,
   ): Promise<AuthenticatedUser | null> {
     const user = await this.prisma.user.findUnique({
-      where: { email },
+      where: { username },
       select: {
         id: true,
+        username: true,
         email: true,
+        isActive: true,
         password: true,
         roleId: true,
         firstName: true,
@@ -69,6 +71,10 @@ export class AuthService {
       return null;
     }
 
+    if (!user.isActive) {
+      return null;
+    }
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
@@ -77,6 +83,7 @@ export class AuthService {
 
     return {
       id: user.id,
+      username: user.username!,
       email: user.email,
       roleId: user.roleId,
       firstName: user.firstName,
@@ -134,13 +141,15 @@ export class AuthService {
    * Registra un nuevo usuario
    */
   async register(registerDto: RegisterDto): Promise<TokenPair> {
-    // Verificar si el email ya existe
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email: registerDto.email },
-    });
+    // Verificar si el email ya existe (si se proporcionó)
+    if (registerDto.email) {
+      const existingUser = await this.prisma.user.findUnique({
+        where: { email: registerDto.email },
+      });
 
-    if (existingUser) {
-      throw new BadRequestException('Email already registered');
+      if (existingUser) {
+        throw new BadRequestException('Email already registered');
+      }
     }
 
     // Verificar si el rol existe
@@ -158,22 +167,36 @@ export class AuthService {
       this.SALT_ROUNDS,
     );
 
+    // Generar username desde email si no se proporciona uno
+    const usernameBase = registerDto.email
+      ? registerDto.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '')
+      : 'user';
+    let username = usernameBase;
+    let counter = 1;
+    while (await this.prisma.user.findUnique({ where: { username } })) {
+      username = `${usernameBase}${counter}`;
+      counter++;
+    }
+
     // Crear el usuario
     const user = await this.prisma.user.create({
       data: {
+        username,
         email: registerDto.email,
         password: hashedPassword,
         roleId: registerDto.roleId,
       },
       select: {
         id: true,
+        username: true,
         email: true,
+        isActive: true,
         roleId: true,
       },
     });
 
     // Generar y retornar tokens
-    return this.login(user);
+    return this.login({ ...user, username: user.username! } as AuthenticatedUser);
   }
 
   /**
@@ -184,7 +207,9 @@ export class AuthService {
       where: { id: userId },
       select: {
         id: true,
+        username: true,
         email: true,
+        isActive: true,
         roleId: true,
         firstName: true,
         lastName: true,
@@ -212,7 +237,7 @@ export class AuthService {
       },
     });
 
-    if (!user || !user.refreshToken) {
+    if (!user || !user.refreshToken || !user.isActive) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
@@ -228,6 +253,7 @@ export class AuthService {
 
     const authenticatedUser: AuthenticatedUser = {
       id: user.id,
+      username: user.username!,
       email: user.email,
       roleId: user.roleId,
       firstName: user.firstName,
@@ -299,12 +325,17 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
+    if (!user.isActive) {
+      throw new UnauthorizedException('User inactive');
+    }
+
     // Extraer solo los nombres de los permisos
     const permissions = user.role.permissions.map((rp: any) => rp.permission.name);
 
     return {
       user: {
         id: user.id,
+        username: user.username,
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
@@ -352,14 +383,14 @@ export class AuthService {
   private async generateTokens(user: AuthenticatedUser): Promise<TokenPair> {
     const accessPayload: JwtPayload = {
       sub: user.id,
-      email: user.email,
+      username: user.username,
       roleId: user.roleId,
       type: 'access',
     };
 
     const refreshPayload: JwtPayload = {
       sub: user.id,
-      email: user.email,
+      username: user.username,
       roleId: user.roleId,
       type: 'refresh',
     };
@@ -398,6 +429,10 @@ export class AuthService {
     });
 
     if (!user) {
+      return [];
+    }
+
+    if (!user.isActive) {
       return [];
     }
 

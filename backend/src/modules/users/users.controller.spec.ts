@@ -9,6 +9,7 @@ const mockUsersService = {
   findOne: jest.fn(),
   create: jest.fn(),
   update: jest.fn(),
+  deactivate: jest.fn(),
   remove: jest.fn(),
 };
 
@@ -73,8 +74,22 @@ describe('UsersController', () => {
   describe('remove', () => {
     it('should delegate to usersService.remove with the given id', async () => {
       mockUsersService.remove.mockResolvedValue({ id: 'user-1' });
-      await controller.remove('user-1');
-      expect(mockUsersService.remove).toHaveBeenCalledWith('user-1');
+      const currentUser = { id: 'admin-1', role: { id: 'role-1', name: 'admin' } } as any;
+      await controller.remove('user-1', currentUser);
+      expect(mockUsersService.remove).toHaveBeenCalledWith('user-1', currentUser);
+    });
+  });
+
+  describe('deactivate', () => {
+    it('should delegate to usersService.deactivate with id and current user', async () => {
+      const currentUser = { id: 'admin-1', role: { id: 'role-1', name: 'admin' } } as any;
+      const payload = { message: 'User with ID user-1 deactivated successfully' };
+      mockUsersService.deactivate.mockResolvedValue(payload);
+
+      const result = await controller.deactivate('user-1', currentUser);
+
+      expect(mockUsersService.deactivate).toHaveBeenCalledWith('user-1', currentUser);
+      expect(result).toEqual(payload);
     });
   });
 });

@@ -26,7 +26,10 @@ import StraightenOutlinedIcon from '@mui/icons-material/StraightenOutlined';
 import EngineeringIcon from '@mui/icons-material/Engineering';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
-
+import BuildIcon from '@mui/icons-material/Build';
+import PostAddIcon from '@mui/icons-material/PostAdd';
+import PendingActionsIcon from '@mui/icons-material/PendingActions';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
 
 import {
   usersApi,
@@ -46,7 +49,10 @@ import {
   supplyCategoriesApi,
   unitsOfMeasureApi,
   productionAreasApi,
-  commercialChannelsApi
+  commercialChannelsApi,
+  workOrdersApi,
+  expenseOrdersApi,
+  orderStatusChangeRequestsApi
 } from '../../../api';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
@@ -420,12 +426,37 @@ const DashboardPage: React.FC = () => {
     },
   });
 
+  const { data: workOrdersData, isLoading: workOrdersLoading } = useQuery({
+    queryKey: ['work-orders'],
+    queryFn: async () => {
+      if (!hasPermission(PERMISSIONS.READ_WORK_ORDERS)) return { data: [], meta: { total: 0 } };
+      return workOrdersApi.getAll({ limit: 1 });
+    },
+  });
+
+  const { data: expenseOrdersData, isLoading: expenseOrdersLoading } = useQuery({
+    queryKey: ['expense-orders'],
+    queryFn: async () => {
+      if (!hasPermission(PERMISSIONS.READ_EXPENSE_ORDERS)) return { data: [], meta: { total: 0 } };
+      return expenseOrdersApi.getAll({ limit: 1 });
+    },
+  });
+
+  const { data: statusChangeRequestsData, isLoading: statusChangeRequestsLoading } = useQuery({
+    queryKey: ['status-change-requests'],
+    queryFn: async () => {
+      if (!hasPermission(PERMISSIONS.APPROVE_ORDERS)) return [];
+      return orderStatusChangeRequestsApi.findPending();
+    },
+  });
+
   const isLoading =
     usersLoading || rolesLoading || permissionsLoading || clientsLoading ||
     suppliersLoading || areasLoading || cargosLoading || auditLogsLoading ||
     sessionLogsLoading || ordersLoading || productsLoading || suppliesLoading ||
     productionAreasLoading || channelsLoading || productCatsLoading ||
-    supplyCatsLoading || unitsLoading || pendingOrdersLoading || quotesLoading;
+    supplyCatsLoading || unitsLoading || pendingOrdersLoading || quotesLoading ||
+    workOrdersLoading || expenseOrdersLoading || statusChangeRequestsLoading;
   
   // Logs de verificación de permisos específicos
   console.log('=== VERIFICACIÓN DE PERMISOS ESPECÍFICOS ===');
@@ -440,9 +471,9 @@ const DashboardPage: React.FC = () => {
   const pendingOrdersCount = React.useMemo(() => {
     const allOrders = pendingOrdersData?.data || [];
     return allOrders.filter(
-      (order: any) =>
+      (order: { status: string; balance: string | number }) =>
         PENDING_PAYMENT_STATUSES.includes(order.status) &&
-        parseFloat(order.balance) > 0,
+        parseFloat(String(order.balance)) > 0,
     ).length;
   }, [pendingOrdersData, PENDING_PAYMENT_STATUSES]);
 
@@ -461,6 +492,9 @@ const DashboardPage: React.FC = () => {
   const sessionLogsCount = sessionLogsData?.meta?.total || 0;
   const ordersCount = ordersData?.meta?.total || 0;
   const quotesCount = quotesData?.meta?.total || 0;
+  const workOrdersCount = workOrdersData?.meta?.total || 0;
+  const expenseOrdersCount = expenseOrdersData?.meta?.total || 0;
+  const statusChangeRequestsCount = Array.isArray(statusChangeRequestsData) ? statusChangeRequestsData.length : 0;
 
   const productsCount = Array.isArray(products) ? products.length : 0;
   const suppliesCount = Array.isArray(supplies) ? supplies.length : 0;
@@ -598,12 +632,42 @@ const DashboardPage: React.FC = () => {
               <StatCard
                 title="Cotizaciones"
                 value={quotesCount}
-                icon={<RequestQuoteIcon />}
+                icon={<PostAddIcon />}
                 color="#06b6d4"
                 neonColor={NEON_COLORS.general}
                 action={{
                   label: 'Ver cotizaciones',
                   onClick: () => navigate(ROUTES.QUOTES),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_WORK_ORDERS) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Órdenes de Trabajo"
+                value={workOrdersCount}
+                icon={<BuildIcon />}
+                color="#8B5CF6"
+                neonColor={NEON_COLORS.general}
+                action={{
+                  label: 'Ver órdenes de trabajo',
+                  onClick: () => navigate(ROUTES.WORK_ORDERS),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_EXPENSE_ORDERS) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Órdenes de Gastos"
+                value={expenseOrdersCount}
+                icon={<RequestQuoteIcon />}
+                color="#EC4899"
+                neonColor={NEON_COLORS.general}
+                action={{
+                  label: 'Ver órdenes de gastos',
+                  onClick: () => navigate(ROUTES.EXPENSE_ORDERS),
                 }}
               />
             </Grid>
@@ -754,12 +818,42 @@ const DashboardPage: React.FC = () => {
               <StatCard
                 title="Cotizaciones"
                 value={quotesCount}
-                icon={<RequestQuoteIcon />}
+                icon={<PostAddIcon />}
                 color="#06b6d4"
                 neonColor={NEON_COLORS.commercial}
                 action={{
                   label: 'Ver cotizaciones',
                   onClick: () => navigate(ROUTES.QUOTES),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_WORK_ORDERS) && (
+            <Grid item xs={12} sm={6} md={4}>
+              <StatCard
+                title="Órdenes de Trabajo"
+                value={workOrdersCount}
+                icon={<BuildIcon />}
+                color="#8B5CF6"
+                neonColor={NEON_COLORS.commercial}
+                action={{
+                  label: 'Ver órdenes de trabajo',
+                  onClick: () => navigate(ROUTES.WORK_ORDERS),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_EXPENSE_ORDERS) && (
+            <Grid item xs={12} sm={6} md={4}>
+              <StatCard
+                title="Órdenes de Gastos"
+                value={expenseOrdersCount}
+                icon={<RequestQuoteIcon />}
+                color="#EC4899"
+                neonColor={NEON_COLORS.commercial}
+                action={{
+                  label: 'Ver órdenes de gastos',
+                  onClick: () => navigate(ROUTES.EXPENSE_ORDERS),
                 }}
               />
             </Grid>
@@ -805,6 +899,36 @@ const DashboardPage: React.FC = () => {
                 action={{
                   label: 'Ver canales',
                   onClick: () => navigate('/commercial-channels'),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.APPROVE_ORDERS) && (
+            <Grid item xs={12} sm={6} md={4}>
+              <StatCard
+                title="Solicitudes de Cambio"
+                value={statusChangeRequestsCount}
+                icon={<PendingActionsIcon />}
+                color="#EF4444"
+                neonColor={NEON_COLORS.commercial}
+                action={{
+                  label: 'Ver solicitudes',
+                  onClick: () => navigate(ROUTES.STATUS_CHANGE_REQUESTS),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_ORDERS) && (
+            <Grid item xs={12} sm={6} md={4}>
+              <StatCard
+                title="Trazabilidad"
+                value={ordersCount}
+                icon={<AccountTreeIcon />}
+                color="#10B981"
+                neonColor={NEON_COLORS.commercial}
+                action={{
+                  label: 'Ver trazabilidad',
+                  onClick: () => navigate(ROUTES.ORDER_FLOW_BASE),
                 }}
               />
             </Grid>
@@ -895,6 +1019,60 @@ const DashboardPage: React.FC = () => {
                   }}
                 >
                   Nuevo Cliente
+                </Button>
+              </Grid>
+            )}
+            {hasPermission(PERMISSIONS.CREATE_WORK_ORDERS) && (
+              <Grid item xs={12} sm={6} md={4}>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  onClick={() => navigate(ROUTES.WORK_ORDERS_CREATE)}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: '0.875rem',
+                    py: 1.5,
+                    borderRadius: '12px',
+                    borderColor: 'divider',
+                    color: 'text.secondary',
+                    '&:hover': {
+                      borderColor: '#8B5CF6',
+                      color: '#8B5CF6',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 4px 12px rgba(139, 92, 246, 0.15)',
+                      background: 'rgba(139, 92, 246, 0.05)',
+                    },
+                  }}
+                >
+                  Nueva Orden de Trabajo
+                </Button>
+              </Grid>
+            )}
+            {hasPermission(PERMISSIONS.CREATE_EXPENSE_ORDERS) && (
+              <Grid item xs={12} sm={6} md={4}>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  onClick={() => navigate(ROUTES.EXPENSE_ORDERS_CREATE)}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: '0.875rem',
+                    py: 1.5,
+                    borderRadius: '12px',
+                    borderColor: 'divider',
+                    color: 'text.secondary',
+                    '&:hover': {
+                      borderColor: '#EC4899',
+                      color: '#EC4899',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 4px 12px rgba(236, 72, 153, 0.15)',
+                      background: 'rgba(236, 72, 153, 0.05)',
+                    },
+                  }}
+                >
+                  Nueva Orden de Gastos
                 </Button>
               </Grid>
             )}

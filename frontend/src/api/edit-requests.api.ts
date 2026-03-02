@@ -76,4 +76,36 @@ export const editRequestsApi = {
     );
     return data;
   },
+
+  /**
+   * Obtener todas las solicitudes pendientes (solo admins)
+   */
+  findAllPending: async () => {
+    const { data } = await axiosInstance.get<OrderEditRequest[]>(
+      '/order-edit-requests/pending',
+    );
+    return data;
+  },
+
+  /**
+   * Aprobar solicitud por ID global (solo admin)
+   */
+  approveGlobal: async (requestId: string, dto: ReviewEditRequestDto) => {
+    const { data } = await axiosInstance.put<OrderEditRequest>(
+      `/order-edit-requests/${requestId}/approve`,
+      dto,
+    );
+    return data;
+  },
+
+  /**
+   * Rechazar solicitud por ID global (solo admin)
+   */
+  rejectGlobal: async (requestId: string, dto: ReviewEditRequestDto) => {
+    const { data } = await axiosInstance.put<OrderEditRequest>(
+      `/order-edit-requests/${requestId}/reject`,
+      dto,
+    );
+    return data;
+  },
 };

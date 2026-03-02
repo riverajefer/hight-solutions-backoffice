@@ -10,7 +10,6 @@ export type OrderStatus =
   | 'DELIVERED'
   | 'DELIVERED_ON_CREDIT'
   | 'WARRANTY'
-  | 'RETURNED'
   | 'PAID';
 
 export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'CHECK' | 'CREDIT' | 'OTHER';
@@ -37,6 +36,9 @@ export interface Order {
     lastName: string | null;
   } | null;
 
+  requiresColorProof: boolean;
+  colorProofPrice: string; // Decimal viene como string del backend
+
   subtotal: string; // Decimal viene como string del backend
   taxRate: string;
   tax: string;
@@ -44,6 +46,7 @@ export interface Order {
   total: string;
   paidAmount: string;
   balance: string;
+  advancePaymentStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   status: OrderStatus;
   notes: string | null;
   electronicInvoiceNumber: string | null;
@@ -69,6 +72,12 @@ export interface Order {
   items: OrderItem[];
   payments: Payment[];
   discounts: OrderDiscount[];
+  /** OT activa (no cancelada) vinculada a esta orden, si existe */
+  workOrders?: {
+    id: string;
+    workOrderNumber: string;
+    status: string;
+  }[];
 }
 
 export interface CommercialChannel {
@@ -155,6 +164,8 @@ export interface CreateOrderDto {
   clientId: string;
   deliveryDate?: string; // ISO date string
   notes?: string;
+  requiresColorProof?: boolean;
+  colorProofPrice?: number;
   items: CreateOrderItemDto[];
   initialPayment?: InitialPaymentDto;
   commercialChannelId?: string;
@@ -168,6 +179,8 @@ export interface UpdateOrderDto {
   clientId?: string;
   deliveryDate?: string;
   notes?: string;
+  requiresColorProof?: boolean;
+  colorProofPrice?: number;
   items?: CreateOrderItemDto[];
   initialPayment?: InitialPaymentDto;
   commercialChannelId?: string;
@@ -215,11 +228,14 @@ export interface ApplyDiscountDto {
 
 export interface FilterOrdersDto {
   status?: OrderStatus;
+  search?: string;
   clientId?: string;
   orderDateFrom?: string; // ISO date string
   orderDateTo?: string; // ISO date string
   page?: number;
   limit?: number;
+  /** Si true, excluye órdenes que ya tienen una OT activa (no cancelada) */
+  excludeWithWorkOrder?: boolean;
 }
 
 // ============================================================
@@ -282,8 +298,24 @@ export const ORDER_STATUS_CONFIG: Record<OrderStatus, OrderStatusConfig> = {
   DELIVERED: { label: 'Entregada', color: 'primary' },
   DELIVERED_ON_CREDIT: { label: 'Entregado a Crédito', color: 'warning' },
   WARRANTY: { label: 'Garantía', color: 'secondary' },
-  RETURNED: { label: 'Devolución', color: 'error' },
   PAID: { label: 'Pagada', color: 'success' },
+};
+
+/**
+ * Transiciones válidas de estado de orden.
+ * Flujo: DRAFT → CONFIRMED → IN_PRODUCTION → READY → PAID → DELIVERED | DELIVERED_ON_CREDIT → WARRANTY
+ *
+ * "Entregada a Crédito" es la excepción: se entrega sin pago completo.
+ */
+export const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+  DRAFT: ['CONFIRMED'],
+  CONFIRMED: ['IN_PRODUCTION'],
+  IN_PRODUCTION: ['READY'],
+  READY: ['PAID', 'DELIVERED_ON_CREDIT'],
+  PAID: ['DELIVERED'],
+  DELIVERED: ['WARRANTY'],
+  DELIVERED_ON_CREDIT: ['WARRANTY'],
+  WARRANTY: ['DELIVERED'],
 };
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {

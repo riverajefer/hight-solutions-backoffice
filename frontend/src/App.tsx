@@ -9,7 +9,9 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { es } from 'date-fns/locale';
 import { lightTheme, darkTheme } from './theme';
 import { useUIStore } from './store/uiStore';
+import { useMaintenanceMode } from './hooks/useMaintenanceMode';
 import RoutesConfig from './router';
+import MaintenancePage from './pages/MaintenancePage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,13 +28,18 @@ const queryClient = new QueryClient({
 const AppContent: FC = () => {
   const theme = useUIStore((state) => state.theme);
   const currentTheme = theme === 'light' ? lightTheme : darkTheme;
+  const { isMaintenanceMode, maintenanceMessage } = useMaintenanceMode();
 
   return (
     <ThemeProvider theme={currentTheme}>
       <CssBaseline />
       <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={es}>
         <SnackbarProvider maxSnack={3}>
-          <RoutesConfig />
+          {isMaintenanceMode ? (
+            <MaintenancePage message={maintenanceMessage} />
+          ) : (
+            <RoutesConfig />
+          )}
         </SnackbarProvider>
       </LocalizationProvider>
     </ThemeProvider>

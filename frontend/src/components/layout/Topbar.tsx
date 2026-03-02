@@ -69,7 +69,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
   const userName = user ? formatFullName(user.firstName, user.lastName) : 'Usuario';
   const userInitials = user
     ? `${user.firstName?.charAt(0) || ''}${user.lastName?.charAt(0) || ''}`.toUpperCase() ||
-      user.email.charAt(0).toUpperCase()
+      (user.email ?? user.username ?? 'U').charAt(0).toUpperCase()
     : 'U';
 
   return (
@@ -125,7 +125,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
               : 'none',
           }}
         >
-          Hight Solutions Backoffice
+          High Solutions Backoffice
         </Typography>
 
         <Box display="flex" alignItems="center" gap={2}>

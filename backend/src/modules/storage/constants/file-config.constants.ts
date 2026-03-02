@@ -19,4 +19,5 @@ export const ENTITY_TYPES = {
   USER: 'user',
   CLIENT: 'client',
   SUPPLIER: 'supplier',
+  EXPENSE_ORDER: 'expense_order',
 } as const;

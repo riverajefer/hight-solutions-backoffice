@@ -24,10 +24,10 @@ const mockStorageService = {
 // ---------------------------------------------------------------------------
 const mockCompany = {
   id: 'company-1',
-  name: 'Hight Solutions S.A.S',
+  name: 'High Solutions S.A.S',
   logoLightId: 'file-light',
   logoDarkId: 'file-dark',
-  email: 'info@hight.com',
+  email: 'info@high.com',
   phone: '3001234567',
   nit: '900123456',
 };
@@ -39,8 +39,8 @@ const companyNoLogos = {
 };
 
 const updateDto = {
-  name: 'Hight Solutions Actualizada',
-  email: 'nuevo@hight.com',
+  name: 'High Solutions Actualizada',
+  email: 'nuevo@high.com',
   logoLightId: 'file-light',
   logoDarkId: 'file-dark',
 };

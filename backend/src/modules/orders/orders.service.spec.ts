@@ -15,6 +15,7 @@ import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { StorageService } from '../storage/storage.service';
 import { OrderStatusChangeRequestsService } from '../order-status-change-requests/order-status-change-requests.service';
+import { AdvancePaymentApprovalsService } from '../advance-payment-approvals/advance-payment-approvals.service';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma, OrderStatus, PaymentMethod } from '../../generated/prisma';
 
@@ -57,6 +58,11 @@ const mockStatusChangeRequestsService = {
   requiresAuthorization: jest.fn(),
   hasApprovedRequest: jest.fn(),
   consumeApprovedRequest: jest.fn(),
+};
+
+const mockAdvancePaymentApprovalsService = {
+  requiresApproval: jest.fn().mockResolvedValue({ required: false }),
+  createFromOrderCreation: jest.fn(),
 };
 
 // PrismaService: used for $transaction and direct model access (payment, orderDiscount)
@@ -143,6 +149,10 @@ describe('OrdersService', () => {
         {
           provide: OrderStatusChangeRequestsService,
           useValue: mockStatusChangeRequestsService,
+        },
+        {
+          provide: AdvancePaymentApprovalsService,
+          useValue: mockAdvancePaymentApprovalsService,
         },
         { provide: PrismaService, useValue: mockPrisma },
       ],

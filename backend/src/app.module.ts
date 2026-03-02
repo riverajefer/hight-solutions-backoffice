@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule } from './config/config.module';
@@ -26,13 +26,23 @@ import { CommercialChannelsModule } from './modules/commercial-channels/commerci
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OrderEditRequestsModule } from './modules/order-edit-requests/order-edit-requests.module';
 import { OrderStatusChangeRequestsModule } from './modules/order-status-change-requests/order-status-change-requests.module';
+import { ExpenseOrderAuthRequestsModule } from './modules/expense-order-auth-requests/expense-order-auth-requests.module';
+import { AdvancePaymentApprovalsModule } from './modules/advance-payment-approvals/advance-payment-approvals.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { CompanyModule } from './modules/company/company.module';
+import { WorkOrdersModule } from './modules/work-orders/work-orders.module';
+import { ExpenseTypesModule } from './modules/expense-types/expense-types.module';
+import { ExpenseOrdersModule } from './modules/expense-orders/expense-orders.module';
+import { OrderTimelineModule } from './modules/order-timeline/order-timeline.module';
 import { AuditContextInterceptor } from './common/interceptors/audit-context.interceptor';
+import { MaintenanceMiddleware } from './common/middleware/maintenance.middleware';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
+    // Health check (sin prefijo /api/v1, siempre disponible)
+    HealthModule,
     // Configuración centralizada
     ConfigModule,
     // Cron Jobs
@@ -78,6 +88,18 @@ import { AuditContextInterceptor } from './common/interceptors/audit-context.int
     StorageModule,
     // Módulo de Información de la Compañía
     CompanyModule,
+    // Módulo de Órdenes de Trabajo
+    WorkOrdersModule,
+    // Módulo de Tipos de Gasto
+    ExpenseTypesModule,
+    // Módulo de Órdenes de Gastos
+    ExpenseOrdersModule,
+    // Módulo de Solicitudes de Autorización de Órdenes de Gasto
+    ExpenseOrderAuthRequestsModule,
+    // Módulo de Aprobación de Anticipos
+    AdvancePaymentApprovalsModule,
+    // Módulo de Trazabilidad de Órdenes
+    OrderTimelineModule,
   ],
   providers: [
     {
@@ -86,4 +108,10 @@ import { AuditContextInterceptor } from './common/interceptors/audit-context.int
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer
+      .apply(MaintenanceMiddleware)
+      .forRoutes('*');
+  }
+}

@@ -44,6 +44,9 @@ import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import PostAddIcon from '@mui/icons-material/PostAdd';
 import PendingActionsIcon from '@mui/icons-material/PendingActions';
+import BuildIcon from '@mui/icons-material/Build';
+import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import { useAuthStore } from '../../store/authStore';
 import { ROUTES, PERMISSIONS } from '../../utils/constants';
 import { neonColors, neonAccents } from '../../theme';
@@ -142,16 +145,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           permission: PERMISSIONS.READ_ORDERS,
         },
         {
+          label: 'Órdenes de Trabajo',
+          icon: <BuildIcon />,
+          path: ROUTES.WORK_ORDERS,
+          permission: PERMISSIONS.READ_WORK_ORDERS,
+        },
+        {
+          label: 'Órdenes de Gastos',
+          icon: <RequestQuoteIcon />,
+          path: ROUTES.EXPENSE_ORDERS,
+          permission: PERMISSIONS.READ_EXPENSE_ORDERS,
+        },
+        {
           label: 'Órdenes Pendientes de Pago',
           icon: <PaymentsIcon />,
           path: ROUTES.PENDING_PAYMENT_ORDERS,
           permission: PERMISSIONS.READ_ORDERS,
         },
         {
-          label: 'Solicitudes de Cambio de Estado',
+          label: 'Solicitudes Pendientes',
           icon: <PendingActionsIcon />,
           path: ROUTES.STATUS_CHANGE_REQUESTS,
           permission: PERMISSIONS.APPROVE_ORDERS,
+        },
+        {
+          label: 'Trazabilidad',
+          icon: <AccountTreeIcon />,
+          path: ROUTES.ORDER_FLOW_BASE,
+          permission: PERMISSIONS.READ_ORDERS,
         },
         {
           label: 'Clientes',
@@ -168,6 +189,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
       ],
       permissions: [
         PERMISSIONS.READ_ORDERS,
+        PERMISSIONS.READ_WORK_ORDERS,
+        PERMISSIONS.READ_EXPENSE_ORDERS,
         PERMISSIONS.READ_CLIENTS,
         PERMISSIONS.READ_COMMERCIAL_CHANNELS,
       ],
@@ -414,7 +437,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           <Box
             component="img"
             src={logo}
-            alt="Hight Solutions Logo"
+            alt="High Solutions Logo"
             sx={{
               width: '100%',
               maxWidth: 130,

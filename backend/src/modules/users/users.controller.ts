@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Put,
   Delete,
   Body,
@@ -13,7 +14,8 @@ import { UsersService } from './users.service';
 import { CreateUserDto, UpdateUserDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards';
 import { PermissionsGuard } from '../../common/guards';
-import { RequirePermissions } from '../../common/decorators';
+import { CurrentUser, RequirePermissions } from '../../common/decorators';
+import { AuthenticatedUser } from '../../common/interfaces';
 
 @ApiTags('users')
 @ApiBearerAuth('JWT-auth')
@@ -67,13 +69,27 @@ export class UsersController {
   }
 
   /**
+   * PATCH /api/v1/users/:id/deactivate
+   * Desactiva un usuario (soft delete)
+   * Requiere permiso: update_users + rol admin
+   */
+  @Patch(':id/deactivate')
+  @RequirePermissions('update_users')
+  deactivate(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.usersService.deactivate(id, currentUser);
+  }
+
+  /**
    * DELETE /api/v1/users/:id
    * Elimina un usuario
    * Requiere permiso: delete_users
    */
   @Delete(':id')
   @RequirePermissions('delete_users')
-  remove(@Param('id') id: string) {
-    return this.usersService.remove(id);
+  remove(@Param('id') id: string, @CurrentUser() currentUser: AuthenticatedUser) {
+    return this.usersService.remove(id, currentUser);
   }
 }

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import {
+  Alert,
   Box,
   Card,
   CardContent,
@@ -28,6 +29,7 @@ import {
   InputLabel,
   Select,
   IconButton,
+  CircularProgress,
   FormLabel,
   Tabs,
   Tab,
@@ -49,6 +51,11 @@ import {
   Close as CloseIcon,
   Discount as DiscountIcon,
   Receipt as ReceiptIcon,
+  Build as BuildIcon,
+  OpenInNew as OpenInNewIcon,
+  Image as ImageIcon,
+  AccountTree as AccountTreeIcon,
+  Warning as WarningIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -65,11 +72,14 @@ import {
 import { ActivePermissionBanner } from '../components/ActivePermissionBanner';
 import { RequestEditPermissionButton } from '../components/RequestEditPermissionButton';
 import { EditRequestsList } from '../components/EditRequestsList';
+import { StatusChangeAuthRequestDialog } from '../components/StatusChangeAuthRequestDialog';
+import { useEditRequests } from '../../../hooks/useEditRequests';
 import { OrderChangeHistoryTab } from '../components/OrderChangeHistoryTab';
 import { ordersApi } from '../../../api/orders.api';
 import { storageApi } from '../../../api/storage.api';
 import axiosInstance from '../../../api/axios';
 import { useAuthStore } from '../../../store/authStore';
+import { ROUTES } from '../../../utils/constants';
 import type {
   OrderStatus,
   PaymentMethod,
@@ -79,6 +89,7 @@ import type {
 import {
   ORDER_STATUS_CONFIG,
   PAYMENT_METHOD_LABELS,
+  ALLOWED_TRANSITIONS,
 } from '../../../types/order.types';
 
 const formatCurrency = (value: string): string => {
@@ -146,10 +157,12 @@ export const OrderDetailPage: React.FC = () => {
     id!
   );
   const { paymentsQuery, addPaymentMutation } = useOrderPayments(id!);
+  const { activePermissionQuery } = useEditRequests(id || '');
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [discountDialogOpen, setDiscountDialogOpen] = useState(false);
   const [tabValue, setTabValue] = useState(0);
   const [paymentData, setPaymentData] = useState<CreatePaymentDto>({
@@ -158,7 +171,25 @@ export const OrderDetailPage: React.FC = () => {
     paymentDate: new Date().toISOString(),
   });
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const receiptFileInputRef = React.useRef<HTMLInputElement | null>(null);
   const [deletingReceipt, setDeletingReceipt] = useState<string | null>(null);
+
+  const handleReceiptPaste = (e: React.ClipboardEvent) => {
+    const clipItems = e.clipboardData?.items;
+    if (!clipItems) return;
+    for (let i = 0; i < clipItems.length; i++) {
+      if (clipItems[i].type.indexOf('image') !== -1) {
+        const file = clipItems[i].getAsFile();
+        if (file) {
+          const extension = file.type.split('/')[1] || 'png';
+          const newFile = new File([file], `pasted-receipt-${Date.now()}.${extension}`, { type: file.type });
+          setReceiptFile(newFile);
+          e.preventDefault();
+          break;
+        }
+      }
+    }
+  };
   const [deletingDiscount, setDeletingDiscount] = useState(false);
   const [viewReceiptDialog, setViewReceiptDialog] = useState<{
     open: boolean;
@@ -168,6 +199,8 @@ export const OrderDetailPage: React.FC = () => {
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [statusAuthDialogOpen, setStatusAuthDialogOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<OrderStatus | null>(null);
 
   const order = orderQuery.data;
   const payments = paymentsQuery.data || [];
@@ -190,18 +223,19 @@ export const OrderDetailPage: React.FC = () => {
   const canEdit = ['DRAFT', 'CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'WARRANTY', 'CANCELLED', 'COMPLETED'].includes(
     order.status
   );
-  const canDelete = ['DRAFT', 'CANCELLED'].includes(order.status);
-  const canAddPayment = ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED'].includes(
+  const canAddPayment = ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'DELIVERED_ON_CREDIT', 'PAID'].includes(
     order.status
   );
+  const isAdmin = user?.role?.name === 'admin';
+  const hasActiveEditPermission = !!activePermissionQuery.data;
   const canApplyDiscount =
     permissions.includes('apply_discounts') &&
-    ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'WARRANTY'].includes(
+    ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'DELIVERED_ON_CREDIT', 'PAID', 'WARRANTY'].includes(
       order.status
-    );
+    ) &&
+    (isAdmin || hasActiveEditPermission);
   const canDeleteDiscount =
     permissions.includes('delete_discounts');
-  const isAdmin = user?.role?.name === 'admin';
   const hasIva = parseFloat(order.tax) > 0;
   const canRegisterInvoice =
     hasIva && order.status !== 'DRAFT' && permissions.includes('update_orders');
@@ -211,12 +245,26 @@ export const OrderDetailPage: React.FC = () => {
   };
 
   const handleMenuClose = () => {
+    if (updateStatusMutation.isPending) return;
     setAnchorEl(null);
   };
 
   const handleChangeStatus = async (newStatus: OrderStatus) => {
-    await updateStatusMutation.mutateAsync(newStatus);
-    handleMenuClose();
+    try {
+      await updateStatusMutation.mutateAsync(newStatus);
+      handleMenuClose();
+    } catch (error: any) {
+      handleMenuClose();
+      if (error?.response?.status === 403) {
+        const errorMessage = error.response?.data?.message || '';
+        if (errorMessage.includes('autorización')) {
+          setPendingStatus(newStatus);
+          setStatusAuthDialogOpen(true);
+          return;
+        }
+      }
+      // Otros errores ya se manejan en el hook
+    }
   };
 
   const handleDelete = async () => {
@@ -225,33 +273,43 @@ export const OrderDetailPage: React.FC = () => {
   };
 
   const handleAddPayment = async () => {
-    const payment = await addPaymentMutation.mutateAsync(paymentData);
+    if (paymentSubmitting) return;
 
-    // Si hay archivo, subirlo
-    if (receiptFile && payment) {
-      try {
-        await ordersApi.uploadPaymentReceipt(id!, payment.id, receiptFile);
-        await paymentsQuery.refetch();
-        enqueueSnackbar('Pago registrado con comprobante exitosamente', {
-          variant: 'success'
-        });
-      } catch (error) {
-        console.error('Error uploading receipt:', error);
-        enqueueSnackbar('Pago registrado pero hubo un error al subir el comprobante', {
-          variant: 'warning'
-        });
+    setPaymentSubmitting(true);
+    try {
+      const payment = await addPaymentMutation.mutateAsync(paymentData);
+
+      // Si hay archivo, subirlo
+      if (receiptFile && payment) {
+        try {
+          await ordersApi.uploadPaymentReceipt(id!, payment.id, receiptFile);
+          await paymentsQuery.refetch();
+          enqueueSnackbar('Pago registrado con comprobante exitosamente', {
+            variant: 'success'
+          });
+        } catch (error) {
+          console.error('Error uploading receipt:', error);
+          enqueueSnackbar('Pago registrado pero hubo un error al subir el comprobante', {
+            variant: 'warning'
+          });
+        }
+      } else {
+        enqueueSnackbar('Pago registrado exitosamente', { variant: 'success' });
       }
-    } else {
-      enqueueSnackbar('Pago registrado exitosamente', { variant: 'success' });
-    }
 
-    setPaymentDialogOpen(false);
-    setPaymentData({
-      amount: 0,
-      paymentMethod: 'CASH',
-      paymentDate: new Date().toISOString(),
-    });
-    setReceiptFile(null);
+      setPaymentDialogOpen(false);
+      setPaymentData({
+        amount: 0,
+        paymentMethod: 'CASH',
+        paymentDate: new Date().toISOString(),
+      });
+      setReceiptFile(null);
+    } catch (error) {
+      console.error('Error adding payment:', error);
+      enqueueSnackbar('Error al registrar el pago', { variant: 'error' });
+    } finally {
+      setPaymentSubmitting(false);
+    }
   };
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
@@ -416,6 +474,18 @@ export const OrderDetailPage: React.FC = () => {
       {/* Banner de permiso activo */}
       <ActivePermissionBanner orderId={id!} />
 
+      {/* Alertas de anticipo */}
+      {order.advancePaymentStatus === 'PENDING' && (
+        <Alert severity="warning" icon={<WarningIcon />} sx={{ mt: 2 }}>
+          <strong>Anticipo pendiente de aprobación.</strong> El anticipo de esta orden está siendo revisado por Caja. No se puede cambiar el estado hasta que sea aprobado.
+        </Alert>
+      )}
+      {order.advancePaymentStatus === 'REJECTED' && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          <strong>Anticipo rechazado.</strong> El anticipo de esta orden fue rechazado por Caja. El pago ha sido revertido.
+        </Alert>
+      )}
+
       {/* Toolbar de Acciones */}
       <Paper
         elevation={0}
@@ -502,10 +572,18 @@ export const OrderDetailPage: React.FC = () => {
             icon={<RefreshIcon />}
             label="Estado"
             onClick={handleMenuOpen}
+            disabled={updateStatusMutation.isPending}
             tooltip="Cambiar Estado"
           />
 
           <OrderPdfButton order={order} />
+
+          <ToolbarButton
+            icon={<AccountTreeIcon />}
+            label="Trazabilidad"
+            onClick={() => navigate(`/orders/flow/order/${id}`)}
+            tooltip="Ver Trazabilidad"
+          />
 
           <ToolbarButton
             icon={<AddIcon />}
@@ -735,6 +813,16 @@ export const OrderDetailPage: React.FC = () => {
                         </Typography>
                       </Box>
                     )}
+                    {order.requiresColorProof && (
+                      <Box display="flex" justifyContent="space-between">
+                        <Typography>
+                          Prueba de Color:
+                        </Typography>
+                        <Typography fontWeight={500}>
+                          {formatCurrency(order.colorProofPrice)}
+                        </Typography>
+                      </Box>
+                    )}
                     {parseFloat(order.discountAmount) > 0 && (
                       <Box display="flex" justifyContent="space-between">
                         <Typography color="error.main">
@@ -867,15 +955,22 @@ export const OrderDetailPage: React.FC = () => {
               onDelete={handleRemoveDiscount}
               isDeleting={deletingDiscount}
             />
-            {/* Notas */}
-            {order.notes && (
+            {/* Notas y Detalles Adicionales */}
+            {(order.notes || order.requiresColorProof) && (
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
-                    Observaciones
+                    Observaciones y Detalles
                   </Typography>
                   <Divider sx={{ mb: 2 }} />
-                  <Typography variant="body2">{order.notes}</Typography>
+                  {order.requiresColorProof && (
+                    <Typography variant="body2" sx={{ mb: order.notes ? 1 : 0, fontWeight: 500, color: 'primary.main' }}>
+                      ✓ Requiere prueba de color
+                    </Typography>
+                  )}
+                  {order.notes && (
+                    <Typography variant="body2">{order.notes}</Typography>
+                  )}
                 </CardContent>
               </Card>
             )}            
@@ -966,6 +1061,30 @@ export const OrderDetailPage: React.FC = () => {
                       </Typography>
                     </Box>
                   )}
+                  {/* Orden de Trabajo vinculada */}
+                  <Box>
+                    <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.5 }}>
+                      <BuildIcon fontSize="small" color={order.workOrders?.[0] ? 'primary' : 'disabled'} />
+                      <Typography variant="body2" color="textSecondary">
+                        Orden de Trabajo
+                      </Typography>
+                    </Stack>
+                    {order.workOrders?.[0] ? (
+                      <Chip
+                        icon={<OpenInNewIcon sx={{ fontSize: '0.85rem !important' }} />}
+                        label={order.workOrders[0].workOrderNumber}
+                        size="small"
+                        variant="outlined"
+                        color="primary"
+                        onClick={() => navigate(ROUTES.WORK_ORDERS_DETAIL.replace(':id', order.workOrders![0].id))}
+                        sx={{ cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
+                      />
+                    ) : (
+                      <Typography variant="body2" color="text.disabled">
+                        Sin OT asignada
+                      </Typography>
+                    )}
+                  </Box>
                 </Stack>
               </CardContent>
             </Card>
@@ -990,44 +1109,67 @@ export const OrderDetailPage: React.FC = () => {
       </Box>
 
       {/* Menu de Acciones */}
-      <Menu anchorEl={anchorEl} open={openMenu} onClose={handleMenuClose}>
+      <Menu
+        anchorEl={anchorEl}
+        open={openMenu}
+        onClose={handleMenuClose}
+      >
         <MenuItem disabled>
-          <Typography variant="caption" color="textSecondary">
-            Cambiar Estado de la Orden
-          </Typography>
+          <Stack direction="row" spacing={1} alignItems="center">
+            {updateStatusMutation.isPending && <CircularProgress size={14} />}
+            <Typography variant="caption" color="textSecondary">
+              {updateStatusMutation.isPending
+                ? 'Actualizando estado...'
+                : 'Cambiar Estado de la Orden'}
+            </Typography>
+          </Stack>
         </MenuItem>
-        {Object.entries(ORDER_STATUS_CONFIG).map(([status, config]) => (
-          <MenuItem
-            key={status}
-            onClick={() => handleChangeStatus(status as OrderStatus)}
-            disabled={order.status === status}
-          >
-            <Chip
-              label={config.label}
-              color={config.color}
-              size="small"
-              sx={{ mr: 1 }}
-            />
-          </MenuItem>
-        ))}
-        <Divider />
+        {Object.entries(ORDER_STATUS_CONFIG).map(([status, config]) => {
+          const validNextStatuses = ALLOWED_TRANSITIONS[order.status] || [];
+          const isCurrentStatus = order.status === status;
+          const isAllowed = validNextStatuses.includes(status as OrderStatus);
+          return (
+            <MenuItem
+              key={status}
+              onClick={() => handleChangeStatus(status as OrderStatus)}
+              disabled={!isAllowed || updateStatusMutation.isPending}
+            >
+              <Chip
+                label={config.label}
+                color={isCurrentStatus || isAllowed ? config.color : 'default'}
+                size="small"
+                variant={isCurrentStatus ? 'filled' : isAllowed ? 'outlined' : 'filled'}
+                sx={{
+                  mr: 1,
+                  ...((!isAllowed && !isCurrentStatus) && { opacity: 0.4 }),
+                  ...(isCurrentStatus && { fontWeight: 'bold', border: '2px solid' }),
+                }}
+              />
+            </MenuItem>
+          );
+        })}
+{/*         <Divider />
         {canDelete && (
           <MenuItem onClick={() => setConfirmDelete(true)} sx={{ color: 'error.main' }}>
             <DeleteIcon sx={{ mr: 1 }} fontSize="small" />
             Eliminar Orden
           </MenuItem>
-        )}
+        )} */}
       </Menu>
 
       {/* Dialog: Registrar Pago */}
       <Dialog
         open={paymentDialogOpen}
-        onClose={() => setPaymentDialogOpen(false)}
+        onClose={() => {
+          if (!paymentSubmitting) {
+            setPaymentDialogOpen(false);
+          }
+        }}
         maxWidth="sm"
         fullWidth
       >
         <DialogTitle>Registrar Pago</DialogTitle>
-        <DialogContent>
+        <DialogContent onPaste={handleReceiptPaste}>
           <Stack spacing={3} sx={{ mt: 2 }}>
             <TextField
               fullWidth
@@ -1112,52 +1254,125 @@ export const OrderDetailPage: React.FC = () => {
               <FormLabel sx={{ mb: 1, display: 'block' }}>
                 Comprobante de Pago (Opcional)
               </FormLabel>
-              <Button
-                variant="outlined"
-                component="label"
-                startIcon={<AttachFileIcon />}
-                fullWidth
-              >
-                {receiptFile ? receiptFile.name : 'Seleccionar archivo (imagen o PDF)'}
-                <input
-                  type="file"
-                  hidden
-                  accept="image/*,.pdf"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      setReceiptFile(file);
-                    }
-                  }}
-                />
-              </Button>
-              {receiptFile && (
-                <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    {(receiptFile.size / 1024).toFixed(2)} KB
-                  </Typography>
-                  <IconButton
+              <input
+                type="file"
+                hidden
+                accept="image/jpeg,image/png,image/gif,image/webp,.pdf"
+                ref={receiptFileInputRef}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) setReceiptFile(file);
+                  if (e.target) e.target.value = '';
+                }}
+              />
+
+              {!receiptFile ? (
+                <Stack spacing={1}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<AttachFileIcon />}
                     size="small"
-                    onClick={() => setReceiptFile(null)}
-                    color="error"
+                    onClick={() => receiptFileInputRef.current?.click()}
+                    sx={{ textTransform: 'none', alignSelf: 'flex-start' }}
                   >
-                    <CloseIcon fontSize="small" />
-                  </IconButton>
-                </Box>
+                    Adjuntar imagen o PDF
+                  </Button>
+                  <Box
+                    onPaste={handleReceiptPaste}
+                    tabIndex={0}
+                    sx={{
+                      border: '2px dashed',
+                      borderColor: 'grey.300',
+                      borderRadius: 1,
+                      p: 2,
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      transition: 'border-color 0.2s, background-color 0.2s',
+                      '&:hover, &:focus': {
+                        borderColor: 'primary.main',
+                        bgcolor: 'action.hover',
+                      },
+                    }}
+                  >
+                    <ImageIcon sx={{ fontSize: 28, color: 'grey.400', mb: 0.5 }} />
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      O pega una imagen aquí (Ctrl+V / ⌘+V)
+                    </Typography>
+                  </Box>
+                </Stack>
+              ) : (
+                <Stack spacing={1.5}>
+                  {/* Thumbnail preview (only for images) */}
+                  {receiptFile.type.startsWith('image/') && (
+                    <Box
+                      sx={{
+                        position: 'relative',
+                        width: 'fit-content',
+                        border: '1px solid',
+                        borderColor: 'grey.300',
+                        borderRadius: 1,
+                        overflow: 'hidden',
+                        bgcolor: 'grey.50',
+                      }}
+                    >
+                      <Box
+                        component="img"
+                        src={URL.createObjectURL(receiptFile)}
+                        alt="Vista previa"
+                        sx={{
+                          display: 'block',
+                          maxWidth: 200,
+                          maxHeight: 140,
+                          objectFit: 'contain',
+                        }}
+                        onLoad={(e) => {
+                          URL.revokeObjectURL((e.target as HTMLImageElement).src);
+                        }}
+                      />
+                    </Box>
+                  )}
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <Chip
+                      icon={receiptFile.type.startsWith('image/') ? <ImageIcon /> : <AttachFileIcon />}
+                      label={`${receiptFile.name} (${(receiptFile.size / 1024).toFixed(1)} KB)`}
+                      color="primary"
+                      variant="outlined"
+                      size="small"
+                      onDelete={() => {
+                        setReceiptFile(null);
+                        if (receiptFileInputRef.current) receiptFileInputRef.current.value = '';
+                      }}
+                      deleteIcon={<CloseIcon />}
+                      sx={{ maxWidth: 320 }}
+                    />
+                    <IconButton
+                      size="small"
+                      onClick={() => receiptFileInputRef.current?.click()}
+                      title="Cambiar archivo"
+                    >
+                      <AttachFileIcon fontSize="small" />
+                    </IconButton>
+                  </Stack>
+                </Stack>
               )}
             </Box>
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setPaymentDialogOpen(false)}>Cancelar</Button>
+          <Button
+            onClick={() => setPaymentDialogOpen(false)}
+            disabled={paymentSubmitting}
+          >
+            Cancelar
+          </Button>
           <Button
             onClick={handleAddPayment}
             variant="contained"
             disabled={
-              addPaymentMutation.isPending || paymentData.amount <= 0
+              paymentSubmitting || addPaymentMutation.isPending || paymentData.amount <= 0
             }
           >
-            Registrar Pago
+            {paymentSubmitting ? 'Registrando...' : 'Registrar Pago'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1300,6 +1515,18 @@ export const OrderDetailPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      {/* Dialog: Solicitar Autorización de Cambio de Estado */}
+      {statusAuthDialogOpen && pendingStatus && order && (
+        <StatusChangeAuthRequestDialog
+          open={statusAuthDialogOpen}
+          onClose={() => {
+            setStatusAuthDialogOpen(false);
+            setPendingStatus(null);
+          }}
+          order={order}
+          requestedStatus={pendingStatus}
+        />
+      )}
     </Box>
   );
 };
