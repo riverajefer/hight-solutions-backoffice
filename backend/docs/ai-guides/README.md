@@ -78,6 +78,7 @@ http://localhost:3000/api/v1
 |----------|-------------|
 | [AUDIT_LOG_SETUP.md](./AUDIT_LOG_SETUP.md) | Audit logging implementation |
 | [EXTENSIONS.md](./EXTENSIONS.md) | Guide for adding new features |
+| [MIGRATION_P3009_RECOVERY.md](./MIGRATION_P3009_RECOVERY.md) | Runbook to recover failed Prisma migrations (P3009) in staging |
 
 ## Key Features
 
