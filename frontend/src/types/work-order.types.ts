@@ -52,6 +52,33 @@ export interface WorkOrderItem {
   supplies: WorkOrderItemSupply[];
 }
 
+export enum WorkOrderTimeEntryType {
+  HOURS = 'HOURS',
+  RANGE = 'RANGE',
+}
+
+export interface WorkOrderTimeEntry {
+  id: string;
+  entryType: WorkOrderTimeEntryType;
+  workedDate: string;
+  hoursWorked: string;
+  startAt?: string | null;
+  endAt?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  user: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    email: string;
+  };
+  workOrderItem?: {
+    id: string;
+    productDescription: string;
+  } | null;
+}
+
 export interface WorkOrder {
   id: string;
   workOrderNumber: string;
@@ -98,6 +125,7 @@ export interface WorkOrder {
       name: string;
     };
   }>;
+  timeEntries?: WorkOrderTimeEntry[];
   items: WorkOrderItem[];
   createdAt: string;
   updatedAt: string;
@@ -158,6 +186,26 @@ export interface FilterWorkOrdersDto {
   search?: string;
   page?: number;
   limit?: number;
+}
+
+export interface CreateWorkOrderTimeEntryDto {
+  entryType: WorkOrderTimeEntryType;
+  workOrderItemId?: string;
+  workedDate: string;
+  hoursWorked?: number;
+  startAt?: string;
+  endAt?: string;
+  notes?: string;
+}
+
+export interface UpdateWorkOrderTimeEntryDto {
+  entryType?: WorkOrderTimeEntryType;
+  workOrderItemId?: string;
+  workedDate?: string;
+  hoursWorked?: number;
+  startAt?: string;
+  endAt?: string;
+  notes?: string;
 }
 
 export interface WorkOrdersListResponse {
