@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -185,8 +185,10 @@ const StepHeader: React.FC<StepHeaderProps> = ({ index, config, status, clickabl
 // ─── Main Component ───────────────────────────────────────────────────────────
 export const WorkOrderFormPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id } = useParams<{ id: string }>();
   const isEdit = !!id;
+  const prefillAppliedRef = useRef(false);
 
   const { user } = useAuthStore();
   const { createWorkOrderMutation } = useWorkOrders();
@@ -253,6 +255,27 @@ export const WorkOrderFormPage = () => {
       setVisitedSteps(new Set([0, 1, 2, 3]));
     }
   }, [isEdit, workOrderQuery.data]);
+
+  // ─── Prefill desde detalle de OP (solo en creación) ────────────────────────
+  useEffect(() => {
+    if (isEdit || prefillAppliedRef.current) return;
+
+    const queryParams = new URLSearchParams(location.search);
+    const prefillOrderId = queryParams.get('orderId');
+    if (!prefillOrderId) {
+      prefillAppliedRef.current = true;
+      return;
+    }
+
+    if (availableOrders.length === 0) return; // wait for orders to load
+
+    const order = availableOrders.find((o: Order) => o.id === prefillOrderId);
+    if (order) {
+      setSelectedOrder(order);
+      goToStep(1);
+    }
+    prefillAppliedRef.current = true;
+  }, [isEdit, availableOrders, location.search]);
 
   // When order is selected, initialize item forms
   useEffect(() => {
