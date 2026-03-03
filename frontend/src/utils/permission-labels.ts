@@ -105,6 +105,34 @@ export const PERMISSION_LABELS: Record<string, string> = {
    apply_discounts: 'Aplicar Descuentos',
    delete_discounts: 'Eliminar Descuentos',
 
+  // Archivos
+  upload_files: 'Subir Archivos',
+  read_files: 'Ver y Descargar Archivos',
+  delete_files: 'Eliminar Archivos',
+  manage_storage: 'Gestionar Almacenamiento',
+
+  // Órdenes de trabajo
+  create_work_orders: 'Crear Órdenes de Trabajo',
+  read_work_orders: 'Ver Órdenes de Trabajo',
+  update_work_orders: 'Actualizar Órdenes de Trabajo',
+  delete_work_orders: 'Eliminar Órdenes de Trabajo',
+
+  // Tipos de gasto
+  create_expense_types: 'Crear Tipos de Gasto',
+  read_expense_types: 'Ver Tipos de Gasto',
+  update_expense_types: 'Actualizar Tipos de Gasto',
+  delete_expense_types: 'Eliminar Tipos de Gasto',
+
+  // Órdenes de gasto
+  create_expense_orders: 'Crear Órdenes de Gasto',
+  read_expense_orders: 'Ver Órdenes de Gasto',
+  update_expense_orders: 'Actualizar Órdenes de Gasto',
+  delete_expense_orders: 'Eliminar Órdenes de Gasto',
+  approve_expense_orders: 'Aprobar Órdenes de Gasto',
+
+  // Anticipos
+  approve_advance_payments: 'Aprobar/Rechazar Anticipos',
+
   // Compañía
   read_company: 'Ver Información de Compañía',
   update_company: 'Editar Información de Compañía',
