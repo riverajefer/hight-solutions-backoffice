@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
-import { WorkOrderStatus } from '../../generated/prisma';
+import { Prisma, WorkOrderStatus, WorkOrderTimeEntryType } from '../../generated/prisma';
 import { FilterWorkOrdersDto } from './dto';
 
 @Injectable()
@@ -67,6 +67,36 @@ export class WorkOrdersRepository {
         expenseSubcategory: {
           select: {
             name: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc' as const,
+      },
+    },
+    timeEntries: {
+      select: {
+        id: true,
+        entryType: true,
+        workedDate: true,
+        hoursWorked: true,
+        startAt: true,
+        endAt: true,
+        notes: true,
+        createdAt: true,
+        updatedAt: true,
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        workOrderItem: {
+          select: {
+            id: true,
+            productDescription: true,
           },
         },
       },
@@ -359,6 +389,91 @@ export class WorkOrdersRepository {
         workOrderItemId_supplyId: {
           workOrderItemId,
           supplyId,
+        },
+      },
+    });
+  }
+
+  async createTimeEntry(data: {
+    workOrderId: string;
+    workOrderItemId?: string;
+    userId: string;
+    entryType: WorkOrderTimeEntryType;
+    workedDate: Date;
+    hoursWorked: Prisma.Decimal;
+    startAt?: Date;
+    endAt?: Date;
+    notes?: string;
+  }) {
+    return this.prisma.workOrderTimeEntry.create({
+      data: {
+        workOrderId: data.workOrderId,
+        workOrderItemId: data.workOrderItemId,
+        userId: data.userId,
+        entryType: data.entryType,
+        workedDate: data.workedDate,
+        hoursWorked: data.hoursWorked,
+        startAt: data.startAt,
+        endAt: data.endAt,
+        notes: data.notes,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        workOrderItem: {
+          select: {
+            id: true,
+            productDescription: true,
+          },
+        },
+      },
+    });
+  }
+
+  async findTimeEntryById(workOrderId: string, timeEntryId: string) {
+    return this.prisma.workOrderTimeEntry.findFirst({
+      where: {
+        id: timeEntryId,
+        workOrderId,
+      },
+    });
+  }
+
+  async updateTimeEntry(
+    timeEntryId: string,
+    data: {
+      workOrderItemId?: string | null;
+      entryType?: WorkOrderTimeEntryType;
+      workedDate?: Date;
+      hoursWorked?: Prisma.Decimal;
+      startAt?: Date | null;
+      endAt?: Date | null;
+      notes?: string | null;
+    },
+  ) {
+    return this.prisma.workOrderTimeEntry.update({
+      where: { id: timeEntryId },
+      data,
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        workOrderItem: {
+          select: {
+            id: true,
+            productDescription: true,
+          },
         },
       },
     });

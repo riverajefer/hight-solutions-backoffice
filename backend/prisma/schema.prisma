@@ -37,6 +37,7 @@ model User {
   appliedDiscounts             OrderDiscount[]            @relation("AppliedDiscounts")
   advisedWorkOrders            WorkOrder[]                @relation("WorkOrderAdvisor")
   designedWorkOrders           WorkOrder[]                @relation("WorkOrderDesigner")
+  workOrderTimeEntries         WorkOrderTimeEntry[]       @relation("WorkOrderTimeEntryUser")
   authorizedExpenseOrders      ExpenseOrder[]             @relation("AuthorizedExpenseOrders")
   responsibleExpenseOrders     ExpenseOrder[]             @relation("ResponsibleExpenseOrders")
   createdExpenseOrders         ExpenseOrder[]             @relation("CreatedExpenseOrders")
@@ -820,6 +821,11 @@ enum WorkOrderStatus {
   CANCELLED
 }
 
+enum WorkOrderTimeEntryType {
+  HOURS
+  RANGE
+}
+
 model WorkOrder {
   id              String          @id @default(uuid())
   workOrderNumber String          @unique @map("work_order_number") // "OT-2025-0001"
@@ -836,6 +842,7 @@ model WorkOrder {
   advisor       User           @relation("WorkOrderAdvisor", fields: [advisorId], references: [id])
   designer      User?          @relation("WorkOrderDesigner", fields: [designerId], references: [id])
   items         WorkOrderItem[]
+  timeEntries   WorkOrderTimeEntry[]
   expenseOrders ExpenseOrder[]
 
   @@index([orderId])
@@ -857,6 +864,7 @@ model WorkOrderItem {
   orderItem       OrderItem                    @relation(fields: [orderItemId], references: [id])
   productionAreas WorkOrderItemProductionArea[]
   supplies        WorkOrderItemSupply[]
+  timeEntries     WorkOrderTimeEntry[]
 
   @@index([workOrderId])
   @@index([orderItemId])
@@ -890,6 +898,31 @@ model WorkOrderItemSupply {
   @@index([workOrderItemId])
   @@index([supplyId])
   @@map("work_order_item_supplies")
+}
+
+model WorkOrderTimeEntry {
+  id              String                 @id @default(uuid())
+  workOrderId     String                 @map("work_order_id")
+  workOrderItemId String?                @map("work_order_item_id")
+  userId          String                 @map("user_id")
+  entryType       WorkOrderTimeEntryType @map("entry_type")
+  workedDate      DateTime               @map("worked_date")
+  hoursWorked     Decimal                @map("hours_worked")
+  startAt         DateTime?              @map("start_at")
+  endAt           DateTime?              @map("end_at")
+  notes           String?
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+
+  workOrder     WorkOrder      @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  workOrderItem WorkOrderItem? @relation(fields: [workOrderItemId], references: [id], onDelete: SetNull)
+  user          User           @relation("WorkOrderTimeEntryUser", fields: [userId], references: [id])
+
+  @@index([workOrderId])
+  @@index([workOrderItemId])
+  @@index([userId])
+  @@index([workedDate])
+  @@map("work_order_time_entries")
 }
 
 // =============================================================================
