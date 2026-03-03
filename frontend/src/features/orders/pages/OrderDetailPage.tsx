@@ -578,6 +578,19 @@ export const OrderDetailPage: React.FC = () => {
 
           <OrderPdfButton order={order} />
 
+          {!order.workOrders?.[0] &&
+            ['CONFIRMED', 'IN_PRODUCTION', 'READY'].includes(order.status) &&
+            permissions.includes('create_work_orders') && (
+              <ToolbarButton
+                icon={<BuildIcon />}
+                label="OT"
+                secondaryLabel="Crear"
+                onClick={() => navigate(`${ROUTES.WORK_ORDERS_CREATE}?orderId=${id}`)}
+                color={theme.palette.info.main}
+                tooltip="Crear Orden de Trabajo"
+              />
+            )}
+
           <ToolbarButton
             icon={<AccountTreeIcon />}
             label="Trazabilidad"
@@ -1080,9 +1093,23 @@ export const OrderDetailPage: React.FC = () => {
                         sx={{ cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
                       />
                     ) : (
-                      <Typography variant="body2" color="text.disabled">
-                        Sin OT asignada
-                      </Typography>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Typography variant="body2" color="text.disabled">
+                          Sin OT asignada
+                        </Typography>
+                        {['CONFIRMED', 'IN_PRODUCTION', 'READY'].includes(order.status) &&
+                          permissions.includes('create_work_orders') && (
+                            <Chip
+                              icon={<BuildIcon sx={{ fontSize: '0.85rem !important' }} />}
+                              label="Crear OT"
+                              size="small"
+                              variant="outlined"
+                              color="info"
+                              onClick={() => navigate(`${ROUTES.WORK_ORDERS_CREATE}?orderId=${id}`)}
+                              sx={{ cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
+                            />
+                          )}
+                      </Stack>
                     )}
                   </Box>
                 </Stack>
