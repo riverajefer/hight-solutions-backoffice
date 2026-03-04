@@ -7,6 +7,7 @@ import {
 import { OrderEditRequestsService } from './order-edit-requests.service';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 import {
   createMockPrismaService,
   MockPrismaService,
@@ -19,6 +20,14 @@ import { EditRequestStatus } from '../../generated/prisma';
 const mockNotificationsService = {
   create: jest.fn(),
   notifyAllAdmins: jest.fn(),
+};
+
+// ---------------------------------------------------------------------------
+// Mock: WhatsappService
+// ---------------------------------------------------------------------------
+const mockWhatsappService = {
+  sendTemplateMessage: jest.fn().mockResolvedValue('mock-message-id'),
+  notificarSolicitudModificacion: jest.fn().mockResolvedValue('mock-message-id'),
 };
 
 // ---------------------------------------------------------------------------
@@ -76,6 +85,7 @@ describe('OrderEditRequestsService', () => {
         OrderEditRequestsService,
         { provide: PrismaService, useValue: prisma },
         { provide: NotificationsService, useValue: mockNotificationsService },
+        { provide: WhatsappService, useValue: mockWhatsappService },
       ],
     }).compile();
 
@@ -87,6 +97,7 @@ describe('OrderEditRequestsService', () => {
     prisma.user.findUnique.mockResolvedValue(mockNonAdminUser);
     prisma.orderEditRequest.findFirst.mockResolvedValue(null); // no pending request
     prisma.orderEditRequest.create.mockResolvedValue(mockPendingRequest);
+    prisma.role.findUnique.mockResolvedValue({ name: 'admin', users: [] }); // for WhatsApp notification
     mockNotificationsService.notifyAllAdmins.mockResolvedValue(undefined);
     mockNotificationsService.create.mockResolvedValue(undefined);
   });

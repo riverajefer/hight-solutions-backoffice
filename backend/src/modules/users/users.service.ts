@@ -143,6 +143,7 @@ export class UsersService {
     return this.usersRepository.create({
       username: username as string,
       ...(createUserDto.email && { email: createUserDto.email }),
+      ...(createUserDto.phone && { phone: createUserDto.phone }),
       password: hashedPassword,
       firstName: createUserDto.firstName,
       lastName: createUserDto.lastName,

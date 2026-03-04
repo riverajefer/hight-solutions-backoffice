@@ -61,6 +61,14 @@ export class CreateUserDto {
   roleId: string;
 
   @ApiPropertyOptional({
+    example: '+57 311 832 2699',
+    description: 'Phone number (optional)'
+  })
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
+  @ApiPropertyOptional({
     example: '123e4567-e89b-12d3-a456-426614174000',
     description: 'Cargo ID (optional)'
   })
@@ -120,6 +128,14 @@ export class UpdateUserDto {
   @IsString()
   @IsOptional()
   roleId?: string;
+
+  @ApiPropertyOptional({
+    example: '+57 311 832 2699',
+    description: 'Phone number (optional)'
+  })
+  @IsString()
+  @IsOptional()
+  phone?: string;
 
   @ApiPropertyOptional({
     example: '123e4567-e89b-12d3-a456-426614174000',

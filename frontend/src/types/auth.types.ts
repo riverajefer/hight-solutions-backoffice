@@ -4,6 +4,7 @@ export interface User {
   email?: string | null;
   firstName?: string;
   lastName?: string;
+  phone?: string | null;
   profilePhoto?: string | null;
   roleId: string;
   cargoId?: string;
@@ -48,6 +49,7 @@ export interface RegisterDto {
 export interface CreateUserDto {
   username?: string;
   email?: string;
+  phone?: string;
   password: string;
   firstName?: string;
   lastName?: string;
@@ -58,6 +60,7 @@ export interface CreateUserDto {
 export interface UpdateUserDto {
   username?: string;
   email?: string;
+  phone?: string;
   password?: string;
   firstName?: string;
   lastName?: string;

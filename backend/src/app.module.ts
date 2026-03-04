@@ -37,6 +37,7 @@ import { ExpenseOrdersModule } from './modules/expense-orders/expense-orders.mod
 import { OrderTimelineModule } from './modules/order-timeline/order-timeline.module';
 import { AuditContextInterceptor } from './common/interceptors/audit-context.interceptor';
 import { MaintenanceMiddleware } from './common/middleware/maintenance.middleware';
+import { WhatsappModule } from './modules/whatsapp/whatsapp.module';
 import { HealthModule } from './health/health.module';
 
 @Module({
@@ -80,6 +81,8 @@ import { HealthModule } from './health/health.module';
     CommercialChannelsModule,
     // Módulo de Notificaciones
     NotificationsModule,
+    // Módulo de WhatsApp Cloud API (global)
+    WhatsappModule,
     // Módulo de Solicitudes de Edición de Órdenes
     OrderEditRequestsModule,
     // Módulo de Solicitudes de Cambio de Estado de Órdenes

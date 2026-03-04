@@ -1,19 +1,24 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { CreateEditRequestDto, ReviewEditRequestDto } from './dto';
 import { EditRequestStatus, NotificationType } from '../../generated/prisma';
 
 @Injectable()
 export class OrderEditRequestsService {
+  private readonly logger = new Logger(OrderEditRequestsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly whatsappService: WhatsappService,
   ) {}
 
   /**
@@ -93,7 +98,7 @@ export class OrderEditRequestsService {
       },
     });
 
-    // 6. Notificar a todos los administradores
+    // 6. Notificar a todos los administradores (in-app)
     await this.notificationsService.notifyAllAdmins({
       type: NotificationType.EDIT_REQUEST_PENDING,
       title: 'Nueva solicitud de edición de orden',
@@ -101,6 +106,12 @@ export class OrderEditRequestsService {
       relatedId: request.id,
       relatedType: 'OrderEditRequest',
     });
+
+    // 7. Notificar administradores por WhatsApp
+    this.notifyAdminsByWhatsApp(
+      request.order.orderNumber,
+      order.status,
+    );
 
     return request;
   }
@@ -455,5 +466,60 @@ export class OrderEditRequestsService {
     }
 
     return request;
+  }
+
+  /**
+   * Notificar a administradores con teléfono registrado vía WhatsApp
+   * Se ejecuta en fire-and-forget para no bloquear la respuesta al usuario
+   */
+  private async notifyAdminsByWhatsApp(
+    orderNumber: string,
+    orderStatus: string,
+  ): Promise<void> {
+    try {
+      const adminRole = await this.prisma.role.findUnique({
+        where: { name: 'admin' },
+        include: {
+          users: {
+            where: { isActive: true, phone: { not: null } },
+            select: { firstName: true, lastName: true, phone: true },
+          },
+        },
+      });
+
+      const adminsWithPhone = adminRole?.users || [];
+
+      if (adminsWithPhone.length === 0) {
+        this.logger.warn(
+          'No active administrators with phone number found for WhatsApp notification',
+        );
+        return;
+      }
+
+      const results = await Promise.allSettled(
+        adminsWithPhone.map((admin) => {
+          const nombre =
+            [admin.firstName, admin.lastName].filter(Boolean).join(' ') ||
+            'Administrador';
+          return this.whatsappService.notificarSolicitudModificacion(
+            admin.phone!,
+            nombre,
+            orderNumber,
+            orderStatus,
+          );
+        }),
+      );
+
+      const fulfilled = results.filter((r) => r.status === 'fulfilled').length;
+      const rejected = results.filter((r) => r.status === 'rejected').length;
+
+      this.logger.log(
+        `WhatsApp notifications for order ${orderNumber}: ${fulfilled} sent, ${rejected} failed`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error sending WhatsApp notifications: ${error.message}`,
+      );
+    }
   }
 }

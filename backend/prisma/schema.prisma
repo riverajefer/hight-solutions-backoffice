@@ -21,6 +21,7 @@ model User {
   updatedAt    DateTime @updatedAt
   firstName    String?
   lastName     String?
+  phone        String?
   isActive     Boolean  @default(true)
 
   role                         Role                       @relation(fields: [roleId], references: [id])
