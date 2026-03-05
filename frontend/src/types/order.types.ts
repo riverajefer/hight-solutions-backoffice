@@ -272,6 +272,8 @@ export interface InitialPaymentData {
   paymentMethod: PaymentMethod;
   reference?: string;
   notes?: string;
+  receiptFile?: File | null;
+  receiptFileUrl?: string | null;
 }
 
 // ============================================================
