@@ -88,5 +88,15 @@ export const PATHS = {
   EXPENSE_ORDERS_CREATE: '/expense-orders/new',
   EXPENSE_ORDERS_EDIT: '/expense-orders/:id/edit',
   EXPENSE_ORDERS_DETAIL: '/expense-orders/:id',
+  // Payroll Routes
+  PAYROLL_EMPLOYEES: '/payroll/employees',
+  PAYROLL_EMPLOYEES_CREATE: '/payroll/employees/create',
+  PAYROLL_EMPLOYEES_EDIT: '/payroll/employees/:id/edit',
+  PAYROLL_EMPLOYEES_HISTORY: '/payroll/employees/:id/history',
+  PAYROLL_PERIODS: '/payroll/periods',
+  PAYROLL_PERIODS_CREATE: '/payroll/periods/create',
+  PAYROLL_PERIODS_EDIT: '/payroll/periods/:id/edit',
+  PAYROLL_PERIODS_DETAIL: '/payroll/periods/:id',
+  PAYROLL_ITEM_EDIT: '/payroll/periods/:periodId/items/:itemId/edit',
 };
 

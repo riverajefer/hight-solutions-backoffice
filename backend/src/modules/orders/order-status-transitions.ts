@@ -15,6 +15,7 @@ export const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.DELIVERED]: [OrderStatus.WARRANTY],
   [OrderStatus.DELIVERED_ON_CREDIT]: [OrderStatus.WARRANTY],
   [OrderStatus.WARRANTY]: [OrderStatus.DELIVERED],
+  [OrderStatus.RETURNED]: [],
 };
 
 export function getValidNextStatuses(currentStatus: OrderStatus): OrderStatus[] {

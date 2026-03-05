@@ -224,6 +224,18 @@ async function main() {
 
     // Advance Payment Approvals
     { name: 'approve_advance_payments', description: 'Aprobar/rechazar anticipos de órdenes' },
+
+    // Payroll Employees (Nómina)
+    { name: 'create_payroll_employees', description: 'Agregar usuarios a nómina' },
+    { name: 'read_payroll_employees', description: 'Ver empleados de nómina' },
+    { name: 'update_payroll_employees', description: 'Editar empleados de nómina' },
+    { name: 'delete_payroll_employees', description: 'Eliminar empleados de nómina' },
+
+    // Payroll Periods (Periodos de Nómina)
+    { name: 'create_payroll_periods', description: 'Crear periodos de nómina' },
+    { name: 'read_payroll_periods', description: 'Ver periodos de nómina' },
+    { name: 'update_payroll_periods', description: 'Editar periodos de nómina' },
+    { name: 'delete_payroll_periods', description: 'Eliminar periodos de nómina' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};

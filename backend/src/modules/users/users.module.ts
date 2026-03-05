@@ -9,6 +9,6 @@ import { CargosModule } from '../cargos/cargos.module';
   imports: [RolesModule, CargosModule],
   controllers: [UsersController],
   providers: [UsersService, UsersRepository],
-  exports: [UsersService],
+  exports: [UsersService, UsersRepository],
 })
 export class UsersModule {}
