@@ -108,9 +108,19 @@ export class OrderEditRequestsService {
     });
 
     // 7. Notificar administradores por WhatsApp
+    const requesterName =
+      [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
+      request.requestedBy.email ||
+      'Usuario';
+    const requesterRole = user?.role?.name || 'usuario';
+
     this.notifyAdminsByWhatsApp(
       request.order.orderNumber,
       order.status,
+      request.order.id,
+      requesterName,
+      requesterRole,
+      dto.observations,
     );
 
     return request;
@@ -475,6 +485,10 @@ export class OrderEditRequestsService {
   private async notifyAdminsByWhatsApp(
     orderNumber: string,
     orderStatus: string,
+    orderId: string,
+    requesterName: string,
+    requesterRole: string,
+    observations: string,
   ): Promise<void> {
     try {
       const adminRole = await this.prisma.role.findUnique({
@@ -497,17 +511,16 @@ export class OrderEditRequestsService {
       }
 
       const results = await Promise.allSettled(
-        adminsWithPhone.map((admin) => {
-          const nombre =
-            [admin.firstName, admin.lastName].filter(Boolean).join(' ') ||
-            'Administrador';
-          return this.whatsappService.notificarSolicitudModificacion(
+        adminsWithPhone.map((admin) =>
+          this.whatsappService.notificarSolicitudEdicionOP(
             admin.phone!,
-            nombre,
+            requesterName,
+            requesterRole,
             orderNumber,
-            orderStatus,
-          );
-        }),
+            observations,
+            orderId,
+          ),
+        ),
       );
 
       const fulfilled = results.filter((r) => r.status === 'fulfilled').length;

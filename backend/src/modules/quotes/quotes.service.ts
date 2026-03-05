@@ -275,7 +275,7 @@ export class QuotesService {
           paidAmount: 0,
           balance: quote.total,
           status: OrderStatus.DRAFT,
-          notes: `Convertida desde Cotización ${quote.quoteNumber}. ${quote.notes || ''}`,
+          notes: `${quote.notes || ''}`,
           createdById: userId,
           commercialChannelId: quote.commercialChannelId,
           quote: { connect: { id: quote.id } }, // Link the quote

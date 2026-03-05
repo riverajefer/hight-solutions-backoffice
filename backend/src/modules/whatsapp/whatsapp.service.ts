@@ -7,6 +7,7 @@ export class WhatsappService {
   private readonly baseUrl: string;
   private readonly accessToken: string;
   private readonly phoneNumberId: string;
+  private readonly frontendUrl: string;
   private readonly isConfigured: boolean;
 
   constructor(private readonly configService: ConfigService) {
@@ -18,6 +19,9 @@ export class WhatsappService {
       this.configService.get<string>('whatsapp.apiVersion') || 'v22.0';
 
     this.baseUrl = `https://graph.facebook.com/${apiVersion}/${this.phoneNumberId}/messages`;
+    this.frontendUrl =
+      this.configService.get<string>('app.frontendUrl') ||
+      'http://localhost:5173';
     this.isConfigured = !!(this.accessToken && this.phoneNumberId);
 
     if (!this.isConfigured) {
@@ -50,7 +54,8 @@ export class WhatsappService {
    * @param to Número de teléfono (acepta +57..., 57..., o 10 dígitos colombianos)
    * @param templateName Nombre del template aprobado
    * @param params Parámetros del body del template (en orden)
-   * @param language Código de idioma del template (default: es)
+   * @param language Código de idioma del template (default: es_CO)
+   * @param buttonParams Parámetros para botones CTA de URL dinámica (opcional)
    * @returns messageId en caso de éxito, null si falla
    */
   async sendTemplateMessage(
@@ -58,6 +63,7 @@ export class WhatsappService {
     templateName: string,
     params: string[],
     language: string = 'es_CO',
+    buttonParams?: { index: number; text: string }[],
   ): Promise<string | null> {
     if (!this.isConfigured) {
       this.logger.warn(
@@ -67,7 +73,31 @@ export class WhatsappService {
     }
 
     const normalizedTo = this.normalizePhone(to);
-    this.logger.debug(`Sending WhatsApp template "${templateName}" to ${normalizedTo} (original: ${to})`);
+    this.logger.debug(
+      `Sending WhatsApp template "${templateName}" to ${normalizedTo} (original: ${to})`,
+    );
+
+    const components: Record<string, unknown>[] = [
+      {
+        type: 'body',
+        parameters: params.map((value) => ({
+          type: 'text',
+          text: value,
+        })),
+      },
+    ];
+
+    // Agregar botones CTA de URL dinámica si existen
+    if (buttonParams && buttonParams.length > 0) {
+      for (const btn of buttonParams) {
+        components.push({
+          type: 'button',
+          sub_type: 'url',
+          index: btn.index.toString(),
+          parameters: [{ type: 'text', text: btn.text }],
+        });
+      }
+    }
 
     const body = {
       messaging_product: 'whatsapp',
@@ -76,15 +106,7 @@ export class WhatsappService {
       template: {
         name: templateName,
         language: { code: language },
-        components: [
-          {
-            type: 'body',
-            parameters: params.map((value) => ({
-              type: 'text',
-              text: value,
-            })),
-          },
-        ],
+        components,
       },
     };
 
@@ -122,20 +144,25 @@ export class WhatsappService {
   }
 
   /**
-   * Enviar notificación de solicitud de modificación de orden
-   * Template: solicitud_modificacion (es_CO)
-   * Parámetros: {{1}} nombre, {{2}} número de orden, {{3}} estado
+   * Enviar notificación de solicitud de edición de orden de pedido
+   * Template: solicitud_edicion_op (es_CO)
+   * Body: {{1}} nombre solicitante, {{2}} rol, {{3}} número de orden, {{4}} motivo
+   * Botón CTA: "Ver solicitud" → URL con orderId dinámico
    */
-  async notificarSolicitudModificacion(
+  async notificarSolicitudEdicionOP(
     telefono: string,
-    nombre: string,
-    orden: string,
-    estado: string,
+    nombreSolicitante: string,
+    rolSolicitante: string,
+    numeroOrden: string,
+    motivo: string,
+    orderId: string,
   ): Promise<string | null> {
-    return this.sendTemplateMessage(telefono, 'solicitud_modificacion', [
-      nombre,
-      orden,
-      estado,
-    ], 'es_CO');
+    return this.sendTemplateMessage(
+      telefono,
+      'solicitud_edicion_op',
+      [nombreSolicitante, rolSolicitante, numeroOrden, motivo],
+      'es_CO',
+      [{ index: 0, text: orderId }],
+    );
   }
 }

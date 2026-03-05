@@ -27,7 +27,7 @@ const mockNotificationsService = {
 // ---------------------------------------------------------------------------
 const mockWhatsappService = {
   sendTemplateMessage: jest.fn().mockResolvedValue('mock-message-id'),
-  notificarSolicitudModificacion: jest.fn().mockResolvedValue('mock-message-id'),
+  notificarSolicitudEdicionOP: jest.fn().mockResolvedValue('mock-message-id'),
 };
 
 // ---------------------------------------------------------------------------
