@@ -11,6 +11,7 @@ import {
   MenuItem,
   alpha,
   useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { commercialChannelsApi } from '../../../api/commercialChannels.api';
@@ -109,11 +110,12 @@ interface StepHeaderProps {
   index: number;
   config: StepConfig;
   status: 'active' | 'completed' | 'visited' | 'pending';
+  compact?: boolean;
   clickable?: boolean;
   onClick?: () => void;
 }
 
-const StepHeader: React.FC<StepHeaderProps> = ({ index, config, status, clickable, onClick }) => {
+const StepHeader: React.FC<StepHeaderProps> = ({ index, config, status, compact = false, clickable, onClick }) => {
   const theme = useTheme();
   const isActive = status === 'active';
   const isCompleted = status === 'completed';
@@ -155,8 +157,8 @@ const StepHeader: React.FC<StepHeaderProps> = ({ index, config, status, clickabl
       sx={{
         display: 'flex',
         alignItems: 'center',
-        gap: 1.5,
-        p: 2,
+        gap: compact ? 1.25 : 1.5,
+        p: compact ? 1.5 : 2,
         cursor: clickable ? 'pointer' : 'default',
         borderRadius: 2,
         bgcolor: bgColor,
@@ -168,8 +170,8 @@ const StepHeader: React.FC<StepHeaderProps> = ({ index, config, status, clickabl
       <Box sx={{ position: 'relative', flexShrink: 0 }}>
         <Box
           sx={{
-            width: 32,
-            height: 32,
+            width: compact ? 30 : 32,
+            height: compact ? 30 : 32,
             borderRadius: '50%',
             bgcolor: numberBg,
             display: 'flex',
@@ -177,7 +179,7 @@ const StepHeader: React.FC<StepHeaderProps> = ({ index, config, status, clickabl
             justifyContent: 'center',
             color: '#fff',
             fontWeight: 700,
-            fontSize: 14,
+            fontSize: compact ? 13 : 14,
           }}
         >
           {index + 1}
@@ -198,10 +200,10 @@ const StepHeader: React.FC<StepHeaderProps> = ({ index, config, status, clickabl
       </Box>
 
       <Box>
-        <Typography variant="subtitle2" fontWeight={600} sx={{ color: labelColor }}>
+        <Typography variant="subtitle2" fontWeight={600} sx={{ color: labelColor, fontSize: compact ? '0.95rem' : undefined }}>
           {config.label}
         </Typography>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: compact ? '0.78rem' : undefined }}>
           {config.subtitle}
         </Typography>
       </Box>
@@ -215,6 +217,9 @@ const StepHeader: React.FC<StepHeaderProps> = ({ index, config, status, clickabl
 
 export const QuoteFormPage: React.FC = () => {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isCompactSidebar = useMediaQuery('(max-width:1700px)');
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { id } = useParams<{ id: string }>();
   const isEdit = !!id;
   const { enqueueSnackbar } = useSnackbar();
@@ -619,7 +624,11 @@ export const QuoteFormPage: React.FC = () => {
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} sx={{ mt: 2, pr: { xs: 2, md: 4 } }}>
         {/* ── Sidebar de pasos ── */}
-        <Box sx={{ width: { xs: '100%', md: 280 }, flexShrink: 0 }}>
+        <Box sx={{ 
+          width: { xs: '100%', md: 'clamp(210px, 22vw, 280px)' }, 
+          flexShrink: 0,
+          transition: 'width 0.3s ease'
+        }}>
           <Stack spacing={1}>
             {STEPS.map((step, i) => (
               <StepHeader
@@ -627,6 +636,7 @@ export const QuoteFormPage: React.FC = () => {
                 index={i}
                 config={step}
                 status={getStepStatus(i)}
+                compact={isCompactSidebar && !isMobile}
                 clickable={visitedSteps.has(i) && i !== activeStep}
                 onClick={() => goToStep(i)}
               />

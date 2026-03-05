@@ -167,7 +167,7 @@ async function drawHeader(doc: jsPDF): Promise<number> {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   setTextColor(doc, [41, 171, 226]); // Cyan color for links
-  doc.text('HS-group.com.co  |  highsolutions.com.co', PDF_LAYOUT.pageWidth / 2, y, { align: 'center' });
+  doc.text('www.HS-group.com.co  |  www.highsolutions.com.co', PDF_LAYOUT.pageWidth / 2, y, { align: 'center' });
   y += 5;
 
   // Address & Contact

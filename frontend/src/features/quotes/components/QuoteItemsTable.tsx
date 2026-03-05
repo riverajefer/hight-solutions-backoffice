@@ -232,14 +232,14 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
                 },
               }}
             >
-              {showImageColumn && <TableCell width="8%" align="center">Imagen</TableCell>}
-              <TableCell width={showImageColumn ? "7%" : "8%"} align="center">Cantidad</TableCell>
-              <TableCell width={showImageColumn ? "22%" : "25%"}>Servicio (Opcional)</TableCell>
-              <TableCell width={showImageColumn ? "22%" : "25%"}>Descripción</TableCell>
-              <TableCell width={showImageColumn ? "15%" : "17%"}>Áreas de Producción</TableCell>
-              <TableCell width={showImageColumn ? "11%" : "12%"} align="right">Valor Unitario</TableCell>
-              <TableCell width={showImageColumn ? "10%" : "8%"} align="right">Valor Total</TableCell>
-              <TableCell width="5%" align="center">Acciones</TableCell>
+              {showImageColumn && <TableCell width="8%" sx={{ minWidth: 80 }} align="center">Imagen</TableCell>}
+              <TableCell width={showImageColumn ? "7%" : "8%"} sx={{ minWidth: 80 }} align="center">Cantidad</TableCell>
+              <TableCell width={showImageColumn ? "22%" : "25%"} sx={{ minWidth: 200 }}>Servicio (Opcional)</TableCell>
+              <TableCell width={showImageColumn ? "22%" : "25%"} sx={{ minWidth: 220 }}>Descripción</TableCell>
+              <TableCell width={showImageColumn ? "15%" : "17%"} sx={{ minWidth: 160 }}>Áreas de Producción</TableCell>
+              <TableCell width={showImageColumn ? "11%" : "12%"} sx={{ minWidth: 120 }} align="right">Valor Unitario</TableCell>
+              <TableCell width={showImageColumn ? "10%" : "8%"} sx={{ minWidth: 120 }} align="right">Valor Total</TableCell>
+              <TableCell width="5%" sx={{ minWidth: 60 }} align="center">Acciones</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -380,6 +380,29 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
                       size="small"
                       options={products}
                       getOptionLabel={(option) => option.name}
+                      renderOption={(props, option) => (
+                        <li {...props}>
+                          <Typography variant="body2" sx={{ fontSize: '0.8125rem', whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                            {option.name}
+                          </Typography>
+                        </li>
+                      )}
+                      componentsProps={{
+                        paper: {
+                          sx: {
+                            width: 'fit-content',
+                            minWidth: '200px',
+                            maxWidth: '400px'
+                          }
+                        }
+                      }}
+                      sx={{
+                        '& .MuiInputBase-input': {
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden'
+                        }
+                      }}
                       value={products.find((s) => s.id === item.productId) || null}
                       onChange={(_event, newValue) => {
                         const updatedItems = items.map((i) => {
@@ -399,7 +422,14 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
                         onChange(updatedItems);
                       }}
                       disabled={disabled}
-                      renderInput={(params) => <TextField {...params} size="small" placeholder="Buscar producto..." />}
+                      renderInput={(params) => (
+                        <TextField 
+                          {...params} 
+                          size="small" 
+                          placeholder="Buscar producto..." 
+                          inputProps={{ ...params.inputProps, style: { fontSize: '0.8125rem' } }}
+                        />
+                      )}
                     />
                   </TableCell>
                   <TableCell>
