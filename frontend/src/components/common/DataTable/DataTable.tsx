@@ -8,7 +8,7 @@ import {
   GridRowClassNameParams,
 } from '@mui/x-data-grid';
 import { esES } from '@mui/x-data-grid/locales';
-import { Paper, Box, Typography, Skeleton } from '@mui/material';
+import { Paper, Box, Typography, Skeleton, useTheme, useMediaQuery } from '@mui/material';
 import { CustomToolbar } from './CustomToolbar';
 import { dataGridStyles, paperStyles } from './styles';
 
@@ -53,6 +53,9 @@ export function DataTable<T extends GridValidRowModel>({
   emptyMessage = 'No se encontraron registros',
   getRowClassName,
 }: DataTableProps<T>) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
   const [paginationModel, setPaginationModel] = useState({
     pageSize: initialPageSize,
     page: 0,
@@ -118,8 +121,10 @@ export function DataTable<T extends GridValidRowModel>({
     return rows.filter(searchInObject);
   }, [rows, debouncedSearchText, serverSideSearch]);
 
-  // Agregar columna de numeración automática
+  // Agregar columna de numeración automática (oculta en mobile)
   const columnsWithRowNumber = useMemo<GridColDef[]>(() => {
+    if (isMobile) return columns;
+
     const rowNumberColumn: GridColDef = {
       field: '__row_number__',
       headerName: '#',
@@ -153,7 +158,7 @@ export function DataTable<T extends GridValidRowModel>({
     };
 
     return [rowNumberColumn, ...columns];
-  }, [columns, filteredRows, getRowId, paginationModel.page, paginationModel.pageSize]);
+  }, [columns, filteredRows, getRowId, paginationModel.page, paginationModel.pageSize, isMobile]);
 
   const handleRowClick = (params: GridRowParams<T>) => {
     if (onRowClick) {

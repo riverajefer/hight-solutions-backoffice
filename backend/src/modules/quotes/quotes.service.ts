@@ -243,8 +243,10 @@ export class QuotesService {
 
   async remove(id: string) {
     const quote = await this.findOne(id);
-    if (quote.status !== QuoteStatus.DRAFT) {
-      throw new BadRequestException('Only draft quotes can be deleted');
+    if (quote.status !== QuoteStatus.DRAFT && 
+        quote.status !== QuoteStatus.SENT && 
+        quote.status !== QuoteStatus.NO_RESPONSE) {
+      throw new BadRequestException('Only draft, sent or no response quotes can be deleted');
     }
     await this.quotesRepository.delete(id);
     return { message: 'Quote deleted successfully' };
@@ -275,7 +277,7 @@ export class QuotesService {
           paidAmount: 0,
           balance: quote.total,
           status: OrderStatus.DRAFT,
-          notes: `${quote.notes || ''}`,
+          notes: `${quote.notes || ''}\nRef: ${quote.quoteNumber}`,
           createdById: userId,
           commercialChannelId: quote.commercialChannelId,
           quote: { connect: { id: quote.id } }, // Link the quote

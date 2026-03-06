@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Box, Button, Chip } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
-import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { GridRenderCellParams } from '@mui/x-data-grid';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { DataTable, ActionsCell } from '../../../components/common/DataTable';
@@ -12,6 +12,8 @@ import { UploadCsvModal } from '../components/UploadCsvModal';
 import { Client } from '../../../types';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
+import { useResponsiveColumns } from '../../../hooks';
+import type { ResponsiveGridColDef } from '../../../hooks';
 
 const ClientsListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -37,7 +39,7 @@ const ClientsListPage: React.FC = () => {
     }
   };
 
-  const columns: GridColDef[] = [
+  const rawColumns: ResponsiveGridColDef[] = useMemo(() => [
     {
       field: 'name',
       headerName: 'Nombre',
@@ -49,11 +51,13 @@ const ClientsListPage: React.FC = () => {
       headerName: 'Email',
       flex: 1,
       minWidth: 200,
+      responsive: 'md',
     },
     {
       field: 'phone',
       headerName: 'Teléfono',
       width: 140,
+      responsive: 'md',
     },
     {
       field: 'personType',
@@ -61,6 +65,7 @@ const ClientsListPage: React.FC = () => {
       width: 120,
       align: 'center',
       headerAlign: 'center',
+      responsive: 'sm',
       renderCell: (params: GridRenderCellParams) => (
         <Chip
           label={params.value === 'EMPRESA' ? 'Empresa' : 'Natural'}
@@ -74,12 +79,14 @@ const ClientsListPage: React.FC = () => {
       field: 'city',
       headerName: 'Ciudad',
       width: 150,
+      responsive: 'md',
       valueGetter: (value: { name: string } | undefined) => value?.name || '-',
     },
     {
       field: 'department',
       headerName: 'Departamento',
       width: 150,
+      responsive: 'md',
       valueGetter: (value: { name: string } | undefined) => value?.name || '-',
     },
     {
@@ -122,7 +129,9 @@ const ClientsListPage: React.FC = () => {
         />
       ),
     },
-  ];
+  ], [navigate, hasPermission]);
+
+  const columns = useResponsiveColumns(rawColumns);
 
   return (
     <Box>

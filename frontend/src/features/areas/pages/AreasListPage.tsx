@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Box, Chip } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
-import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { GridRenderCellParams } from '@mui/x-data-grid';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { DataTable, ActionsCell } from '../../../components/common/DataTable';
 import { useAreas } from '../hooks/useAreas';
 import { Area } from '../../../types';
+import { useResponsiveColumns } from '../../../hooks';
+import type { ResponsiveGridColDef } from '../../../hooks';
 
 const AreasListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -30,7 +32,7 @@ const AreasListPage: React.FC = () => {
     }
   };
 
-  const columns: GridColDef[] = [
+  const rawColumns: ResponsiveGridColDef[] = useMemo(() => [
     {
       field: 'name',
       headerName: 'Nombre',
@@ -42,6 +44,7 @@ const AreasListPage: React.FC = () => {
       headerName: 'Descripción',
       flex: 2,
       minWidth: 200,
+      responsive: 'md',
     },
     {
       field: 'cargosCount',
@@ -49,6 +52,7 @@ const AreasListPage: React.FC = () => {
       width: 100,
       align: 'center',
       headerAlign: 'center',
+      responsive: 'sm',
       renderCell: (params: GridRenderCellParams) => (
         <Chip
           label={params.value || 0}
@@ -64,6 +68,7 @@ const AreasListPage: React.FC = () => {
       width: 100,
       align: 'center',
       headerAlign: 'center',
+      responsive: 'sm',
       renderCell: (params: GridRenderCellParams) => (
         <Chip
           label={params.value ? 'Activo' : 'Inactivo'}
@@ -86,7 +91,9 @@ const AreasListPage: React.FC = () => {
         />
       ),
     },
-  ];
+  ], [navigate]);
+
+  const columns = useResponsiveColumns(rawColumns);
 
   return (
     <Box>

@@ -878,7 +878,7 @@ export const OrderFormPage: React.FC = () => {
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       {isSubmitting && (
         <LoadingSpinner fullScreen message={isEdit ? 'Guardando cambios...' : 'Creando orden...'} />
       )}
@@ -893,7 +893,7 @@ export const OrderFormPage: React.FC = () => {
 
       {isEdit && id && <ActivePermissionBanner orderId={id} />}
 
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} sx={{ mt: 2, pr: { xs: 2, md: 4 } }}>
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} sx={{ mt: 2, px: { xs: 0, sm: 1, md: 0 }, pr: { md: 4 } }}>
           {/* ── Sidebar de pasos ── */}
           <Box sx={{ width: { xs: '100%', md: 280 }, flexShrink: 0 }}>
             <Stack spacing={1}>
@@ -920,13 +920,19 @@ export const OrderFormPage: React.FC = () => {
             {activeStep === 3 && renderStep3()}
 
             {/* Navegación */}
-            <Stack direction="row" justifyContent="space-between" sx={{ mt: 4 }}>
+            <Stack
+              direction={{ xs: 'column-reverse', sm: 'row' }}
+              justifyContent="space-between"
+              spacing={{ xs: 1, sm: 0 }}
+              sx={{ mt: 4 }}
+            >
               <Button
                 startIcon={<ArrowBackIcon />}
                 onClick={() =>
                   activeStep === 0 ? navigate('/orders') : goToStep(activeStep - 1)
                 }
                 disabled={isSubmitting}
+                fullWidth={false}
               >
                 {activeStep === 0 ? 'Cancelar' : 'Anterior'}
               </Button>

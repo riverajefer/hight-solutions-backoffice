@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -10,7 +10,7 @@ import {
   IconButton,
   Tooltip,
 } from '@mui/material';
-import { GridColDef } from '@mui/x-data-grid';
+import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../hooks';
 import {
   PostAdd as PostAddIcon,
   ShoppingCartCheckout as ConvertIcon,
@@ -111,7 +111,7 @@ export const QuotesListPage: React.FC = () => {
     } catch (error) {}
   };
 
-  const columns: GridColDef<Quote>[] = [
+  const rawColumns: ResponsiveGridColDef[] = useMemo(() => [
     {
       field: 'quoteNumber',
       headerName: 'Nº Cotización',
@@ -130,12 +130,14 @@ export const QuotesListPage: React.FC = () => {
       field: 'quoteDate',
       headerName: 'Fecha',
       width: 160,
+      responsive: 'sm',
       renderCell: (params) => formatDateTime(params.value),
     },
     {
       field: 'validUntil',
       headerName: 'Vence',
       width: 130,
+      responsive: 'md',
       renderCell: (params) => params.value ? formatDate(params.value) : '-',
     },
     {
@@ -144,6 +146,7 @@ export const QuotesListPage: React.FC = () => {
       width: 150,
       align: 'right',
       headerAlign: 'right',
+      responsive: 'sm',
       renderCell: (params) => formatCurrency(params.value),
     },
     {
@@ -188,10 +191,12 @@ export const QuotesListPage: React.FC = () => {
         );
       },
     },
-  ];
+  ], [navigate]);
+
+  const columns = useResponsiveColumns(rawColumns);
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title="Cotizaciones"
         breadcrumbs={[{ label: 'Cotizaciones' }]}
@@ -206,13 +211,13 @@ export const QuotesListPage: React.FC = () => {
         }
       />
 
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3, mt: 2 }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3, mt: 2 }} flexWrap="wrap" useFlexGap>
         <TextField
           select
           label="Estado"
           value={filters.status || ''}
           onChange={(e) => handleFilterChange('status', e.target.value || undefined)}
-          sx={{ minWidth: 200 }}
+          sx={{ minWidth: { xs: '100%', sm: 200 } }}
           size="small"
         >
           <MenuItem value="">Todos los estados</MenuItem>
@@ -222,7 +227,7 @@ export const QuotesListPage: React.FC = () => {
         </TextField>
 
         <Autocomplete
-          sx={{ minWidth: 300 }}
+          sx={{ minWidth: { xs: '100%', sm: 300 } }}
           size="small"
           options={clients}
           value={selectedClient}

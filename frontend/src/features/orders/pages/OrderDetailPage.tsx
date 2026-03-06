@@ -214,7 +214,7 @@ export const OrderDetailPage: React.FC = () => {
 
   if (!order) {
     return (
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
         <Typography>Orden no encontrada</Typography>
       </Box>
     );
@@ -462,7 +462,7 @@ export const OrderDetailPage: React.FC = () => {
   const balance = parseFloat(order.balance);
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title={`Orden ${order.orderNumber}`}
         breadcrumbs={[
@@ -514,11 +514,12 @@ export const OrderDetailPage: React.FC = () => {
           direction="row"
           spacing={0}
           alignItems="stretch"
+          sx={{ flexWrap: 'wrap', gap: { xs: 0.5, sm: 0 } }}
           divider={
             <Divider
               orientation="vertical"
               flexItem
-              sx={{ my: 1.5, opacity: 0.5 }}
+              sx={{ my: 1.5, opacity: 0.5, display: { xs: 'none', sm: 'block' } }}
             />
           }
         >
@@ -718,7 +719,7 @@ export const OrderDetailPage: React.FC = () => {
 
                           {/* Footer con fecha y usuario de modificación */}
                           {order.deliveryDateChangedAt && (
-                            <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between" sx={{ pt: 0.5 }}>
+                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" sx={{ pt: 0.5 }}>
                               {order.deliveryDateChangedByUser && (
                                 <Stack direction="row" spacing={0.5} alignItems="center">
                                   <Typography variant="caption" color="text.secondary" style={{ fontStyle: "italic" }}>
@@ -745,7 +746,7 @@ export const OrderDetailPage: React.FC = () => {
             {/* Items */}
             <Card>
               <CardContent sx={{ p: { xs: 2, sm: 2.5, md: 3 } }}>
-                <Typography variant="h6" gutterBottom>
+                <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                   Items de la Orden
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
@@ -848,8 +849,8 @@ export const OrderDetailPage: React.FC = () => {
                     )}
                     <Divider />
                     <Box display="flex" justifyContent="space-between">
-                      <Typography variant="h6">Total:</Typography>
-                      <Typography variant="h6" color="primary.main">
+                      <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Total:</Typography>
+                      <Typography variant="h6" color="primary.main" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                         {formatCurrency(order.total)}
                       </Typography>
                     </Box>
@@ -860,10 +861,11 @@ export const OrderDetailPage: React.FC = () => {
                       </Typography>
                     </Box>
                     <Box display="flex" justifyContent="space-between">
-                      <Typography variant="h6">Saldo:</Typography>
+                      <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Saldo:</Typography>
                       <Typography
                         variant="h6"
                         color={balance > 0 ? 'warning.main' : 'success.main'}
+                        sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
                       >
                         {formatCurrency(order.balance)}
                       </Typography>
@@ -877,7 +879,7 @@ export const OrderDetailPage: React.FC = () => {
             {payments.length > 0 && (
               <Card>
                 <CardContent>
-                  <Typography variant="h6" gutterBottom>
+                  <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                     Historial de Pagos
                   </Typography>
                   <Divider sx={{ mb: 2 }} />
@@ -972,7 +974,7 @@ export const OrderDetailPage: React.FC = () => {
             {(order.notes || order.requiresColorProof) && (
               <Card>
                 <CardContent>
-                  <Typography variant="h6" gutterBottom>
+                  <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                     Observaciones y Detalles
                   </Typography>
                   <Divider sx={{ mb: 2 }} />
@@ -998,7 +1000,7 @@ export const OrderDetailPage: React.FC = () => {
               <CardContent>
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
                   <PersonIcon color="primary" />
-                  <Typography variant="h6">Cliente</Typography>
+                  <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Cliente</Typography>
                 </Stack>
                 <Divider sx={{ mb: 2 }} />
                 <Stack spacing={1}>
@@ -1022,7 +1024,7 @@ export const OrderDetailPage: React.FC = () => {
             {/* Información Adicional */}
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom>
+                <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                   Información Adicional
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
@@ -1449,7 +1451,7 @@ export const OrderDetailPage: React.FC = () => {
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
-              minHeight: 400,
+              minHeight: { xs: 250, sm: 400 },
               bgcolor: 'grey.100',
               borderRadius: 1,
               p: 2,

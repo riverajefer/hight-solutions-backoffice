@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Box, Chip } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
-import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { GridRenderCellParams } from '@mui/x-data-grid';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { DataTable, ActionsCell } from '../../../components/common/DataTable';
@@ -10,6 +10,8 @@ import { useSuppliers } from '../hooks/useSuppliers';
 import { Supplier } from '../../../types';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
+import { useResponsiveColumns } from '../../../hooks';
+import type { ResponsiveGridColDef } from '../../../hooks';
 
 const SuppliersListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -34,7 +36,7 @@ const SuppliersListPage: React.FC = () => {
     }
   };
 
-  const columns: GridColDef[] = [
+  const rawColumns: ResponsiveGridColDef[] = useMemo(() => [
     {
       field: 'name',
       headerName: 'Nombre',
@@ -46,11 +48,13 @@ const SuppliersListPage: React.FC = () => {
       headerName: 'Email',
       flex: 1,
       minWidth: 200,
+      responsive: 'md',
     },
     {
       field: 'phone',
       headerName: 'Teléfono',
       width: 140,
+      responsive: 'md',
     },
     {
       field: 'personType',
@@ -58,6 +62,7 @@ const SuppliersListPage: React.FC = () => {
       width: 120,
       align: 'center',
       headerAlign: 'center',
+      responsive: 'sm',
       renderCell: (params: GridRenderCellParams) => (
         <Chip
           label={params.value === 'EMPRESA' ? 'Empresa' : 'Natural'}
@@ -71,12 +76,14 @@ const SuppliersListPage: React.FC = () => {
       field: 'city',
       headerName: 'Ciudad',
       width: 150,
+      responsive: 'md',
       valueGetter: (value: { name: string } | undefined) => value?.name || '-',
     },
     {
       field: 'department',
       headerName: 'Departamento',
       width: 150,
+      responsive: 'md',
       valueGetter: (value: { name: string } | undefined) => value?.name || '-',
     },
     {
@@ -119,7 +126,9 @@ const SuppliersListPage: React.FC = () => {
         />
       ),
     },
-  ];
+  ], [navigate, hasPermission]);
+
+  const columns = useResponsiveColumns(rawColumns);
 
   return (
     <Box>

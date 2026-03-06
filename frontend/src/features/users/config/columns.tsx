@@ -1,8 +1,8 @@
-import { GridColDef } from '@mui/x-data-grid';
 import { Chip, Box } from '@mui/material';
 import { StatusBadge, ActionsCell } from '../../../components/common/DataTable';
 import { User } from '../../../types';
 import { formatDate } from '../../../utils/helpers';
+import type { ResponsiveGridColDef } from '../../../hooks';
 
 interface UserColumnsProps {
   onEdit: (user: User) => void;
@@ -12,17 +12,18 @@ interface UserColumnsProps {
   canDelete?: boolean;
 }
 
-export const getUserColumns = ({ 
-  onEdit, 
-  onDelete, 
+export const getUserColumns = ({
+  onEdit,
+  onDelete,
   onView,
   canEdit = true,
   canDelete = true,
-}: UserColumnsProps): GridColDef<User>[] => [
+}: UserColumnsProps): ResponsiveGridColDef[] => [
   {
     field: 'id',
     headerName: 'ID',
     width: 90,
+    responsive: 'lg',
   },
   {
     field: 'fullName',
@@ -39,6 +40,7 @@ export const getUserColumns = ({
     headerName: 'Usuario',
     flex: 1,
     minWidth: 150,
+    responsive: 'sm',
     valueGetter: (_, row) => row.username || '—',
   },
   {
@@ -46,12 +48,14 @@ export const getUserColumns = ({
     headerName: 'Email',
     flex: 1,
     minWidth: 200,
+    responsive: 'md',
     valueGetter: (_, row) => row.email || '—',
   },
   {
     field: 'role',
     headerName: 'Rol',
     width: 130,
+    responsive: 'sm',
     renderCell: (params) => (
       <Box display="flex" gap={0.5}>
         <Chip
@@ -66,6 +70,7 @@ export const getUserColumns = ({
     field: 'cargo',
     headerName: 'Cargo',
     width: 180,
+    responsive: 'lg',
     renderCell: (params) => {
       const cargo = (params.row as any).cargo;
       if (!cargo) {
@@ -95,6 +100,7 @@ export const getUserColumns = ({
     field: 'createdAt',
     headerName: 'Fecha de creación',
     width: 180,
+    responsive: 'sm',
     valueFormatter: (value) => formatDate(value as string),
   },
   {
