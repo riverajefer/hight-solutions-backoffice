@@ -4,6 +4,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Min,
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
@@ -35,10 +36,10 @@ export class UpdatePayrollEmployeeDto {
   @IsOptional()
   dailyRate?: number;
 
-  @ApiPropertyOptional({ description: 'Cargo o rol laboral' })
-  @IsString()
+  @ApiPropertyOptional({ description: 'ID del cargo laboral (modelo Cargo)' })
+  @IsUUID()
   @IsOptional()
-  jobTitle?: string;
+  cargoId?: string;
 
   @ApiPropertyOptional({ description: 'Fecha de ingreso', example: '2024-01-15' })
   @IsISO8601()

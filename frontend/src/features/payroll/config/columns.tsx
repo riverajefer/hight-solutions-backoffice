@@ -50,11 +50,11 @@ export const getEmployeeColumns = (
       `${row.user?.firstName ?? ''} ${row.user?.lastName ?? ''}`.trim(),
   },
   {
-    field: 'jobTitle',
+    field: 'cargo',
     headerName: 'Cargo',
     flex: 1,
     minWidth: 120,
-    valueGetter: (_value: unknown, row: PayrollEmployee) => row.jobTitle ?? '—',
+    valueGetter: (_value: unknown, row: PayrollEmployee) => row.cargo?.name ?? '—',
   },
   {
     field: 'employeeType',

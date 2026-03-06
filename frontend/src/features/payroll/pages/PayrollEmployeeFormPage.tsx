@@ -5,13 +5,16 @@ import {
   FormControl,
   FormHelperText,
   Grid,
+  InputAdornment,
   InputLabel,
   MenuItem,
   Select,
   TextField,
   Alert,
   Paper,
+  Typography,
 } from '@mui/material';
+import { DatePicker } from '@mui/x-date-pickers';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import { useForm, Controller } from 'react-hook-form';
@@ -21,23 +24,35 @@ import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { usePayrollEmployees } from '../hooks/usePayrollEmployees';
 import { usersApi } from '../../../api/users.api';
+import { cargosApi } from '../../../api/cargos.api';
 import { useQuery } from '@tanstack/react-query';
 import type { CreatePayrollEmployeeDto, UpdatePayrollEmployeeDto } from '../../../types';
 import { PATHS } from '../../../router/paths';
 
+// ─── Currency helpers ────────────────────────────────────────────────────────
+const formatCurrencyInput = (value: string): string => {
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return '';
+  return new Intl.NumberFormat('es-CO').format(parseInt(digits, 10));
+};
+
+// ─── Schema ──────────────────────────────────────────────────────────────────
 const schema = z
   .object({
     userId: z.string().min(1, 'Selecciona un usuario'),
+    cargoId: z.string().optional(),
     employeeType: z.enum(['REGULAR', 'TEMPORARY']),
     monthlySalary: z.string().optional(),
     dailyRate: z.string().optional(),
-    jobTitle: z.string().optional(),
-    startDate: z.string().min(1, 'La fecha de ingreso es requerida'),
+    startDate: z.date({ invalid_type_error: 'Selecciona una fecha válida' }).nullable(),
     contractType: z.string().optional(),
     status: z.enum(['ACTIVE', 'INACTIVE']).optional(),
     notes: z.string().optional(),
   })
   .superRefine((data, ctx) => {
+    if (!data.startDate) {
+      ctx.addIssue({ code: 'custom', path: ['startDate'], message: 'La fecha de ingreso es requerida' });
+    }
     if (data.employeeType === 'REGULAR' && !data.monthlySalary) {
       ctx.addIssue({ code: 'custom', path: ['monthlySalary'], message: 'Requerido para empleados regulares' });
     }
@@ -48,6 +63,7 @@ const schema = z
 
 type FormValues = z.infer<typeof schema>;
 
+// ─── Component ───────────────────────────────────────────────────────────────
 const PayrollEmployeeFormPage: React.FC = () => {
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
@@ -64,15 +80,20 @@ const PayrollEmployeeFormPage: React.FC = () => {
     enabled: !isEdit,
   });
 
+  const cargosQuery = useQuery({
+    queryKey: ['cargos-for-payroll'],
+    queryFn: () => cargosApi.getAll(),
+  });
+
   const { control, handleSubmit, watch, reset, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       userId: '',
+      cargoId: '',
       employeeType: 'REGULAR',
       monthlySalary: '',
       dailyRate: '',
-      jobTitle: '',
-      startDate: '',
+      startDate: null,
       contractType: '',
       notes: '',
     },
@@ -85,11 +106,11 @@ const PayrollEmployeeFormPage: React.FC = () => {
       const e = employeeQuery.data;
       reset({
         userId: e.userId,
+        cargoId: e.cargoId ?? '',
         employeeType: e.employeeType,
-        monthlySalary: e.monthlySalary?.toString() ?? '',
-        dailyRate: e.dailyRate?.toString() ?? '',
-        jobTitle: e.jobTitle ?? '',
-        startDate: e.startDate ? e.startDate.split('T')[0] : '',
+        monthlySalary: e.monthlySalary ? e.monthlySalary.toString().replace(/\D/g, '') : '',
+        dailyRate: e.dailyRate ? e.dailyRate.toString().replace(/\D/g, '') : '',
+        startDate: e.startDate ? new Date(e.startDate) : null,
         contractType: e.contractType ?? '',
         status: e.status,
         notes: e.notes ?? '',
@@ -100,13 +121,14 @@ const PayrollEmployeeFormPage: React.FC = () => {
   const onSubmit = async (values: FormValues) => {
     setServerError(null);
     try {
+      const startDateStr = values.startDate ? values.startDate.toISOString() : '';
       if (isEdit && id) {
         const payload: UpdatePayrollEmployeeDto = {
+          cargoId: values.cargoId || undefined,
           employeeType: values.employeeType,
-          monthlySalary: values.monthlySalary ? Number(values.monthlySalary) : undefined,
-          dailyRate: values.dailyRate ? Number(values.dailyRate) : undefined,
-          jobTitle: values.jobTitle || undefined,
-          startDate: values.startDate,
+          monthlySalary: values.monthlySalary ? Number(values.monthlySalary.replace(/\D/g, '')) : undefined,
+          dailyRate: values.dailyRate ? Number(values.dailyRate.replace(/\D/g, '')) : undefined,
+          startDate: startDateStr,
           contractType: (values.contractType as any) || undefined,
           status: values.status,
           notes: values.notes || undefined,
@@ -116,11 +138,11 @@ const PayrollEmployeeFormPage: React.FC = () => {
       } else {
         const payload: CreatePayrollEmployeeDto = {
           userId: values.userId,
+          cargoId: values.cargoId || undefined,
           employeeType: values.employeeType,
-          monthlySalary: values.monthlySalary ? Number(values.monthlySalary) : undefined,
-          dailyRate: values.dailyRate ? Number(values.dailyRate) : undefined,
-          jobTitle: values.jobTitle || undefined,
-          startDate: values.startDate,
+          monthlySalary: values.monthlySalary ? Number(values.monthlySalary.replace(/\D/g, '')) : undefined,
+          dailyRate: values.dailyRate ? Number(values.dailyRate.replace(/\D/g, '')) : undefined,
+          startDate: startDateStr,
           contractType: (values.contractType as any) || undefined,
           notes: values.notes || undefined,
         };
@@ -138,6 +160,7 @@ const PayrollEmployeeFormPage: React.FC = () => {
   if (isEdit && employeeQuery.isLoading) return <LoadingSpinner />;
 
   const isLoading = createMutation.isPending || updateMutation.isPending;
+  const cargos = cargosQuery.data ?? [];
 
   return (
     <Box>
@@ -154,6 +177,7 @@ const PayrollEmployeeFormPage: React.FC = () => {
 
         <form onSubmit={handleSubmit(onSubmit)}>
           <Grid container spacing={3}>
+            {/* Usuario */}
             {!isEdit && (
               <Grid item xs={12} md={6}>
                 <Controller
@@ -176,6 +200,7 @@ const PayrollEmployeeFormPage: React.FC = () => {
               </Grid>
             )}
 
+            {/* Tipo de empleado */}
             <Grid item xs={12} md={6}>
               <Controller
                 name="employeeType"
@@ -192,6 +217,7 @@ const PayrollEmployeeFormPage: React.FC = () => {
               />
             </Grid>
 
+            {/* Salario mensual — COP */}
             {employeeType === 'REGULAR' && (
               <Grid item xs={12} md={6}>
                 <Controller
@@ -199,18 +225,27 @@ const PayrollEmployeeFormPage: React.FC = () => {
                   control={control}
                   render={({ field }) => (
                     <TextField
-                      {...field}
                       fullWidth
-                      label="Salario mensual (COP) *"
-                      type="number"
+                      label="Salario mensual *"
                       error={!!errors.monthlySalary}
                       helperText={errors.monthlySalary?.message}
+                      value={field.value ? formatCurrencyInput(field.value) : ''}
+                      onChange={(e) => field.onChange(e.target.value.replace(/\D/g, ''))}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Typography sx={{ color: 'text.secondary', fontWeight: 500 }}>$</Typography>
+                          </InputAdornment>
+                        ),
+                        inputProps: { style: { textAlign: 'right' } },
+                      }}
                     />
                   )}
                 />
               </Grid>
             )}
 
+            {/* Tarifa diaria — COP */}
             {employeeType === 'TEMPORARY' && (
               <Grid item xs={12} md={6}>
                 <Controller
@@ -218,46 +253,70 @@ const PayrollEmployeeFormPage: React.FC = () => {
                   control={control}
                   render={({ field }) => (
                     <TextField
-                      {...field}
                       fullWidth
-                      label="Tarifa diaria (COP) *"
-                      type="number"
+                      label="Tarifa diaria *"
                       error={!!errors.dailyRate}
                       helperText={errors.dailyRate?.message}
+                      value={field.value ? formatCurrencyInput(field.value) : ''}
+                      onChange={(e) => field.onChange(e.target.value.replace(/\D/g, ''))}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Typography sx={{ color: 'text.secondary', fontWeight: 500 }}>$</Typography>
+                          </InputAdornment>
+                        ),
+                        inputProps: { style: { textAlign: 'right' } },
+                      }}
                     />
                   )}
                 />
               </Grid>
             )}
 
+            {/* Cargo laboral */}
             <Grid item xs={12} md={6}>
               <Controller
-                name="jobTitle"
+                name="cargoId"
                 control={control}
                 render={({ field }) => (
-                  <TextField {...field} fullWidth label="Cargo o rol laboral" />
+                  <FormControl fullWidth>
+                    <InputLabel>Cargo laboral</InputLabel>
+                    <Select {...field} label="Cargo laboral">
+                      <MenuItem value="">Sin asignar</MenuItem>
+                      {cargos.map((c: any) => (
+                        <MenuItem key={c.id} value={c.id}>
+                          {c.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
                 )}
               />
             </Grid>
 
+            {/* Fecha de ingreso — DatePicker */}
             <Grid item xs={12} md={6}>
               <Controller
                 name="startDate"
                 control={control}
                 render={({ field }) => (
-                  <TextField
-                    {...field}
-                    fullWidth
+                  <DatePicker
                     label="Fecha de ingreso *"
-                    type="date"
-                    InputLabelProps={{ shrink: true }}
-                    error={!!errors.startDate}
-                    helperText={errors.startDate?.message}
+                    value={field.value ?? null}
+                    onChange={field.onChange}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        error: !!errors.startDate,
+                        helperText: errors.startDate?.message,
+                      },
+                    }}
                   />
                 )}
               />
             </Grid>
 
+            {/* Tipo de contrato */}
             <Grid item xs={12} md={6}>
               <Controller
                 name="contractType"
@@ -277,6 +336,7 @@ const PayrollEmployeeFormPage: React.FC = () => {
               />
             </Grid>
 
+            {/* Estado (solo edición) */}
             {isEdit && (
               <Grid item xs={12} md={6}>
                 <Controller
@@ -295,6 +355,7 @@ const PayrollEmployeeFormPage: React.FC = () => {
               </Grid>
             )}
 
+            {/* Notas */}
             <Grid item xs={12}>
               <Controller
                 name="notes"

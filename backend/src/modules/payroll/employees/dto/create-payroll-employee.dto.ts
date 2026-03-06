@@ -48,10 +48,10 @@ export class CreatePayrollEmployeeDto {
   @IsOptional()
   dailyRate?: number;
 
-  @ApiPropertyOptional({ description: 'Cargo o rol laboral (texto libre)', example: 'Diseñadora' })
-  @IsString()
+  @ApiPropertyOptional({ description: 'ID del cargo laboral (modelo Cargo)', example: 'uuid-del-cargo' })
+  @IsUUID()
   @IsOptional()
-  jobTitle?: string;
+  cargoId?: string;
 
   @ApiProperty({ description: 'Fecha de ingreso a la empresa', example: '2024-01-15' })
   @IsISO8601()

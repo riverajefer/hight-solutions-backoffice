@@ -52,19 +52,23 @@ export class PayrollEmployeesService {
       employeeType: dto.employeeType ?? EmployeeType.REGULAR,
       monthlySalary: dto.monthlySalary,
       dailyRate: dto.dailyRate,
-      jobTitle: dto.jobTitle,
       startDate: new Date(dto.startDate),
       contractType: dto.contractType,
       notes: dto.notes,
       user: { connect: { id: dto.userId } },
+      ...(dto.cargoId && { cargo: { connect: { id: dto.cargoId } } }),
     });
   }
 
   async update(id: string, dto: UpdatePayrollEmployeeDto) {
     await this.findOne(id);
+    const { cargoId, startDate, ...rest } = dto;
     return this.employeesRepository.update(id, {
-      ...dto,
-      ...(dto.startDate && { startDate: new Date(dto.startDate) }),
+      ...rest,
+      ...(startDate && { startDate: new Date(startDate) }),
+      ...(cargoId !== undefined && {
+        cargo: cargoId ? { connect: { id: cargoId } } : { disconnect: true },
+      }),
     });
   }
 

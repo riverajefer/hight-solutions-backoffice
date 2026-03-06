@@ -4,13 +4,16 @@ import {
   Button,
   FormControl,
   Grid,
+  InputAdornment,
   InputLabel,
   MenuItem,
   Select,
   TextField,
   Alert,
   Paper,
+  Typography,
 } from '@mui/material';
+import { DatePicker } from '@mui/x-date-pickers';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import { useForm, Controller } from 'react-hook-form';
@@ -22,19 +25,37 @@ import { usePayrollPeriods } from '../hooks/usePayrollPeriods';
 import type { CreatePayrollPeriodDto, UpdatePayrollPeriodDto } from '../../../types';
 import { PATHS } from '../../../router/paths';
 
-const schema = z.object({
-  name: z.string().min(1, 'El nombre es requerido'),
-  startDate: z.string().min(1, 'Fecha de inicio requerida'),
-  endDate: z.string().min(1, 'Fecha de fin requerida'),
-  periodType: z.enum(['BIWEEKLY', 'MONTHLY']),
-  status: z.enum(['DRAFT', 'CALCULATED', 'PAID']).optional(),
-  overtimeDaytimeRate: z.string().optional(),
-  overtimeNighttimeRate: z.string().optional(),
-  notes: z.string().optional(),
-});
+// ─── Currency helpers ────────────────────────────────────────────────────────
+const formatCurrencyInput = (value: string): string => {
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return '';
+  return new Intl.NumberFormat('es-CO').format(parseInt(digits, 10));
+};
+
+// ─── Schema ──────────────────────────────────────────────────────────────────
+const schema = z
+  .object({
+    name: z.string().min(1, 'El nombre es requerido'),
+    startDate: z.date({ invalid_type_error: 'Fecha inválida' }).nullable(),
+    endDate: z.date({ invalid_type_error: 'Fecha inválida' }).nullable(),
+    periodType: z.enum(['BIWEEKLY', 'MONTHLY']),
+    status: z.enum(['DRAFT', 'CALCULATED', 'PAID']).optional(),
+    overtimeDaytimeRate: z.string().optional(),
+    overtimeNighttimeRate: z.string().optional(),
+    notes: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.startDate) {
+      ctx.addIssue({ code: 'custom', path: ['startDate'], message: 'Fecha de inicio requerida' });
+    }
+    if (!data.endDate) {
+      ctx.addIssue({ code: 'custom', path: ['endDate'], message: 'Fecha de fin requerida' });
+    }
+  });
 
 type FormValues = z.infer<typeof schema>;
 
+// ─── Component ───────────────────────────────────────────────────────────────
 const PayrollPeriodFormPage: React.FC = () => {
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
@@ -49,8 +70,8 @@ const PayrollPeriodFormPage: React.FC = () => {
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
-      startDate: '',
-      endDate: '',
+      startDate: null,
+      endDate: null,
       periodType: 'BIWEEKLY',
       status: 'DRAFT',
       overtimeDaytimeRate: '9950',
@@ -64,12 +85,16 @@ const PayrollPeriodFormPage: React.FC = () => {
       const p = periodQuery.data;
       reset({
         name: p.name,
-        startDate: p.startDate ? p.startDate.split('T')[0] : '',
-        endDate: p.endDate ? p.endDate.split('T')[0] : '',
+        startDate: p.startDate ? new Date(p.startDate) : null,
+        endDate: p.endDate ? new Date(p.endDate) : null,
         periodType: p.periodType,
         status: p.status,
-        overtimeDaytimeRate: p.overtimeDaytimeRate?.toString() ?? '9950',
-        overtimeNighttimeRate: p.overtimeNighttimeRate?.toString() ?? '13900',
+        overtimeDaytimeRate: p.overtimeDaytimeRate
+          ? Math.round(Number(p.overtimeDaytimeRate)).toString()
+          : '9950',
+        overtimeNighttimeRate: p.overtimeNighttimeRate
+          ? Math.round(Number(p.overtimeNighttimeRate)).toString()
+          : '13900',
         notes: p.notes ?? '',
       });
     }
@@ -78,15 +103,24 @@ const PayrollPeriodFormPage: React.FC = () => {
   const onSubmit = async (values: FormValues) => {
     setServerError(null);
     try {
+      const startDateStr = values.startDate ? values.startDate.toISOString() : '';
+      const endDateStr = values.endDate ? values.endDate.toISOString() : '';
+      const daytimeRate = values.overtimeDaytimeRate
+        ? Number(values.overtimeDaytimeRate.replace(/\D/g, ''))
+        : undefined;
+      const nighttimeRate = values.overtimeNighttimeRate
+        ? Number(values.overtimeNighttimeRate.replace(/\D/g, ''))
+        : undefined;
+
       if (isEdit && id) {
         const payload: UpdatePayrollPeriodDto = {
           name: values.name,
-          startDate: values.startDate,
-          endDate: values.endDate,
+          startDate: startDateStr,
+          endDate: endDateStr,
           periodType: values.periodType,
           status: values.status,
-          overtimeDaytimeRate: values.overtimeDaytimeRate ? Number(values.overtimeDaytimeRate) : undefined,
-          overtimeNighttimeRate: values.overtimeNighttimeRate ? Number(values.overtimeNighttimeRate) : undefined,
+          overtimeDaytimeRate: daytimeRate,
+          overtimeNighttimeRate: nighttimeRate,
           notes: values.notes || undefined,
         };
         await updateMutation.mutateAsync({ id, data: payload });
@@ -94,11 +128,11 @@ const PayrollPeriodFormPage: React.FC = () => {
       } else {
         const payload: CreatePayrollPeriodDto = {
           name: values.name,
-          startDate: values.startDate,
-          endDate: values.endDate,
+          startDate: startDateStr,
+          endDate: endDateStr,
           periodType: values.periodType,
-          overtimeDaytimeRate: values.overtimeDaytimeRate ? Number(values.overtimeDaytimeRate) : undefined,
-          overtimeNighttimeRate: values.overtimeNighttimeRate ? Number(values.overtimeNighttimeRate) : undefined,
+          overtimeDaytimeRate: daytimeRate,
+          overtimeNighttimeRate: nighttimeRate,
           notes: values.notes || undefined,
         };
         await createMutation.mutateAsync(payload);
@@ -130,6 +164,7 @@ const PayrollPeriodFormPage: React.FC = () => {
 
         <form onSubmit={handleSubmit(onSubmit)}>
           <Grid container spacing={3}>
+            {/* Nombre */}
             <Grid item xs={12} md={6}>
               <Controller
                 name="name"
@@ -147,6 +182,7 @@ const PayrollPeriodFormPage: React.FC = () => {
               />
             </Grid>
 
+            {/* Tipo */}
             <Grid item xs={12} md={6}>
               <Controller
                 name="periodType"
@@ -163,42 +199,51 @@ const PayrollPeriodFormPage: React.FC = () => {
               />
             </Grid>
 
+            {/* Fecha inicio — DatePicker */}
             <Grid item xs={12} md={6}>
               <Controller
                 name="startDate"
                 control={control}
                 render={({ field }) => (
-                  <TextField
-                    {...field}
-                    fullWidth
+                  <DatePicker
                     label="Fecha de inicio *"
-                    type="date"
-                    InputLabelProps={{ shrink: true }}
-                    error={!!errors.startDate}
-                    helperText={errors.startDate?.message}
+                    value={field.value ?? null}
+                    onChange={field.onChange}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        error: !!errors.startDate,
+                        helperText: (errors.startDate as any)?.message,
+                      },
+                    }}
                   />
                 )}
               />
             </Grid>
 
+            {/* Fecha fin — DatePicker */}
             <Grid item xs={12} md={6}>
               <Controller
                 name="endDate"
                 control={control}
                 render={({ field }) => (
-                  <TextField
-                    {...field}
-                    fullWidth
+                  <DatePicker
                     label="Fecha de fin *"
-                    type="date"
-                    InputLabelProps={{ shrink: true }}
-                    error={!!errors.endDate}
-                    helperText={errors.endDate?.message}
+                    value={field.value ?? null}
+                    onChange={field.onChange}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        error: !!errors.endDate,
+                        helperText: (errors.endDate as any)?.message,
+                      },
+                    }}
                   />
                 )}
               />
             </Grid>
 
+            {/* Estado (solo edición) */}
             {isEdit && (
               <Grid item xs={12} md={6}>
                 <Controller
@@ -218,38 +263,57 @@ const PayrollPeriodFormPage: React.FC = () => {
               </Grid>
             )}
 
+            {/* Tarifa extra diurna — COP */}
             <Grid item xs={12} md={6}>
               <Controller
                 name="overtimeDaytimeRate"
                 control={control}
                 render={({ field }) => (
                   <TextField
-                    {...field}
                     fullWidth
-                    label="Tarifa hora extra diurna (COP)"
-                    type="number"
+                    label="Tarifa hora extra diurna"
                     helperText="Valor por hora extra diurna"
+                    value={field.value ? formatCurrencyInput(field.value) : ''}
+                    onChange={(e) => field.onChange(e.target.value.replace(/\D/g, ''))}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Typography sx={{ color: 'text.secondary', fontWeight: 500 }}>$</Typography>
+                        </InputAdornment>
+                      ),
+                      inputProps: { style: { textAlign: 'right' } },
+                    }}
                   />
                 )}
               />
             </Grid>
 
+            {/* Tarifa extra nocturna — COP */}
             <Grid item xs={12} md={6}>
               <Controller
                 name="overtimeNighttimeRate"
                 control={control}
                 render={({ field }) => (
                   <TextField
-                    {...field}
                     fullWidth
-                    label="Tarifa hora extra nocturna (COP)"
-                    type="number"
+                    label="Tarifa hora extra nocturna"
                     helperText="Valor por hora extra nocturna"
+                    value={field.value ? formatCurrencyInput(field.value) : ''}
+                    onChange={(e) => field.onChange(e.target.value.replace(/\D/g, ''))}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Typography sx={{ color: 'text.secondary', fontWeight: 500 }}>$</Typography>
+                        </InputAdornment>
+                      ),
+                      inputProps: { style: { textAlign: 'right' } },
+                    }}
                   />
                 )}
               />
             </Grid>
 
+            {/* Notas */}
             <Grid item xs={12}>
               <Controller
                 name="notes"

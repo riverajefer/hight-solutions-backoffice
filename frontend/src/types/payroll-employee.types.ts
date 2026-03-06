@@ -5,16 +5,17 @@ export type ContractType = 'FIXED_TERM' | 'INDEFINITE' | 'SERVICE_CONTRACT' | 'I
 export interface PayrollEmployee {
   id: string;
   userId: string;
+  cargoId: string | null;
   employeeType: EmployeeType;
   monthlySalary: string | null;
   dailyRate: string | null;
-  jobTitle: string | null;
   startDate: string;
   contractType: ContractType | null;
   status: EmployeeStatus;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
+  cargo: { id: string; name: string } | null;
   user: {
     id: string;
     firstName: string | null;
@@ -22,26 +23,25 @@ export interface PayrollEmployee {
     email: string | null;
     phone: string | null;
     isActive: boolean;
-    cargo: { id: string; name: string } | null;
   };
 }
 
 export interface CreatePayrollEmployeeDto {
   userId: string;
+  cargoId?: string;
   employeeType?: EmployeeType;
   monthlySalary?: number;
   dailyRate?: number;
-  jobTitle?: string;
   startDate: string;
   contractType?: ContractType;
   notes?: string;
 }
 
 export interface UpdatePayrollEmployeeDto {
+  cargoId?: string;
   employeeType?: EmployeeType;
   monthlySalary?: number;
   dailyRate?: number;
-  jobTitle?: string;
   startDate?: string;
   contractType?: ContractType;
   status?: EmployeeStatus;

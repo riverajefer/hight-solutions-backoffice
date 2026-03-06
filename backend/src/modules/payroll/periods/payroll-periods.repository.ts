@@ -59,7 +59,7 @@ export class PayrollPeriodsRepository {
                 employeeType: true,
                 monthlySalary: true,
                 dailyRate: true,
-                jobTitle: true,
+                cargo: { select: { id: true, name: true } },
                 user: {
                   select: {
                     id: true,

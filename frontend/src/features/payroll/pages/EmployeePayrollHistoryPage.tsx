@@ -59,7 +59,7 @@ const EmployeePayrollHistoryPage: React.FC = () => {
     <Box>
       <PageHeader
         title={`Historial de Nómina — ${fullName}`}
-        subtitle={employee?.jobTitle ?? ''}
+        subtitle={employee?.cargo?.name ?? ''}
         breadcrumbs={[
           { label: 'Empleados de Nómina', path: PATHS.PAYROLL_EMPLOYEES },
           { label: fullName },

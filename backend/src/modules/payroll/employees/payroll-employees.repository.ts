@@ -5,16 +5,19 @@ import { Prisma } from '../../../generated/prisma';
 const employeeSelect = {
   id: true,
   userId: true,
+  cargoId: true,
   employeeType: true,
   monthlySalary: true,
   dailyRate: true,
-  jobTitle: true,
   startDate: true,
   contractType: true,
   status: true,
   notes: true,
   createdAt: true,
   updatedAt: true,
+  cargo: {
+    select: { id: true, name: true },
+  },
   user: {
     select: {
       id: true,
@@ -23,9 +26,6 @@ const employeeSelect = {
       email: true,
       phone: true,
       isActive: true,
-      cargo: {
-        select: { id: true, name: true },
-      },
     },
   },
 };

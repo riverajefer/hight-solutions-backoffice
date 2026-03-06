@@ -22,6 +22,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { UpdatePayrollItemDto } from '../../../types';
 import { PATHS } from '../../../router/paths';
 
+// ─── Types ───────────────────────────────────────────────────────────────────
 type FieldName =
   | 'daysWorked' | 'baseSalary'
   | 'overtimeDaytimeHours' | 'overtimeNighttimeHours'
@@ -32,30 +33,80 @@ type FieldName =
 
 type FormValues = Record<FieldName, string>;
 
-const calcTotal = (v: Partial<FormValues>): number => {
-  const n = (key: FieldName) => Number(v[key] ?? 0);
-  return (
-    n('baseSalary') +
-    n('overtimeDaytimeValue') +
-    n('overtimeNighttimeValue') +
-    n('commissions') +
-    n('restDayValue') +
-    n('transportAllowance') -
-    n('workdayDiscount') -
-    n('loans') -
-    n('advances') -
-    n('nonPaidDays') -
-    n('epsAndPensionDiscount')
-  );
+// ─── Currency helpers ────────────────────────────────────────────────────────
+const formatCurrencyInput = (rawDigits: string): string => {
+  if (!rawDigits) return '';
+  const n = parseInt(rawDigits.replace(/\D/g, ''), 10);
+  if (isNaN(n)) return '';
+  return new Intl.NumberFormat('es-CO').format(n);
 };
 
-const NumberField: React.FC<{
+const formatCOP = (value: number): string =>
+  new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+
+// Raw integer from form string
+const rawNum = (v: string | undefined): number => Number(v?.replace(/\D/g, '') ?? 0);
+
+// ─── Total calculation (reads raw digit strings) ──────────────────────────────
+const calcTotal = (v: Partial<FormValues>): number =>
+  rawNum(v.baseSalary) +
+  rawNum(v.overtimeDaytimeValue) +
+  rawNum(v.overtimeNighttimeValue) +
+  rawNum(v.commissions) +
+  rawNum(v.restDayValue) +
+  rawNum(v.transportAllowance) -
+  rawNum(v.workdayDiscount) -
+  rawNum(v.loans) -
+  rawNum(v.advances) -
+  rawNum(v.nonPaidDays) -
+  rawNum(v.epsAndPensionDiscount);
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+/** Currency field: stores raw digit string, displays formatted COP */
+const CurrencyField: React.FC<{
   control: any;
   name: FieldName;
   label: string;
   readOnly?: boolean;
+}> = ({ control, name, label, readOnly = false }) => (
+  <Controller
+    name={name}
+    control={control}
+    render={({ field }) => (
+      <TextField
+        fullWidth
+        label={label}
+        size="small"
+        value={field.value ? formatCurrencyInput(field.value) : ''}
+        onChange={readOnly ? undefined : (e) => field.onChange(e.target.value.replace(/\D/g, ''))}
+        InputProps={{
+          readOnly,
+          startAdornment: (
+            <InputAdornment position="start">
+              <Typography sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.875rem' }}>$</Typography>
+            </InputAdornment>
+          ),
+          inputProps: { style: { textAlign: 'right' } },
+        }}
+        sx={readOnly ? { '& .MuiInputBase-root': { bgcolor: 'action.hover' } } : undefined}
+      />
+    )}
+  />
+);
+
+/** Plain numeric field: for hours and days (no currency formatting) */
+const NumberField: React.FC<{
+  control: any;
+  name: FieldName;
+  label: string;
   prefix?: string;
-}> = ({ control, name, label, readOnly = false, prefix = '$' }) => (
+}> = ({ control, name, label, prefix = '' }) => (
   <Controller
     name={name}
     control={control}
@@ -66,16 +117,23 @@ const NumberField: React.FC<{
         label={label}
         type="number"
         size="small"
-        InputProps={{
-          startAdornment: <InputAdornment position="start">{prefix}</InputAdornment>,
-          readOnly,
-        }}
-        sx={readOnly ? { '& .MuiInputBase-root': { bgcolor: 'action.hover' } } : undefined}
+        InputProps={
+          prefix
+            ? {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Typography sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>{prefix}</Typography>
+                  </InputAdornment>
+                ),
+              }
+            : undefined
+        }
       />
     )}
   />
 );
 
+// ─── Page ────────────────────────────────────────────────────────────────────
 const PayrollItemFormPage: React.FC = () => {
   const { periodId, itemId } = useParams<{ periodId: string; itemId: string }>();
   const navigate = useNavigate();
@@ -105,28 +163,28 @@ const PayrollItemFormPage: React.FC = () => {
   };
 
   const { control, watch, setValue, handleSubmit, reset } = useForm<FormValues>({ defaultValues });
-
   const values = watch();
 
-  // Auto-calc overtime values when hours change
+  // Auto-calc: horas extra diurnas → valor
   useEffect(() => {
     if (period?.overtimeDaytimeRate && values.overtimeDaytimeHours) {
       const val = Number(values.overtimeDaytimeHours) * Number(period.overtimeDaytimeRate);
-      setValue('overtimeDaytimeValue', val.toFixed(2));
+      setValue('overtimeDaytimeValue', Math.round(val).toString());
     }
   }, [values.overtimeDaytimeHours, period?.overtimeDaytimeRate]);
 
+  // Auto-calc: horas extra nocturnas → valor
   useEffect(() => {
     if (period?.overtimeNighttimeRate && values.overtimeNighttimeHours) {
       const val = Number(values.overtimeNighttimeHours) * Number(period.overtimeNighttimeRate);
-      setValue('overtimeNighttimeValue', val.toFixed(2));
+      setValue('overtimeNighttimeValue', Math.round(val).toString());
     }
   }, [values.overtimeNighttimeHours, period?.overtimeNighttimeRate]);
 
   // Auto-calc total
   useEffect(() => {
     const total = calcTotal(values);
-    setValue('totalPayment', total.toFixed(2));
+    setValue('totalPayment', Math.round(total).toString());
   }, [
     values.baseSalary, values.overtimeDaytimeValue, values.overtimeNighttimeValue,
     values.commissions, values.restDayValue, values.transportAllowance,
@@ -134,25 +192,28 @@ const PayrollItemFormPage: React.FC = () => {
     values.epsAndPensionDiscount,
   ]);
 
+  // Load existing item
   useEffect(() => {
     if (!isNew && itemQuery.data) {
       const item = itemQuery.data;
+      // Strip decimals from Prisma Decimal strings for COP integer storage
+      const toRaw = (v: any) => v != null ? Math.round(Number(v)).toString() : '';
       reset({
         daysWorked: item.daysWorked?.toString() ?? '',
-        baseSalary: item.baseSalary?.toString() ?? '',
+        baseSalary: toRaw(item.baseSalary),
         overtimeDaytimeHours: item.overtimeDaytimeHours?.toString() ?? '',
         overtimeNighttimeHours: item.overtimeNighttimeHours?.toString() ?? '',
-        overtimeDaytimeValue: item.overtimeDaytimeValue?.toString() ?? '',
-        overtimeNighttimeValue: item.overtimeNighttimeValue?.toString() ?? '',
-        commissions: item.commissions?.toString() ?? '',
-        restDayValue: item.restDayValue?.toString() ?? '',
-        transportAllowance: item.transportAllowance?.toString() ?? '',
-        workdayDiscount: item.workdayDiscount?.toString() ?? '',
-        loans: item.loans?.toString() ?? '',
-        advances: item.advances?.toString() ?? '',
-        nonPaidDays: item.nonPaidDays?.toString() ?? '',
-        epsAndPensionDiscount: item.epsAndPensionDiscount?.toString() ?? '',
-        totalPayment: item.totalPayment?.toString() ?? '',
+        overtimeDaytimeValue: toRaw(item.overtimeDaytimeValue),
+        overtimeNighttimeValue: toRaw(item.overtimeNighttimeValue),
+        commissions: toRaw(item.commissions),
+        restDayValue: toRaw(item.restDayValue),
+        transportAllowance: toRaw(item.transportAllowance),
+        workdayDiscount: toRaw(item.workdayDiscount),
+        loans: toRaw(item.loans),
+        advances: toRaw(item.advances),
+        nonPaidDays: toRaw(item.nonPaidDays),
+        epsAndPensionDiscount: toRaw(item.epsAndPensionDiscount),
+        totalPayment: toRaw(item.totalPayment),
         observations: item.observations ?? '',
       });
     }
@@ -165,19 +226,18 @@ const PayrollItemFormPage: React.FC = () => {
 
   const onSubmit = async (vals: FormValues) => {
     setServerError(null);
-    const num = (k: FieldName) => vals[k] ? Number(vals[k]) : undefined;
+    const num = (k: FieldName) => vals[k] ? Number(vals[k].replace(/\D/g, '')) : undefined;
     try {
       if (isNew) {
-        // For new items, need employeeId — redirect to period detail where employee is pre-selected
         enqueueSnackbar('Para agregar un nuevo registro, usa el botón en el detalle del periodo', { variant: 'info' });
         navigate(PATHS.PAYROLL_PERIODS_DETAIL.replace(':id', periodId!));
         return;
       }
       const payload: UpdatePayrollItemDto = {
-        daysWorked: num('daysWorked'),
+        daysWorked: vals.daysWorked ? Number(vals.daysWorked) : undefined,
         baseSalary: num('baseSalary'),
-        overtimeDaytimeHours: num('overtimeDaytimeHours'),
-        overtimeNighttimeHours: num('overtimeNighttimeHours'),
+        overtimeDaytimeHours: vals.overtimeDaytimeHours ? Number(vals.overtimeDaytimeHours) : undefined,
+        overtimeNighttimeHours: vals.overtimeNighttimeHours ? Number(vals.overtimeNighttimeHours) : undefined,
         overtimeDaytimeValue: num('overtimeDaytimeValue'),
         overtimeNighttimeValue: num('overtimeNighttimeValue'),
         commissions: num('commissions'),
@@ -203,6 +263,7 @@ const PayrollItemFormPage: React.FC = () => {
 
   if (!isNew && itemQuery.isLoading) return <LoadingSpinner />;
   const isLoading = updateMutation.isPending || createMutation.isPending;
+  const totalValue = calcTotal(values);
 
   return (
     <Box>
@@ -220,65 +281,79 @@ const PayrollItemFormPage: React.FC = () => {
         {serverError && <Alert severity="error" sx={{ mb: 2 }}>{serverError}</Alert>}
 
         <form onSubmit={handleSubmit(onSubmit)}>
+          {/* ── INGRESOS ───────────────────────────────────────────────── */}
           <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Ingresos</Typography>
           <Grid container spacing={2}>
             <Grid item xs={6} md={3}>
-              <NumberField control={control} name="daysWorked" label="Días trabajados" prefix="" />
+              <NumberField control={control} name="daysWorked" label="Días trabajados" />
             </Grid>
             <Grid item xs={6} md={3}>
-              <NumberField control={control} name="baseSalary" label="Salario base proporcional" />
+              <CurrencyField control={control} name="baseSalary" label="Salario base proporcional" />
             </Grid>
             <Grid item xs={6} md={3}>
               <NumberField control={control} name="overtimeDaytimeHours" label="Horas extra diurnas" prefix="h" />
             </Grid>
             <Grid item xs={6} md={3}>
-              <NumberField control={control} name="overtimeDaytimeValue" label="Valor extras diurnas" />
+              <CurrencyField control={control} name="overtimeDaytimeValue" label="Valor extras diurnas" readOnly />
             </Grid>
             <Grid item xs={6} md={3}>
               <NumberField control={control} name="overtimeNighttimeHours" label="Horas extra nocturnas" prefix="h" />
             </Grid>
             <Grid item xs={6} md={3}>
-              <NumberField control={control} name="overtimeNighttimeValue" label="Valor extras nocturnas" />
+              <CurrencyField control={control} name="overtimeNighttimeValue" label="Valor extras nocturnas" readOnly />
             </Grid>
             <Grid item xs={6} md={3}>
-              <NumberField control={control} name="commissions" label="Comisiones" />
+              <CurrencyField control={control} name="commissions" label="Comisiones" />
             </Grid>
             <Grid item xs={6} md={3}>
-              <NumberField control={control} name="restDayValue" label="Día de descanso / vacaciones" />
+              <CurrencyField control={control} name="restDayValue" label="Día de descanso / vacaciones" />
             </Grid>
             <Grid item xs={6} md={3}>
-              <NumberField control={control} name="transportAllowance" label="Auxilio de transporte" />
+              <CurrencyField control={control} name="transportAllowance" label="Auxilio de transporte" />
             </Grid>
           </Grid>
 
           <Divider sx={{ my: 3 }} />
 
+          {/* ── DESCUENTOS ─────────────────────────────────────────────── */}
           <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Descuentos</Typography>
           <Grid container spacing={2}>
             <Grid item xs={6} md={3}>
-              <NumberField control={control} name="workdayDiscount" label="Descuento día laboral" />
+              <CurrencyField control={control} name="workdayDiscount" label="Descuento día laboral" />
             </Grid>
             <Grid item xs={6} md={3}>
-              <NumberField control={control} name="loans" label="Préstamos" />
+              <CurrencyField control={control} name="loans" label="Préstamos" />
             </Grid>
             <Grid item xs={6} md={3}>
-              <NumberField control={control} name="advances" label="Anticipos" />
+              <CurrencyField control={control} name="advances" label="Anticipos" />
             </Grid>
             <Grid item xs={6} md={3}>
-              <NumberField control={control} name="nonPaidDays" label="Días no remunerados / incapacidad" />
+              <CurrencyField control={control} name="nonPaidDays" label="Días no remunerados / incapacidad" />
             </Grid>
             <Grid item xs={6} md={3}>
-              <NumberField control={control} name="epsAndPensionDiscount" label="EPS y Pensión" />
+              <CurrencyField control={control} name="epsAndPensionDiscount" label="EPS y Pensión" />
             </Grid>
           </Grid>
 
           <Divider sx={{ my: 3 }} />
 
+          {/* ── TOTAL + OBSERVACIONES ──────────────────────────────────── */}
           <Grid container spacing={2} alignItems="center">
-            <Grid item xs={6} md={4}>
-              <Typography variant="h6" color="success.main">
-                Total a pagar: <strong>{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(Number(values.totalPayment || 0))}</strong>
-              </Typography>
+            <Grid item xs={12} md={4}>
+              <Box
+                sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  bgcolor: totalValue >= 0 ? 'success.soft' : 'error.soft',
+                  border: '1px solid',
+                  borderColor: totalValue >= 0 ? 'success.main' : 'error.main',
+                }}
+              >
+                <Typography variant="caption" color="text.secondary">Total a pagar</Typography>
+                <Typography variant="h5" fontWeight="bold" color={totalValue >= 0 ? 'success.main' : 'error.main'}>
+                  {formatCOP(totalValue)}
+                </Typography>
+              </Box>
             </Grid>
             <Grid item xs={12} md={8}>
               <Controller
