@@ -1,5 +1,5 @@
 import type { FC, ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { ROUTES } from '../../utils/constants';
 import { LoadingSpinner } from '../common/LoadingSpinner';
@@ -14,13 +14,14 @@ interface AuthGuardProps {
  */
 export const AuthGuard: FC<AuthGuardProps> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuthStore();
+  const location = useLocation();
 
   if (isLoading) {
     return <LoadingSpinner fullScreen />;
   }
 
   if (!isAuthenticated) {
-    return <Navigate to={ROUTES.LOGIN} replace />;
+    return <Navigate to={ROUTES.LOGIN} state={{ from: location }} replace />;
   }
 
   return <>{children}</>;
