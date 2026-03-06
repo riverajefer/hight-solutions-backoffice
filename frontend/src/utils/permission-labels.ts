@@ -136,6 +136,18 @@ export const PERMISSION_LABELS: Record<string, string> = {
   // Compañía
   read_company: 'Ver Información de Compañía',
   update_company: 'Editar Información de Compañía',
+
+  // Nómina — Empleados
+  create_payroll_employees: 'Agregar Empleados a Nómina',
+  read_payroll_employees: 'Ver Empleados de Nómina',
+  update_payroll_employees: 'Editar Empleados de Nómina',
+  delete_payroll_employees: 'Eliminar Empleados de Nómina',
+
+  // Nómina — Periodos y registros
+  create_payroll_periods: 'Crear Periodos de Nómina',
+  read_payroll_periods: 'Ver Periodos de Nómina',
+  update_payroll_periods: 'Editar Periodos y Registros de Nómina',
+  delete_payroll_periods: 'Eliminar Periodos de Nómina',
 };
 
 /**
