@@ -104,6 +104,16 @@ export const PERMISSIONS = {
   UPDATE_EXPENSE_ORDERS: 'update_expense_orders',
   DELETE_EXPENSE_ORDERS: 'delete_expense_orders',
   APPROVE_EXPENSE_ORDERS: 'approve_expense_orders',
+  // Payroll - Empleados de nómina
+  CREATE_PAYROLL_EMPLOYEES: 'create_payroll_employees',
+  READ_PAYROLL_EMPLOYEES: 'read_payroll_employees',
+  UPDATE_PAYROLL_EMPLOYEES: 'update_payroll_employees',
+  DELETE_PAYROLL_EMPLOYEES: 'delete_payroll_employees',
+  // Payroll - Periodos de nómina
+  CREATE_PAYROLL_PERIODS: 'create_payroll_periods',
+  READ_PAYROLL_PERIODS: 'read_payroll_periods',
+  UPDATE_PAYROLL_PERIODS: 'update_payroll_periods',
+  DELETE_PAYROLL_PERIODS: 'delete_payroll_periods',
 };
 
 export const ROUTES = {
@@ -191,6 +201,16 @@ export const ROUTES = {
   EXPENSE_ORDERS_CREATE: '/expense-orders/new',
   EXPENSE_ORDERS_EDIT: '/expense-orders/:id/edit',
   EXPENSE_ORDERS_DETAIL: '/expense-orders/:id',
+  // Payroll
+  PAYROLL_EMPLOYEES: '/payroll/employees',
+  PAYROLL_EMPLOYEES_CREATE: '/payroll/employees/create',
+  PAYROLL_EMPLOYEES_EDIT: '/payroll/employees/:id/edit',
+  PAYROLL_EMPLOYEES_HISTORY: '/payroll/employees/:id/history',
+  PAYROLL_PERIODS: '/payroll/periods',
+  PAYROLL_PERIODS_CREATE: '/payroll/periods/create',
+  PAYROLL_PERIODS_EDIT: '/payroll/periods/:id/edit',
+  PAYROLL_PERIODS_DETAIL: '/payroll/periods/:id',
+  PAYROLL_ITEM_EDIT: '/payroll/periods/:periodId/items/:itemId/edit',
 };
 
 export const DEFAULT_PAGINATION = {

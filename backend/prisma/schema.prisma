@@ -47,6 +47,7 @@ model User {
   reviewedExpenseOrderAuthRequests   ExpenseOrderAuthRequest[]  @relation("ReviewedExpenseOrderAuthRequests")
   requestedAdvancePaymentApprovals   AdvancePaymentApproval[]   @relation("RequestedAdvancePaymentApprovals")
   reviewedAdvancePaymentApprovals    AdvancePaymentApproval[]   @relation("ReviewedAdvancePaymentApprovals")
+  payrollEmployee                    Employee?
 
   @@map("users")
 }
@@ -75,7 +76,8 @@ model Cargo {
   areaId String
   area   Area   @relation(fields: [areaId], references: [id])
 
-  users User[]
+  users     User[]
+  employees Employee[]
 
   @@unique([name, areaId])
   @@map("cargos")
@@ -371,6 +373,7 @@ enum OrderStatus {
   DELIVERED_ON_CREDIT // Entregado a crédito
   WARRANTY           // Garantía
   PAID               // Pagada
+  RETURNED           // Devuelta
 }
 
 enum QuoteStatus {
@@ -1117,6 +1120,107 @@ model Company {
   updatedAt           DateTime @updatedAt @map("updated_at")
 
   @@map("company")
+}
+
+// ============================================================
+// PAYROLL MODULE
+// ============================================================
+
+enum EmployeeType {
+  REGULAR   // Monthly salary
+  TEMPORARY // Daily rate
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ContractType {
+  FIXED_TERM
+  INDEFINITE
+  SERVICE_CONTRACT
+  INTERNSHIP
+}
+
+enum PayrollPeriodType {
+  BIWEEKLY
+  MONTHLY
+}
+
+enum PayrollPeriodStatus {
+  DRAFT
+  CALCULATED
+  PAID
+}
+
+model Employee {
+  id            String         @id @default(uuid())
+  userId        String         @unique
+  cargoId       String?
+  employeeType  EmployeeType   @default(REGULAR)
+  monthlySalary Decimal?       @db.Decimal(12, 2)
+  dailyRate     Decimal?       @db.Decimal(12, 2)
+  startDate     DateTime
+  contractType  ContractType?
+  status        EmployeeStatus @default(ACTIVE)
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id])
+  cargo        Cargo?        @relation(fields: [cargoId], references: [id])
+  payrollItems PayrollItem[]
+
+  @@map("employees")
+}
+
+model PayrollPeriod {
+  id                    String              @id @default(uuid())
+  name                  String
+  startDate             DateTime
+  endDate               DateTime
+  periodType            PayrollPeriodType
+  status                PayrollPeriodStatus @default(DRAFT)
+  overtimeDaytimeRate   Decimal?            @db.Decimal(10, 2)
+  overtimeNighttimeRate Decimal?            @db.Decimal(10, 2)
+  notes                 String?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  payrollItems PayrollItem[]
+
+  @@map("payroll_periods")
+}
+
+model PayrollItem {
+  id                     String        @id @default(uuid())
+  periodId               String
+  employeeId             String
+  daysWorked             Decimal?      @db.Decimal(5, 2)
+  baseSalary             Decimal       @db.Decimal(12, 2)
+  overtimeDaytimeHours   Decimal?      @db.Decimal(7, 2)
+  overtimeNighttimeHours Decimal?      @db.Decimal(7, 2)
+  overtimeDaytimeValue   Decimal?      @db.Decimal(12, 2)
+  overtimeNighttimeValue Decimal?      @db.Decimal(12, 2)
+  commissions            Decimal?      @db.Decimal(12, 2)
+  restDayValue           Decimal?      @db.Decimal(12, 2)
+  transportAllowance     Decimal?      @db.Decimal(12, 2)
+  workdayDiscount        Decimal?      @db.Decimal(12, 2)
+  loans                  Decimal?      @db.Decimal(12, 2)
+  advances               Decimal?      @db.Decimal(12, 2)
+  nonPaidDays            Decimal?      @db.Decimal(12, 2)
+  epsAndPensionDiscount  Decimal?      @db.Decimal(12, 2)
+  totalPayment           Decimal       @db.Decimal(12, 2)
+  observations           String?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  period   PayrollPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  employee Employee      @relation(fields: [employeeId], references: [id])
+
+  @@unique([periodId, employeeId])
+  @@map("payroll_items")
 }
 
 

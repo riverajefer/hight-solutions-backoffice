@@ -39,6 +39,7 @@ import { AuditContextInterceptor } from './common/interceptors/audit-context.int
 import { MaintenanceMiddleware } from './common/middleware/maintenance.middleware';
 import { WhatsappModule } from './modules/whatsapp/whatsapp.module';
 import { HealthModule } from './health/health.module';
+import { PayrollModule } from './modules/payroll/payroll.module';
 
 @Module({
   imports: [
@@ -103,6 +104,8 @@ import { HealthModule } from './health/health.module';
     AdvancePaymentApprovalsModule,
     // Módulo de Trazabilidad de Órdenes
     OrderTimelineModule,
+    // Módulo de Nómina
+    PayrollModule,
   ],
   providers: [
     {

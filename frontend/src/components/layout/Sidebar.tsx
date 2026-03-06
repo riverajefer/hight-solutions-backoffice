@@ -47,6 +47,9 @@ import PendingActionsIcon from '@mui/icons-material/PendingActions';
 import BuildIcon from '@mui/icons-material/Build';
 import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import GroupsIcon from '@mui/icons-material/Groups';
 import { useAuthStore } from '../../store/authStore';
 import { ROUTES, PERMISSIONS } from '../../utils/constants';
 import { neonColors, neonAccents } from '../../theme';
@@ -93,6 +96,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
     comercial: false,
     logistica: false,
     organizacion: false,
+    nomina: false,
     configuracion: false,
   });
 
@@ -281,6 +285,29 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
         PERMISSIONS.READ_USERS,
         PERMISSIONS.READ_AREAS,
         PERMISSIONS.READ_CARGOS,
+      ],
+    },
+    {
+      label: 'Nómina',
+      icon: <AccountBalanceWalletIcon />,
+      menuKey: 'nomina',
+      submenu: [
+        {
+          label: 'Empleados de Nómina',
+          icon: <GroupsIcon />,
+          path: ROUTES.PAYROLL_EMPLOYEES,
+          permission: PERMISSIONS.READ_PAYROLL_EMPLOYEES,
+        },
+        {
+          label: 'Periodos de Nómina',
+          icon: <CalendarMonthIcon />,
+          path: ROUTES.PAYROLL_PERIODS,
+          permission: PERMISSIONS.READ_PAYROLL_PERIODS,
+        },
+      ],
+      permissions: [
+        PERMISSIONS.READ_PAYROLL_EMPLOYEES,
+        PERMISSIONS.READ_PAYROLL_PERIODS,
       ],
     },
     {
