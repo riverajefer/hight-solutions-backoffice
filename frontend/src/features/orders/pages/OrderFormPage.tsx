@@ -34,6 +34,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { useOrders, useOrder } from '../hooks';
+import { ordersApi } from '../../../api/orders.api';
 import { useEditRequests } from '../../../hooks/useEditRequests';
 import {
   ClientSelector,
@@ -67,6 +68,8 @@ const initialPaymentSchema = z
     paymentMethod: z.enum(['CASH', 'TRANSFER', 'CARD', 'CHECK', 'CREDIT', 'OTHER']),
     reference: z.string().optional(),
     notes: z.string().optional(),
+    receiptFile: z.any().optional(),
+    receiptFileUrl: z.any().optional(),
   })
   .refine(
     (data) => {
@@ -490,6 +493,17 @@ export const OrderFormPage: React.FC = () => {
         navigate(`/orders/${id}`);
       } else {
         const newOrder = await createOrderMutation.mutateAsync(orderDto);
+        
+        if (data.payment.receiptFile && newOrder.payments && newOrder.payments.length > 0) {
+          try {
+            await ordersApi.uploadPaymentReceipt(newOrder.id, newOrder.payments[0].id, data.payment.receiptFile);
+            enqueueSnackbar('Orden y comprobante guardados exitosamente', { variant: 'success' });
+          } catch (e: any) {
+            console.error('Error al subir el comprobante:', e);
+            enqueueSnackbar('Orden creada, pero hubo un error subiendo el comprobante', { variant: 'warning' });
+          }
+        }
+        
         navigate(`/orders/${newOrder.id}`);
       }
     } catch (error: any) {

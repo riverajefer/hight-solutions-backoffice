@@ -14,6 +14,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BlockIcon from '@mui/icons-material/Block';
 import EmailIcon from '@mui/icons-material/Email';
+import PhoneIcon from '@mui/icons-material/Phone';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import BadgeIcon from '@mui/icons-material/Badge';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
@@ -186,6 +187,13 @@ export const UserDetail: React.FC<UserDetailProps> = ({
                   icon={<EmailIcon />}
                   label="Correo Electrónico"
                   value={user.email}
+                />
+              )}
+              {user.phone && (
+                <DetailItem
+                  icon={<PhoneIcon />}
+                  label="Número de celular"
+                  value={user.phone}
                 />
               )}
             </Box>

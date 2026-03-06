@@ -12,6 +12,7 @@ import { Role, Cargo } from '../../../types';
 const userFormSchema = z.object({
   username: z.string().optional(),
   email: z.string().email('Email inválido').optional().or(z.literal('')),
+  phone: z.string().min(1, 'El número de celular es requerido'),
   firstName: z.string().min(1, 'El nombre es requerido'),
   lastName: z.string().min(1, 'El apellido es requerido'),
   password: z.string().optional(),
@@ -120,12 +121,13 @@ export const UserForm: React.FC<UserFormProps> = ({
       }
     }
 
-    // Eliminar confirmPassword y transformar cargoId/email vacío a undefined
-    const { confirmPassword, cargoId, email, username, ...rest } = data;
+    // Eliminar confirmPassword y transformar cargoId/email/phone vacío a undefined
+    const { confirmPassword, cargoId, email, username, phone, ...rest } = data;
     const submitData = {
       ...rest,
       username: username || undefined,
       email: email || undefined,
+      phone: phone,
       cargoId: cargoId || undefined,
     };
     await onSubmit(submitData);
@@ -187,6 +189,22 @@ export const UserForm: React.FC<UserFormProps> = ({
                 fullWidth
                 error={!!errors.email}
                 helperText={errors.email?.message}
+                disabled={isLoading}
+              />
+            )}
+          />
+
+          <Controller
+            name="phone"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Número de celular"
+                type="tel"
+                fullWidth
+                error={!!errors.phone}
+                helperText={errors.phone?.message}
                 disabled={isLoading}
               />
             )}

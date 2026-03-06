@@ -108,7 +108,7 @@ export const stateColors = {
 
 export const darkModeColors = {
   background: {
-    default: '#010100',
+    default: '#0C1020',
     paper: '#1A1A2E',
     surface: '#16213E',
     elevated: '#1E2A4A',
@@ -169,8 +169,8 @@ export const gradients = {
   // Degradados para fondos Dark Mode
   darkBackground: 'linear-gradient(135deg, #010100 0%, #1A1A2E 50%, #0A0A1A 100%)',
   darkNeonTint: 'linear-gradient(180deg, #010100 0%, #16213E 50%, #1A1A2E 100%)',
-  darkSidebar: 'linear-gradient(180deg, #1A1A2E 0%, #2D1B4E 100%)',
-  darkCard: 'linear-gradient(145deg, #1A1A2E 0%, #16213E 100%)',
+  darkSidebar: 'linear-gradient(180deg, #151c3a 0%, #1c315a 100%)',
+  darkCard: 'linear-gradient(145deg, #1C2040 0%, #161C38 100%)',
   darkMesh: `
     radial-gradient(ellipse at 20% 0%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
     radial-gradient(ellipse at 80% 100%, rgba(46, 176, 196, 0.15) 0%, transparent 50%),

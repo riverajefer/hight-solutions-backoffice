@@ -62,6 +62,21 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
 
   // Compañía
   Compañía: ['read_company', 'update_company'],
+
+  // Nómina
+  'Empleados de Nómina': [
+    'create_payroll_employees',
+    'read_payroll_employees',
+    'update_payroll_employees',
+    'delete_payroll_employees',
+  ],
+  'Periodos de Nómina': [
+    'create_payroll_periods',
+    'read_payroll_periods',
+    'update_payroll_periods',
+    'delete_payroll_periods',
+  ],
+
   Otros: [],
 };
 
@@ -98,6 +113,10 @@ const TABS = [
       'Compañía',
       'Otros',
     ],
+  },
+  {
+    label: 'Nómina',
+    groups: ['Empleados de Nómina', 'Periodos de Nómina'],
   },
 ];
 

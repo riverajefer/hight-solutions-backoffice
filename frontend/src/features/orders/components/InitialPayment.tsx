@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   Alert,
   Box,
@@ -10,7 +10,17 @@ import {
   Collapse,
   Divider,
   MenuItem,
+  FormLabel,
+  Stack,
+  Button,
+  IconButton,
+  Chip,
 } from '@mui/material';
+import {
+  AttachFile as AttachFileIcon,
+  Image as ImageIcon,
+  Close as CloseIcon,
+} from '@mui/icons-material';
 import type {
   InitialPaymentData,
   PaymentMethod,
@@ -59,12 +69,15 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
   disabled = false,
   required = false,
 }) => {
+  const receiptFileInputRef = useRef<HTMLInputElement>(null);
+
   const handleFieldChange = (field: keyof InitialPaymentData, newValue: any) => {
     const updatedData: InitialPaymentData = {
       amount: value?.amount ?? 0,
       paymentMethod: value?.paymentMethod || 'CASH',
       reference: value?.reference,
       notes: value?.notes,
+      receiptFile: value?.receiptFile,
       [field]: newValue,
     };
 
@@ -181,7 +194,121 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
               />
             </Grid>
 
-            {/* Fila 3: Saldo Calculado */}
+            {/* Fila 3: Comprobante */}
+            <Grid item xs={12}>
+              <Box>
+                <FormLabel sx={{ mb: 1, display: 'block' }}>
+                  Comprobante de Pago (Opcional)
+                </FormLabel>
+                <input
+                  type="file"
+                  hidden
+                  accept="image/jpeg,image/png,image/gif,image/webp,.pdf"
+                  ref={receiptFileInputRef}
+                  disabled={disabled}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFieldChange('receiptFile', file);
+                    if (e.target) e.target.value = '';
+                  }}
+                />
+
+                {!value?.receiptFile ? (
+                  <Stack spacing={1}>
+                    <Button
+                      variant="outlined"
+                      startIcon={<AttachFileIcon />}
+                      size="small"
+                      disabled={disabled}
+                      onClick={() => receiptFileInputRef.current?.click()}
+                      sx={{ textTransform: 'none', alignSelf: 'flex-start' }}
+                    >
+                      Adjuntar imagen o PDF
+                    </Button>
+                    <Box
+                      onPaste={(e) => {
+                        if (disabled) return;
+                        const items = e.clipboardData.items;
+                        for (let i = 0; i < items.length; i++) {
+                          if (items[i].type.indexOf('image') !== -1) {
+                            const file = items[i].getAsFile();
+                            if (file) handleFieldChange('receiptFile', file);
+                            break;
+                          }
+                        }
+                      }}
+                      tabIndex={disabled ? -1 : 0}
+                      sx={{
+                        border: '2px dashed',
+                        borderColor: 'grey.300',
+                        borderRadius: 1,
+                        p: 2,
+                        textAlign: 'center',
+                        cursor: disabled ? 'not-allowed' : 'pointer',
+                        opacity: disabled ? 0.6 : 1,
+                        transition: 'border-color 0.2s, background-color 0.2s',
+                        '&:hover, &:focus': !disabled ? {
+                          borderColor: 'primary.main',
+                          bgcolor: 'action.hover',
+                        } : {},
+                      }}
+                      onClick={() => {
+                        if (!disabled) receiptFileInputRef.current?.click();
+                      }}
+                    >
+                      <ImageIcon sx={{ fontSize: 28, color: 'grey.400', mb: 0.5 }} />
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        O pega una imagen aquí (Ctrl+V / ⌘+V)
+                      </Typography>
+                    </Box>
+                  </Stack>
+                ) : (
+                  <Stack spacing={1.5} direction="row" alignItems="center">
+                    {value.receiptFile.type.startsWith('image/') ? (
+                      <Box
+                        sx={{
+                          position: 'relative',
+                          width: 80,
+                          height: 80,
+                          border: '1px solid',
+                          borderColor: 'grey.300',
+                          borderRadius: 1,
+                          overflow: 'hidden',
+                          bgcolor: 'grey.50',
+                        }}
+                      >
+                        <Box
+                          component="img"
+                          src={URL.createObjectURL(value.receiptFile)}
+                          alt="Vista previa"
+                          sx={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                          }}
+                        />
+                      </Box>
+                    ) : (
+                      <Chip
+                        icon={<AttachFileIcon />}
+                        label={value.receiptFile.name}
+                        variant="outlined"
+                      />
+                    )}
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => handleFieldChange('receiptFile', null)}
+                      disabled={disabled}
+                    >
+                      <CloseIcon />
+                    </IconButton>
+                  </Stack>
+                )}
+              </Box>
+            </Grid>
+
+            {/* Fila 4: Saldo Calculado */}
             <Grid item xs={12}>
               <Box
                 sx={{

@@ -77,6 +77,14 @@ const ExpenseOrderFormPage = lazy(() => import('../features/expense-orders/pages
 const ExpenseOrderDetailPage = lazy(() => import('../features/expense-orders/pages/ExpenseOrderDetailPage'));
 // Order Timeline
 const OrderFlowPage = lazy(() => import('../features/order-timeline/pages/OrderFlowPage'));
+// Payroll
+const PayrollEmployeesListPage = lazy(() => import('../features/payroll/pages/PayrollEmployeesListPage'));
+const PayrollEmployeeFormPage = lazy(() => import('../features/payroll/pages/PayrollEmployeeFormPage'));
+const PayrollPeriodsListPage = lazy(() => import('../features/payroll/pages/PayrollPeriodsListPage'));
+const PayrollPeriodFormPage = lazy(() => import('../features/payroll/pages/PayrollPeriodFormPage'));
+const PayrollPeriodDetailPage = lazy(() => import('../features/payroll/pages/PayrollPeriodDetailPage'));
+const PayrollItemFormPage = lazy(() => import('../features/payroll/pages/PayrollItemFormPage'));
+const EmployeePayrollHistoryPage = lazy(() => import('../features/payroll/pages/EmployeePayrollHistoryPage'));
 
 
 const RoutesConfig: FC = () => {
@@ -1032,6 +1040,116 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.READ_EXPENSE_ORDERS}>
                   <ExpenseOrderDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Payroll Routes */}
+        <Route
+          path={PATHS.PAYROLL_EMPLOYEES}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_PAYROLL_EMPLOYEES}>
+                  <PayrollEmployeesListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PAYROLL_EMPLOYEES_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_PAYROLL_EMPLOYEES}>
+                  <PayrollEmployeeFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PAYROLL_EMPLOYEES_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_PAYROLL_EMPLOYEES}>
+                  <PayrollEmployeeFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PAYROLL_EMPLOYEES_HISTORY}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_PAYROLL_EMPLOYEES}>
+                  <EmployeePayrollHistoryPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PAYROLL_PERIODS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_PAYROLL_PERIODS}>
+                  <PayrollPeriodsListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PAYROLL_PERIODS_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_PAYROLL_PERIODS}>
+                  <PayrollPeriodFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PAYROLL_PERIODS_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_PAYROLL_PERIODS}>
+                  <PayrollPeriodFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PAYROLL_PERIODS_DETAIL}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_PAYROLL_PERIODS}>
+                  <PayrollPeriodDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PAYROLL_ITEM_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_PAYROLL_PERIODS}>
+                  <PayrollItemFormPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>
