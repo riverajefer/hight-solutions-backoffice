@@ -73,10 +73,7 @@ export const MainLayout: FC<MainLayoutProps> = ({ children }) => {
             flex: 1,
             overflow: 'auto',
             p: { xs: 2, sm: 2.5, md: 3 },
-            backgroundColor: (theme) =>
-              theme.palette.mode === 'dark'
-                ? '#31333b'
-                : '#f8fafc',
+            backgroundColor: (theme) => theme.palette.background.default,
           }}
         >
           {children}

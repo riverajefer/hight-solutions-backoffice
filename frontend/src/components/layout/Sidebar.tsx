@@ -52,12 +52,11 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import GroupsIcon from '@mui/icons-material/Groups';
 import { useAuthStore } from '../../store/authStore';
 import { ROUTES, PERMISSIONS } from '../../utils/constants';
-import { neonColors, neonAccents } from '../../theme';
+import { neonColors, neonAccents, gradients } from '../../theme';
 import logo from '../../assets/logo.png';
 
 const DRAWER_WIDTH = 280;
 const DRAWER_WIDTH_COLLAPSED = 72;
-const SIDEBAR_GRADIENT = 'linear-gradient(180deg, #151c3a 0%, #1c315a 100%)';
 
 interface SidebarProps {
   open: boolean;
@@ -407,7 +406,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        background: SIDEBAR_GRADIENT,
+        background: gradients.darkSidebar,
       }}
     >
       {/* Hamburger Button - Only on Desktop */}
@@ -672,7 +671,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           sx: {
             width: DRAWER_WIDTH,
             borderRight: 'none',
-            background: SIDEBAR_GRADIENT,
+            background: gradients.darkSidebar,
           }
         }}
       >
@@ -692,7 +691,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
         height: '100vh',
         position: 'sticky',
         top: 0,
-        background: SIDEBAR_GRADIENT,
+        background: gradients.darkSidebar,
         transition: 'width 0.3s ease',
       }}
     >

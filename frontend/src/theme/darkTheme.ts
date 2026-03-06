@@ -374,14 +374,14 @@ export const darkTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: borderRadius.medium,
-          backgroundColor: alpha(darkSurfaces.navyMist, 0.6),
+          backgroundColor: alpha(darkSurfaces.deepSpace, 0.65),
           backdropFilter: 'blur(8px)',
           transition: 'all 0.3s ease',
           '&:hover .MuiOutlinedInput-notchedOutline': {
             borderColor: alpha(neonColors.primary.main, 0.6),
           },
           '&.Mui-focused': {
-            backgroundColor: alpha(darkSurfaces.navyMist, 0.8),
+            backgroundColor: alpha(darkSurfaces.deepSpace, 0.8),
             '& .MuiOutlinedInput-notchedOutline': {
               borderColor: neonColors.primary.main,
               boxShadow: `0 0 0 3px ${alpha(neonColors.primary.main, 0.2)}, ${neonEffects.glow.cyanSubtle}`,
@@ -389,7 +389,7 @@ export const darkTheme = createTheme({
           },
         },
         notchedOutline: {
-          borderColor: alpha(neonAccents.vividPurple, 0.3),
+          borderColor: alpha(neonAccents.vividPurple, 0.4),
           transition: 'all 0.3s ease',
         },
       },
@@ -445,12 +445,12 @@ export const darkTheme = createTheme({
           borderRadius: borderRadius.xl,
           background: gradients.darkCard,
           backdropFilter: 'blur(16px)',
-          border: `1px solid ${alpha(neonAccents.vividPurple, 0.2)}`,
-          boxShadow: shadows.dark.card,
+          border: `1px solid ${alpha(neonAccents.vividPurple, 0.28)}`,
+          boxShadow: `${shadows.dark.card}, inset 0 2px 0 0 ${alpha(neonColors.primary.main, 0.4)}, inset 0 4px 12px -4px ${alpha(neonColors.primary.main, 0.1)}`,
           transition: 'all 0.3s ease',
           '&:hover': {
             borderColor: alpha(neonColors.primary.main, 0.5),
-            boxShadow: `${shadows.dark.card}, ${shadows.dark.neonHover}`,
+            boxShadow: `${shadows.dark.card}, ${shadows.dark.neonHover}, inset 0 2px 0 0 ${alpha(neonColors.primary.main, 0.6)}, inset 0 4px 16px -4px ${alpha(neonColors.primary.main, 0.15)}`,
             transform: 'translateY(-4px)',
           },
         },
@@ -489,20 +489,22 @@ export const darkTheme = createTheme({
           backgroundImage: 'none',
           background: gradients.darkCard,
           backdropFilter: 'blur(12px)',
+          boxShadow: `${shadows.dark.sm}, inset 0 2px 0 0 ${alpha(neonAccents.vividPurple, 0.45)}, inset 0 4px 12px -4px ${alpha(neonAccents.vividPurple, 0.1)}`,
         },
         rounded: {
           borderRadius: borderRadius.large,
         },
         elevation1: {
-          boxShadow: shadows.dark.sm,
-          border: `1px solid ${alpha(darkModeColors.border, 0.5)}`,
+          background: `linear-gradient(145deg, ${alpha(darkSurfaces.midnightBlue, 0.95)} 0%, ${alpha(darkSurfaces.navyMist, 0.9)} 100%)`,
+          boxShadow: `${shadows.dark.sm}, inset 0 2px 0 0 ${alpha(neonAccents.vividPurple, 0.45)}`,
+          border: `1px solid ${alpha(darkModeColors.border, 0.6)}`,
         },
         elevation2: {
-          boxShadow: shadows.dark.md,
-          border: `1px solid ${darkModeColors.border}`,
+          boxShadow: `${shadows.dark.md}, inset 0 2px 0 0 ${alpha(neonAccents.vividPurple, 0.5)}`,
+          border: `1px solid ${alpha(darkModeColors.border, 0.8)}`,
         },
         elevation3: {
-          boxShadow: `${shadows.dark.lg}, ${shadows.dark.neon}`,
+          boxShadow: `${shadows.dark.lg}, ${shadows.dark.neon}, inset 0 2px 0 0 ${alpha(neonColors.primary.main, 0.4)}`,
           border: `1px solid ${darkModeColors.border}`,
         },
       },
@@ -515,7 +517,7 @@ export const darkTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: borderRadius.large,
-          border: `1px solid ${alpha(neonAccents.vividPurple, 0.2)}`,
+          border: `1px solid ${alpha(neonAccents.vividPurple, 0.28)}`,
           overflow: 'hidden',
         },
       },
