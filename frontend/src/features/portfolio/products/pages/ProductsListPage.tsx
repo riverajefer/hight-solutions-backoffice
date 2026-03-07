@@ -38,7 +38,7 @@ const ProductsListPage: React.FC = () => {
   };
 
   // Define columns for DataTable
-  const rawColumns: ResponsiveGridColDef[] = useMemo(() => [
+  const rawColumns: ResponsiveGridColDef<Product>[] = useMemo(() => [
     {
       field: 'name',
       headerName: 'Nombre',
@@ -57,7 +57,7 @@ const ProductsListPage: React.FC = () => {
       flex: 1,
       minWidth: 150,
       responsive: 'md',
-      valueGetter: (_value, row) => row.category?.name || 'N/A',
+      valueGetter: (_value: any, row: Product) => row.category?.name || 'N/A',
     },
     {
       field: 'basePrice',
@@ -66,7 +66,7 @@ const ProductsListPage: React.FC = () => {
       align: 'right',
       headerAlign: 'right',
       responsive: 'sm',
-      valueFormatter: (value) => {
+      valueFormatter: (value: number) => {
         if (value == null) return 'N/A';
         return new Intl.NumberFormat('es-CO', {
           style: 'currency',

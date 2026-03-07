@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useTheme, useMediaQuery } from '@mui/material';
-import { GridColDef } from '@mui/x-data-grid';
+import { GridColDef, GridValidRowModel } from '@mui/x-data-grid';
 
 /**
  * Breakpoint mínimo en el que se muestra la columna.
@@ -12,13 +12,13 @@ import { GridColDef } from '@mui/x-data-grid';
  */
 export type ResponsiveBreakpoint = 'always' | 'xs' | 'sm' | 'md' | 'lg';
 
-export interface ResponsiveGridColDef extends GridColDef {
+export type ResponsiveGridColDef<R extends GridValidRowModel = any> = GridColDef<R> & {
   /**
    * Breakpoint mínimo a partir del cual se muestra esta columna.
    * Si no se especifica, la columna se muestra siempre.
    */
   responsive?: ResponsiveBreakpoint;
-}
+};
 
 /**
  * Hook que filtra columnas del DataGrid según el breakpoint actual.
@@ -31,7 +31,7 @@ export interface ResponsiveGridColDef extends GridColDef {
  *   { field: 'phone', headerName: 'Teléfono', width: 140, responsive: 'md' },  // oculta en xs y sm
  * ]);
  */
-export function useResponsiveColumns(columns: ResponsiveGridColDef[]): GridColDef[] {
+export function useResponsiveColumns<R extends GridValidRowModel = any>(columns: ResponsiveGridColDef<R>[]): GridColDef<R>[] {
   const theme = useTheme();
   const isSmUp = useMediaQuery(theme.breakpoints.up('sm'));
   const isMdUp = useMediaQuery(theme.breakpoints.up('md'));

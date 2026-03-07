@@ -38,7 +38,7 @@ const SuppliesListPage: React.FC = () => {
   };
 
   // Define columns for DataTable
-  const rawColumns: ResponsiveGridColDef[] = useMemo(() => [
+  const rawColumns: ResponsiveGridColDef<Supply>[] = useMemo(() => [
     {
       field: 'name',
       headerName: 'Nombre',
@@ -57,7 +57,7 @@ const SuppliesListPage: React.FC = () => {
       flex: 1,
       minWidth: 150,
       responsive: 'md',
-      valueGetter: (_value, row) => row.category?.name || 'N/A',
+      valueGetter: (_value: any, row: Supply) => row.category?.name || 'N/A',
     },
     {
       field: 'purchasePrice',
@@ -66,7 +66,7 @@ const SuppliesListPage: React.FC = () => {
       align: 'right',
       headerAlign: 'right',
       responsive: 'sm',
-      valueFormatter: (value) => {
+      valueFormatter: (value: number) => {
         if (value == null) return 'N/A';
         return new Intl.NumberFormat('es-CO', {
           style: 'currency',
@@ -80,7 +80,7 @@ const SuppliesListPage: React.FC = () => {
       headerName: 'Unidad Compra',
       width: 120,
       responsive: 'lg',
-      valueGetter: (_value, row) => row.purchaseUnit?.abbreviation || 'N/A',
+      valueGetter: (_value: any, row: Supply) => row.purchaseUnit?.abbreviation || 'N/A',
     },
     {
       field: 'currentStock',
@@ -89,7 +89,7 @@ const SuppliesListPage: React.FC = () => {
       align: 'right',
       headerAlign: 'right',
       responsive: 'sm',
-      valueFormatter: (value) => {
+      valueFormatter: (value: number) => {
         if (value == null) return '0';
         return new Intl.NumberFormat('es-CO').format(value);
       },
@@ -101,7 +101,7 @@ const SuppliesListPage: React.FC = () => {
       align: 'right',
       headerAlign: 'right',
       responsive: 'lg',
-      valueFormatter: (value) => {
+      valueFormatter: (value: number) => {
         if (value == null) return '0';
         return new Intl.NumberFormat('es-CO').format(value);
       },

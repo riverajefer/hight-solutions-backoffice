@@ -14,7 +14,7 @@ import { dataGridStyles, paperStyles } from './styles';
 
 interface DataTableProps<T extends GridValidRowModel> {
   rows: T[];
-  columns: GridColDef[];
+  columns: GridColDef<T>[];
   loading?: boolean;
   pageSize?: number;
   pageSizeOptions?: number[];

@@ -8,6 +8,7 @@ import {
   Button,
   Chip,
 } from '@mui/material';
+import { GridRenderCellParams } from '@mui/x-data-grid';
 import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../hooks';
 import { Add as AddIcon } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -77,12 +78,12 @@ export const ExpenseOrdersListPage = () => {
 
   const expenseOrders = expenseOrdersQuery.data?.data ?? [];
 
-  const rawColumns: ResponsiveGridColDef[] = useMemo(() => [
+  const rawColumns: ResponsiveGridColDef<ExpenseOrder>[] = useMemo(() => [
     {
       field: 'ogNumber',
       headerName: 'Nº OG',
       width: 140,
-      renderCell: ({ row }) => (
+      renderCell: ({ row }: GridRenderCellParams<ExpenseOrder>) => (
         <Box
           sx={{ color: 'primary.main', cursor: 'pointer', fontWeight: 600 }}
           onClick={() => handleView(row)}
@@ -95,7 +96,7 @@ export const ExpenseOrdersListPage = () => {
       field: 'status',
       headerName: 'Estado',
       width: 130,
-      renderCell: ({ row }) => {
+      renderCell: ({ row }: GridRenderCellParams<ExpenseOrder>) => {
         const config = EXPENSE_ORDER_STATUS_CONFIG[row.status];
         return <Chip label={config.label} color={config.color} size="small" />;
       },
@@ -105,21 +106,21 @@ export const ExpenseOrdersListPage = () => {
       headerName: 'Tipo',
       width: 140,
       responsive: 'sm',
-      renderCell: ({ row }) => row.expenseType.name,
+      renderCell: ({ row }: GridRenderCellParams<ExpenseOrder>) => row.expenseType.name,
     },
     {
       field: 'expenseSubcategory',
       headerName: 'Subcategoría',
       width: 160,
       responsive: 'md',
-      renderCell: ({ row }) => row.expenseSubcategory.name,
+      renderCell: ({ row }: GridRenderCellParams<ExpenseOrder>) => row.expenseSubcategory.name,
     },
     {
       field: 'authorizedTo',
       headerName: 'Autorizado a',
       flex: 1,
       responsive: 'md',
-      renderCell: ({ row }) =>
+      renderCell: ({ row }: GridRenderCellParams<ExpenseOrder>) =>
         `${row.authorizedTo.firstName ?? ''} ${row.authorizedTo.lastName ?? ''}`.trim() ||
         row.authorizedTo.email,
     },
@@ -128,15 +129,15 @@ export const ExpenseOrdersListPage = () => {
       headerName: 'OT',
       width: 130,
       responsive: 'lg',
-      renderCell: ({ row }) => row.workOrder?.workOrderNumber ?? '—',
+      renderCell: ({ row }: GridRenderCellParams<ExpenseOrder>) => row.workOrder?.workOrderNumber ?? '—',
     },
     {
       field: 'total',
       headerName: 'Total',
       width: 130,
       responsive: 'sm',
-      renderCell: ({ row }) => {
-        const total = row.items.reduce((acc, item) => acc + Number(item.total), 0);
+      renderCell: ({ row }: GridRenderCellParams<ExpenseOrder>) => {
+        const total = row.items.reduce((acc: number, item: any) => acc + Number(item.total), 0);
         return formatCurrency(total);
       },
     },
@@ -145,14 +146,14 @@ export const ExpenseOrdersListPage = () => {
       headerName: 'Fecha',
       width: 120,
       responsive: 'sm',
-      renderCell: ({ row }) => formatDate(row.createdAt),
+      renderCell: ({ row }: GridRenderCellParams<ExpenseOrder>) => formatDate(row.createdAt),
     },
     {
       field: 'actions',
       headerName: '',
       width: 120,
       sortable: false,
-      renderCell: ({ row }) => (
+      renderCell: ({ row }: GridRenderCellParams<ExpenseOrder>) => (
         <ActionsCell
           onView={() => handleView(row)}
           onEdit={canUpdate && row.status === ExpenseOrderStatus.DRAFT ? () => handleEdit(row) : undefined}

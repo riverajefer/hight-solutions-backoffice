@@ -10,6 +10,7 @@ import {
   IconButton,
   Tooltip,
 } from '@mui/material';
+import { GridRenderCellParams } from '@mui/x-data-grid';
 import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../hooks';
 import {
   PostAdd as PostAddIcon,
@@ -111,12 +112,12 @@ export const QuotesListPage: React.FC = () => {
     } catch (error) {}
   };
 
-  const rawColumns: ResponsiveGridColDef[] = useMemo(() => [
+  const rawColumns: ResponsiveGridColDef<Quote>[] = useMemo(() => [
     {
       field: 'quoteNumber',
       headerName: 'Nº Cotización',
       width: 150,
-      renderCell: (params) => (
+      renderCell: (params: GridRenderCellParams<Quote>) => (
         <Box sx={{ fontWeight: 600, color: 'primary.main' }}>{params.value}</Box>
       ),
     },
@@ -124,21 +125,21 @@ export const QuotesListPage: React.FC = () => {
       field: 'client',
       headerName: 'Cliente',
       width: 250,
-      valueGetter: (_, row) => row.client?.name || '',
+      valueGetter: (_: any, row: Quote) => row.client?.name || '',
     },
     {
       field: 'quoteDate',
       headerName: 'Fecha',
       width: 160,
       responsive: 'sm',
-      renderCell: (params) => formatDateTime(params.value),
+      renderCell: (params: GridRenderCellParams<Quote>) => formatDateTime(params.value),
     },
     {
       field: 'validUntil',
       headerName: 'Vence',
       width: 130,
       responsive: 'md',
-      renderCell: (params) => params.value ? formatDate(params.value) : '-',
+      renderCell: (params: GridRenderCellParams<Quote>) => params.value ? formatDate(params.value) : '-',
     },
     {
       field: 'total',
@@ -147,20 +148,20 @@ export const QuotesListPage: React.FC = () => {
       align: 'right',
       headerAlign: 'right',
       responsive: 'sm',
-      renderCell: (params) => formatCurrency(params.value),
+      renderCell: (params: GridRenderCellParams<Quote>) => formatCurrency(params.value),
     },
     {
       field: 'status',
       headerName: 'Estado',
       width: 150,
-      renderCell: (params) => <QuoteStatusChip status={params.value as QuoteStatus} />,
+      renderCell: (params: GridRenderCellParams<Quote>) => <QuoteStatusChip status={params.value as QuoteStatus} />,
     },
     {
       field: 'actions',
       headerName: 'Acciones',
       width: 200,
       sortable: false,
-      renderCell: (params) => {
+      renderCell: (params: GridRenderCellParams<Quote>) => {
         const isConverted = params.row.status === QStatus.CONVERTED;
         const canEdit = !isConverted;
         const canDelete = params.row.status === QStatus.DRAFT;
@@ -191,7 +192,7 @@ export const QuotesListPage: React.FC = () => {
         );
       },
     },
-  ], [navigate]);
+  ], [navigate, setConfirmDelete, setConfirmConvert]);
 
   const columns = useResponsiveColumns(rawColumns);
 

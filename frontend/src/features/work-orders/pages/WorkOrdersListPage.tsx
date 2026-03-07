@@ -9,6 +9,7 @@ import {
   Chip,
   Typography,
 } from '@mui/material';
+import { GridRenderCellParams } from '@mui/x-data-grid';
 import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../hooks';
 import {
   Add as AddIcon,
@@ -96,7 +97,7 @@ export const WorkOrdersListPage = () => {
 
   const workOrders = workOrdersQuery.data?.data ?? [];
 
-  const rawColumns: ResponsiveGridColDef[] = useMemo(() => [
+  const rawColumns: ResponsiveGridColDef<WorkOrder>[] = useMemo(() => [
     {
       field: 'workOrderNumber',
       headerName: 'Nº OT',
@@ -107,7 +108,7 @@ export const WorkOrdersListPage = () => {
       headerName: 'Nº Orden',
       width: 150,
       responsive: 'sm',
-      valueGetter: (_, row) => row.order?.orderNumber ?? '-',
+      valueGetter: (_: any, row: WorkOrder) => row.order?.orderNumber ?? '-',
     },
     {
       field: 'expenseOrders',
@@ -116,7 +117,7 @@ export const WorkOrdersListPage = () => {
       sortable: false,
       filterable: false,
       responsive: 'lg',
-      renderCell: (params) => {
+      renderCell: (params: GridRenderCellParams<WorkOrder>) => {
         const expenseOrders = params.row.expenseOrders ?? [];
 
         if (!expenseOrders.length) {
@@ -132,7 +133,7 @@ export const WorkOrdersListPage = () => {
             useFlexGap
             sx={{ py: 0.5, maxWidth: '100%' }}
           >
-            {expenseOrders.map((og) => (
+            {expenseOrders.map((og: any) => (
               <Chip
                 key={og.id}
                 icon={<ReceiptLongIcon sx={{ fontSize: '0.85rem !important' }} />}
@@ -155,14 +156,14 @@ export const WorkOrdersListPage = () => {
       field: 'client',
       headerName: 'Cliente',
       width: 220,
-      valueGetter: (_, row) => row.order?.client?.name ?? '-',
+      valueGetter: (_: any, row: WorkOrder) => row.order?.client?.name ?? '-',
     },
     {
       field: 'advisor',
       headerName: 'Asesor',
       width: 180,
       responsive: 'md',
-      valueGetter: (_, row) => {
+      valueGetter: (_: any, row: WorkOrder) => {
         const a = row.advisor;
         if (!a) return '-';
         return `${a.firstName ?? ''} ${a.lastName ?? ''}`.trim() || a.email;
@@ -172,21 +173,21 @@ export const WorkOrdersListPage = () => {
       field: 'status',
       headerName: 'Estado',
       width: 160,
-      renderCell: (params) => <WorkOrderStatusChip status={params.value} />,
+      renderCell: (params: GridRenderCellParams<WorkOrder>) => <WorkOrderStatusChip status={params.value as WorkOrderStatus} />,
     },
     {
       field: 'createdAt',
       headerName: 'Creada',
       width: 170,
       responsive: 'sm',
-      valueGetter: (_, row) => (row.createdAt ? formatDate(row.createdAt) : '-'),
+      valueGetter: (_: any, row: WorkOrder) => (row.createdAt ? formatDate(row.createdAt) : '-'),
     },
     {
       field: 'actions',
       headerName: 'Acciones',
       width: 160,
       sortable: false,
-      renderCell: (params) => (
+      renderCell: (params: GridRenderCellParams<WorkOrder>) => (
         <ActionsCell
           onView={() => handleView(params.row)}
           onEdit={

@@ -1,4 +1,5 @@
 import { Chip, Box } from '@mui/material';
+import { GridRenderCellParams } from '@mui/x-data-grid';
 import { StatusBadge, ActionsCell } from '../../../components/common/DataTable';
 import { User } from '../../../types';
 import { formatDate } from '../../../utils/helpers';
@@ -18,7 +19,7 @@ export const getUserColumns = ({
   onView,
   canEdit = true,
   canDelete = true,
-}: UserColumnsProps): ResponsiveGridColDef[] => [
+}: UserColumnsProps): ResponsiveGridColDef<User>[] => [
   {
     field: 'id',
     headerName: 'ID',
@@ -30,7 +31,7 @@ export const getUserColumns = ({
     headerName: 'Nombre completo',
     flex: 1,
     minWidth: 200,
-    valueGetter: (_, row) => {
+    valueGetter: (_: any, row: User) => {
       const { firstName, lastName } = row;
       return `${firstName || ''} ${lastName || ''}`.trim() || 'N/A';
     },
@@ -41,7 +42,7 @@ export const getUserColumns = ({
     flex: 1,
     minWidth: 150,
     responsive: 'sm',
-    valueGetter: (_, row) => row.username || '—',
+    valueGetter: (_: any, row: User) => row.username || '—',
   },
   {
     field: 'email',
@@ -49,14 +50,14 @@ export const getUserColumns = ({
     flex: 1,
     minWidth: 200,
     responsive: 'md',
-    valueGetter: (_, row) => row.email || '—',
+    valueGetter: (_: any, row: User) => row.email || '—',
   },
   {
     field: 'role',
     headerName: 'Rol',
     width: 130,
     responsive: 'sm',
-    renderCell: (params) => (
+    renderCell: (params: GridRenderCellParams<User>) => (
       <Box display="flex" gap={0.5}>
         <Chip
           label={params.row.role?.name || params.row.roleId || 'Usuario'}
@@ -71,7 +72,7 @@ export const getUserColumns = ({
     headerName: 'Cargo',
     width: 180,
     responsive: 'lg',
-    renderCell: (params) => {
+    renderCell: (params: GridRenderCellParams<User>) => {
       const cargo = (params.row as any).cargo;
       if (!cargo) {
         return <Chip label="Sin cargo" size="small" variant="outlined" color="default" />;
@@ -92,7 +93,7 @@ export const getUserColumns = ({
     field: 'status',
     headerName: 'Estado',
     width: 120,
-    renderCell: (params) => (
+    renderCell: (params: GridRenderCellParams<User>) => (
       <StatusBadge status={params.row.isActive !== false ? 'active' : 'inactive'} />
     ),
   },
@@ -101,7 +102,7 @@ export const getUserColumns = ({
     headerName: 'Fecha de creación',
     width: 180,
     responsive: 'sm',
-    valueFormatter: (value) => formatDate(value as string),
+    valueFormatter: (value: any) => formatDate(value as string),
   },
   {
     field: 'actions',
@@ -109,7 +110,7 @@ export const getUserColumns = ({
     width: 120,
     sortable: false,
     filterable: false,
-    renderCell: (params) => (
+    renderCell: (params: GridRenderCellParams<User>) => (
       <ActionsCell
         onView={() => onView(params.row)}
         onEdit={canEdit ? () => onEdit(params.row) : undefined}
