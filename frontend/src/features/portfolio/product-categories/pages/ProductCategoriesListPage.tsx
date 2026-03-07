@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Box, Chip } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
-import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { GridRenderCellParams } from '@mui/x-data-grid';
 import { PageHeader } from '../../../../components/common/PageHeader';
 import { ConfirmDialog } from '../../../../components/common/ConfirmDialog';
 import { DataTable, ActionsCell } from '../../../../components/common/DataTable';

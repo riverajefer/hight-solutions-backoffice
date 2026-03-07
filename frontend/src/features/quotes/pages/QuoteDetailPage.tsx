@@ -266,6 +266,9 @@ export const QuoteDetailPage: React.FC = () => {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
+      {updateQuoteMutation.isPending && (
+        <LoadingSpinner fullScreen message="Actualizando estado..." />
+      )}
       <PageHeader
         title={`Cotización ${quote.quoteNumber}`}
         breadcrumbs={[
@@ -629,7 +632,7 @@ export const QuoteDetailPage: React.FC = () => {
             <MenuItem
               key={status}
               onClick={() => handleChangeStatus(status as QuoteStatus)}
-              disabled={!isAllowed}
+              disabled={!isAllowed || updateQuoteMutation.isPending}
             >
               <Chip
                 label={config.label}

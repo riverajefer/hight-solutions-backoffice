@@ -44,7 +44,7 @@ export interface QuoteItemRow {
   productId?: string;
   specifications?: any;
   productionAreaIds?: string[];
-  sampleImageId?: string;
+  sampleImageId?: string | null;
 }
 
 interface QuoteItemsTableProps {

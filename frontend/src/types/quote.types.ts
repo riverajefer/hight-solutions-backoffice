@@ -89,7 +89,7 @@ export interface CreateQuoteItemDto {
   quantity: number;
   unitPrice: number;
   specifications?: any;
-  sampleImageId?: string;
+  sampleImageId?: string | null;
 }
 
 export interface CreateQuoteDto {

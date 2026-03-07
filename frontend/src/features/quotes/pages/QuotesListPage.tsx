@@ -15,15 +15,17 @@ import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../hooks'
 import {
   PostAdd as PostAddIcon,
   ShoppingCartCheckout as ConvertIcon,
+  SwapHoriz as SwapHorizIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { DataTable } from '../../../components/common/DataTable';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { ActionsCell } from '../../../components/common/DataTable/ActionsCell';
-import { useQuotes } from '../hooks/useQuotes';
+import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
+import { useQuotes } from '../hooks';
 import { useClients } from '../../clients/hooks/useClients';
-import { QuoteStatusChip } from '../components/QuoteStatusChip';
+import { QuoteStatusChip, ChangeQuoteStatusDialog } from '../components';
 import type { Quote, QuoteStatus, FilterQuotesDto } from '../../../types/quote.types';
 import { QuoteStatus as QStatus } from '../../../types/quote.types';
 import type { Client } from '../../../types/client.types';
@@ -70,8 +72,9 @@ export const QuotesListPage: React.FC = () => {
 
   const [confirmDelete, setConfirmDelete] = useState<Quote | null>(null);
   const [confirmConvert, setConfirmConvert] = useState<Quote | null>(null);
+  const [changeStatusQuote, setChangeStatusQuote] = useState<Quote | null>(null);
 
-  const { quotesQuery, deleteQuoteMutation, convertToOrderMutation } = useQuotes(filters);
+  const { quotesQuery, deleteQuoteMutation, convertToOrderMutation, updateQuoteMutation } = useQuotes(filters);
   const { clientsQuery } = useClients({ includeInactive: false });
 
   const quotes = quotesQuery.data?.data || [];
@@ -110,6 +113,14 @@ export const QuotesListPage: React.FC = () => {
         navigate(`/orders/${(order as any).id}`);
       }
     } catch (error) {}
+  };
+
+  const handleChangeStatus = async (newStatus: QuoteStatus) => {
+    if (!changeStatusQuote) return;
+    await updateQuoteMutation.mutateAsync({
+      id: changeStatusQuote.id,
+      data: { status: newStatus },
+    });
   };
 
   const rawColumns: ResponsiveGridColDef<Quote>[] = useMemo(() => [
@@ -166,6 +177,7 @@ export const QuotesListPage: React.FC = () => {
         const canEdit = !isConverted;
         const canDelete = params.row.status === QStatus.DRAFT;
         const canConvert = params.row.status === QStatus.ACCEPTED;
+        const canChangeStatus = !isConverted;
 
         return (
           <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
@@ -174,6 +186,20 @@ export const QuotesListPage: React.FC = () => {
               onEdit={canEdit ? () => navigate(`/quotes/${params.row.id}/edit`) : undefined}
               onDelete={canDelete ? () => setConfirmDelete(params.row) : undefined}
             />
+            {canChangeStatus && (
+              <Tooltip title="Cambiar Estado">
+                <IconButton
+                  size="small"
+                  color="primary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setChangeStatusQuote(params.row);
+                  }}
+                >
+                  <SwapHorizIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
             {canConvert && (
               <Tooltip title="Convertir a Orden">
                 <IconButton
@@ -192,12 +218,15 @@ export const QuotesListPage: React.FC = () => {
         );
       },
     },
-  ], [navigate, setConfirmDelete, setConfirmConvert]);
+  ], [navigate, setConfirmDelete, setConfirmConvert, setChangeStatusQuote]);
 
   const columns = useResponsiveColumns(rawColumns);
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
+      {updateQuoteMutation.isPending && (
+        <LoadingSpinner fullScreen message="Actualizando estado..." />
+      )}
       <PageHeader
         title="Cotizaciones"
         breadcrumbs={[{ label: 'Cotizaciones' }]}
@@ -282,6 +311,14 @@ export const QuotesListPage: React.FC = () => {
         onConfirm={handleConvertQuote}
         onCancel={() => setConfirmConvert(null)}
         isLoading={convertToOrderMutation.isPending}
+      />
+
+      <ChangeQuoteStatusDialog
+        open={!!changeStatusQuote}
+        quote={changeStatusQuote}
+        onClose={() => setChangeStatusQuote(null)}
+        onConfirm={handleChangeStatus}
+        isLoading={updateQuoteMutation.isPending}
       />
     </Box>
   );
