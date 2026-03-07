@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Chip,
+  IconButton,
   MenuItem,
   Stack,
   TextField,
+  Tooltip,
   Typography,
   useTheme,
   alpha,
@@ -13,6 +15,9 @@ import {
 } from '@mui/material';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
+import ClearIcon from '@mui/icons-material/Clear';
+import { DatePicker } from '@mui/x-date-pickers';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { GridColDef } from '@mui/x-data-grid';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { DataTable } from '../../../components/common/DataTable';
@@ -49,6 +54,58 @@ export const ProfitabilityPage: React.FC = () => {
     page: 1,
     limit: 50,
   });
+  const [monthDate, setMonthDate] = useState<Date | null>(null);
+  const [dateFrom,  setDateFrom]  = useState<Date | null>(null);
+  const [dateTo,    setDateTo]    = useState<Date | null>(null);
+
+  const handleMonthChange = (date: Date | null) => {
+    setMonthDate(date);
+    if (date) {
+      const start = startOfMonth(date);
+      const end   = endOfMonth(date);
+      setDateFrom(start);
+      setDateTo(end);
+      setFilters((f) => ({
+        ...f,
+        orderDateFrom: format(start, 'yyyy-MM-dd'),
+        orderDateTo:   format(end,   'yyyy-MM-dd'),
+        page: 1,
+      }));
+    } else {
+      setDateFrom(null);
+      setDateTo(null);
+      setFilters((f) => ({ ...f, orderDateFrom: undefined, orderDateTo: undefined, page: 1 }));
+    }
+  };
+
+  const handleDateFromChange = (date: Date | null) => {
+    setMonthDate(null);
+    setDateFrom(date);
+    setFilters((f) => ({
+      ...f,
+      orderDateFrom: date ? format(date, 'yyyy-MM-dd') : undefined,
+      page: 1,
+    }));
+  };
+
+  const handleDateToChange = (date: Date | null) => {
+    setMonthDate(null);
+    setDateTo(date);
+    setFilters((f) => ({
+      ...f,
+      orderDateTo: date ? format(date, 'yyyy-MM-dd') : undefined,
+      page: 1,
+    }));
+  };
+
+  const handleClearDates = () => {
+    setMonthDate(null);
+    setDateFrom(null);
+    setDateTo(null);
+    setFilters((f) => ({ ...f, orderDateFrom: undefined, orderDateTo: undefined, page: 1 }));
+  };
+
+  const hasDateFilter = !!(monthDate || dateFrom || dateTo);
 
   const profitabilityQuery = useProfitabilityList(filters);
   const rows: OrderProfitabilityListItem[] = profitabilityQuery.data?.data ?? [];
@@ -248,7 +305,7 @@ export const ProfitabilityPage: React.FC = () => {
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         spacing={2}
-        sx={{ mb: 3 }}
+        sx={{ mb: 2 }}
       >
         <TextField
           label="Buscar"
@@ -279,6 +336,42 @@ export const ProfitabilityPage: React.FC = () => {
           <MenuItem value="PAID">Pagada</MenuItem>
           <MenuItem value="CANCELLED">Cancelada</MenuItem>
         </TextField>
+      </Stack>
+
+      {/* ── Filtros de fecha ── */}
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={2}
+        alignItems="center"
+        sx={{ mb: 3 }}
+      >
+        <DatePicker
+          label="Mes"
+          views={['year', 'month']}
+          openTo="month"
+          value={monthDate}
+          onChange={handleMonthChange}
+          slotProps={{ textField: { size: 'small', sx: { minWidth: 160 } } }}
+        />
+        <DatePicker
+          label="Desde"
+          value={dateFrom}
+          onChange={handleDateFromChange}
+          slotProps={{ textField: { size: 'small', sx: { minWidth: 160 } } }}
+        />
+        <DatePicker
+          label="Hasta"
+          value={dateTo}
+          onChange={handleDateToChange}
+          slotProps={{ textField: { size: 'small', sx: { minWidth: 160 } } }}
+        />
+        {hasDateFilter && (
+          <Tooltip title="Limpiar fechas">
+            <IconButton size="small" onClick={handleClearDates}>
+              <ClearIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
       </Stack>
 
       {/* ── Tabla ── */}
