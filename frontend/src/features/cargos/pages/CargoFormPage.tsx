@@ -108,7 +108,7 @@ const CargoFormPage: React.FC = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title={isEdit ? 'Editar Cargo' : 'Nuevo Cargo'}
         breadcrumbs={[
@@ -118,7 +118,7 @@ const CargoFormPage: React.FC = () => {
       />
 
       <Card sx={{ maxWidth: 600 }}>
-        <CardContent>
+        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {error}
@@ -184,11 +184,16 @@ const CargoFormPage: React.FC = () => {
                 )}
               />
 
-              <Stack direction="row" spacing={2} justifyContent="flex-end">
+              <Stack
+                direction={{ xs: 'column-reverse', sm: 'row' }}
+                spacing={2}
+                justifyContent={{ sm: 'flex-end' }}
+              >
                 <Button
                   variant="outlined"
                   onClick={() => navigate('/cargos')}
                   disabled={isSubmitting}
+                  sx={{ width: { xs: '100%', sm: 'auto' } }}
                 >
                   Cancelar
                 </Button>
@@ -196,6 +201,7 @@ const CargoFormPage: React.FC = () => {
                   type="submit"
                   variant="contained"
                   disabled={isSubmitting}
+                  sx={{ width: { xs: '100%', sm: 'auto' } }}
                 >
                   {isSubmitting ? 'Guardando...' : isEdit ? 'Actualizar' : 'Crear'}
                 </Button>

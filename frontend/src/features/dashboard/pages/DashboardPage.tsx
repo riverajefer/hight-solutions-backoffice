@@ -147,8 +147,8 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, neonColo
         }}
       />
 
-    <CardContent sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 1 }}>
-      <Box display="flex" alignItems="center" justifyContent="space-between" mb={3}>
+    <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 3 }, height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 1 }}>
+      <Box display="flex" alignItems="center" justifyContent="space-between" sx={{ mb: { xs: 1.5, sm: 2, md: 3 } }}>
         <Box
           className="stat-icon-container"
           sx={{
@@ -174,7 +174,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, neonColo
               color: 'text.primary',
               lineHeight: 1,
               letterSpacing: '-0.02em',
-              fontSize: '2rem',
+              fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2rem' },
             }}
           >
             {value}
@@ -202,7 +202,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, neonColo
           fontWeight: 700,
           color: 'text.primary',
           mb: 'auto',
-          fontSize: '1.1rem',
+          fontSize: { xs: '0.95rem', sm: '1rem', md: '1.1rem' },
         }}
       >
         {title}
@@ -249,7 +249,7 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => (
     id={`dashboard-tabpanel-${index}`}
     aria-labelledby={`dashboard-tab-${index}`}
   >
-    {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
+    {value === index && <Box sx={{ py: { xs: 1.5, sm: 2, md: 3 } }}>{children}</Box>}
   </div>
 );
 
@@ -509,14 +509,14 @@ const DashboardPage: React.FC = () => {
   };
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title={`Bienvenido ${user?.firstName || 'Usuario'}`}
         subtitle="Panel de control"
       />
 
       {/* Tabs Navigation */}
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: { xs: 1.5, sm: 2, md: 3 } }}>
         <Tabs
           value={currentTab}
           onChange={handleTabChange}
@@ -611,7 +611,7 @@ const DashboardPage: React.FC = () => {
 
       {/* Tab 0: Vista General */}
       <TabPanel value={currentTab} index={0}>
-        <Grid container spacing={2.5}>
+        <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }}>
           {hasPermission(PERMISSIONS.READ_ORDERS) && (
             <Grid item xs={12} sm={6} md={4} lg={3}>
               <StatCard
@@ -797,7 +797,7 @@ const DashboardPage: React.FC = () => {
 
       {/* Tab 1: Comercial */}
       <TabPanel value={currentTab} index={1}>
-        <Grid container spacing={2.5}>
+        <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }}>
           {hasPermission(PERMISSIONS.READ_ORDERS) && (
             <Grid item xs={12} sm={6} md={4}>
               <StatCard
@@ -936,11 +936,11 @@ const DashboardPage: React.FC = () => {
         </Grid>
 
         {/* Acciones Rápidas - Comercial */}
-        <Box mt={4}>
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, color: 'text.primary' }}>
+        <Box sx={{ mt: { xs: 2.5, sm: 3, md: 4 } }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, color: 'text.primary', fontSize: { xs: '1rem', sm: '1.15rem', md: '1.25rem' } }}>
             Acciones Rápidas
           </Typography>
-          <Grid container spacing={2}>
+          <Grid container spacing={{ xs: 1.5, sm: 2, md: 2 }}>
             {hasPermission(PERMISSIONS.CREATE_QUOTES) && (
               <Grid item xs={12} sm={6} md={4}>
                 <Button
@@ -1082,7 +1082,7 @@ const DashboardPage: React.FC = () => {
 
       {/* Tab 2: Logística */}
       <TabPanel value={currentTab} index={2}>
-        <Grid container spacing={2.5}>
+        <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }}>
           {hasPermission(PERMISSIONS.READ_SUPPLIERS) && (
             <Grid item xs={12} sm={6} md={4} lg={3}>
               <StatCard
@@ -1193,7 +1193,7 @@ const DashboardPage: React.FC = () => {
 
       {/* Tab 3: Organización */}
       <TabPanel value={currentTab} index={3}>
-        <Grid container spacing={2.5}>
+        <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }}>
           {hasPermission(PERMISSIONS.READ_USERS) && (
             <Grid item xs={12} sm={6} md={4}>
               <StatCard
@@ -1244,7 +1244,7 @@ const DashboardPage: React.FC = () => {
 
       {/* Tab 4: Seguridad */}
       <TabPanel value={currentTab} index={4}>
-        <Grid container spacing={2.5}>
+        <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }}>
           {hasPermission(PERMISSIONS.READ_ROLES) && (
             <Grid item xs={12} sm={6} md={4}>
               <StatCard
@@ -1308,11 +1308,11 @@ const DashboardPage: React.FC = () => {
         </Grid>
 
         {/* Acciones Rápidas - Seguridad */}
-        <Box mt={4}>
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, color: 'text.primary' }}>
+        <Box sx={{ mt: { xs: 2.5, sm: 3, md: 4 } }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, color: 'text.primary', fontSize: { xs: '1rem', sm: '1.15rem', md: '1.25rem' } }}>
             Acciones Rápidas
           </Typography>
-          <Grid container spacing={2}>
+          <Grid container spacing={{ xs: 1.5, sm: 2, md: 2 }}>
             {hasPermission(PERMISSIONS.CREATE_ROLES) && (
               <Grid item xs={12} sm={6} md={4}>
                 <Button

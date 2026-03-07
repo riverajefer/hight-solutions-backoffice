@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Box, Chip } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
-import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { GridRenderCellParams } from '@mui/x-data-grid';
 import { PageHeader } from '../../../../components/common/PageHeader';
 import { ConfirmDialog } from '../../../../components/common/ConfirmDialog';
 import { DataTable, ActionsCell } from '../../../../components/common/DataTable';
 import { useUnitsOfMeasure } from '../hooks/useUnitsOfMeasure';
 import { UnitOfMeasure } from '../../../../types/unit-of-measure.types';
 import { ROUTES } from '../../../../utils/constants';
+import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../../hooks';
 
 const UnitsOfMeasureListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -36,7 +37,7 @@ const UnitsOfMeasureListPage: React.FC = () => {
   };
 
   // Define columns for DataTable
-  const columns: GridColDef[] = [
+  const rawColumns: ResponsiveGridColDef<UnitOfMeasure>[] = useMemo(() => [
     {
       field: 'name',
       headerName: 'Nombre',
@@ -47,12 +48,14 @@ const UnitsOfMeasureListPage: React.FC = () => {
       field: 'abbreviation',
       headerName: 'Abreviatura',
       width: 120,
+      responsive: 'sm',
     },
     {
       field: 'description',
       headerName: 'Descripción',
       flex: 2,
       minWidth: 200,
+      responsive: 'md',
     },
     {
       field: 'isActive',
@@ -81,10 +84,12 @@ const UnitsOfMeasureListPage: React.FC = () => {
         />
       ),
     },
-  ];
+  ], [navigate]);
+
+  const columns = useResponsiveColumns(rawColumns);
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title="Unidades de Medida"
         subtitle="Gestiona las unidades de medida del sistema"

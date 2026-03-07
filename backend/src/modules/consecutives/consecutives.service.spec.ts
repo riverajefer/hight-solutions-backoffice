@@ -61,16 +61,16 @@ describe('ConsecutivesService', () => {
 
     it('should call repository with correct prefix for EXPENSE type', async () => {
       const currentYear = new Date().getFullYear();
-      mockConsecutivesRepository.getNextNumber.mockResolvedValue(`GAS-${currentYear}-0001`);
+      mockConsecutivesRepository.getNextNumber.mockResolvedValue(`OG-${currentYear}-0001`);
 
       const result = await service.generateNumber('EXPENSE');
 
       expect(mockConsecutivesRepository.getNextNumber).toHaveBeenCalledWith(
         'EXPENSE',
-        'GAS',
+        'OG',
         currentYear,
       );
-      expect(result).toBe(`GAS-${currentYear}-0001`);
+      expect(result).toBe(`OG-${currentYear}-0001`);
     });
 
     it('should call repository with correct prefix for QUOTE type', async () => {

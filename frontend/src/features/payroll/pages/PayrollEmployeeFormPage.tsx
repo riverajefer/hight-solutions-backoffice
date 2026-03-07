@@ -9,6 +9,7 @@ import {
   InputLabel,
   MenuItem,
   Select,
+  Stack,
   TextField,
   Alert,
   Paper,
@@ -172,7 +173,7 @@ const PayrollEmployeeFormPage: React.FC = () => {
         ]}
       />
 
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: { xs: 2, sm: 3 } }}>
         {serverError && <Alert severity="error" sx={{ mb: 2 }}>{serverError}</Alert>}
 
         <form onSubmit={handleSubmit(onSubmit)}>
@@ -367,14 +368,14 @@ const PayrollEmployeeFormPage: React.FC = () => {
             </Grid>
 
             <Grid item xs={12}>
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <Button variant="contained" type="submit" disabled={isLoading}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <Button variant="contained" type="submit" disabled={isLoading} sx={{ width: { xs: '100%', sm: 'auto' } }}>
                   {isLoading ? 'Guardando...' : isEdit ? 'Actualizar' : 'Agregar a Nómina'}
                 </Button>
-                <Button variant="outlined" onClick={() => navigate(PATHS.PAYROLL_EMPLOYEES)}>
+                <Button variant="outlined" onClick={() => navigate(PATHS.PAYROLL_EMPLOYEES)} sx={{ width: { xs: '100%', sm: 'auto' } }}>
                   Cancelar
                 </Button>
-              </Box>
+              </Stack>
             </Grid>
           </Grid>
         </form>

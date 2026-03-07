@@ -223,7 +223,7 @@ export const WorkOrderDetailPage = () => {
   );
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title={workOrder.workOrderNumber}
         subtitle="Detalle de la Orden de Trabajo"
@@ -324,7 +324,7 @@ export const WorkOrderDetailPage = () => {
 
       <Grid container spacing={3}>
         {/* Columna principal */}
-        <Grid item xs={12} md={8}>
+        <Grid item xs={12} sm={12} md={8}>
           <Stack spacing={3}>
             {/* Info general */}
             <Card>
@@ -429,7 +429,13 @@ export const WorkOrderDetailPage = () => {
             {/* Observaciones */}
             <Card>
               <CardContent>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                <Stack
+                  direction={{ xs: 'column', sm: 'row' }}
+                  justifyContent="space-between"
+                  alignItems={{ xs: 'flex-start', sm: 'center' }}
+                  mb={2}
+                  gap={1}
+                >
                   <Typography variant="h6">Timeline de Horas Trabajadas</Typography>
                   <Button
                     size="small"
@@ -519,7 +525,7 @@ export const WorkOrderDetailPage = () => {
         </Grid>
 
         {/* Sidebar */}
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} sm={12} md={4}>
           <Stack spacing={3}>
             {/* Orden de pedido vinculada */}
             <Card>

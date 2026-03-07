@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Box, Chip } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
-import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { GridRenderCellParams } from '@mui/x-data-grid';
 import { PageHeader } from '../../../../components/common/PageHeader';
 import { ConfirmDialog } from '../../../../components/common/ConfirmDialog';
 import { DataTable, ActionsCell } from '../../../../components/common/DataTable';
 import { useSupplyCategories } from '../hooks/useSupplyCategories';
 import { SupplyCategory } from '../../../../types/supply-category.types';
 import { ROUTES } from '../../../../utils/constants';
+import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../../hooks';
 
 const SupplyCategoriesListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -36,7 +37,7 @@ const SupplyCategoriesListPage: React.FC = () => {
   };
 
   // Define columns for DataTable
-  const columns: GridColDef[] = [
+  const rawColumns: ResponsiveGridColDef<SupplyCategory>[] = useMemo(() => [
     {
       field: 'name',
       headerName: 'Nombre',
@@ -47,20 +48,22 @@ const SupplyCategoriesListPage: React.FC = () => {
       field: 'slug',
       headerName: 'Slug',
       width: 150,
+      responsive: 'sm',
     },
     {
       field: 'description',
       headerName: 'Descripción',
       flex: 2,
       minWidth: 200,
+      responsive: 'md',
     },
-
     {
       field: 'suppliesCount',
       headerName: 'Insumos',
       width: 100,
       align: 'center',
       headerAlign: 'center',
+      responsive: 'sm',
     },
     {
       field: 'isActive',
@@ -89,10 +92,12 @@ const SupplyCategoriesListPage: React.FC = () => {
         />
       ),
     },
-  ];
+  ], [navigate]);
+
+  const columns = useResponsiveColumns(rawColumns);
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title="Categorías de Insumos"
         subtitle="Gestiona las categorías de insumos del sistema"

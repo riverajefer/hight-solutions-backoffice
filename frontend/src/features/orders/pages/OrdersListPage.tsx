@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -10,8 +10,8 @@ import {
   IconButton,
   Tooltip,
 } from '@mui/material';
-import { GridColDef } from '@mui/x-data-grid';
 import { Chip } from '@mui/material';
+import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../hooks';
 import {
   ShoppingCart as ShoppingCartIcon,
   SwapHoriz as SwapHorizIcon,
@@ -182,35 +182,37 @@ export const OrdersListPage: React.FC = () => {
     }
   };
 
-  // Columns definition
-  const columns: GridColDef<Order>[] = [
+  // Columns definition with responsive breakpoints
+  const rawColumns: ResponsiveGridColDef[] = useMemo(() => [
     {
       field: 'orderNumber',
       headerName: 'Nº Orden',
-      width: 150,
+      width: 130,
+      minWidth: 100,
       resizable: false,
       headerClassName: 'sticky-column-order-number',
       cellClassName: 'sticky-column-order-number',
-      renderCell: (params) => (
+      renderCell: (params: any) => (
         <Box sx={{ fontWeight: 600, color: 'primary.main' }}>
           {params.value}
         </Box>
       ),
     },
-
     {
       field: 'client',
       headerName: 'Cliente',
-      width: 250,
-      valueGetter: (_, row) => row.client.name,
+      flex: 1,
+      minWidth: 150,
+      valueGetter: (_: any, row: any) => row.client.name,
     },
     {
       field: 'workOrders',
       headerName: 'OT',
-      width: 160,
+      width: 140,
       sortable: false,
       filterable: false,
-      renderCell: (params) => {
+      responsive: 'md',
+      renderCell: (params: any) => {
         const workOrder = params.row.workOrders?.[0];
         if (!workOrder)
           return (
@@ -224,7 +226,7 @@ export const OrdersListPage: React.FC = () => {
               size='small'
               variant='outlined'
               color='primary'
-              onClick={(e) => {
+              onClick={(e: any) => {
                 e.stopPropagation();
                 navigate(
                   ROUTES.WORK_ORDERS_DETAIL.replace(':id', workOrder.id),
@@ -239,15 +241,16 @@ export const OrdersListPage: React.FC = () => {
     {
       field: 'orderDate',
       headerName: 'Fecha Orden',
-      width: 160,
-      renderCell: (params) => formatDateTime(params.value),
+      width: 150,
+      responsive: 'md',
+      renderCell: (params: any) => formatDateTime(params.value),
     },
-
     {
       field: 'deliveryDate',
-      headerName: 'Fecha Entrega',
-      width: 160,
-      renderCell: (params) => {
+      headerName: 'F. Entrega',
+      width: 140,
+      responsive: 'sm',
+      renderCell: (params: any) => {
         if (!params.value) return '-';
 
         const alert = getDeliveryAlert(params.row);
@@ -296,35 +299,37 @@ export const OrdersListPage: React.FC = () => {
     },
     {
       field: 'daysSinceCreation',
-      headerName: 'Días desde creación',
-      width: 170,
+      headerName: 'Días',
+      width: 90,
       sortable: false,
       filterable: false,
       align: 'center',
       headerAlign: 'center',
-      valueGetter: (_, row) => getDaysSince(row.createdAt),
-      renderCell: (params) => {
+      responsive: 'lg',
+      valueGetter: (_: any, row: any) => getDaysSince(row.createdAt),
+      renderCell: (params: any) => {
         const days = params.value as number;
         if (days === 0) return 'Hoy';
         if (days === 1) return '1 día';
         return `${days} días`;
       },
     },
-    // creado por
     {
       field: 'createdBy',
       headerName: 'Creado por',
-      width: 150,
-      valueGetter: (_, row) =>
+      width: 140,
+      responsive: 'lg',
+      valueGetter: (_: any, row: any) =>
         row.createdBy?.firstName + ' ' + row.createdBy?.lastName,
     },
     {
       field: 'taxRate',
       headerName: 'IVA',
-      width: 80,
+      width: 70,
       align: 'center',
       headerAlign: 'center',
-      renderCell: (params) => {
+      responsive: 'lg',
+      renderCell: (params: any) => {
         const hasIva = parseFloat(params.value) > 0;
         return (
           <Box
@@ -344,9 +349,10 @@ export const OrdersListPage: React.FC = () => {
     },
     {
       field: 'requiresColorProof',
-      headerName: 'Prueba de color',
-      width: 170,
-      renderCell: (params) => (
+      headerName: 'P. Color',
+      width: 100,
+      responsive: 'lg',
+      renderCell: (params: any) => (
         <Box
           sx={{
             px: 1,
@@ -364,18 +370,19 @@ export const OrdersListPage: React.FC = () => {
     {
       field: 'total',
       headerName: 'Total',
-      width: 150,
+      width: 130,
       align: 'right',
       headerAlign: 'right',
-      renderCell: (params) => formatCurrency(params.value),
+      renderCell: (params: any) => formatCurrency(params.value),
     },
     {
       field: 'balance',
       headerName: 'Saldo',
-      width: 150,
+      width: 130,
       align: 'right',
       headerAlign: 'right',
-      renderCell: (params) => {
+      responsive: 'md',
+      renderCell: (params: any) => {
         const balance = parseFloat(params.value);
         return (
           <Box
@@ -389,12 +396,12 @@ export const OrdersListPage: React.FC = () => {
         );
       },
     },
-
     {
       field: 'advancePaymentStatus',
       headerName: 'Anticipo',
-      width: 130,
-      renderCell: (params) => {
+      width: 120,
+      responsive: 'md',
+      renderCell: (params: any) => {
         const status = params.value;
         if (!status) return <Box sx={{ color: 'text.disabled', fontSize: '0.8rem' }}>—</Box>;
         const config: Record<string, { label: string; color: 'warning' | 'success' | 'error' }> = {
@@ -409,15 +416,15 @@ export const OrdersListPage: React.FC = () => {
     {
       field: 'status',
       headerName: 'Estado',
-      width: 150,
-      renderCell: (params) => <OrderStatusChip status={params.value} />,
+      width: 140,
+      renderCell: (params: any) => <OrderStatusChip status={params.value} />,
     },
     {
       field: 'actions',
       headerName: 'Acciones',
-      width: 200,
+      width: 160,
       sortable: false,
-      renderCell: (params) => {
+      renderCell: (params: any) => {
         const canEdit = !['DELIVERED'].includes(params.row.status);
         const canDelete = ['DRAFT'].includes(params.row.status);
 
@@ -430,12 +437,11 @@ export const OrdersListPage: React.FC = () => {
                 canDelete ? () => setConfirmDelete(params.row) : undefined
               }
             />
-            {/* Botón para cambiar estado */}
             <Tooltip title='Cambiar estado'>
               <IconButton
                 size='small'
                 color='primary'
-                onClick={(e) => {
+                onClick={(e: any) => {
                   e.stopPropagation();
                   setChangeStatusOrder(params.row);
                 }}
@@ -447,7 +453,9 @@ export const OrdersListPage: React.FC = () => {
         );
       },
     },
-  ];
+  ], [navigate]);
+
+  const columns = useResponsiveColumns(rawColumns);
 
   const hasActiveFilters =
     filters.status ||
@@ -457,7 +465,7 @@ export const OrdersListPage: React.FC = () => {
     filters.search;
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title='Órdenes de Pedido'
         breadcrumbs={[{ label: 'Órdenes' }]}
@@ -477,6 +485,8 @@ export const OrdersListPage: React.FC = () => {
         direction={{ xs: 'column', sm: 'row' }}
         spacing={2}
         sx={{ mb: 3, mt: 2 }}
+        flexWrap="wrap"
+        useFlexGap
       >
         {/* Estado */}
         <TextField
@@ -486,7 +496,7 @@ export const OrdersListPage: React.FC = () => {
           onChange={(e) =>
             handleFilterChange('status', e.target.value || undefined)
           }
-          sx={{ minWidth: 200 }}
+          sx={{ minWidth: { xs: '100%', sm: 180 } }}
           size='small'
         >
           <MenuItem value=''>Todos los estados</MenuItem>
@@ -499,7 +509,7 @@ export const OrdersListPage: React.FC = () => {
 
         {/* Cliente */}
         <Autocomplete
-          sx={{ minWidth: 300 }}
+          sx={{ minWidth: { xs: '100%', sm: 200, md: 280 }, flex: { sm: 1 }, maxWidth: { md: 350 } }}
           size='small'
           options={clients}
           value={selectedClient}
@@ -525,7 +535,7 @@ export const OrdersListPage: React.FC = () => {
             handleFilterChange('orderDateFrom', date?.toISOString())
           }
           slotProps={{
-            textField: { size: 'small', sx: { minWidth: 180 } },
+            textField: { size: 'small', fullWidth: true, sx: { minWidth: { xs: '100%', sm: 150 } } },
           }}
         />
 
@@ -537,7 +547,7 @@ export const OrdersListPage: React.FC = () => {
             handleFilterChange('orderDateTo', date?.toISOString())
           }
           slotProps={{
-            textField: { size: 'small', sx: { minWidth: 180 } },
+            textField: { size: 'small', fullWidth: true, sx: { minWidth: { xs: '100%', sm: 150 } } },
           }}
         />
 
@@ -547,7 +557,7 @@ export const OrdersListPage: React.FC = () => {
             variant='outlined'
             onClick={handleClearFilters}
             size='small'
-            sx={{ minWidth: 120 }}
+            sx={{ minWidth: { xs: '100%', sm: 'auto' } }}
           >
             Limpiar Filtros
           </Button>

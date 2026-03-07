@@ -1,8 +1,8 @@
-import { GridColDef } from '@mui/x-data-grid';
 import { Box, Chip, Tooltip, IconButton, Typography } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { AuditLog } from '../../../types';
 import { formatDate } from '../../../utils/helpers';
+import type { ResponsiveGridColDef } from '../../../hooks';
 
 interface AuditLogColumnsProps {
   onViewDetails: (log: AuditLog) => void;
@@ -59,11 +59,12 @@ const formatModel = (model: string): string => {
 
 export const getAuditLogColumns = ({
   onViewDetails,
-}: AuditLogColumnsProps): GridColDef<AuditLog>[] => [
+}: AuditLogColumnsProps): ResponsiveGridColDef[] => [
   {
     field: 'createdAt',
     headerName: 'Fecha y Hora',
     width: 180,
+    responsive: 'sm',
     valueGetter: (_, row) => row.createdAt,
     renderCell: (params) => (
       <Typography variant="body2">
@@ -88,6 +89,7 @@ export const getAuditLogColumns = ({
     field: 'model',
     headerName: 'Recurso',
     width: 150,
+    responsive: 'md',
     valueGetter: (_, row) => formatModel(row.model),
   },
   {
@@ -117,6 +119,7 @@ export const getAuditLogColumns = ({
     field: 'ipAddress',
     headerName: 'IP',
     width: 140,
+    responsive: 'lg',
     valueGetter: (_, row) => row.ipAddress || '-',
   },
   {

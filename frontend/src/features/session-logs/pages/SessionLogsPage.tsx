@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Box, Chip, Typography } from '@mui/material';
-import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { GridRenderCellParams } from '@mui/x-data-grid';
 import LoginIcon from '@mui/icons-material/Login';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { DataTable } from '../../../components/common/DataTable';
 import { useSessionLogs } from '../hooks/useSessionLogs';
 import { SessionLog } from '../../../types';
+import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../hooks';
 
 const SessionLogsPage: React.FC = () => {
   const { sessionLogsQuery } = useSessionLogs();
@@ -22,7 +23,7 @@ const SessionLogsPage: React.FC = () => {
     });
   };
 
-  const columns: GridColDef[] = [
+  const rawColumns: ResponsiveGridColDef[] = useMemo(() => [
     {
       field: 'user',
       headerName: 'Usuario',
@@ -48,6 +49,7 @@ const SessionLogsPage: React.FC = () => {
       headerName: 'Email',
       flex: 1,
       minWidth: 200,
+      responsive: 'md',
       renderCell: (params: GridRenderCellParams<SessionLog>) => {
         const user = params.row.user;
         return (
@@ -63,18 +65,21 @@ const SessionLogsPage: React.FC = () => {
       field: 'area',
       headerName: 'Área',
       width: 150,
+      responsive: 'md',
       valueGetter: (_value, row: SessionLog) => row.user.cargo?.area.name || '-',
     },
     {
       field: 'cargo',
       headerName: 'Cargo',
       width: 150,
+      responsive: 'md',
       valueGetter: (_value, row: SessionLog) => row.user.cargo?.name || '-',
     },
     {
       field: 'loginAt',
       headerName: 'Login',
       width: 180,
+      responsive: 'sm',
       renderCell: (params: GridRenderCellParams<SessionLog>) => (
         <Chip
           icon={<LoginIcon />}
@@ -89,6 +94,7 @@ const SessionLogsPage: React.FC = () => {
       field: 'logoutAt',
       headerName: 'Logout',
       width: 180,
+      responsive: 'sm',
       renderCell: (params: GridRenderCellParams<SessionLog>) => {
         if (!params.row.logoutAt) {
           return (
@@ -116,6 +122,7 @@ const SessionLogsPage: React.FC = () => {
       width: 160,
       align: 'center',
       headerAlign: 'center',
+      responsive: 'sm',
       renderCell: (params: GridRenderCellParams<SessionLog>) => {
         const minutes = params.row.durationMinutes || 0;
         const hours = Math.floor(minutes / 60);
@@ -145,16 +152,19 @@ const SessionLogsPage: React.FC = () => {
       field: 'ipAddress',
       headerName: 'IP',
       width: 140,
+      responsive: 'lg',
       renderCell: (params: GridRenderCellParams<SessionLog>) => (
         <Typography variant="body2" color="text.secondary">
           {params.row.ipAddress || '-'}
         </Typography>
       ),
     },
-  ];
+  ], []);
+
+  const columns = useResponsiveColumns(rawColumns);
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title="Historial de Sesiones"
         subtitle="Visualiza los registros de inicio y cierre de sesión de los usuarios"

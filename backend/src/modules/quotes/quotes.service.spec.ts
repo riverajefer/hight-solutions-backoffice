@@ -588,7 +588,9 @@ describe('QuotesService', () => {
     });
 
     it('should convert to order if status is set to CONVERTED', async () => {
-      mockQuotesRepository.findById.mockResolvedValue(mockQuote);
+      // Quote must be ACCEPTED to transition to CONVERTED
+      const acceptedQuote = { ...mockQuote, status: QuoteStatus.ACCEPTED };
+      mockQuotesRepository.findById.mockResolvedValue(acceptedQuote);
 
       const convertToOrderSpy = jest
         .spyOn(service, 'convertToOrder')

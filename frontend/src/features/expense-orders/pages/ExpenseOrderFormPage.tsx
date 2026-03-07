@@ -619,7 +619,7 @@ export const ExpenseOrderFormPage = () => {
 
   const renderStep3 = () => (
     <Stack spacing={3}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
+      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={{ xs: 1, sm: 0 }}>
         <Typography variant="h6" fontWeight={600}>
           Ítems de Gasto
         </Typography>
@@ -1022,8 +1022,9 @@ export const ExpenseOrderFormPage = () => {
 
           {/* Navigation */}
           <Stack
-            direction="row"
+            direction={{ xs: 'column-reverse', sm: 'row' }}
             justifyContent="space-between"
+            spacing={{ xs: 1, sm: 0 }}
             sx={{ mt: 4 }}
           >
             <Button
@@ -1034,6 +1035,7 @@ export const ExpenseOrderFormPage = () => {
                   : goToStep(activeStep - 1)
               }
               disabled={isSubmitting}
+              sx={{ width: { xs: '100%', sm: 'auto' } }}
             >
               {activeStep === 0 ? 'Cancelar' : 'Anterior'}
             </Button>
@@ -1047,16 +1049,18 @@ export const ExpenseOrderFormPage = () => {
                   (activeStep === 1 && !isStep2Valid) ||
                   (activeStep === 2 && !isStep3Valid)
                 }
+                sx={{ width: { xs: '100%', sm: 'auto' } }}
               >
                 Siguiente
               </Button>
             ) : (
-              <Stack direction="row" spacing={2}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
                 <Button
                   variant="outlined"
                   startIcon={<SaveIcon />}
                   onClick={handleSaveDraft}
                   disabled={isSubmitting || !canSubmit}
+                  sx={{ width: { xs: '100%', sm: 'auto' } }}
                 >
                   Guardar Borrador
                 </Button>
@@ -1065,6 +1069,7 @@ export const ExpenseOrderFormPage = () => {
                   startIcon={<CheckCircleIcon />}
                   onClick={handleCreate}
                   disabled={isSubmitting || !canSubmit}
+                  sx={{ width: { xs: '100%', sm: 'auto' } }}
                 >
                   {isSubmitting ? <CircularProgress size={20} /> : isEditing ? 'Guardar cambios' : 'Crear OG'}
                 </Button>

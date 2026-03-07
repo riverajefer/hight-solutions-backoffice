@@ -336,7 +336,7 @@ export const ExpenseOrderDetailPage = () => {
   });
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title={og.ogNumber}
         subtitle={`${og.expenseType.name} / ${og.expenseSubcategory.name}`}
@@ -413,7 +413,7 @@ export const ExpenseOrderDetailPage = () => {
 
       <Grid container spacing={3}>
         {/* Left column */}
-        <Grid item xs={12} md={8}>
+        <Grid item xs={12} sm={12} md={8}>
           {/* General info */}
           <Card variant="outlined" sx={{ mb: 3 }}>
             <CardContent>
@@ -480,7 +480,13 @@ export const ExpenseOrderDetailPage = () => {
           {/* Items table */}
           <Card variant="outlined">
             <CardContent>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                justifyContent="space-between"
+                alignItems={{ xs: 'flex-start', sm: 'center' }}
+                mb={2}
+                gap={1}
+              >
                 <Typography variant="subtitle1" fontWeight={700}>
                   Ítems de Gasto
                 </Typography>
@@ -587,7 +593,7 @@ export const ExpenseOrderDetailPage = () => {
 
         {/* Right column: OT details */}
         {og.workOrder && (
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} sm={12} md={4}>
             <Card variant="outlined">
               <CardContent>
                 {/* ── Work Order Section ────────────────────────────── */}

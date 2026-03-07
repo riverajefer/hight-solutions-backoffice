@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -8,7 +8,8 @@ import {
   Button,
   Chip,
 } from '@mui/material';
-import { GridColDef } from '@mui/x-data-grid';
+import { GridRenderCellParams } from '@mui/x-data-grid';
+import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../hooks';
 import { Add as AddIcon } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { DataTable } from '../../../components/common/DataTable';
@@ -77,12 +78,12 @@ export const ExpenseOrdersListPage = () => {
 
   const expenseOrders = expenseOrdersQuery.data?.data ?? [];
 
-  const columns: GridColDef<ExpenseOrder>[] = [
+  const rawColumns: ResponsiveGridColDef<ExpenseOrder>[] = useMemo(() => [
     {
       field: 'ogNumber',
       headerName: 'Nº OG',
       width: 140,
-      renderCell: ({ row }) => (
+      renderCell: ({ row }: GridRenderCellParams<ExpenseOrder>) => (
         <Box
           sx={{ color: 'primary.main', cursor: 'pointer', fontWeight: 600 }}
           onClick={() => handleView(row)}
@@ -95,7 +96,7 @@ export const ExpenseOrdersListPage = () => {
       field: 'status',
       headerName: 'Estado',
       width: 130,
-      renderCell: ({ row }) => {
+      renderCell: ({ row }: GridRenderCellParams<ExpenseOrder>) => {
         const config = EXPENSE_ORDER_STATUS_CONFIG[row.status];
         return <Chip label={config.label} color={config.color} size="small" />;
       },
@@ -104,19 +105,22 @@ export const ExpenseOrdersListPage = () => {
       field: 'expenseType',
       headerName: 'Tipo',
       width: 140,
-      renderCell: ({ row }) => row.expenseType.name,
+      responsive: 'sm',
+      renderCell: ({ row }: GridRenderCellParams<ExpenseOrder>) => row.expenseType.name,
     },
     {
       field: 'expenseSubcategory',
       headerName: 'Subcategoría',
       width: 160,
-      renderCell: ({ row }) => row.expenseSubcategory.name,
+      responsive: 'md',
+      renderCell: ({ row }: GridRenderCellParams<ExpenseOrder>) => row.expenseSubcategory.name,
     },
     {
       field: 'authorizedTo',
       headerName: 'Autorizado a',
       flex: 1,
-      renderCell: ({ row }) =>
+      responsive: 'md',
+      renderCell: ({ row }: GridRenderCellParams<ExpenseOrder>) =>
         `${row.authorizedTo.firstName ?? ''} ${row.authorizedTo.lastName ?? ''}`.trim() ||
         row.authorizedTo.email,
     },
@@ -124,14 +128,16 @@ export const ExpenseOrdersListPage = () => {
       field: 'workOrder',
       headerName: 'OT',
       width: 130,
-      renderCell: ({ row }) => row.workOrder?.workOrderNumber ?? '—',
+      responsive: 'lg',
+      renderCell: ({ row }: GridRenderCellParams<ExpenseOrder>) => row.workOrder?.workOrderNumber ?? '—',
     },
     {
       field: 'total',
       headerName: 'Total',
       width: 130,
-      renderCell: ({ row }) => {
-        const total = row.items.reduce((acc, item) => acc + Number(item.total), 0);
+      responsive: 'sm',
+      renderCell: ({ row }: GridRenderCellParams<ExpenseOrder>) => {
+        const total = row.items.reduce((acc: number, item: any) => acc + Number(item.total), 0);
         return formatCurrency(total);
       },
     },
@@ -139,14 +145,15 @@ export const ExpenseOrdersListPage = () => {
       field: 'createdAt',
       headerName: 'Fecha',
       width: 120,
-      renderCell: ({ row }) => formatDate(row.createdAt),
+      responsive: 'sm',
+      renderCell: ({ row }: GridRenderCellParams<ExpenseOrder>) => formatDate(row.createdAt),
     },
     {
       field: 'actions',
       headerName: '',
       width: 120,
       sortable: false,
-      renderCell: ({ row }) => (
+      renderCell: ({ row }: GridRenderCellParams<ExpenseOrder>) => (
         <ActionsCell
           onView={() => handleView(row)}
           onEdit={canUpdate && row.status === ExpenseOrderStatus.DRAFT ? () => handleEdit(row) : undefined}
@@ -158,10 +165,12 @@ export const ExpenseOrdersListPage = () => {
         />
       ),
     },
-  ];
+  ], [canUpdate, canDelete]);
+
+  const columns = useResponsiveColumns(rawColumns);
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title="Órdenes de Gastos"
         subtitle="Gestión de gastos de la empresa"
@@ -179,14 +188,14 @@ export const ExpenseOrdersListPage = () => {
       />
 
       {/* Filters */}
-      <Stack direction="row" spacing={2} sx={{ mb: 2 }} flexWrap="wrap">
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }} flexWrap="wrap" useFlexGap>
         <TextField
           select
           label="Estado"
           size="small"
           value={filters.status ?? ''}
           onChange={(e) => handleFilterChange('status', e.target.value as ExpenseOrderStatus)}
-          sx={{ minWidth: 150 }}
+          sx={{ minWidth: { xs: '100%', sm: 150 } }}
         >
           {STATUS_OPTIONS.map((opt) => (
             <MenuItem key={opt.value} value={opt.value}>
@@ -201,7 +210,7 @@ export const ExpenseOrdersListPage = () => {
           placeholder="Nº OG o usuario..."
           value={filters.search ?? ''}
           onChange={(e) => handleFilterChange('search', e.target.value)}
-          sx={{ minWidth: 200 }}
+          sx={{ minWidth: { xs: '100%', sm: 200 } }}
         />
       </Stack>
 

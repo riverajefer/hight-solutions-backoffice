@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Box, Chip } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
-import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { GridRenderCellParams } from '@mui/x-data-grid';
 import { PageHeader } from '../../../../components/common/PageHeader';
 import { ConfirmDialog } from '../../../../components/common/ConfirmDialog';
 import { DataTable, ActionsCell } from '../../../../components/common/DataTable';
 import { useSupplies } from '../hooks/useSupplies';
 import { Supply } from '../../../../types/supply.types';
 import { ROUTES } from '../../../../utils/constants';
+import { useResponsiveColumns } from '../../../../hooks';
+import type { ResponsiveGridColDef } from '../../../../hooks';
 
 const SuppliesListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -36,7 +38,7 @@ const SuppliesListPage: React.FC = () => {
   };
 
   // Define columns for DataTable
-  const columns: GridColDef[] = [
+  const rawColumns: ResponsiveGridColDef<Supply>[] = useMemo(() => [
     {
       field: 'name',
       headerName: 'Nombre',
@@ -47,13 +49,15 @@ const SuppliesListPage: React.FC = () => {
       field: 'sku',
       headerName: 'SKU',
       width: 120,
+      responsive: 'sm',
     },
     {
       field: 'category',
       headerName: 'Categoría',
       flex: 1,
       minWidth: 150,
-      valueGetter: (_value, row) => row.category?.name || 'N/A',
+      responsive: 'md',
+      valueGetter: (_value: any, row: Supply) => row.category?.name || 'N/A',
     },
     {
       field: 'purchasePrice',
@@ -61,7 +65,8 @@ const SuppliesListPage: React.FC = () => {
       width: 130,
       align: 'right',
       headerAlign: 'right',
-      valueFormatter: (value) => {
+      responsive: 'sm',
+      valueFormatter: (value: number) => {
         if (value == null) return 'N/A';
         return new Intl.NumberFormat('es-CO', {
           style: 'currency',
@@ -74,7 +79,8 @@ const SuppliesListPage: React.FC = () => {
       field: 'purchaseUnit',
       headerName: 'Unidad Compra',
       width: 120,
-      valueGetter: (_value, row) => row.purchaseUnit?.abbreviation || 'N/A',
+      responsive: 'lg',
+      valueGetter: (_value: any, row: Supply) => row.purchaseUnit?.abbreviation || 'N/A',
     },
     {
       field: 'currentStock',
@@ -82,7 +88,8 @@ const SuppliesListPage: React.FC = () => {
       width: 110,
       align: 'right',
       headerAlign: 'right',
-      valueFormatter: (value) => {
+      responsive: 'sm',
+      valueFormatter: (value: number) => {
         if (value == null) return '0';
         return new Intl.NumberFormat('es-CO').format(value);
       },
@@ -93,7 +100,8 @@ const SuppliesListPage: React.FC = () => {
       width: 120,
       align: 'right',
       headerAlign: 'right',
-      valueFormatter: (value) => {
+      responsive: 'lg',
+      valueFormatter: (value: number) => {
         if (value == null) return '0';
         return new Intl.NumberFormat('es-CO').format(value);
       },
@@ -104,6 +112,7 @@ const SuppliesListPage: React.FC = () => {
       width: 100,
       align: 'center',
       headerAlign: 'center',
+      responsive: 'sm',
       renderCell: (params: GridRenderCellParams) => (
         <Chip
           label={params.value ? 'Activo' : 'Inactivo'}
@@ -125,10 +134,12 @@ const SuppliesListPage: React.FC = () => {
         />
       ),
     },
-  ];
+  ], [navigate]);
+
+  const columns = useResponsiveColumns(rawColumns);
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title="Insumos"
         subtitle="Gestiona los insumos del sistema"

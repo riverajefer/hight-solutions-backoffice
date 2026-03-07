@@ -44,7 +44,7 @@ export interface QuoteItemRow {
   productId?: string;
   specifications?: any;
   productionAreaIds?: string[];
-  sampleImageId?: string;
+  sampleImageId?: string | null;
 }
 
 interface QuoteItemsTableProps {
@@ -216,8 +216,8 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
 
   return (
     <Box>
-      <TableContainer>
-        <Table size="small">
+      <TableContainer sx={{ overflowX: 'auto', width: '100%' }}>
+        <Table size="small" sx={{ minWidth: 600 }}>
           <TableHead>
             <TableRow
               sx={{
@@ -234,12 +234,12 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
             >
               {showImageColumn && <TableCell width="8%" sx={{ minWidth: 80 }} align="center">Imagen</TableCell>}
               <TableCell width={showImageColumn ? "7%" : "8%"} sx={{ minWidth: 80 }} align="center">Cantidad</TableCell>
-              <TableCell width={showImageColumn ? "22%" : "25%"} sx={{ minWidth: 200 }}>Servicio (Opcional)</TableCell>
-              <TableCell width={showImageColumn ? "22%" : "25%"} sx={{ minWidth: 220 }}>Descripción</TableCell>
-              <TableCell width={showImageColumn ? "15%" : "17%"} sx={{ minWidth: 160 }}>Áreas de Producción</TableCell>
-              <TableCell width={showImageColumn ? "11%" : "12%"} sx={{ minWidth: 120 }} align="right">Valor Unitario</TableCell>
-              <TableCell width={showImageColumn ? "10%" : "8%"} sx={{ minWidth: 120 }} align="right">Valor Total</TableCell>
-              <TableCell width="5%" sx={{ minWidth: 60 }} align="center">Acciones</TableCell>
+              <TableCell width={showImageColumn ? "22%" : "25%"} sx={{ minWidth: 130 }}>Servicio (Opcional)</TableCell>
+              <TableCell width={showImageColumn ? "22%" : "25%"} sx={{ minWidth: 150, display: { xs: 'none', sm: 'table-cell' } }}>Descripción</TableCell>
+              <TableCell width={showImageColumn ? "15%" : "17%"} sx={{ minWidth: 140, display: { xs: 'none', sm: 'table-cell' } }}>Áreas de Producción</TableCell>
+              <TableCell width={showImageColumn ? "11%" : "12%"} sx={{ minWidth: 100 }} align="right">Valor Unitario</TableCell>
+              <TableCell width={showImageColumn ? "10%" : "8%"} sx={{ minWidth: 90 }} align="right">Valor Total</TableCell>
+              <TableCell width="5%" sx={{ minWidth: 50 }} align="center">Acciones</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -432,7 +432,7 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
                       )}
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -444,7 +444,7 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
                       maxRows={2}
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                     <Autocomplete<ProductionArea, true>
                       multiple
                       size="small"

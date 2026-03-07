@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -9,7 +9,8 @@ import {
   Chip,
   Typography,
 } from '@mui/material';
-import { GridColDef } from '@mui/x-data-grid';
+import { GridRenderCellParams } from '@mui/x-data-grid';
+import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../hooks';
 import {
   Add as AddIcon,
   ReceiptLong as ReceiptLongIcon,
@@ -96,7 +97,7 @@ export const WorkOrdersListPage = () => {
 
   const workOrders = workOrdersQuery.data?.data ?? [];
 
-  const columns: GridColDef<WorkOrder>[] = [
+  const rawColumns: ResponsiveGridColDef<WorkOrder>[] = useMemo(() => [
     {
       field: 'workOrderNumber',
       headerName: 'Nº OT',
@@ -106,7 +107,8 @@ export const WorkOrdersListPage = () => {
       field: 'orderNumber',
       headerName: 'Nº Orden',
       width: 150,
-      valueGetter: (_, row) => row.order?.orderNumber ?? '-',
+      responsive: 'sm',
+      valueGetter: (_: any, row: WorkOrder) => row.order?.orderNumber ?? '-',
     },
     {
       field: 'expenseOrders',
@@ -114,7 +116,8 @@ export const WorkOrdersListPage = () => {
       width: 280,
       sortable: false,
       filterable: false,
-      renderCell: (params) => {
+      responsive: 'lg',
+      renderCell: (params: GridRenderCellParams<WorkOrder>) => {
         const expenseOrders = params.row.expenseOrders ?? [];
 
         if (!expenseOrders.length) {
@@ -130,7 +133,7 @@ export const WorkOrdersListPage = () => {
             useFlexGap
             sx={{ py: 0.5, maxWidth: '100%' }}
           >
-            {expenseOrders.map((og) => (
+            {expenseOrders.map((og: any) => (
               <Chip
                 key={og.id}
                 icon={<ReceiptLongIcon sx={{ fontSize: '0.85rem !important' }} />}
@@ -153,13 +156,14 @@ export const WorkOrdersListPage = () => {
       field: 'client',
       headerName: 'Cliente',
       width: 220,
-      valueGetter: (_, row) => row.order?.client?.name ?? '-',
+      valueGetter: (_: any, row: WorkOrder) => row.order?.client?.name ?? '-',
     },
     {
       field: 'advisor',
       headerName: 'Asesor',
       width: 180,
-      valueGetter: (_, row) => {
+      responsive: 'md',
+      valueGetter: (_: any, row: WorkOrder) => {
         const a = row.advisor;
         if (!a) return '-';
         return `${a.firstName ?? ''} ${a.lastName ?? ''}`.trim() || a.email;
@@ -169,20 +173,21 @@ export const WorkOrdersListPage = () => {
       field: 'status',
       headerName: 'Estado',
       width: 160,
-      renderCell: (params) => <WorkOrderStatusChip status={params.value} />,
+      renderCell: (params: GridRenderCellParams<WorkOrder>) => <WorkOrderStatusChip status={params.value as WorkOrderStatus} />,
     },
     {
       field: 'createdAt',
       headerName: 'Creada',
       width: 170,
-      valueGetter: (_, row) => (row.createdAt ? formatDate(row.createdAt) : '-'),
+      responsive: 'sm',
+      valueGetter: (_: any, row: WorkOrder) => (row.createdAt ? formatDate(row.createdAt) : '-'),
     },
     {
       field: 'actions',
       headerName: 'Acciones',
       width: 160,
       sortable: false,
-      renderCell: (params) => (
+      renderCell: (params: GridRenderCellParams<WorkOrder>) => (
         <ActionsCell
           onView={() => handleView(params.row)}
           onEdit={
@@ -198,10 +203,12 @@ export const WorkOrdersListPage = () => {
         />
       ),
     },
-  ];
+  ], [navigate, canUpdate, canDelete]);
+
+  const columns = useResponsiveColumns(rawColumns);
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title="Órdenes de Trabajo"
         subtitle="Gestión de órdenes de trabajo para producción"
@@ -219,14 +226,14 @@ export const WorkOrdersListPage = () => {
       />
 
       {/* Filtros */}
-      <Stack direction="row" spacing={2} sx={{ mb: 2 }} flexWrap="wrap">
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }} flexWrap="wrap" useFlexGap>
         <TextField
           select
           label="Estado"
           value={filters.status ?? ''}
           onChange={(e) => handleFilterChange('status', e.target.value as WorkOrderStatus)}
           size="small"
-          sx={{ minWidth: 160 }}
+          sx={{ minWidth: { xs: '100%', sm: 160 } }}
         >
           {STATUS_OPTIONS.map((opt) => (
             <MenuItem key={opt.value} value={opt.value}>

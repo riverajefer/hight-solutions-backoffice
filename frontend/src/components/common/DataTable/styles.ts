@@ -27,7 +27,7 @@ export const dataGridStyles: SxProps<Theme> = {
       theme.palette.mode === 'light'
         ? theme.palette.primary.main
         : theme.palette.primary.dark,
-    minHeight: '56px !important',
+    minHeight: { xs: '44px !important', sm: '56px !important' },
     boxShadow: (theme) =>
       theme.palette.mode === 'light'
         ? '0 2px 4px rgba(0, 0, 0, 0.05)'
@@ -37,7 +37,7 @@ export const dataGridStyles: SxProps<Theme> = {
   '& .MuiDataGrid-columnHeaderTitle': {
     fontWeight: 700,
     letterSpacing: '0.05em',
-    fontSize: '0.85rem',
+    fontSize: { xs: '0.7rem', sm: '0.85rem' },
   },
 
   '& .MuiDataGrid-columnSeparator': {
@@ -47,13 +47,14 @@ export const dataGridStyles: SxProps<Theme> = {
         : alpha(theme.palette.primary.main, 0.2),
   },
 
-  // Celdas con transiciones suaves
+  // Celdas con transiciones suaves y padding responsive
   '& .MuiDataGrid-cell': {
     borderBottom: '1px solid',
     borderColor: 'divider',
     display: 'flex',
     alignItems: 'center',
-    padding: (theme) => theme.spacing(1, 2),
+    padding: { xs: '6px 8px', sm: '8px 16px' },
+    fontSize: { xs: '0.8rem', sm: '0.875rem' },
     transition: 'all 0.2s ease',
     position: 'relative' as any,
     zIndex: 1,
@@ -183,9 +184,25 @@ export const dataGridStyles: SxProps<Theme> = {
         : alpha(theme.palette.secondary.main, 0.1),
   },
 
-  // Pagination
+  // Pagination responsive
   '& .MuiTablePagination-root': {
     color: 'text.secondary',
+    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+    '& .MuiTablePagination-selectLabel': {
+      display: { xs: 'none', sm: 'block' },
+      fontSize: { xs: '0.75rem', sm: '0.875rem' },
+    },
+    '& .MuiTablePagination-displayedRows': {
+      fontSize: { xs: '0.75rem', sm: '0.875rem' },
+    },
+    '& .MuiTablePagination-select': {
+      fontSize: { xs: '0.75rem', sm: '0.875rem' },
+    },
+    '& .MuiTablePagination-toolbar': {
+      minHeight: { xs: 40, sm: 52 },
+      paddingLeft: { xs: 1, sm: 2 },
+      paddingRight: { xs: 1, sm: 2 },
+    },
   },
 
   '& .MuiTablePagination-selectIcon': {

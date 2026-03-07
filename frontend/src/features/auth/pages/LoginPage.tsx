@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import { Box } from '@mui/material';
 import { LoginForm } from '../components/LoginForm';
@@ -12,16 +12,19 @@ import { ROUTES } from '../../../utils/constants';
  */
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { enqueueSnackbar } = useSnackbar();
   const { loginMutation } = useAuth();
   const [error, setError] = React.useState<string | null>(null);
+
+  const from = (location.state as { from?: Location })?.from?.pathname || ROUTES.DASHBOARD;
 
   const handleLogin = async (credentials: LoginDto) => {
     try {
       setError(null);
       await loginMutation.mutateAsync(credentials);
       enqueueSnackbar('Sesión iniciada correctamente', { variant: 'success' });
-      navigate(ROUTES.DASHBOARD);
+      navigate(from, { replace: true });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Error al iniciar sesión';
       setError(message);

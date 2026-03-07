@@ -727,13 +727,19 @@ export const WorkOrderFormPage = () => {
           {activeStep === 3 && renderStep3()}
 
           {/* Navegación */}
-          <Stack direction="row" justifyContent="space-between" sx={{ mt: 4 }}>
+          <Stack
+            direction={{ xs: 'column-reverse', sm: 'row' }}
+            justifyContent="space-between"
+            spacing={{ xs: 1, sm: 0 }}
+            sx={{ mt: 4 }}
+          >
             <Button
               startIcon={<ArrowBackIcon />}
               onClick={() =>
                 activeStep === 0 ? navigate(ROUTES.WORK_ORDERS) : goToStep(activeStep - 1)
               }
               disabled={isSaving}
+              sx={{ width: { xs: '100%', sm: 'auto' } }}
             >
               {activeStep === 0 ? 'Cancelar' : 'Anterior'}
             </Button>
@@ -744,16 +750,18 @@ export const WorkOrderFormPage = () => {
                 endIcon={<AssignmentTurnedInIcon />}
                 onClick={() => goToStep(activeStep + 1)}
                 disabled={!canGoNext() || isSaving}
+                sx={{ width: { xs: '100%', sm: 'auto' } }}
               >
                 Siguiente
               </Button>
             ) : (
-              <Stack direction="row" spacing={2}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
                 <Button
                   variant="outlined"
                   startIcon={<SaveIcon />}
                   onClick={handleSaveDraft}
                   disabled={isSaving}
+                  sx={{ width: { xs: '100%', sm: 'auto' } }}
                 >
                   {isSaving ? <CircularProgress size={16} /> : 'Guardar Borrador'}
                 </Button>
@@ -763,6 +771,7 @@ export const WorkOrderFormPage = () => {
                   startIcon={<CheckCircleIcon />}
                   onClick={handleConfirm}
                   disabled={isSaving}
+                  sx={{ width: { xs: '100%', sm: 'auto' } }}
                 >
                   {isSaving ? (
                     <CircularProgress size={16} />

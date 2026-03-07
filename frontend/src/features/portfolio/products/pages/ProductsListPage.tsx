@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Box, Chip } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
-import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { GridRenderCellParams } from '@mui/x-data-grid';
 import { PageHeader } from '../../../../components/common/PageHeader';
 import { ConfirmDialog } from '../../../../components/common/ConfirmDialog';
 import { DataTable, ActionsCell } from '../../../../components/common/DataTable';
 import { useProducts } from '../hooks/useProducts';
 import { Product } from '../../../../types/product.types';
 import { ROUTES } from '../../../../utils/constants';
+import { useResponsiveColumns } from '../../../../hooks';
+import type { ResponsiveGridColDef } from '../../../../hooks';
 
 const ProductsListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -36,7 +38,7 @@ const ProductsListPage: React.FC = () => {
   };
 
   // Define columns for DataTable
-  const columns: GridColDef[] = [
+  const rawColumns: ResponsiveGridColDef<Product>[] = useMemo(() => [
     {
       field: 'name',
       headerName: 'Nombre',
@@ -47,13 +49,15 @@ const ProductsListPage: React.FC = () => {
       field: 'slug',
       headerName: 'Slug',
       width: 150,
+      responsive: 'md',
     },
     {
       field: 'category',
       headerName: 'Categoría',
       flex: 1,
       minWidth: 150,
-      valueGetter: (_value, row) => row.category?.name || 'N/A',
+      responsive: 'md',
+      valueGetter: (_value: any, row: Product) => row.category?.name || 'N/A',
     },
     {
       field: 'basePrice',
@@ -61,7 +65,8 @@ const ProductsListPage: React.FC = () => {
       width: 120,
       align: 'right',
       headerAlign: 'right',
-      valueFormatter: (value) => {
+      responsive: 'sm',
+      valueFormatter: (value: number) => {
         if (value == null) return 'N/A';
         return new Intl.NumberFormat('es-CO', {
           style: 'currency',
@@ -76,12 +81,14 @@ const ProductsListPage: React.FC = () => {
       width: 100,
       align: 'center',
       headerAlign: 'center',
+      responsive: 'lg',
     },
     {
       field: 'description',
       headerName: 'Descripción',
       flex: 2,
       minWidth: 200,
+      responsive: 'md',
     },
     {
       field: 'isActive',
@@ -89,6 +96,7 @@ const ProductsListPage: React.FC = () => {
       width: 100,
       align: 'center',
       headerAlign: 'center',
+      responsive: 'sm',
       renderCell: (params: GridRenderCellParams) => (
         <Chip
           label={params.value ? 'Activo' : 'Inactivo'}
@@ -110,10 +118,12 @@ const ProductsListPage: React.FC = () => {
         />
       ),
     },
-  ];
+  ], [navigate]);
+
+  const columns = useResponsiveColumns(rawColumns);
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title="Productos"
         subtitle="Gestiona los productos del sistema"

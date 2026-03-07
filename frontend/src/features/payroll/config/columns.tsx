@@ -4,6 +4,7 @@ import { Edit, Delete, History, Visibility } from '@mui/icons-material';
 import type { PayrollEmployee } from '../../../types/payroll-employee.types';
 import type { PayrollPeriod } from '../../../types/payroll-period.types';
 import type { PayrollItem } from '../../../types/payroll-item.types';
+import type { ResponsiveGridColDef } from '../../../hooks';
 
 const formatCOP = (value: string | number | null | undefined) => {
   if (value === null || value === undefined) return '—';
@@ -40,7 +41,7 @@ export const getEmployeeColumns = (
   onEdit: (e: PayrollEmployee) => void,
   onDelete: (e: PayrollEmployee) => void,
   onHistory: (e: PayrollEmployee) => void,
-): GridColDef[] => [
+): ResponsiveGridColDef[] => [
   {
     field: 'fullName',
     headerName: 'Empleado',
@@ -54,12 +55,14 @@ export const getEmployeeColumns = (
     headerName: 'Cargo',
     flex: 1,
     minWidth: 120,
+    responsive: 'md',
     valueGetter: (_value: unknown, row: PayrollEmployee) => row.cargo?.name ?? '—',
   },
   {
     field: 'employeeType',
     headerName: 'Tipo',
     width: 110,
+    responsive: 'md',
     renderCell: (params: GridRenderCellParams<PayrollEmployee>) => (
       <Chip
         label={employeeTypeLabel[params.row.employeeType] ?? params.row.employeeType}
@@ -74,6 +77,7 @@ export const getEmployeeColumns = (
     headerName: 'Salario / Tarifa',
     flex: 1,
     minWidth: 130,
+    responsive: 'sm',
     valueGetter: (_value: unknown, row: PayrollEmployee) =>
       row.employeeType === 'REGULAR'
         ? formatCOP(row.monthlySalary)
@@ -92,6 +96,7 @@ export const getEmployeeColumns = (
     field: 'startDate',
     headerName: 'Fecha Ingreso',
     width: 130,
+    responsive: 'sm',
     valueGetter: (_value: unknown, row: PayrollEmployee) =>
       new Date(row.startDate).toLocaleDateString('es-CO'),
   },
@@ -126,12 +131,13 @@ export const getPeriodColumns = (
   onView: (p: PayrollPeriod) => void,
   onEdit: (p: PayrollPeriod) => void,
   onDelete: (p: PayrollPeriod) => void,
-): GridColDef[] => [
+): ResponsiveGridColDef[] => [
   { field: 'name', headerName: 'Periodo', flex: 1.5, minWidth: 160 },
   {
     field: 'periodType',
     headerName: 'Tipo',
     width: 110,
+    responsive: 'md',
     valueGetter: (_value: unknown, row: PayrollPeriod) =>
       periodTypeLabel[row.periodType] ?? row.periodType,
   },
@@ -139,6 +145,7 @@ export const getPeriodColumns = (
     field: 'startDate',
     headerName: 'Inicio',
     width: 110,
+    responsive: 'sm',
     valueGetter: (_value: unknown, row: PayrollPeriod) =>
       new Date(row.startDate).toLocaleDateString('es-CO'),
   },
@@ -146,6 +153,7 @@ export const getPeriodColumns = (
     field: 'endDate',
     headerName: 'Fin',
     width: 110,
+    responsive: 'sm',
     valueGetter: (_value: unknown, row: PayrollPeriod) =>
       new Date(row.endDate).toLocaleDateString('es-CO'),
   },

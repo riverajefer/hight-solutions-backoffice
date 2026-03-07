@@ -53,7 +53,7 @@ const quoteItemSchema = z.object({
   total: z.number().min(0),
   productId: z.string().optional(),
   specifications: z.record(z.any()).optional(),
-  sampleImageId: z.string().optional(),
+  sampleImageId: z.string().nullable().optional(),
   productionAreaIds: z.array(z.string()).optional(),
 });
 
@@ -65,14 +65,19 @@ const quoteFormSchema = z.object({
   notes: z.string().optional(),
   items: z.array(quoteItemSchema).min(1, 'Debe agregar al menos un item'),
   applyTax: z.boolean(),
-  taxRate: z.number().min(0).max(100),
+  taxRate: z.number().min(0),
   commercialChannelId: z.string().min(1, 'El canal de ventas es requerido'),
 }).refine(
-  (data) => data.items.every((item) => {
-    const qty = parseFloat(item.quantity);
-    const price = parseFloat(item.unitPrice);
-    return !isNaN(qty) && qty > 0 && !isNaN(price) && price >= 0;
-  }),
+  (data) => {
+    // If we have items, check they are valid strings
+    if (!data.items || data.items.length === 0) return false;
+    
+    return data.items.every((item) => {
+      const qty = parseFloat(item.quantity?.toString());
+      const price = parseFloat(item.unitPrice?.toString());
+      return !isNaN(qty) && qty > 0 && !isNaN(price) && price >= 0;
+    });
+  },
   { message: 'Todos los items deben tener cantidad y precio válidos', path: ['items'] }
 );
 
@@ -244,6 +249,7 @@ export const QuoteFormPage: React.FC = () => {
     watch,
     setValue,
     getValues,
+    trigger,
     formState: { errors, isValid },
   } = useForm<QuoteFormData>({
     resolver: zodResolver(quoteFormSchema),
@@ -259,6 +265,13 @@ export const QuoteFormPage: React.FC = () => {
     },
   });
 
+  useEffect(() => {
+    if (Object.keys(errors).length > 0) {
+      console.log('Validation Errors:', errors);
+      console.log('Current Values:', getValues());
+    }
+  }, [errors, getValues]);
+
   const selectedClient = watch('client');
   const items = watch('items');
   const applyTax = watch('applyTax');
@@ -266,7 +279,7 @@ export const QuoteFormPage: React.FC = () => {
   const commercialChannelId = watch('commercialChannelId');
   const isClientSelected = !!selectedClient;
 
-  const subtotal = items.reduce((sum, item) => sum + item.total, 0);
+  const subtotal = items.reduce((sum, item) => sum + (parseFloat(item.total?.toString() || '0')), 0);
   const tax = applyTax ? subtotal * (taxRate / 100) : 0;
   const total = subtotal + tax;
 
@@ -280,29 +293,41 @@ export const QuoteFormPage: React.FC = () => {
   // Load edit data
   useEffect(() => {
     if (isEdit && currentQuote) {
-      setValue('client', currentQuote.client as any);
-      setValue('validUntil', currentQuote.validUntil ? new Date(currentQuote.validUntil) : null);
-      setValue('notes', currentQuote.notes || '');
-      setValue('items', currentQuote.items?.map((item: any) => ({
-        id: item.id,
-        description: item.description,
-        quantity: item.quantity.toString(),
-        unitPrice: item.unitPrice.toString(),
-        total: parseFloat(item.total.toString()),
-        productId: item.productId,
-        specifications: item.specifications || undefined,
-        sampleImageId: item.sampleImageId,
-        productionAreaIds: item.productionAreas
-          ? item.productionAreas.map((pa: any) => pa.productionArea.id)
-          : [],
-      })) || []);
-      setValue('applyTax', parseFloat(currentQuote.taxRate.toString()) > 0);
-      setValue('taxRate', parseFloat(currentQuote.taxRate.toString()) * 100);
-      setValue('commercialChannelId', currentQuote.commercialChannelId || '');
+      setValue('client', currentQuote.client as any, { shouldValidate: true });
+      setValue('validUntil', currentQuote.validUntil ? new Date(currentQuote.validUntil) : null, { shouldValidate: true });
+      setValue('notes', currentQuote.notes || '', { shouldValidate: true });
+      if (currentQuote.items && currentQuote.items.length > 0) {
+        setValue('items', currentQuote.items.map((item: any) => ({
+          id: item.id,
+          description: item.description || '',
+          quantity: item.quantity?.toString() || '1',
+          unitPrice: item.unitPrice?.toString() || '0',
+          total: parseFloat(item.total?.toString() || '0'),
+          productId: item.productId,
+          specifications: item.specifications || undefined,
+          sampleImageId: item.sampleImageId,
+          productionAreaIds: item.productionAreas
+            ? item.productionAreas.map((pa: any) => pa.productionArea.id)
+            : [],
+        })), { shouldValidate: true });
+      }
+      
+      const taxRateValue = parseFloat(currentQuote.taxRate?.toString() || '0');
+      setValue('applyTax', taxRateValue > 0, { shouldValidate: true });
+      // If the DB has 0.19, multiplying by 100 gives 19. If it already has 19, it gives 1900.
+      // Most of our backend logic seems to use 0.19 as default but Prisma.Decimal might return it differently.
+      const displayTaxRate = taxRateValue <= 1 ? taxRateValue * 100 : taxRateValue;
+      setValue('taxRate', displayTaxRate, { shouldValidate: true });
+      setValue('commercialChannelId', currentQuote.commercialChannelId || '', { shouldValidate: true });
       // En edición todos los pasos ya fueron completados
       setVisitedSteps(new Set([0, 1, 2, 3]));
+      
+      // Force manual validation trigger after a small delay to ensure values are set
+      setTimeout(() => {
+        trigger();
+      }, 500);
     }
-  }, [isEdit, currentQuote, setValue]);
+  }, [isEdit, currentQuote, setValue, trigger]);
 
   // ── Step navigation ──────────────────────────────────────────────────────────
 
@@ -348,7 +373,7 @@ export const QuoteFormPage: React.FC = () => {
           unitPrice: parseFloat(item.unitPrice),
           productId: item.productId,
           specifications: item.specifications,
-          sampleImageId: item.sampleImageId,
+          sampleImageId: item.sampleImageId ?? undefined,
           productionAreaIds: item.productionAreaIds,
         })),
         commercialChannelId: data.commercialChannelId,
@@ -654,13 +679,19 @@ export const QuoteFormPage: React.FC = () => {
           {activeStep === 3 && renderStep3()}
 
           {/* Navegación */}
-          <Stack direction="row" justifyContent="space-between" sx={{ mt: 4 }}>
+          <Stack
+            direction={{ xs: 'column-reverse', sm: 'row' }}
+            justifyContent="space-between"
+            spacing={{ xs: 1, sm: 0 }}
+            sx={{ mt: 4 }}
+          >
             <Button
               startIcon={<ArrowBackIcon />}
               onClick={() =>
                 activeStep === 0 ? navigate('/quotes') : goToStep(activeStep - 1)
               }
               disabled={isSubmitting}
+              sx={{ width: { xs: '100%', sm: 'auto' } }}
             >
               {activeStep === 0 ? 'Cancelar' : 'Anterior'}
             </Button>
@@ -670,6 +701,7 @@ export const QuoteFormPage: React.FC = () => {
                 variant="contained"
                 onClick={() => goToStep(activeStep + 1)}
                 disabled={!canGoNext() || isSubmitting}
+                sx={{ width: { xs: '100%', sm: 'auto' } }}
               >
                 Siguiente
               </Button>
@@ -680,6 +712,7 @@ export const QuoteFormPage: React.FC = () => {
                 startIcon={<SaveIcon />}
                 disabled={isSubmitting || !isValid}
                 onClick={handleSubmit(onSubmit)}
+                sx={{ width: { xs: '100%', sm: 'auto' } }}
               >
                 {isSubmitting ? 'Guardando...' : isEdit ? 'Guardar Cambios' : 'Guardar Cotización'}
               </Button>

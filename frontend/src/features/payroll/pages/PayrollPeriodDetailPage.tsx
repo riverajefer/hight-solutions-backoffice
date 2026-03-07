@@ -100,7 +100,7 @@ const PayrollPeriodDetailPage: React.FC = () => {
   );
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title={period.name}
         subtitle={`${new Date(period.startDate).toLocaleDateString('es-CO')} — ${new Date(period.endDate).toLocaleDateString('es-CO')}`}
@@ -169,7 +169,7 @@ const PayrollPeriodDetailPage: React.FC = () => {
 
       {/* Actions */}
       {canEdit && (
-        <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
           <Button
             variant="outlined"
             startIcon={<AutoAwesome />}

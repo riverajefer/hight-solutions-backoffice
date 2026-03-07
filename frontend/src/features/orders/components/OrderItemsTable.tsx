@@ -61,9 +61,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
   disabled = false,
 }) => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const isTablet = useMediaQuery(theme.breakpoints.down('lg'));
-
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { productionAreasQuery } = useProductionAreas();
   const productionAreas: ProductionArea[] = productionAreasQuery.data || [];
 
@@ -151,7 +149,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
           },
         }}
       >
-        <Table size="small" sx={{ minWidth: isMobile ? 1000 : 'auto' }}>
+        <Table size="small" sx={{ minWidth: 750 }}>
           <TableHead>
             <TableRow
               sx={{
@@ -163,59 +161,59 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                   backgroundImage: 'none !important',
                   color: '#ffffff !important',
                   fontWeight: 800,
-                  fontSize: '0.7rem',
+                  fontSize: { xs: '0.6rem', sm: '0.65rem', md: '0.7rem' },
                   textTransform: 'uppercase',
                   letterSpacing: '0.1em',
                   borderBottom: '2px solid',
                   borderBottomColor: (theme) =>
                     theme.palette.mode === 'light' ? '#1a1f23ff' : '#1a1f23ff',
-                  padding: '10px 16px',
+                  padding: { xs: '8px 8px', sm: '10px 12px', md: '10px 16px' },
                 },
               }}
             >
               <TableCell
-                width={isMobile ? '100px' : isTablet ? '8%' : '8%'}
+                width="8%"
                 align="center"
-                sx={{ minWidth: isMobile ? '100px' : 'auto' }}
+                sx={{ minWidth: 70 }}
               >
                 Cantidad
               </TableCell>
               <TableCell
-                width={isMobile ? '200px' : isTablet ? '22%' : '25%'}
-                sx={{ minWidth: isMobile ? '200px' : 'auto' }}
+                width="22%"
+                sx={{ minWidth: 130 }}
               >
                 Servicio (Opcional)
               </TableCell>
               <TableCell
-                width={isMobile ? '250px' : isTablet ? '25%' : '25%'}
-                sx={{ minWidth: isMobile ? '250px' : 'auto' }}
+                width="25%"
+                sx={{ minWidth: 150, display: { xs: 'none', sm: 'table-cell' } }}
               >
                 Descripción
               </TableCell>
               <TableCell
-                width={isMobile ? '220px' : isTablet ? '18%' : '20%'}
-                sx={{ minWidth: isMobile ? '220px' : 'auto' }}
+                width="18%"
+                sx={{ minWidth: 140, display: { xs: 'none', sm: 'table-cell' } }}
               >
                 Áreas de Producción
               </TableCell>
               <TableCell
-                width={isMobile ? '150px' : isTablet ? '12%' : '12%'}
+                width="12%"
                 align="right"
-                sx={{ minWidth: isMobile ? '150px' : 'auto' }}
+                sx={{ minWidth: 100 }}
               >
                 Valor Unitario
               </TableCell>
               <TableCell
-                width={isMobile ? '120px' : isTablet ? '10%' : '10%'}
+                width="10%"
                 align="right"
-                sx={{ minWidth: isMobile ? '120px' : 'auto' }}
+                sx={{ minWidth: 90 }}
               >
                 Valor Total
               </TableCell>
               <TableCell
-                width={isMobile ? '80px' : isTablet ? '5%' : '5%'}
+                width="5%"
                 align="center"
-                sx={{ minWidth: isMobile ? '80px' : 'auto' }}
+                sx={{ minWidth: 50 }}
               >
                 Acciones
               </TableCell>
@@ -240,6 +238,8 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                       borderBottom: '1px solid',
                       borderBottomColor: 'divider',
                       paddingY: '8px',
+                      paddingX: { xs: '8px', sm: '12px', md: '16px' },
+                      fontSize: { xs: '0.75rem', sm: '0.8rem', md: '0.8125rem' },
                     },
                   }}
                 >
@@ -306,7 +306,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                   </TableCell>
 
                   {/* Descripción */}
-                  <TableCell>
+                  <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -330,7 +330,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                   </TableCell>
 
                   {/* Áreas de Producción */}
-                  <TableCell>
+                  <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                     <Autocomplete<ProductionArea, true>
                       multiple
                       size="small"
