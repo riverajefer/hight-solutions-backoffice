@@ -274,3 +274,4 @@ Para contribuir al proyecto:
 ## Licencia
 
 Propiedad de High Solutions
+@2026
