@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Box, Chip } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
-import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { GridRenderCellParams } from '@mui/x-data-grid';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { DataTable, ActionsCell } from '../../../components/common/DataTable';
 import { useProductionAreas } from '../hooks/useProductionAreas';
 import { ProductionArea } from '../../../types';
+import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../hooks';
 
 const ProductionAreasListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -30,7 +31,7 @@ const ProductionAreasListPage: React.FC = () => {
     }
   };
 
-  const columns: GridColDef[] = [
+  const rawColumns: ResponsiveGridColDef[] = useMemo(() => [
     {
       field: 'name',
       headerName: 'Nombre',
@@ -42,6 +43,7 @@ const ProductionAreasListPage: React.FC = () => {
       headerName: 'Descripción',
       flex: 2,
       minWidth: 300,
+      responsive: 'md',
     },
     {
       field: 'isActive',
@@ -71,10 +73,12 @@ const ProductionAreasListPage: React.FC = () => {
         />
       ),
     },
-  ];
+  ], [navigate]);
+
+  const columns = useResponsiveColumns(rawColumns);
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title="Áreas de Producción"
         subtitle="Gestiona las áreas de producción de la empresa"

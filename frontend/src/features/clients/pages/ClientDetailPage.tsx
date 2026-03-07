@@ -65,7 +65,7 @@ const ClientDetailPage: React.FC = () => {
   );
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title={client.name}
         breadcrumbs={[
@@ -76,14 +76,15 @@ const ClientDetailPage: React.FC = () => {
 
       <Grid container spacing={3}>
         {/* Main Information */}
-        <Grid item xs={12} md={8}>
+        <Grid item xs={12} sm={12} md={8}>
           <Card>
             <CardContent>
               <Stack
-                direction="row"
+                direction={{ xs: 'column', sm: 'row' }}
                 justifyContent="space-between"
-                alignItems="center"
+                alignItems={{ xs: 'flex-start', sm: 'center' }}
                 mb={2}
+                gap={1}
               >
                 <Typography variant="h6">Información del Cliente</Typography>
                 {hasPermission(PERMISSIONS.UPDATE_CLIENTS) && (
@@ -198,7 +199,7 @@ const ClientDetailPage: React.FC = () => {
         )}
 
         {/* Status Card */}
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} sm={12} md={4}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>

@@ -134,7 +134,7 @@ const ClientsListPage: React.FC = () => {
   const columns = useResponsiveColumns(rawColumns);
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title="Clientes"
         subtitle="Gestiona los clientes de la organización"

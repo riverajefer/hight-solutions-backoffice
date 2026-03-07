@@ -63,7 +63,7 @@ const RoleFormPage: React.FC = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title={isEdit ? 'Editar Rol' : 'Crear Rol'}
         breadcrumbs={[

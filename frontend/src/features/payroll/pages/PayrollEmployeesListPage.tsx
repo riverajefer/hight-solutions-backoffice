@@ -11,6 +11,7 @@ import type { PayrollEmployee } from '../../../types/payroll-employee.types';
 import { PATHS } from '../../../router/paths';
 import { PERMISSIONS } from '../../../utils/constants';
 import { useAuthStore } from '../../../store/authStore';
+import { useResponsiveColumns } from '../../../hooks';
 
 const PayrollEmployeesListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -32,14 +33,16 @@ const PayrollEmployeesListPage: React.FC = () => {
     }
   };
 
-  const columns = getEmployeeColumns(
+  const rawColumns = getEmployeeColumns(
     (e) => navigate(PATHS.PAYROLL_EMPLOYEES_EDIT.replace(':id', e.id)),
     (e) => setToDelete(e),
     (e) => navigate(PATHS.PAYROLL_EMPLOYEES_HISTORY.replace(':id', e.id)),
   );
 
+  const columns = useResponsiveColumns(rawColumns);
+
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title="Empleados de Nómina"
         subtitle="Usuarios vinculados al sistema de nómina"

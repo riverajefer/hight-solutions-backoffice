@@ -610,7 +610,7 @@ export const OrderDetailPage: React.FC = () => {
 
       <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ mt: 1 }}>
         {/* Info General */}
-        <Grid item xs={12} md={8}>
+        <Grid item xs={12} sm={12} md={8}>
           <Stack spacing={{ xs: 2, sm: 2.5, md: 3 }}>
             {/* Estado y Fechas */}
             <Card>
@@ -750,8 +750,22 @@ export const OrderDetailPage: React.FC = () => {
                   Items de la Orden
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
-                <TableContainer>
-                  <Table size="small">
+                <TableContainer 
+                  sx={{ 
+                    overflowX: 'auto',
+                    '&::-webkit-scrollbar': {
+                      height: 8,
+                    },
+                    '&::-webkit-scrollbar-track': {
+                      backgroundColor: 'transparent',
+                    },
+                    '&::-webkit-scrollbar-thumb': {
+                      backgroundColor: 'rgba(0,0,0,0.1)',
+                      borderRadius: 4,
+                    }
+                  }}
+                >
+                  <Table size="small" sx={{ minWidth: { xs: 600, sm: 'auto' } }}>
                     <TableHead>
                       <TableRow>
                         <TableCell>Descripción</TableCell>
@@ -883,8 +897,22 @@ export const OrderDetailPage: React.FC = () => {
                     Historial de Pagos
                   </Typography>
                   <Divider sx={{ mb: 2 }} />
-                  <TableContainer>
-                    <Table size="small">
+                  <TableContainer
+                    sx={{
+                      overflowX: 'auto',
+                      '&::-webkit-scrollbar': {
+                        height: 8,
+                      },
+                      '&::-webkit-scrollbar-track': {
+                        backgroundColor: 'transparent',
+                      },
+                      '&::-webkit-scrollbar-thumb': {
+                        backgroundColor: 'rgba(0,0,0,0.1)',
+                        borderRadius: 4,
+                      }
+                    }}
+                  >
+                    <Table size="small" sx={{ minWidth: { xs: 800, sm: 'auto' } }}>
                       <TableHead>
                         <TableRow>
                           <TableCell>Fecha</TableCell>
@@ -993,7 +1021,7 @@ export const OrderDetailPage: React.FC = () => {
         </Grid>
 
         {/* Sidebar */}
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} sm={12} md={4}>
           <Stack spacing={{ xs: 2, sm: 2.5, md: 3 }}>
             {/* Cliente */}
             <Card>

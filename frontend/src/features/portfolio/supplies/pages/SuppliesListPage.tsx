@@ -139,7 +139,7 @@ const SuppliesListPage: React.FC = () => {
   const columns = useResponsiveColumns(rawColumns);
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title="Insumos"
         subtitle="Gestiona los insumos del sistema"

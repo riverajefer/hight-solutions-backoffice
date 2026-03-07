@@ -113,7 +113,7 @@ const ProductCategoryFormPage: React.FC = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title={isEdit ? 'Editar Categoría de Producto' : 'Nueva Categoría de Producto'}
         breadcrumbs={[
@@ -124,7 +124,7 @@ const ProductCategoryFormPage: React.FC = () => {
       />
 
       <Card sx={{ maxWidth: 600 }}>
-        <CardContent>
+        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {error}
@@ -168,15 +168,25 @@ const ProductCategoryFormPage: React.FC = () => {
 
 
 
-              <Stack direction="row" spacing={2} justifyContent="flex-end">
+              <Stack
+                direction={{ xs: 'column-reverse', sm: 'row' }}
+                spacing={2}
+                justifyContent={{ sm: 'flex-end' }}
+              >
                 <Button
                   variant="outlined"
                   onClick={() => navigate(ROUTES.PRODUCT_CATEGORIES)}
                   disabled={isSubmitting}
+                  sx={{ width: { xs: '100%', sm: 'auto' } }}
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" variant="contained" disabled={isSubmitting}>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  disabled={isSubmitting}
+                  sx={{ width: { xs: '100%', sm: 'auto' } }}
+                >
                   {isSubmitting
                     ? 'Guardando...'
                     : isEdit

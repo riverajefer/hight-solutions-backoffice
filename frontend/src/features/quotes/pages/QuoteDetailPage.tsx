@@ -265,7 +265,7 @@ export const QuoteDetailPage: React.FC = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title={`Cotización ${quote.quoteNumber}`}
         breadcrumbs={[
@@ -408,7 +408,7 @@ export const QuoteDetailPage: React.FC = () => {
       )}
 
       <Grid container spacing={3} sx={{ mt: 1 }}>
-        <Grid item xs={12} md={8}>
+        <Grid item xs={12} sm={12} md={8}>
           <Stack spacing={3}>
             <Card>
               <CardContent>
@@ -560,7 +560,7 @@ export const QuoteDetailPage: React.FC = () => {
           </Stack>
         </Grid>
 
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} sm={12} md={4}>
           <Stack spacing={3}>
             <Card>
               <CardContent>

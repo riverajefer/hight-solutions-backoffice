@@ -243,7 +243,7 @@ const ClientFormPage: React.FC = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title={isEdit ? 'Editar Cliente' : 'Nuevo Cliente'}
         breadcrumbs={[
@@ -252,7 +252,7 @@ const ClientFormPage: React.FC = () => {
         ]}
       />
 
-      <Card sx={{ maxWidth: 800 }}>
+      <Card sx={{ maxWidth: 800, p: { xs: 2, sm: 3 } }}>
         <CardContent>
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
@@ -580,11 +580,16 @@ const ClientFormPage: React.FC = () => {
 
               {/* Buttons */}
               <Grid item xs={12}>
-                <Stack direction="row" spacing={2} justifyContent="flex-end">
+                <Stack
+                  direction={{ xs: 'column-reverse', sm: 'row' }}
+                  spacing={2}
+                  justifyContent={{ sm: 'flex-end' }}
+                >
                   <Button
                     variant="outlined"
                     onClick={() => navigate('/clients')}
                     disabled={isSubmitting}
+                    sx={{ width: { xs: '100%', sm: 'auto' } }}
                   >
                     Cancelar
                   </Button>
@@ -592,6 +597,7 @@ const ClientFormPage: React.FC = () => {
                     type="submit"
                     variant="contained"
                     disabled={isSubmitting}
+                    sx={{ width: { xs: '100%', sm: 'auto' } }}
                   >
                     {isSubmitting
                       ? 'Guardando...'

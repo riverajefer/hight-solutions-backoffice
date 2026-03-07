@@ -654,13 +654,19 @@ export const QuoteFormPage: React.FC = () => {
           {activeStep === 3 && renderStep3()}
 
           {/* Navegación */}
-          <Stack direction="row" justifyContent="space-between" sx={{ mt: 4 }}>
+          <Stack
+            direction={{ xs: 'column-reverse', sm: 'row' }}
+            justifyContent="space-between"
+            spacing={{ xs: 1, sm: 0 }}
+            sx={{ mt: 4 }}
+          >
             <Button
               startIcon={<ArrowBackIcon />}
               onClick={() =>
                 activeStep === 0 ? navigate('/quotes') : goToStep(activeStep - 1)
               }
               disabled={isSubmitting}
+              sx={{ width: { xs: '100%', sm: 'auto' } }}
             >
               {activeStep === 0 ? 'Cancelar' : 'Anterior'}
             </Button>
@@ -670,6 +676,7 @@ export const QuoteFormPage: React.FC = () => {
                 variant="contained"
                 onClick={() => goToStep(activeStep + 1)}
                 disabled={!canGoNext() || isSubmitting}
+                sx={{ width: { xs: '100%', sm: 'auto' } }}
               >
                 Siguiente
               </Button>
@@ -680,6 +687,7 @@ export const QuoteFormPage: React.FC = () => {
                 startIcon={<SaveIcon />}
                 disabled={isSubmitting || !isValid}
                 onClick={handleSubmit(onSubmit)}
+                sx={{ width: { xs: '100%', sm: 'auto' } }}
               >
                 {isSubmitting ? 'Guardando...' : isEdit ? 'Guardar Cambios' : 'Guardar Cotización'}
               </Button>

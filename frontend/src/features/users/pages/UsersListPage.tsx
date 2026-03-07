@@ -31,7 +31,7 @@ const UsersListPage: React.FC = () => {
   };
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title="Usuarios"
         subtitle="Gestiona los usuarios del sistema"

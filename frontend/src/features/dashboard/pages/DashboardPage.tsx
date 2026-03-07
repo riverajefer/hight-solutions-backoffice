@@ -509,7 +509,7 @@ const DashboardPage: React.FC = () => {
   };
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title={`Bienvenido ${user?.firstName || 'Usuario'}`}
         subtitle="Panel de control"

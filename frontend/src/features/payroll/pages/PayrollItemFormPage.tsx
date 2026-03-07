@@ -7,6 +7,7 @@ import {
   Grid,
   InputAdornment,
   Paper,
+  Stack,
   TextField,
   Typography,
 } from '@mui/material';
@@ -277,7 +278,7 @@ const PayrollItemFormPage: React.FC = () => {
         ]}
       />
 
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: { xs: 2, sm: 3 } }}>
         {serverError && <Alert severity="error" sx={{ mb: 2 }}>{serverError}</Alert>}
 
         <form onSubmit={handleSubmit(onSubmit)}>
@@ -355,7 +356,7 @@ const PayrollItemFormPage: React.FC = () => {
                 </Typography>
               </Box>
             </Grid>
-            <Grid item xs={12} md={8}>
+            <Grid item xs={12} sm={12} md={8}>
               <Controller
                 name="observations"
                 control={control}
@@ -366,14 +367,14 @@ const PayrollItemFormPage: React.FC = () => {
             </Grid>
           </Grid>
 
-          <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
-            <Button variant="contained" type="submit" disabled={isLoading}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 3 }}>
+            <Button variant="contained" type="submit" disabled={isLoading} sx={{ width: { xs: '100%', sm: 'auto' } }}>
               {isLoading ? 'Guardando...' : 'Guardar Registro'}
             </Button>
-            <Button variant="outlined" onClick={() => navigate(PATHS.PAYROLL_PERIODS_DETAIL.replace(':id', periodId!))}>
+            <Button variant="outlined" onClick={() => navigate(PATHS.PAYROLL_PERIODS_DETAIL.replace(':id', periodId!))} sx={{ width: { xs: '100%', sm: 'auto' } }}>
               Cancelar
             </Button>
-          </Box>
+          </Stack>
         </form>
       </Paper>
     </Box>

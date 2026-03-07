@@ -11,6 +11,7 @@ import type { PayrollPeriod } from '../../../types/payroll-period.types';
 import { PATHS } from '../../../router/paths';
 import { PERMISSIONS } from '../../../utils/constants';
 import { useAuthStore } from '../../../store/authStore';
+import { useResponsiveColumns } from '../../../hooks';
 
 const PayrollPeriodsListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -31,14 +32,16 @@ const PayrollPeriodsListPage: React.FC = () => {
     }
   };
 
-  const columns = getPeriodColumns(
+  const rawColumns = getPeriodColumns(
     (p) => navigate(PATHS.PAYROLL_PERIODS_DETAIL.replace(':id', p.id)),
     (p) => navigate(PATHS.PAYROLL_PERIODS_EDIT.replace(':id', p.id)),
     (p) => setToDelete(p),
   );
 
+  const columns = useResponsiveColumns(rawColumns);
+
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title="Periodos de Nómina"
         subtitle="Gestiona los periodos quincenales y mensuales"

@@ -5,6 +5,7 @@ import { getPermissionColumns } from '../config/columns';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES, PERMISSIONS } from '../../../utils/constants';
 import { useAuthStore } from '../../../store/authStore';
+import { useResponsiveColumns } from '../../../hooks';
 
 interface PermissionsTableProps {
   permissions: Permission[];
@@ -24,15 +25,17 @@ export const PermissionsTable: React.FC<PermissionsTableProps> = ({
     navigate(ROUTES.PERMISSIONS_EDIT.replace(':id', permission.id));
   };
 
-  const columns = useMemo(
-    () => getPermissionColumns({ 
-      onEdit: handleEdit, 
+  const rawColumns = useMemo(
+    () => getPermissionColumns({
+      onEdit: handleEdit,
       onDelete,
       canEdit: hasPermission(PERMISSIONS.UPDATE_PERMISSIONS),
       canDelete: hasPermission(PERMISSIONS.DELETE_PERMISSIONS)
     }),
     [onDelete, navigate, hasPermission]
   );
+
+  const columns = useResponsiveColumns(rawColumns);
 
   return (
     <DataTable

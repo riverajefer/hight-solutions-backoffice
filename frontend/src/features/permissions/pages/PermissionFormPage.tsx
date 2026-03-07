@@ -54,7 +54,7 @@ const PermissionFormPage: React.FC = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title={isEdit ? 'Editar Permiso' : 'Crear Permiso'}
         breadcrumbs={[

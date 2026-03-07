@@ -185,7 +185,7 @@ const SupplyFormPage: React.FC = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title={isEdit ? 'Editar Insumo' : 'Nuevo Insumo'}
         breadcrumbs={[
@@ -196,7 +196,7 @@ const SupplyFormPage: React.FC = () => {
       />
 
       <Card sx={{ maxWidth: 900 }}>
-        <CardContent>
+        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {error}
@@ -211,7 +211,7 @@ const SupplyFormPage: React.FC = () => {
               </Typography>
 
               <Grid container spacing={2}>
-                <Grid item xs={12} md={8}>
+                <Grid item xs={12} sm={8} md={8}>
                   <Controller
                     name="name"
                     control={control}
@@ -229,7 +229,7 @@ const SupplyFormPage: React.FC = () => {
                   />
                 </Grid>
 
-                <Grid item xs={12} md={4}>
+                <Grid item xs={12} sm={4} md={4}>
                   <Controller
                     name="sku"
                     control={control}
@@ -301,7 +301,7 @@ const SupplyFormPage: React.FC = () => {
               </Typography>
 
               <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} sm={6} md={6}>
                   <Controller
                     name="purchasePrice"
                     control={control}
@@ -322,7 +322,7 @@ const SupplyFormPage: React.FC = () => {
                   />
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} sm={6} md={6}>
                   <Controller
                     name="purchaseUnitId"
                     control={control}
@@ -358,7 +358,7 @@ const SupplyFormPage: React.FC = () => {
               </Typography>
 
               <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} sm={6} md={6}>
                   <Controller
                     name="consumptionUnitId"
                     control={control}
@@ -385,7 +385,7 @@ const SupplyFormPage: React.FC = () => {
                   />
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} sm={6} md={6}>
                   <Controller
                     name="conversionFactor"
                     control={control}
@@ -412,7 +412,7 @@ const SupplyFormPage: React.FC = () => {
               </Typography>
 
               <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} sm={6} md={6}>
                   <Controller
                     name="currentStock"
                     control={control}
@@ -430,7 +430,7 @@ const SupplyFormPage: React.FC = () => {
                   />
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} sm={6} md={6}>
                   <Controller
                     name="minimumStock"
                     control={control}
@@ -449,15 +449,26 @@ const SupplyFormPage: React.FC = () => {
                 </Grid>
               </Grid>
 
-              <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 2 }}>
+              <Stack
+                direction={{ xs: 'column-reverse', sm: 'row' }}
+                spacing={2}
+                justifyContent={{ sm: 'flex-end' }}
+                sx={{ mt: 2 }}
+              >
                 <Button
                   variant="outlined"
                   onClick={() => navigate(ROUTES.SUPPLIES)}
                   disabled={isSubmitting}
+                  sx={{ width: { xs: '100%', sm: 'auto' } }}
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" variant="contained" disabled={isSubmitting}>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  disabled={isSubmitting}
+                  sx={{ width: { xs: '100%', sm: 'auto' } }}
+                >
                   {isSubmitting
                     ? 'Guardando...'
                     : isEdit

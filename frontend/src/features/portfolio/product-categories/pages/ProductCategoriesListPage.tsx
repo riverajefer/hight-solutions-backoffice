@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Box, Chip } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
@@ -9,6 +9,7 @@ import { DataTable, ActionsCell } from '../../../../components/common/DataTable'
 import { useProductCategories } from '../hooks/useProductCategories';
 import { ProductCategory } from '../../../../types/product-category.types';
 import { ROUTES } from '../../../../utils/constants';
+import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../../hooks';
 
 const ProductCategoriesListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -36,7 +37,7 @@ const ProductCategoriesListPage: React.FC = () => {
   };
 
   // Define columns for DataTable
-  const columns: GridColDef[] = [
+  const rawColumns: ResponsiveGridColDef<ProductCategory>[] = useMemo(() => [
     {
       field: 'name',
       headerName: 'Nombre',
@@ -47,20 +48,22 @@ const ProductCategoriesListPage: React.FC = () => {
       field: 'slug',
       headerName: 'Slug',
       width: 150,
+      responsive: 'sm',
     },
     {
       field: 'description',
       headerName: 'Descripción',
       flex: 2,
       minWidth: 200,
+      responsive: 'md',
     },
-
     {
       field: 'productsCount',
       headerName: 'Productos',
       width: 100,
       align: 'center',
       headerAlign: 'center',
+      responsive: 'sm',
     },
     {
       field: 'isActive',
@@ -89,10 +92,12 @@ const ProductCategoriesListPage: React.FC = () => {
         />
       ),
     },
-  ];
+  ], [navigate]);
+
+  const columns = useResponsiveColumns(rawColumns);
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title="Categorías de Productos"
         subtitle="Gestiona las categorías de productos del sistema"

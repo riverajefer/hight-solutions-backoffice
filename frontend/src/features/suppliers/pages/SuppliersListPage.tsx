@@ -131,7 +131,7 @@ const SuppliersListPage: React.FC = () => {
   const columns = useResponsiveColumns(rawColumns);
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title="Proveedores"
         subtitle="Gestiona los proveedores de la organización"

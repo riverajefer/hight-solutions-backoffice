@@ -61,9 +61,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
   disabled = false,
 }) => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const isTablet = useMediaQuery(theme.breakpoints.down('lg'));
-
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { productionAreasQuery } = useProductionAreas();
   const productionAreas: ProductionArea[] = productionAreasQuery.data || [];
 
@@ -174,46 +172,46 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
               }}
             >
               <TableCell
-                width={isTablet ? '8%' : '8%'}
+                width="8%"
                 align="center"
                 sx={{ minWidth: 70 }}
               >
                 Cantidad
               </TableCell>
               <TableCell
-                width={isTablet ? '22%' : '25%'}
+                width="22%"
                 sx={{ minWidth: 130 }}
               >
                 Servicio (Opcional)
               </TableCell>
               <TableCell
-                width={isTablet ? '25%' : '25%'}
-                sx={{ minWidth: 150 }}
+                width="25%"
+                sx={{ minWidth: 150, display: { xs: 'none', sm: 'table-cell' } }}
               >
                 Descripción
               </TableCell>
               <TableCell
-                width={isTablet ? '18%' : '20%'}
-                sx={{ minWidth: 140 }}
+                width="18%"
+                sx={{ minWidth: 140, display: { xs: 'none', sm: 'table-cell' } }}
               >
                 Áreas de Producción
               </TableCell>
               <TableCell
-                width={isTablet ? '12%' : '12%'}
+                width="12%"
                 align="right"
                 sx={{ minWidth: 100 }}
               >
                 Valor Unitario
               </TableCell>
               <TableCell
-                width={isTablet ? '10%' : '10%'}
+                width="10%"
                 align="right"
                 sx={{ minWidth: 90 }}
               >
                 Valor Total
               </TableCell>
               <TableCell
-                width={isTablet ? '5%' : '5%'}
+                width="5%"
                 align="center"
                 sx={{ minWidth: 50 }}
               >
@@ -308,7 +306,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                   </TableCell>
 
                   {/* Descripción */}
-                  <TableCell>
+                  <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -332,7 +330,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                   </TableCell>
 
                   {/* Áreas de Producción */}
-                  <TableCell>
+                  <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                     <Autocomplete<ProductionArea, true>
                       multiple
                       size="small"

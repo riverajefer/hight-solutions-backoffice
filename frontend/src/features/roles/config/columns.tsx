@@ -1,8 +1,8 @@
-import { GridColDef } from '@mui/x-data-grid';
 import { Tooltip, Typography, Box } from '@mui/material';
 import { StatusBadge, ActionsCell } from '../../../components/common/DataTable';
 import { Role } from '../../../types';
 import { formatDate } from '../../../utils/helpers';
+import type { ResponsiveGridColDef } from '../../../hooks';
 
 interface RoleColumnsProps {
   onEdit: (role: Role) => void;
@@ -12,17 +12,18 @@ interface RoleColumnsProps {
   canDelete?: boolean;
 }
 
-export const getRoleColumns = ({ 
-  onEdit, 
-  onDelete, 
+export const getRoleColumns = ({
+  onEdit,
+  onDelete,
   onViewPermissions,
   canEdit = true,
   canDelete = true,
-}: RoleColumnsProps): GridColDef<Role>[] => [
+}: RoleColumnsProps): ResponsiveGridColDef<Role>[] => [
   {
     field: 'id',
     headerName: 'ID',
     width: 90,
+    responsive: 'lg',
   },
   {
     field: 'name',
@@ -35,6 +36,7 @@ export const getRoleColumns = ({
     headerName: 'Descripción',
     flex: 2,
     minWidth: 250,
+    responsive: 'md',
     renderCell: (params) => (
       <Tooltip title={params.value || ''}>
         <Typography variant="body2" noWrap>
@@ -48,6 +50,7 @@ export const getRoleColumns = ({
     headerName: 'Permisos',
     width: 120,
     type: 'number',
+    responsive: 'sm',
     valueGetter: (_, row) => row.permissions?.length || 0,
   },
   {
@@ -55,6 +58,7 @@ export const getRoleColumns = ({
     headerName: 'Usuarios',
     width: 120,
     type: 'number',
+    responsive: 'sm',
     valueGetter: (_, row) => (row as any)._count?.users || 0,
   },
   {
@@ -69,6 +73,7 @@ export const getRoleColumns = ({
     field: 'createdAt',
     headerName: 'Fecha de creación',
     width: 180,
+    responsive: 'lg',
     valueFormatter: (value) => formatDate(value as string),
   },
   {
