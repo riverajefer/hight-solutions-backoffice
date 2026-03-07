@@ -1,4 +1,4 @@
-export type OrderNodeType = 'COT' | 'OP' | 'OT' | 'OG';
+export type OrderNodeType = 'COT' | 'OP' | 'OT' | 'OG' | 'UTIL';
 
 export interface OrderTreeNode {
   id: string;

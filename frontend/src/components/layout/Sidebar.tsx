@@ -48,6 +48,7 @@ import BuildIcon from '@mui/icons-material/Build';
 import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import GroupsIcon from '@mui/icons-material/Groups';
 import { useAuthStore } from '../../store/authStore';
@@ -175,6 +176,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           label: 'Trazabilidad',
           icon: <AccountTreeIcon />,
           path: ROUTES.ORDER_FLOW_BASE,
+          permission: PERMISSIONS.READ_ORDERS,
+        },
+        {
+          label: 'Rentabilidad',
+          icon: <TrendingUpIcon />,
+          path: ROUTES.ORDERS_PROFITABILITY,
           permission: PERMISSIONS.READ_ORDERS,
         },
         {

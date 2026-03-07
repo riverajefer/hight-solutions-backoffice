@@ -7,6 +7,7 @@ import type {
   UpdateOrderDto,
   OrderStatus,
   CreatePaymentDto,
+  FilterProfitabilityDto,
 } from '../../../types/order.types';
 
 // ============================================================
@@ -22,6 +23,10 @@ export const ordersKeys = {
   detail: (id: string) => [...ordersKeys.details(), id] as const,
   payments: (orderId: string) =>
     [...ordersKeys.detail(orderId), 'payments'] as const,
+  profitability: (orderId: string) =>
+    [...ordersKeys.detail(orderId), 'profitability'] as const,
+  profitabilityList: (filters?: FilterProfitabilityDto) =>
+    [...ordersKeys.all, 'profitability', 'list', filters] as const,
 };
 
 // ============================================================
@@ -248,4 +253,27 @@ export const useOrderPayments = (orderId: string) => {
     // Mutations
     addPaymentMutation,
   };
+};
+
+// ============================================================
+// HOOK: useOrderProfitability - Rentabilidad de una orden
+// ============================================================
+
+export const useOrderProfitability = (orderId: string) => {
+  return useQuery({
+    queryKey: ordersKeys.profitability(orderId),
+    queryFn: () => ordersApi.getProfitability(orderId),
+    enabled: !!orderId,
+  });
+};
+
+// ============================================================
+// HOOK: useProfitabilityList - Lista de rentabilidad paginada
+// ============================================================
+
+export const useProfitabilityList = (filters?: FilterProfitabilityDto) => {
+  return useQuery({
+    queryKey: ordersKeys.profitabilityList(filters),
+    queryFn: () => ordersApi.getProfitabilityList(filters),
+  });
 };

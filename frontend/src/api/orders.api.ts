@@ -10,6 +10,9 @@ import type {
   OrderStatus,
   ApplyDiscountDto,
   OrderDiscount,
+  OrderProfitability,
+  PaginatedProfitability,
+  FilterProfitabilityDto,
 } from '../types/order.types';
 
 const BASE_URL = '/orders';
@@ -179,6 +182,29 @@ export const ordersApi = {
     const { data } = await axiosInstance.patch<Order>(
       `${BASE_URL}/${orderId}/electronic-invoice`,
       { electronicInvoiceNumber }
+    );
+    return data;
+  },
+
+  /**
+   * Obtener rentabilidad de una orden específica
+   */
+  getProfitability: async (orderId: string): Promise<OrderProfitability> => {
+    const { data } = await axiosInstance.get<OrderProfitability>(
+      `${BASE_URL}/${orderId}/profitability`
+    );
+    return data;
+  },
+
+  /**
+   * Obtener lista paginada de rentabilidad de todas las órdenes
+   */
+  getProfitabilityList: async (
+    params?: FilterProfitabilityDto
+  ): Promise<PaginatedProfitability> => {
+    const { data } = await axiosInstance.get<PaginatedProfitability>(
+      `${BASE_URL}/profitability`,
+      { params }
     );
     return data;
   },

@@ -18,6 +18,10 @@ import {
   UpdateOrderItemDto,
   CreatePaymentDto,
   ApplyDiscountDto,
+  OrderProfitabilityDto,
+  OrderProfitabilityListItemDto,
+  PaginatedProfitabilityDto,
+  ExpenseOrderSummaryDto,
 } from './dto';
 import { OrderStatus, Prisma } from '../../generated/prisma';
 import { isValidTransition, getValidNextStatuses } from './order-status-transitions';
@@ -1243,5 +1247,106 @@ export class OrdersService {
       // Recalcular totales
       return this.recalculateOrderTotals(orderId, tx);
     });
+  }
+
+  // ========== PROFITABILITY ==========
+
+  private _calcProfitability(
+    orderTotal: Prisma.Decimal,
+    workOrders: { expenseOrders: { items: { total: Prisma.Decimal }[] }[] }[],
+  ) {
+    let totalExpensesDecimal = new Prisma.Decimal(0);
+    for (const wo of workOrders) {
+      for (const eg of wo.expenseOrders) {
+        for (const item of eg.items) {
+          totalExpensesDecimal = totalExpensesDecimal.add(item.total);
+        }
+      }
+    }
+    const orderTotalNum = Number(orderTotal.toString());
+    const totalExpenses = Number(totalExpensesDecimal.toString());
+    const utility = orderTotalNum - totalExpenses;
+    const utilityPercentage = orderTotalNum > 0 ? (utility / orderTotalNum) * 100 : 0;
+    return { totalExpenses, utility, utilityPercentage };
+  }
+
+  async getOrderProfitability(orderId: string): Promise<OrderProfitabilityDto> {
+    const order = await this.ordersRepository.getOrderProfitabilityData(orderId);
+    if (!order) {
+      throw new NotFoundException(`Order with ID ${orderId} not found`);
+    }
+
+    const expenseOrders: ExpenseOrderSummaryDto[] = [];
+    for (const wo of order.workOrders) {
+      for (const eg of wo.expenseOrders) {
+        const itemsTotal = eg.items.reduce(
+          (sum, item) => sum + Number(item.total.toString()),
+          0,
+        );
+        expenseOrders.push({
+          id: eg.id,
+          ogNumber: eg.ogNumber,
+          status: eg.status,
+          workOrderNumber: wo.workOrderNumber,
+          itemsTotal,
+        });
+      }
+    }
+
+    const { totalExpenses, utility, utilityPercentage } = this._calcProfitability(
+      order.total,
+      order.workOrders,
+    );
+
+    return {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      orderTotal: Number(order.total.toString()),
+      expenseOrders,
+      totalExpenses,
+      utility,
+      utilityPercentage,
+    };
+  }
+
+  async getProfitabilityList(filters: {
+    search?: string;
+    status?: string;
+    orderDateFrom?: string;
+    orderDateTo?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedProfitabilityDto> {
+    const page = filters.page ?? 1;
+    const limit = filters.limit ?? 20;
+
+    const { orders, total } = await this.ordersRepository.getProfitabilityList({
+      search: filters.search,
+      status: filters.status,
+      orderDateFrom: filters.orderDateFrom ? new Date(filters.orderDateFrom) : undefined,
+      orderDateTo: filters.orderDateTo ? new Date(filters.orderDateTo) : undefined,
+      page,
+      limit,
+    });
+
+    const data: OrderProfitabilityListItemDto[] = orders.map((order) => {
+      const { totalExpenses, utility, utilityPercentage } = this._calcProfitability(
+        order.total,
+        order.workOrders,
+      );
+      return {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        clientName: order.client.name,
+        orderTotal: Number(order.total.toString()),
+        totalExpenses,
+        utility,
+        utilityPercentage,
+        status: order.status,
+        orderDate: order.orderDate.toISOString(),
+      };
+    });
+
+    return { data, total, page, limit };
   }
 }

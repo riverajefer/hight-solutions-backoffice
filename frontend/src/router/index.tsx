@@ -57,6 +57,7 @@ const OrderFormPage = lazy(() => import('../features/orders/pages/OrderFormPage'
 const OrderDetailPage = lazy(() => import('../features/orders/pages/OrderDetailPage'));
 const PendingPaymentOrdersPage = lazy(() => import('../features/orders/pages/PendingPaymentOrdersPage'));
 const StatusChangeRequestsPage = lazy(() => import('../features/orders/pages/StatusChangeRequestsPage'));
+const ProfitabilityPage = lazy(() => import('../features/orders/pages/ProfitabilityPage'));
 // Commercial Channels
 const CommercialChannelsListPage = lazy(() => import('../features/commercial-channels/pages/CommercialChannelsListPage'));
 const CommercialChannelFormPage = lazy(() => import('../features/commercial-channels/pages/CommercialChannelFormPage'));
@@ -926,6 +927,19 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.APPROVE_ORDERS}>
                   <StatusChangeRequestsPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        {/* Profitability */}
+        <Route
+          path={PATHS.ORDERS_PROFITABILITY}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_ORDERS}>
+                  <ProfitabilityPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

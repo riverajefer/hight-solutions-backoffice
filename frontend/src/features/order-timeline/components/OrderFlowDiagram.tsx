@@ -16,6 +16,7 @@ import OrderFlowNode from './OrderFlowNode';
 import type { OrderFlowNodeData } from './OrderFlowNode';
 import { getLayoutedElements } from '../utils/layout';
 import type { OrderTreeResponse } from '../types/order-timeline.types';
+import { useOrderProfitability } from '../../orders/hooks';
 
 const nodeTypes = { orderNode: OrderFlowNode };
 
@@ -26,6 +27,10 @@ interface OrderFlowDiagramProps {
 export default function OrderFlowDiagram({ data }: OrderFlowDiagramProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+
+  // Detect the OP node to fetch profitability data
+  const opNode = data.nodes.find((n) => n.type === 'OP');
+  const { data: profitabilityData } = useOrderProfitability(opNode?.id ?? '');
 
   const { layoutedNodes, layoutedEdges } = useMemo(() => {
     const createdAtMap: Record<string, number> = Object.fromEntries(
@@ -86,9 +91,73 @@ export default function OrderFlowDiagram({ data }: OrderFlowDiagramProps) {
       },
     }));
 
+    // Inject synthetic UTIL node if profitability data is available for an OP
+    if (profitabilityData && opNode) {
+      const utilityColor = profitabilityData.utility >= 0 ? '#10B981' : '#EF4444';
+      const utilityNodeId = `utility-${opNode.id}`;
+
+      // Prefer attaching from an OT node; fall back to the OP node itself
+      const anchorNode =
+        nodes.find((n) => (n.data as Record<string, unknown>)?.type === 'OT') ??
+        nodes.find((n) => n.id === opNode.id);
+      const anchorId = anchorNode?.id ?? opNode.id;
+
+      const utilityLabel = new Intl.NumberFormat('es-CO', {
+        style: 'currency',
+        currency: 'COP',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(Math.abs(profitabilityData.utility));
+
+      nodes.push({
+        id: utilityNodeId,
+        type: 'orderNode' as const,
+        position: { x: 0, y: 0 },
+        data: {
+          id: utilityNodeId,
+          type: 'UTIL',
+          number: `${profitabilityData.utilityPercentage.toFixed(1)}%`,
+          status: '',
+          clientName: profitabilityData.utility >= 0
+            ? `Utilidad: ${utilityLabel}`
+            : `Pérdida: ${utilityLabel}`,
+          total: null,
+          detailPath: '',
+          createdAt: new Date().toISOString(),
+          endedAt: null,
+          isFocused: false,
+          durationMs: 0,
+          isOngoing: false,
+          _utilityColor: utilityColor,
+        } as Record<string, unknown>,
+        selectable: false,
+        draggable: true,
+      });
+
+      edges.push({
+        id: `e-${anchorId}-${utilityNodeId}`,
+        source: anchorId,
+        target: utilityNodeId,
+        type: 'smoothstep',
+        animated: false,
+        style: {
+          stroke: utilityColor,
+          strokeWidth: 2,
+          strokeDasharray: '5,5',
+        },
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: utilityColor,
+          width: 14,
+          height: 14,
+        },
+      });
+    }
+
     const { nodes: ln, edges: le } = getLayoutedElements(nodes, edges, 'LR');
     return { layoutedNodes: ln, layoutedEdges: le };
-  }, [data, isDark]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, isDark, profitabilityData]);
 
   return (
     <Box
@@ -150,6 +219,9 @@ export default function OrderFlowDiagram({ data }: OrderFlowDiagramProps) {
         <MiniMap
           nodeColor={(node) => {
             const nodeData = node.data as unknown as OrderFlowNodeData;
+            if (nodeData?.type === 'UTIL' && nodeData?._utilityColor) {
+              return nodeData._utilityColor as string;
+            }
             const typeColors: Record<string, string> = {
               COT: '#8B5CF6',
               OP: '#2EB0C4',
