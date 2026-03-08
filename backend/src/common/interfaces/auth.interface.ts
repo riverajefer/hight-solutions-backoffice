@@ -21,6 +21,7 @@ export interface AuthenticatedUser {
   lastName?: string | null;
   profilePhoto?: string | null;
   cargoId?: string | null;
+  mustChangePassword?: boolean;
   role?: {
     id: string;
     name: string;

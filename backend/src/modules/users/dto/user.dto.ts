@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEmail,
   IsNotEmpty,
   IsOptional,
@@ -144,4 +145,12 @@ export class UpdateUserDto {
   @IsUUID()
   @IsOptional()
   cargoId?: string | null;
+
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Whether the user account is active'
+  })
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
 }

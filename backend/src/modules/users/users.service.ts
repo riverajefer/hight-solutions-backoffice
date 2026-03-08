@@ -139,7 +139,7 @@ export class UsersService {
       this.SALT_ROUNDS,
     );
 
-    // Crear el usuario
+    // Crear el usuario (mustChangePassword=true porque fue creado por un admin)
     return this.usersRepository.create({
       username: username as string,
       ...(createUserDto.email && { email: createUserDto.email }),
@@ -147,6 +147,7 @@ export class UsersService {
       password: hashedPassword,
       firstName: createUserDto.firstName,
       lastName: createUserDto.lastName,
+      mustChangePassword: true,
       role: {
         connect: { id: createUserDto.roleId },
       },
@@ -212,19 +213,28 @@ export class UsersService {
     }
 
     // Preparar datos de actualización
-    const { password, roleId, cargoId, username, ...updateData } = updateUserDto;
+    const { password, roleId, cargoId, username, isActive, ...updateData } = updateUserDto;
 
     // Incluir username si fue provisto
     if (username) {
       (updateData as any).username = username;
     }
 
-    // Si se actualiza el password, hashearlo
+    // Si se actualiza el password, hashearlo y forzar cambio en próximo login
     if (password) {
       (updateData as any).password = await bcrypt.hash(
         password,
         this.SALT_ROUNDS,
       );
+      (updateData as any).mustChangePassword = true;
+    }
+
+    // Si se actualiza isActive, incluirlo y limpiar refreshToken si se desactiva
+    if (isActive !== undefined) {
+      (updateData as any).isActive = isActive;
+      if (!isActive) {
+        (updateData as any).refreshToken = null;
+      }
     }
 
     // Si se actualiza el roleId, usar la sintaxis de Prisma connect

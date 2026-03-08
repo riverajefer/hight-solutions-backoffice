@@ -5,7 +5,7 @@ export const ERROR_MESSAGES: Record<string, string> = {
   // Errores de Usuarios/Auth
   'Email already registered': 'El correo electrónico ya está registrado',
   'Email already in use': 'El correo electrónico ya está en uso por otro usuario',
-  'Invalid email or password': 'Correo electrónico o contraseña incorrectos',
+  'Invalid username or password': 'Usuario o contraseña incorrectos',
   'Invalid credentials': 'Credenciales inválidas',
   'Invalid refresh token': 'Sesión expirada o inválida',
   'User not found': 'Usuario no encontrado',

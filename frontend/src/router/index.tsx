@@ -86,6 +86,7 @@ const PayrollPeriodFormPage = lazy(() => import('../features/payroll/pages/Payro
 const PayrollPeriodDetailPage = lazy(() => import('../features/payroll/pages/PayrollPeriodDetailPage'));
 const PayrollItemFormPage = lazy(() => import('../features/payroll/pages/PayrollItemFormPage'));
 const EmployeePayrollHistoryPage = lazy(() => import('../features/payroll/pages/EmployeePayrollHistoryPage'));
+const ChangePasswordPage = lazy(() => import('../features/auth/pages/ChangePasswordPage'));
 
 
 const RoutesConfig: FC = () => {
@@ -107,6 +108,16 @@ const RoutesConfig: FC = () => {
             <AuthLayout>
               <RegisterPage />
             </AuthLayout>
+          }
+        />
+        <Route
+          path={PATHS.CHANGE_PASSWORD}
+          element={
+            <AuthGuard>
+              <AuthLayout>
+                <ChangePasswordPage />
+              </AuthLayout>
+            </AuthGuard>
           }
         />
 
