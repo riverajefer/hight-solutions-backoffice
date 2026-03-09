@@ -59,6 +59,7 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   'Órdenes de Gasto': ['create_expense_orders', 'read_expense_orders', 'update_expense_orders', 'delete_expense_orders', 'approve_expense_orders'],
   Anticipos: ['approve_advance_payments'],
   Auditoría: ['read_audit_logs', 'read_session_logs'],
+  Asistencia: ['use_attendance', 'read_attendance', 'manage_attendance'],
 
   // Compañía
   Compañía: ['read_company', 'update_company'],
@@ -110,6 +111,7 @@ const TABS = [
       'Órdenes de Gasto',
       'Anticipos',
       'Auditoría',
+      'Asistencia',
       'Compañía',
       'Otros',
     ],

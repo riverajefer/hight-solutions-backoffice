@@ -331,7 +331,6 @@ function drawItemsTable(doc: jsPDF, y: number, expenseOrder: ExpenseOrder): numb
   // #(7) | Nombre(32) | Descripción(30) | Cant.(13) | P.Unit(22) | Total(22) | Método(20) | Proveedor(22) | Áreas(12)
   const colWidths = [7, 32, 30, 13, 22, 22, 20, 22, 12];
   const colLabels = ['#', 'Nombre', 'Descripción', 'Cant.', 'P. Unit.', 'Total', 'Método pago', 'Proveedor', 'Áreas'];
-  const colAligns: ('center' | 'left' | 'right')[] = ['center', 'left', 'left', 'center', 'right', 'right', 'center', 'left', 'left'];
 
   const headerHeight = 7;
   const x0 = PDF_LAYOUT.marginLeft;
