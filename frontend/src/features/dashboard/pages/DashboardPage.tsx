@@ -52,7 +52,9 @@ import {
   commercialChannelsApi,
   workOrdersApi,
   expenseOrdersApi,
-  orderStatusChangeRequestsApi
+  orderStatusChangeRequestsApi,
+  payrollEmployeesApi,
+  payrollPeriodsApi
 } from '../../../api';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
@@ -79,6 +81,7 @@ const NEON_COLORS = {
   organization: '#00D9FF', // Azul neón
   security: '#FF6B00',     // Naranja neón
   audit: '#BC13FE',        // Púrpura neón
+  payroll: '#FF00FF',      // Magenta neón
 };
 
 const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, neonColor, action }) => {
@@ -450,13 +453,30 @@ const DashboardPage: React.FC = () => {
     },
   });
 
+  const { data: payrollEmployeesData, isLoading: payrollEmployeesLoading } = useQuery({
+    queryKey: ['payroll-employees'],
+    queryFn: async () => {
+      if (!hasPermission(PERMISSIONS.READ_PAYROLL_EMPLOYEES)) return { data: [], total: 0 };
+      return payrollEmployeesApi.getAll({ limit: 1 });
+    },
+  });
+
+  const { data: payrollPeriodsData, isLoading: payrollPeriodsLoading } = useQuery({
+    queryKey: ['payroll-periods'],
+    queryFn: async () => {
+      if (!hasPermission(PERMISSIONS.READ_PAYROLL_PERIODS)) return { data: [], total: 0 };
+      return payrollPeriodsApi.getAll({ limit: 1 });
+    },
+  });
+
   const isLoading =
     usersLoading || rolesLoading || permissionsLoading || clientsLoading ||
     suppliersLoading || areasLoading || cargosLoading || auditLogsLoading ||
     sessionLogsLoading || ordersLoading || productsLoading || suppliesLoading ||
     productionAreasLoading || channelsLoading || productCatsLoading ||
     supplyCatsLoading || unitsLoading || pendingOrdersLoading || quotesLoading ||
-    workOrdersLoading || expenseOrdersLoading || statusChangeRequestsLoading;
+    workOrdersLoading || expenseOrdersLoading || statusChangeRequestsLoading || 
+    payrollEmployeesLoading || payrollPeriodsLoading;
   
   // Logs de verificación de permisos específicos
   console.log('=== VERIFICACIÓN DE PERMISOS ESPECÍFICOS ===');
@@ -503,6 +523,8 @@ const DashboardPage: React.FC = () => {
   const productCatsCount = Array.isArray(productCategories) ? productCategories.length : 0;
   const supplyCatsCount = Array.isArray(supplyCategories) ? supplyCategories.length : 0;
   const unitsCount = Array.isArray(unitsOfMeasure) ? unitsOfMeasure.length : 0;
+  const payrollEmployeesCount = payrollEmployeesData?.total || 0;
+  const payrollPeriodsCount = payrollPeriodsData?.total || 0;
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setCurrentTab(newValue);
@@ -532,7 +554,8 @@ const DashboardPage: React.FC = () => {
                 if (currentTab === 1) return isDark ? NEON_COLORS.commercial : '#b45309';
                 if (currentTab === 2) return isDark ? NEON_COLORS.logistics : '#15803d';
                 if (currentTab === 3) return isDark ? NEON_COLORS.organization : '#0369a1';
-                return isDark ? NEON_COLORS.security : '#c2410c';
+                if (currentTab === 4) return isDark ? NEON_COLORS.security : '#c2410c';
+                return isDark ? NEON_COLORS.payroll : '#d946ef';
               },
               boxShadow: (theme) =>
                 theme.palette.mode === 'dark'
@@ -541,7 +564,8 @@ const DashboardPage: React.FC = () => {
                       currentTab === 1 ? NEON_COLORS.commercial :
                       currentTab === 2 ? NEON_COLORS.logistics :
                       currentTab === 3 ? NEON_COLORS.organization :
-                      NEON_COLORS.security
+                      currentTab === 4 ? NEON_COLORS.security :
+                      NEON_COLORS.payroll
                     }80`
                   : 'none',
             }
@@ -579,6 +603,9 @@ const DashboardPage: React.FC = () => {
             '& .MuiTab-root:nth-of-type(5).Mui-selected': {
               color: (theme) => theme.palette.mode === 'dark' ? NEON_COLORS.security : '#c2410c',
             },
+            '& .MuiTab-root:nth-of-type(6).Mui-selected': {
+              color: (theme) => theme.palette.mode === 'dark' ? NEON_COLORS.payroll : '#d946ef',
+            },
           }}
         >
           <Tab
@@ -605,6 +632,11 @@ const DashboardPage: React.FC = () => {
             icon={<ShieldIcon />}
             iconPosition="start"
             label="Seguridad"
+          />
+          <Tab
+            icon={<PaymentsIcon />}
+            iconPosition="start"
+            label="Nómina"
           />
         </Tabs>
       </Box>
@@ -1342,6 +1374,42 @@ const DashboardPage: React.FC = () => {
             )}
           </Grid>
         </Box>
+      </TabPanel>
+
+      {/* Tab 5: Nómina */}
+      <TabPanel value={currentTab} index={5}>
+        <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }}>
+          {hasPermission(PERMISSIONS.READ_PAYROLL_EMPLOYEES) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Empleados"
+                value={payrollEmployeesCount}
+                icon={<PeopleIcon />}
+                color="#EC4899"
+                neonColor={NEON_COLORS.payroll}
+                action={{
+                  label: 'Ver empleados',
+                  onClick: () => navigate(ROUTES.PAYROLL_EMPLOYEES),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_PAYROLL_PERIODS) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Periodos"
+                value={payrollPeriodsCount}
+                icon={<PendingActionsIcon />}
+                color="#8B5CF6"
+                neonColor={NEON_COLORS.payroll}
+                action={{
+                  label: 'Ver periodos',
+                  onClick: () => navigate(ROUTES.PAYROLL_PERIODS),
+                }}
+              />
+            </Grid>
+          )}
+        </Grid>
       </TabPanel>
     </Box>
   );

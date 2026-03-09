@@ -102,6 +102,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
   });
 
   const handleMenuClick = (menu: keyof typeof menuOpen) => {
+    if (collapsed && onToggleCollapse) {
+      onToggleCollapse();
+      setMenuOpen((prev) => ({
+        ...prev,
+        [menu]: true,
+      }));
+      return;
+    }
     setMenuOpen((prev) => ({
       ...prev,
       [menu]: !prev[menu],
