@@ -21,6 +21,7 @@ export interface User {
     };
   };
   isActive?: boolean;
+  mustChangePassword?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -66,6 +67,7 @@ export interface UpdateUserDto {
   lastName?: string;
   roleId?: string;
   cargoId?: string | null;
+  isActive?: boolean;
 }
 
 export interface AuthResponse {

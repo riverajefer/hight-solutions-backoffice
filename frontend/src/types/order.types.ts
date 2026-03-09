@@ -328,3 +328,53 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   CREDIT: 'Crédito',
   OTHER: 'Otro',
 };
+
+// ============================================================
+// PROFITABILITY TYPES
+// ============================================================
+
+export interface ExpenseOrderSummary {
+  id: string;
+  ogNumber: string;
+  status: string;
+  workOrderNumber: string | null;
+  itemsTotal: number;
+}
+
+export interface OrderProfitability {
+  orderId: string;
+  orderNumber: string;
+  orderTotal: number;
+  expenseOrders: ExpenseOrderSummary[];
+  totalExpenses: number;
+  utility: number;
+  utilityPercentage: number;
+}
+
+export interface OrderProfitabilityListItem {
+  orderId: string;
+  orderNumber: string;
+  clientName: string;
+  orderTotal: number;
+  totalExpenses: number;
+  utility: number;
+  utilityPercentage: number;
+  status: string;
+  orderDate: string;
+}
+
+export interface PaginatedProfitability {
+  data: OrderProfitabilityListItem[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface FilterProfitabilityDto {
+  search?: string;
+  status?: string;
+  orderDateFrom?: string;
+  orderDateTo?: string;
+  page?: number;
+  limit?: number;
+}

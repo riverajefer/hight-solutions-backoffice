@@ -22,7 +22,8 @@ model User {
   firstName    String?
   lastName     String?
   phone        String?
-  isActive     Boolean  @default(true)
+  isActive           Boolean  @default(true)
+  mustChangePassword Boolean  @default(false)
 
   role                         Role                       @relation(fields: [roleId], references: [id])
   cargo                        Cargo?                     @relation(fields: [cargoId], references: [id])

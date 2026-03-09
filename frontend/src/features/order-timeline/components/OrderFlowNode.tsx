@@ -9,6 +9,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import BuildIcon from '@mui/icons-material/Build';
 import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import CampaignOutlinedIcon from '@mui/icons-material/CampaignOutlined';
@@ -42,6 +43,7 @@ const TYPE_CONFIG: Record<
   OP: { label: 'Orden de Pedido', color: '#2EB0C4', icon: ShoppingCartIcon },
   OT: { label: 'Orden de Trabajo', color: '#F97316', icon: BuildIcon },
   OG: { label: 'Orden de Gasto', color: '#22D3EE', icon: RequestQuoteIcon },
+  UTIL: { label: 'Utilidad', color: '#10B981', icon: TrendingUpIcon },
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -96,11 +98,18 @@ function OrderFlowNode({ data }: NodeProps) {
   const theme = useTheme();
   const nodeData = data as OrderFlowNodeData;
   const config = TYPE_CONFIG[nodeData.type] || TYPE_CONFIG.OP;
+  // For UTIL nodes, override the color with the dynamic utility color stored in data
+  const effectiveColor =
+    nodeData.type === 'UTIL' && nodeData._utilityColor
+      ? (nodeData._utilityColor as string)
+      : config.color;
   const statusColor = STATUS_COLORS[nodeData.status] || '#9CA3AF';
   const statusLabel = STATUS_LABELS[nodeData.status] || nodeData.status;
   const IconComponent = config.icon;
+  const isUtil = nodeData.type === 'UTIL';
 
   const handleClick = () => {
+    if (!nodeData.detailPath) return;
     navigate(nodeData.detailPath);
   };
 
@@ -110,7 +119,7 @@ function OrderFlowNode({ data }: NodeProps) {
         type="target"
         position={Position.Left}
         style={{
-          background: config.color,
+          background: effectiveColor,
           width: 8,
           height: 8,
           border: 'none',
@@ -120,20 +129,20 @@ function OrderFlowNode({ data }: NodeProps) {
         onClick={handleClick}
         sx={{
           width: 260,
-          cursor: 'pointer',
+          cursor: isUtil ? 'default' : 'pointer',
           borderRadius: 2,
-          border: `2px solid ${nodeData.isFocused ? config.color : alpha(config.color, 0.3)}`,
+          border: `2px solid ${nodeData.isFocused ? effectiveColor : alpha(effectiveColor, 0.3)}`,
           bgcolor: theme.palette.mode === 'dark'
             ? alpha(theme.palette.background.paper, 0.95)
             : theme.palette.background.paper,
           boxShadow: nodeData.isFocused
-            ? `0 0 20px ${alpha(config.color, 0.4)}, 0 0 40px ${alpha(config.color, 0.1)}`
+            ? `0 0 20px ${alpha(effectiveColor, 0.4)}, 0 0 40px ${alpha(effectiveColor, 0.1)}`
             : `0 2px 8px ${alpha('#000', 0.2)}`,
           transition: 'all 0.2s ease-in-out',
           overflow: 'hidden',
-          '&:hover': {
-            borderColor: config.color,
-            boxShadow: `0 0 16px ${alpha(config.color, 0.3)}`,
+          '&:hover': isUtil ? {} : {
+            borderColor: effectiveColor,
+            boxShadow: `0 0 16px ${alpha(effectiveColor, 0.3)}`,
             transform: 'scale(1.02)',
           },
         }}
@@ -146,17 +155,17 @@ function OrderFlowNode({ data }: NodeProps) {
             gap: 1,
             px: 1.5,
             py: 1,
-            bgcolor: alpha(config.color, 0.1),
-            borderBottom: `1px solid ${alpha(config.color, 0.2)}`,
+            bgcolor: alpha(effectiveColor, 0.1),
+            borderBottom: `1px solid ${alpha(effectiveColor, 0.2)}`,
           }}
         >
-          <IconComponent sx={{ fontSize: 18, color: config.color }} />
+          <IconComponent sx={{ fontSize: 18, color: effectiveColor }} />
           <Chip
-            label={nodeData.type}
+            label={nodeData.type === 'UTIL' ? config.label : nodeData.type}
             size="small"
             sx={{
-              bgcolor: alpha(config.color, 0.2),
-              color: config.color,
+              bgcolor: alpha(effectiveColor, 0.2),
+              color: effectiveColor,
               fontWeight: 700,
               fontSize: '0.7rem',
               height: 22,
@@ -470,50 +479,52 @@ function OrderFlowNode({ data }: NodeProps) {
             px: 1.5,
             pb: 1,
             display: 'flex',
-            justifyContent: nodeData.type === 'OG' ? 'flex-end' : 'space-between',
+            justifyContent: nodeData.type === 'OG' || isUtil ? 'flex-end' : 'space-between',
             alignItems: 'center',
           }}
         >
-          {nodeData.type !== 'OG' && (
+          {nodeData.type !== 'OG' && !isUtil && (
             <Chip
               icon={<AccessTimeIcon sx={{ fontSize: '0.65rem !important' }} />}
               label={formatDuration(nodeData.durationMs)}
               size="small"
               sx={{
                 bgcolor: nodeData.isOngoing
-                  ? alpha(config.color, 0.12)
+                  ? alpha(effectiveColor, 0.12)
                   : alpha('#9CA3AF', 0.12),
-                color: nodeData.isOngoing ? config.color : '#9CA3AF',
+                color: nodeData.isOngoing ? effectiveColor : '#9CA3AF',
                 fontWeight: 600,
                 fontSize: '0.62rem',
                 height: 20,
                 '& .MuiChip-label': { px: 0.75 },
                 '& .MuiChip-icon': {
-                  color: nodeData.isOngoing ? config.color : '#9CA3AF',
+                  color: nodeData.isOngoing ? effectiveColor : '#9CA3AF',
                   ml: 0.5,
                 },
               }}
             />
           )}
-          <Chip
-            label={statusLabel}
-            size="small"
-            sx={{
-              bgcolor: alpha(statusColor, 0.15),
-              color: statusColor,
-              fontWeight: 600,
-              fontSize: '0.65rem',
-              height: 20,
-              '& .MuiChip-label': { px: 1 },
-            }}
-          />
+          {!isUtil && (
+            <Chip
+              label={statusLabel}
+              size="small"
+              sx={{
+                bgcolor: alpha(statusColor, 0.15),
+                color: statusColor,
+                fontWeight: 600,
+                fontSize: '0.65rem',
+                height: 20,
+                '& .MuiChip-label': { px: 1 },
+              }}
+            />
+          )}
         </Box>
       </Box>
       <Handle
         type="source"
         position={Position.Right}
         style={{
-          background: config.color,
+          background: effectiveColor,
           width: 8,
           height: 8,
           border: 'none',

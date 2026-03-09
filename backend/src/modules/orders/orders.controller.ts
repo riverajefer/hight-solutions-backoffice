@@ -33,6 +33,8 @@ import {
   UpdateOrderStatusDto,
   ApplyDiscountDto,
   RegisterElectronicInvoiceDto,
+  OrderProfitabilityDto,
+  PaginatedProfitabilityDto,
 } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -56,6 +58,34 @@ export class OrdersController {
     return this.ordersService.findAll(filters);
   }
 
+  @Get('profitability')
+  @RequirePermissions('read_orders')
+  @ApiOperation({ summary: 'Get profitability list for all orders' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'status', required: false, type: String })
+  @ApiQuery({ name: 'orderDateFrom', required: false, type: String })
+  @ApiQuery({ name: 'orderDateTo', required: false, type: String })
+  @ApiResponse({ status: 200, type: PaginatedProfitabilityDto })
+  getProfitabilityList(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('orderDateFrom') orderDateFrom?: string,
+    @Query('orderDateTo') orderDateTo?: string,
+  ) {
+    return this.ordersService.getProfitabilityList({
+      page: page ? parseInt(page, 10) : 1,
+      limit: limit ? parseInt(limit, 10) : 20,
+      search,
+      status,
+      orderDateFrom,
+      orderDateTo,
+    });
+  }
+
   @Get(':id')
   @RequirePermissions('read_orders')
   @ApiOperation({ summary: 'Get order by ID' })
@@ -64,6 +94,16 @@ export class OrdersController {
   @ApiResponse({ status: 404, description: 'Order not found' })
   findOne(@Param('id') id: string) {
     return this.ordersService.findOne(id);
+  }
+
+  @Get(':id/profitability')
+  @RequirePermissions('read_orders')
+  @ApiOperation({ summary: 'Get profitability breakdown for a single order' })
+  @ApiParam({ name: 'id', description: 'Order ID' })
+  @ApiResponse({ status: 200, type: OrderProfitabilityDto })
+  @ApiResponse({ status: 404, description: 'Order not found' })
+  getOrderProfitability(@Param('id') id: string) {
+    return this.ordersService.getOrderProfitability(id);
   }
 
   @Post()

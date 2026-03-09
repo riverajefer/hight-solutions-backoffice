@@ -440,4 +440,93 @@ export class OrdersRepository {
       orderBy: { appliedAt: 'desc' },
     });
   }
+
+  // ========== PROFITABILITY ==========
+
+  async getOrderProfitabilityData(orderId: string) {
+    return this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        orderNumber: true,
+        total: true,
+        workOrders: {
+          select: {
+            workOrderNumber: true,
+            expenseOrders: {
+              select: {
+                id: true,
+                ogNumber: true,
+                status: true,
+                items: {
+                  select: { total: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async getProfitabilityList(filters: {
+    search?: string;
+    status?: string;
+    orderDateFrom?: Date;
+    orderDateTo?: Date;
+    page: number;
+    limit: number;
+  }) {
+    const { search, status, orderDateFrom, orderDateTo, page, limit } = filters;
+
+    const where: Prisma.OrderWhereInput = {};
+
+    if (status) {
+      where.status = status as OrderStatus;
+    }
+
+    if (search) {
+      where.OR = [
+        { orderNumber: { contains: search, mode: 'insensitive' } },
+        { client: { name: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    if (orderDateFrom || orderDateTo) {
+      where.orderDate = {};
+      if (orderDateFrom) (where.orderDate as Prisma.DateTimeFilter).gte = orderDateFrom;
+      if (orderDateTo) (where.orderDate as Prisma.DateTimeFilter).lte = orderDateTo;
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [orders, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where,
+        select: {
+          id: true,
+          orderNumber: true,
+          total: true,
+          status: true,
+          orderDate: true,
+          client: { select: { name: true } },
+          workOrders: {
+            select: {
+              expenseOrders: {
+                select: {
+                  items: { select: { total: true } },
+                },
+              },
+            },
+          },
+        },
+        orderBy: { orderDate: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+
+    return { orders, total };
+  }
 }

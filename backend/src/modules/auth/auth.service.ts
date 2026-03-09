@@ -46,6 +46,7 @@ export class AuthService {
         lastName: true,
         profilePhoto: true,
         cargoId: true,
+        mustChangePassword: true,
         role: {
           select: {
             id: true,
@@ -90,6 +91,7 @@ export class AuthService {
       lastName: user.lastName,
       profilePhoto: user.profilePhoto,
       cargoId: user.cargoId,
+      mustChangePassword: user.mustChangePassword,
       role: user.role,
       cargo: user.cargo,
     };
@@ -215,6 +217,7 @@ export class AuthService {
         lastName: true,
         profilePhoto: true,
         cargoId: true,
+        mustChangePassword: true,
         refreshToken: true,
         role: {
           select: {
@@ -260,6 +263,7 @@ export class AuthService {
       lastName: user.lastName,
       profilePhoto: user.profilePhoto,
       cargoId: user.cargoId,
+      mustChangePassword: user.mustChangePassword,
       role: user.role,
       cargo: user.cargo,
     };
@@ -342,6 +346,7 @@ export class AuthService {
         profilePhoto: user.profilePhoto,
         roleId: user.roleId,
         cargoId: user.cargoId,
+        mustChangePassword: user.mustChangePassword,
         role: {
           id: user.role.id,
           name: user.role.name,
@@ -375,6 +380,46 @@ export class AuthService {
     });
 
     return user;
+  }
+
+  /**
+   * Cambia la contraseña del usuario autenticado
+   * Limpia el flag mustChangePassword al completar el cambio
+   */
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, password: true, isActive: true },
+    });
+
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('Usuario no encontrado o inactivo');
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(
+      currentPassword,
+      user.password,
+    );
+    if (!isCurrentPasswordValid) {
+      throw new BadRequestException('La contraseña actual es incorrecta');
+    }
+
+    if (currentPassword === newPassword) {
+      throw new BadRequestException(
+        'La nueva contraseña debe ser diferente a la actual',
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, this.SALT_ROUNDS);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword, mustChangePassword: false },
+    });
   }
 
   /**

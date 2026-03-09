@@ -1,5 +1,7 @@
-import React, { useEffect } from 'react';
-import { Box, Card, CardContent, TextField, Button, Grid, Alert, Autocomplete } from '@mui/material';
+import React, { useEffect, useState } from 'react';
+import { Box, Card, CardContent, TextField, Button, Grid, Alert, Autocomplete, FormControlLabel, Switch, Typography, InputAdornment, IconButton } from '@mui/material';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -19,12 +21,13 @@ const userFormSchema = z.object({
   confirmPassword: z.string().optional(),
   roleId: z.string().min(1, 'El rol es requerido'),
   cargoId: z.string().optional().nullable(),
+  isActive: z.boolean().optional(),
 });
 
 type UserFormData = z.infer<typeof userFormSchema>;
 
 interface UserFormProps {
-  initialData?: UpdateUserDto & { id?: string };
+  initialData?: UpdateUserDto & { id?: string; mustChangePassword?: boolean };
   onSubmit: (data: CreateUserDto | UpdateUserDto) => Promise<void>;
   isLoading?: boolean;
   error?: string | null;
@@ -46,8 +49,12 @@ export const UserForm: React.FC<UserFormProps> = ({
     ? {
         ...initialData,
         cargoId: initialData.cargoId ?? undefined,
+        isActive: initialData.isActive ?? true,
       }
-    : undefined;
+    : { isActive: true };
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const { control, handleSubmit, formState: { errors }, setError, watch, setValue } = useForm<UserFormData>({
     resolver: zodResolver(userFormSchema),
@@ -82,10 +89,12 @@ export const UserForm: React.FC<UserFormProps> = ({
   });
 
   const handleFormSubmit = async (data: UserFormData) => {
+    const hasPassword = Boolean(data.password && data.password.trim() !== '');
+
     // Validaciones adicionales para modo creación
     if (!isEdit) {
       // Validar que password esté presente
-      if (!data.password || data.password.trim() === '') {
+      if (!hasPassword) {
         setError('password', {
           type: 'manual',
           message: 'La contraseña es requerida'
@@ -94,7 +103,7 @@ export const UserForm: React.FC<UserFormProps> = ({
       }
 
       // Validar longitud mínima
-      if (data.password.length < 6) {
+      if (data.password!.length < 6) {
         setError('password', {
           type: 'manual',
           message: 'La contraseña debe tener al menos 6 caracteres'
@@ -121,14 +130,37 @@ export const UserForm: React.FC<UserFormProps> = ({
       }
     }
 
+    // Validaciones de contraseña en modo edición (solo si se ingresó una nueva)
+    if (isEdit && hasPassword) {
+      if (data.password!.length < 6) {
+        setError('password', {
+          type: 'manual',
+          message: 'La contraseña debe tener al menos 6 caracteres'
+        });
+        return;
+      }
+
+      if (data.password !== data.confirmPassword) {
+        setError('confirmPassword', {
+          type: 'manual',
+          message: 'Las contraseñas no coinciden'
+        });
+        return;
+      }
+    }
+
     // Eliminar confirmPassword y transformar cargoId/email/phone vacío a undefined
-    const { confirmPassword, cargoId, email, username, phone, ...rest } = data;
+    const { confirmPassword, cargoId, email, username, phone, isActive, ...rest } = data;
     const submitData = {
       ...rest,
       username: username || undefined,
       email: email || undefined,
       phone: phone,
       cargoId: cargoId || undefined,
+      // En modo edit, solo enviar password si se ingresó uno nuevo
+      ...(isEdit && !hasPassword ? { password: undefined } : {}),
+      // isActive solo en modo edición
+      ...(isEdit ? { isActive: isActive ?? true } : {}),
     };
     await onSubmit(submitData);
   };
@@ -136,6 +168,12 @@ export const UserForm: React.FC<UserFormProps> = ({
   return (
     <Card>
       <CardContent sx={{ p: 3 }}>
+        {isEdit && initialData?.mustChangePassword && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            Este usuario debe cambiar su contraseña en el próximo inicio de sesión.
+          </Alert>
+        )}
+
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
@@ -225,40 +263,71 @@ export const UserForm: React.FC<UserFormProps> = ({
             )}
           />
 
-          {!isEdit && (
-            <>
-              <Controller
-                name="password"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Contraseña"
-                    type="password"
-                    fullWidth
-                    error={!!errors.password}
-                    helperText={errors.password?.message}
-                    disabled={isLoading}
-                  />
-                )}
+          <Controller
+            name="password"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label={isEdit ? 'Nueva Contraseña (dejar vacío para no cambiar)' : 'Contraseña'}
+                type={showPassword ? 'text' : 'password'}
+                fullWidth
+                error={!!errors.password}
+                helperText={
+                  errors.password?.message ||
+                  (isEdit
+                    ? 'Mínimo 6 caracteres. Si ingresa una contraseña, el usuario deberá cambiarla en su próximo inicio de sesión.'
+                    : 'Mínimo 6 caracteres')
+                }
+                disabled={isLoading}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowPassword((v) => !v)}
+                        onMouseDown={(e) => e.preventDefault()}
+                        edge="end"
+                        disabled={isLoading}
+                        aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                      >
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
               />
-              <Controller
-                name="confirmPassword"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Confirmar Contraseña"
-                    type="password"
-                    fullWidth
-                    error={!!errors.confirmPassword}
-                    helperText={errors.confirmPassword?.message}
-                    disabled={isLoading}
-                  />
-                )}
+            )}
+          />
+          <Controller
+            name="confirmPassword"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label={isEdit ? 'Confirmar Nueva Contraseña' : 'Confirmar Contraseña'}
+                type={showConfirmPassword ? 'text' : 'password'}
+                fullWidth
+                error={!!errors.confirmPassword}
+                helperText={errors.confirmPassword?.message || 'Debe coincidir con la contraseña ingresada'}
+                disabled={isLoading}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowConfirmPassword((v) => !v)}
+                        onMouseDown={(e) => e.preventDefault()}
+                        edge="end"
+                        disabled={isLoading}
+                        aria-label={showConfirmPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                      >
+                        {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
               />
-            </>
-          )}
+            )}
+          />
 
           <Controller
             name="roleId"
@@ -313,6 +382,32 @@ export const UserForm: React.FC<UserFormProps> = ({
               />
             )}
           />
+
+          {isEdit && (
+            <Controller
+              name="isActive"
+              control={control}
+              render={({ field }) => (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1 }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={field.value ?? true}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                        disabled={isLoading}
+                        color="success"
+                      />
+                    }
+                    label={
+                      <Typography variant="body2" color={field.value === false ? 'text.disabled' : 'text.primary'}>
+                        {field.value === false ? 'Usuario inactivo' : 'Usuario activo'}
+                      </Typography>
+                    }
+                  />
+                </Box>
+              )}
+            />
+          )}
 
           <Button variant="contained" type="submit" fullWidth disabled={isLoading}>
             {isLoading ? 'Guardando...' : isEdit ? 'Actualizar' : 'Crear Usuario'}

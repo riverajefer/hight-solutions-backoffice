@@ -37,6 +37,16 @@
     "transform": {
       "^.+\\.(t|j)s$": ["ts-jest", { "tsconfig": "tsconfig.json" }]
     },
+    "testPathIgnorePatterns": [
+      "<rootDir>/generated/",
+      "<rootDir>/coverage-phase1/"
+    ],
+    "coveragePathIgnorePatterns": [
+      "<rootDir>/generated/",
+      "<rootDir>/coverage-phase1/",
+      "<rootDir>/config/",
+      "<rootDir>/database/seeds/"
+    ],
     "collectCoverageFrom": [
       "**/*.(t|j)s",
       "!**/*.module.ts",

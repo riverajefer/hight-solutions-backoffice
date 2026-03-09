@@ -67,6 +67,26 @@ export class RegisterDto {
   roleId: string;
 }
 
+export class ChangePasswordDto {
+  @ApiProperty({
+    example: 'currentPassword123',
+    description: 'Current password',
+  })
+  @IsString()
+  @IsNotEmpty({ message: 'Current password is required' })
+  currentPassword: string;
+
+  @ApiProperty({
+    example: 'newPassword456',
+    description: 'New password',
+    minLength: 6,
+  })
+  @IsString()
+  @IsNotEmpty({ message: 'New password is required' })
+  @MinLength(6, { message: 'New password must be at least 6 characters' })
+  newPassword: string;
+}
+
 export class UpdateProfilePhotoDto {
   @ApiProperty({
     example: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',

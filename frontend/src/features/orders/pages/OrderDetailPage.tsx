@@ -56,12 +56,18 @@ import {
   Image as ImageIcon,
   AccountTree as AccountTreeIcon,
   Warning as WarningIcon,
+  TrendingUp as TrendingUpIcon,
+  TrendingDown as TrendingDownIcon,
+  ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
+import Accordion from '@mui/material/Accordion';
+import AccordionSummary from '@mui/material/AccordionSummary';
+import AccordionDetails from '@mui/material/AccordionDetails';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
-import { useOrder, useOrderPayments } from '../hooks';
+import { useOrder, useOrderPayments, useOrderProfitability } from '../hooks';
 import {
   OrderStatusChip,
   OrderPdfButton,
@@ -85,6 +91,7 @@ import type {
   PaymentMethod,
   CreatePaymentDto,
   ApplyDiscountDto,
+  ExpenseOrderSummary,
 } from '../../../types/order.types';
 import {
   ORDER_STATUS_CONFIG,
@@ -158,6 +165,8 @@ export const OrderDetailPage: React.FC = () => {
   );
   const { paymentsQuery, addPaymentMutation } = useOrderPayments(id!);
   const { activePermissionQuery } = useEditRequests(id || '');
+  const { data: profitabilityData, isLoading: profitabilityLoading } =
+    useOrderProfitability(id!);
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -888,6 +897,119 @@ export const OrderDetailPage: React.FC = () => {
                 </Box>
               </CardContent>
             </Card>
+
+            {/* Resumen Financiero / Rentabilidad */}
+            <Accordion
+              defaultExpanded={false}
+              variant="outlined"
+              sx={{ borderRadius: '12px !important', '&:before': { display: 'none' } }}
+            >
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  {profitabilityData && profitabilityData.utility >= 0 ? (
+                    <TrendingUpIcon sx={{ color: 'success.main' }} />
+                  ) : (
+                    <TrendingDownIcon sx={{ color: profitabilityData ? 'error.main' : 'text.disabled' }} />
+                  )}
+                  <Typography variant="subtitle1" fontWeight={600}>
+                    Resumen Financiero
+                  </Typography>
+                </Stack>
+              </AccordionSummary>
+              <AccordionDetails>
+                {profitabilityLoading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                    <CircularProgress size={24} />
+                  </Box>
+                ) : profitabilityData ? (
+                  <Stack spacing={2}>
+                    {/* KPI boxes */}
+                    <Grid container spacing={2}>
+                      {[
+                        {
+                          label: 'Total OP',
+                          value: formatCurrency(profitabilityData.orderTotal.toString()),
+                          color: 'text.primary',
+                        },
+                        {
+                          label: 'Total Gastos',
+                          value: formatCurrency(profitabilityData.totalExpenses.toString()),
+                          color: 'warning.main',
+                        },
+                        {
+                          label: 'Utilidad',
+                          value: formatCurrency(profitabilityData.utility.toString()),
+                          color: profitabilityData.utility >= 0 ? 'success.main' : 'error.main',
+                        },
+                        {
+                          label: 'Margen %',
+                          value: `${profitabilityData.utilityPercentage.toFixed(1)}%`,
+                          color: profitabilityData.utilityPercentage >= 0 ? 'success.main' : 'error.main',
+                        },
+                      ].map((kpi) => (
+                        <Grid item xs={6} sm={3} key={kpi.label}>
+                          <Box
+                            sx={{
+                              textAlign: 'center',
+                              p: 1.5,
+                              borderRadius: 2,
+                              bgcolor: 'action.hover',
+                            }}
+                          >
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              {kpi.label}
+                            </Typography>
+                            <Typography variant="body1" fontWeight={700} color={kpi.color}>
+                              {kpi.value}
+                            </Typography>
+                          </Box>
+                        </Grid>
+                      ))}
+                    </Grid>
+
+                    {/* Linked expense orders */}
+                    {profitabilityData.expenseOrders.length > 0 ? (
+                      <>
+                        <Divider />
+                        <Typography variant="body2" color="text.secondary" fontWeight={600}>
+                          Órdenes de Gasto Vinculadas
+                        </Typography>
+                        <TableContainer>
+                          <Table size="small">
+                            <TableHead>
+                              <TableRow>
+                                <TableCell>OG</TableCell>
+                                <TableCell>OT</TableCell>
+                                <TableCell>Estado</TableCell>
+                                <TableCell align="right">Total</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {profitabilityData.expenseOrders.map((eg: ExpenseOrderSummary) => (
+                                <TableRow key={eg.id}>
+                                  <TableCell sx={{ fontWeight: 600 }}>{eg.ogNumber}</TableCell>
+                                  <TableCell>{eg.workOrderNumber ?? '—'}</TableCell>
+                                  <TableCell>
+                                    <Chip label={eg.status} size="small" variant="outlined" />
+                                  </TableCell>
+                                  <TableCell align="right">
+                                    {formatCurrency(eg.itemsTotal.toString())}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      </>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        No hay órdenes de gasto vinculadas a esta OP.
+                      </Typography>
+                    )}
+                  </Stack>
+                ) : null}
+              </AccordionDetails>
+            </Accordion>
 
             {/* Historial de Pagos */}
             {payments.length > 0 && (
