@@ -32,7 +32,7 @@ export class ConsecutivesService {
     const syncConfig: Record<ConsecutiveType, { table: string; column: string }> = {
       ORDER: { table: 'orders', column: 'order_number' },
       PRODUCTION: { table: 'productions', column: 'production_number' },
-      EXPENSE: { table: 'expense_orders', column: 'expense_number' },
+      EXPENSE: { table: 'expense_orders', column: 'og_number' },
       QUOTE: { table: 'quotes', column: 'quote_number' },
       WORK_ORDER: { table: 'work_orders', column: 'work_order_number' },
     };

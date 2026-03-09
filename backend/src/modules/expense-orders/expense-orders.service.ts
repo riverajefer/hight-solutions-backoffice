@@ -76,9 +76,6 @@ export class ExpenseOrdersService {
       );
     }
 
-    // Generate OG number
-    const ogNumber = await this.consecutivesService.generateNumber('EXPENSE');
-
     // Build items with computed total
     const itemsData = dto.items.map((item, index) => ({
       quantity: item.quantity,
@@ -93,19 +90,43 @@ export class ExpenseOrdersService {
       sortOrder: index,
     }));
 
-    return this.repository.create({
-      ogNumber,
-      expenseTypeId: dto.expenseTypeId,
-      expenseSubcategoryId: dto.expenseSubcategoryId,
-      workOrderId: dto.workOrderId,
-      authorizedToId: dto.authorizedToId,
-      responsibleId: dto.responsibleId,
-      observations: dto.observations,
-      areaOrMachine: dto.areaOrMachine,
-      status,
-      createdById,
-      items: itemsData,
-    });
+    // Reintento en caso de colisión de consecutivo
+    const maxAttempts = 3;
+    let attempts = 0;
+    let currentOgNumber = await this.consecutivesService.generateNumber('EXPENSE');
+
+    while (attempts < maxAttempts) {
+      attempts++;
+      try {
+        return await this.repository.create({
+          ogNumber: currentOgNumber,
+          expenseTypeId: dto.expenseTypeId,
+          expenseSubcategoryId: dto.expenseSubcategoryId,
+          workOrderId: dto.workOrderId,
+          authorizedToId: dto.authorizedToId,
+          responsibleId: dto.responsibleId,
+          observations: dto.observations,
+          areaOrMachine: dto.areaOrMachine,
+          status,
+          createdById,
+          items: itemsData,
+        });
+      } catch (error: any) {
+        const isUniqueConstraintError = error.code === 'P2002';
+        const target = JSON.stringify(error.meta?.target || '');
+        const isNumberTarget = 
+          target.includes('og_number') || 
+          target.includes('expense_orders_og_number_key') ||
+          (error.meta?.modelName === 'ExpenseOrder' && (error.meta?.target === undefined || target === '""'));
+
+        if (isUniqueConstraintError && isNumberTarget && attempts < maxAttempts) {
+          await this.consecutivesService.syncCounter('EXPENSE');
+          currentOgNumber = await this.consecutivesService.generateNumber('EXPENSE');
+          continue;
+        }
+        throw error;
+      }
+    }
   }
 
   async findAll(filters: FilterExpenseOrdersDto) {
