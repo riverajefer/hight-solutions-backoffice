@@ -30,7 +30,7 @@ const itemSelect = {
       employeeType: true,
       monthlySalary: true,
       dailyRate: true,
-      jobTitle: true,
+      cargo: { select: { name: true } },
       user: {
         select: { id: true, firstName: true, lastName: true, email: true },
       },
