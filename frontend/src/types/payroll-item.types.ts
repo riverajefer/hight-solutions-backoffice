@@ -25,7 +25,7 @@ export interface PayrollItem {
     employeeType: 'REGULAR' | 'TEMPORARY';
     monthlySalary: string | null;
     dailyRate: string | null;
-    jobTitle: string | null;
+    cargo: { name: string } | null;
     user: {
       id: string;
       firstName: string | null;

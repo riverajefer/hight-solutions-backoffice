@@ -10,8 +10,10 @@ import {
   Stack,
   Divider,
   Alert,
+  Menu,
+  MenuItem,
 } from '@mui/material';
-import { AutoAwesome, Edit } from '@mui/icons-material';
+import { AutoAwesome, Edit, KeyboardArrowDown } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -55,12 +57,27 @@ const PayrollPeriodDetailPage: React.FC = () => {
   const { hasPermission } = useAuthStore();
   const canEdit = hasPermission(PERMISSIONS.UPDATE_PAYROLL_PERIODS);
 
-  const { getPeriodQuery, getSummaryQuery, generateItemsMutation } = usePayrollPeriods();
+  const { getPeriodQuery, getSummaryQuery, generateItemsMutation, updateMutation } = usePayrollPeriods();
   const periodQuery = getPeriodQuery(id!);
   const summaryQuery = getSummaryQuery(id!);
   const { itemsQuery, deleteMutation } = usePayrollItems(id!);
 
   const [toDelete, setToDelete] = useState<PayrollItem | null>(null);
+  const [statusAnchorEl, setStatusAnchorEl] = useState<null | HTMLElement>(null);
+
+  const handleStatusChange = async (newStatus: string) => {
+    try {
+      await updateMutation.mutateAsync({
+        id: id!,
+        data: { status: newStatus as any },
+      });
+      enqueueSnackbar('Estado actualizado', { variant: 'success' });
+    } catch {
+      enqueueSnackbar('Error al actualizar el estado', { variant: 'error' });
+    } finally {
+      setStatusAnchorEl(null);
+    }
+  };
 
   const handleGenerate = async () => {
     try {
@@ -119,8 +136,26 @@ const PayrollPeriodDetailPage: React.FC = () => {
               <Chip
                 label={periodStatusLabel[period.status] ?? period.status}
                 color={periodStatusColor[period.status] ?? 'default'}
-                sx={{ mt: 0.5 }}
+                sx={{ mt: 0.5, cursor: canEdit ? 'pointer' : 'default' }}
+                onClick={canEdit ? (e) => setStatusAnchorEl(e.currentTarget) : undefined}
+                onDelete={canEdit ? (e) => setStatusAnchorEl(e.currentTarget) : undefined}
+                deleteIcon={canEdit ? <KeyboardArrowDown /> : undefined}
               />
+              <Menu
+                anchorEl={statusAnchorEl}
+                open={Boolean(statusAnchorEl)}
+                onClose={() => setStatusAnchorEl(null)}
+              >
+                <MenuItem onClick={() => handleStatusChange('DRAFT')} disabled={period.status === 'DRAFT' || updateMutation.isPending}>
+                  Borrador
+                </MenuItem>
+                <MenuItem onClick={() => handleStatusChange('CALCULATED')} disabled={period.status === 'CALCULATED' || updateMutation.isPending}>
+                  Calculado
+                </MenuItem>
+                <MenuItem onClick={() => handleStatusChange('PAID')} disabled={period.status === 'PAID' || updateMutation.isPending}>
+                  Pagado
+                </MenuItem>
+              </Menu>
             </CardContent>
           </Card>
         </Grid>
