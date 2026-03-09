@@ -47,6 +47,7 @@ import {
 import { PageHeader } from '../../../components/common/PageHeader';
 import { ToolbarButton } from '../../orders/components/ToolbarButton';
 import { ExpenseOrderAuthRequestDialog } from '../components/ExpenseOrderAuthRequestDialog';
+import { ExpenseOrderPdfButton } from '../components/ExpenseOrderPdfButton';
 import { useExpenseOrder } from '../hooks';
 import { useSuppliers } from '../../suppliers/hooks/useSuppliers';
 import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
@@ -408,6 +409,8 @@ export const ExpenseOrderDetailPage = () => {
             onClick={() => navigate(`/orders/flow/expense-order/${og.id}`)}
             tooltip="Ver Trazabilidad"
           />
+
+          <ExpenseOrderPdfButton expenseOrder={og} />
         </Stack>
       </Paper>
 
