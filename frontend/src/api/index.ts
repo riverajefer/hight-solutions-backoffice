@@ -21,4 +21,5 @@ export { storageApi } from './storage.api';
 export { workOrdersApi } from './work-orders.api';
 export { expenseOrdersApi } from './expense-orders.api';
 export { orderStatusChangeRequestsApi } from './order-status-change-requests.api';
+export { attendanceApi } from './attendance.api';
 export { default as axiosInstance } from './axios';

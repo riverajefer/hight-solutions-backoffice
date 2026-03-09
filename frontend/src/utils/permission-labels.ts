@@ -148,6 +148,11 @@ export const PERMISSION_LABELS: Record<string, string> = {
   read_payroll_periods: 'Ver Periodos de Nómina',
   update_payroll_periods: 'Editar Periodos y Registros de Nómina',
   delete_payroll_periods: 'Eliminar Periodos de Nómina',
+
+  // Asistencia
+  use_attendance: 'Marcar Entrada/Salida',
+  read_attendance: 'Ver Registros de Asistencia',
+  manage_attendance: 'Ajustar Registros de Asistencia',
 };
 
 /**

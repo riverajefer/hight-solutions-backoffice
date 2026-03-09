@@ -35,6 +35,7 @@ const SuppliersListPage = lazy(() => import('../features/suppliers/pages/Supplie
 const SupplierFormPage = lazy(() => import('../features/suppliers/pages/SupplierFormPage'));
 const SupplierDetailPage = lazy(() => import('../features/suppliers/pages/SupplierDetailPage'));
 const SessionLogsPage = lazy(() => import('../features/session-logs/pages/SessionLogsPage'));
+const AttendancePage = lazy(() => import('../features/attendance/pages/AttendancePage'));
 const ProfilePage = lazy(() => import('../features/settings/pages/ProfilePage'));
 // Portfolio - Units of Measure
 const UnitsOfMeasureListPage = lazy(() => import('../features/portfolio/units-of-measure/pages/UnitsOfMeasureListPage'));
@@ -900,6 +901,20 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.READ_SESSION_LOGS}>
                   <SessionLogsPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Attendance - Control de Asistencia */}
+        <Route
+          path={PATHS.ATTENDANCE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_ATTENDANCE}>
+                  <AttendancePage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

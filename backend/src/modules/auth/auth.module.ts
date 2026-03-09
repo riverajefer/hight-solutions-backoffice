@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller';
 import { LocalStrategy, JwtStrategy } from './strategies';
 import { JwtAuthGuard, LocalAuthGuard } from './guards';
 import { SessionLogsModule } from '../session-logs/session-logs.module';
+import { AttendanceModule } from '../attendance/attendance.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { SessionLogsModule } from '../session-logs/session-logs.module';
       },
     }),
     forwardRef(() => SessionLogsModule),
+    AttendanceModule,
   ],
   controllers: [AuthController],
   providers: [

@@ -86,6 +86,20 @@ async function main() {
       description: 'Ver registros de inicio y cierre de sesión de usuarios',
     },
 
+    // Attendance (Control de Asistencia)
+    {
+      name: 'use_attendance',
+      description: 'Marcar entrada y salida de asistencia',
+    },
+    {
+      name: 'read_attendance',
+      description: 'Ver registros de asistencia de todos los usuarios',
+    },
+    {
+      name: 'manage_attendance',
+      description: 'Ajustar/corregir registros de asistencia',
+    },
+
     // Units of Measure
     {
       name: 'create_units_of_measure',
@@ -363,6 +377,9 @@ async function main() {
     'create_expense_orders',
     'read_expense_orders',
     'update_expense_orders',
+    // Attendance (Manager)
+    'use_attendance',
+    'read_attendance',
   ]);
 
   // User - solo lectura básica
@@ -370,6 +387,8 @@ async function main() {
     'read_users',
     'read_roles',
     'read_orders',
+    // Attendance (User)
+    'use_attendance',
   ]);
 
   // Caja - gestión de pagos y anticipos
@@ -383,6 +402,8 @@ async function main() {
     'read_production_areas',
     'read_commercial_channels',
     'read_pending_orders',
+    // Attendance (Caja)
+    'use_attendance',
   ]);
 
   // ============================================

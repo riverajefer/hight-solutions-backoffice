@@ -12,6 +12,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { JwtPayload, TokenPair, AuthenticatedUser } from '../../common/interfaces';
 import { RegisterDto } from './dto';
 import { SessionLogsService } from '../session-logs/session-logs.service';
+import { AttendanceService } from '../attendance/attendance.service';
 
 @Injectable()
 export class AuthService {
@@ -23,6 +24,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     @Inject(forwardRef(() => SessionLogsService))
     private readonly sessionLogsService: SessionLogsService,
+    private readonly attendanceService: AttendanceService,
   ) {}
 
   /**
@@ -292,6 +294,9 @@ export class AuthService {
    * Cierra la sesión del usuario eliminando su refresh token
    */
   async logout(userId: string): Promise<void> {
+    // Cerrar registro de asistencia activo si existe
+    await this.attendanceService.closeOpenRecordOnLogout(userId);
+
     // Create logout log
     await this.sessionLogsService.createLogoutLog(userId);
 

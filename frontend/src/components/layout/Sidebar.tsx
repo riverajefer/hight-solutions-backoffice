@@ -51,6 +51,7 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import GroupsIcon from '@mui/icons-material/Groups';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import { useAuthStore } from '../../store/authStore';
 import { ROUTES, PERMISSIONS } from '../../utils/constants';
 import { neonColors, neonAccents, gradients } from '../../theme';
@@ -345,12 +346,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           path: ROUTES.SESSION_LOGS,
           permission: PERMISSIONS.READ_SESSION_LOGS,
         },
+        {
+          label: 'Control de Asistencia',
+          icon: <AccessTimeIcon />,
+          path: ROUTES.ATTENDANCE,
+          permission: PERMISSIONS.READ_ATTENDANCE,
+        },
       ],
       permissions: [
         PERMISSIONS.READ_ROLES,
         PERMISSIONS.READ_PERMISSIONS,
         PERMISSIONS.READ_AUDIT_LOGS,
         PERMISSIONS.READ_SESSION_LOGS,
+        PERMISSIONS.READ_ATTENDANCE,
       ],
     },
   ];
