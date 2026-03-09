@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
-  Stack,
   MenuItem,
   TextField,
   Autocomplete,
@@ -481,12 +480,18 @@ export const OrdersListPage: React.FC = () => {
       />
 
       {/* Filtros */}
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={2}
-        sx={{ mb: 3, mt: 2 }}
-        flexWrap="wrap"
-        useFlexGap
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: {
+            xs: '1fr',
+            sm: '1fr 1fr',
+            md: '1fr 1.5fr 1fr 1fr auto',
+          },
+          gap: 2,
+          mb: 3,
+          mt: 2,
+        }}
       >
         {/* Estado */}
         <TextField
@@ -496,7 +501,7 @@ export const OrdersListPage: React.FC = () => {
           onChange={(e) =>
             handleFilterChange('status', e.target.value || undefined)
           }
-          sx={{ minWidth: { xs: '100%', sm: 180 } }}
+          fullWidth
           size='small'
         >
           <MenuItem value=''>Todos los estados</MenuItem>
@@ -509,7 +514,7 @@ export const OrdersListPage: React.FC = () => {
 
         {/* Cliente */}
         <Autocomplete
-          sx={{ minWidth: { xs: '100%', sm: 200, md: 280 }, flex: { sm: 1 }, maxWidth: { md: 350 } }}
+          fullWidth
           size='small'
           options={clients}
           value={selectedClient}
@@ -535,7 +540,7 @@ export const OrdersListPage: React.FC = () => {
             handleFilterChange('orderDateFrom', date?.toISOString())
           }
           slotProps={{
-            textField: { size: 'small', fullWidth: true, sx: { minWidth: { xs: '100%', sm: 150 } } },
+            textField: { size: 'small', fullWidth: true },
           }}
         />
 
@@ -547,7 +552,7 @@ export const OrdersListPage: React.FC = () => {
             handleFilterChange('orderDateTo', date?.toISOString())
           }
           slotProps={{
-            textField: { size: 'small', fullWidth: true, sx: { minWidth: { xs: '100%', sm: 150 } } },
+            textField: { size: 'small', fullWidth: true },
           }}
         />
 
@@ -556,13 +561,13 @@ export const OrdersListPage: React.FC = () => {
           <Button
             variant='outlined'
             onClick={handleClearFilters}
-            size='small'
-            sx={{ minWidth: { xs: '100%', sm: 'auto' } }}
+            size='large'
+            sx={{ height: 40 }}
           >
             Limpiar Filtros
           </Button>
         )}
-      </Stack>
+      </Box>
 
       {/* Tabla */}
       <DataTable

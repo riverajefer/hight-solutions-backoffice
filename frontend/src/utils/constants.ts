@@ -114,6 +114,10 @@ export const PERMISSIONS = {
   READ_PAYROLL_PERIODS: 'read_payroll_periods',
   UPDATE_PAYROLL_PERIODS: 'update_payroll_periods',
   DELETE_PAYROLL_PERIODS: 'delete_payroll_periods',
+  // Attendance - Control de Asistencia
+  USE_ATTENDANCE: 'use_attendance',
+  READ_ATTENDANCE: 'read_attendance',
+  MANAGE_ATTENDANCE: 'manage_attendance',
 };
 
 export const ROUTES = {
@@ -212,6 +216,8 @@ export const ROUTES = {
   PAYROLL_PERIODS_EDIT: '/payroll/periods/:id/edit',
   PAYROLL_PERIODS_DETAIL: '/payroll/periods/:id',
   PAYROLL_ITEM_EDIT: '/payroll/periods/:periodId/items/:itemId/edit',
+  // Attendance
+  ATTENDANCE: '/attendance',
 };
 
 export const DEFAULT_PAGINATION = {

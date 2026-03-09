@@ -2,6 +2,7 @@ import { useState, useEffect, type FC, type ReactNode } from 'react';
 import { Box, useMediaQuery, useTheme } from '@mui/material';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
+import { useHeartbeat } from '../../hooks/useHeartbeat';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -16,6 +17,9 @@ export const MainLayout: FC<MainLayoutProps> = ({ children }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isTablet = useMediaQuery(theme.breakpoints.between('md', 'lg'));
+
+  // Enviar heartbeats de actividad cada 5 minutos mientras el layout está montado
+  useHeartbeat();
 
   useEffect(() => {
     if (isMobile) {

@@ -49,6 +49,8 @@ model User {
   requestedAdvancePaymentApprovals   AdvancePaymentApproval[]   @relation("RequestedAdvancePaymentApprovals")
   reviewedAdvancePaymentApprovals    AdvancePaymentApproval[]   @relation("ReviewedAdvancePaymentApprovals")
   payrollEmployee                    Employee?
+  attendanceRecords                  AttendanceRecord[]
+  activityHeartbeats                 ActivityHeartbeat[]
 
   @@map("users")
 }
@@ -1224,4 +1226,50 @@ model PayrollItem {
   @@map("payroll_items")
 }
 
+// ──────────────────────────────────────────
+//  Attendance & Time Control
+// ──────────────────────────────────────────
+
+enum AttendanceType {
+  MANUAL
+  AUTO
+}
+
+enum AttendanceSource {
+  BUTTON
+  INACTIVITY
+  LOGOUT
+  SYSTEM
+}
+
+model AttendanceRecord {
+  id           String           @id @default(uuid())
+  userId       String           @map("user_id")
+  date         DateTime         @db.Date
+  clockIn      DateTime         @map("clock_in")
+  clockOut     DateTime?        @map("clock_out")
+  type         AttendanceType   @default(MANUAL)
+  source       AttendanceSource @default(BUTTON)
+  notes        String?
+  totalMinutes Int?             @map("total_minutes")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@map("attendance_records")
+}
+
+model ActivityHeartbeat {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  timestamp DateTime @default(now())
+  endpoint  String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, timestamp])
+  @@map("activity_heartbeats")
+}
 

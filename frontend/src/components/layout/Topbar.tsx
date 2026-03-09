@@ -25,7 +25,9 @@ import { ROUTES } from '../../utils/constants';
 import { formatFullName } from '../../utils/helpers';
 import { ThemeToggler } from '../common/ThemeToggler';
 import { NotificationBell } from './NotificationBell';
+import { AttendanceButton } from './AttendanceButton';
 import { gradients, neonColors, neonAccents, darkSurfaces } from '../../theme';
+import { PERMISSIONS } from '../../utils/constants';
 
 interface TopbarProps {
   onMenuClick?: () => void;
@@ -130,6 +132,9 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
 
         <Box display="flex" alignItems="center" gap={2}>
           <ThemeToggler />
+
+          {/* Attendance Button — visible solo para usuarios con permiso use_attendance */}
+          {hasPermission(PERMISSIONS.USE_ATTENDANCE) && <AttendanceButton />}
 
           {/* Notification Bell */}
           <NotificationBell />

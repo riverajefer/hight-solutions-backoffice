@@ -36,10 +36,12 @@ import { ExpenseTypesModule } from './modules/expense-types/expense-types.module
 import { ExpenseOrdersModule } from './modules/expense-orders/expense-orders.module';
 import { OrderTimelineModule } from './modules/order-timeline/order-timeline.module';
 import { AuditContextInterceptor } from './common/interceptors/audit-context.interceptor';
+import { HeartbeatInterceptor } from './common/interceptors/heartbeat.interceptor';
 import { MaintenanceMiddleware } from './common/middleware/maintenance.middleware';
 import { WhatsappModule } from './modules/whatsapp/whatsapp.module';
 import { HealthModule } from './health/health.module';
 import { PayrollModule } from './modules/payroll/payroll.module';
+import { AttendanceModule } from './modules/attendance/attendance.module';
 
 @Module({
   imports: [
@@ -106,11 +108,17 @@ import { PayrollModule } from './modules/payroll/payroll.module';
     OrderTimelineModule,
     // Módulo de Nómina
     PayrollModule,
+    // Módulo de Control de Asistencia y Tiempo
+    AttendanceModule,
   ],
   providers: [
     {
       provide: APP_INTERCEPTOR,
       useClass: AuditContextInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: HeartbeatInterceptor,
     },
   ],
 })
