@@ -457,7 +457,7 @@ const DashboardPage: React.FC = () => {
     queryKey: ['payroll-employees'],
     queryFn: async () => {
       if (!hasPermission(PERMISSIONS.READ_PAYROLL_EMPLOYEES)) return [];
-      return payrollEmployeesApi.getAll();
+      return payrollEmployeesApi.getAll({ page: 1, limit: 1 });
     },
   });
 
@@ -465,7 +465,7 @@ const DashboardPage: React.FC = () => {
     queryKey: ['payroll-periods'],
     queryFn: async () => {
       if (!hasPermission(PERMISSIONS.READ_PAYROLL_PERIODS)) return [];
-      return payrollPeriodsApi.getAll();
+      return payrollPeriodsApi.getAll({ page: 1, limit: 1 });
     },
   });
 
