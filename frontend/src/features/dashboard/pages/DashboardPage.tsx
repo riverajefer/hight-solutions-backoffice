@@ -453,19 +453,19 @@ const DashboardPage: React.FC = () => {
     },
   });
 
-  const { data: payrollEmployeesData, isLoading: payrollEmployeesLoading } = useQuery({
+  const { data: payrollEmployeesData = [], isLoading: payrollEmployeesLoading } = useQuery({
     queryKey: ['payroll-employees'],
     queryFn: async () => {
-      if (!hasPermission(PERMISSIONS.READ_PAYROLL_EMPLOYEES)) return { data: [], total: 0 };
-      return payrollEmployeesApi.getAll({ limit: 1 });
+      if (!hasPermission(PERMISSIONS.READ_PAYROLL_EMPLOYEES)) return [];
+      return payrollEmployeesApi.getAll();
     },
   });
 
-  const { data: payrollPeriodsData, isLoading: payrollPeriodsLoading } = useQuery({
+  const { data: payrollPeriodsData = [], isLoading: payrollPeriodsLoading } = useQuery({
     queryKey: ['payroll-periods'],
     queryFn: async () => {
-      if (!hasPermission(PERMISSIONS.READ_PAYROLL_PERIODS)) return { data: [], total: 0 };
-      return payrollPeriodsApi.getAll({ limit: 1 });
+      if (!hasPermission(PERMISSIONS.READ_PAYROLL_PERIODS)) return [];
+      return payrollPeriodsApi.getAll();
     },
   });
 
@@ -523,8 +523,13 @@ const DashboardPage: React.FC = () => {
   const productCatsCount = Array.isArray(productCategories) ? productCategories.length : 0;
   const supplyCatsCount = Array.isArray(supplyCategories) ? supplyCategories.length : 0;
   const unitsCount = Array.isArray(unitsOfMeasure) ? unitsOfMeasure.length : 0;
-  const payrollEmployeesCount = payrollEmployeesData?.total || 0;
-  const payrollPeriodsCount = payrollPeriodsData?.total || 0;
+  const payrollEmployeesCount = Array.isArray(payrollEmployeesData) 
+    ? payrollEmployeesData.length 
+    : ('total' in payrollEmployeesData ? (payrollEmployeesData as any).total : 0);
+    
+  const payrollPeriodsCount = Array.isArray(payrollPeriodsData) 
+    ? payrollPeriodsData.length 
+    : ('total' in payrollPeriodsData ? (payrollPeriodsData as any).total : 0);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setCurrentTab(newValue);
