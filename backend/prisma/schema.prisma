@@ -51,6 +51,7 @@ model User {
   payrollEmployee                    Employee?
   attendanceRecords                  AttendanceRecord[]
   activityHeartbeats                 ActivityHeartbeat[]
+  inventoryMovements                 InventoryMovement[]
 
   @@map("users")
 }
@@ -358,6 +359,7 @@ model Supply {
   purchaseUnit      UnitOfMeasure        @relation("PurchaseUnit", fields: [purchaseUnitId], references: [id])
   consumptionUnit   UnitOfMeasure        @relation("ConsumptionUnit", fields: [consumptionUnitId], references: [id])
   workOrderItems    WorkOrderItemSupply[]
+  movements         InventoryMovement[]
 
   @@unique([name, categoryId])
   @@map("supplies")
@@ -663,6 +665,7 @@ enum NotificationType {
   ADVANCE_PAYMENT_APPROVAL_PENDING    // Nueva solicitud de aprobación de anticipo
   ADVANCE_PAYMENT_APPROVAL_APPROVED   // Anticipo aprobado
   ADVANCE_PAYMENT_APPROVAL_REJECTED   // Anticipo rechazado
+  LOW_STOCK_ALERT                     // Alerta de stock bajo en insumo
 }
 
 model EditableOrderStatus {
@@ -1273,3 +1276,39 @@ model ActivityHeartbeat {
   @@map("activity_heartbeats")
 }
 
+// =============================================================================
+// MÓDULO DE INVENTARIO - MOVIMIENTOS DE INSUMOS
+// =============================================================================
+
+enum InventoryMovementType {
+  ENTRY       // Entrada de stock (compra, recepción)
+  EXIT        // Salida de stock (consumo en OT - automático)
+  ADJUSTMENT  // Ajuste manual (conteo físico, corrección)
+  RETURN      // Devolución al stock desde producción
+  INITIAL     // Carga inicial de stock
+}
+
+model InventoryMovement {
+  id            String                @id @default(uuid())
+  supplyId      String                @map("supply_id")
+  type          InventoryMovementType
+  quantity      Decimal               // Siempre positivo; la dirección la determina el tipo
+  unitCost      Decimal?              @map("unit_cost")   // Costo unitario en el momento del movimiento
+  previousStock Decimal               @map("previous_stock")
+  newStock      Decimal               @map("new_stock")
+  referenceType String?               @map("reference_type")  // "WORK_ORDER", "MANUAL", "INITIAL"
+  referenceId   String?               @map("reference_id")
+  reason        String?               // Motivo del ajuste
+  notes         String?
+  performedById String                @map("performed_by_id")
+  createdAt     DateTime              @default(now()) @map("created_at")
+
+  supply        Supply                @relation(fields: [supplyId], references: [id])
+  performedBy   User                  @relation(fields: [performedById], references: [id])
+
+  @@index([supplyId])
+  @@index([type])
+  @@index([referenceType, referenceId])
+  @@index([createdAt])
+  @@map("inventory_movements")
+}

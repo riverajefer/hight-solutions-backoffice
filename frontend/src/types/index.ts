@@ -16,4 +16,4 @@ export * from './payroll-employee.types';
 export * from './payroll-period.types';
 export * from './payroll-item.types';
 export * from './attendance.types';
-
+export * from './inventory.types';

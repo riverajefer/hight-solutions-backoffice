@@ -52,6 +52,8 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import GroupsIcon from '@mui/icons-material/Groups';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { useAuthStore } from '../../store/authStore';
 import { ROUTES, PERMISSIONS } from '../../utils/constants';
 import { neonColors, neonAccents, gradients } from '../../theme';
@@ -261,6 +263,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           path: ROUTES.UNITS_OF_MEASURE,
           permission: PERMISSIONS.READ_UNITS_OF_MEASURE,
         },
+        {
+          label: 'Movimientos de Inventario',
+          icon: <SwapHorizIcon />,
+          path: ROUTES.INVENTORY_MOVEMENTS,
+          permission: PERMISSIONS.READ_INVENTORY_MOVEMENTS,
+        },
+        {
+          label: 'Alertas de Stock Bajo',
+          icon: <WarningAmberIcon />,
+          path: ROUTES.INVENTORY_LOW_STOCK,
+          permission: PERMISSIONS.READ_INVENTORY_MOVEMENTS,
+        },
       ],
       permissions: [
         PERMISSIONS.READ_SUPPLIERS,
@@ -270,6 +284,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
         PERMISSIONS.READ_PRODUCT_CATEGORIES,
         PERMISSIONS.READ_SUPPLY_CATEGORIES,
         PERMISSIONS.READ_UNITS_OF_MEASURE,
+        PERMISSIONS.READ_INVENTORY_MOVEMENTS,
       ],
     },
     {

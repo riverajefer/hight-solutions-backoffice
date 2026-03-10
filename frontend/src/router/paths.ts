@@ -102,5 +102,9 @@ export const PATHS = {
   CHANGE_PASSWORD: '/change-password',
   // Attendance - Control de Asistencia
   ATTENDANCE: '/attendance',
+  // Inventory - Movimientos de Inventario
+  INVENTORY_MOVEMENTS: '/inventory/movements',
+  INVENTORY_MOVEMENTS_NEW: '/inventory/movements/new',
+  INVENTORY_LOW_STOCK: '/inventory/low-stock',
 };
 

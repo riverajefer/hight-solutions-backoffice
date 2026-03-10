@@ -96,8 +96,12 @@ export class WorkOrdersController {
   @ApiResponse({ status: 200, description: 'Estado actualizado correctamente' })
   @ApiResponse({ status: 400, description: 'Transición de estado no permitida' })
   @ApiResponse({ status: 404, description: 'OT no encontrada' })
-  updateStatus(@Param('id') id: string, @Body() dto: UpdateWorkOrderStatusDto) {
-    return this.workOrdersService.updateStatus(id, dto);
+  updateStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateWorkOrderStatusDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.workOrdersService.updateStatus(id, dto, currentUser);
   }
 
   @Delete(':id')

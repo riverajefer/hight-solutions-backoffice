@@ -88,6 +88,10 @@ const PayrollPeriodDetailPage = lazy(() => import('../features/payroll/pages/Pay
 const PayrollItemFormPage = lazy(() => import('../features/payroll/pages/PayrollItemFormPage'));
 const EmployeePayrollHistoryPage = lazy(() => import('../features/payroll/pages/EmployeePayrollHistoryPage'));
 const ChangePasswordPage = lazy(() => import('../features/auth/pages/ChangePasswordPage'));
+// Inventory - Movimientos de Inventario
+const InventoryMovementsListPage = lazy(() => import('../features/inventory/pages/InventoryMovementsListPage'));
+const InventoryMovementFormPage = lazy(() => import('../features/inventory/pages/InventoryMovementFormPage'));
+const LowStockAlertsPage = lazy(() => import('../features/inventory/pages/LowStockAlertsPage'));
 
 
 const RoutesConfig: FC = () => {
@@ -915,6 +919,44 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.READ_ATTENDANCE}>
                   <AttendancePage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Inventory - Movimientos de Inventario */}
+        <Route
+          path={PATHS.INVENTORY_MOVEMENTS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_INVENTORY_MOVEMENTS}>
+                  <InventoryMovementsListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.INVENTORY_MOVEMENTS_NEW}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_INVENTORY_MOVEMENTS}>
+                  <InventoryMovementFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.INVENTORY_LOW_STOCK}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_INVENTORY_MOVEMENTS}>
+                  <LowStockAlertsPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

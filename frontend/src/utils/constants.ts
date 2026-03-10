@@ -118,6 +118,10 @@ export const PERMISSIONS = {
   USE_ATTENDANCE: 'use_attendance',
   READ_ATTENDANCE: 'read_attendance',
   MANAGE_ATTENDANCE: 'manage_attendance',
+  // Inventory - Movimientos de Inventario
+  CREATE_INVENTORY_MOVEMENTS: 'create_inventory_movements',
+  READ_INVENTORY_MOVEMENTS: 'read_inventory_movements',
+  MANAGE_INVENTORY: 'manage_inventory',
 };
 
 export const ROUTES = {
@@ -218,6 +222,10 @@ export const ROUTES = {
   PAYROLL_ITEM_EDIT: '/payroll/periods/:periodId/items/:itemId/edit',
   // Attendance
   ATTENDANCE: '/attendance',
+  // Inventory
+  INVENTORY_MOVEMENTS: '/inventory/movements',
+  INVENTORY_MOVEMENTS_NEW: '/inventory/movements/new',
+  INVENTORY_LOW_STOCK: '/inventory/low-stock',
 };
 
 export const DEFAULT_PAGINATION = {
