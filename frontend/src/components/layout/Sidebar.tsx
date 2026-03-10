@@ -181,7 +181,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           label: 'Solicitudes Pendientes',
           icon: <PendingActionsIcon />,
           path: ROUTES.STATUS_CHANGE_REQUESTS,
-          permission: PERMISSIONS.APPROVE_ORDERS,
+          permission: [PERMISSIONS.APPROVE_ORDERS, PERMISSIONS.APPROVE_ADVANCE_PAYMENTS],
         },
         {
           label: 'Trazabilidad',

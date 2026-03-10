@@ -993,7 +993,7 @@ const RoutesConfig: FC = () => {
           element={
             <AuthGuard>
               <MainLayout>
-                <PermissionGuard permission={PERMISSIONS.APPROVE_ORDERS}>
+                <PermissionGuard permission={[PERMISSIONS.APPROVE_ORDERS, PERMISSIONS.APPROVE_ADVANCE_PAYMENTS]}>
                   <StatusChangeRequestsPage />
                 </PermissionGuard>
               </MainLayout>

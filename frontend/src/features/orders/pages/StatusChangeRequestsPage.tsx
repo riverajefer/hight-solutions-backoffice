@@ -74,10 +74,12 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
   const queryClient = useQueryClient();
-  const { user } = useAuthStore();
+  const { user, hasPermission } = useAuthStore();
   const isAdmin = user?.role?.name === 'admin';
+  const canApproveOrders = hasPermission('approve_orders') || isAdmin;
+  const canApproveAdvancePayments = hasPermission('approve_advance_payments') || isAdmin;
 
-  const [tabValue, setTabValue] = useState(0);
+  const [tabValue, setTabValue] = useState<string>(canApproveOrders ? 'status' : 'advance');
 
   // --- Status Change Requests ---
   const [reviewDialog, setReviewDialog] = useState<{
@@ -118,11 +120,13 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const { data: statusRequests, isLoading: statusLoading } = useQuery({
     queryKey: ['statusChangeRequests', 'pending'],
     queryFn: () => orderStatusChangeRequestsApi.findPending(),
+    enabled: canApproveOrders,
   });
 
   const { data: editRequests, isLoading: editLoading } = useQuery({
     queryKey: ['editRequests', 'pending'],
     queryFn: () => editRequestsApi.findAllPending(),
+    enabled: canApproveOrders,
   });
 
   const { data: ogAuthRequests, isLoading: ogAuthLoading } = useQuery({
@@ -134,6 +138,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const { data: advancePaymentRequests, isLoading: advanceLoading } = useQuery({
     queryKey: ['advancePaymentApprovals', 'pending'],
     queryFn: () => advancePaymentApprovalsApi.findPending(),
+    enabled: canApproveAdvancePayments,
   });
 
   // ============================================================
@@ -877,46 +882,58 @@ export const StatusChangeRequestsPage: React.FC = () => {
           onChange={(_, v) => setTabValue(v)}
           sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}
         >
-          <Tab
-            icon={<SwapHorizIcon />}
-            iconPosition="start"
-            label={
-              <Badge badgeContent={statusCount} color="warning" sx={{ '& .MuiBadge-badge': { right: -12, top: 2 } }}>
-                Cambio de Estado
-              </Badge>
-            }
-          />
-          <Tab
-            icon={<EditNoteIcon />}
-            iconPosition="start"
-            label={
-              <Badge badgeContent={editCount} color="warning" sx={{ '& .MuiBadge-badge': { right: -12, top: 2 } }}>
-                Edición de Orden
-              </Badge>
-            }
-          />
-          <Tab
-            icon={<ReceiptLongIcon />}
-            iconPosition="start"
-            label={
-              <Badge badgeContent={ogAuthCount} color="warning" sx={{ '& .MuiBadge-badge': { right: -12, top: 2 } }}>
-                Autorización OG
-              </Badge>
-            }
-          />
-          <Tab
-            icon={<PaymentIcon />}
-            iconPosition="start"
-            label={
-              <Badge badgeContent={advanceCount} color="warning" sx={{ '& .MuiBadge-badge': { right: -12, top: 2 } }}>
-                Anticipo OP
-              </Badge>
-            }
-          />
+          {canApproveOrders && (
+            <Tab
+              value="status"
+              icon={<SwapHorizIcon />}
+              iconPosition="start"
+              label={
+                <Badge badgeContent={statusCount} color="warning" sx={{ pr: 1.5, '& .MuiBadge-badge': { right: 0, top: 2 } }}>
+                  Cambio de Estado
+                </Badge>
+              }
+            />
+          )}
+          {canApproveOrders && (
+            <Tab
+              value="edit"
+              icon={<EditNoteIcon />}
+              iconPosition="start"
+              label={
+                <Badge badgeContent={editCount} color="warning" sx={{ pr: 1.5, '& .MuiBadge-badge': { right: 0, top: 2 } }}>
+                  Edición de Orden
+                </Badge>
+              }
+            />
+          )}
+          {isAdmin && (
+            <Tab
+              value="og"
+              icon={<ReceiptLongIcon />}
+              iconPosition="start"
+              label={
+                <Badge badgeContent={ogAuthCount} color="warning" sx={{ pr: 1.5, '& .MuiBadge-badge': { right: 0, top: 2 } }}>
+                  Autorización OG
+                </Badge>
+              }
+            />
+          )}
+          {canApproveAdvancePayments && (
+            <Tab
+              value="advance"
+              icon={<PaymentIcon />}
+              iconPosition="start"
+              label={
+                <Badge badgeContent={advanceCount} color="warning" sx={{ pr: 1.5, '& .MuiBadge-badge': { right: 0, top: 2 } }}>
+                  Anticipo OP
+                </Badge>
+              }
+            />
+          )}
         </Tabs>
 
         {/* Tab: Cambio de Estado */}
-        {tabValue === 0 && (
+        {tabValue === 'status' && canApproveOrders && (
           <DataTable
             rows={statusRequests || []}
             columns={statusColumns}
@@ -927,7 +944,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
         )}
 
         {/* Tab: Edición de Orden */}
-        {tabValue === 1 && (
+        {tabValue === 'edit' && canApproveOrders && (
           <DataTable
             rows={editRequests || []}
             columns={editColumns}
@@ -938,7 +955,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
         )}
 
         {/* Tab: Autorización OG */}
-        {tabValue === 2 && (
+        {tabValue === 'og' && isAdmin && (
           <DataTable
             rows={ogAuthRequests || []}
             columns={ogAuthColumns}
@@ -949,7 +966,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
         )}
 
         {/* Tab: Anticipo OP */}
-        {tabValue === 3 && (
+        {tabValue === 'advance' && canApproveAdvancePayments && (
           <DataTable
             rows={advancePaymentRequests || []}
             columns={advanceColumns}
