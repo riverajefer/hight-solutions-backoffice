@@ -74,6 +74,7 @@ export const PERMISSIONS = {
   DELETE_ORDERS: 'delete_orders',
   APPROVE_ORDERS: 'approve_orders',
   READ_PENDING_ORDERS: 'read_pending_orders',
+  APPROVE_ADVANCE_PAYMENTS: 'approve_advance_payments',
   //READ_COMMERCIAL_CHANNELS
   READ_COMMERCIAL_CHANNELS: 'read_commercial_channels',
   CREATE_COMMERCIAL_CHANNELS: 'create_commercial_channels',

@@ -73,7 +73,7 @@ interface NavItemSub {
   label: string;
   path: string;
   icon?: React.ReactNode;
-  permission?: string;
+  permission?: string | string[];
 }
 
 interface NavItem {
@@ -181,7 +181,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           label: 'Solicitudes Pendientes',
           icon: <PendingActionsIcon />,
           path: ROUTES.STATUS_CHANGE_REQUESTS,
-          permission: PERMISSIONS.APPROVE_ORDERS,
+          permission: [PERMISSIONS.APPROVE_ORDERS, PERMISSIONS.APPROVE_ADVANCE_PAYMENTS],
         },
         {
           label: 'Trazabilidad',
@@ -577,8 +577,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
                 <Collapse in={isMenuOpen && !collapsed} timeout="auto" unmountOnExit>
                   <List component="div" disablePadding sx={{ mb: 0.25 }}>
                     {item.submenu.map((subitem, subindex) => {
-                      if (subitem.permission && !hasPermission(subitem.permission)) {
-                        return null;
+                      if (subitem.permission) {
+                        const hasAccess = Array.isArray(subitem.permission)
+                           ? subitem.permission.some(p => hasPermission(p))
+                           : hasPermission(subitem.permission);
+                        if (!hasAccess) return null;
                       }
 
                       const active = isActive(subitem.path, siblingPaths);
