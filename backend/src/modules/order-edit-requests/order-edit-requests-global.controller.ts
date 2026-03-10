@@ -40,6 +40,17 @@ export class OrderEditRequestsGlobalController {
     return this.orderEditRequestsService.findAllPending();
   }
 
+  @Get('all')
+  @RequirePermissions('approve_orders')
+  @ApiOperation({ summary: 'Listar todas las solicitudes de edición (solo admins)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Todas las solicitudes obtenidas correctamente',
+  })
+  async findAll() {
+    return this.orderEditRequestsService.findAll();
+  }
+
   @Put(':requestId/approve')
   @RequirePermissions('approve_orders')
   @ApiOperation({ summary: 'Aprobar solicitud de edición por ID global (solo admin)' })

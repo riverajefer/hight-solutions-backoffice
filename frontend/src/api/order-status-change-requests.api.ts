@@ -30,6 +30,17 @@ export const orderStatusChangeRequestsApi = {
   },
 
   /**
+   * Obtener todas las solicitudes (solo admins)
+   */
+  findAll: async (orderId?: string) => {
+    const { data } = await axiosInstance.get<OrderStatusChangeRequest[]>(
+      '/order-status-change-requests/all',
+      { params: { orderId } },
+    );
+    return data;
+  },
+
+  /**
    * Aprobar solicitud (solo admins)
    */
   approve: async (requestId: string, dto: ApproveStatusChangeRequestDto) => {

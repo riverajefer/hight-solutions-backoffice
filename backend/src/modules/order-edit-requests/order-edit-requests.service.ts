@@ -382,6 +382,40 @@ export class OrderEditRequestsService {
   }
 
   /**
+   * Obtener todas las solicitudes (para admins)
+   */
+  async findAll() {
+    return this.prisma.orderEditRequest.findMany({
+      include: {
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true,
+          },
+        },
+        requestedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        reviewedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
    * Obtener todas las solicitudes de una orden
    */
   async findByOrder(orderId: string) {

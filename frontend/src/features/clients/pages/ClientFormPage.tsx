@@ -21,6 +21,7 @@ import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { useClients, useClient } from '../hooks/useClients';
 import { useDepartments, useCitiesByDepartment } from '../../locations/hooks/useLocations';
+import { useUsers } from '../../users/hooks/useUsers';
 import { CreateClientDto, UpdateClientDto, Department, City } from '../../../types';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
@@ -87,12 +88,21 @@ const ClientFormPage: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
   const { id } = useParams<{ id: string }>();
   const [error, setError] = useState<string | null>(null);
-  const { hasPermission } = useAuthStore();
+  const { hasPermission, user } = useAuthStore();
+  const isAdmin = user?.role?.name === 'admin';
   const canEditSpecialCondition = hasPermission(PERMISSIONS.UPDATE_CLIENT_SPECIAL_CONDITION);
+  const canAssignAdvisor = isAdmin || hasPermission(PERMISSIONS.APPROVE_CLIENT_OWNERSHIP_AUTH);
+
+  // Advisor state (managed outside Zod schema — admin-only field)
+  const [selectedAdvisorId, setSelectedAdvisorId] = useState<string | null | undefined>(undefined);
 
   const isEdit = !!id;
   const { data: client, isLoading: isLoadingClient } = useClient(id || '');
   const { createClientMutation, updateClientMutation, updateSpecialConditionMutation } = useClients();
+
+  // Users (for advisor selection — admin only)
+  const { usersQuery } = useUsers();
+  const users = usersQuery.data || [];
 
   // Location data
   const { data: departments, isLoading: isLoadingDepartments } = useDepartments();
@@ -185,6 +195,8 @@ const ClientFormPage: React.FC = () => {
         cedula: client.cedula || '',
         specialCondition: client.specialCondition || '',
       });
+      // Pre-populate advisor state
+      setSelectedAdvisorId(client.advisorId ?? null);
     }
   }, [client, isEdit, reset]);
 
@@ -206,9 +218,16 @@ const ClientFormPage: React.FC = () => {
       };
 
       if (isEdit && id) {
+        const updatePayload: UpdateClientDto = {
+          ...(cleanedData as UpdateClientDto),
+          // Include advisorId only if admin/authorized and it was explicitly set
+          ...(canAssignAdvisor && selectedAdvisorId !== undefined
+            ? { advisorId: selectedAdvisorId }
+            : {}),
+        };
         await updateClientMutation.mutateAsync({
           id,
-          data: cleanedData as UpdateClientDto,
+          data: updatePayload,
         });
         // Update special condition separately if user has permission
         if (canEditSpecialCondition) {
@@ -548,6 +567,46 @@ const ClientFormPage: React.FC = () => {
                         placeholder="Nombre del representante legal"
                       />
                     )}
+                  />
+                </Grid>
+              )}
+
+              {/* Asesor responsable — solo visible para admin */}
+              {canAssignAdvisor && (
+                <Grid item xs={12} md={6}>
+                  <Autocomplete
+                    options={users}
+                    getOptionLabel={(option) =>
+                      option.firstName && option.lastName
+                        ? `${option.firstName} ${option.lastName} (${option.email})`
+                        : option.email ?? ''
+                    }
+                    value={users.find((u) => u.id === selectedAdvisorId) || null}
+                    onChange={(_, newValue) => {
+                      setSelectedAdvisorId(newValue?.id ?? null);
+                    }}
+                    loading={usersQuery.isLoading}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Asesor responsable"
+                        helperText="Asesor dueño de este cliente. Dejar vacío para sin asignar."
+                        InputProps={{
+                          ...params.InputProps,
+                          endAdornment: (
+                            <>
+                              {usersQuery.isLoading ? (
+                                <CircularProgress color="inherit" size={20} />
+                              ) : null}
+                              {params.InputProps.endAdornment}
+                            </>
+                          ),
+                        }}
+                      />
+                    )}
+                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                    noOptionsText="No se encontraron usuarios"
+                    clearText="Quitar asesor"
                   />
                 </Grid>
               )}

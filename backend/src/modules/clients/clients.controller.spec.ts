@@ -56,8 +56,8 @@ describe('ClientsController', () => {
     it('should delegate to clientsService.create', async () => {
       const dto = { name: 'Empresa ABC', email: 'abc@test.com' } as any;
       mockClientsService.create.mockResolvedValue({ id: 'client-1', ...dto });
-      await controller.create(dto);
-      expect(mockClientsService.create).toHaveBeenCalledWith(dto);
+      await controller.create(dto, 'user-1');
+      expect(mockClientsService.create).toHaveBeenCalledWith(dto, 'user-1');
     });
   });
 

@@ -40,7 +40,7 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   // Comercial
   Clientes: ['create_clients', 'read_clients', 'update_clients', 'delete_clients', 'update_client_special_condition'],
   Cotizaciones: ['create_quotes', 'read_quotes', 'update_quotes', 'delete_quotes', 'convert_quotes'],
-  Órdenes: ['create_orders', 'read_orders', 'update_orders', 'delete_orders', 'approve_orders', 'apply_discounts', 'delete_discounts', 'read_pending_orders'],
+  Órdenes: ['create_orders', 'read_orders', 'update_orders', 'delete_orders', 'approve_orders', 'change_order_status', 'apply_discounts', 'delete_discounts', 'read_pending_orders'],
   'Canales Comerciales': ['create_commercial_channels', 'read_commercial_channels', 'update_commercial_channels', 'delete_commercial_channels'],
   Archivos: ['upload_files', 'read_files', 'delete_files', 'manage_storage'],
 
@@ -59,6 +59,7 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   'Tipos de Gasto': ['create_expense_types', 'read_expense_types', 'update_expense_types', 'delete_expense_types'],
   'Órdenes de Gasto': ['create_expense_orders', 'read_expense_orders', 'update_expense_orders', 'delete_expense_orders', 'approve_expense_orders'],
   Anticipos: ['approve_advance_payments'],
+  'Propiedad de Cliente': ['approve_client_ownership_auth'],
   Auditoría: ['read_audit_logs', 'read_session_logs'],
   Asistencia: ['use_attendance', 'read_attendance', 'manage_attendance'],
 
@@ -112,6 +113,7 @@ const TABS = [
       'Tipos de Gasto',
       'Órdenes de Gasto',
       'Anticipos',
+      'Propiedad de Cliente',
       'Auditoría',
       'Asistencia',
       'Compañía',

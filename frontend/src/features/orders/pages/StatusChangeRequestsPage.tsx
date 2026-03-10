@@ -14,6 +14,8 @@ import {
   Tabs,
   Tab,
   Badge,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import { GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -23,6 +25,7 @@ import EditNoteIcon from '@mui/icons-material/EditNote';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import PaymentIcon from '@mui/icons-material/Payment';
+import BadgeIcon from '@mui/icons-material/Badge';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -38,6 +41,8 @@ import type { OrderStatusChangeRequest } from '../../../types/order-status-chang
 import type { OrderEditRequest } from '../../../types/edit-request.types';
 import type { ExpenseOrderAuthRequest } from '../../../types/expense-order-auth-request.types';
 import type { AdvancePaymentApproval } from '../../../types/advance-payment-approval.types';
+import { clientOwnershipAuthRequestsApi } from '../../../api/client-ownership-auth-requests.api';
+import type { ClientOwnershipAuthRequest } from '../../../types/client-ownership-auth-request.types';
 
 // ============================================================
 // CONSTANTES
@@ -78,8 +83,13 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const isAdmin = user?.role?.name === 'admin';
   const canApproveOrders = hasPermission('approve_orders') || isAdmin;
   const canApproveAdvancePayments = hasPermission('approve_advance_payments') || isAdmin;
+  const canApproveClientOwnership = hasPermission('approve_client_ownership_auth') || isAdmin;
 
-  const [tabValue, setTabValue] = useState<string>(canApproveOrders ? 'status' : 'advance');
+  const [tabValue, setTabValue] = useState<string>(
+    canApproveOrders ? 'status' : canApproveAdvancePayments ? 'advance' : 'ownership',
+  );
+  
+  const [viewMode, setViewMode] = useState<'pending' | 'history'>('pending');
 
   // --- Status Change Requests ---
   const [reviewDialog, setReviewDialog] = useState<{
@@ -113,33 +123,66 @@ export const StatusChangeRequestsPage: React.FC = () => {
   }>({ open: false, request: null, action: null });
   const [advanceReviewNotes, setAdvanceReviewNotes] = useState('');
 
+  // --- Client Ownership Auth Requests ---
+  const [ownershipReviewDialog, setOwnershipReviewDialog] = useState<{
+    open: boolean;
+    request: ClientOwnershipAuthRequest | null;
+    action: 'approve' | 'reject' | null;
+  }>({ open: false, request: null, action: null });
+  const [ownershipReviewNotes, setOwnershipReviewNotes] = useState('');
+
   // ============================================================
   // QUERIES
   // ============================================================
 
-  const { data: statusRequests, isLoading: statusLoading } = useQuery({
-    queryKey: ['statusChangeRequests', 'pending'],
-    queryFn: () => orderStatusChangeRequestsApi.findPending(),
+  const { data: statusRequestsData, isLoading: statusLoading } = useQuery({
+    queryKey: ['statusChangeRequests', viewMode],
+    queryFn: () => viewMode === 'pending' 
+      ? orderStatusChangeRequestsApi.findPending()
+      : orderStatusChangeRequestsApi.findAll(),
     enabled: canApproveOrders,
   });
 
-  const { data: editRequests, isLoading: editLoading } = useQuery({
-    queryKey: ['editRequests', 'pending'],
-    queryFn: () => editRequestsApi.findAllPending(),
+  const { data: editRequestsData, isLoading: editLoading } = useQuery({
+    queryKey: ['editRequests', viewMode],
+    queryFn: () => viewMode === 'pending'
+      ? editRequestsApi.findAllPending()
+      : editRequestsApi.findAll(),
     enabled: canApproveOrders,
   });
 
-  const { data: ogAuthRequests, isLoading: ogAuthLoading } = useQuery({
-    queryKey: ['ogAuthRequests', 'pending'],
-    queryFn: () => expenseOrderAuthRequestsApi.findPending(),
+  const { data: ogAuthRequestsData, isLoading: ogAuthLoading } = useQuery({
+    queryKey: ['ogAuthRequests', viewMode],
+    queryFn: () => viewMode === 'pending'
+      ? expenseOrderAuthRequestsApi.findPending()
+      : expenseOrderAuthRequestsApi.findAll(),
     enabled: isAdmin,
   });
 
-  const { data: advancePaymentRequests, isLoading: advanceLoading } = useQuery({
-    queryKey: ['advancePaymentApprovals', 'pending'],
-    queryFn: () => advancePaymentApprovalsApi.findPending(),
+  const { data: advancePaymentRequestsData, isLoading: advanceLoading } = useQuery({
+    queryKey: ['advancePaymentApprovals', viewMode],
+    queryFn: () => viewMode === 'pending'
+      ? advancePaymentApprovalsApi.findPending()
+      : advancePaymentApprovalsApi.findAll(),
     enabled: canApproveAdvancePayments,
   });
+
+  const { data: ownershipRequestsData, isLoading: ownershipLoading } = useQuery({
+    queryKey: ['clientOwnershipAuthRequests', viewMode],
+    queryFn: () => viewMode === 'pending'
+      ? clientOwnershipAuthRequestsApi.findPending()
+      : clientOwnershipAuthRequestsApi.findAll(),
+    enabled: canApproveClientOwnership,
+  });
+  
+  // En historial, no necesitamos mostrar los que ya están pendientes si queremos separarlos, o sí?
+  // Normalmente "Historial" implica todo o solo lo ya resuelto. Para este caso, mostraremos todo o filtraremos.
+  // Filtraremos en base a estado si viewMode === 'history' para no repetir, o simplemente mostramos todo.
+  const statusRequests = viewMode === 'history' ? statusRequestsData?.filter(r => r.status !== 'PENDING') : statusRequestsData;
+  const editRequests = viewMode === 'history' ? editRequestsData?.filter(r => r.status !== 'PENDING') : editRequestsData;
+  const ogAuthRequests = viewMode === 'history' ? ogAuthRequestsData?.filter(r => r.status !== 'PENDING') : ogAuthRequestsData;
+  const advancePaymentRequests = viewMode === 'history' ? advancePaymentRequestsData?.filter(r => r.status !== 'PENDING') : advancePaymentRequestsData;
+  const ownershipRequests = viewMode === 'history' ? ownershipRequestsData?.filter(r => r.status !== 'PENDING') : ownershipRequestsData;
 
   // ============================================================
   // STATUS CHANGE MUTATIONS
@@ -284,6 +327,40 @@ export const StatusChangeRequestsPage: React.FC = () => {
     onError: (error: any) => {
       enqueueSnackbar(
         error.response?.data?.message || 'Error al rechazar anticipo',
+        { variant: 'error' }
+      );
+    },
+  });
+
+  const approveOwnershipMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
+      clientOwnershipAuthRequestsApi.approve(id, { reviewNotes: notes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clientOwnershipAuthRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      enqueueSnackbar('Autorización de propiedad aprobada', { variant: 'success' });
+      handleCloseOwnershipReviewDialog();
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(
+        error.response?.data?.message || 'Error al aprobar la solicitud',
+        { variant: 'error' }
+      );
+    },
+  });
+
+  const rejectOwnershipMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes: string }) =>
+      clientOwnershipAuthRequestsApi.reject(id, { reviewNotes: notes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clientOwnershipAuthRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      enqueueSnackbar('Autorización de propiedad rechazada', { variant: 'info' });
+      handleCloseOwnershipReviewDialog();
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(
+        error.response?.data?.message || 'Error al rechazar la solicitud',
         { variant: 'error' }
       );
     },
@@ -451,6 +528,45 @@ export const StatusChangeRequestsPage: React.FC = () => {
 
   const handleViewExpenseOrder = (expenseOrderId: string) => {
     navigate(`/expense-orders/${expenseOrderId}`);
+  };
+
+  // ============================================================
+  // HANDLERS - CLIENT OWNERSHIP AUTH
+  // ============================================================
+
+  const handleApproveOwnership = (request: ClientOwnershipAuthRequest) => {
+    setOwnershipReviewDialog({ open: true, request, action: 'approve' });
+    setOwnershipReviewNotes('');
+  };
+
+  const handleRejectOwnership = (request: ClientOwnershipAuthRequest) => {
+    setOwnershipReviewDialog({ open: true, request, action: 'reject' });
+    setOwnershipReviewNotes('');
+  };
+
+  const handleConfirmOwnershipReview = () => {
+    if (!ownershipReviewDialog.request || !ownershipReviewDialog.action) return;
+
+    if (ownershipReviewDialog.action === 'approve') {
+      approveOwnershipMutation.mutate({
+        id: ownershipReviewDialog.request.id,
+        notes: ownershipReviewNotes || undefined,
+      });
+    } else {
+      if (!ownershipReviewNotes.trim()) {
+        enqueueSnackbar('Debe proporcionar una razón para rechazar', { variant: 'warning' });
+        return;
+      }
+      rejectOwnershipMutation.mutate({
+        id: ownershipReviewDialog.request.id,
+        notes: ownershipReviewNotes,
+      });
+    }
+  };
+
+  const handleCloseOwnershipReviewDialog = () => {
+    setOwnershipReviewDialog({ open: false, request: null, action: null });
+    setOwnershipReviewNotes('');
   };
 
   // ============================================================
@@ -860,6 +976,83 @@ export const StatusChangeRequestsPage: React.FC = () => {
   ];
 
   // ============================================================
+  // COLUMNAS - CLIENT OWNERSHIP AUTH REQUESTS
+  // ============================================================
+
+  const ownershipColumns: GridColDef<ClientOwnershipAuthRequest>[] = [
+    {
+      field: 'orderNumber',
+      headerName: 'Nº Orden',
+      width: 150,
+      valueGetter: (_, row) => row.order?.orderNumber || '-',
+      renderCell: (params) => (
+        <Box
+          sx={{ fontWeight: 600, color: 'primary.main', cursor: 'pointer' }}
+          onClick={() => params.row.order && handleViewOrder(params.row.order.id)}
+        >
+          {params.value}
+        </Box>
+      ),
+    },
+    {
+      field: 'requestedBy',
+      headerName: 'Solicitante',
+      width: 200,
+      valueGetter: (_, row) => getUserName(row.requestedBy),
+    },
+    {
+      field: 'advisor',
+      headerName: 'Asesor del Cliente',
+      width: 200,
+      valueGetter: (_, row) => getUserName(row.advisor),
+    },
+    {
+      field: 'status',
+      headerName: 'Estado',
+      width: 130,
+      renderCell: (params) => {
+        const statusConfig = STATUS_LABELS[params.value] || { label: params.value, color: 'default' as const };
+        return (
+          <Chip
+            label={statusConfig.label}
+            color={statusConfig.color}
+            size="small"
+          />
+        );
+      },
+    },
+    {
+      field: 'createdAt',
+      headerName: 'Fecha Solicitud',
+      width: 150,
+      valueFormatter: (value) => formatDateTime(value),
+    },
+    {
+      field: 'actions',
+      type: 'actions' as const,
+      headerName: 'Acciones',
+      width: 120,
+      getActions: (params: any) => {
+        if (params.row.status !== 'PENDING') return [];
+        return [
+          <GridActionsCellItem
+            icon={<CheckCircleIcon sx={{ color: 'success.main' }} />}
+            label="Aprobar"
+            onClick={() => handleApproveOwnership(params.row)}
+            showInMenu={false}
+          />,
+          <GridActionsCellItem
+            icon={<CancelIcon sx={{ color: 'error.main' }} />}
+            label="Rechazar"
+            onClick={() => handleRejectOwnership(params.row)}
+            showInMenu={false}
+          />,
+        ];
+      },
+    },
+  ];
+
+  // ============================================================
   // RENDER
   // ============================================================
 
@@ -867,13 +1060,35 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const editCount = editRequests?.length || 0;
   const ogAuthCount = ogAuthRequests?.length || 0;
   const advanceCount = advancePaymentRequests?.length || 0;
+  const ownershipCount = ownershipRequests?.length || 0;
 
   return (
     <Box>
       <PageHeader
-        title="Solicitudes Pendientes"
-        subtitle="Gestionar solicitudes pendientes de aprobación"
+        title="Solicitudes"
+        subtitle={viewMode === 'pending' ? 'Gestionar solicitudes pendientes de aprobación' : 'Historial de solicitudes procesadas'}
         icon={<PendingActionsIcon />}
+        action={
+          <ToggleButtonGroup
+            color="primary"
+            value={viewMode}
+            exclusive
+            onChange={(_, newMode) => {
+              if (newMode !== null) {
+                setViewMode(newMode);
+              }
+            }}
+            aria-label="View Mode"
+            size="small"
+          >
+            <ToggleButton value="pending">
+              Pendientes
+            </ToggleButton>
+            <ToggleButton value="history">
+              Historial
+            </ToggleButton>
+          </ToggleButtonGroup>
+        }
       />
 
       <Paper sx={{ p: 3 }}>
@@ -930,6 +1145,18 @@ export const StatusChangeRequestsPage: React.FC = () => {
               }
             />
           )}
+          {canApproveClientOwnership && (
+            <Tab
+              value="ownership"
+              icon={<BadgeIcon />}
+              iconPosition="start"
+              label={
+                <Badge badgeContent={ownershipCount} color="warning" sx={{ pr: 1.5, '& .MuiBadge-badge': { right: 0, top: 2 } }}>
+                  Propiedad de Cliente
+                </Badge>
+              }
+            />
+          )}
         </Tabs>
 
         {/* Tab: Cambio de Estado */}
@@ -971,6 +1198,17 @@ export const StatusChangeRequestsPage: React.FC = () => {
             rows={advancePaymentRequests || []}
             columns={advanceColumns}
             loading={advanceLoading}
+            getRowId={(row) => row.id}
+            pageSize={25}
+          />
+        )}
+
+        {/* Tab: Propiedad de Cliente */}
+        {tabValue === 'ownership' && canApproveClientOwnership && (
+          <DataTable
+            rows={ownershipRequests || []}
+            columns={ownershipColumns}
+            loading={ownershipLoading}
             getRowId={(row) => row.id}
             pageSize={25}
           />
@@ -1220,6 +1458,55 @@ export const StatusChangeRequestsPage: React.FC = () => {
             }
           >
             {ogAuthReviewDialog.action === 'approve' ? 'Aprobar' : 'Rechazar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog: Revisión de Autorización de Propiedad de Cliente */}
+      <Dialog open={ownershipReviewDialog.open} onClose={handleCloseOwnershipReviewDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {ownershipReviewDialog.action === 'approve'
+            ? 'Aprobar Autorización de Propiedad de Cliente'
+            : 'Rechazar Autorización de Propiedad de Cliente'}
+        </DialogTitle>
+        <DialogContent>
+          {ownershipReviewDialog.request && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                <strong>Orden:</strong> {ownershipReviewDialog.request.order?.orderNumber}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Solicitado por:</strong> {getUserName(ownershipReviewDialog.request.requestedBy)}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Asesor del cliente:</strong> {getUserName(ownershipReviewDialog.request.advisor)}
+              </Typography>
+            </Box>
+          )}
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            label={ownershipReviewDialog.action === 'approve' ? 'Notas (opcional)' : 'Razón del rechazo *'}
+            value={ownershipReviewNotes}
+            onChange={(e) => setOwnershipReviewNotes(e.target.value)}
+            required={ownershipReviewDialog.action === 'reject'}
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseOwnershipReviewDialog}>Cancelar</Button>
+          <Button
+            onClick={handleConfirmOwnershipReview}
+            variant="contained"
+            color={ownershipReviewDialog.action === 'approve' ? 'success' : 'error'}
+            disabled={
+              approveOwnershipMutation.isPending ||
+              rejectOwnershipMutation.isPending ||
+              (ownershipReviewDialog.action === 'reject' && !ownershipReviewNotes.trim())
+            }
+          >
+            {ownershipReviewDialog.action === 'approve' ? 'Aprobar' : 'Rechazar'}
           </Button>
         </DialogActions>
       </Dialog>

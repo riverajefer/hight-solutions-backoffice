@@ -364,6 +364,43 @@ export class OrderStatusChangeRequestsService {
   }
 
   /**
+   * Obtener todas las solicitudes
+   */
+  async findAllRequests(orderId?: string) {
+    return this.prisma.orderStatusChangeRequest.findMany({
+      where: {
+        ...(orderId ? { orderId } : {}),
+      },
+      include: {
+        requestedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        reviewedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
    * Obtener solicitudes de un usuario
    */
   async findByUser(userId: string) {

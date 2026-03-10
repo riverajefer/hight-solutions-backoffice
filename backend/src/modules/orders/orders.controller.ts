@@ -137,7 +137,7 @@ export class OrdersController {
   }
 
   @Put(':id/status')
-  @RequirePermissions('approve_orders')
+  @RequirePermissions('change_order_status')
   @ApiOperation({ summary: 'Change order status' })
   @ApiParam({ name: 'id', description: 'Order ID' })
   @ApiResponse({ status: 200, description: 'Status updated successfully' })

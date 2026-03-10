@@ -152,4 +152,14 @@ export class UpdateClientDto {
   @IsOptional()
   @MaxLength(500, { message: 'La condición especial no puede exceder 500 caracteres' })
   specialCondition?: string;
+
+  @ApiPropertyOptional({
+    description: 'ID del asesor responsable del cliente (null para quitar el asesor)',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((o) => o.advisorId !== null)
+  @IsUUID('4', { message: 'El asesor debe ser un UUID válido' })
+  advisorId?: string | null;
 }

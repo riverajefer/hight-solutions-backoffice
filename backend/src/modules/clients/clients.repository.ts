@@ -28,6 +28,15 @@ export class ClientsRepository {
         landlinePhone: true,
         specialCondition: true,
         isActive: true,
+        advisorId: true,
+        advisor: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
         department: {
@@ -70,6 +79,15 @@ export class ClientsRepository {
         landlinePhone: true,
         specialCondition: true,
         isActive: true,
+        advisorId: true,
+        advisor: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
         department: {
@@ -132,6 +150,15 @@ export class ClientsRepository {
         landlinePhone: true,
         specialCondition: true,
         isActive: true,
+        advisorId: true,
+        advisor: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
         department: {
@@ -174,6 +201,15 @@ export class ClientsRepository {
         landlinePhone: true,
         specialCondition: true,
         isActive: true,
+        advisorId: true,
+        advisor: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
         department: {
@@ -226,6 +262,22 @@ export class ClientsRepository {
       select: { email: true },
     });
     return clients.map((c) => c.email);
+  }
+
+  /**
+   * Find user by ID including their role permissions (for advisor assignment check).
+   */
+  async findUserWithPermissions(userId: string) {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        role: {
+          include: {
+            permissions: { include: { permission: true } },
+          },
+        },
+      },
+    });
   }
 
   /**

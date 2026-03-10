@@ -73,6 +73,24 @@ export class OrderStatusChangeRequestsController {
     return this.service.findPendingRequests(orderId);
   }
 
+  @Get('all')
+  @RequirePermissions('approve_orders')
+  @ApiOperation({
+    summary: 'Listar todas las solicitudes (solo admins)',
+  })
+  @ApiQuery({
+    name: 'orderId',
+    required: false,
+    description: 'Filtrar por ID de orden',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Todas las solicitudes obtenidas correctamente',
+  })
+  async findAll(@Query('orderId') orderId?: string) {
+    return this.service.findAllRequests(orderId);
+  }
+
   @Put(':id/approve')
   @RequirePermissions('approve_orders')
   @ApiOperation({

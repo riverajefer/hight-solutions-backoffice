@@ -10,12 +10,14 @@ import {
   Stack,
   Box,
   IconButton,
+  Alert,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Close as CloseIcon,
   Business as BusinessIcon,
   Person as PersonIcon,
+  WarningAmber as WarningAmberIcon,
 } from '@mui/icons-material';
 import { useClients } from '../../clients/hooks/useClients';
 import type { Client } from '../../../types/client.types';
@@ -26,6 +28,8 @@ interface ClientSelectorProps {
   onChange: (client: Client | null) => void;
   error?: boolean;
   helperText?: string;
+  currentUserId?: string;
+  isAdmin?: boolean;
 }
 
 export const ClientSelector: React.FC<ClientSelectorProps> = ({
@@ -33,6 +37,8 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
   onChange,
   error,
   helperText,
+  currentUserId,
+  isAdmin,
 }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const { clientsQuery } = useClients({ includeInactive: false });
@@ -112,6 +118,18 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
             </Grid>
           </CardContent>
         </Card>
+
+        {/* Advertencia cuando el cliente pertenece a otro asesor */}
+        {value.advisorId && value.advisorId !== currentUserId && !isAdmin && (
+          <Alert severity="warning" icon={<WarningAmberIcon />} sx={{ mt: 1.5 }}>
+            <strong>Cliente de otro asesor.</strong>{' '}
+            Este cliente pertenece al asesor{' '}
+            {value.advisor?.firstName && value.advisor?.lastName
+              ? `${value.advisor.firstName} ${value.advisor.lastName}`
+              : value.advisor?.email || 'desconocido'}
+            . Crear esta orden requerirá autorización de administración.
+          </Alert>
+        )}
       </Box>
     );
   }

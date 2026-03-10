@@ -27,6 +27,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ClientsService } from './clients.service';
 import { CreateClientDto, UpdateClientDto, UpdateSpecialConditionDto, UploadClientsResponseDto } from './dto';
 
@@ -119,8 +120,11 @@ export class ClientsController {
     status: 400,
     description: 'Datos inválidos o email duplicado',
   })
-  create(@Body() createClientDto: CreateClientDto) {
-    return this.clientsService.create(createClientDto);
+  create(
+    @Body() createClientDto: CreateClientDto,
+    @CurrentUser('id') currentUserId: string,
+  ) {
+    return this.clientsService.create(createClientDto, currentUserId);
   }
 
   @Put(':id')

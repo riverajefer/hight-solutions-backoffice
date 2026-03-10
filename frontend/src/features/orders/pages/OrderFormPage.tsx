@@ -541,6 +541,8 @@ export const OrderFormPage: React.FC = () => {
                   onChange={field.onChange}
                   error={!!errors.client}
                   helperText={errors.client?.message}
+                  currentUserId={user?.id}
+                  isAdmin={isAdmin}
                 />
               )}
             />

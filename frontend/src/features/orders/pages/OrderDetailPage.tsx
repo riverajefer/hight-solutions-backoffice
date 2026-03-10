@@ -248,6 +248,7 @@ export const OrderDetailPage: React.FC = () => {
   const hasIva = parseFloat(order.tax) > 0;
   const canRegisterInvoice =
     hasIva && order.status !== 'DRAFT' && permissions.includes('update_orders');
+  const canChangeStatus = isAdmin || permissions.includes('change_order_status');
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -495,6 +496,26 @@ export const OrderDetailPage: React.FC = () => {
         </Alert>
       )}
 
+      {/* Alertas de propiedad de cliente */}
+      {order.clientOwnershipAuthStatus === 'PENDING' && (
+        <Alert severity="warning" icon={<WarningIcon />} sx={{ mt: 2 }}>
+          <strong>Autorización de propiedad pendiente.</strong> El cliente de esta orden pertenece a otro asesor. La orden está en revisión por administración y no se puede cambiar el estado hasta que sea aprobada.
+        </Alert>
+      )}
+      {order.clientOwnershipAuthStatus === 'REJECTED' && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          <strong>Autorización de propiedad rechazada.</strong> La solicitud para crear esta orden con el cliente de otro asesor fue rechazada. No se puede modificar el estado de la orden.
+        </Alert>
+      )}
+      {order.client?.advisor && (
+        <Alert severity="info" icon={<PersonIcon />} sx={{ mt: 2 }}>
+          <strong>Asesor del cliente:</strong>{' '}
+          {order.client.advisor.firstName && order.client.advisor.lastName
+            ? `${order.client.advisor.firstName} ${order.client.advisor.lastName}`
+            : order.client.advisor.email}
+        </Alert>
+      )}
+
       {/* Toolbar de Acciones */}
       <Paper
         elevation={0}
@@ -578,13 +599,25 @@ export const OrderDetailPage: React.FC = () => {
             />
           )}
 
-          <ToolbarButton
-            icon={<RefreshIcon />}
-            label="Estado"
-            onClick={handleMenuOpen}
-            disabled={updateStatusMutation.isPending}
-            tooltip="Cambiar Estado"
-          />
+          {canChangeStatus && (
+            <ToolbarButton
+              icon={<RefreshIcon />}
+              label="Estado"
+              onClick={handleMenuOpen}
+              disabled={
+                updateStatusMutation.isPending ||
+                order.clientOwnershipAuthStatus === 'PENDING' ||
+                order.clientOwnershipAuthStatus === 'REJECTED'
+              }
+              tooltip={
+                order.clientOwnershipAuthStatus === 'PENDING'
+                  ? 'Bloqueado — autorización de propiedad pendiente'
+                  : order.clientOwnershipAuthStatus === 'REJECTED'
+                    ? 'Bloqueado — autorización de propiedad rechazada'
+                    : 'Cambiar Estado'
+              }
+            />
+          )}
 
           <OrderPdfButton order={order} />
 
