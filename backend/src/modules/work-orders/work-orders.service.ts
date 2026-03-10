@@ -7,6 +7,8 @@ import { Prisma, WorkOrderStatus, WorkOrderTimeEntryType } from '../../generated
 import { PrismaService } from '../../database/prisma.service';
 import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { WorkOrdersRepository } from './work-orders.repository';
+import { InventoryService } from '../inventory/inventory.service';
+import { AuthenticatedUser } from '../../common/interfaces/auth.interface';
 import {
   AddSupplyToItemDto,
   CreateWorkOrderDto,
@@ -37,6 +39,7 @@ export class WorkOrdersService {
     private readonly workOrdersRepository: WorkOrdersRepository,
     private readonly consecutivesService: ConsecutivesService,
     private readonly prisma: PrismaService,
+    private readonly inventoryService: InventoryService,
   ) {}
 
   async create(dto: CreateWorkOrderDto, advisorId: string, status: WorkOrderStatus = WorkOrderStatus.DRAFT) {
@@ -192,7 +195,7 @@ export class WorkOrdersService {
     return this.workOrdersRepository.findById(id);
   }
 
-  async updateStatus(id: string, dto: UpdateWorkOrderStatusDto) {
+  async updateStatus(id: string, dto: UpdateWorkOrderStatusDto, currentUser?: AuthenticatedUser) {
     const workOrder = await this.workOrdersRepository.findById(id);
     if (!workOrder) {
       throw new NotFoundException(`OT con id ${id} no encontrada`);
@@ -205,6 +208,18 @@ export class WorkOrdersService {
       throw new BadRequestException(
         `No se puede cambiar el estado de ${currentStatus} a ${dto.status}. Transiciones permitidas: ${allowedNext.join(', ') || 'ninguna'}`,
       );
+    }
+
+    // Al completar la OT, descontar insumos del inventario en una transaccion atomica
+    if (dto.status === WorkOrderStatus.COMPLETED && currentUser) {
+      return this.prisma.$transaction(async (tx) => {
+        await tx.workOrder.update({
+          where: { id },
+          data: { status: dto.status },
+        });
+        await this.inventoryService.createExitFromWorkOrder(id, currentUser.id, tx);
+        return this.workOrdersRepository.findById(id);
+      });
     }
 
     return this.workOrdersRepository.updateStatus(id, dto.status);

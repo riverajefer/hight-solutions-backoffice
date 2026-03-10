@@ -42,6 +42,7 @@ import { WhatsappModule } from './modules/whatsapp/whatsapp.module';
 import { HealthModule } from './health/health.module';
 import { PayrollModule } from './modules/payroll/payroll.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
 
 @Module({
   imports: [
@@ -110,6 +111,8 @@ import { AttendanceModule } from './modules/attendance/attendance.module';
     PayrollModule,
     // Módulo de Control de Asistencia y Tiempo
     AttendanceModule,
+    // Módulo de Inventario y Movimientos de Insumos
+    InventoryModule,
   ],
   providers: [
     {

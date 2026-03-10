@@ -22,6 +22,7 @@ export { workOrdersApi } from './work-orders.api';
 export { expenseOrdersApi } from './expense-orders.api';
 export { orderStatusChangeRequestsApi } from './order-status-change-requests.api';
 export { attendanceApi } from './attendance.api';
+export { inventoryApi } from './inventory.api';
 export { default as axiosInstance } from './axios';
 export { payrollEmployeesApi } from './payroll-employees.api';
 export { payrollPeriodsApi } from './payroll-periods.api';

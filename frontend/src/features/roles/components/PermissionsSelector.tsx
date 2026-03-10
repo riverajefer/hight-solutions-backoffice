@@ -45,6 +45,7 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   Archivos: ['upload_files', 'read_files', 'delete_files', 'manage_storage'],
 
   // Inventario y Catálogos
+  Movimientos: ['create_inventory_movements', 'read_inventory_movements', 'manage_inventory'],
   Proveedores: ['create_suppliers', 'read_suppliers', 'update_suppliers', 'delete_suppliers'],
   Productos: ['create_products', 'read_products', 'update_products', 'delete_products'],
   'Categorías de Productos': ['create_product_categories', 'read_product_categories', 'update_product_categories', 'delete_product_categories'],
@@ -94,6 +95,7 @@ const TABS = [
   {
     label: 'Inventario',
     groups: [
+      'Movimientos',
       'Proveedores',
       'Productos',
       'Categorías de Productos',

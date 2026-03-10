@@ -153,6 +153,11 @@ export const PERMISSION_LABELS: Record<string, string> = {
   use_attendance: 'Marcar Entrada/Salida',
   read_attendance: 'Ver Registros de Asistencia',
   manage_attendance: 'Ajustar Registros de Asistencia',
+
+  // Inventario
+  create_inventory_movements: 'Crear Movimientos de Inventario',
+  read_inventory_movements: 'Ver Movimientos de Inventario',
+  manage_inventory: 'Gestionar Inventario',
 };
 
 /**

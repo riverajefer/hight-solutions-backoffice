@@ -149,9 +149,10 @@ describe('WorkOrdersController', () => {
         status: WorkOrderStatus.CONFIRMED,
       });
 
-      await controller.updateStatus('wo-1', dto);
+      const mockUser = { id: 'user-1', email: 'admin@test.com' } as any;
+      await controller.updateStatus('wo-1', dto, mockUser);
 
-      expect(mockWorkOrdersService.updateStatus).toHaveBeenCalledWith('wo-1', dto);
+      expect(mockWorkOrdersService.updateStatus).toHaveBeenCalledWith('wo-1', dto, mockUser);
     });
   });
 

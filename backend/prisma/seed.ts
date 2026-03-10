@@ -100,6 +100,20 @@ async function main() {
       description: 'Ajustar/corregir registros de asistencia',
     },
 
+    // Inventory Movements (Movimientos de Inventario)
+    {
+      name: 'create_inventory_movements',
+      description: 'Crear movimientos de inventario manualmente (entradas, ajustes, devoluciones)',
+    },
+    {
+      name: 'read_inventory_movements',
+      description: 'Ver movimientos de inventario, alertas de stock bajo y valoración',
+    },
+    {
+      name: 'manage_inventory',
+      description: 'Gestionar inventario: recibir alertas de stock bajo y supervisar existencias',
+    },
+
     // Units of Measure
     {
       name: 'create_units_of_measure',
@@ -380,6 +394,10 @@ async function main() {
     // Attendance (Manager)
     'use_attendance',
     'read_attendance',
+    // Inventory (Manager)
+    'read_inventory_movements',
+    'create_inventory_movements',
+    'manage_inventory',
   ]);
 
   // User - solo lectura básica
