@@ -895,25 +895,45 @@ export const OrderFormPage: React.FC = () => {
 
       {isEdit && id && <ActivePermissionBanner orderId={id} />}
 
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} sx={{ mt: 2, px: { xs: 0, sm: 1, md: 0 }, pr: { md: 4 } }}>
-          {/* ── Sidebar de pasos ── */}
-          <Box sx={{ width: { xs: '100%', md: 280 }, flexShrink: 0 }}>
-            <Stack spacing={1}>
-              {STEPS.map((step, i) => (
-                <StepHeader
-                  key={i}
-                  index={i}
-                  config={step}
-                  status={getStepStatus(i)}
-                  clickable={visitedSteps.has(i) && i !== activeStep}
-                  onClick={() => goToStep(i)}
-                />
-              ))}
-            </Stack>
-          </Box>
+      {/* ── PASOS TOP ── */}
+      <Box
+        sx={{
+          position: 'relative',
+          bgcolor: 'background.default',
+          pt: 2,
+          pb: 1,
+          mb: 3,
+          mx: { xs: -1, sm: -2, md: -3 }, // Para abarcar todo el margen
+          px: { xs: 1, sm: 2, md: 3 },
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        <Stack
+          direction="row"
+          spacing={2}
+          sx={{
+            overflowX: 'auto',
+            pb: 1,
+            '&::-webkit-scrollbar': { height: 6 },
+            '&::-webkit-scrollbar-thumb': { borderRadius: 3, bgcolor: 'rgba(255,255,255,0.2)' },
+          }}
+        >
+          {STEPS.map((step, i) => (
+            <Box key={i} sx={{ minWidth: { xs: 240, md: 0 }, flex: { md: 1 } }}>
+              <StepHeader
+                index={i}
+                config={step}
+                status={getStepStatus(i)}
+                clickable={visitedSteps.has(i) && i !== activeStep}
+                onClick={() => goToStep(i)}
+              />
+            </Box>
+          ))}
+        </Stack>
+      </Box>
 
-          <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', md: 'block' } }} />
-
+      <Box sx={{ maxWidth: '100%' }}>
           {/* ── Contenido del paso activo ── */}
           <Box flex={1}>
             {activeStep === 0 && renderStep0()}
@@ -960,7 +980,7 @@ export const OrderFormPage: React.FC = () => {
               )}
             </Stack>
           </Box>
-        </Stack>
+      </Box>
     </Box>
   );
 };
