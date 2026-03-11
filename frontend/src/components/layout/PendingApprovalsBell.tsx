@@ -20,6 +20,7 @@ export const PendingApprovalsBell: React.FC = () => {
   const canApproveOrders = hasPermission('approve_orders') || isAdmin;
   const canApproveAdvancePayments = hasPermission('approve_advance_payments') || isAdmin;
   const canApproveClientOwnership = hasPermission('approve_client_ownership_auth') || isAdmin;
+  const canApproveExpenseOrders = hasPermission('approve_expense_orders') || isAdmin;
 
   const { data: statusRequests } = useQuery({
     queryKey: ['statusChangeRequests', 'pending', 'badge'],
@@ -36,7 +37,7 @@ export const PendingApprovalsBell: React.FC = () => {
   const { data: ogAuthRequests } = useQuery({
     queryKey: ['ogAuthRequests', 'pending', 'badge'],
     queryFn: () => expenseOrderAuthRequestsApi.findPending(),
-    enabled: !!isAdmin,
+    enabled: !!canApproveExpenseOrders,
   });
 
   const { data: advanceRequests } = useQuery({
@@ -61,7 +62,7 @@ export const PendingApprovalsBell: React.FC = () => {
     return count;
   }, [statusRequests, editRequests, ogAuthRequests, advanceRequests, ownershipRequests]);
 
-  const hasAnyPermission = canApproveOrders || canApproveAdvancePayments || canApproveClientOwnership || isAdmin;
+  const hasAnyPermission = canApproveOrders || canApproveAdvancePayments || canApproveClientOwnership || canApproveExpenseOrders || isAdmin;
 
   if (!hasAnyPermission) {
     return null;

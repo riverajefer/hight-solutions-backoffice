@@ -84,9 +84,10 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const canApproveOrders = hasPermission('approve_orders') || isAdmin;
   const canApproveAdvancePayments = hasPermission('approve_advance_payments') || isAdmin;
   const canApproveClientOwnership = hasPermission('approve_client_ownership_auth') || isAdmin;
+  const canApproveExpenseOrders = hasPermission('approve_expense_orders') || isAdmin;
 
   const [tabValue, setTabValue] = useState<string>(
-    canApproveOrders ? 'status' : canApproveAdvancePayments ? 'advance' : 'ownership',
+    canApproveOrders ? 'status' : canApproveAdvancePayments ? 'advance' : canApproveClientOwnership ? 'ownership' : canApproveExpenseOrders ? 'og' : 'status',
   );
   
   const [viewMode, setViewMode] = useState<'pending' | 'history'>('pending');
@@ -156,7 +157,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
     queryFn: () => viewMode === 'pending'
       ? expenseOrderAuthRequestsApi.findPending()
       : expenseOrderAuthRequestsApi.findAll(),
-    enabled: isAdmin,
+    enabled: canApproveExpenseOrders,
   });
 
   const { data: advancePaymentRequestsData, isLoading: advanceLoading } = useQuery({
@@ -658,7 +659,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
       width: 150,
       valueFormatter: (value) => formatDateTime(value),
     },
-    ...(isAdmin ? [{
+    ...(canApproveOrders ? [{
       field: 'actions',
       type: 'actions' as const,
       headerName: 'Acciones',
@@ -742,7 +743,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
       width: 170,
       valueFormatter: (value) => formatDateTime(value),
     },
-    ...(isAdmin ? [{
+    ...(canApproveOrders ? [{
       field: 'actions',
       type: 'actions' as const,
       headerName: 'Acciones',
@@ -849,7 +850,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
       width: 150,
       valueFormatter: (value) => formatDateTime(value),
     },
-    ...(isAdmin ? [{
+    ...(canApproveExpenseOrders ? [{
       field: 'actions',
       type: 'actions' as const,
       headerName: 'Acciones',
@@ -1121,7 +1122,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
               }
             />
           )}
-          {isAdmin && (
+          {canApproveExpenseOrders && (
             <Tab
               value="og"
               icon={<ReceiptLongIcon />}
@@ -1182,7 +1183,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
         )}
 
         {/* Tab: Autorización OG */}
-        {tabValue === 'og' && isAdmin && (
+        {tabValue === 'og' && canApproveExpenseOrders && (
           <DataTable
             rows={ogAuthRequests || []}
             columns={ogAuthColumns}

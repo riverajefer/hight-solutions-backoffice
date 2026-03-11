@@ -151,7 +151,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           label: 'Cotizaciones',
           icon: <PostAddIcon />,
           path: '/quotes',
-          // permission: PERMISSIONS.READ_QUOTES, // Add later if needed
+          permission: PERMISSIONS.READ_QUOTES, // Add later if needed
         },
         {
           label: 'Órdenes de Pedido',
@@ -181,7 +181,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           label: 'Solicitudes Pendientes',
           icon: <PendingActionsIcon />,
           path: ROUTES.STATUS_CHANGE_REQUESTS,
-          permission: [PERMISSIONS.APPROVE_ORDERS, PERMISSIONS.APPROVE_ADVANCE_PAYMENTS, PERMISSIONS.APPROVE_CLIENT_OWNERSHIP_AUTH],
+          permission: [PERMISSIONS.APPROVE_ORDERS, PERMISSIONS.APPROVE_ADVANCE_PAYMENTS, PERMISSIONS.APPROVE_CLIENT_OWNERSHIP_AUTH, PERMISSIONS.APPROVE_EXPENSE_ORDERS],
         },
         {
           label: 'Trazabilidad',
@@ -214,6 +214,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
         PERMISSIONS.READ_EXPENSE_ORDERS,
         PERMISSIONS.BROWSE_CLIENTS,
         PERMISSIONS.READ_COMMERCIAL_CHANNELS,
+        PERMISSIONS.APPROVE_ORDERS,
+        PERMISSIONS.APPROVE_ADVANCE_PAYMENTS,
+        PERMISSIONS.APPROVE_CLIENT_OWNERSHIP_AUTH,
+        PERMISSIONS.APPROVE_EXPENSE_ORDERS,
       ],
     },
     {
