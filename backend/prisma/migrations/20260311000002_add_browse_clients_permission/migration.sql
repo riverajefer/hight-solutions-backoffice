@@ -3,7 +3,7 @@
 -- read_clients remains for API endpoint access (used by selectors in forms).
 
 -- 1. Insert the new permission (idempotent)
-INSERT INTO "permissions" ("id", "name", "description", "created_at", "updated_at")
+INSERT INTO "permissions" ("id", "name", "description", "createdAt", "updatedAt")
 VALUES (
   gen_random_uuid(),
   'browse_clients',
@@ -13,8 +13,8 @@ VALUES (
 )
 ON CONFLICT ("name") DO NOTHING;
 
--- 2. Assign browse_clients to the admin role (all permissions)
-INSERT INTO "_RolePermissions" ("A", "B")
+-- 2. Assign browse_clients to the admin role
+INSERT INTO "role_permissions" ("roleId", "permissionId")
 SELECT r.id, p.id
 FROM "roles" r, "permissions" p
 WHERE r.name = 'admin'
@@ -22,7 +22,7 @@ WHERE r.name = 'admin'
 ON CONFLICT DO NOTHING;
 
 -- 3. Assign browse_clients to the manager role
-INSERT INTO "_RolePermissions" ("A", "B")
+INSERT INTO "role_permissions" ("roleId", "permissionId")
 SELECT r.id, p.id
 FROM "roles" r, "permissions" p
 WHERE r.name = 'manager'
