@@ -43,6 +43,7 @@ import {
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { DocumentTypeBadge } from '../../../components/common/DocumentTypeBadge';
+import { DocumentTypeBanner } from '../../../components/common/DocumentTypeBanner';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { useQuotes } from '../hooks/useQuotes';
@@ -270,9 +271,10 @@ export const QuoteDetailPage: React.FC = () => {
       {updateQuoteMutation.isPending && (
         <LoadingSpinner fullScreen message="Actualizando estado..." />
       )}
+      <DocumentTypeBanner type="COT" documentNumber={quote.quoteNumber} />
       <PageHeader
         title={`Cotización ${quote.quoteNumber}`}
-        badge={<DocumentTypeBadge type="COT" />}
+        hideTitle
         breadcrumbs={[
           { label: 'Cotizaciones', path: '/quotes' },
           { label: quote.quoteNumber },

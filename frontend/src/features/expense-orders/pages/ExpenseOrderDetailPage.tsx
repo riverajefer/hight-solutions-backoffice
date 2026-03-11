@@ -46,6 +46,7 @@ import {
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { DocumentTypeBadge } from '../../../components/common/DocumentTypeBadge';
+import { DocumentTypeBanner } from '../../../components/common/DocumentTypeBanner';
 import { ToolbarButton } from '../../orders/components/ToolbarButton';
 import { ExpenseOrderAuthRequestDialog } from '../components/ExpenseOrderAuthRequestDialog';
 import { ExpenseOrderPdfButton } from '../components/ExpenseOrderPdfButton';
@@ -339,10 +340,10 @@ export const ExpenseOrderDetailPage = () => {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
+      <DocumentTypeBanner type="OG" documentNumber={og.ogNumber} />
       <PageHeader
         title={og.ogNumber}
-        subtitle={`${og.expenseType.name} / ${og.expenseSubcategory.name}`}
-        badge={<DocumentTypeBadge type="OG" />}
+        hideTitle
         breadcrumbs={[
           { label: 'Costos directos de la O.T', path: ROUTES.EXPENSE_ORDERS },
           { label: og.ogNumber },

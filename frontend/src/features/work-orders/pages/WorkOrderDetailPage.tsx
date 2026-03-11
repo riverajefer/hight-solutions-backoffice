@@ -30,6 +30,7 @@ import {
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { DocumentTypeBadge } from '../../../components/common/DocumentTypeBadge';
+import { DocumentTypeBanner } from '../../../components/common/DocumentTypeBanner';
 import { ToolbarButton } from '../../orders/components/ToolbarButton';
 import { useWorkOrder } from '../hooks';
 import { WorkOrderStatusChip, WorkOrderPdfButton } from '../components';
@@ -225,10 +226,10 @@ export const WorkOrderDetailPage = () => {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
+      <DocumentTypeBanner type="OT" documentNumber={workOrder.workOrderNumber} />
       <PageHeader
         title={workOrder.workOrderNumber}
-        subtitle="Detalle de la Orden de Trabajo"
-        badge={<DocumentTypeBadge type="OT" />}
+        hideTitle
         breadcrumbs={[
           { label: 'Órdenes de Trabajo', path: ROUTES.WORK_ORDERS },
           { label: workOrder.workOrderNumber },
