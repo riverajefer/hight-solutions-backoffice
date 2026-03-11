@@ -101,6 +101,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
    update_orders: 'Actualizar Órdenes',
    delete_orders: 'Eliminar Órdenes',
    approve_orders: 'Aprobar Órdenes',
+   change_order_status: 'Cambiar Estado de Órdenes',
    read_pending_orders: 'Ver Órdenes Pendientes de Pago',
    apply_discounts: 'Aplicar Descuentos',
    delete_discounts: 'Eliminar Descuentos',
@@ -132,6 +133,9 @@ export const PERMISSION_LABELS: Record<string, string> = {
 
   // Anticipos
   approve_advance_payments: 'Aprobar/Rechazar Anticipos',
+
+  // Propiedad de Cliente
+  approve_client_ownership_auth: 'Aprobar Propiedad de Cliente',
 
   // Compañía
   read_company: 'Ver Información de Compañía',

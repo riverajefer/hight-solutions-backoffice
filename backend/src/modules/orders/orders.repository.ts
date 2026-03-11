@@ -26,6 +26,7 @@ export class OrdersRepository {
     paidAmount: true,
     balance: true,
     advancePaymentStatus: true,
+    clientOwnershipAuthStatus: true,
     requiresColorProof: true,
     colorProofPrice: true,
     status: true,
@@ -46,6 +47,15 @@ export class OrdersRepository {
         name: true,
         email: true,
         phone: true,
+        advisorId: true,
+        advisor: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
       },
     },
     createdBy: {

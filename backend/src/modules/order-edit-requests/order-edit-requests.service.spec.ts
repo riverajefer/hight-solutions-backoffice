@@ -216,7 +216,7 @@ describe('OrderEditRequestsService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('should update the request to APPROVED with expiresAt set 5 minutes in the future', async () => {
+    it('should update the request to APPROVED with expiresAt set to null', async () => {
       const before = Date.now();
       await service.approve('order-1', 'req-1', 'admin-1', reviewDto);
       const after = Date.now();
@@ -224,9 +224,7 @@ describe('OrderEditRequestsService', () => {
       const callData = prisma.orderEditRequest.update.mock.calls[0][0].data;
       expect(callData.status).toBe(EditRequestStatus.APPROVED);
 
-      const expiresMs = callData.expiresAt.getTime();
-      expect(expiresMs).toBeGreaterThan(before + 4 * 60 * 1000);
-      expect(expiresMs).toBeLessThan(after + 6 * 60 * 1000);
+      expect(callData.expiresAt).toBeNull();
     });
 
     it('should set reviewedById to the admin id', async () => {
@@ -326,6 +324,21 @@ describe('OrderEditRequestsService', () => {
       const result = await service.hasActivePermission('order-1', 'user-1');
 
       expect(result).toBe(true);
+      expect(prisma.orderEditRequest.update).not.toHaveBeenCalled();
+    });
+
+    it('should return true and activate the permission when expiresAt is null', async () => {
+      const mockNullExpires = { ...mockApprovedRequest, expiresAt: null };
+      prisma.orderEditRequest.findFirst.mockResolvedValue(mockNullExpires);
+      prisma.orderEditRequest.update.mockResolvedValue({ ...mockNullExpires, expiresAt: new Date() });
+
+      const result = await service.hasActivePermission('order-1', 'user-1');
+
+      expect(result).toBe(true);
+      expect(prisma.orderEditRequest.update).toHaveBeenCalledWith({
+        where: { id: mockNullExpires.id },
+        data: { expiresAt: expect.any(Date) },
+      });
     });
 
     it('should return false when no active APPROVED request exists', async () => {
@@ -336,15 +349,16 @@ describe('OrderEditRequestsService', () => {
       expect(result).toBe(false);
     });
 
-    it('should query with expiresAt > now filter', async () => {
+    it('should query with expiresAt > now or null filter', async () => {
       prisma.orderEditRequest.findFirst.mockResolvedValue(null);
 
       await service.hasActivePermission('order-1', 'user-1');
 
       const whereArg = prisma.orderEditRequest.findFirst.mock.calls[0][0].where;
       expect(whereArg.status).toBe(EditRequestStatus.APPROVED);
-      expect(whereArg.expiresAt).toBeDefined();
-      expect(whereArg.expiresAt.gt).toBeInstanceOf(Date);
+      expect(whereArg.OR).toBeDefined();
+      expect(whereArg.OR[0]).toEqual({ expiresAt: null });
+      expect(whereArg.OR[1].expiresAt.gt).toBeInstanceOf(Date);
     });
   });
 
@@ -352,12 +366,30 @@ describe('OrderEditRequestsService', () => {
   // getActivePermission
   // ---------------------------------------------------------------------------
   describe('getActivePermission', () => {
-    it('should return the active permission when found', async () => {
+    it('should return the active permission when found with expiresAt', async () => {
       prisma.orderEditRequest.findFirst.mockResolvedValue(mockApprovedRequest);
 
       const result = await service.getActivePermission('order-1', 'user-1');
 
       expect(result).toEqual(mockApprovedRequest);
+      expect(prisma.orderEditRequest.update).not.toHaveBeenCalled();
+    });
+
+    it('should activate permission on first access (expiresAt is null)', async () => {
+      const mockNullExpires = { ...mockApprovedRequest, expiresAt: null };
+      const expectedUpdatedRequest = { ...mockNullExpires, expiresAt: expect.any(Date) };
+      
+      prisma.orderEditRequest.findFirst.mockResolvedValue(mockNullExpires);
+      prisma.orderEditRequest.update.mockResolvedValue(expectedUpdatedRequest);
+
+      const result = await service.getActivePermission('order-1', 'user-1');
+
+      expect(prisma.orderEditRequest.update).toHaveBeenCalledWith({
+        where: { id: mockNullExpires.id },
+        data: { expiresAt: expect.any(Date) },
+        include: expect.any(Object),
+      });
+      expect(result).toEqual(expectedUpdatedRequest);
     });
 
     it('should return null when no active permission exists', async () => {

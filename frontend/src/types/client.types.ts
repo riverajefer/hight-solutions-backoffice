@@ -20,6 +20,13 @@ export interface Client {
   cedula?: string;
   specialCondition?: string | null;
   isActive: boolean;
+  advisorId?: string | null;
+  advisor?: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
+  } | null;
   createdAt: string;
   updatedAt: string;
   department?: {
@@ -64,6 +71,7 @@ export interface UpdateClientDto {
   cedula?: string;
   isActive?: boolean;
   specialCondition?: string;
+  advisorId?: string | null;
 }
 
 export interface UpdateClientSpecialConditionDto {

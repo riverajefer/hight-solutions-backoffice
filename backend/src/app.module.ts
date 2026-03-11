@@ -28,6 +28,7 @@ import { OrderEditRequestsModule } from './modules/order-edit-requests/order-edi
 import { OrderStatusChangeRequestsModule } from './modules/order-status-change-requests/order-status-change-requests.module';
 import { ExpenseOrderAuthRequestsModule } from './modules/expense-order-auth-requests/expense-order-auth-requests.module';
 import { AdvancePaymentApprovalsModule } from './modules/advance-payment-approvals/advance-payment-approvals.module';
+import { ClientOwnershipAuthRequestsModule } from './modules/client-ownership-auth-requests/client-ownership-auth-requests.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { CompanyModule } from './modules/company/company.module';
@@ -105,6 +106,8 @@ import { InventoryModule } from './modules/inventory/inventory.module';
     ExpenseOrderAuthRequestsModule,
     // Módulo de Aprobación de Anticipos
     AdvancePaymentApprovalsModule,
+    // Módulo de Autorización de Propiedad de Cliente
+    ClientOwnershipAuthRequestsModule,
     // Módulo de Trazabilidad de Órdenes
     OrderTimelineModule,
     // Módulo de Nómina

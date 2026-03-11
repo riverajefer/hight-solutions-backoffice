@@ -10,6 +10,7 @@ import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { StorageService } from '../storage/storage.service';
 import { OrderStatusChangeRequestsService } from '../order-status-change-requests/order-status-change-requests.service';
 import { AdvancePaymentApprovalsService } from '../advance-payment-approvals/advance-payment-approvals.service';
+import { ClientOwnershipAuthRequestsService } from '../client-ownership-auth-requests/client-ownership-auth-requests.service';
 import {
   CreateOrderDto,
   UpdateOrderDto,
@@ -37,6 +38,7 @@ export class OrdersService {
     private readonly storageService: StorageService,
     private readonly statusChangeRequestsService: OrderStatusChangeRequestsService,
     private readonly advancePaymentApprovalsService: AdvancePaymentApprovalsService,
+    private readonly clientOwnershipAuthRequestsService: ClientOwnershipAuthRequestsService,
   ) {}
 
   async findAll(filters: FilterOrdersDto) {
@@ -206,6 +208,10 @@ export class OrdersService {
       );
     }
 
+    // Ejecutar ambas verificaciones post-creación en paralelo para no perder ninguna
+    // aunque una de ellas sea verdadera (evitar early-return que omita la otra)
+    let needsRefetch = false;
+
     // Verificar si el anticipo requiere aprobación (usuario no-admin/no-caja)
     if (newOrder && createOrderDto.initialPayment && paidAmount.greaterThan(0)) {
       const approvalCheck = await this.advancePaymentApprovalsService.requiresApproval(createdById);
@@ -223,11 +229,31 @@ export class OrdersService {
             newOrder.id,
             payment.id,
           );
+          needsRefetch = true;
         }
-
-        // Re-fetch para devolver la orden con el advancePaymentStatus actualizado
-        return this.findOne(newOrder.id);
       }
+    }
+
+    // Verificar si el cliente pertenece a otro asesor y se requiere autorización
+    if (newOrder) {
+      const ownershipCheck = await this.clientOwnershipAuthRequestsService.requiresAuth(
+        createdById,
+        createOrderDto.clientId,
+      );
+
+      if (ownershipCheck.required && ownershipCheck.advisorId) {
+        await this.clientOwnershipAuthRequestsService.createFromOrderCreation(
+          createdById,
+          newOrder.id,
+          ownershipCheck.advisorId,
+        );
+        needsRefetch = true;
+      }
+    }
+
+    // Re-fetch una sola vez si cualquiera de los checks creó un registro pendiente
+    if (needsRefetch && newOrder) {
+      return this.findOne(newOrder.id);
     }
 
     return newOrder;
@@ -531,6 +557,20 @@ export class OrdersService {
     if (order.advancePaymentStatus === 'REJECTED') {
       throw new BadRequestException(
         'No se puede cambiar el estado de esta orden porque el anticipo fue rechazado.',
+      );
+    }
+
+    // Bloquear cambio de estado si la autorización de propiedad de cliente está pendiente
+    if (order.clientOwnershipAuthStatus === 'PENDING') {
+      throw new BadRequestException(
+        'No se puede cambiar el estado de esta orden porque la autorización de propiedad del cliente está pendiente de aprobación por un administrador.',
+      );
+    }
+
+    // Bloquear cambio de estado si la autorización de propiedad de cliente fue rechazada
+    if (order.clientOwnershipAuthStatus === 'REJECTED') {
+      throw new BadRequestException(
+        'No se puede cambiar el estado de esta orden porque la autorización de propiedad del cliente fue rechazada. Contacte al administrador.',
       );
     }
 

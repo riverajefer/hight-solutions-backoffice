@@ -36,9 +36,11 @@ export class ClientsService {
   }
 
   /**
-   * Create a new client
+   * Create a new client.
+   * If the creator is not an admin (does not have `approve_client_ownership_auth`),
+   * they are assigned as the advisor of the client.
    */
-  async create(createClientDto: CreateClientDto) {
+  async create(createClientDto: CreateClientDto, creatorId: string) {
     // Validate email uniqueness
     const existingClient = await this.clientsRepository.findByEmail(
       createClientDto.email,
@@ -76,6 +78,16 @@ export class ClientsService {
     const nit = createClientDto.personType === PersonType.NATURAL ? null : createClientDto.nit;
     const cedula = createClientDto.personType === PersonType.EMPRESA ? null : createClientDto.cedula;
 
+    // Determine advisorId: non-admin users become the advisor of the client
+    let advisorConnect: { connect: { id: string } } | undefined;
+    const creator = await this.clientsRepository.findUserWithPermissions(creatorId);
+    const isAdmin = creator?.role?.permissions?.some(
+      (rp) => rp.permission.name === 'approve_client_ownership_auth',
+    );
+    if (!isAdmin) {
+      advisorConnect = { connect: { id: creatorId } };
+    }
+
     return this.clientsRepository.create({
       name: createClientDto.name,
       manager: createClientDto.manager,
@@ -89,6 +101,7 @@ export class ClientsService {
       cedula,
       department: { connect: { id: createClientDto.departmentId } },
       city: { connect: { id: createClientDto.cityId } },
+      ...(advisorConnect && { advisor: advisorConnect }),
     });
   }
 
@@ -180,6 +193,15 @@ export class ClientsService {
     }
     if (updateClientDto.cityId) {
       updateData.city = { connect: { id: updateClientDto.cityId } };
+    }
+
+    // Handle advisor assignment / removal
+    if (updateClientDto.advisorId !== undefined) {
+      if (updateClientDto.advisorId === null) {
+        updateData.advisor = { disconnect: true };
+      } else {
+        updateData.advisor = { connect: { id: updateClientDto.advisorId } };
+      }
     }
 
     return this.clientsRepository.update(id, updateData);

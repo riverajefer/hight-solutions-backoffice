@@ -166,11 +166,10 @@ export class OrderEditRequestsService {
       throw new ForbiddenException('Only administrators can approve requests');
     }
 
-    // 3. Calcular expiresAt (ahora + 5 minutos)
+    // 3. Obtener fecha actual
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutos
 
-    // 4. Actualizar solicitud
+    // 4. Actualizar solicitud (expiresAt será nulo hasta que el usuario ingrese a la orden)
     const updatedRequest = await this.prisma.orderEditRequest.update({
       where: { id: requestId },
       data: {
@@ -178,7 +177,7 @@ export class OrderEditRequestsService {
         reviewedById: adminId,
         reviewedAt: now,
         reviewNotes: dto.reviewNotes,
-        expiresAt,
+        expiresAt: null,
       },
       include: {
         requestedBy: {
@@ -309,11 +308,21 @@ export class OrderEditRequestsService {
         orderId,
         requestedById: userId,
         status: EditRequestStatus.APPROVED,
-        expiresAt: {
-          gt: now,
-        },
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gt: now } },
+        ],
       },
     });
+
+    if (activeRequest && !activeRequest.expiresAt) {
+      // Activar temporizador de ser necesario en este primer uso
+      const expiresAt = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutos
+      await this.prisma.orderEditRequest.update({
+        where: { id: activeRequest.id },
+        data: { expiresAt },
+      });
+    }
 
     return !!activeRequest;
   }
@@ -324,14 +333,15 @@ export class OrderEditRequestsService {
   async getActivePermission(orderId: string, userId: string) {
     const now = new Date();
 
-    return this.prisma.orderEditRequest.findFirst({
+    const request = await this.prisma.orderEditRequest.findFirst({
       where: {
         orderId,
         requestedById: userId,
         status: EditRequestStatus.APPROVED,
-        expiresAt: {
-          gt: now,
-        },
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gt: now } },
+        ],
       },
       include: {
         requestedBy: {
@@ -344,6 +354,27 @@ export class OrderEditRequestsService {
         },
       },
     });
+
+    if (request && !request.expiresAt) {
+      // Activar el temporizador ahora que el usuario ingresó a la orden
+      const expiresAt = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutos
+      return this.prisma.orderEditRequest.update({
+        where: { id: request.id },
+        data: { expiresAt },
+        include: {
+          requestedBy: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+      });
+    }
+
+    return request;
   }
 
   /**
@@ -352,6 +383,40 @@ export class OrderEditRequestsService {
   async findAllPending() {
     return this.prisma.orderEditRequest.findMany({
       where: { status: EditRequestStatus.PENDING },
+      include: {
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true,
+          },
+        },
+        requestedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        reviewedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
+   * Obtener todas las solicitudes (para admins)
+   */
+  async findAll() {
+    return this.prisma.orderEditRequest.findMany({
       include: {
         order: {
           select: {

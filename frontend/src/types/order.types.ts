@@ -47,6 +47,7 @@ export interface Order {
   paidAmount: string;
   balance: string;
   advancePaymentStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+  clientOwnershipAuthStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   status: OrderStatus;
   notes: string | null;
   electronicInvoiceNumber: string | null;
@@ -57,6 +58,13 @@ export interface Order {
     name: string;
     email: string | null;
     phone: string | null;
+    advisorId?: string | null;
+    advisor?: {
+      id: string;
+      firstName: string | null;
+      lastName: string | null;
+      email: string;
+    } | null;
   };
   createdBy: {
     id: string;

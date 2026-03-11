@@ -88,6 +88,16 @@ export const editRequestsApi = {
   },
 
   /**
+   * Obtener todas las solicitudes (solo admins)
+   */
+  findAll: async () => {
+    const { data } = await axiosInstance.get<OrderEditRequest[]>(
+      '/order-edit-requests/all',
+    );
+    return data;
+  },
+
+  /**
    * Aprobar solicitud por ID global (solo admin)
    */
   approveGlobal: async (requestId: string, dto: ReviewEditRequestDto) => {

@@ -46,8 +46,12 @@ model User {
   approvedExpenseOrders        ExpenseOrder[]             @relation("ApprovedExpenseOrders")
   requestedExpenseOrderAuthRequests  ExpenseOrderAuthRequest[]  @relation("RequestedExpenseOrderAuthRequests")
   reviewedExpenseOrderAuthRequests   ExpenseOrderAuthRequest[]  @relation("ReviewedExpenseOrderAuthRequests")
-  requestedAdvancePaymentApprovals   AdvancePaymentApproval[]   @relation("RequestedAdvancePaymentApprovals")
-  reviewedAdvancePaymentApprovals    AdvancePaymentApproval[]   @relation("ReviewedAdvancePaymentApprovals")
+  requestedAdvancePaymentApprovals     AdvancePaymentApproval[]     @relation("RequestedAdvancePaymentApprovals")
+  reviewedAdvancePaymentApprovals      AdvancePaymentApproval[]     @relation("ReviewedAdvancePaymentApprovals")
+  advisedClients                       Client[]                     @relation("ClientAdvisor")
+  requestedClientOwnershipAuthRequests ClientOwnershipAuthRequest[] @relation("RequestedClientOwnershipAuthRequests")
+  advisedClientOwnershipAuthRequests   ClientOwnershipAuthRequest[] @relation("AdvisedClientOwnershipAuthRequests")
+  reviewedClientOwnershipAuthRequests  ClientOwnershipAuthRequest[] @relation("ReviewedClientOwnershipAuthRequests")
   payrollEmployee                    Employee?
   attendanceRecords                  AttendanceRecord[]
   activityHeartbeats                 ActivityHeartbeat[]
@@ -196,11 +200,13 @@ model Client {
   cedula           String?
   specialCondition String?  @map("special_condition")
   isActive         Boolean  @default(true) @map("is_active")
+  advisorId        String?  @map("advisor_id")
   createdAt     DateTime   @default(now()) @map("created_at")
   updatedAt     DateTime   @updatedAt @map("updated_at")
 
   department Department @relation(fields: [departmentId], references: [id])
   city       City       @relation(fields: [cityId], references: [id])
+  advisor    User?      @relation("ClientAdvisor", fields: [advisorId], references: [id])
   orders     Order[]
   quotes     Quote[]
 
@@ -428,6 +434,9 @@ model Order {
   // Estado de aprobación del anticipo (null = sin anticipo o auto-aprobado por admin/caja)
   advancePaymentStatus  EditRequestStatus?  @map("advance_payment_status")
 
+  // Estado de autorización de propiedad de cliente (null = no aplica o autorizado automáticamente)
+  clientOwnershipAuthStatus EditRequestStatus? @map("client_ownership_auth_status")
+
   status       OrderStatus @default(DRAFT)
   notes        String?     // Observaciones generales
 
@@ -450,6 +459,7 @@ model Order {
   editRequests            OrderEditRequest[]
   statusChangeRequests    OrderStatusChangeRequest[]
   advancePaymentApprovals AdvancePaymentApproval[]
+  clientOwnershipAuthRequests ClientOwnershipAuthRequest[]
 
   // Referencia a la cotización de origen
   quoteId            String?            @unique @map("quote_id")
@@ -666,6 +676,9 @@ enum NotificationType {
   ADVANCE_PAYMENT_APPROVAL_APPROVED   // Anticipo aprobado
   ADVANCE_PAYMENT_APPROVAL_REJECTED   // Anticipo rechazado
   LOW_STOCK_ALERT                     // Alerta de stock bajo en insumo
+  CLIENT_OWNERSHIP_AUTH_PENDING       // Nueva solicitud de autorización de propiedad de cliente
+  CLIENT_OWNERSHIP_AUTH_APPROVED      // Solicitud de autorización aprobada
+  CLIENT_OWNERSHIP_AUTH_REJECTED      // Solicitud de autorización rechazada
 }
 
 model EditableOrderStatus {
@@ -1099,6 +1112,35 @@ model AdvancePaymentApproval {
   @@index([requestedById])
   @@index([status])
   @@map("advance_payment_approvals")
+}
+
+// =============================================================================
+// MÓDULO DE AUTORIZACIÓN DE PROPIEDAD DE CLIENTE EN ÓRDENES
+// =============================================================================
+
+model ClientOwnershipAuthRequest {
+  id            String            @id @default(uuid())
+  orderId       String            @map("order_id")
+  requestedById String            @map("requested_by_id")
+  advisorId     String            @map("advisor_id")
+  reason        String?
+  status        EditRequestStatus @default(PENDING)
+  reviewedById  String?           @map("reviewed_by_id")
+  reviewedAt    DateTime?         @map("reviewed_at")
+  reviewNotes   String?           @map("review_notes")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  order       Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  requestedBy User   @relation("RequestedClientOwnershipAuthRequests", fields: [requestedById], references: [id])
+  advisor     User   @relation("AdvisedClientOwnershipAuthRequests", fields: [advisorId], references: [id])
+  reviewedBy  User?  @relation("ReviewedClientOwnershipAuthRequests", fields: [reviewedById], references: [id])
+
+  @@index([orderId])
+  @@index([requestedById])
+  @@index([advisorId])
+  @@index([status])
+  @@map("client_ownership_auth_requests")
 }
 
 // =============================================================================

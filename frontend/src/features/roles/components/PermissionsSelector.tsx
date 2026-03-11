@@ -40,7 +40,7 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   // Comercial
   Clientes: ['create_clients', 'read_clients', 'update_clients', 'delete_clients', 'update_client_special_condition'],
   Cotizaciones: ['create_quotes', 'read_quotes', 'update_quotes', 'delete_quotes', 'convert_quotes'],
-  Órdenes: ['create_orders', 'read_orders', 'update_orders', 'delete_orders', 'approve_orders', 'apply_discounts', 'delete_discounts', 'read_pending_orders'],
+  Órdenes: ['create_orders', 'read_orders', 'update_orders', 'delete_orders', 'approve_orders', 'change_order_status', 'apply_discounts', 'delete_discounts', 'read_pending_orders'],
   'Canales Comerciales': ['create_commercial_channels', 'read_commercial_channels', 'update_commercial_channels', 'delete_commercial_channels'],
   Archivos: ['upload_files', 'read_files', 'delete_files', 'manage_storage'],
 
@@ -53,12 +53,19 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   'Categorías de Insumos': ['create_supply_categories', 'read_supply_categories', 'update_supply_categories', 'delete_supply_categories'],
   'Unidades de medida': ['create_units_of_measure', 'read_units_of_measure', 'update_units_of_measure', 'delete_units_of_measure'],
   
-  // Producción y Otros
+  // Producción 
   'Áreas de Producción': ['create_production_areas', 'read_production_areas', 'update_production_areas', 'delete_production_areas'],
   'Órdenes de Trabajo': ['create_work_orders', 'read_work_orders', 'update_work_orders', 'delete_work_orders'],
+
+  // Gastos y Pagos
   'Tipos de Gasto': ['create_expense_types', 'read_expense_types', 'update_expense_types', 'delete_expense_types'],
   'Órdenes de Gasto': ['create_expense_orders', 'read_expense_orders', 'update_expense_orders', 'delete_expense_orders', 'approve_expense_orders'],
   Anticipos: ['approve_advance_payments'],
+  
+  // Aprobaciones especiales
+  'Propiedad de Cliente': ['approve_client_ownership_auth'],
+  
+  // Auditoría y Control
   Auditoría: ['read_audit_logs', 'read_session_logs'],
   Asistencia: ['use_attendance', 'read_attendance', 'manage_attendance'],
 
@@ -105,22 +112,26 @@ const TABS = [
     ],
   },
   {
-    label: 'Producción y Otros',
+    label: 'Producción',
+    groups: ['Áreas de Producción', 'Órdenes de Trabajo'],
+  },
+  {
+    label: 'Gastos y Pagos',
+    groups: ['Tipos de Gasto', 'Órdenes de Gasto', 'Anticipos'],
+  },
+  {
+    label: 'Nómina',
+    groups: ['Empleados de Nómina', 'Periodos de Nómina'],
+  },
+  {
+    label: 'Configuración y Otros',
     groups: [
-      'Áreas de Producción',
-      'Órdenes de Trabajo',
-      'Tipos de Gasto',
-      'Órdenes de Gasto',
-      'Anticipos',
+      'Propiedad de Cliente',
       'Auditoría',
       'Asistencia',
       'Compañía',
       'Otros',
     ],
-  },
-  {
-    label: 'Nómina',
-    groups: ['Empleados de Nómina', 'Periodos de Nómina'],
   },
 ];
 

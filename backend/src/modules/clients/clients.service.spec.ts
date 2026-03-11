@@ -18,6 +18,11 @@ const mockClientsRepository = {
   createMany: jest.fn(),
   update: jest.fn(),
   updateSpecialCondition: jest.fn(),
+  findUserWithPermissions: jest.fn().mockResolvedValue({
+    role: {
+      permissions: [{ permission: { name: 'approve_client_ownership_auth' } }],
+    },
+  }),
 };
 
 const mockLocationsService = {
@@ -153,13 +158,13 @@ describe('ClientsService', () => {
     it('should throw BadRequestException when email already exists', async () => {
       mockClientsRepository.findByEmail.mockResolvedValue(mockClient);
 
-      await expect(service.create(createEmpresaDto as any)).rejects.toThrow(
+      await expect(service.create(createEmpresaDto as any, 'user-1')).rejects.toThrow(
         BadRequestException,
       );
     });
 
     it('should call locationsService.findDepartmentById with the provided departmentId', async () => {
-      await service.create(createEmpresaDto as any);
+      await service.create(createEmpresaDto as any, 'user-1');
 
       expect(mockLocationsService.findDepartmentById).toHaveBeenCalledWith(
         'dept-1',
@@ -171,7 +176,7 @@ describe('ClientsService', () => {
         false,
       );
 
-      await expect(service.create(createEmpresaDto as any)).rejects.toThrow(
+      await expect(service.create(createEmpresaDto as any, 'user-1')).rejects.toThrow(
         BadRequestException,
       );
     });
@@ -179,7 +184,7 @@ describe('ClientsService', () => {
     it('should throw BadRequestException when personType is EMPRESA and nit is missing', async () => {
       const dto = { ...createEmpresaDto, nit: undefined };
 
-      await expect(service.create(dto as any)).rejects.toThrow(
+      await expect(service.create(dto as any, 'user-1')).rejects.toThrow(
         BadRequestException,
       );
     });
@@ -187,7 +192,7 @@ describe('ClientsService', () => {
     it('should allow NATURAL personType without nit', async () => {
       mockClientsRepository.create.mockResolvedValue(mockNaturalClient);
 
-      await service.create(createNaturalDto as any);
+      await service.create(createNaturalDto as any, 'user-1');
 
       expect(mockClientsRepository.create).toHaveBeenCalled();
     });
@@ -195,21 +200,21 @@ describe('ClientsService', () => {
     it('should set nit=null for NATURAL personType', async () => {
       mockClientsRepository.create.mockResolvedValue(mockNaturalClient);
 
-      await service.create(createNaturalDto as any);
+      await service.create(createNaturalDto as any, 'user-1');
 
       const createArg = mockClientsRepository.create.mock.calls[0][0];
       expect(createArg.nit).toBeNull();
     });
 
     it('should set cedula=null for EMPRESA personType', async () => {
-      await service.create(createEmpresaDto as any);
+      await service.create(createEmpresaDto as any, 'user-1');
 
       const createArg = mockClientsRepository.create.mock.calls[0][0];
       expect(createArg.cedula).toBeNull();
     });
 
     it('should call repository.create with department and city as connect relations', async () => {
-      await service.create(createEmpresaDto as any);
+      await service.create(createEmpresaDto as any, 'user-1');
 
       expect(mockClientsRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -220,7 +225,7 @@ describe('ClientsService', () => {
     });
 
     it('should return the created client', async () => {
-      const result = await service.create(createEmpresaDto as any);
+      const result = await service.create(createEmpresaDto as any, 'user-1');
 
       expect(result).toEqual(mockClient);
     });

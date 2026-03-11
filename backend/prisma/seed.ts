@@ -184,7 +184,11 @@ async function main() {
     { name: 'delete_orders', description: 'Eliminar órdenes de pedido' },
     {
       name: 'approve_orders',
-      description: 'Aprobar/confirmar órdenes de pedido',
+      description: 'Aprobar/rechazar solicitudes de cambio de estado de órdenes',
+    },
+    {
+      name: 'change_order_status',
+      description: 'Cambiar el estado de una orden de pedido directamente',
     },
     {
       name: 'apply_discounts',
@@ -252,6 +256,9 @@ async function main() {
 
     // Advance Payment Approvals
     { name: 'approve_advance_payments', description: 'Aprobar/rechazar anticipos de órdenes' },
+
+    // Client Ownership Authorization
+    { name: 'approve_client_ownership_auth', description: 'Aprobar solicitudes de autorización de propiedad de cliente en órdenes' },
 
     // Payroll Employees (Nómina)
     { name: 'create_payroll_employees', description: 'Agregar usuarios a nómina' },
@@ -375,6 +382,7 @@ async function main() {
     'read_orders',
     'update_orders',
     'approve_orders',
+    'change_order_status',
     'apply_discounts',
     // Quotes (Manager)
     'create_quotes',

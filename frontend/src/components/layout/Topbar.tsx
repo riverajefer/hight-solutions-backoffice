@@ -25,6 +25,7 @@ import { ROUTES } from '../../utils/constants';
 import { formatFullName } from '../../utils/helpers';
 import { ThemeToggler } from '../common/ThemeToggler';
 import { NotificationBell } from './NotificationBell';
+import { PendingApprovalsBell } from './PendingApprovalsBell';
 import { AttendanceButton } from './AttendanceButton';
 import { gradients, neonColors, neonAccents, darkSurfaces } from '../../theme';
 import { PERMISSIONS } from '../../utils/constants';
@@ -127,7 +128,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
               : 'none',
           }}
         >
-          High Solutions Backoffice
+          High Solutions CRM
         </Typography>
 
         <Box display="flex" alignItems="center" gap={2}>
@@ -135,6 +136,9 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
 
           {/* Attendance Button — visible solo para usuarios con permiso use_attendance */}
           {hasPermission(PERMISSIONS.USE_ATTENDANCE) && <AttendanceButton />}
+
+          {/* Pending Approvals Bell */}
+          <PendingApprovalsBell />
 
           {/* Notification Bell */}
           <NotificationBell />
