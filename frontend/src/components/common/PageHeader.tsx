@@ -13,6 +13,7 @@ interface PageHeaderProps {
   breadcrumbs?: Breadcrumb[];
   action?: React.ReactNode;
   icon?: React.ReactNode;
+  badge?: React.ReactNode;
 }
 
 /**
@@ -24,6 +25,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   breadcrumbs = [],
   action,
   icon,
+  badge,
 }) => {
   return (
     <Box sx={{ mb: 4 }}>
@@ -52,6 +54,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       >
         <Box sx={{ flex: 1 }}>
           <Box display="flex" alignItems="center" gap={1} sx={{ mb: 1 }}>
+            {badge && badge}
             {icon && (
               <Box sx={{ color: 'primary.main', display: 'flex' }}>
                 {icon}

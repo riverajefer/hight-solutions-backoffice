@@ -42,6 +42,7 @@ import {
   Add as AddIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { DocumentTypeBadge } from '../../../components/common/DocumentTypeBadge';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { useQuotes } from '../hooks/useQuotes';
@@ -271,6 +272,7 @@ export const QuoteDetailPage: React.FC = () => {
       )}
       <PageHeader
         title={`Cotización ${quote.quoteNumber}`}
+        badge={<DocumentTypeBadge type="COT" />}
         breadcrumbs={[
           { label: 'Cotizaciones', path: '/quotes' },
           { label: quote.quoteNumber },

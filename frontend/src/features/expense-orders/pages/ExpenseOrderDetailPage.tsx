@@ -45,6 +45,7 @@ import {
   AccountTree as AccountTreeIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { DocumentTypeBadge } from '../../../components/common/DocumentTypeBadge';
 import { ToolbarButton } from '../../orders/components/ToolbarButton';
 import { ExpenseOrderAuthRequestDialog } from '../components/ExpenseOrderAuthRequestDialog';
 import { ExpenseOrderPdfButton } from '../components/ExpenseOrderPdfButton';
@@ -341,6 +342,7 @@ export const ExpenseOrderDetailPage = () => {
       <PageHeader
         title={og.ogNumber}
         subtitle={`${og.expenseType.name} / ${og.expenseSubcategory.name}`}
+        badge={<DocumentTypeBadge type="OG" />}
         breadcrumbs={[
           { label: 'Costos directos de la O.T', path: ROUTES.EXPENSE_ORDERS },
           { label: og.ogNumber },

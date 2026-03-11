@@ -29,6 +29,7 @@ import {
   AccessTime as AccessTimeIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { DocumentTypeBadge } from '../../../components/common/DocumentTypeBadge';
 import { ToolbarButton } from '../../orders/components/ToolbarButton';
 import { useWorkOrder } from '../hooks';
 import { WorkOrderStatusChip, WorkOrderPdfButton } from '../components';
@@ -227,6 +228,7 @@ export const WorkOrderDetailPage = () => {
       <PageHeader
         title={workOrder.workOrderNumber}
         subtitle="Detalle de la Orden de Trabajo"
+        badge={<DocumentTypeBadge type="OT" />}
         breadcrumbs={[
           { label: 'Órdenes de Trabajo', path: ROUTES.WORK_ORDERS },
           { label: workOrder.workOrderNumber },
