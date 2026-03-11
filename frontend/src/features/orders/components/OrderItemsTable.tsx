@@ -167,46 +167,46 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                   borderBottom: '2px solid',
                   borderBottomColor: (theme) =>
                     theme.palette.mode === 'light' ? '#1a1f23ff' : '#1a1f23ff',
-                  padding: { xs: '8px 8px', sm: '10px 12px', md: '10px 16px' },
+                  padding: { xs: '8px 4px', sm: '10px 8px', md: '10px 8px' },
                 },
               }}
             >
               <TableCell
                 width="8%"
                 align="center"
-                sx={{ minWidth: 70 }}
+                sx={{ minWidth: 60 }}
               >
                 Cantidad
               </TableCell>
               <TableCell
-                width="22%"
-                sx={{ minWidth: 130 }}
+                width="18%"
+                sx={{ minWidth: 120 }}
               >
                 Servicio (Opcional)
               </TableCell>
               <TableCell
-                width="25%"
-                sx={{ minWidth: 150, display: { xs: 'none', sm: 'table-cell' } }}
+                width="22%"
+                sx={{ minWidth: 140, display: { xs: 'none', sm: 'table-cell' } }}
               >
                 Descripción
               </TableCell>
               <TableCell
-                width="18%"
-                sx={{ minWidth: 140, display: { xs: 'none', sm: 'table-cell' } }}
+                width="17%"
+                sx={{ minWidth: 130, display: { xs: 'none', sm: 'table-cell' } }}
               >
                 Áreas de Producción
               </TableCell>
               <TableCell
-                width="12%"
+                width="17%"
                 align="right"
-                sx={{ minWidth: 100 }}
+                sx={{ minWidth: 130 }}
               >
                 Valor Unitario
               </TableCell>
               <TableCell
-                width="10%"
+                width="13%"
                 align="right"
-                sx={{ minWidth: 90 }}
+                sx={{ minWidth: 100 }}
               >
                 Valor Total
               </TableCell>
@@ -238,7 +238,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                       borderBottom: '1px solid',
                       borderBottomColor: 'divider',
                       paddingY: '8px',
-                      paddingX: { xs: '8px', sm: '12px', md: '16px' },
+                      paddingX: { xs: '4px', sm: '8px', md: '8px' },
                       fontSize: { xs: '0.75rem', sm: '0.8rem', md: '0.8125rem' },
                     },
                   }}
@@ -290,6 +290,15 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                         onChange(updatedItems);
                       }}
                       disabled={disabled}
+                      slotProps={{
+                        paper: {
+                          sx: {
+                            width: 'max-content',
+                            minWidth: '100%',
+                            maxWidth: '90vw'
+                          }
+                        }
+                      }}
                       renderInput={(params) => (
                         <TextField
                           {...params}
@@ -349,6 +358,15 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                         onChange(updatedItems);
                       }}
                       disabled={disabled}
+                      slotProps={{
+                        paper: {
+                          sx: {
+                            width: 'max-content',
+                            minWidth: '100%',
+                            maxWidth: '90vw'
+                          }
+                        }
+                      }}
                       renderTags={(value, getTagProps) =>
                         value.map((option, index) => (
                           <Chip
