@@ -76,7 +76,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading = fals
           Iniciar Sesión
         </Typography>
         <Typography color="textSecondary" sx={{ mb: 4, textAlign: 'center' }}>
-          Bienvenido a High Solutions Backoffice
+          Bienvenido a High Solutions CRM
         </Typography>
 
         {error && (
