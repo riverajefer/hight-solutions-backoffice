@@ -18,6 +18,32 @@ export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'CHECK' | 'CREDIT' | 
 // ENTITIES
 // ============================================================
 
+export interface AdvancePaymentApproval {
+  id: string;
+  orderId: string;
+  paymentId: string;
+  requestedById: string;
+  reason: string | null;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  reviewedById: string | null;
+  reviewedAt: string | null;
+  reviewNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  requestedBy: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
+  reviewedBy?: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  } | null;
+}
+
 export interface Order {
   id: string;
   orderNumber: string;
@@ -47,6 +73,7 @@ export interface Order {
   paidAmount: string;
   balance: string;
   advancePaymentStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+  advancePaymentApprovals?: AdvancePaymentApproval[];
   clientOwnershipAuthStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   status: OrderStatus;
   notes: string | null;

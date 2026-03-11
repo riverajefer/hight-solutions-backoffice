@@ -39,6 +39,7 @@ export const PERMISSIONS = {
   DELETE_SUPPLIERS: 'delete_suppliers',
   CREATE_CLIENTS: 'create_clients',
   READ_CLIENTS: 'read_clients',
+  BROWSE_CLIENTS: 'browse_clients',
   UPDATE_CLIENTS: 'update_clients',
   DELETE_CLIENTS: 'delete_clients',
   UPDATE_CLIENT_SPECIAL_CONDITION: 'update_client_special_condition',

@@ -38,7 +38,7 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   Áreas: ['create_areas', 'read_areas', 'update_areas', 'delete_areas'],
 
   // Comercial
-  Clientes: ['create_clients', 'read_clients', 'update_clients', 'delete_clients', 'update_client_special_condition'],
+  Clientes: ['browse_clients', 'create_clients', 'read_clients', 'update_clients', 'delete_clients', 'update_client_special_condition', 'approve_client_ownership_auth'],
   Cotizaciones: ['create_quotes', 'read_quotes', 'update_quotes', 'delete_quotes', 'convert_quotes'],
   Órdenes: ['create_orders', 'read_orders', 'update_orders', 'delete_orders', 'approve_orders', 'change_order_status', 'apply_discounts', 'delete_discounts', 'read_pending_orders'],
   'Canales Comerciales': ['create_commercial_channels', 'read_commercial_channels', 'update_commercial_channels', 'delete_commercial_channels'],
@@ -61,9 +61,6 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   'Tipos de Gasto': ['create_expense_types', 'read_expense_types', 'update_expense_types', 'delete_expense_types'],
   'Órdenes de Gasto': ['create_expense_orders', 'read_expense_orders', 'update_expense_orders', 'delete_expense_orders', 'approve_expense_orders'],
   Anticipos: ['approve_advance_payments'],
-  
-  // Aprobaciones especiales
-  'Propiedad de Cliente': ['approve_client_ownership_auth'],
   
   // Auditoría y Control
   Auditoría: ['read_audit_logs', 'read_session_logs'],
@@ -126,7 +123,6 @@ const TABS = [
   {
     label: 'Configuración y Otros',
     groups: [
-      'Propiedad de Cliente',
       'Auditoría',
       'Asistencia',
       'Compañía',

@@ -26,6 +26,16 @@ export class OrdersRepository {
     paidAmount: true,
     balance: true,
     advancePaymentStatus: true,
+    advancePaymentApprovals: {
+      include: {
+        requestedBy: {
+          select: { id: true, email: true, firstName: true, lastName: true },
+        },
+        reviewedBy: {
+          select: { id: true, email: true, firstName: true, lastName: true },
+        },
+      }
+    },
     clientOwnershipAuthStatus: true,
     requiresColorProof: true,
     colorProofPrice: true,
