@@ -66,6 +66,7 @@ import AccordionDetails from '@mui/material/AccordionDetails';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { DocumentTypeBadge } from '../../../components/common/DocumentTypeBadge';
+import { DocumentTypeBanner } from '../../../components/common/DocumentTypeBanner';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { useOrder, useOrderPayments, useOrderProfitability } from '../hooks';
@@ -475,9 +476,10 @@ export const OrderDetailPage: React.FC = () => {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
+      <DocumentTypeBanner type="OP" documentNumber={order.orderNumber} />
       <PageHeader
         title={`Orden ${order.orderNumber}`}
-        badge={<DocumentTypeBadge type="OP" />}
+        hideTitle
         breadcrumbs={[
           { label: 'Órdenes', path: '/orders' },
           { label: order.orderNumber },
