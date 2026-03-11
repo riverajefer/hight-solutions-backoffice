@@ -11,7 +11,6 @@ import {
   MenuItem,
   alpha,
   useTheme,
-  useMediaQuery,
 } from '@mui/material';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { commercialChannelsApi } from '../../../api/commercialChannels.api';
@@ -222,9 +221,6 @@ const StepHeader: React.FC<StepHeaderProps> = ({ index, config, status, compact 
 
 export const QuoteFormPage: React.FC = () => {
   const navigate = useNavigate();
-  const theme = useTheme();
-  const isCompactSidebar = useMediaQuery('(max-width:1700px)');
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { id } = useParams<{ id: string }>();
   const isEdit = !!id;
   const { enqueueSnackbar } = useSnackbar();

@@ -41,6 +41,7 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
   isAdmin,
 }) => {
   const [modalOpen, setModalOpen] = useState(false);
+  const [inputValue, setInputValue] = useState('');
   const { clientsQuery } = useClients({ includeInactive: false });
 
   const clients = clientsQuery.data || [];
@@ -142,17 +143,23 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
           fullWidth
           options={clients}
           value={value}
-          onChange={(_, newValue) => onChange(newValue)}
-          getOptionLabel={(option) => {
-            const parts = [option.name];
-            if (option.nit) parts.push(`NIT: ${option.nit}`);
-            if (option.cedula) parts.push(`CC: ${option.cedula}`);
-            if (option.phone) parts.push(`Tel: ${option.phone}`);
-            return parts.join(' - ');
+          onChange={(_, newValue) => {
+            onChange(newValue);
+            setInputValue('');
           }}
-          filterOptions={(options, { inputValue }) => {
-            const searchTerms = inputValue.toLowerCase().split(' ');
-            return options.filter((option) => {
+          inputValue={inputValue}
+          onInputChange={(_, newInputValue) => {
+            setInputValue(newInputValue);
+          }}
+          getOptionLabel={(option) => option.name}
+          filterOptions={(options, { inputValue: searchInput }) => {
+            const trimmedInput = searchInput.trim();
+            if (trimmedInput.length < 3) {
+              return [];
+            }
+            
+            const searchTerms = trimmedInput.toLowerCase().split(' ');
+            const filtered = options.filter((option) => {
               const searchableString = [
                 option.name,
                 option.nit,
@@ -163,6 +170,8 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
               
               return searchTerms.every(term => searchableString.includes(term));
             });
+            
+            return filtered.slice(0, 5);
           }}
           renderOption={(props, option) => (
             <li {...props} key={option.id}>
@@ -174,14 +183,6 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
                 )}
                 <Box>
                   <Typography variant="body2">{option.name}</Typography>
-                  <Typography variant="caption" color="textSecondary">
-                    {[
-                      option.nit ? `NIT: ${option.nit}` : null,
-                      option.cedula ? `CC: ${option.cedula}` : null,
-                      option.phone ? `Tel: ${option.phone}` : null,
-                      option.email
-                    ].filter(Boolean).join(' • ')}
-                  </Typography>
                 </Box>
               </Stack>
             </li>
@@ -205,7 +206,11 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
             />
           )}
           loading={clientsQuery.isLoading}
-          noOptionsText="No se encontraron clientes"
+          noOptionsText={
+            inputValue.trim().length < 3
+              ? 'Escribe al menos 3 caracteres para buscar un cliente'
+              : 'No se encontraron clientes'
+          }
         />
         <Button
           variant="outlined"
