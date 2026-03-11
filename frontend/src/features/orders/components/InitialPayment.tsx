@@ -172,18 +172,8 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
               />
             </Grid>
 
-            {/* Fila 2: Referencia y Notas */}
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Referencia"
-                placeholder="Ej: REF-12345"
-                value={value?.reference || ''}
-                onChange={(e) => handleFieldChange('reference', e.target.value)}
-                disabled={disabled}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
+            {/* Fila 2: Notas */}
+            <Grid item xs={12}>
               <TextField
                 fullWidth
                 label="Notas del Pago"

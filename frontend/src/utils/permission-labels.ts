@@ -40,11 +40,13 @@ export const PERMISSION_LABELS: Record<string, string> = {
   delete_cargos: 'Eliminar Cargos',
 
   // Clientes
+  browse_clients: 'Navegar Clientes',
   create_clients: 'Crear Clientes',
   read_clients: 'Ver Clientes',
   update_clients: 'Actualizar Clientes',
   delete_clients: 'Eliminar Clientes',
   update_client_special_condition: 'Editar Condición Especial',
+  approve_client_ownership_auth: 'Aprobar Propiedad de Cliente',
 
   // Proveedores
   create_suppliers: 'Crear Proveedores',
@@ -133,9 +135,6 @@ export const PERMISSION_LABELS: Record<string, string> = {
 
   // Anticipos
   approve_advance_payments: 'Aprobar/Rechazar Anticipos',
-
-  // Propiedad de Cliente
-  approve_client_ownership_auth: 'Aprobar Propiedad de Cliente',
 
   // Compañía
   read_company: 'Ver Información de Compañía',

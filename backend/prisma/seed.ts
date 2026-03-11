@@ -66,7 +66,8 @@ async function main() {
 
     // Clients
     { name: 'create_clients', description: 'Create new clients' },
-    { name: 'read_clients', description: 'View clients' },
+    { name: 'read_clients', description: 'View clients (used by selectors and API)' },
+    { name: 'browse_clients', description: 'Acceder a la tabla completa de clientes (/clients)' },
     { name: 'update_clients', description: 'Update client information' },
     { name: 'delete_clients', description: 'Delete clients' },
     {
@@ -372,6 +373,7 @@ async function main() {
     'read_areas',
     'read_cargos',
     'read_clients',
+    'browse_clients',
     'read_suppliers',
     'read_units_of_measure',
     'read_product_categories',

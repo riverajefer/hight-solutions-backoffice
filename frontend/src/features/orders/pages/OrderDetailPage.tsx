@@ -78,6 +78,7 @@ import {
 import { ActivePermissionBanner } from '../components/ActivePermissionBanner';
 import { RequestEditPermissionButton } from '../components/RequestEditPermissionButton';
 import { EditRequestsList } from '../components/EditRequestsList';
+import { AdvancePaymentApprovalsList } from '../components/AdvancePaymentApprovalsList';
 import { StatusChangeAuthRequestDialog } from '../components/StatusChangeAuthRequestDialog';
 import { useEditRequests } from '../../../hooks/useEditRequests';
 import { OrderChangeHistoryTab } from '../components/OrderChangeHistoryTab';
@@ -1313,6 +1314,7 @@ export const OrderDetailPage: React.FC = () => {
 
         <TabPanel value={tabValue} index={0}>
           <EditRequestsList orderId={id!} />
+          <AdvancePaymentApprovalsList approvals={order.advancePaymentApprovals} />
         </TabPanel>
 
         <TabPanel value={tabValue} index={1}>
@@ -1440,15 +1442,6 @@ export const OrderDetailPage: React.FC = () => {
               slotProps={{
                 textField: { fullWidth: true },
               }}
-            />
-
-            <TextField
-              fullWidth
-              label="Número de Referencia"
-              value={paymentData.reference || ''}
-              onChange={(e) =>
-                setPaymentData({ ...paymentData, reference: e.target.value })
-              }
             />
 
             <TextField

@@ -432,7 +432,7 @@ const RoutesConfig: FC = () => {
           element={
             <AuthGuard>
               <MainLayout>
-                <PermissionGuard permission={PERMISSIONS.READ_CLIENTS}>
+                <PermissionGuard permission={PERMISSIONS.BROWSE_CLIENTS}>
                   <ClientsListPage />
                 </PermissionGuard>
               </MainLayout>
