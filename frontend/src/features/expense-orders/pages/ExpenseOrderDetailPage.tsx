@@ -45,7 +45,7 @@ import {
   AccountTree as AccountTreeIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
-import { DocumentTypeBadge } from '../../../components/common/DocumentTypeBadge';
+
 import { DocumentTypeBanner } from '../../../components/common/DocumentTypeBanner';
 import { ToolbarButton } from '../../orders/components/ToolbarButton';
 import { ExpenseOrderAuthRequestDialog } from '../components/ExpenseOrderAuthRequestDialog';

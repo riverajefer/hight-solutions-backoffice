@@ -65,7 +65,7 @@ import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
-import { DocumentTypeBadge } from '../../../components/common/DocumentTypeBadge';
+
 import { DocumentTypeBanner } from '../../../components/common/DocumentTypeBanner';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
