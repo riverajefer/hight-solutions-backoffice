@@ -4,6 +4,7 @@ import { WorkOrdersService } from './work-orders.service';
 import { WorkOrdersRepository } from './work-orders.repository';
 import { PrismaService } from '../../database/prisma.service';
 import { ConsecutivesService } from '../consecutives/consecutives.service';
+import { InventoryService } from '../inventory/inventory.service';
 import {
   createMockPrismaService,
   MockPrismaService,
@@ -63,6 +64,11 @@ const mockConsecutivesService = {
   syncWorkOrderCounter: jest.fn(),
 };
 
+const mockInventoryService = {
+  handleWorkOrderCompletion: jest.fn(),
+  // Add other required methods if needed
+};
+
 describe('WorkOrdersService', () => {
   let service: WorkOrdersService;
   let prisma: MockPrismaService;
@@ -76,6 +82,7 @@ describe('WorkOrdersService', () => {
         { provide: WorkOrdersRepository, useValue: mockWorkOrdersRepository },
         { provide: ConsecutivesService, useValue: mockConsecutivesService },
         { provide: PrismaService, useValue: prisma },
+        { provide: InventoryService, useValue: mockInventoryService },
       ],
     }).compile();
 
