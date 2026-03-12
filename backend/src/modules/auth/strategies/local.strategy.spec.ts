@@ -68,7 +68,7 @@ describe('LocalStrategy', () => {
       ).rejects.toThrow(UnauthorizedException);
       await expect(
         strategy.validate('wrong@example.com', 'wrong-password'),
-      ).rejects.toThrow('Invalid email or password');
+      ).rejects.toThrow('Invalid username or password');
     });
   });
 });

@@ -16,6 +16,7 @@ import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { StorageService } from '../storage/storage.service';
 import { OrderStatusChangeRequestsService } from '../order-status-change-requests/order-status-change-requests.service';
 import { AdvancePaymentApprovalsService } from '../advance-payment-approvals/advance-payment-approvals.service';
+import { ClientOwnershipAuthRequestsService } from '../client-ownership-auth-requests/client-ownership-auth-requests.service';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma, OrderStatus, PaymentMethod } from '../../generated/prisma';
 
@@ -62,6 +63,12 @@ const mockStatusChangeRequestsService = {
 
 const mockAdvancePaymentApprovalsService = {
   requiresApproval: jest.fn().mockResolvedValue({ required: false }),
+  createFromOrderCreation: jest.fn(),
+};
+
+const mockClientOwnershipAuthRequestsService = {
+  create: jest.fn(),
+  requiresAuth: jest.fn().mockResolvedValue({ required: false }),
   createFromOrderCreation: jest.fn(),
 };
 
@@ -153,6 +160,10 @@ describe('OrdersService', () => {
         {
           provide: AdvancePaymentApprovalsService,
           useValue: mockAdvancePaymentApprovalsService,
+        },
+        {
+          provide: ClientOwnershipAuthRequestsService,
+          useValue: mockClientOwnershipAuthRequestsService,
         },
         { provide: PrismaService, useValue: mockPrisma },
       ],

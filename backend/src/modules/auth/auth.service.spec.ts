@@ -5,6 +5,7 @@ import { UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../../database/prisma.service';
 import { SessionLogsService } from '../session-logs/session-logs.service';
+import { AttendanceService } from '../attendance/attendance.service';
 import { createMockPrismaService, MockPrismaService } from '../../database/prisma.service.mock';
 import { AuthenticatedUser } from '../../common/interfaces';
 
@@ -35,6 +36,12 @@ const mockConfigService = {
 const mockSessionLogsService = {
   createLoginLog: jest.fn().mockResolvedValue(undefined),
   createLogoutLog: jest.fn().mockResolvedValue(undefined),
+};
+
+const mockAttendanceService = {
+  checkIn: jest.fn().mockResolvedValue(undefined),
+  checkOut: jest.fn().mockResolvedValue(undefined),
+  closeOpenRecordOnLogout: jest.fn().mockResolvedValue(undefined),
 };
 
 describe('AuthService', () => {
@@ -70,6 +77,7 @@ describe('AuthService', () => {
         { provide: JwtService, useValue: mockJwtService },
         { provide: ConfigService, useValue: mockConfigService },
         { provide: SessionLogsService, useValue: mockSessionLogsService },
+        { provide: AttendanceService, useValue: mockAttendanceService },
       ],
     }).compile();
 
