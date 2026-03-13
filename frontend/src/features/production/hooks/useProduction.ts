@@ -77,7 +77,13 @@ export function useUpdateProductTemplate(id: string) {
   const { enqueueSnackbar } = useSnackbar();
 
   return useMutation({
-    mutationFn: (dto: { name?: string; category?: string; description?: string; isActive?: boolean }) =>
+    mutationFn: (dto: { 
+      name?: string; 
+      category?: string; 
+      description?: string; 
+      isActive?: boolean;
+      components?: any[];
+    }) =>
       productionApi.updateTemplate(id, dto),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['product-templates'] });

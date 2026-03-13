@@ -146,6 +146,7 @@ const ProductTemplateFormPage: React.FC = () => {
   }
 
   const stepDefs = stepDefsQuery.data ?? [];
+  const isSaving = isEdit ? updateTemplate.isPending : createTemplate.isPending;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', pb: 3 }}>
@@ -158,11 +159,17 @@ const ProductTemplateFormPage: React.FC = () => {
             <Button
               startIcon={<ArrowBackIcon />}
               onClick={() => navigate(ROUTES.PRODUCT_TEMPLATES)}
+              disabled={isSaving}
             >
               Cancelar
             </Button>
-            <Button variant="contained" onClick={handleSave}>
-              Guardar Plantilla
+            <Button 
+              variant="contained" 
+              onClick={handleSave}
+              disabled={isSaving}
+              startIcon={isSaving ? <CircularProgress size={20} color="inherit" /> : null}
+            >
+              {isSaving ? 'Guardando...' : 'Guardar Plantilla'}
             </Button>
           </Stack>
         }

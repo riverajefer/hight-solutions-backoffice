@@ -58,7 +58,7 @@ export const productionApi = {
 
   updateTemplate: async (
     id: string,
-    dto: { name?: string; category?: string; description?: string; isActive?: boolean },
+    dto: { name?: string; category?: string; description?: string; isActive?: boolean; components?: any[] },
   ): Promise<ProductTemplate> => {
     const { data } = await axiosInstance.patch(`/product-templates/${id}`, dto);
     return data;

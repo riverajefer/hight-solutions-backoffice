@@ -13,10 +13,14 @@ import {
   CircularProgress,
   Alert,
   Tooltip,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CategoryIcon from '@mui/icons-material/Category';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { useProductTemplate } from '../hooks/useProduction';
 import { useAuthStore } from '../../../store/authStore';
@@ -125,7 +129,21 @@ const ProductTemplateDetailPage: React.FC = () => {
         {PHASES.map((phase) => {
           const components = componentsByPhase[phase];
           return (
-            <Card key={phase} variant="outlined">
+            <Card 
+              key={phase} 
+              variant="outlined"
+              sx={{
+                height: '100%',
+                bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.01)' : 'background.paper',
+                borderColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'divider',
+                borderRadius: 3,
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  borderColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.2)' : 'primary.main',
+                  boxShadow: (theme) => theme.palette.mode === 'dark' ? '0 8px 32px rgba(0,0,0,0.4)' : '0 8px 24px rgba(0,0,0,0.08)',
+                }
+              }}
+            >
               <CardHeader
                 title={
                   <Chip
@@ -144,49 +162,86 @@ const ProductTemplateDetailPage: React.FC = () => {
                     Sin componentes
                   </Typography>
                 ) : (
-                  <Stack spacing={1.5}>
+                  <Stack spacing={1}>
                     {components.map((comp) => (
-                      <Box key={comp.id}>
-                        <Stack direction="row" alignItems="center" spacing={1} mb={0.5}>
-                          <Typography variant="body2" fontWeight={600}>
-                            {comp.name}
-                          </Typography>
-                          {!comp.isRequired && (
-                            <Chip label="Opcional" size="small" variant="outlined" sx={{ fontSize: 10 }} />
-                          )}
-                        </Stack>
-                        <Stack spacing={0.5} pl={1}>
-                          {[...comp.steps].sort((a, b) => a.order - b.order).map((step, idx) => (
-                            <Stack
-                              key={step.id}
-                              direction="row"
-                              alignItems="center"
-                              spacing={1}
-                            >
-                              <Typography
-                                variant="caption"
-                                color="text.disabled"
-                                sx={{ minWidth: 18 }}
-                              >
-                                {idx + 1}.
+                      <Accordion
+                        key={comp.id}
+                        disableGutters
+                        variant="outlined"
+                        sx={{
+                          bgcolor: 'transparent',
+                          '&:before': { display: 'none' },
+                          border: '1px solid',
+                          borderColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'divider',
+                          borderRadius: '8px !important',
+                          overflow: 'hidden',
+                          boxShadow: (theme) => theme.palette.mode === 'dark' ? '0 4px 12px rgba(0,0,0,0.2)' : 'none',
+                        }}
+                      >
+                        <AccordionSummary
+                          expandIcon={<ExpandMoreIcon fontSize="small" />}
+                          sx={{ 
+                            px: 1.5, 
+                            minHeight: '40px !important', 
+                            '& .MuiAccordionSummary-content': { my: 1 } 
+                          }}
+                        >
+                          <Stack direction="row" alignItems="center" spacing={1} width="100%" justifyContent="space-between" pr={1}>
+                            <Stack direction="row" spacing={1} alignItems="center" overflow="hidden">
+                              <Typography variant="body2" fontWeight={600} noWrap>
+                                {comp.name}
                               </Typography>
-                              <Tooltip title={step.stepDefinition.description ?? ''}>
-                                <Typography variant="caption" sx={{ flexGrow: 1 }}>
-                                  {step.stepDefinition.name}
-                                </Typography>
-                              </Tooltip>
-                              <Chip
-                                label={step.isRequired ? 'Req' : 'Opc'}
-                                size="small"
-                                color={step.isRequired ? 'default' : 'default'}
-                                variant={step.isRequired ? 'filled' : 'outlined'}
-                                sx={{ fontSize: 9, height: 18 }}
-                              />
+                              {!comp.isRequired && (
+                                <Chip label="Opcional" size="small" variant="outlined" sx={{ fontSize: 9, height: 18 }} />
+                              )}
                             </Stack>
-                          ))}
-                        </Stack>
-                        <Divider sx={{ mt: 1 }} />
-                      </Box>
+                            <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                              {comp.steps.length} {comp.steps.length === 1 ? 'paso' : 'pasos'}
+                            </Typography>
+                          </Stack>
+                        </AccordionSummary>
+                        <AccordionDetails sx={{ px: 1, py: 1.25, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.02)', borderTop: '1px solid', borderColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'divider' }}>
+                          <Stack spacing={0.75}>
+                            {[...comp.steps].sort((a, b) => a.order - b.order).map((step, idx) => (
+                              <Stack
+                                key={step.id}
+                                direction="row"
+                                alignItems="center"
+                                spacing={1}
+                                sx={{
+                                  p: 0.75,
+                                  pl: 1,
+                                  borderRadius: 1,
+                                  bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'background.paper',
+                                  border: '1px solid',
+                                  borderColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'divider',
+                                }}
+                              >
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  fontWeight={600}
+                                  sx={{ minWidth: 16 }}
+                                >
+                                  {idx + 1}.
+                                </Typography>
+                                <Tooltip title={step.stepDefinition.description ?? ''}>
+                                  <Typography variant="caption" sx={{ flexGrow: 1, fontWeight: 500 }}>
+                                    {step.stepDefinition.name}
+                                  </Typography>
+                                </Tooltip>
+                                <Chip
+                                  label={step.isRequired ? 'Req' : 'Opc'}
+                                  size="small"
+                                  color={step.isRequired ? 'primary' : 'default'}
+                                  variant={step.isRequired ? 'outlined' : 'filled'}
+                                  sx={{ fontSize: 9, height: 18, bgcolor: step.isRequired ? 'transparent' : 'rgba(255,255,255,0.05)' }}
+                                />
+                              </Stack>
+                            ))}
+                          </Stack>
+                        </AccordionDetails>
+                      </Accordion>
                     ))}
                   </Stack>
                 )}
