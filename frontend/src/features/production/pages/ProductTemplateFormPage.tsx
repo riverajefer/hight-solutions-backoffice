@@ -3,26 +3,16 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
   Button,
-  TextField,
-  MenuItem,
   Stack,
-  Typography,
-  Card,
-  CardContent,
-  IconButton,
-  Divider,
   CircularProgress,
   Alert,
-  FormControlLabel,
-  Switch,
+  TextField,
+  MenuItem,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import DeleteIcon from '@mui/icons-material/Delete';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CategoryIcon from '@mui/icons-material/Category';
-import { useForm, useFieldArray, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import AddIcon from '@mui/icons-material/Add';
+import { useSnackbar } from 'notistack';
 import { PageHeader } from '../../../components/common/PageHeader';
 import {
   useProductTemplate,
@@ -31,7 +21,8 @@ import {
   useStepDefinitions,
 } from '../hooks/useProduction';
 import { ROUTES } from '../../../utils/constants';
-import type { ComponentPhase } from '../../../types/production.types';
+import { useTemplateBuilderStore } from '../store/useTemplateBuilderStore';
+import { TemplateBuilderContainer } from '../components/TemplateBuilder/TemplateBuilderContainer';
 
 const CATEGORY_OPTIONS = [
   { value: 'cuadernos', label: 'Cuadernos' },
@@ -41,103 +32,105 @@ const CATEGORY_OPTIONS = [
   { value: 'otro', label: 'Otro' },
 ];
 
-const PHASE_OPTIONS: { value: ComponentPhase; label: string }[] = [
-  { value: 'impresion', label: 'Impresión' },
-  { value: 'material', label: 'Material' },
-  { value: 'armado', label: 'Armado' },
-  { value: 'despacho', label: 'Despacho' },
-];
-
-const stepSchema = z.object({
-  stepDefinitionId: z.string().uuid('Selecciona un paso'),
-  order: z.number().int().min(1),
-  isRequired: z.boolean(),
-});
-
-const componentSchema = z.object({
-  name: z.string().min(1, 'Nombre requerido'),
-  order: z.number().int().min(1),
-  phase: z.enum(['impresion', 'material', 'armado', 'despacho']),
-  isRequired: z.boolean(),
-  steps: z.array(stepSchema).min(1, 'Agrega al menos un paso'),
-});
-
-const formSchema = z.object({
-  name: z.string().min(1, 'Nombre requerido'),
-  category: z.string().min(1, 'Categoría requerida'),
-  description: z.string().optional(),
-  isActive: z.boolean().optional(),
-  components: z.array(componentSchema).min(1, 'Agrega al menos un componente'),
-});
-
-type FormValues = z.infer<typeof formSchema>;
-
 const ProductTemplateFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const isEdit = !!id;
   const navigate = useNavigate();
+  const { enqueueSnackbar } = useSnackbar();
 
   const templateQuery = useProductTemplate(id ?? '');
   const stepDefsQuery = useStepDefinitions();
   const createTemplate = useCreateProductTemplate();
   const updateTemplate = useUpdateProductTemplate(id ?? '');
 
-  const {
-    control,
-    handleSubmit,
-    reset,
-    formState: { errors, isSubmitting },
-  } = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: '',
-      category: '',
-      description: '',
-      isActive: true,
-      components: [],
-    },
-  });
-
-  const { fields: compFields, append: appendComp, remove: removeComp } = useFieldArray({
-    control,
-    name: 'components',
-  });
+  const store = useTemplateBuilderStore();
 
   useEffect(() => {
-    if (isEdit && templateQuery.data) {
+    if (isEdit && templateQuery.data && !templateQuery.isLoading) {
       const t = templateQuery.data;
-      reset({
+      store.setAllData({
         name: t.name,
         category: t.category,
         description: t.description ?? '',
-        isActive: t.isActive,
-        components: [...(t.components ?? [])].sort((a, b) => a.order - b.order).map((c) => ({
+        components: [...(t.components ?? [])]
+          .sort((a, b) => a.order - b.order)
+          .map((c) => ({
+            id: c.id || Math.random().toString(),
+            name: c.name,
+            phase: c.phase,
+            isRequired: c.isRequired,
+            order: c.order,
+            steps: [...c.steps]
+              .sort((a, b) => a.order - b.order)
+              .map((s) => ({
+                id: s.id || Math.random().toString(),
+                stepDefinitionId: s.stepDefinition.id,
+                stepType: s.stepDefinition.type,
+                name: s.stepDefinition.name,
+                order: s.order,
+                isRequired: s.isRequired,
+              })),
+          })),
+      });
+    }
+    
+    return () => {
+      if (!isEdit) store.reset(); // Only reset if we are leaving the creation context
+    };
+  }, [isEdit, templateQuery.data, templateQuery.isLoading]);
+
+  // Handle saving the template visually
+  const handleSave = async () => {
+    // Validations
+    if (!store.name.trim()) {
+      enqueueSnackbar('El nombre de la plantilla es requerido', { variant: 'error' });
+      return;
+    }
+    if (store.components.length === 0) {
+      enqueueSnackbar('Debes agregar al menos un componente', { variant: 'error' });
+      return;
+    }
+
+    let hasEmptyComponents = false;
+    store.components.forEach(c => {
+      if (c.steps.length === 0) hasEmptyComponents = true;
+    });
+
+    if (hasEmptyComponents) {
+      enqueueSnackbar('Todos los componentes deben tener al menos un paso', { variant: 'error' });
+      return;
+    }
+
+    try {
+      const payload = {
+        name: store.name,
+        category: store.category,
+        description: store.description,
+        components: store.components.map((c, i) => ({
           name: c.name,
-          order: c.order,
+          order: i + 1,
           phase: c.phase,
           isRequired: c.isRequired,
-          steps: [...c.steps].sort((a, b) => a.order - b.order).map((s) => ({
-            stepDefinitionId: s.stepDefinition.id,
-            order: s.order,
+          steps: c.steps.map((s, j) => ({
+            stepDefinitionId: s.stepDefinitionId,
+            order: j + 1,
             isRequired: s.isRequired,
           })),
         })),
-      });
-    }
-  }, [isEdit, templateQuery.data, reset]);
+      };
 
-  const onSubmit = async (data: FormValues) => {
-    if (isEdit) {
-      await updateTemplate.mutateAsync({
-        name: data.name,
-        category: data.category,
-        description: data.description,
-        isActive: data.isActive,
-      });
-      navigate(ROUTES.PRODUCT_TEMPLATES_DETAIL.replace(':id', id!));
-    } else {
-      await createTemplate.mutateAsync(data);
-      navigate(ROUTES.PRODUCT_TEMPLATES);
+      if (isEdit) {
+        // Assume API allows full overwrite of components using patch/put for simplifications based on template
+        await updateTemplate.mutateAsync(payload as any);
+        enqueueSnackbar('Plantilla actualizada con éxito', { variant: 'success' });
+        navigate(ROUTES.PRODUCT_TEMPLATES_DETAIL.replace(':id', id!));
+      } else {
+        await createTemplate.mutateAsync(payload);
+        enqueueSnackbar('Plantilla creada con éxito', { variant: 'success' });
+        navigate(ROUTES.PRODUCT_TEMPLATES);
+      }
+    } catch (error) {
+      enqueueSnackbar('Error al guardar la plantilla', { variant: 'error' });
     }
   };
 
@@ -155,286 +148,83 @@ const ProductTemplateFormPage: React.FC = () => {
   const stepDefs = stepDefsQuery.data ?? [];
 
   return (
-    <Box>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', pb: 3 }}>
       <PageHeader
         title={isEdit ? 'Editar Plantilla' : 'Nueva Plantilla'}
-        subtitle="Define los componentes y pasos del proceso de fabricación"
+        subtitle="Constructor visual de componentes y flujo de producción"
         icon={<CategoryIcon />}
         action={
-          <Button
-            startIcon={<ArrowBackIcon />}
-            onClick={() => navigate(ROUTES.PRODUCT_TEMPLATES)}
-          >
-            Volver
-          </Button>
+          <Stack direction="row" spacing={2}>
+            <Button
+              startIcon={<ArrowBackIcon />}
+              onClick={() => navigate(ROUTES.PRODUCT_TEMPLATES)}
+            >
+              Cancelar
+            </Button>
+            <Button variant="contained" onClick={handleSave}>
+              Guardar Plantilla
+            </Button>
+          </Stack>
         }
       />
 
-      <Box component="form" onSubmit={handleSubmit(onSubmit)}>
-        {/* Basic info */}
-        <Card variant="outlined" sx={{ mb: 3 }}>
-          <CardContent>
-            <Typography variant="subtitle1" fontWeight={600} mb={2}>
-              Información general
-            </Typography>
-            <Stack spacing={2}>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <Controller
-                  name="name"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      label="Nombre de la plantilla"
-                      fullWidth
-                      error={!!errors.name}
-                      helperText={errors.name?.message}
-                    />
-                  )}
-                />
-                <Controller
-                  name="category"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      select
-                      label="Categoría"
-                      fullWidth
-                      error={!!errors.category}
-                      helperText={errors.category?.message}
-                    >
-                      {CATEGORY_OPTIONS.map((o) => (
-                        <MenuItem key={o.value} value={o.value}>
-                          {o.label}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
-              </Stack>
-              <Controller
-                name="description"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Descripción (opcional)"
-                    multiline
-                    rows={2}
-                    fullWidth
-                  />
-                )}
-              />
-              {isEdit && (
-                <Controller
-                  name="isActive"
-                  control={control}
-                  render={({ field }) => (
-                    <FormControlLabel
-                      control={
-                        <Switch checked={field.value} onChange={field.onChange} />
-                      }
-                      label="Plantilla activa"
-                    />
-                  )}
-                />
-              )}
-            </Stack>
-          </CardContent>
-        </Card>
-
-        {/* Components — only on create */}
-        {!isEdit && (
-          <Card variant="outlined" sx={{ mb: 3 }}>
-            <CardContent>
-              <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2}>
-                <Typography variant="subtitle1" fontWeight={600}>
-                  Componentes
-                </Typography>
-                <Button
-                  size="small"
-                  startIcon={<AddIcon />}
-                  onClick={() =>
-                    appendComp({
-                      name: '',
-                      order: compFields.length + 1,
-                      phase: 'impresion',
-                      isRequired: true,
-                      steps: [],
-                    })
-                  }
-                >
-                  Agregar componente
-                </Button>
-              </Stack>
-
-              {(errors.components as any)?.root?.message && (
-                <Alert severity="error" sx={{ mb: 2 }}>
-                  {(errors.components as any).root.message}
-                </Alert>
-              )}
-
-              <Stack spacing={3}>
-                {compFields.map((compField, compIdx) => (
-                  <ComponentEditor
-                    key={compField.id}
-                    control={control}
-                    compIdx={compIdx}
-                    stepDefs={stepDefs}
-                    onRemove={() => removeComp(compIdx)}
-                    errors={errors}
-                  />
-                ))}
-                {compFields.length === 0 && (
-                  <Typography variant="body2" color="text.secondary" textAlign="center" py={2}>
-                    Sin componentes. Haz clic en "Agregar componente".
-                  </Typography>
-                )}
-              </Stack>
-            </CardContent>
-          </Card>
-        )}
-
-        <Stack direction="row" justifyContent="flex-end" spacing={2}>
-          <Button onClick={() => navigate(ROUTES.PRODUCT_TEMPLATES)}>Cancelar</Button>
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={isSubmitting || createTemplate.isPending || updateTemplate.isPending}
+      <Box sx={{ mb: 3 }}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={2}
+          sx={{ mb: 2 }}
+          alignItems="stretch"  // Important to stretch children equally
+        >
+          <TextField
+            label="Nombre de la plantilla"
+            value={store.name}
+            onChange={(e) => store.setName(e.target.value)}
+            fullWidth
+            required
+            size="small"
+            InputProps={{
+              sx: { bgcolor: 'background.paper', fontWeight: 'bold', height: '100%' }
+            }}
+            sx={{
+              '& .MuiInputBase-root': { height: 40 } // Adjust exact pixel height if needed, often 40 for small.
+            }}
+          />
+          <TextField
+            select
+            label="Categoría"
+            value={store.category}
+            onChange={(e) => store.setCategory(e.target.value)}
+            fullWidth
+            size="small"
+            sx={{ 
+              maxWidth: 300, 
+              '& .MuiInputBase-root': { bgcolor: 'background.paper', height: 40 }
+            }}
           >
-            {isEdit ? 'Guardar cambios' : 'Crear plantilla'}
+            {CATEGORY_OPTIONS.map((o) => (
+              <MenuItem key={o.value} value={o.value}>
+                {o.label}
+              </MenuItem>
+            ))}
+          </TextField>
+          <Button 
+            variant="outlined" 
+            startIcon={<AddIcon />} 
+            onClick={store.addComponent}
+            sx={{ 
+              flexShrink: 0, 
+              bgcolor: 'background.paper',
+              height: 40 // Force exact match with inputs
+            }}
+          >
+            Añadir Componente
           </Button>
         </Stack>
       </Box>
-    </Box>
-  );
-};
 
-interface ComponentEditorProps {
-  control: any;
-  compIdx: number;
-  stepDefs: any[];
-  onRemove: () => void;
-  errors: any;
-}
-
-const ComponentEditor: React.FC<ComponentEditorProps> = ({
-  control,
-  compIdx,
-  stepDefs,
-  onRemove,
-  errors,
-}) => {
-  const { fields: stepFields, append: appendStep, remove: removeStep } = useFieldArray({
-    control,
-    name: `components.${compIdx}.steps`,
-  });
-
-  return (
-    <Box border={1} borderColor="divider" borderRadius={1} p={2}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1.5}>
-        <Typography variant="subtitle2">Componente {compIdx + 1}</Typography>
-        <IconButton size="small" color="error" onClick={onRemove}>
-          <DeleteIcon fontSize="small" />
-        </IconButton>
-      </Stack>
-
-      <Stack spacing={1.5} mb={2}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-          <Controller
-            name={`components.${compIdx}.name`}
-            control={control}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                label="Nombre del componente"
-                size="small"
-                fullWidth
-                error={!!errors.components?.[compIdx]?.name}
-                helperText={errors.components?.[compIdx]?.name?.message}
-              />
-            )}
-          />
-          <Controller
-            name={`components.${compIdx}.phase`}
-            control={control}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                select
-                label="Fase"
-                size="small"
-                sx={{ minWidth: 150 }}
-              >
-                {PHASE_OPTIONS.map((o) => (
-                  <MenuItem key={o.value} value={o.value}>
-                    {o.label}
-                  </MenuItem>
-                ))}
-              </TextField>
-            )}
-          />
-        </Stack>
-      </Stack>
-
-      <Divider sx={{ mb: 1.5 }} />
-      <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
-        <Typography variant="caption" color="text.secondary">
-          Pasos
-        </Typography>
-        <Button
-          size="small"
-          startIcon={<AddIcon />}
-          onClick={() =>
-            appendStep({
-              stepDefinitionId: '',
-              order: stepFields.length + 1,
-              isRequired: true,
-            })
-          }
-        >
-          Agregar paso
-        </Button>
-      </Stack>
-
-      <Stack spacing={1}>
-        {stepFields.map((stepField, stepIdx) => (
-          <Stack key={stepField.id} direction="row" spacing={1} alignItems="center">
-            <Typography variant="caption" color="text.secondary" sx={{ minWidth: 20 }}>
-              {stepIdx + 1}.
-            </Typography>
-            <Controller
-              name={`components.${compIdx}.steps.${stepIdx}.stepDefinitionId`}
-              control={control}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  select
-                  label="Tipo de paso"
-                  size="small"
-                  fullWidth
-                  error={!!errors.components?.[compIdx]?.steps?.[stepIdx]?.stepDefinitionId}
-                >
-                  {stepDefs.map((sd: any) => (
-                    <MenuItem key={sd.id} value={sd.id}>
-                      {sd.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              )}
-            />
-            <IconButton size="small" onClick={() => removeStep(stepIdx)}>
-              <DeleteIcon fontSize="small" />
-            </IconButton>
-          </Stack>
-        ))}
-        {stepFields.length === 0 && (
-          <Typography variant="caption" color="text.disabled">
-            Sin pasos configurados
-          </Typography>
-        )}
-      </Stack>
+      <Box sx={{ flexGrow: 1, minHeight: 0 }}>
+        <TemplateBuilderContainer stepDefinitions={stepDefs} />
+      </Box>
     </Box>
   );
 };
