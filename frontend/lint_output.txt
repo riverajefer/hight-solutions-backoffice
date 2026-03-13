@@ -1,0 +1,432 @@
+
+> high-solutions-backoffice-frontend@0.0.1 lint
+> eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0
+
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/api/auth.api.ts
+  42:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/api/axios.ts
+  88:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/api/orders.api.ts
+  109:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/api/production.api.ts
+   51:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  106:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  118:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/api/storage.api.ts
+  20:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/components/common/DataTable/DataTable.tsx
+  110:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/components/common/DataTable/index.tsx
+  1:1  warning  This rule can't verify that `export *` only exports components  react-refresh/only-export-components
+  2:1  warning  This rule can't verify that `export *` only exports components  react-refresh/only-export-components
+  3:1  warning  This rule can't verify that `export *` only exports components  react-refresh/only-export-components
+  4:1  warning  This rule can't verify that `export *` only exports components  react-refresh/only-export-components
+  5:1  warning  This rule can't verify that `export *` only exports components  react-refresh/only-export-components
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/components/common/DataTable/styles.ts
+   59:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  248:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  255:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  265:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  276:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/components/common/SearchInput.tsx
+  19:12  error  '_onClear' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/components/layout/AttendanceButton.tsx
+  70:6   warning  React Hook useEffect has a missing dependency: 'status.record'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  80:22  error    Unexpected any. Specify a different type                                                                          @typescript-eslint/no-explicit-any
+  96:22  error    Unexpected any. Specify a different type                                                                          @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/components/layout/Topbar.tsx
+  231:28  error  Redundant Boolean call  no-extra-boolean-cast
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/attendance/hooks/useAttendance.ts
+  35:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  50:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  65:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/attendance/pages/AttendancePage.tsx
+   93:9   warning  The 'records' logical expression could make the dependencies of useMemo Hook (at line 136) change on every render. To fix this, wrap the initialization of 'records' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  163:25  error    Unexpected any. Specify a different type                                                                                                                                                        @typescript-eslint/no-explicit-any
+  170:25  error    Unexpected any. Specify a different type                                                                                                                                                        @typescript-eslint/no-explicit-any
+  177:25  error    Unexpected any. Specify a different type                                                                                                                                                        @typescript-eslint/no-explicit-any
+  240:57  error    Unexpected any. Specify a different type                                                                                                                                                        @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/audit-logs/pages/AuditLogsListPage.tsx
+  24:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/commercial-channels/hooks/useCommercialChannels.ts
+  31:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  54:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  72:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/dashboard/pages/DashboardPage.tsx
+  528:67  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  532:63  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/expense-orders/components/ExpenseOrderAuthRequestDialog.tsx
+  47:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/expense-orders/hooks/useExpenseOrders.ts
+   44:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   56:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   89:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  103:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  119:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/expense-orders/pages/ExpenseOrderDetailPage.tsx
+  194:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/expense-orders/pages/ExpenseOrdersListPage.tsx
+  140:60  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  168:6   warning  React Hook useMemo has missing dependencies: 'handleEdit' and 'handleView'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/inventory/hooks/useInventory.ts
+  43:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/inventory/pages/InventoryMovementFormPage.tsx
+   71:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  114:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  144:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  147:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/inventory/pages/InventoryMovementsListPage.tsx
+   76:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   83:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   89:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   96:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  106:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  130:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/inventory/pages/LowStockAlertsPage.tsx
+  51:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  58:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  77:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/orders/components/ApplyDiscountDialog.tsx
+  99:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/orders/components/ChangeStatusDialog.tsx
+  88:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/orders/components/CreateClientModal.tsx
+  62:9  warning  The 'departments' logical expression could make the dependencies of useEffect Hook (at line 93) change on every render. To fix this, wrap the initialization of 'departments' in its own useMemo() Hook   react-hooks/exhaustive-deps
+  62:9  warning  The 'departments' logical expression could make the dependencies of useEffect Hook (at line 111) change on every render. To fix this, wrap the initialization of 'departments' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  64:9  warning  The 'cities' logical expression could make the dependencies of useEffect Hook (at line 111) change on every render. To fix this, wrap the initialization of 'cities' in its own useMemo() Hook            react-hooks/exhaustive-deps
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/orders/components/InitialPayment.tsx
+   74:73  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  157:19  error  Redundant double negation                 no-extra-boolean-cast
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/orders/components/OrderItemsTable.tsx
+  31:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/orders/components/OrderTotals.tsx
+  42:20  error  '_onTaxRateChange' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/orders/components/StatusChangeAuthRequestDialog.tsx
+  46:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/orders/hooks/useOrders.ts
+   53:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   73:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   93:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  114:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  158:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  175:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  196:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  242:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/orders/pages/OrderDetailPage.tsx
+  269:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  372:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  451:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/orders/pages/OrderFormPage.tsx
+  394:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  501:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  509:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  778:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/orders/pages/OrdersListPage.tsx
+  135:66  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  172:5   error    Unnecessary try/catch wrapper                                                                                                             no-useless-catch
+  194:28  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  205:24  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  205:34  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  214:28  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  228:28  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  245:28  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  252:28  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  308:24  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  308:34  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  309:28  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  321:24  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  321:34  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  331:28  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  354:28  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  375:28  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  384:28  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  403:28  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  419:28  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  426:28  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  443:30  error    Unexpected any. Specify a different type                                                                                                  @typescript-eslint/no-explicit-any
+  455:6   warning  React Hook useMemo has missing dependencies: 'handleEditOrder' and 'handleViewOrder'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/orders/pages/ProfitabilityPage.tsx
+  213:50  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/orders/pages/StatusChangeRequestsPage.tsx
+   200:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   216:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   237:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   254:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   274:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   290:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   311:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   328:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   345:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   362:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   667:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   751:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   858:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   956:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  1036:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/orders/utils/generateOrderPdf.ts
+  20:22  error  Promise executor functions should not be async  no-async-promise-executor
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/payroll/hooks/usePayrollEmployees.ts
+  14:5  error  React Hook "useQuery" is called in function "getEmployeeQuery" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word "use"  react-hooks/rules-of-hooks
+  21:5  error  React Hook "useQuery" is called in function "getHistoryQuery" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word "use"   react-hooks/rules-of-hooks
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/payroll/hooks/usePayrollPeriods.ts
+  14:5  error  React Hook "useQuery" is called in function "getPeriodQuery" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word "use"   react-hooks/rules-of-hooks
+  21:5  error  React Hook "useQuery" is called in function "getSummaryQuery" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word "use"  react-hooks/rules-of-hooks
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/payroll/pages/EmployeePayrollHistoryPage.tsx
+  89:35  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/payroll/pages/PayrollEmployeeFormPage.tsx
+  133:49  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  147:49  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  154:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  191:58  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  287:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/payroll/pages/PayrollItemFormPage.tsx
+   74:12  error    Unexpected any. Specify a different type                                                                                    @typescript-eslint/no-explicit-any
+  106:12  error    Unexpected any. Specify a different type                                                                                    @typescript-eslint/no-explicit-any
+  175:6   warning  React Hook useEffect has a missing dependency: 'setValue'. Either include it or remove the dependency array                 react-hooks/exhaustive-deps
+  183:6   warning  React Hook useEffect has a missing dependency: 'setValue'. Either include it or remove the dependency array                 react-hooks/exhaustive-deps
+  189:6   warning  React Hook useEffect has missing dependencies: 'setValue' and 'values'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  201:25  error    Unexpected any. Specify a different type                                                                                    @typescript-eslint/no-explicit-any
+  258:19  error    Unexpected any. Specify a different type                                                                                    @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/payroll/pages/PayrollPeriodDetailPage.tsx
+  72:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  86:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/payroll/pages/PayrollPeriodFormPage.tsx
+  143:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  217:58  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  239:56  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/permissions/components/PermissionsTable.tsx
+  35:5  warning  React Hook useMemo has a missing dependency: 'handleEdit'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/permissions/config/columns.tsx
+  41:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  50:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  72:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/permissions/hooks/usePermissions.ts
+  14:12  error  React Hook "useQuery" is called in function "getPermissionQuery" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word "use"  react-hooks/rules-of-hooks
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/portfolio/products/pages/ProductsListPage.tsx
+  60:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/portfolio/supplies/pages/SuppliesListPage.tsx
+  60:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  83:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/production/hooks/useProduction.ts
+   67:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   87:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  103:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  119:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  130:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  136:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  147:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  153:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  169:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/production/pages/ProductTemplateFormPage.tsx
+  272:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  274:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  315:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  317:13  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  319:11  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  419:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/production/pages/ProductTemplatesListPage.tsx
+  104:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/production/pages/ProductionOrderDetailPage.tsx
+   10:3   error  'CardContent' is defined but never used                 @typescript-eslint/no-unused-vars
+   11:3   error  'CardHeader' is defined but never used                  @typescript-eslint/no-unused-vars
+   30:8   error  'HourglassEmptyIcon' is defined but never used          @typescript-eslint/no-unused-vars
+   31:8   error  'PrecisionManufacturingIcon' is defined but never used  @typescript-eslint/no-unused-vars
+   33:8   error  'ExpandLessIcon' is defined but never used              @typescript-eslint/no-unused-vars
+   34:10  error  'PageHeader' is defined but never used                  @typescript-eslint/no-unused-vars
+   49:8   error  'ComponentPhase' is defined but never used              @typescript-eslint/no-unused-vars
+   73:10  error  Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+   74:19  error  Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+  193:63  error  Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+  194:63  error  Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/production/pages/ProductionOrderFormPage.tsx
+  104:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  125:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  150:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/production/pages/ProductionOrdersListPage.tsx
+   59:65  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   85:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   91:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  110:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/quotes/components/QuoteItemsTable.tsx
+  45:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  53:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/quotes/hooks/useQuotes.ts
+  15:5   error  React Hook "useQuery" is called in function "quoteQuery" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word "use"  react-hooks/rules-of-hooks
+  27:22  error  Unexpected any. Specify a different type                                                                                                                                                                                                          @typescript-eslint/no-explicit-any
+  40:22  error  Unexpected any. Specify a different type                                                                                                                                                                                                          @typescript-eslint/no-explicit-any
+  51:22  error  Unexpected any. Specify a different type                                                                                                                                                                                                          @typescript-eslint/no-explicit-any
+  63:22  error  Unexpected any. Specify a different type                                                                                                                                                                                                          @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/quotes/pages/QuoteDetailPage.tsx
+  149:21  error  Empty block statement  no-empty
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/quotes/pages/QuoteFormPage.tsx
+  292:49  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  296:57  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  306:45  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  404:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  423:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  561:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/quotes/pages/QuotesListPage.tsx
+   86:66  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  112:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  113:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  115:21  error  Empty block statement                     no-empty
+  139:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/quotes/utils/generateQuotePdf.ts
+  20:22  error  Promise executor functions should not be async  no-async-promise-executor
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/roles/components/RoleForm.tsx
+  17:62  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  39:51  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/roles/components/RolesTable.tsx
+  40:5  warning  React Hook useMemo has missing dependencies: 'handleEdit' and 'handleViewPermissions'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/roles/config/columns.tsx
+  62:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  69:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/roles/hooks/useRoles.ts
+  14:12  error  React Hook "useQuery" is called in function "getRoleQuery" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word "use"  react-hooks/rules-of-hooks
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/roles/pages/RolePermissionsPage.tsx
+  39:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/users/components/UserDetail.tsx
+  204:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  209:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  214:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/users/components/UserForm.tsx
+  153:13  error  'confirmPassword' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/users/components/UsersTable.tsx
+  39:5  warning  React Hook useMemo has missing dependencies: 'handleEdit' and 'handleView'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/users/config/columns.tsx
+   34:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   45:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   53:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   76:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  105:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/users/hooks/useUsers.ts
+  14:12  error  React Hook "useQuery" is called in function "getUserQuery" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word "use"  react-hooks/rules-of-hooks
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/work-orders/hooks/useWorkOrders.ts
+   46:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   58:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   93:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  107:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  127:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  147:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  165:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  185:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/features/work-orders/pages/WorkOrdersListPage.tsx
+  111:24  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  136:37  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  159:24  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  166:24  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  183:24  error    Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  206:6   warning  React Hook useMemo has missing dependencies: 'handleEdit' and 'handleView'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/hooks/useEditRequests.ts
+  36:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  59:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  81:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/hooks/useNotifications.ts
+  30:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  47:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  63:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/hooks/useResponsiveColumns.ts
+  15:64  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  34:68  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/types/order.types.ts
+  132:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  194:35  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  233:35  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  241:35  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  301:35  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/types/production.types.ts
+  90:35  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  91:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/types/quote.types.ts
+  47:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  91:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/utils/error-messages.ts
+  30:50  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jeffersonrivera/dev/Hight-Solutions/hight-solutions-backoffice/frontend/src/utils/responsive.ts
+  123:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+✖ 260 problems (241 errors, 19 warnings)
+  2 errors and 0 warnings potentially fixable with the `--fix` option.
+

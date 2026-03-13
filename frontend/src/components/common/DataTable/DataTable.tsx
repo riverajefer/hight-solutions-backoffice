@@ -228,7 +228,7 @@ export function DataTable<T extends GridValidRowModel>({
         autoHeight
         disableVirtualization
         localeText={esES.components.MuiDataGrid.defaultProps.localeText}
-        sx={dataGridStyles}
+        sx={dataGridStyles as any}
         slots={{
           noRowsOverlay: CustomNoRowsOverlay,
           loadingOverlay: renderLoadingSkeleton,

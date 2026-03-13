@@ -530,6 +530,19 @@ function OrderFlowNode({ data }: NodeProps) {
           border: 'none',
         }}
       />
+      {nodeData.type === 'OT' && (
+        <Handle
+          id="bottom"
+          type="source"
+          position={Position.Bottom}
+          style={{
+            background: effectiveColor,
+            width: 8,
+            height: 8,
+            border: 'none',
+          }}
+        />
+      )}
     </>
   );
 }
