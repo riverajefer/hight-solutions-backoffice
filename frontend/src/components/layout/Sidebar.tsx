@@ -39,6 +39,7 @@ import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined';
 import FolderSpecialOutlinedIcon from '@mui/icons-material/FolderSpecialOutlined';
 import StraightenOutlinedIcon from '@mui/icons-material/StraightenOutlined';
 import EngineeringIcon from '@mui/icons-material/Engineering';
+import PrecisionManufacturingIcon from '@mui/icons-material/PrecisionManufacturing';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
@@ -98,6 +99,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
   const [menuOpen, setMenuOpen] = React.useState({
     comercial: false,
     logistica: false,
+    produccion: false,
     organizacion: false,
     nomina: false,
     configuracion: false,
@@ -289,6 +291,29 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
         PERMISSIONS.READ_SUPPLY_CATEGORIES,
         PERMISSIONS.READ_UNITS_OF_MEASURE,
         PERMISSIONS.READ_INVENTORY_MOVEMENTS,
+      ],
+    },
+    {
+      label: 'Producción',
+      icon: <PrecisionManufacturingIcon />,
+      menuKey: 'produccion',
+      submenu: [
+        {
+          label: 'Órdenes de Producción',
+          icon: <BuildIcon />,
+          path: ROUTES.PRODUCTION_ORDERS,
+          permission: PERMISSIONS.READ_PRODUCTION_ORDERS,
+        },
+        {
+          label: 'Plantillas de Producto',
+          icon: <CategoryOutlinedIcon />,
+          path: ROUTES.PRODUCT_TEMPLATES,
+          permission: PERMISSIONS.READ_PRODUCT_TEMPLATES,
+        },
+      ],
+      permissions: [
+        PERMISSIONS.READ_PRODUCTION_ORDERS,
+        PERMISSIONS.READ_PRODUCT_TEMPLATES,
       ],
     },
     {

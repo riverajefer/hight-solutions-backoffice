@@ -92,6 +92,13 @@ const ChangePasswordPage = lazy(() => import('../features/auth/pages/ChangePassw
 const InventoryMovementsListPage = lazy(() => import('../features/inventory/pages/InventoryMovementsListPage'));
 const InventoryMovementFormPage = lazy(() => import('../features/inventory/pages/InventoryMovementFormPage'));
 const LowStockAlertsPage = lazy(() => import('../features/inventory/pages/LowStockAlertsPage'));
+// Production Module
+const ProductTemplatesListPage = lazy(() => import('../features/production/pages/ProductTemplatesListPage'));
+const ProductTemplateDetailPage = lazy(() => import('../features/production/pages/ProductTemplateDetailPage'));
+const ProductTemplateFormPage = lazy(() => import('../features/production/pages/ProductTemplateFormPage'));
+const ProductionOrdersListPage = lazy(() => import('../features/production/pages/ProductionOrdersListPage'));
+const ProductionOrderDetailPage = lazy(() => import('../features/production/pages/ProductionOrderDetailPage'));
+const ProductionOrderFormPage = lazy(() => import('../features/production/pages/ProductionOrderFormPage'));
 
 
 const RoutesConfig: FC = () => {
@@ -1252,6 +1259,92 @@ const RoutesConfig: FC = () => {
         <Route
           path={PATHS.SETTINGS}
           element={<Navigate to={PATHS.PROFILE} replace />}
+        />
+
+        {/* Production Module Routes */}
+        <Route
+          path={PATHS.PRODUCT_TEMPLATES}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_PRODUCT_TEMPLATES}>
+                  <ProductTemplatesListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PRODUCT_TEMPLATES_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_PRODUCT_TEMPLATES}>
+                  <ProductTemplateFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PRODUCT_TEMPLATES_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_PRODUCT_TEMPLATES}>
+                  <ProductTemplateFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PRODUCT_TEMPLATES_DETAIL}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_PRODUCT_TEMPLATES}>
+                  <ProductTemplateDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PRODUCTION_ORDERS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_PRODUCTION_ORDERS}>
+                  <ProductionOrdersListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PRODUCTION_ORDERS_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_PRODUCTION_ORDERS}>
+                  <ProductionOrderFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PRODUCTION_ORDERS_DETAIL}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_PRODUCTION_ORDERS}>
+                  <ProductionOrderDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
         />
 
         {/* Default and Error Routes */}

@@ -126,6 +126,16 @@ export const PERMISSIONS = {
   CREATE_INVENTORY_MOVEMENTS: 'create_inventory_movements',
   READ_INVENTORY_MOVEMENTS: 'read_inventory_movements',
   MANAGE_INVENTORY: 'manage_inventory',
+  // Production Module — Plantillas de Producto
+  READ_PRODUCT_TEMPLATES: 'read_product_templates',
+  CREATE_PRODUCT_TEMPLATES: 'create_product_templates',
+  UPDATE_PRODUCT_TEMPLATES: 'update_product_templates',
+  DELETE_PRODUCT_TEMPLATES: 'delete_product_templates',
+  READ_STEP_DEFINITIONS: 'read_step_definitions',
+  // Production Module — Órdenes de Producción
+  READ_PRODUCTION_ORDERS: 'read_production_orders',
+  CREATE_PRODUCTION_ORDERS: 'create_production_orders',
+  UPDATE_PRODUCTION_ORDERS: 'update_production_orders',
 };
 
 export const ROUTES = {
@@ -230,6 +240,14 @@ export const ROUTES = {
   INVENTORY_MOVEMENTS: '/inventory/movements',
   INVENTORY_MOVEMENTS_NEW: '/inventory/movements/new',
   INVENTORY_LOW_STOCK: '/inventory/low-stock',
+  // Production Module
+  PRODUCT_TEMPLATES: '/production/templates',
+  PRODUCT_TEMPLATES_CREATE: '/production/templates/new',
+  PRODUCT_TEMPLATES_DETAIL: '/production/templates/:id',
+  PRODUCT_TEMPLATES_EDIT: '/production/templates/:id/edit',
+  PRODUCTION_ORDERS: '/production/orders',
+  PRODUCTION_ORDERS_CREATE: '/production/orders/new',
+  PRODUCTION_ORDERS_DETAIL: '/production/orders/:id',
 };
 
 export const DEFAULT_PAGINATION = {

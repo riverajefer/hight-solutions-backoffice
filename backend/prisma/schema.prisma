@@ -56,6 +56,8 @@ model User {
   attendanceRecords                  AttendanceRecord[]
   activityHeartbeats                 ActivityHeartbeat[]
   inventoryMovements                 InventoryMovement[]
+  productionOrdersCreated            ProductionOrder[]    @relation("ProductionOrderCreatedBy")
+  productionStepsCompleted           ProductionOrderStep[] @relation("ProductionStepCompletedBy")
 
   @@map("users")
 }
@@ -861,12 +863,13 @@ model WorkOrder {
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
 
-  order         Order          @relation(fields: [orderId], references: [id])
-  advisor       User           @relation("WorkOrderAdvisor", fields: [advisorId], references: [id])
-  designer      User?          @relation("WorkOrderDesigner", fields: [designerId], references: [id])
-  items         WorkOrderItem[]
-  timeEntries   WorkOrderTimeEntry[]
-  expenseOrders ExpenseOrder[]
+  order           Order          @relation(fields: [orderId], references: [id])
+  advisor         User           @relation("WorkOrderAdvisor", fields: [advisorId], references: [id])
+  designer        User?          @relation("WorkOrderDesigner", fields: [designerId], references: [id])
+  items           WorkOrderItem[]
+  timeEntries     WorkOrderTimeEntry[]
+  expenseOrders   ExpenseOrder[]
+  productionOrders ProductionOrder[]
 
   @@index([orderId])
   @@index([advisorId])
@@ -1353,4 +1356,174 @@ model InventoryMovement {
   @@index([referenceType, referenceId])
   @@index([createdAt])
   @@map("inventory_movements")
+}
+
+// =============================================================================
+// MÓDULO DE PRODUCCIÓN - PLANTILLAS Y ÓRDENES DE PRODUCCIÓN
+// =============================================================================
+
+enum StepType {
+  PAPEL
+  PLANCHAS
+  CARTON
+  MUESTRA_COLOR
+  PLASTIFICADO
+  CORTE
+  TROQUEL
+  REVISION
+  ARMADO
+  EMPAQUE
+}
+
+enum ComponentPhase {
+  impresion
+  material
+  armado
+  despacho
+}
+
+enum ProductionOrderStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ProductionStepStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED
+  BLOCKED
+}
+
+// Catálogo de tipos de paso atómico (9 tipos predefinidos, reutilizables)
+model StepDefinition {
+  id          String   @id @default(uuid())
+  type        StepType @unique
+  name        String
+  description String?
+  fieldSchema Json     @map("field_schema") // { fields: [{ key, label, type, stage, required, options? }] }
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  templateComponentSteps TemplateComponentStep[]
+  productionOrderSteps   ProductionOrderStep[]
+
+  @@map("step_definitions")
+}
+
+// Plantilla de producto (Cuaderno, Carpeta, Revista, Talonario, etc.)
+model ProductTemplate {
+  id          String   @id @default(uuid())
+  name        String
+  category    String
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  components       TemplateComponent[]
+  productionOrders ProductionOrder[]
+
+  @@map("product_templates")
+}
+
+// Componente dentro de una plantilla (Portadas, Hojas internas, Armado, Empaque, etc.)
+model TemplateComponent {
+  id         String         @id @default(uuid())
+  templateId String         @map("template_id")
+  name       String
+  order      Int
+  isRequired Boolean        @default(true) @map("is_required")
+  phase      ComponentPhase
+  createdAt  DateTime       @default(now()) @map("created_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
+
+  template ProductTemplate        @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  steps    TemplateComponentStep[]
+
+  @@index([templateId])
+  @@map("template_components")
+}
+
+// Paso dentro de un componente de plantilla (con posibilidad de fieldOverrides)
+model TemplateComponentStep {
+  id               String   @id @default(uuid())
+  componentId      String   @map("component_id")
+  stepDefinitionId String   @map("step_definition_id")
+  order            Int
+  isRequired       Boolean  @default(true) @map("is_required")
+  fieldOverrides   Json?    @map("field_overrides") // { remove: [...], add: [...], override: [...] }
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  component      TemplateComponent @relation(fields: [componentId], references: [id], onDelete: Cascade)
+  stepDefinition StepDefinition    @relation(fields: [stepDefinitionId], references: [id])
+
+  @@index([componentId])
+  @@map("template_component_steps")
+}
+
+// Orden de producción instanciada desde una plantilla (1:N con WorkOrder)
+model ProductionOrder {
+  id          String                @id @default(uuid())
+  oprodNumber String                @unique @map("oprod_number") // "OPROD-2026-0001"
+  templateId  String                @map("template_id")
+  workOrderId String                @map("work_order_id")
+  status      ProductionOrderStatus @default(PENDING)
+  notes       String?
+  createdById String                @map("created_by_id")
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @updatedAt @map("updated_at")
+
+  template   ProductTemplate           @relation(fields: [templateId], references: [id])
+  workOrder  WorkOrder                 @relation(fields: [workOrderId], references: [id])
+  createdBy  User                      @relation("ProductionOrderCreatedBy", fields: [createdById], references: [id])
+  components ProductionOrderComponent[]
+
+  @@index([workOrderId])
+  @@index([status])
+  @@index([createdById])
+  @@map("production_orders")
+}
+
+// Copia instanciada de cada TemplateComponent para una OT específica
+model ProductionOrderComponent {
+  id                String         @id @default(uuid())
+  productionOrderId String         @map("production_order_id")
+  name              String
+  order             Int
+  phase             ComponentPhase
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+
+  productionOrder ProductionOrder       @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  steps           ProductionOrderStep[]
+
+  @@index([productionOrderId])
+  @@map("production_order_components")
+}
+
+// Copia instanciada de cada paso con su estado y valores llenados
+model ProductionOrderStep {
+  id               String               @id @default(uuid())
+  componentId      String               @map("component_id")
+  stepDefinitionId String               @map("step_definition_id")
+  order            Int
+  status           ProductionStepStatus @default(PENDING)
+  fieldValues      Json                 @default("{}") @map("field_values") // { specification: {}, execution: {} }
+  completedAt      DateTime?            @map("completed_at")
+  completedById    String?              @map("completed_by_id")
+  notes            String?
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+
+  component      ProductionOrderComponent @relation(fields: [componentId], references: [id], onDelete: Cascade)
+  stepDefinition StepDefinition          @relation(fields: [stepDefinitionId], references: [id])
+  completedBy    User?                   @relation("ProductionStepCompletedBy", fields: [completedById], references: [id])
+
+  @@index([componentId])
+  @@index([status])
+  @@map("production_order_steps")
 }
