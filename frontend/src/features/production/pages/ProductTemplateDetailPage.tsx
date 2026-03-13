@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
@@ -15,16 +15,19 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  IconButton,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CategoryIcon from '@mui/icons-material/Category';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { useProductTemplate } from '../hooks/useProduction';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS, ROUTES } from '../../../utils/constants';
-import type { TemplateComponent, ComponentPhase } from '../../../types/production.types';
+import type { TemplateComponent, ComponentPhase, StepDefinition } from '../../../types/production.types';
+import { StepDefinitionDialog } from '../components/StepDefinitionDialog';
 
 const PHASE_LABELS: Record<ComponentPhase, string> = {
   impresion: 'Impresión',
@@ -47,6 +50,8 @@ const ProductTemplateDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { hasPermission } = useAuthStore();
   const canUpdate = hasPermission(PERMISSIONS.UPDATE_PRODUCT_TEMPLATES);
+
+  const [selectedStepDef, setSelectedStepDef] = useState<StepDefinition | null>(null);
 
   const templateQuery = useProductTemplate(id ?? '');
 
@@ -229,6 +234,13 @@ const ProductTemplateDetailPage: React.FC = () => {
                                     {step.stepDefinition.name}
                                   </Typography>
                                 </Tooltip>
+                                <IconButton 
+                                  size="small" 
+                                  sx={{ p: 0.25 }}
+                                  onClick={() => setSelectedStepDef(step.stepDefinition)}
+                                >
+                                  <InfoOutlinedIcon fontSize="inherit" color="action" />
+                                </IconButton>
                                 <Chip
                                   label={step.isRequired ? 'Req' : 'Opc'}
                                   size="small"
@@ -249,6 +261,12 @@ const ProductTemplateDetailPage: React.FC = () => {
           );
         })}
       </Box>
+
+      <StepDefinitionDialog
+        open={Boolean(selectedStepDef)}
+        onClose={() => setSelectedStepDef(null)}
+        stepDefinition={selectedStepDef}
+      />
     </Box>
   );
 };
