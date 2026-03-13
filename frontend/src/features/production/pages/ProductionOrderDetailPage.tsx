@@ -40,7 +40,6 @@ import {
   type ProductionOrderStep,
   type ProductionOrderComponent,
   type ProductionStepStatus,
-  type ComponentPhase,
   type FieldDef,
 } from '../../../types/production.types';
 
