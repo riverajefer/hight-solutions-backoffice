@@ -31,6 +31,7 @@ export class ProductionOrdersService {
     const [orders, total] = await this.repo.findAllOrders({
       status: filters.status,
       search: filters.search,
+      workOrderId: filters.workOrderId,
       page: filters.page ?? 1,
       limit: filters.limit ?? 20,
     });

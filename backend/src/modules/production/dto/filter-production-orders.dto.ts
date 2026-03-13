@@ -1,4 +1,4 @@
-import { IsOptional, IsEnum, IsString, IsInt, Min } from 'class-validator';
+import { IsOptional, IsEnum, IsString, IsInt, Min, IsUUID } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { ProductionOrderStatus } from '../../../generated/prisma';
@@ -13,6 +13,11 @@ export class FilterProductionOrdersDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  workOrderId?: string;
 
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()

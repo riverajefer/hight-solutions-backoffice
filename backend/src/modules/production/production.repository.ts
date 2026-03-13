@@ -183,10 +183,11 @@ export class ProductionRepository {
 
   // ─── Production Orders ───────────────────────────────────────────────────────
 
-  findAllOrders(filters: { status?: ProductionOrderStatus; search?: string; page: number; limit: number }) {
+  findAllOrders(filters: { status?: ProductionOrderStatus; search?: string; workOrderId?: string; page: number; limit: number }) {
     const skip = (filters.page - 1) * filters.limit;
     const where = {
       ...(filters.status && { status: filters.status }),
+      ...(filters.workOrderId && { workOrderId: filters.workOrderId }),
       ...(filters.search && {
         OR: [
           { oprodNumber: { contains: filters.search, mode: 'insensitive' as const } },

@@ -36,6 +36,7 @@ export function useProductTemplate(id: string) {
 export function useProductionOrders(filters?: {
   status?: ProductionOrderStatus;
   search?: string;
+  workOrderId?: string;
   page?: number;
   limit?: number;
 }) {

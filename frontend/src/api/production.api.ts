@@ -74,6 +74,7 @@ export const productionApi = {
   getOrders: async (params?: {
     status?: ProductionOrderStatus;
     search?: string;
+    workOrderId?: string;
     page?: number;
     limit?: number;
   }): Promise<ProductionOrdersResponse> => {
