@@ -27,6 +27,7 @@ import {
   AccountTree as AccountTreeIcon,
   ReceiptLong as ReceiptLongIcon,
   AccessTime as AccessTimeIcon,
+  PrecisionManufacturing as PrecisionManufacturingIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 
@@ -127,6 +128,7 @@ export const WorkOrderDetailPage = () => {
 
   const canUpdate = hasPermission(PERMISSIONS.UPDATE_WORK_ORDERS);
   const canCreateExpenseOrder = hasPermission(PERMISSIONS.CREATE_EXPENSE_ORDERS);
+  const canCreateProductionOrder = hasPermission(PERMISSIONS.CREATE_PRODUCTION_ORDERS);
 
   const workOrder = workOrderQuery.data;
 
@@ -318,6 +320,19 @@ export const WorkOrderDetailPage = () => {
               }
               color={theme.palette.warning.main}
               tooltip="Crear Orden de Gasto"
+            />
+          )}
+
+          {canCreateProductionOrder && (
+            <ToolbarButton
+              icon={<PrecisionManufacturingIcon />}
+              label="Producción"
+              secondaryLabel="Nueva"
+              onClick={() =>
+                navigate(`${ROUTES.PRODUCTION_ORDERS_CREATE}?workOrderId=${id}`)
+              }
+              color={theme.palette.info.main}
+              tooltip="Crear Orden de Producción"
             />
           )}
 

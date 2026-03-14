@@ -2,6 +2,7 @@ import { useState, useEffect, type FC, type ReactNode } from 'react';
 import { Box, useMediaQuery, useTheme } from '@mui/material';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
+import { EnvironmentBanner } from './EnvironmentBanner';
 import { useHeartbeat } from '../../hooks/useHeartbeat';
 
 interface MainLayoutProps {
@@ -69,6 +70,7 @@ export const MainLayout: FC<MainLayoutProps> = ({ children }) => {
       />
 
       <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+        <EnvironmentBanner />
         <Topbar onMenuClick={handleMenuClick} />
 
         <Box

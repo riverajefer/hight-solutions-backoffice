@@ -118,6 +118,7 @@ export class OrderEditRequestsService {
       request.order.orderNumber,
       order.status,
       request.order.id,
+      request.id,
       requesterName,
       requesterRole,
       dto.observations,
@@ -551,6 +552,7 @@ export class OrderEditRequestsService {
     orderNumber: string,
     orderStatus: string,
     orderId: string,
+    requestId: string,
     requesterName: string,
     requesterRole: string,
     observations: string,
@@ -575,15 +577,18 @@ export class OrderEditRequestsService {
         return;
       }
 
+      void orderStatus;
+
       const results = await Promise.allSettled(
         adminsWithPhone.map((admin) =>
-          this.whatsappService.notificarSolicitudEdicionOP(
+          this.whatsappService.notificarSolicitudConBotones(
             admin.phone!,
             requesterName,
             requesterRole,
             orderNumber,
             observations,
             orderId,
+            requestId,
           ),
         ),
       );
