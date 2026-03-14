@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHmac } from 'crypto';
+import { PrismaService } from '../../database/prisma.service';
 
 @Injectable()
 export class WhatsappService {
@@ -12,7 +13,10 @@ export class WhatsappService {
   private readonly isConfigured: boolean;
   private readonly actionSecret: string;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
+  ) {
     this.accessToken =
       this.configService.get<string>('whatsapp.accessToken') || '';
     this.phoneNumberId =
@@ -323,10 +327,17 @@ export class WhatsappService {
   }
 
   /**
-   * Envía notificación de solicitud de edición de OP con botones interactivos.
-   * Flujo de 2 mensajes:
-   *   1. Template existente para abrir ventana de conversación de 24h en Meta.
-   *   2. Mensaje interactivo con 3 botones firmados con HMAC.
+   * Envía notificación de solicitud de edición de OP usando el template
+   * "solicitud_edicion_op_v2" que incluye 3 botones integrados:
+   *   - URL "🔗 Ver Orden" (botón 0, sufijo dinámico con orderId)
+   *   - Quick Reply "✅ Autorizar" (botón 1, payload APPROVE)
+   *   - Quick Reply "❌ Rechazar" (botón 2, payload REJECT)
+   *
+   * Después de enviar, guarda el messageId en DB para que el webhook pueda
+   * resolver qué solicitud aprobar/rechazar cuando el admin toque un botón.
+   *
+   * IMPORTANTE: Los templates con quick-reply NO requieren ventana activa de 24h,
+   * a diferencia de los mensajes interactivos no-template.
    */
   async notificarSolicitudConBotones(
     telefono: string,
@@ -337,41 +348,42 @@ export class WhatsappService {
     orderId: string,
     requestId: string,
   ): Promise<void> {
-    // 1. Abrir ventana de conversación con el template existente
-    await this.notificarSolicitudEdicionOP(
-      telefono,
-      nombreSolicitante,
-      rolSolicitante,
-      numeroOrden,
-      motivo,
-      orderId,
-    );
-
-    // 2. Generar HMAC por admin (phone normalizado) para cada acción
     const normalizedPhone = this.normalizePhone(telefono);
-    const approveHmac = this.generateActionHmac(
-      'approve',
-      requestId,
-      normalizedPhone,
-    );
-    const rejectHmac = this.generateActionHmac(
-      'reject',
-      requestId,
-      normalizedPhone,
+
+    // Enviar template v2 que ya contiene los 3 botones
+    const messageId = await this.sendTemplateMessage(
+      telefono,
+      'solicitud_edicion_op_v2',
+      [nombreSolicitante, rolSolicitante, numeroOrden, motivo],
+      'es_CO',
+      [{ index: 0, text: orderId }], // sufijo dinámico del botón URL "Ver Orden"
     );
 
-    // 3. Enviar mensaje interactivo con 3 botones
-    const bodyText =
-      `📋 *Solicitud de edición de Orden de Pedido*\n\n` +
-      `*Orden:* ${numeroOrden}\n` +
-      `*Solicitante:* ${nombreSolicitante} (${rolSolicitante})\n` +
-      `*Motivo:* ${motivo}\n\n` +
-      `¿Qué deseas hacer?`;
+    if (!messageId) {
+      this.logger.warn(
+        `Could not save WhatsApp action context for request ${requestId}: no messageId returned`,
+      );
+      return;
+    }
 
-    await this.sendInteractiveButtonMessage(telefono, bodyText, [
-      { id: `view:${requestId}`, title: '🔗 Ver Orden' },
-      { id: `approve:${requestId}:${approveHmac}`, title: '✅ Autorizar' },
-      { id: `reject:${requestId}:${rejectHmac}`, title: '❌ Rechazar' },
-    ]);
+    // Guardar contexto messageId → requestId para que el webhook lo resuelva
+    try {
+      await this.prisma.whatsappActionContext.create({
+        data: {
+          messageId,
+          requestId,
+          adminPhone: normalizedPhone,
+          expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000), // 48 horas
+        },
+      });
+      this.logger.debug(
+        `WhatsApp action context saved: messageId=${messageId} requestId=${requestId}`,
+      );
+    } catch (error) {
+      // No es crítico: si falla el guardado, el admin puede seguir gestionando desde el sistema
+      this.logger.error(
+        `Failed to save WhatsApp action context for messageId=${messageId}: ${error.message}`,
+      );
+    }
   }
 }

@@ -161,6 +161,18 @@ export const PERMISSION_LABELS: Record<string, string> = {
   create_inventory_movements: 'Crear Movimientos de Inventario',
   read_inventory_movements: 'Ver Movimientos de Inventario',
   manage_inventory: 'Gestionar Inventario',
+
+  // Producción — Plantillas de Producto
+  read_product_templates: 'Ver Plantillas de Producto',
+  create_product_templates: 'Crear Plantillas de Producto',
+  update_product_templates: 'Actualizar Plantillas de Producto',
+  delete_product_templates: 'Eliminar Plantillas de Producto',
+  read_step_definitions: 'Ver Etapas de Producción',
+
+  // Producción — Órdenes de Producción
+  read_production_orders: 'Ver Órdenes de Producción',
+  create_production_orders: 'Crear Órdenes de Producción',
+  update_production_orders: 'Actualizar Órdenes de Producción',
 };
 
 /**
