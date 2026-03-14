@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { createHmac } from 'crypto';
 
 @Injectable()
 export class WhatsappService {
@@ -9,6 +10,7 @@ export class WhatsappService {
   private readonly phoneNumberId: string;
   private readonly frontendUrl: string;
   private readonly isConfigured: boolean;
+  private readonly actionSecret: string;
 
   constructor(private readonly configService: ConfigService) {
     this.accessToken =
@@ -22,6 +24,8 @@ export class WhatsappService {
     this.frontendUrl =
       this.configService.get<string>('app.frontendUrl') ||
       'http://localhost:5173';
+    this.actionSecret =
+      this.configService.get<string>('whatsapp.actionSecret') || '';
     this.isConfigured = !!(this.accessToken && this.phoneNumberId);
 
     if (!this.isConfigured) {
@@ -164,5 +168,210 @@ export class WhatsappService {
       'es_CO',
       [{ index: 0, text: orderId }],
     );
+  }
+
+  /**
+   * Genera un HMAC-SHA256 para firmar una acción de botón.
+   * El token vincula action + requestId + adminPhone para evitar replay y spoofing.
+   * Retorna los primeros 32 caracteres en base64url.
+   */
+  generateActionHmac(
+    action: string,
+    requestId: string,
+    adminPhone: string,
+  ): string {
+    return createHmac('sha256', this.actionSecret)
+      .update(`${action}:${requestId}:${adminPhone}`)
+      .digest('base64url')
+      .slice(0, 32);
+  }
+
+  /**
+   * Valida un HMAC de acción de botón.
+   */
+  validateActionHmac(
+    action: string,
+    requestId: string,
+    adminPhone: string,
+    receivedHmac: string,
+  ): boolean {
+    const expected = this.generateActionHmac(action, requestId, adminPhone);
+    return expected === receivedHmac;
+  }
+
+  /**
+   * Envía un mensaje interactivo con hasta 3 botones de respuesta rápida.
+   * A diferencia de los templates, los IDs de botón son dinámicos — pueden
+   * incluir HMAC y contexto de la solicitud.
+   */
+  async sendInteractiveButtonMessage(
+    to: string,
+    bodyText: string,
+    buttons: Array<{ id: string; title: string }>,
+  ): Promise<string | null> {
+    if (!this.isConfigured) {
+      this.logger.warn(
+        `WhatsApp not configured. Skipping interactive message to ${to}`,
+      );
+      return null;
+    }
+
+    const normalizedTo = this.normalizePhone(to);
+
+    const body = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: normalizedTo,
+      type: 'interactive',
+      interactive: {
+        type: 'button',
+        body: { text: bodyText },
+        action: {
+          buttons: buttons.map((btn) => ({
+            type: 'reply',
+            reply: { id: btn.id, title: btn.title },
+          })),
+        },
+      },
+    };
+
+    try {
+      const response = await fetch(this.baseUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const metaError = data?.error?.message || response.statusText;
+        this.logger.error(
+          `Failed to send interactive message to ${normalizedTo}: ${metaError}`,
+        );
+        return null;
+      }
+
+      const messageId = data?.messages?.[0]?.id;
+      this.logger.log(
+        `Interactive button message sent to ${normalizedTo}. MessageId: ${messageId}`,
+      );
+      return messageId || null;
+    } catch (error) {
+      this.logger.error(
+        `Failed to send interactive message to ${normalizedTo}: ${error.message}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Envía un mensaje de texto simple (para confirmaciones de webhook).
+   */
+  async sendTextMessage(to: string, text: string): Promise<string | null> {
+    if (!this.isConfigured) {
+      this.logger.warn(
+        `WhatsApp not configured. Skipping text message to ${to}`,
+      );
+      return null;
+    }
+
+    const normalizedTo = this.normalizePhone(to);
+
+    const body = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: normalizedTo,
+      type: 'text',
+      text: { body: text },
+    };
+
+    try {
+      const response = await fetch(this.baseUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const metaError = data?.error?.message || response.statusText;
+        this.logger.error(
+          `Failed to send text message to ${normalizedTo}: ${metaError}`,
+        );
+        return null;
+      }
+
+      const messageId = data?.messages?.[0]?.id;
+      this.logger.log(
+        `Text message sent to ${normalizedTo}. MessageId: ${messageId}`,
+      );
+      return messageId || null;
+    } catch (error) {
+      this.logger.error(
+        `Failed to send text message to ${normalizedTo}: ${error.message}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Envía notificación de solicitud de edición de OP con botones interactivos.
+   * Flujo de 2 mensajes:
+   *   1. Template existente para abrir ventana de conversación de 24h en Meta.
+   *   2. Mensaje interactivo con 3 botones firmados con HMAC.
+   */
+  async notificarSolicitudConBotones(
+    telefono: string,
+    nombreSolicitante: string,
+    rolSolicitante: string,
+    numeroOrden: string,
+    motivo: string,
+    orderId: string,
+    requestId: string,
+  ): Promise<void> {
+    // 1. Abrir ventana de conversación con el template existente
+    await this.notificarSolicitudEdicionOP(
+      telefono,
+      nombreSolicitante,
+      rolSolicitante,
+      numeroOrden,
+      motivo,
+      orderId,
+    );
+
+    // 2. Generar HMAC por admin (phone normalizado) para cada acción
+    const normalizedPhone = this.normalizePhone(telefono);
+    const approveHmac = this.generateActionHmac(
+      'approve',
+      requestId,
+      normalizedPhone,
+    );
+    const rejectHmac = this.generateActionHmac(
+      'reject',
+      requestId,
+      normalizedPhone,
+    );
+
+    // 3. Enviar mensaje interactivo con 3 botones
+    const bodyText =
+      `📋 *Solicitud de edición de Orden de Pedido*\n\n` +
+      `*Orden:* ${numeroOrden}\n` +
+      `*Solicitante:* ${nombreSolicitante} (${rolSolicitante})\n` +
+      `*Motivo:* ${motivo}\n\n` +
+      `¿Qué deseas hacer?`;
+
+    await this.sendInteractiveButtonMessage(telefono, bodyText, [
+      { id: `view:${requestId}`, title: '🔗 Ver Orden' },
+      { id: `approve:${requestId}:${approveHmac}`, title: '✅ Autorizar' },
+      { id: `reject:${requestId}:${rejectHmac}`, title: '❌ Rechazar' },
+    ]);
   }
 }
