@@ -44,6 +44,7 @@ import { HealthModule } from './health/health.module';
 import { PayrollModule } from './modules/payroll/payroll.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { ProductionModule } from './modules/production/production.module';
 
 @Module({
   imports: [
@@ -116,6 +117,8 @@ import { InventoryModule } from './modules/inventory/inventory.module';
     AttendanceModule,
     // Módulo de Inventario y Movimientos de Insumos
     InventoryModule,
+    // Módulo de Producción — Plantillas y Órdenes de Producción
+    ProductionModule,
   ],
   providers: [
     {

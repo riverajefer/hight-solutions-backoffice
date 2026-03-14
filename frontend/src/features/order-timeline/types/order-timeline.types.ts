@@ -27,6 +27,24 @@ export interface OrderTreeNode {
   responsibleName?: string | null;
   /** Solo presente en nodos OG: administrador que autorizó el estado AUTHORIZED. */
   authorizedByName?: string | null;
+  /** Solo presente en nodos OP: fecha de entrega estimada. */
+  deliveryDate?: string | null;
+  /** Solo presente en nodos OP: cantidad de items en la orden. */
+  itemsCount?: number;
+  /** Solo presente en nodos OP: cantidad de órdenes de trabajo. */
+  workOrdersCount?: number;
+  /** Solo presente en nodos OT: cantidad de items en la OT. */
+  otItemsCount?: number;
+  /** Solo presente en nodos OT: cantidad de órdenes de gasto asociadas. */
+  expenseOrdersCount?: number;
+  /** Solo presente en nodos OT: nombre del archivo de diseño. */
+  fileName?: string | null;
+  /** Solo presente en nodos OG: cantidad de items en la OG. */
+  ogItemsCount?: number;
+  /** Solo presente en nodos OG: tipo de gasto. */
+  expenseTypeName?: string | null;
+  /** Solo presente en nodos OG: subcategoría de gasto. */
+  expenseSubcategoryName?: string | null;
 }
 
 export interface OrderTreeEdge {

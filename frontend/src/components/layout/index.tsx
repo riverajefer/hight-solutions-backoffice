@@ -1,5 +1,6 @@
 import type { FC, ReactNode } from 'react';
 import { Box, Container } from '@mui/material';
+import { EnvironmentBanner } from './EnvironmentBanner';
 
 export { MainLayout } from './MainLayout';
 
@@ -12,7 +13,9 @@ interface AuthLayoutProps {
  */
 export const AuthLayout: FC<AuthLayoutProps> = ({ children }) => {
   return (
-    <Box
+    <>
+      <EnvironmentBanner />
+      <Box
       sx={{
         display: 'flex',
         alignItems: 'center',
@@ -27,5 +30,6 @@ export const AuthLayout: FC<AuthLayoutProps> = ({ children }) => {
         {children}
       </Container>
     </Box>
+    </>
   );
 };

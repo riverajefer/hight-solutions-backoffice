@@ -29,6 +29,24 @@ export interface OrderTreeNode {
   responsibleName?: string | null;
   /** Solo presente en nodos OG: usuario administrador que autorizó el estado AUTHORIZED. */
   authorizedByName?: string | null;
+  /** Solo presente en nodos OP: fecha de entrega estimada. */
+  deliveryDate?: string | null;
+  /** Solo presente en nodos OP: cantidad de items en la orden. */
+  itemsCount?: number;
+  /** Solo presente en nodos OP: cantidad de órdenes de trabajo. */
+  workOrdersCount?: number;
+  /** Solo presente en nodos OT: cantidad de items en la OT. */
+  otItemsCount?: number;
+  /** Solo presente en nodos OT: cantidad de órdenes de gasto asociadas. */
+  expenseOrdersCount?: number;
+  /** Solo presente en nodos OT: nombre del archivo de diseño. */
+  fileName?: string | null;
+  /** Solo presente en nodos OG: cantidad de items en la OG. */
+  ogItemsCount?: number;
+  /** Solo presente en nodos OG: tipo de gasto. */
+  expenseTypeName?: string | null;
+  /** Solo presente en nodos OG: subcategoría de gasto. */
+  expenseSubcategoryName?: string | null;
 }
 
 export interface OrderTreeEdge {
@@ -75,9 +93,11 @@ export class OrderTimelineService {
         status: true,
         total: true,
         balance: true,
+        deliveryDate: true,
         createdAt: true,
         createdBy: { select: { firstName: true, lastName: true } },
         client: { select: { name: true } },
+        _count: { select: { items: true, workOrders: true } },
         quote: {
           select: {
             id: true,
@@ -97,8 +117,10 @@ export class OrderTimelineService {
             status: true,
             createdAt: true,
             updatedAt: true,
+            fileName: true,
             advisor: { select: { firstName: true, lastName: true } },
             designer: { select: { firstName: true, lastName: true } },
+            _count: { select: { items: true, expenseOrders: true } },
             order: {
               select: {
                 total: true,
@@ -115,9 +137,12 @@ export class OrderTimelineService {
                 authorizedTo: { select: { firstName: true, lastName: true } },
                 authorizedBy: { select: { firstName: true, lastName: true } },
                 responsible: { select: { firstName: true, lastName: true } },
+                expenseType: { select: { name: true } },
+                expenseSubcategory: { select: { name: true } },
                 items: {
                   select: { total: true },
                 },
+                _count: { select: { items: true } },
                 workOrder: {
                   select: {
                     order: {
@@ -177,6 +202,11 @@ export class OrderTimelineService {
       endedAt: null,
       createdByName: this.buildUserDisplayName(order.createdBy),
       pendingBalance: order.balance != null ? Number(order.balance) : null,
+      deliveryDate: order.deliveryDate
+        ? order.deliveryDate.toISOString()
+        : null,
+      itemsCount: order._count.items,
+      workOrdersCount: order._count.workOrders,
     });
 
     // Add WorkOrder nodes and their ExpenseOrders
@@ -197,6 +227,9 @@ export class OrderTimelineService {
         designerName: wo.designer
           ? this.buildUserDisplayName(wo.designer)
           : null,
+        otItemsCount: wo._count.items,
+        expenseOrdersCount: wo._count.expenseOrders,
+        fileName: wo.fileName ?? null,
       });
       edges.push({ source: order.id, target: wo.id });
 
@@ -223,6 +256,9 @@ export class OrderTimelineService {
           responsibleName: eo.responsible
             ? this.buildUserDisplayName(eo.responsible)
             : null,
+          ogItemsCount: eo._count.items,
+          expenseTypeName: eo.expenseType?.name ?? null,
+          expenseSubcategoryName: eo.expenseSubcategory?.name ?? null,
         });
         edges.push({ source: wo.id, target: eo.id });
       }

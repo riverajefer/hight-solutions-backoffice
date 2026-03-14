@@ -13,12 +13,16 @@ import '@xyflow/react/dist/style.css';
 import { useTheme, alpha } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import OrderFlowNode from './OrderFlowNode';
+import ProductionOrderDetailsNode from './ProductionOrderDetailsNode';
 import type { OrderFlowNodeData } from './OrderFlowNode';
 import { getLayoutedElements } from '../utils/layout';
 import type { OrderTreeResponse } from '../types/order-timeline.types';
 import { useOrderProfitability } from '../../orders/hooks';
 
-const nodeTypes = { orderNode: OrderFlowNode };
+const nodeTypes = { 
+  orderNode: OrderFlowNode, 
+  productionDetails: ProductionOrderDetailsNode 
+};
 
 interface OrderFlowDiagramProps {
   data: OrderTreeResponse;
@@ -129,6 +133,8 @@ export default function OrderFlowDiagram({ data }: OrderFlowDiagramProps) {
           durationMs: 0,
           isOngoing: false,
           _utilityColor: utilityColor,
+          _totalIncome: profitabilityData.orderTotal,
+          _totalExpenses: profitabilityData.totalExpenses,
         } as Record<string, unknown>,
         selectable: false,
         draggable: true,
@@ -154,7 +160,61 @@ export default function OrderFlowDiagram({ data }: OrderFlowDiagramProps) {
       });
     }
 
+    // Production details nodes are positioned manually (not through dagre)
+    const prodNodes: Node[] = [];
+    const prodEdges: Edge[] = [];
+    const otNodes = nodes.filter((n) => (n.data as Record<string, unknown>)?.type === 'OT');
+    for (const otNode of otNodes) {
+      const detailsNodeId = `prod-details-${otNode.id}`;
+
+      prodNodes.push({
+        id: detailsNodeId,
+        type: 'productionDetails',
+        position: { x: 0, y: 0 }, // will be set after dagre layout
+        data: { workOrderId: otNode.id },
+        selectable: false,
+        draggable: true,
+      });
+
+      prodEdges.push({
+        id: `e-${otNode.id}-${detailsNodeId}`,
+        source: otNode.id,
+        sourceHandle: 'bottom',
+        target: detailsNodeId,
+        targetHandle: null,
+        type: 'smoothstep',
+        animated: true,
+        style: {
+          stroke: isDark ? alpha('#F59E0B', 0.5) : alpha('#D97706', 0.4),
+          strokeWidth: 2,
+          strokeDasharray: '4,4',
+        },
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: isDark ? alpha('#F59E0B', 0.8) : alpha('#D97706', 0.8),
+          width: 14,
+          height: 14,
+        },
+      });
+    }
+
     const { nodes: ln, edges: le } = getLayoutedElements(nodes, edges, 'LR');
+
+    // Position production nodes below their OT parent
+    for (const pn of prodNodes) {
+      const parentOtId = (pn.data as Record<string, unknown>).workOrderId as string;
+      const parentLayouted = ln.find((n) => n.id === parentOtId);
+      if (parentLayouted) {
+        pn.position = {
+          x: parentLayouted.position.x - 20,
+          y: parentLayouted.position.y + 300,
+        };
+      }
+    }
+
+    ln.push(...prodNodes);
+    le.push(...prodEdges);
+
     return { layoutedNodes: ln, layoutedEdges: le };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, isDark, profitabilityData]);
