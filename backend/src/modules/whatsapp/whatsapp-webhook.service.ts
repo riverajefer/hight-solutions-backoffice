@@ -69,7 +69,9 @@ export class WhatsappWebhookService {
 
   /**
    * Procesa el payload del webhook de Meta.
-   * Solo actúa sobre mensajes interactivos de tipo button_reply.
+   * Maneja dos tipos de respuestas de botones:
+   *   - type: "button"       → respuesta a quick-reply de template (flujo principal)
+   *   - type: "interactive"  → respuesta a mensaje interactivo (legacy / fallback)
    * Responde siempre HTTP 200 para evitar reintentos de Meta.
    */
   async processWebhook(body: Record<string, any>): Promise<void> {
@@ -78,30 +80,182 @@ export class WhatsappWebhookService {
         body?.entry?.[0]?.changes?.[0]?.value?.messages;
 
       if (!messages || messages.length === 0) {
-        // Puede ser un evento de status de mensaje (sent/delivered/read) — ignorar
+        // Puede ser un evento de status (sent/delivered/read) — ignorar
         return;
       }
 
       const message = messages[0];
+      const fromPhone: string = message.from;
 
-      if (
-        message?.type !== 'interactive' ||
-        message?.interactive?.type !== 'button_reply'
-      ) {
+      // Caso 1: Quick-reply de template (solicitud_edicion_op_v2)
+      if (message.type === 'button') {
+        const payload: string = message?.button?.payload; // "APPROVE" | "REJECT"
+        const contextMessageId: string = message?.context?.id; // wamid del template enviado
         this.logger.debug(
-          `Ignoring non-button webhook message type: ${message?.type}`,
+          `Template button reply from=${fromPhone} payload=${payload} contextId=${contextMessageId}`,
         );
+        await this.handleTemplateButtonReply(fromPhone, payload, contextMessageId);
         return;
       }
 
-      const fromPhone: string = message.from;
-      const buttonId: string = message.interactive.button_reply.id;
+      // Caso 2: Interactive message button_reply (legacy, por si se usa en el futuro)
+      if (
+        message.type === 'interactive' &&
+        message?.interactive?.type === 'button_reply'
+      ) {
+        const buttonId: string = message.interactive.button_reply.id;
+        this.logger.debug(
+          `Interactive button reply from=${fromPhone} buttonId=${buttonId}`,
+        );
+        await this.handleButtonReply(fromPhone, buttonId);
+        return;
+      }
 
-      await this.handleButtonReply(fromPhone, buttonId);
+      this.logger.debug(
+        `Ignoring webhook message type: ${message?.type}`,
+      );
     } catch (error) {
       // Logueamos el error pero NO relanzamos — Meta reintentaría si devolvemos != 200
       this.logger.error(`Error processing webhook: ${error.message}`, error.stack);
     }
+  }
+
+  /**
+   * Procesa la respuesta a un botón quick-reply de un template de WhatsApp.
+   * Resuelve el requestId a través del messageId original guardado en DB.
+   *
+   * Payload de Meta cuando el admin toca un quick-reply de template:
+   * { type: "button", button: { payload: "APPROVE", text: "✅ Autorizar" },
+   *   context: { from: "business_phone", id: "wamid.ORIGINAL" }, from: "admin_phone" }
+   */
+  private async handleTemplateButtonReply(
+    fromPhone: string,
+    payload: string,
+    contextMessageId: string,
+  ): Promise<void> {
+    if (!payload || !contextMessageId) {
+      this.logger.warn(
+        `Template button reply missing payload or contextMessageId from ${fromPhone}`,
+      );
+      return;
+    }
+
+    // Meta envía como payload el texto del botón (UI de Business Manager no permite payload distinto)
+    // Aceptamos tanto los valores en español (desde Business Manager) como en inglés (Graph API)
+    const isApprove = ['APPROVE', 'Autorizar'].includes(payload);
+    const isReject = ['REJECT', 'Rechazar'].includes(payload);
+
+    if (!isApprove && !isReject) {
+      this.logger.debug(`Ignoring unknown template button payload: ${payload}`);
+      return;
+    }
+
+    // 1. Buscar el contexto de acción por messageId (guardado al enviar el template)
+    const ctx = await this.prisma.whatsappActionContext.findUnique({
+      where: { messageId: contextMessageId },
+    });
+
+    if (!ctx) {
+      this.logger.warn(
+        `No WhatsApp action context found for messageId=${contextMessageId}`,
+      );
+      await this.whatsappService.sendTextMessage(
+        fromPhone,
+        '⚠️ No se encontró el contexto de la solicitud. Accede al sistema para gestionarla.',
+      );
+      return;
+    }
+
+    if (ctx.expiresAt < new Date()) {
+      this.logger.warn(
+        `WhatsApp action context expired for messageId=${contextMessageId}`,
+      );
+      await this.whatsappService.sendTextMessage(
+        fromPhone,
+        '⚠️ El enlace de acción ha expirado. Accede al sistema para gestionar la solicitud.',
+      );
+      return;
+    }
+
+    // 2. Validar que el teléfono coincide con el admin original (anti-spoofing)
+    const phoneVariants = this.getPhoneVariants(fromPhone);
+    if (!phoneVariants.includes(ctx.adminPhone)) {
+      this.logger.warn(
+        `Phone mismatch: fromPhone=${fromPhone} expected=${ctx.adminPhone}`,
+      );
+      await this.whatsappService.sendTextMessage(
+        fromPhone,
+        '⚠️ No tienes permisos para realizar esta acción.',
+      );
+      return;
+    }
+
+    // 3. Buscar la solicitud en DB
+    const request = await this.prisma.orderEditRequest.findFirst({
+      where: { id: ctx.requestId },
+      include: {
+        requestedBy: {
+          select: { id: true, email: true, firstName: true, lastName: true },
+        },
+        order: { select: { id: true, orderNumber: true } },
+      },
+    });
+
+    if (!request) {
+      await this.whatsappService.sendTextMessage(
+        fromPhone,
+        '⚠️ Solicitud no encontrada.',
+      );
+      return;
+    }
+
+    if (request.status !== EditRequestStatus.PENDING) {
+      const statusLabel =
+        request.status === EditRequestStatus.APPROVED ? 'aprobada' : 'rechazada';
+      await this.whatsappService.sendTextMessage(
+        fromPhone,
+        `ℹ️ La solicitud de edición de la Orden *${request.order.orderNumber}* ya fue ${statusLabel} anteriormente.`,
+      );
+      return;
+    }
+
+    // 4. Buscar el admin por teléfono
+    const admin = await this.findAdminByPhone(fromPhone);
+
+    if (!admin) {
+      await this.whatsappService.sendTextMessage(
+        fromPhone,
+        '⚠️ No tienes permisos para realizar esta acción.',
+      );
+      return;
+    }
+
+    // 5. Ejecutar acción
+    if (isApprove) {
+      await this.approveRequest(request, admin.id, fromPhone);
+    } else {
+      await this.rejectRequest(request, admin.id, fromPhone);
+    }
+
+    // 6. Eliminar contexto (uso único — evita re-procesamiento)
+    await this.prisma.whatsappActionContext
+      .delete({ where: { messageId: contextMessageId } })
+      .catch(() => {
+        /* ignorar si ya fue eliminado */
+      });
+  }
+
+  /**
+   * Devuelve variantes de un número de teléfono para comparación flexible.
+   */
+  private getPhoneVariants(phone: string): string[] {
+    // Normalizar: quitar "+" y espacios
+    const clean = phone.replace(/[^\d]/g, '');
+    return [
+      clean,
+      `+${clean}`,
+      clean.startsWith('57') ? clean.slice(2) : null,
+    ].filter(Boolean) as string[];
   }
 
   /**

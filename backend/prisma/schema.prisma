@@ -724,6 +724,22 @@ model OrderEditRequest {
   @@map("order_edit_requests")
 }
 
+// Contexto de acción para botones quick-reply de templates de WhatsApp.
+// Vincula el messageId devuelto por Meta con la solicitud de edición correspondiente.
+// Se usa para resolver qué requestId aprobar/rechazar cuando el admin toca un botón.
+model WhatsappActionContext {
+  id         String   @id @default(uuid())
+  messageId  String   @unique  @map("message_id")  // wamid.XXX devuelto por Meta
+  requestId  String            @map("request_id")  // orderEditRequest.id
+  adminPhone String            @map("admin_phone") // teléfono normalizado E.164 sin "+"
+  expiresAt  DateTime          @map("expires_at")  // now + 48h
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([messageId])
+  @@index([expiresAt])
+  @@map("whatsapp_action_contexts")
+}
+
 model OrderStatusChangeRequest {
   id                String            @id @default(uuid())
   orderId           String            @map("order_id")

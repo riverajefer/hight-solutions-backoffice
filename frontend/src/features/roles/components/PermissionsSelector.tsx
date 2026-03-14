@@ -56,6 +56,8 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   // Producción 
   'Áreas de Producción': ['create_production_areas', 'read_production_areas', 'update_production_areas', 'delete_production_areas'],
   'Órdenes de Trabajo': ['create_work_orders', 'read_work_orders', 'update_work_orders', 'delete_work_orders'],
+  'Plantillas de Producto': ['read_product_templates', 'create_product_templates', 'update_product_templates', 'delete_product_templates', 'read_step_definitions'],
+  'Órdenes de Producción': ['read_production_orders', 'create_production_orders', 'update_production_orders'],
 
   // Gastos y Pagos
   'Tipos de Gasto': ['create_expense_types', 'read_expense_types', 'update_expense_types', 'delete_expense_types'],
@@ -110,7 +112,7 @@ const TABS = [
   },
   {
     label: 'Producción',
-    groups: ['Áreas de Producción', 'Órdenes de Trabajo'],
+    groups: ['Áreas de Producción', 'Órdenes de Trabajo', 'Plantillas de Producto', 'Órdenes de Producción'],
   },
   {
     label: 'Gastos y Pagos',
