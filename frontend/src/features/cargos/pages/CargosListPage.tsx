@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Box, Chip } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
-import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { GridRenderCellParams } from '@mui/x-data-grid';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { DataTable, ActionsCell } from '../../../components/common/DataTable';
 import { useCargos } from '../hooks/useCargos';
 import { Cargo } from '../../../types';
+import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../hooks';
 
 const CargosListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -30,7 +31,7 @@ const CargosListPage: React.FC = () => {
     }
   };
 
-  const columns: GridColDef[] = [
+  const rawColumns: ResponsiveGridColDef[] = useMemo(() => [
     {
       field: 'name',
       headerName: 'Nombre',
@@ -42,6 +43,7 @@ const CargosListPage: React.FC = () => {
       headerName: 'Área',
       flex: 1,
       minWidth: 150,
+      responsive: 'md',
       valueGetter: (value: Cargo['area']) => value?.name || '',
       renderCell: (params: GridRenderCellParams<Cargo>) => (
         <Chip
@@ -64,6 +66,7 @@ const CargosListPage: React.FC = () => {
       headerName: 'Descripción',
       flex: 2,
       minWidth: 200,
+      responsive: 'md',
     },
     {
       field: 'usersCount',
@@ -71,6 +74,7 @@ const CargosListPage: React.FC = () => {
       width: 100,
       align: 'center',
       headerAlign: 'center',
+      responsive: 'sm',
       renderCell: (params: GridRenderCellParams) => (
         <Chip
           label={params.value || 0}
@@ -108,10 +112,12 @@ const CargosListPage: React.FC = () => {
         />
       ),
     },
-  ];
+  ], [navigate]);
+
+  const columns = useResponsiveColumns(rawColumns);
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title="Cargos"
         subtitle="Gestiona los cargos de la organización"

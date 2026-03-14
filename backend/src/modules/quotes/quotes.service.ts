@@ -6,6 +6,7 @@ import {
 import { QuotesRepository } from './quotes.repository';
 import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { StorageService } from '../storage/storage.service';
 import {
   CreateQuoteDto,
   UpdateQuoteDto,
@@ -14,6 +15,7 @@ import {
   UpdateQuoteItemDto,
 } from './dto';
 import { QuoteStatus, OrderStatus, Prisma } from '../../generated/prisma';
+import { isValidQuoteTransition, getValidNextQuoteStatuses } from './quote-status-transitions';
 import { PrismaService } from '../../database/prisma.service';
 
 @Injectable()
@@ -23,6 +25,7 @@ export class QuotesService {
     private readonly consecutivesService: ConsecutivesService,
     private readonly prisma: PrismaService,
     private readonly auditLogsService: AuditLogsService,
+    private readonly storageService: StorageService,
   ) {}
 
   async findAll(filters: FilterQuotesDto) {
@@ -60,8 +63,11 @@ export class QuotesService {
         total: itemTotal,
         specifications: item.specifications || undefined,
         sortOrder: index + 1,
-        ...(item.serviceId && {
-          service: { connect: { id: item.serviceId } },
+        ...(item.productId && {
+          product: { connect: { id: item.productId } },
+        }),
+        ...(item.sampleImageId && {
+          sampleImageId: item.sampleImageId,
         }),
       };
 
@@ -108,6 +114,17 @@ export class QuotesService {
 
     if (oldQuote.status === QuoteStatus.CONVERTED) {
       throw new BadRequestException('Cannot update a converted quote');
+    }
+
+    // Validar transición de estado
+    if (updateQuoteDto.status && updateQuoteDto.status !== oldQuote.status) {
+      if (!isValidQuoteTransition(oldQuote.status as QuoteStatus, updateQuoteDto.status)) {
+        const validNext = getValidNextQuoteStatuses(oldQuote.status as QuoteStatus);
+        throw new BadRequestException(
+          `Transición no permitida: ${oldQuote.status} → ${updateQuoteDto.status}. ` +
+          `Transiciones válidas: ${validNext.length ? validNext.join(', ') : 'ninguna (estado terminal)'}.`,
+        );
+      }
     }
 
     const isConverting = updateQuoteDto.status === QuoteStatus.CONVERTED;
@@ -158,7 +175,8 @@ export class QuotesService {
               unitPrice: item.unitPrice,
               total: itemTotal,
               specifications: item.specifications || undefined,
-              ...(item.serviceId && { serviceId: item.serviceId }),
+              ...(item.productId && { productId: item.productId }),
+              ...(item.sampleImageId !== undefined && { sampleImageId: item.sampleImageId }),
             },
           });
           
@@ -186,7 +204,8 @@ export class QuotesService {
               total: itemTotal,
               specifications: item.specifications || undefined,
               sortOrder: currentItems.length - idsToDelete.length + i + 1,
-              ...(item.serviceId && { serviceId: item.serviceId }),
+              ...(item.productId && { productId: item.productId }),
+              ...(item.sampleImageId && { sampleImageId: item.sampleImageId }),
             },
           });
           
@@ -224,8 +243,10 @@ export class QuotesService {
 
   async remove(id: string) {
     const quote = await this.findOne(id);
-    if (quote.status === QuoteStatus.CONVERTED) {
-      throw new BadRequestException('Cannot delete a converted quote');
+    if (quote.status !== QuoteStatus.DRAFT && 
+        quote.status !== QuoteStatus.SENT && 
+        quote.status !== QuoteStatus.NO_RESPONSE) {
+      throw new BadRequestException('Only draft, sent or no response quotes can be deleted');
     }
     await this.quotesRepository.delete(id);
     return { message: 'Quote deleted successfully' };
@@ -256,23 +277,51 @@ export class QuotesService {
           paidAmount: 0,
           balance: quote.total,
           status: OrderStatus.DRAFT,
-          notes: `Convertida desde Cotización ${quote.quoteNumber}. ${quote.notes || ''}`,
+          notes: `${quote.notes || ''}\nRef: ${quote.quoteNumber}`,
           createdById: userId,
           commercialChannelId: quote.commercialChannelId,
           quote: { connect: { id: quote.id } }, // Link the quote
           items: {
-            create: quote.items.map((item) => ({
+            create: quote.items.map((item: any) => ({
               description: item.description,
               quantity: item.quantity,
               unitPrice: item.unitPrice,
               total: item.total,
               specifications: item.specifications || undefined,
               sortOrder: item.sortOrder,
-              serviceId: item.serviceId,
+              productId: item.productId,
             })),
           },
         },
+        include: {
+          items: true,
+        },
       });
+
+      // 2.5 Copy production areas from quote items to order items
+      const productionAreaInserts: { orderItemId: string; productionAreaId: string }[] = [];
+      for (const quoteItem of quote.items as any[]) {
+        if (quoteItem.productionAreas?.length > 0) {
+          // Match order item by sortOrder (same mapping order)
+          const orderItem = newOrder.items.find(
+            (oi) => oi.sortOrder === quoteItem.sortOrder,
+          );
+          if (orderItem) {
+            for (const pa of quoteItem.productionAreas) {
+              productionAreaInserts.push({
+                orderItemId: orderItem.id,
+                productionAreaId: pa.productionArea.id,
+              });
+            }
+          }
+        }
+      }
+
+      if (productionAreaInserts.length > 0) {
+        await tx.orderItemProductionArea.createMany({
+          data: productionAreaInserts,
+        });
+      }
 
       // 3. Update Quote status
       await tx.quote.update({
@@ -285,6 +334,94 @@ export class QuotesService {
 
       return newOrder;
     });
+  }
+
+  async uploadItemSampleImage(
+    quoteId: string,
+    itemId: string,
+    file: Express.Multer.File,
+    userId: string,
+  ) {
+    // Verify quote exists
+    const quote = await this.findOne(quoteId);
+
+    // Verify item belongs to this quote
+    const item = await this.prisma.quoteItem.findFirst({
+      where: {
+        id: itemId,
+        quoteId: quoteId,
+      },
+    });
+
+    if (!item) {
+      throw new NotFoundException(
+        `Quote item with ID ${itemId} not found in quote ${quoteId}`,
+      );
+    }
+
+    // If item already has a sample image, delete it first
+    if (item.sampleImageId) {
+      try {
+        await this.storageService.deleteFile(item.sampleImageId);
+      } catch (error) {
+        // Log error but continue - file might already be deleted
+        console.error(
+          `Failed to delete existing sample image ${item.sampleImageId}:`,
+          error,
+        );
+      }
+    }
+
+    // Upload new image
+    const uploadedFile = await this.storageService.uploadFile(file, {
+      entityType: 'quote-item',
+      entityId: itemId,
+      userId,
+    });
+
+    // Update quote item with new image ID
+    await this.prisma.quoteItem.update({
+      where: { id: itemId },
+      data: { sampleImageId: uploadedFile.id },
+    });
+
+    return uploadedFile;
+  }
+
+  async deleteItemSampleImage(quoteId: string, itemId: string) {
+    // Verify quote exists
+    const quote = await this.findOne(quoteId);
+
+    // Verify item belongs to this quote
+    const item = await this.prisma.quoteItem.findFirst({
+      where: {
+        id: itemId,
+        quoteId: quoteId,
+      },
+    });
+
+    if (!item) {
+      throw new NotFoundException(
+        `Quote item with ID ${itemId} not found in quote ${quoteId}`,
+      );
+    }
+
+    if (!item.sampleImageId) {
+      throw new BadRequestException(
+        `Quote item ${itemId} does not have a sample image`,
+      );
+    }
+
+    // Delete file from storage
+    await this.storageService.deleteFile(item.sampleImageId);
+
+    // Remove reference from quote item
+    await this.prisma.quoteItem.update({
+      where: { id: itemId },
+      data: { sampleImageId: null },
+    });
+
+    return { message: 'Sample image deleted successfully' };
   }
 
   private async recalculateQuoteTotals(id: string, tx: Prisma.TransactionClient) {
@@ -308,7 +445,7 @@ export class QuotesService {
       where: { id },
       data: { subtotal, tax, total },
       include: {
-        items: { include: { service: true } },
+        items: { include: { product: true } },
         client: true,
       },
     });

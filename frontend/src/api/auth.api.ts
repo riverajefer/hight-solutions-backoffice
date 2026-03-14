@@ -53,6 +53,14 @@ export const authApi = {
   },
 
   /**
+   * Cambiar contraseña del usuario autenticado
+   */
+  changePassword: async (data: { currentPassword: string; newPassword: string }): Promise<{ message: string }> => {
+    const response = await axiosInstance.post('/auth/change-password', data);
+    return response.data;
+  },
+
+  /**
    * Actualizar foto de perfil
    */
   updateProfilePhoto: async (data: UpdateProfilePhotoDto): Promise<{ id: string; profilePhoto: string | null }> => {

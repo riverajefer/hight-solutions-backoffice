@@ -21,7 +21,10 @@ import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { useClients, useClient } from '../hooks/useClients';
 import { useDepartments, useCitiesByDepartment } from '../../locations/hooks/useLocations';
+import { useUsers } from '../../users/hooks/useUsers';
 import { CreateClientDto, UpdateClientDto, Department, City } from '../../../types';
+import { useAuthStore } from '../../../store/authStore';
+import { PERMISSIONS } from '../../../utils/constants';
 
 // Zod validation schema with conditional validations
 const clientSchema = z.object({
@@ -41,11 +44,10 @@ const clientSchema = z.object({
     .or(z.literal('')),
   phone: z
     .string()
-    .min(10, 'El número de celular debe tener al menos 10 dígitos')
-    .max(20, 'El número de celular no puede exceder 20 caracteres'),
+    .length(10, 'El celular debe tener exactamente 10 dígitos'),
   landlinePhone: z
     .string()
-    .max(20, 'El teléfono fijo no puede exceder 20 caracteres')
+    .length(10, 'El teléfono fijo debe tener exactamente 10 dígitos')
     .optional()
     .or(z.literal('')),
   address: z
@@ -59,8 +61,13 @@ const clientSchema = z.object({
   personType: z.enum(['NATURAL', 'EMPRESA'], {
     errorMap: () => ({ message: 'Debe seleccionar un tipo de persona' }),
   }),
-  nit: z.string().optional().or(z.literal('')),
-  cedula: z.string().optional().or(z.literal('')),
+  nit: z.string().max(12, 'El NIT no puede exceder 12 caracteres').optional().or(z.literal('')),
+  cedula: z.string().max(10, 'La cédula no puede exceder 10 dígitos').optional().or(z.literal('')),
+  specialCondition: z
+    .string()
+    .max(500, 'La condición especial no puede exceder 500 caracteres')
+    .optional()
+    .or(z.literal('')),
 }).refine(
   (data) => {
     if (data.personType === 'EMPRESA') {
@@ -81,10 +88,21 @@ const ClientFormPage: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
   const { id } = useParams<{ id: string }>();
   const [error, setError] = useState<string | null>(null);
+  const { hasPermission, user } = useAuthStore();
+  const isAdmin = user?.role?.name === 'admin';
+  const canEditSpecialCondition = hasPermission(PERMISSIONS.UPDATE_CLIENT_SPECIAL_CONDITION);
+  const canAssignAdvisor = isAdmin || hasPermission(PERMISSIONS.APPROVE_CLIENT_OWNERSHIP_AUTH);
+
+  // Advisor state (managed outside Zod schema — admin-only field)
+  const [selectedAdvisorId, setSelectedAdvisorId] = useState<string | null | undefined>(undefined);
 
   const isEdit = !!id;
   const { data: client, isLoading: isLoadingClient } = useClient(id || '');
-  const { createClientMutation, updateClientMutation } = useClients();
+  const { createClientMutation, updateClientMutation, updateSpecialConditionMutation } = useClients();
+
+  // Users (for advisor selection — admin only)
+  const { usersQuery } = useUsers();
+  const users = usersQuery.data || [];
 
   // Location data
   const { data: departments, isLoading: isLoadingDepartments } = useDepartments();
@@ -111,6 +129,7 @@ const ClientFormPage: React.FC = () => {
       personType: 'NATURAL',
       nit: '',
       cedula: '',
+      specialCondition: '',
     },
   });
 
@@ -124,9 +143,30 @@ const ClientFormPage: React.FC = () => {
   // Reset city when department changes (only if not editing or department actually changed)
   useEffect(() => {
     if (watchDepartmentId && !isEdit) {
+      // Check if it's the default Cundinamarca -> Bogotá case
+      const cundinamarca = departments?.find(d => d.name.toLowerCase().includes('cundinamarca'));
+      if (watchDepartmentId === cundinamarca?.id) {
+        const bogota = cities?.find(c => c.name.toLowerCase().includes('bogotá') || c.name.toLowerCase().includes('bogota'));
+        if (bogota && !watch('cityId')) {
+          setValue('cityId', bogota.id);
+          return;
+        }
+      }
       setValue('cityId', '');
     }
-  }, [watchDepartmentId, setValue, isEdit]);
+  }, [watchDepartmentId, setValue, isEdit, departments, cities, watch]);
+
+  // Set default Department (Cundinamarca)
+  useEffect(() => {
+    if (departments && departments.length > 0 && !watchDepartmentId && !isEdit) {
+      const cundinamarca = departments.find(d => 
+        d.name.toLowerCase().includes('cundinamarca')
+      );
+      if (cundinamarca) {
+        setValue('departmentId', cundinamarca.id);
+      }
+    }
+  }, [departments, watchDepartmentId, setValue, isEdit]);
 
   // Clear NIT/Cedula when personType changes
   useEffect(() => {
@@ -153,7 +193,10 @@ const ClientFormPage: React.FC = () => {
         personType: client.personType,
         nit: client.nit || '',
         cedula: client.cedula || '',
+        specialCondition: client.specialCondition || '',
       });
+      // Pre-populate advisor state
+      setSelectedAdvisorId(client.advisorId ?? null);
     }
   }, [client, isEdit, reset]);
 
@@ -162,24 +205,47 @@ const ClientFormPage: React.FC = () => {
       setError(null);
 
       // Clean data: remove empty strings, handle NIT/Cedula based on personType
+      // specialCondition is handled separately via its own endpoint
+      const { specialCondition, ...rest } = data;
       const cleanedData = {
-        ...data,
-        manager: data.manager || undefined,
-        encargado: data.encargado || undefined,
-        landlinePhone: data.landlinePhone || undefined,
-        address: data.address || undefined,
-        nit: data.personType === 'EMPRESA' ? data.nit : undefined,
-        cedula: data.personType === 'NATURAL' ? data.cedula : undefined,
+        ...rest,
+        manager: rest.manager || undefined,
+        encargado: rest.encargado || undefined,
+        landlinePhone: rest.landlinePhone || undefined,
+        address: rest.address || undefined,
+        nit: rest.personType === 'EMPRESA' ? rest.nit : undefined,
+        cedula: rest.personType === 'NATURAL' ? rest.cedula : undefined,
       };
 
       if (isEdit && id) {
+        const updatePayload: UpdateClientDto = {
+          ...(cleanedData as UpdateClientDto),
+          // Include advisorId only if admin/authorized and it was explicitly set
+          ...(canAssignAdvisor && selectedAdvisorId !== undefined
+            ? { advisorId: selectedAdvisorId }
+            : {}),
+        };
         await updateClientMutation.mutateAsync({
           id,
-          data: cleanedData as UpdateClientDto,
+          data: updatePayload,
         });
+        // Update special condition separately if user has permission
+        if (canEditSpecialCondition) {
+          await updateSpecialConditionMutation.mutateAsync({
+            id,
+            data: { specialCondition: specialCondition || null },
+          });
+        }
         enqueueSnackbar('Cliente actualizado correctamente', { variant: 'success' });
       } else {
-        await createClientMutation.mutateAsync(cleanedData as CreateClientDto);
+        const created = await createClientMutation.mutateAsync(cleanedData as CreateClientDto);
+        // Set special condition on new client if user has permission and value is provided
+        if (canEditSpecialCondition && specialCondition) {
+          await updateSpecialConditionMutation.mutateAsync({
+            id: created.id,
+            data: { specialCondition },
+          });
+        }
         enqueueSnackbar('Cliente creado correctamente', { variant: 'success' });
       }
       navigate('/clients');
@@ -196,7 +262,7 @@ const ClientFormPage: React.FC = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title={isEdit ? 'Editar Cliente' : 'Nuevo Cliente'}
         breadcrumbs={[
@@ -205,7 +271,7 @@ const ClientFormPage: React.FC = () => {
         ]}
       />
 
-      <Card sx={{ maxWidth: 800 }}>
+      <Card sx={{ maxWidth: 800, p: { xs: 2, sm: 3 } }}>
         <CardContent>
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
@@ -281,9 +347,14 @@ const ClientFormPage: React.FC = () => {
                       label="Número de celular"
                       fullWidth
                       error={!!errors.phone}
-                      helperText={errors.phone?.message}
+                      helperText={errors.phone?.message || 'Máximo 10 dígitos'}
                       required
                       placeholder="3001234567"
+                      inputProps={{ maxLength: 10 }}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        field.onChange(val);
+                      }}
                     />
                   )}
                 />
@@ -300,8 +371,13 @@ const ClientFormPage: React.FC = () => {
                       label="Teléfono fijo"
                       fullWidth
                       error={!!errors.landlinePhone}
-                      helperText={errors.landlinePhone?.message}
+                      helperText={errors.landlinePhone?.message || 'Máximo 10 dígitos'}
                       placeholder="6012345678"
+                      inputProps={{ maxLength: 10 }}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        field.onChange(val);
+                      }}
                     />
                   )}
                 />
@@ -444,8 +520,13 @@ const ClientFormPage: React.FC = () => {
                         label="Cédula o nit"
                         fullWidth
                         error={!!errors.cedula}
-                        helperText={errors.cedula?.message}
+                        helperText={errors.cedula?.message || 'Máximo 10 dígitos'}
                         placeholder="1234567890"
+                        inputProps={{ maxLength: 10 }}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          field.onChange(val);
+                        }}
                       />
                     )}
                   />
@@ -461,7 +542,7 @@ const ClientFormPage: React.FC = () => {
                         label="NIT"
                         fullWidth
                         error={!!errors.nit}
-                        helperText={errors.nit?.message}
+                        helperText={errors.nit?.message || 'Máximo 10 dígitos'}
                         required
                         placeholder="900.123.456-7"
                       />
@@ -490,13 +571,84 @@ const ClientFormPage: React.FC = () => {
                 </Grid>
               )}
 
+              {/* Asesor responsable — solo visible para admin */}
+              {canAssignAdvisor && (
+                <Grid item xs={12} md={6}>
+                  <Autocomplete
+                    options={users}
+                    getOptionLabel={(option) =>
+                      option.firstName && option.lastName
+                        ? `${option.firstName} ${option.lastName} (${option.email})`
+                        : option.email ?? ''
+                    }
+                    value={users.find((u) => u.id === selectedAdvisorId) || null}
+                    onChange={(_, newValue) => {
+                      setSelectedAdvisorId(newValue?.id ?? null);
+                    }}
+                    loading={usersQuery.isLoading}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Asesor responsable"
+                        helperText="Asesor dueño de este cliente. Dejar vacío para sin asignar."
+                        InputProps={{
+                          ...params.InputProps,
+                          endAdornment: (
+                            <>
+                              {usersQuery.isLoading ? (
+                                <CircularProgress color="inherit" size={20} />
+                              ) : null}
+                              {params.InputProps.endAdornment}
+                            </>
+                          ),
+                        }}
+                      />
+                    )}
+                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                    noOptionsText="No se encontraron usuarios"
+                    clearText="Quitar asesor"
+                  />
+                </Grid>
+              )}
+
+              {/* Special Condition */}
+              <Grid item xs={12}>
+                <Controller
+                  name="specialCondition"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      label="Condición especial"
+                      fullWidth
+                      multiline
+                      rows={3}
+                      disabled={!canEditSpecialCondition}
+                      error={!!errors.specialCondition}
+                      helperText={
+                        errors.specialCondition?.message ||
+                        (!canEditSpecialCondition
+                          ? 'Requiere permiso especial para editar'
+                          : 'Información sensible: acuerdos, descuentos u observaciones especiales del cliente')
+                      }
+                      inputProps={{ maxLength: 500 }}
+                    />
+                  )}
+                />
+              </Grid>
+
               {/* Buttons */}
               <Grid item xs={12}>
-                <Stack direction="row" spacing={2} justifyContent="flex-end">
+                <Stack
+                  direction={{ xs: 'column-reverse', sm: 'row' }}
+                  spacing={2}
+                  justifyContent={{ sm: 'flex-end' }}
+                >
                   <Button
                     variant="outlined"
                     onClick={() => navigate('/clients')}
                     disabled={isSubmitting}
+                    sx={{ width: { xs: '100%', sm: 'auto' } }}
                   >
                     Cancelar
                   </Button>
@@ -504,6 +656,7 @@ const ClientFormPage: React.FC = () => {
                     type="submit"
                     variant="contained"
                     disabled={isSubmitting}
+                    sx={{ width: { xs: '100%', sm: 'auto' } }}
                   >
                     {isSubmitting
                       ? 'Guardando...'

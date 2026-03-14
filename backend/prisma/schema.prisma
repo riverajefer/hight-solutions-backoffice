@@ -10,7 +10,8 @@ datasource db {
 
 model User {
   id           String   @id @default(uuid())
-  email        String   @unique
+  username     String?  @unique
+  email        String?  @unique
   password     String
   refreshToken String?
   roleId       String
@@ -20,16 +21,41 @@ model User {
   updatedAt    DateTime @updatedAt
   firstName    String?
   lastName     String?
+  phone        String?
+  isActive           Boolean  @default(true)
+  mustChangePassword Boolean  @default(false)
 
-  role                  Role               @relation(fields: [roleId], references: [id])
-  cargo                 Cargo?             @relation(fields: [cargoId], references: [id])
-  sessionLogs           SessionLog[]
-  createdOrders         Order[]
-  receivedPayments      Payment[]          @relation("ReceivedPayments")
-  requestedEditRequests OrderEditRequest[] @relation("RequestedEditRequests")
-  reviewedEditRequests  OrderEditRequest[] @relation("ReviewedEditRequests")
-  notifications         Notification[]
-  createdQuotes         Quote[]
+  role                         Role                       @relation(fields: [roleId], references: [id])
+  cargo                        Cargo?                     @relation(fields: [cargoId], references: [id])
+  sessionLogs                  SessionLog[]
+  createdOrders                Order[]
+  receivedPayments             Payment[]                  @relation("ReceivedPayments")
+  requestedEditRequests        OrderEditRequest[]         @relation("RequestedEditRequests")
+  reviewedEditRequests         OrderEditRequest[]         @relation("ReviewedEditRequests")
+  requestedStatusChangeRequests OrderStatusChangeRequest[] @relation("RequestedStatusChangeRequests")
+  reviewedStatusChangeRequests  OrderStatusChangeRequest[] @relation("ReviewedStatusChangeRequests")
+  notifications                Notification[]
+  createdQuotes                Quote[]
+  appliedDiscounts             OrderDiscount[]            @relation("AppliedDiscounts")
+  advisedWorkOrders            WorkOrder[]                @relation("WorkOrderAdvisor")
+  designedWorkOrders           WorkOrder[]                @relation("WorkOrderDesigner")
+  workOrderTimeEntries         WorkOrderTimeEntry[]       @relation("WorkOrderTimeEntryUser")
+  authorizedExpenseOrders      ExpenseOrder[]             @relation("AuthorizedExpenseOrders")
+  responsibleExpenseOrders     ExpenseOrder[]             @relation("ResponsibleExpenseOrders")
+  createdExpenseOrders         ExpenseOrder[]             @relation("CreatedExpenseOrders")
+  approvedExpenseOrders        ExpenseOrder[]             @relation("ApprovedExpenseOrders")
+  requestedExpenseOrderAuthRequests  ExpenseOrderAuthRequest[]  @relation("RequestedExpenseOrderAuthRequests")
+  reviewedExpenseOrderAuthRequests   ExpenseOrderAuthRequest[]  @relation("ReviewedExpenseOrderAuthRequests")
+  requestedAdvancePaymentApprovals     AdvancePaymentApproval[]     @relation("RequestedAdvancePaymentApprovals")
+  reviewedAdvancePaymentApprovals      AdvancePaymentApproval[]     @relation("ReviewedAdvancePaymentApprovals")
+  advisedClients                       Client[]                     @relation("ClientAdvisor")
+  requestedClientOwnershipAuthRequests ClientOwnershipAuthRequest[] @relation("RequestedClientOwnershipAuthRequests")
+  advisedClientOwnershipAuthRequests   ClientOwnershipAuthRequest[] @relation("AdvisedClientOwnershipAuthRequests")
+  reviewedClientOwnershipAuthRequests  ClientOwnershipAuthRequest[] @relation("ReviewedClientOwnershipAuthRequests")
+  payrollEmployee                    Employee?
+  attendanceRecords                  AttendanceRecord[]
+  activityHeartbeats                 ActivityHeartbeat[]
+  inventoryMovements                 InventoryMovement[]
 
   @@map("users")
 }
@@ -58,7 +84,8 @@ model Cargo {
   areaId String
   area   Area   @relation(fields: [areaId], references: [id])
 
-  users User[]
+  users     User[]
+  employees Employee[]
 
   @@unique([name, areaId])
   @@map("cargos")
@@ -169,14 +196,17 @@ model Client {
   departmentId  String     @map("department_id")
   cityId        String     @map("city_id")
   personType    PersonType @map("person_type")
-  nit           String?
-  cedula        String?
-  isActive      Boolean    @default(true) @map("is_active")
+  nit              String?
+  cedula           String?
+  specialCondition String?  @map("special_condition")
+  isActive         Boolean  @default(true) @map("is_active")
+  advisorId        String?  @map("advisor_id")
   createdAt     DateTime   @default(now()) @map("created_at")
   updatedAt     DateTime   @updatedAt @map("updated_at")
 
   department Department @relation(fields: [departmentId], references: [id])
   city       City       @relation(fields: [cityId], references: [id])
+  advisor    User?      @relation("ClientAdvisor", fields: [advisorId], references: [id])
   orders     Order[]
   quotes     Quote[]
 
@@ -184,21 +214,24 @@ model Client {
 }
 
 model Supplier {
-  id           String     @id @default(uuid())
-  name         String
-  phone        String?
-  address      String?
-  email        String     @unique
-  departmentId String     @map("department_id")
-  cityId       String     @map("city_id")
-  personType   PersonType @map("person_type")
-  nit          String?
-  isActive     Boolean    @default(true) @map("is_active")
-  createdAt    DateTime   @default(now()) @map("created_at")
-  updatedAt    DateTime   @updatedAt @map("updated_at")
+  id            String     @id @default(uuid())
+  name          String
+  encargado     String?
+  phone         String?
+  landlinePhone String?    @map("landline_phone")
+  address       String?
+  email         String     @unique
+  departmentId  String     @map("department_id")
+  cityId        String     @map("city_id")
+  personType    PersonType @map("person_type")
+  nit           String?
+  isActive      Boolean    @default(true) @map("is_active")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
 
-  department Department @relation(fields: [departmentId], references: [id])
-  city       City       @relation(fields: [cityId], references: [id])
+  department        Department         @relation(fields: [departmentId], references: [id])
+  city              City               @relation(fields: [cityId], references: [id])
+  expenseOrderItems ExpenseOrderItem[]
 
   @@map("suppliers")
 }
@@ -245,10 +278,10 @@ model UnitOfMeasure {
 }
 
 // =============================================================================
-// MÓDULO DE CATÁLOGOS - FASE 2: CATEGORÍAS DE SERVICIOS
+// MÓDULO DE CATÁLOGOS - FASE 2: CATEGORÍAS DE PRODUCTOS
 // =============================================================================
 
-model ServiceCategory {
+model ProductCategory {
   id          String   @id @default(uuid())
   name        String   @unique
   slug        String   @unique
@@ -259,16 +292,16 @@ model ServiceCategory {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  services Service[]
+  products Product[]
 
-  @@map("service_categories")
+  @@map("product_categories")
 }
 
 // =============================================================================
-// MÓDULO DE CATÁLOGOS - FASE 3: SERVICIOS
+// MÓDULO DE CATÁLOGOS - FASE 3: PRODUCTOS
 // =============================================================================
 
-model Service {
+model Product {
   id          String   @id @default(uuid())
   name        String
   slug        String   @unique
@@ -280,12 +313,12 @@ model Service {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  category   ServiceCategory @relation(fields: [categoryId], references: [id])
+  category   ProductCategory @relation(fields: [categoryId], references: [id])
   orderItems OrderItem[]
   quoteItems QuoteItem[]
 
   @@unique([name, categoryId])
-  @@map("services")
+  @@map("products")
 }
 
 // =============================================================================
@@ -328,9 +361,11 @@ model Supply {
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
-  category          SupplyCategory @relation(fields: [categoryId], references: [id])
-  purchaseUnit      UnitOfMeasure  @relation("PurchaseUnit", fields: [purchaseUnitId], references: [id])
-  consumptionUnit   UnitOfMeasure  @relation("ConsumptionUnit", fields: [consumptionUnitId], references: [id])
+  category          SupplyCategory       @relation(fields: [categoryId], references: [id])
+  purchaseUnit      UnitOfMeasure        @relation("PurchaseUnit", fields: [purchaseUnitId], references: [id])
+  consumptionUnit   UnitOfMeasure        @relation("ConsumptionUnit", fields: [consumptionUnitId], references: [id])
+  workOrderItems    WorkOrderItemSupply[]
+  movements         InventoryMovement[]
 
   @@unique([name, categoryId])
   @@map("supplies")
@@ -341,23 +376,23 @@ model Supply {
 // =============================================================================
 
 enum OrderStatus {
-  DRAFT         // Borrador (editable)
-  CONFIRMED     // Confirmada (bloqueada para edición)
-  IN_PRODUCTION // En producción
-  READY         // Lista para entrega
-  DELIVERED     // Entregada
-  WARRANTY      // Garantía
-  RETURNED      // Devolución
-  PAID          // Pagada
+  DRAFT              // Borrador (editable)
+  CONFIRMED          // Confirmada (bloqueada para edición)
+  IN_PRODUCTION      // En producción
+  READY              // Lista para entrega
+  DELIVERED          // Entregada
+  DELIVERED_ON_CREDIT // Entregado a crédito
+  WARRANTY           // Garantía
+  PAID               // Pagada
+  RETURNED           // Devuelta
 }
 
 enum QuoteStatus {
   DRAFT
   SENT
   ACCEPTED
-  REJECTED
+  NO_RESPONSE   // Sin respuesta
   CONVERTED
-  CANCELLED
 }
 
 model Consecutive {
@@ -379,16 +414,34 @@ model Order {
   orderDate    DateTime    @default(now()) @map("order_date")
   deliveryDate DateTime?   @map("delivery_date") // Fecha estimada de entrega
 
+  // Auditoría de cambios de fecha de entrega
+  previousDeliveryDate DateTime? @map("previous_delivery_date") // Última fecha de entrega anterior
+  deliveryDateReason   String?   @map("delivery_date_reason") // Razón del cambio de fecha
+  deliveryDateChangedAt DateTime? @map("delivery_date_changed_at") // Fecha del último cambio
+  deliveryDateChangedBy String?   @map("delivery_date_changed_by") // Usuario que cambió la fecha
+
   // Cálculos financieros
-  subtotal     Decimal     // Suma de todos los items
-  taxRate      Decimal     @default(0.19) @map("tax_rate") // IVA 19%
-  tax          Decimal     // subtotal * taxRate
-  total        Decimal     // subtotal + tax
-  paidAmount   Decimal     @default(0) @map("paid_amount") // Abonos realizados
-  balance      Decimal     // total - paidAmount (saldo pendiente)
+  subtotal       Decimal     // Suma de todos los items
+  taxRate        Decimal     @default(0.19) @map("tax_rate") // IVA 19%
+  tax            Decimal     // subtotal * taxRate
+  discountAmount Decimal     @default(0) @map("discount_amount") // Total de descuentos aplicados
+  requiresColorProof Boolean @default(false) @map("requires_color_proof") // ¿Requiere prueba de color?
+  colorProofPrice Decimal    @default(0) @map("color_proof_price") // Precio de la prueba de color
+  total          Decimal     // subtotal + tax - discountAmount + colorProofPrice
+  paidAmount     Decimal     @default(0) @map("paid_amount") // Abonos realizados
+  balance        Decimal     // total - paidAmount (saldo pendiente)
+
+  // Estado de aprobación del anticipo (null = sin anticipo o auto-aprobado por admin/caja)
+  advancePaymentStatus  EditRequestStatus?  @map("advance_payment_status")
+
+  // Estado de autorización de propiedad de cliente (null = no aplica o autorizado automáticamente)
+  clientOwnershipAuthStatus EditRequestStatus? @map("client_ownership_auth_status")
 
   status       OrderStatus @default(DRAFT)
   notes        String?     // Observaciones generales
+
+  // Facturación electrónica (solo aplica cuando tax > 0)
+  electronicInvoiceNumber String? @map("electronic_invoice_number") // Número de factura electrónica (máx 30 chars)
 
   // Auditoría
   createdById  String      @map("created_by_id")
@@ -396,17 +449,23 @@ model Order {
   updatedAt    DateTime    @updatedAt @map("updated_at")
 
   // Relaciones
-  client             Client             @relation(fields: [clientId], references: [id])
-  createdBy          User               @relation(fields: [createdById], references: [id])
-  commercialChannelId String?           @map("commercial_channel_id")
-  commercialChannel   CommercialChannel? @relation(fields: [commercialChannelId], references: [id])
-  items              OrderItem[]
-  payments           Payment[]
-  editRequests       OrderEditRequest[]
-  
+  client                  Client                       @relation(fields: [clientId], references: [id])
+  createdBy               User                         @relation(fields: [createdById], references: [id])
+  commercialChannelId     String?                      @map("commercial_channel_id")
+  commercialChannel       CommercialChannel?           @relation(fields: [commercialChannelId], references: [id])
+  items                   OrderItem[]
+  payments                Payment[]
+  discounts               OrderDiscount[]
+  editRequests            OrderEditRequest[]
+  statusChangeRequests    OrderStatusChangeRequest[]
+  advancePaymentApprovals AdvancePaymentApproval[]
+  clientOwnershipAuthRequests ClientOwnershipAuthRequest[]
+
   // Referencia a la cotización de origen
   quoteId            String?            @unique @map("quote_id")
   quote              Quote?             @relation("QuoteToOrder")
+
+  workOrders WorkOrder[]
 
   @@index([clientId])
   @@index([createdById])
@@ -457,7 +516,7 @@ model Quote {
 model QuoteItem {
   id             String  @id @default(uuid())
   quoteId        String  @map("quote_id")
-  serviceId      String? @map("service_id")
+  productId      String? @map("product_id")
 
   description    String
   quantity       Decimal
@@ -465,17 +524,19 @@ model QuoteItem {
   total          Decimal
 
   specifications Json?
+  sampleImageId  String? @map("sample_image_id") // ID de la imagen de muestra
 
   sortOrder      Int      @default(0) @map("sort_order")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
   quote           Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  service         Service? @relation(fields: [serviceId], references: [id])
+  product         Product? @relation(fields: [productId], references: [id])
   productionAreas QuoteItemProductionArea[]
 
   @@index([quoteId])
-  @@index([serviceId])
+  @@index([productId])
+  @@index([sampleImageId])
   @@map("quote_items")
 }
 
@@ -493,7 +554,7 @@ model QuoteItemProductionArea {
 model OrderItem {
   id             String  @id @default(uuid())
   orderId        String  @map("order_id")
-  serviceId      String? @map("service_id") // Opcional: servicio del catálogo
+  productId      String? @map("product_id") // Opcional: producto del catálogo
 
   // Datos del item
   description    String  // Descripción del servicio/producto
@@ -510,11 +571,12 @@ model OrderItem {
 
   // Relaciones
   order           Order                        @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  service         Service?                     @relation(fields: [serviceId], references: [id])
+  product         Product?                     @relation(fields: [productId], references: [id])
   productionAreas OrderItemProductionArea[]
+  workOrderItems  WorkOrderItem[]
 
   @@index([orderId])
-  @@index([serviceId])
+  @@index([productId])
   @@map("order_items")
 }
 
@@ -546,6 +608,7 @@ model Payment {
   paymentDate   DateTime      @default(now()) @map("payment_date")
   reference     String?       // Número de referencia/comprobante
   notes         String?       // Observaciones del pago
+  receiptFileId String?       @map("receipt_file_id") // ID del archivo de comprobante (relación con UploadedFile)
 
   // Auditoría
   receivedById  String        @map("received_by_id")
@@ -555,11 +618,35 @@ model Payment {
   // Relaciones
   order       Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
   receivedBy  User  @relation("ReceivedPayments", fields: [receivedById], references: [id])
+  advancePaymentApproval  AdvancePaymentApproval?
 
   @@index([orderId])
   @@index([receivedById])
   @@index([paymentDate])
+  @@index([receiptFileId])
   @@map("payments")
+}
+
+model OrderDiscount {
+  id          String   @id @default(uuid())
+  orderId     String   @map("order_id")
+  amount      Decimal  // Monto del descuento
+  reason      String   // Motivo/razón del descuento (obligatorio)
+
+  // Auditoría
+  appliedById String   @map("applied_by_id")
+  appliedAt   DateTime @default(now()) @map("applied_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  appliedBy   User     @relation("AppliedDiscounts", fields: [appliedById], references: [id])
+
+  @@index([orderId])
+  @@index([appliedById])
+  @@index([appliedAt])
+  @@map("order_discounts")
 }
 
 // =============================================================================
@@ -574,11 +661,24 @@ enum EditRequestStatus {
 }
 
 enum NotificationType {
-  EDIT_REQUEST_PENDING    // Nueva solicitud de edición
-  EDIT_REQUEST_APPROVED   // Solicitud aprobada
-  EDIT_REQUEST_REJECTED   // Solicitud rechazada
-  EDIT_PERMISSION_EXPIRING // Permiso por expirar (1 min antes)
-  EDIT_PERMISSION_EXPIRED  // Permiso expirado
+  EDIT_REQUEST_PENDING              // Nueva solicitud de edición
+  EDIT_REQUEST_APPROVED             // Solicitud aprobada
+  EDIT_REQUEST_REJECTED             // Solicitud rechazada
+  EDIT_PERMISSION_EXPIRING          // Permiso por expirar (1 min antes)
+  EDIT_PERMISSION_EXPIRED           // Permiso expirado
+  STATUS_CHANGE_REQUEST_PENDING     // Nueva solicitud de cambio de estado
+  STATUS_CHANGE_REQUEST_APPROVED    // Solicitud de cambio de estado aprobada
+  STATUS_CHANGE_REQUEST_REJECTED    // Solicitud de cambio de estado rechazada
+  EXPENSE_ORDER_AUTH_REQUEST_PENDING   // Nueva solicitud de autorización de OG
+  EXPENSE_ORDER_AUTH_REQUEST_APPROVED  // Solicitud de autorización de OG aprobada
+  EXPENSE_ORDER_AUTH_REQUEST_REJECTED  // Solicitud de autorización de OG rechazada
+  ADVANCE_PAYMENT_APPROVAL_PENDING    // Nueva solicitud de aprobación de anticipo
+  ADVANCE_PAYMENT_APPROVAL_APPROVED   // Anticipo aprobado
+  ADVANCE_PAYMENT_APPROVAL_REJECTED   // Anticipo rechazado
+  LOW_STOCK_ALERT                     // Alerta de stock bajo en insumo
+  CLIENT_OWNERSHIP_AUTH_PENDING       // Nueva solicitud de autorización de propiedad de cliente
+  CLIENT_OWNERSHIP_AUTH_APPROVED      // Solicitud de autorización aprobada
+  CLIENT_OWNERSHIP_AUTH_REJECTED      // Solicitud de autorización rechazada
 }
 
 model EditableOrderStatus {
@@ -622,6 +722,34 @@ model OrderEditRequest {
   @@map("order_edit_requests")
 }
 
+model OrderStatusChangeRequest {
+  id                String            @id @default(uuid())
+  orderId           String            @map("order_id")
+  requestedById     String            @map("requested_by_id")
+  currentStatus     OrderStatus       @map("current_status")
+  requestedStatus   OrderStatus       @map("requested_status")
+  reason            String?
+  status            EditRequestStatus @default(PENDING)
+
+  // Aprobación/rechazo
+  reviewedById      String?           @map("reviewed_by_id")
+  reviewedAt        DateTime?         @map("reviewed_at")
+  reviewNotes       String?           @map("review_notes")
+
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  // Relaciones
+  order             Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  requestedBy       User              @relation("RequestedStatusChangeRequests", fields: [requestedById], references: [id])
+  reviewedBy        User?             @relation("ReviewedStatusChangeRequests", fields: [reviewedById], references: [id])
+
+  @@index([orderId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("order_status_change_requests")
+}
+
 model Notification {
   id            String           @id @default(uuid())
   userId        String           @map("user_id")
@@ -655,8 +783,10 @@ model ProductionArea {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  orderItems OrderItemProductionArea[]
-  quoteItems QuoteItemProductionArea[]
+  orderItems          OrderItemProductionArea[]
+  quoteItems          QuoteItemProductionArea[]
+  workOrderItems      WorkOrderItemProductionArea[]
+  expenseOrderItems   ExpenseOrderItemProductionArea[]
 
   @@map("production_areas")
 }
@@ -678,4 +808,549 @@ model CommercialChannel {
   @@map("commercial_channels")
 }
 
+model UploadedFile {
+  id           String   @id @default(uuid())
+  originalName String   @map("original_name")
+  fileName     String   @unique @map("file_name")
+  mimeType     String   @map("mime_type")
+  size         Int
+  s3Key        String   @unique @map("s3_key")
+  s3Bucket     String   @map("s3_bucket")
+  entityType   String?  @map("entity_type")
+  entityId     String?  @map("entity_id")
+  uploadedBy   String?  @map("uploaded_by")
+  isDeleted    Boolean  @default(false) @map("is_deleted")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
+  @@index([entityType, entityId])
+  @@index([uploadedBy])
+  @@index([isDeleted])
+  @@map("uploaded_files")
+}
+
+// =============================================================================
+// MÓDULO DE INFORMACIÓN DE LA COMPAÑÍA
+// =============================================================================
+// =============================================================================
+// MÓDULO DE ÓRDENES DE TRABAJO (OT)
+// =============================================================================
+
+enum WorkOrderStatus {
+  DRAFT
+  CONFIRMED
+  IN_PRODUCTION
+  COMPLETED
+  CANCELLED
+}
+
+enum WorkOrderTimeEntryType {
+  HOURS
+  RANGE
+}
+
+model WorkOrder {
+  id              String          @id @default(uuid())
+  workOrderNumber String          @unique @map("work_order_number") // "OT-2025-0001"
+  orderId         String          @map("order_id")
+  advisorId       String          @map("advisor_id")
+  designerId      String?         @map("designer_id")
+  fileName        String?         @map("file_name") // max 30 chars
+  observations    String?
+  status          WorkOrderStatus @default(DRAFT)
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  order         Order          @relation(fields: [orderId], references: [id])
+  advisor       User           @relation("WorkOrderAdvisor", fields: [advisorId], references: [id])
+  designer      User?          @relation("WorkOrderDesigner", fields: [designerId], references: [id])
+  items         WorkOrderItem[]
+  timeEntries   WorkOrderTimeEntry[]
+  expenseOrders ExpenseOrder[]
+
+  @@index([orderId])
+  @@index([advisorId])
+  @@index([status])
+  @@map("work_orders")
+}
+
+model WorkOrderItem {
+  id                 String   @id @default(uuid())
+  workOrderId        String   @map("work_order_id")
+  orderItemId        String   @map("order_item_id")
+  productDescription String   @map("product_description")
+  observations       String?
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  workOrder       WorkOrder                    @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  orderItem       OrderItem                    @relation(fields: [orderItemId], references: [id])
+  productionAreas WorkOrderItemProductionArea[]
+  supplies        WorkOrderItemSupply[]
+  timeEntries     WorkOrderTimeEntry[]
+
+  @@index([workOrderId])
+  @@index([orderItemId])
+  @@map("work_order_items")
+}
+
+model WorkOrderItemProductionArea {
+  workOrderItemId  String
+  productionAreaId String
+  assignedAt       DateTime @default(now()) @map("assigned_at")
+
+  workOrderItem  WorkOrderItem  @relation(fields: [workOrderItemId], references: [id], onDelete: Cascade)
+  productionArea ProductionArea @relation(fields: [productionAreaId], references: [id], onDelete: Cascade)
+
+  @@id([workOrderItemId, productionAreaId])
+  @@map("work_order_item_production_areas")
+}
+
+model WorkOrderItemSupply {
+  id              String   @id @default(uuid())
+  workOrderItemId String   @map("work_order_item_id")
+  supplyId        String   @map("supply_id")
+  quantity        Decimal?
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  workOrderItem WorkOrderItem @relation(fields: [workOrderItemId], references: [id], onDelete: Cascade)
+  supply        Supply        @relation(fields: [supplyId], references: [id])
+
+  @@unique([workOrderItemId, supplyId])
+  @@index([workOrderItemId])
+  @@index([supplyId])
+  @@map("work_order_item_supplies")
+}
+
+model WorkOrderTimeEntry {
+  id              String                 @id @default(uuid())
+  workOrderId     String                 @map("work_order_id")
+  workOrderItemId String?                @map("work_order_item_id")
+  userId          String                 @map("user_id")
+  entryType       WorkOrderTimeEntryType @map("entry_type")
+  workedDate      DateTime               @map("worked_date")
+  hoursWorked     Decimal                @map("hours_worked")
+  startAt         DateTime?              @map("start_at")
+  endAt           DateTime?              @map("end_at")
+  notes           String?
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+
+  workOrder     WorkOrder      @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  workOrderItem WorkOrderItem? @relation(fields: [workOrderItemId], references: [id], onDelete: SetNull)
+  user          User           @relation("WorkOrderTimeEntryUser", fields: [userId], references: [id])
+
+  @@index([workOrderId])
+  @@index([workOrderItemId])
+  @@index([userId])
+  @@index([workedDate])
+  @@map("work_order_time_entries")
+}
+
+// =============================================================================
+// MÓDULO DE ÓRDENES DE GASTOS (OG)
+// =============================================================================
+
+enum ExpenseOrderStatus {
+  DRAFT      // Borrador (editable)
+  CREATED    // Creada
+  AUTHORIZED // Autorizada
+  PAID       // Pagada
+}
+
+model ExpenseType {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  subcategories  ExpenseSubcategory[]
+  expenseOrders  ExpenseOrder[]
+
+  @@map("expense_types")
+}
+
+model ExpenseSubcategory {
+  id            String   @id @default(uuid())
+  name          String
+  description   String?
+  expenseTypeId String   @map("expense_type_id")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  expenseType   ExpenseType    @relation(fields: [expenseTypeId], references: [id])
+  expenseOrders ExpenseOrder[]
+
+  @@unique([name, expenseTypeId])
+  @@map("expense_subcategories")
+}
+
+model ExpenseOrder {
+  id                   String              @id @default(uuid())
+  ogNumber             String              @unique @map("og_number") // "OG-2026-001"
+  expenseTypeId        String              @map("expense_type_id")
+  expenseSubcategoryId String              @map("expense_subcategory_id")
+  workOrderId          String?             @map("work_order_id") // Opcional: OT asociada
+  authorizedToId       String              @map("authorized_to_id") // Usuario autorizado
+  responsibleId        String?             @map("responsible_id") // Responsable (opcional)
+  observations         String?
+  areaOrMachine        String?             @map("area_or_machine")
+  status               ExpenseOrderStatus  @default(DRAFT)
+
+  // Auditoría
+  createdById    String    @map("created_by_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  // Autorización (quién aprobó el cambio a AUTHORIZED)
+  authorizedById String?   @map("authorized_by_id")
+  authorizedAt   DateTime? @map("authorized_at")
+
+  // Relaciones
+  expenseType        ExpenseType        @relation(fields: [expenseTypeId], references: [id])
+  expenseSubcategory ExpenseSubcategory @relation(fields: [expenseSubcategoryId], references: [id])
+  workOrder          WorkOrder?         @relation(fields: [workOrderId], references: [id])
+  authorizedTo       User               @relation("AuthorizedExpenseOrders", fields: [authorizedToId], references: [id])
+  responsible        User?              @relation("ResponsibleExpenseOrders", fields: [responsibleId], references: [id])
+  createdBy          User               @relation("CreatedExpenseOrders", fields: [createdById], references: [id])
+  authorizedBy       User?              @relation("ApprovedExpenseOrders", fields: [authorizedById], references: [id])
+  items              ExpenseOrderItem[]
+  authRequests       ExpenseOrderAuthRequest[]
+
+  @@index([status])
+  @@index([workOrderId])
+  @@index([createdById])
+  @@index([createdAt])
+  @@map("expense_orders")
+}
+
+model ExpenseOrderItem {
+  id              String        @id @default(uuid())
+  expenseOrderId  String        @map("expense_order_id")
+  quantity        Decimal
+  name            String        // Nombre del gasto
+  description     String?
+  supplierId      String?       @map("supplier_id") // Proveedor (opcional)
+  unitPrice       Decimal       @map("unit_price")
+  total           Decimal       // quantity * unitPrice
+  paymentMethod   PaymentMethod @default(CASH) @map("payment_method")
+  receiptFileId   String?       @map("receipt_file_id") // Comprobante de pago
+
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  expenseOrder    ExpenseOrder                       @relation(fields: [expenseOrderId], references: [id], onDelete: Cascade)
+  supplier        Supplier?                          @relation(fields: [supplierId], references: [id])
+  productionAreas ExpenseOrderItemProductionArea[]
+
+  @@index([expenseOrderId])
+  @@map("expense_order_items")
+}
+
+model ExpenseOrderItemProductionArea {
+  expenseOrderItemId String
+  productionAreaId   String
+  assignedAt         DateTime @default(now()) @map("assigned_at")
+
+  expenseOrderItem ExpenseOrderItem @relation(fields: [expenseOrderItemId], references: [id], onDelete: Cascade)
+  productionArea   ProductionArea   @relation(fields: [productionAreaId], references: [id], onDelete: Cascade)
+
+  @@id([expenseOrderItemId, productionAreaId])
+  @@map("expense_order_item_production_areas")
+}
+
+model ExpenseOrderAuthRequest {
+  id              String            @id @default(uuid())
+  expenseOrderId  String            @map("expense_order_id")
+  requestedById   String            @map("requested_by_id")
+  reason          String?
+  status          EditRequestStatus @default(PENDING)
+  reviewedById    String?           @map("reviewed_by_id")
+  reviewedAt      DateTime?         @map("reviewed_at")
+  reviewNotes     String?           @map("review_notes")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  expenseOrder ExpenseOrder @relation(fields: [expenseOrderId], references: [id], onDelete: Cascade)
+  requestedBy  User         @relation("RequestedExpenseOrderAuthRequests", fields: [requestedById], references: [id])
+  reviewedBy   User?        @relation("ReviewedExpenseOrderAuthRequests", fields: [reviewedById], references: [id])
+
+  @@index([expenseOrderId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("expense_order_auth_requests")
+}
+
+// =============================================================================
+// MÓDULO DE APROBACIÓN DE ANTICIPOS
+// =============================================================================
+
+model AdvancePaymentApproval {
+  id              String            @id @default(uuid())
+  orderId         String            @map("order_id")
+  paymentId       String            @unique @map("payment_id")
+  requestedById   String            @map("requested_by_id")
+  reason          String?
+  status          EditRequestStatus @default(PENDING)
+  reviewedById    String?           @map("reviewed_by_id")
+  reviewedAt      DateTime?         @map("reviewed_at")
+  reviewNotes     String?           @map("review_notes")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  order        Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  payment      Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  requestedBy  User    @relation("RequestedAdvancePaymentApprovals", fields: [requestedById], references: [id])
+  reviewedBy   User?   @relation("ReviewedAdvancePaymentApprovals", fields: [reviewedById], references: [id])
+
+  @@index([orderId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("advance_payment_approvals")
+}
+
+// =============================================================================
+// MÓDULO DE AUTORIZACIÓN DE PROPIEDAD DE CLIENTE EN ÓRDENES
+// =============================================================================
+
+model ClientOwnershipAuthRequest {
+  id            String            @id @default(uuid())
+  orderId       String            @map("order_id")
+  requestedById String            @map("requested_by_id")
+  advisorId     String            @map("advisor_id")
+  reason        String?
+  status        EditRequestStatus @default(PENDING)
+  reviewedById  String?           @map("reviewed_by_id")
+  reviewedAt    DateTime?         @map("reviewed_at")
+  reviewNotes   String?           @map("review_notes")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  order       Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  requestedBy User   @relation("RequestedClientOwnershipAuthRequests", fields: [requestedById], references: [id])
+  advisor     User   @relation("AdvisedClientOwnershipAuthRequests", fields: [advisorId], references: [id])
+  reviewedBy  User?  @relation("ReviewedClientOwnershipAuthRequests", fields: [reviewedById], references: [id])
+
+  @@index([orderId])
+  @@index([requestedById])
+  @@index([advisorId])
+  @@index([status])
+  @@map("client_ownership_auth_requests")
+}
+
+// =============================================================================
+// MÓDULO DE INFORMACIÓN DE LA COMPAÑÍA
+// =============================================================================
+model Company {
+  id                  String   @id @default(uuid())
+  name                String
+  logoLightId         String?  @map("logo_light_id")
+  logoDarkId          String?  @map("logo_dark_id")
+  description         String?
+  phone               String?
+  mobilePhone         String?  @map("mobile_phone")
+  email               String?
+  website             String?
+  address             String?
+  nit                 String?
+  legalRepresentative String?  @map("legal_representative")
+  foundedYear         Int?     @map("founded_year")
+  taxRegime           String?  @map("tax_regime")
+  bankName            String?  @map("bank_name")
+  bankAccountNumber   String?  @map("bank_account_number")
+  bankAccountType     String?  @map("bank_account_type")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@map("company")
+}
+
+// ============================================================
+// PAYROLL MODULE
+// ============================================================
+
+enum EmployeeType {
+  REGULAR   // Monthly salary
+  TEMPORARY // Daily rate
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ContractType {
+  FIXED_TERM
+  INDEFINITE
+  SERVICE_CONTRACT
+  INTERNSHIP
+}
+
+enum PayrollPeriodType {
+  BIWEEKLY
+  MONTHLY
+}
+
+enum PayrollPeriodStatus {
+  DRAFT
+  CALCULATED
+  PAID
+}
+
+model Employee {
+  id            String         @id @default(uuid())
+  userId        String         @unique
+  cargoId       String?
+  employeeType  EmployeeType   @default(REGULAR)
+  monthlySalary Decimal?       @db.Decimal(12, 2)
+  dailyRate     Decimal?       @db.Decimal(12, 2)
+  startDate     DateTime
+  contractType  ContractType?
+  status        EmployeeStatus @default(ACTIVE)
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id])
+  cargo        Cargo?        @relation(fields: [cargoId], references: [id])
+  payrollItems PayrollItem[]
+
+  @@map("employees")
+}
+
+model PayrollPeriod {
+  id                    String              @id @default(uuid())
+  name                  String
+  startDate             DateTime
+  endDate               DateTime
+  periodType            PayrollPeriodType
+  status                PayrollPeriodStatus @default(DRAFT)
+  overtimeDaytimeRate   Decimal?            @db.Decimal(10, 2)
+  overtimeNighttimeRate Decimal?            @db.Decimal(10, 2)
+  notes                 String?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  payrollItems PayrollItem[]
+
+  @@map("payroll_periods")
+}
+
+model PayrollItem {
+  id                     String        @id @default(uuid())
+  periodId               String
+  employeeId             String
+  daysWorked             Decimal?      @db.Decimal(5, 2)
+  baseSalary             Decimal       @db.Decimal(12, 2)
+  overtimeDaytimeHours   Decimal?      @db.Decimal(7, 2)
+  overtimeNighttimeHours Decimal?      @db.Decimal(7, 2)
+  overtimeDaytimeValue   Decimal?      @db.Decimal(12, 2)
+  overtimeNighttimeValue Decimal?      @db.Decimal(12, 2)
+  commissions            Decimal?      @db.Decimal(12, 2)
+  restDayValue           Decimal?      @db.Decimal(12, 2)
+  transportAllowance     Decimal?      @db.Decimal(12, 2)
+  workdayDiscount        Decimal?      @db.Decimal(12, 2)
+  loans                  Decimal?      @db.Decimal(12, 2)
+  advances               Decimal?      @db.Decimal(12, 2)
+  nonPaidDays            Decimal?      @db.Decimal(12, 2)
+  epsAndPensionDiscount  Decimal?      @db.Decimal(12, 2)
+  totalPayment           Decimal       @db.Decimal(12, 2)
+  observations           String?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  period   PayrollPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  employee Employee      @relation(fields: [employeeId], references: [id])
+
+  @@unique([periodId, employeeId])
+  @@map("payroll_items")
+}
+
+// ──────────────────────────────────────────
+//  Attendance & Time Control
+// ──────────────────────────────────────────
+
+enum AttendanceType {
+  MANUAL
+  AUTO
+}
+
+enum AttendanceSource {
+  BUTTON
+  INACTIVITY
+  LOGOUT
+  SYSTEM
+}
+
+model AttendanceRecord {
+  id           String           @id @default(uuid())
+  userId       String           @map("user_id")
+  date         DateTime         @db.Date
+  clockIn      DateTime         @map("clock_in")
+  clockOut     DateTime?        @map("clock_out")
+  type         AttendanceType   @default(MANUAL)
+  source       AttendanceSource @default(BUTTON)
+  notes        String?
+  totalMinutes Int?             @map("total_minutes")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@map("attendance_records")
+}
+
+model ActivityHeartbeat {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  timestamp DateTime @default(now())
+  endpoint  String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, timestamp])
+  @@map("activity_heartbeats")
+}
+
+// =============================================================================
+// MÓDULO DE INVENTARIO - MOVIMIENTOS DE INSUMOS
+// =============================================================================
+
+enum InventoryMovementType {
+  ENTRY       // Entrada de stock (compra, recepción)
+  EXIT        // Salida de stock (consumo en OT - automático)
+  ADJUSTMENT  // Ajuste manual (conteo físico, corrección)
+  RETURN      // Devolución al stock desde producción
+  INITIAL     // Carga inicial de stock
+}
+
+model InventoryMovement {
+  id            String                @id @default(uuid())
+  supplyId      String                @map("supply_id")
+  type          InventoryMovementType
+  quantity      Decimal               // Siempre positivo; la dirección la determina el tipo
+  unitCost      Decimal?              @map("unit_cost")   // Costo unitario en el momento del movimiento
+  previousStock Decimal               @map("previous_stock")
+  newStock      Decimal               @map("new_stock")
+  referenceType String?               @map("reference_type")  // "WORK_ORDER", "MANUAL", "INITIAL"
+  referenceId   String?               @map("reference_id")
+  reason        String?               // Motivo del ajuste
+  notes         String?
+  performedById String                @map("performed_by_id")
+  createdAt     DateTime              @default(now()) @map("created_at")
+
+  supply        Supply                @relation(fields: [supplyId], references: [id])
+  performedBy   User                  @relation(fields: [performedById], references: [id])
+
+  @@index([supplyId])
+  @@index([type])
+  @@index([referenceType, referenceId])
+  @@index([createdAt])
+  @@map("inventory_movements")
+}

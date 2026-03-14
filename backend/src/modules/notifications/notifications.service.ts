@@ -134,4 +134,36 @@ export class NotificationsService {
       data: notifications,
     });
   }
+
+  /**
+   * Notificar a todos los usuarios que tengan un permiso específico
+   */
+  async notifyUsersWithPermission(
+    permissionName: string,
+    data: Omit<CreateNotificationDto, 'userId'>,
+  ): Promise<void> {
+    const users = await this.prisma.user.findMany({
+      where: {
+        role: {
+          permissions: {
+            some: {
+              permission: { name: permissionName },
+            },
+          },
+        },
+      },
+      select: { id: true },
+    });
+
+    if (users.length === 0) return;
+
+    const notifications = users.map((user) => ({
+      userId: user.id,
+      ...data,
+    }));
+
+    await this.prisma.notification.createMany({
+      data: notifications,
+    });
+  }
 }

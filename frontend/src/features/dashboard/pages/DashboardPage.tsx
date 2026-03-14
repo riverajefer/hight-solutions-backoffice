@@ -26,27 +26,35 @@ import StraightenOutlinedIcon from '@mui/icons-material/StraightenOutlined';
 import EngineeringIcon from '@mui/icons-material/Engineering';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
+import BuildIcon from '@mui/icons-material/Build';
+import PostAddIcon from '@mui/icons-material/PostAdd';
+import PendingActionsIcon from '@mui/icons-material/PendingActions';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
 
-
-import { 
-  usersApi, 
-  rolesApi, 
-  permissionsApi, 
-  clientsApi, 
-  suppliersApi, 
-  areasApi, 
-  cargosApi, 
-  auditLogsApi, 
+import {
+  usersApi,
+  rolesApi,
+  permissionsApi,
+  clientsApi,
+  suppliersApi,
+  areasApi,
+  cargosApi,
+  auditLogsApi,
   sessionLogsApi,
   ordersApi,
   quotesApi,
-  servicesApi,
+  productsApi,
   suppliesApi,
-  serviceCategoriesApi,
+  productCategoriesApi,
   supplyCategoriesApi,
   unitsOfMeasureApi,
   productionAreasApi,
-  commercialChannelsApi 
+  commercialChannelsApi,
+  workOrdersApi,
+  expenseOrdersApi,
+  orderStatusChangeRequestsApi,
+  payrollEmployeesApi,
+  payrollPeriodsApi
 } from '../../../api';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
@@ -73,6 +81,7 @@ const NEON_COLORS = {
   organization: '#00D9FF', // Azul neón
   security: '#FF6B00',     // Naranja neón
   audit: '#BC13FE',        // Púrpura neón
+  payroll: '#FF00FF',      // Magenta neón
 };
 
 const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, neonColor, action }) => {
@@ -141,8 +150,8 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, neonColo
         }}
       />
 
-    <CardContent sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 1 }}>
-      <Box display="flex" alignItems="center" justifyContent="space-between" mb={3}>
+    <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 3 }, height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 1 }}>
+      <Box display="flex" alignItems="center" justifyContent="space-between" sx={{ mb: { xs: 1.5, sm: 2, md: 3 } }}>
         <Box
           className="stat-icon-container"
           sx={{
@@ -168,7 +177,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, neonColo
               color: 'text.primary',
               lineHeight: 1,
               letterSpacing: '-0.02em',
-              fontSize: '2rem',
+              fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2rem' },
             }}
           >
             {value}
@@ -196,7 +205,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, neonColo
           fontWeight: 700,
           color: 'text.primary',
           mb: 'auto',
-          fontSize: '1.1rem',
+          fontSize: { xs: '0.95rem', sm: '1rem', md: '1.1rem' },
         }}
       >
         {title}
@@ -243,7 +252,7 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => (
     id={`dashboard-tabpanel-${index}`}
     aria-labelledby={`dashboard-tab-${index}`}
   >
-    {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
+    {value === index && <Box sx={{ py: { xs: 1.5, sm: 2, md: 3 } }}>{children}</Box>}
   </div>
 );
 
@@ -354,11 +363,11 @@ const DashboardPage: React.FC = () => {
     },
   });
 
-  const { data: services = [], isLoading: servicesLoading } = useQuery({
-    queryKey: ['services'],
+  const { data: products = [], isLoading: productsLoading } = useQuery({
+    queryKey: ['products'],
     queryFn: async () => {
-      if (!hasPermission(PERMISSIONS.READ_SERVICES)) return [];
-      return servicesApi.getAll();
+      if (!hasPermission(PERMISSIONS.READ_PRODUCTS)) return [];
+      return productsApi.getAll();
     },
   });
 
@@ -386,11 +395,11 @@ const DashboardPage: React.FC = () => {
     },
   });
 
-  const { data: serviceCategories = [], isLoading: serviceCatsLoading } = useQuery({
-    queryKey: ['service-categories'],
+  const { data: productCategories = [], isLoading: productCatsLoading } = useQuery({
+    queryKey: ['product-categories'],
     queryFn: async () => {
-      if (!hasPermission(PERMISSIONS.READ_SERVICE_CATEGORIES)) return [];
-      return serviceCategoriesApi.getAll();
+      if (!hasPermission(PERMISSIONS.READ_PRODUCT_CATEGORIES)) return [];
+      return productCategoriesApi.getAll();
     },
   });
 
@@ -420,12 +429,54 @@ const DashboardPage: React.FC = () => {
     },
   });
 
-  const isLoading = 
-    usersLoading || rolesLoading || permissionsLoading || clientsLoading || 
-    suppliersLoading || areasLoading || cargosLoading || auditLogsLoading || 
-    sessionLogsLoading || ordersLoading || servicesLoading || suppliesLoading || 
-    productionAreasLoading || channelsLoading || serviceCatsLoading || 
-    supplyCatsLoading || unitsLoading || pendingOrdersLoading || quotesLoading;
+  const { data: workOrdersData, isLoading: workOrdersLoading } = useQuery({
+    queryKey: ['work-orders'],
+    queryFn: async () => {
+      if (!hasPermission(PERMISSIONS.READ_WORK_ORDERS)) return { data: [], meta: { total: 0 } };
+      return workOrdersApi.getAll({ limit: 1 });
+    },
+  });
+
+  const { data: expenseOrdersData, isLoading: expenseOrdersLoading } = useQuery({
+    queryKey: ['expense-orders'],
+    queryFn: async () => {
+      if (!hasPermission(PERMISSIONS.READ_EXPENSE_ORDERS)) return { data: [], meta: { total: 0 } };
+      return expenseOrdersApi.getAll({ limit: 1 });
+    },
+  });
+
+  const { data: statusChangeRequestsData, isLoading: statusChangeRequestsLoading } = useQuery({
+    queryKey: ['status-change-requests'],
+    queryFn: async () => {
+      if (!hasPermission(PERMISSIONS.APPROVE_ORDERS)) return [];
+      return orderStatusChangeRequestsApi.findPending();
+    },
+  });
+
+  const { data: payrollEmployeesData = [], isLoading: payrollEmployeesLoading } = useQuery({
+    queryKey: ['payroll-employees'],
+    queryFn: async () => {
+      if (!hasPermission(PERMISSIONS.READ_PAYROLL_EMPLOYEES)) return [];
+      return payrollEmployeesApi.getAll();
+    },
+  });
+
+  const { data: payrollPeriodsData = [], isLoading: payrollPeriodsLoading } = useQuery({
+    queryKey: ['payroll-periods'],
+    queryFn: async () => {
+      if (!hasPermission(PERMISSIONS.READ_PAYROLL_PERIODS)) return [];
+      return payrollPeriodsApi.getAll();
+    },
+  });
+
+  const isLoading =
+    usersLoading || rolesLoading || permissionsLoading || clientsLoading ||
+    suppliersLoading || areasLoading || cargosLoading || auditLogsLoading ||
+    sessionLogsLoading || ordersLoading || productsLoading || suppliesLoading ||
+    productionAreasLoading || channelsLoading || productCatsLoading ||
+    supplyCatsLoading || unitsLoading || pendingOrdersLoading || quotesLoading ||
+    workOrdersLoading || expenseOrdersLoading || statusChangeRequestsLoading || 
+    payrollEmployeesLoading || payrollPeriodsLoading;
   
   // Logs de verificación de permisos específicos
   console.log('=== VERIFICACIÓN DE PERMISOS ESPECÍFICOS ===');
@@ -440,9 +491,9 @@ const DashboardPage: React.FC = () => {
   const pendingOrdersCount = React.useMemo(() => {
     const allOrders = pendingOrdersData?.data || [];
     return allOrders.filter(
-      (order: any) =>
+      (order: { status: string; balance: string | number }) =>
         PENDING_PAYMENT_STATUSES.includes(order.status) &&
-        parseFloat(order.balance) > 0,
+        parseFloat(String(order.balance)) > 0,
     ).length;
   }, [pendingOrdersData, PENDING_PAYMENT_STATUSES]);
 
@@ -461,28 +512,38 @@ const DashboardPage: React.FC = () => {
   const sessionLogsCount = sessionLogsData?.meta?.total || 0;
   const ordersCount = ordersData?.meta?.total || 0;
   const quotesCount = quotesData?.meta?.total || 0;
+  const workOrdersCount = workOrdersData?.meta?.total || 0;
+  const expenseOrdersCount = expenseOrdersData?.meta?.total || 0;
+  const statusChangeRequestsCount = Array.isArray(statusChangeRequestsData) ? statusChangeRequestsData.length : 0;
 
-  const servicesCount = Array.isArray(services) ? services.length : 0;
+  const productsCount = Array.isArray(products) ? products.length : 0;
   const suppliesCount = Array.isArray(supplies) ? supplies.length : 0;
   const productionAreasCount = Array.isArray(productionAreas) ? productionAreas.length : 0;
   const channelsCount = Array.isArray(commercialChannels) ? commercialChannels.length : 0;
-  const serviceCatsCount = Array.isArray(serviceCategories) ? serviceCategories.length : 0;
+  const productCatsCount = Array.isArray(productCategories) ? productCategories.length : 0;
   const supplyCatsCount = Array.isArray(supplyCategories) ? supplyCategories.length : 0;
   const unitsCount = Array.isArray(unitsOfMeasure) ? unitsOfMeasure.length : 0;
+  const payrollEmployeesCount = Array.isArray(payrollEmployeesData) 
+    ? payrollEmployeesData.length 
+    : ('total' in payrollEmployeesData ? (payrollEmployeesData as any).total : 0);
+    
+  const payrollPeriodsCount = Array.isArray(payrollPeriodsData) 
+    ? payrollPeriodsData.length 
+    : ('total' in payrollPeriodsData ? (payrollPeriodsData as any).total : 0);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setCurrentTab(newValue);
   };
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title={`Bienvenido ${user?.firstName || 'Usuario'}`}
         subtitle="Panel de control"
       />
 
       {/* Tabs Navigation */}
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: { xs: 1.5, sm: 2, md: 3 } }}>
         <Tabs
           value={currentTab}
           onChange={handleTabChange}
@@ -498,7 +559,8 @@ const DashboardPage: React.FC = () => {
                 if (currentTab === 1) return isDark ? NEON_COLORS.commercial : '#b45309';
                 if (currentTab === 2) return isDark ? NEON_COLORS.logistics : '#15803d';
                 if (currentTab === 3) return isDark ? NEON_COLORS.organization : '#0369a1';
-                return isDark ? NEON_COLORS.security : '#c2410c';
+                if (currentTab === 4) return isDark ? NEON_COLORS.security : '#c2410c';
+                return isDark ? NEON_COLORS.payroll : '#d946ef';
               },
               boxShadow: (theme) =>
                 theme.palette.mode === 'dark'
@@ -507,7 +569,8 @@ const DashboardPage: React.FC = () => {
                       currentTab === 1 ? NEON_COLORS.commercial :
                       currentTab === 2 ? NEON_COLORS.logistics :
                       currentTab === 3 ? NEON_COLORS.organization :
-                      NEON_COLORS.security
+                      currentTab === 4 ? NEON_COLORS.security :
+                      NEON_COLORS.payroll
                     }80`
                   : 'none',
             }
@@ -545,6 +608,9 @@ const DashboardPage: React.FC = () => {
             '& .MuiTab-root:nth-of-type(5).Mui-selected': {
               color: (theme) => theme.palette.mode === 'dark' ? NEON_COLORS.security : '#c2410c',
             },
+            '& .MuiTab-root:nth-of-type(6).Mui-selected': {
+              color: (theme) => theme.palette.mode === 'dark' ? NEON_COLORS.payroll : '#d946ef',
+            },
           }}
         >
           <Tab
@@ -572,12 +638,17 @@ const DashboardPage: React.FC = () => {
             iconPosition="start"
             label="Seguridad"
           />
+          <Tab
+            icon={<PaymentsIcon />}
+            iconPosition="start"
+            label="Nómina"
+          />
         </Tabs>
       </Box>
 
       {/* Tab 0: Vista General */}
       <TabPanel value={currentTab} index={0}>
-        <Grid container spacing={2.5}>
+        <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }}>
           {hasPermission(PERMISSIONS.READ_ORDERS) && (
             <Grid item xs={12} sm={6} md={4} lg={3}>
               <StatCard
@@ -598,12 +669,42 @@ const DashboardPage: React.FC = () => {
               <StatCard
                 title="Cotizaciones"
                 value={quotesCount}
-                icon={<RequestQuoteIcon />}
+                icon={<PostAddIcon />}
                 color="#06b6d4"
                 neonColor={NEON_COLORS.general}
                 action={{
                   label: 'Ver cotizaciones',
                   onClick: () => navigate(ROUTES.QUOTES),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_WORK_ORDERS) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Órdenes de Trabajo"
+                value={workOrdersCount}
+                icon={<BuildIcon />}
+                color="#8B5CF6"
+                neonColor={NEON_COLORS.general}
+                action={{
+                  label: 'Ver órdenes de trabajo',
+                  onClick: () => navigate(ROUTES.WORK_ORDERS),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_EXPENSE_ORDERS) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Órdenes de Gastos"
+                value={expenseOrdersCount}
+                icon={<RequestQuoteIcon />}
+                color="#EC4899"
+                neonColor={NEON_COLORS.general}
+                action={{
+                  label: 'Ver órdenes de gastos',
+                  onClick: () => navigate(ROUTES.EXPENSE_ORDERS),
                 }}
               />
             </Grid>
@@ -653,17 +754,17 @@ const DashboardPage: React.FC = () => {
               />
             </Grid>
           )}
-          {hasPermission(PERMISSIONS.READ_SERVICES) && (
+          {hasPermission(PERMISSIONS.READ_PRODUCTS) && (
             <Grid item xs={12} sm={6} md={4} lg={3}>
               <StatCard
-                title="Servicios"
-                value={servicesCount}
+                title="Productos"
+                value={productsCount}
                 icon={<MiscellaneousServicesIcon />}
                 color="#60A5FA"
                 neonColor={NEON_COLORS.general}
                 action={{
-                  label: 'Ver servicios',
-                  onClick: () => navigate(ROUTES.SERVICES),
+                  label: 'Ver productos',
+                  onClick: () => navigate(ROUTES.PRODUCTS),
                 }}
               />
             </Grid>
@@ -733,7 +834,7 @@ const DashboardPage: React.FC = () => {
 
       {/* Tab 1: Comercial */}
       <TabPanel value={currentTab} index={1}>
-        <Grid container spacing={2.5}>
+        <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }}>
           {hasPermission(PERMISSIONS.READ_ORDERS) && (
             <Grid item xs={12} sm={6} md={4}>
               <StatCard
@@ -754,12 +855,42 @@ const DashboardPage: React.FC = () => {
               <StatCard
                 title="Cotizaciones"
                 value={quotesCount}
-                icon={<RequestQuoteIcon />}
+                icon={<PostAddIcon />}
                 color="#06b6d4"
                 neonColor={NEON_COLORS.commercial}
                 action={{
                   label: 'Ver cotizaciones',
                   onClick: () => navigate(ROUTES.QUOTES),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_WORK_ORDERS) && (
+            <Grid item xs={12} sm={6} md={4}>
+              <StatCard
+                title="Órdenes de Trabajo"
+                value={workOrdersCount}
+                icon={<BuildIcon />}
+                color="#8B5CF6"
+                neonColor={NEON_COLORS.commercial}
+                action={{
+                  label: 'Ver órdenes de trabajo',
+                  onClick: () => navigate(ROUTES.WORK_ORDERS),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_EXPENSE_ORDERS) && (
+            <Grid item xs={12} sm={6} md={4}>
+              <StatCard
+                title="Órdenes de Gastos"
+                value={expenseOrdersCount}
+                icon={<RequestQuoteIcon />}
+                color="#EC4899"
+                neonColor={NEON_COLORS.commercial}
+                action={{
+                  label: 'Ver órdenes de gastos',
+                  onClick: () => navigate(ROUTES.EXPENSE_ORDERS),
                 }}
               />
             </Grid>
@@ -809,14 +940,44 @@ const DashboardPage: React.FC = () => {
               />
             </Grid>
           )}
+          {hasPermission(PERMISSIONS.APPROVE_ORDERS) && (
+            <Grid item xs={12} sm={6} md={4}>
+              <StatCard
+                title="Solicitudes de Cambio"
+                value={statusChangeRequestsCount}
+                icon={<PendingActionsIcon />}
+                color="#EF4444"
+                neonColor={NEON_COLORS.commercial}
+                action={{
+                  label: 'Ver solicitudes',
+                  onClick: () => navigate(ROUTES.STATUS_CHANGE_REQUESTS),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_ORDERS) && (
+            <Grid item xs={12} sm={6} md={4}>
+              <StatCard
+                title="Trazabilidad"
+                value={ordersCount}
+                icon={<AccountTreeIcon />}
+                color="#10B981"
+                neonColor={NEON_COLORS.commercial}
+                action={{
+                  label: 'Ver trazabilidad',
+                  onClick: () => navigate(ROUTES.ORDER_FLOW_BASE),
+                }}
+              />
+            </Grid>
+          )}
         </Grid>
 
         {/* Acciones Rápidas - Comercial */}
-        <Box mt={4}>
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, color: 'text.primary' }}>
+        <Box sx={{ mt: { xs: 2.5, sm: 3, md: 4 } }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, color: 'text.primary', fontSize: { xs: '1rem', sm: '1.15rem', md: '1.25rem' } }}>
             Acciones Rápidas
           </Typography>
-          <Grid container spacing={2}>
+          <Grid container spacing={{ xs: 1.5, sm: 2, md: 2 }}>
             {hasPermission(PERMISSIONS.CREATE_QUOTES) && (
               <Grid item xs={12} sm={6} md={4}>
                 <Button
@@ -898,13 +1059,67 @@ const DashboardPage: React.FC = () => {
                 </Button>
               </Grid>
             )}
+            {hasPermission(PERMISSIONS.CREATE_WORK_ORDERS) && (
+              <Grid item xs={12} sm={6} md={4}>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  onClick={() => navigate(ROUTES.WORK_ORDERS_CREATE)}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: '0.875rem',
+                    py: 1.5,
+                    borderRadius: '12px',
+                    borderColor: 'divider',
+                    color: 'text.secondary',
+                    '&:hover': {
+                      borderColor: '#8B5CF6',
+                      color: '#8B5CF6',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 4px 12px rgba(139, 92, 246, 0.15)',
+                      background: 'rgba(139, 92, 246, 0.05)',
+                    },
+                  }}
+                >
+                  Nueva Orden de Trabajo
+                </Button>
+              </Grid>
+            )}
+            {hasPermission(PERMISSIONS.CREATE_EXPENSE_ORDERS) && (
+              <Grid item xs={12} sm={6} md={4}>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  onClick={() => navigate(ROUTES.EXPENSE_ORDERS_CREATE)}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontSize: '0.875rem',
+                    py: 1.5,
+                    borderRadius: '12px',
+                    borderColor: 'divider',
+                    color: 'text.secondary',
+                    '&:hover': {
+                      borderColor: '#EC4899',
+                      color: '#EC4899',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 4px 12px rgba(236, 72, 153, 0.15)',
+                      background: 'rgba(236, 72, 153, 0.05)',
+                    },
+                  }}
+                >
+                  Nueva Orden de Gastos
+                </Button>
+              </Grid>
+            )}
           </Grid>
         </Box>
       </TabPanel>
 
       {/* Tab 2: Logística */}
       <TabPanel value={currentTab} index={2}>
-        <Grid container spacing={2.5}>
+        <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }}>
           {hasPermission(PERMISSIONS.READ_SUPPLIERS) && (
             <Grid item xs={12} sm={6} md={4} lg={3}>
               <StatCard
@@ -935,17 +1150,17 @@ const DashboardPage: React.FC = () => {
               />
             </Grid>
           )}
-          {hasPermission(PERMISSIONS.READ_SERVICES) && (
+          {hasPermission(PERMISSIONS.READ_PRODUCTS) && (
             <Grid item xs={12} sm={6} md={4} lg={3}>
               <StatCard
-                title="Servicios"
-                value={servicesCount}
+                title="Productos"
+                value={productsCount}
                 icon={<MiscellaneousServicesIcon />}
                 color="#60A5FA"
                 neonColor={NEON_COLORS.logistics}
                 action={{
-                  label: 'Ver servicios',
-                  onClick: () => navigate(ROUTES.SERVICES),
+                  label: 'Ver productos',
+                  onClick: () => navigate(ROUTES.PRODUCTS),
                 }}
               />
             </Grid>
@@ -965,17 +1180,17 @@ const DashboardPage: React.FC = () => {
               />
             </Grid>
           )}
-          {hasPermission(PERMISSIONS.READ_SERVICE_CATEGORIES) && (
+          {hasPermission(PERMISSIONS.READ_PRODUCT_CATEGORIES) && (
             <Grid item xs={12} sm={6} md={4} lg={3}>
               <StatCard
-                title="Categorías Serv."
-                value={serviceCatsCount}
+                title="Categorías Prod."
+                value={productCatsCount}
                 icon={<CategoryOutlinedIcon />}
                 color="#EC4899"
                 neonColor={NEON_COLORS.logistics}
                 action={{
                   label: 'Ver categorías',
-                  onClick: () => navigate(ROUTES.SERVICE_CATEGORIES),
+                  onClick: () => navigate(ROUTES.PRODUCT_CATEGORIES),
                 }}
               />
             </Grid>
@@ -1015,7 +1230,7 @@ const DashboardPage: React.FC = () => {
 
       {/* Tab 3: Organización */}
       <TabPanel value={currentTab} index={3}>
-        <Grid container spacing={2.5}>
+        <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }}>
           {hasPermission(PERMISSIONS.READ_USERS) && (
             <Grid item xs={12} sm={6} md={4}>
               <StatCard
@@ -1066,7 +1281,7 @@ const DashboardPage: React.FC = () => {
 
       {/* Tab 4: Seguridad */}
       <TabPanel value={currentTab} index={4}>
-        <Grid container spacing={2.5}>
+        <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }}>
           {hasPermission(PERMISSIONS.READ_ROLES) && (
             <Grid item xs={12} sm={6} md={4}>
               <StatCard
@@ -1130,11 +1345,11 @@ const DashboardPage: React.FC = () => {
         </Grid>
 
         {/* Acciones Rápidas - Seguridad */}
-        <Box mt={4}>
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, color: 'text.primary' }}>
+        <Box sx={{ mt: { xs: 2.5, sm: 3, md: 4 } }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, color: 'text.primary', fontSize: { xs: '1rem', sm: '1.15rem', md: '1.25rem' } }}>
             Acciones Rápidas
           </Typography>
-          <Grid container spacing={2}>
+          <Grid container spacing={{ xs: 1.5, sm: 2, md: 2 }}>
             {hasPermission(PERMISSIONS.CREATE_ROLES) && (
               <Grid item xs={12} sm={6} md={4}>
                 <Button
@@ -1164,6 +1379,42 @@ const DashboardPage: React.FC = () => {
             )}
           </Grid>
         </Box>
+      </TabPanel>
+
+      {/* Tab 5: Nómina */}
+      <TabPanel value={currentTab} index={5}>
+        <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }}>
+          {hasPermission(PERMISSIONS.READ_PAYROLL_EMPLOYEES) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Empleados"
+                value={payrollEmployeesCount}
+                icon={<PeopleIcon />}
+                color="#EC4899"
+                neonColor={NEON_COLORS.payroll}
+                action={{
+                  label: 'Ver empleados',
+                  onClick: () => navigate(ROUTES.PAYROLL_EMPLOYEES),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_PAYROLL_PERIODS) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Periodos"
+                value={payrollPeriodsCount}
+                icon={<PendingActionsIcon />}
+                color="#8B5CF6"
+                neonColor={NEON_COLORS.payroll}
+                action={{
+                  label: 'Ver periodos',
+                  onClick: () => navigate(ROUTES.PAYROLL_PERIODS),
+                }}
+              />
+            </Grid>
+          )}
+        </Grid>
       </TabPanel>
     </Box>
   );

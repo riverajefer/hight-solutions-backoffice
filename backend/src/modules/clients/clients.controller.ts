@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -26,8 +27,9 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ClientsService } from './clients.service';
-import { CreateClientDto, UpdateClientDto, UploadClientsResponseDto } from './dto';
+import { CreateClientDto, UpdateClientDto, UpdateSpecialConditionDto, UploadClientsResponseDto } from './dto';
 
 @ApiTags('clients')
 @ApiBearerAuth('JWT-auth')
@@ -118,8 +120,11 @@ export class ClientsController {
     status: 400,
     description: 'Datos inválidos o email duplicado',
   })
-  create(@Body() createClientDto: CreateClientDto) {
-    return this.clientsService.create(createClientDto);
+  create(
+    @Body() createClientDto: CreateClientDto,
+    @CurrentUser('id') currentUserId: string,
+  ) {
+    return this.clientsService.create(createClientDto, currentUserId);
   }
 
   @Put(':id')
@@ -140,6 +145,29 @@ export class ClientsController {
   })
   update(@Param('id') id: string, @Body() updateClientDto: UpdateClientDto) {
     return this.clientsService.update(id, updateClientDto);
+  }
+
+  @Patch(':id/special-condition')
+  @RequirePermissions('update_client_special_condition')
+  @ApiOperation({ summary: 'Actualizar condición especial del cliente' })
+  @ApiParam({ name: 'id', description: 'ID del cliente' })
+  @ApiResponse({
+    status: 200,
+    description: 'Condición especial actualizada exitosamente',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Sin permiso para editar la condición especial',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Cliente no encontrado',
+  })
+  updateSpecialCondition(
+    @Param('id') id: string,
+    @Body() body: UpdateSpecialConditionDto,
+  ) {
+    return this.clientsService.updateSpecialCondition(id, body.specialCondition);
   }
 
   @Delete(':id')

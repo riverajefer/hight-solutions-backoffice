@@ -3,12 +3,12 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class LoginDto {
   @ApiProperty({
-    example: 'admin@example.com',
-    description: 'User email address'
+    example: 'adminsistema',
+    description: 'Username'
   })
-  @IsEmail({}, { message: 'Please provide a valid email address' })
-  @IsNotEmpty({ message: 'Email is required' })
-  email: string;
+  @IsString()
+  @IsNotEmpty({ message: 'Username is required' })
+  username: string;
 
   @ApiProperty({
     example: 'admin123',
@@ -65,6 +65,26 @@ export class RegisterDto {
   @IsString()
   @IsNotEmpty({ message: 'Role ID is required' })
   roleId: string;
+}
+
+export class ChangePasswordDto {
+  @ApiProperty({
+    example: 'currentPassword123',
+    description: 'Current password',
+  })
+  @IsString()
+  @IsNotEmpty({ message: 'Current password is required' })
+  currentPassword: string;
+
+  @ApiProperty({
+    example: 'newPassword456',
+    description: 'New password',
+    minLength: 6,
+  })
+  @IsString()
+  @IsNotEmpty({ message: 'New password is required' })
+  @MinLength(6, { message: 'New password must be at least 6 characters' })
+  newPassword: string;
 }
 
 export class UpdateProfilePhotoDto {

@@ -1,0 +1,2 @@
+echo "Validando build:staging antes de hacer push..."
+cd frontend && npm run build:staging

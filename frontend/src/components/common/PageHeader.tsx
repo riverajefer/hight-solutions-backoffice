@@ -12,6 +12,9 @@ interface PageHeaderProps {
   subtitle?: string;
   breadcrumbs?: Breadcrumb[];
   action?: React.ReactNode;
+  icon?: React.ReactNode;
+  badge?: React.ReactNode;
+  hideTitle?: boolean;
 }
 
 /**
@@ -22,9 +25,12 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   subtitle,
   breadcrumbs = [],
   action,
+  icon,
+  badge,
+  hideTitle = false,
 }) => {
   return (
-    <Box sx={{ mb: 4 }}>
+    <Box sx={{ mb: hideTitle ? 2 : 4 }}>
       {breadcrumbs.length > 0 && (
         <Breadcrumbs sx={{ mb: 2 }}>
           {breadcrumbs.map((crumb, index) => (
@@ -41,19 +47,56 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         </Breadcrumbs>
       )}
 
-      <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-        <Box>
-          <Typography variant="h4" component="h1" sx={{ fontWeight: 700, mb: 1 }}>
-            {title}
-          </Typography>
-          {subtitle && (
-            <Typography color="textSecondary" variant="body2">
-              {subtitle}
-            </Typography>
+      {!hideTitle && (
+        <Box
+          display="flex"
+          justifyContent="space-between"
+          alignItems="flex-start"
+          flexDirection={{ xs: 'column', sm: 'row' }}
+          gap={{ xs: 2, sm: 0 }}
+        >
+          <Box sx={{ flex: 1 }}>
+            <Box display="flex" alignItems="center" gap={1} sx={{ mb: 1 }}>
+              {badge && badge}
+              {icon && (
+                <Box sx={{ color: 'primary.main', display: 'flex' }}>
+                  {icon}
+                </Box>
+              )}
+              <Typography
+                variant="h4"
+                component="h1"
+                sx={{
+                  fontWeight: 700,
+                  fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2.125rem' }
+                }}
+              >
+                {title}
+              </Typography>
+            </Box>
+            {subtitle && (
+              <Typography
+                color="textSecondary"
+                variant="body2"
+                sx={{ fontSize: { xs: '0.813rem', sm: '0.875rem' } }}
+              >
+                {subtitle}
+              </Typography>
+            )}
+          </Box>
+          {action && (
+            <Box sx={{ width: { xs: '100%', sm: 'auto' } }}>
+              {action}
+            </Box>
           )}
         </Box>
-        {action && <Box>{action}</Box>}
-      </Box>
+      )}
+
+      {hideTitle && action && (
+        <Box sx={{ width: { xs: '100%', sm: 'auto' } }}>
+          {action}
+        </Box>
+      )}
     </Box>
   );
 };

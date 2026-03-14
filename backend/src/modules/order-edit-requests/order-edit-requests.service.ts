@@ -1,19 +1,24 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { CreateEditRequestDto, ReviewEditRequestDto } from './dto';
 import { EditRequestStatus, NotificationType } from '../../generated/prisma';
 
 @Injectable()
 export class OrderEditRequestsService {
+  private readonly logger = new Logger(OrderEditRequestsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly whatsappService: WhatsappService,
   ) {}
 
   /**
@@ -93,7 +98,7 @@ export class OrderEditRequestsService {
       },
     });
 
-    // 6. Notificar a todos los administradores
+    // 6. Notificar a todos los administradores (in-app)
     await this.notificationsService.notifyAllAdmins({
       type: NotificationType.EDIT_REQUEST_PENDING,
       title: 'Nueva solicitud de edición de orden',
@@ -101,6 +106,22 @@ export class OrderEditRequestsService {
       relatedId: request.id,
       relatedType: 'OrderEditRequest',
     });
+
+    // 7. Notificar administradores por WhatsApp
+    const requesterName =
+      [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
+      request.requestedBy.email ||
+      'Usuario';
+    const requesterRole = user?.role?.name || 'usuario';
+
+    this.notifyAdminsByWhatsApp(
+      request.order.orderNumber,
+      order.status,
+      request.order.id,
+      requesterName,
+      requesterRole,
+      dto.observations,
+    );
 
     return request;
   }
@@ -145,11 +166,10 @@ export class OrderEditRequestsService {
       throw new ForbiddenException('Only administrators can approve requests');
     }
 
-    // 3. Calcular expiresAt (ahora + 5 minutos)
+    // 3. Obtener fecha actual
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutos
 
-    // 4. Actualizar solicitud
+    // 4. Actualizar solicitud (expiresAt será nulo hasta que el usuario ingrese a la orden)
     const updatedRequest = await this.prisma.orderEditRequest.update({
       where: { id: requestId },
       data: {
@@ -157,7 +177,7 @@ export class OrderEditRequestsService {
         reviewedById: adminId,
         reviewedAt: now,
         reviewNotes: dto.reviewNotes,
-        expiresAt,
+        expiresAt: null,
       },
       include: {
         requestedBy: {
@@ -288,11 +308,21 @@ export class OrderEditRequestsService {
         orderId,
         requestedById: userId,
         status: EditRequestStatus.APPROVED,
-        expiresAt: {
-          gt: now,
-        },
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gt: now } },
+        ],
       },
     });
+
+    if (activeRequest && !activeRequest.expiresAt) {
+      // Activar temporizador de ser necesario en este primer uso
+      const expiresAt = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutos
+      await this.prisma.orderEditRequest.update({
+        where: { id: activeRequest.id },
+        data: { expiresAt },
+      });
+    }
 
     return !!activeRequest;
   }
@@ -303,14 +333,15 @@ export class OrderEditRequestsService {
   async getActivePermission(orderId: string, userId: string) {
     const now = new Date();
 
-    return this.prisma.orderEditRequest.findFirst({
+    const request = await this.prisma.orderEditRequest.findFirst({
       where: {
         orderId,
         requestedById: userId,
         status: EditRequestStatus.APPROVED,
-        expiresAt: {
-          gt: now,
-        },
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gt: now } },
+        ],
       },
       include: {
         requestedBy: {
@@ -322,6 +353,96 @@ export class OrderEditRequestsService {
           },
         },
       },
+    });
+
+    if (request && !request.expiresAt) {
+      // Activar el temporizador ahora que el usuario ingresó a la orden
+      const expiresAt = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutos
+      return this.prisma.orderEditRequest.update({
+        where: { id: request.id },
+        data: { expiresAt },
+        include: {
+          requestedBy: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+      });
+    }
+
+    return request;
+  }
+
+  /**
+   * Obtener todas las solicitudes pendientes (para admins)
+   */
+  async findAllPending() {
+    return this.prisma.orderEditRequest.findMany({
+      where: { status: EditRequestStatus.PENDING },
+      include: {
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true,
+          },
+        },
+        requestedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        reviewedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
+   * Obtener todas las solicitudes (para admins)
+   */
+  async findAll() {
+    return this.prisma.orderEditRequest.findMany({
+      include: {
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true,
+          },
+        },
+        requestedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        reviewedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -351,6 +472,39 @@ export class OrderEditRequestsService {
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  /**
+   * Obtener solicitud por ID (sin requerir orderId)
+   */
+  async findOneById(requestId: string) {
+    const request = await this.prisma.orderEditRequest.findUnique({
+      where: { id: requestId },
+      include: {
+        requestedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        reviewedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    if (!request) {
+      throw new NotFoundException('Edit request not found');
+    }
+
+    return request;
   }
 
   /**
@@ -387,5 +541,63 @@ export class OrderEditRequestsService {
     }
 
     return request;
+  }
+
+  /**
+   * Notificar a administradores con teléfono registrado vía WhatsApp
+   * Se ejecuta en fire-and-forget para no bloquear la respuesta al usuario
+   */
+  private async notifyAdminsByWhatsApp(
+    orderNumber: string,
+    orderStatus: string,
+    orderId: string,
+    requesterName: string,
+    requesterRole: string,
+    observations: string,
+  ): Promise<void> {
+    try {
+      const adminRole = await this.prisma.role.findUnique({
+        where: { name: 'admin' },
+        include: {
+          users: {
+            where: { isActive: true, phone: { not: null } },
+            select: { firstName: true, lastName: true, phone: true },
+          },
+        },
+      });
+
+      const adminsWithPhone = adminRole?.users || [];
+
+      if (adminsWithPhone.length === 0) {
+        this.logger.warn(
+          'No active administrators with phone number found for WhatsApp notification',
+        );
+        return;
+      }
+
+      const results = await Promise.allSettled(
+        adminsWithPhone.map((admin) =>
+          this.whatsappService.notificarSolicitudEdicionOP(
+            admin.phone!,
+            requesterName,
+            requesterRole,
+            orderNumber,
+            observations,
+            orderId,
+          ),
+        ),
+      );
+
+      const fulfilled = results.filter((r) => r.status === 'fulfilled').length;
+      const rejected = results.filter((r) => r.status === 'rejected').length;
+
+      this.logger.log(
+        `WhatsApp notifications for order ${orderNumber}: ${fulfilled} sent, ${rejected} failed`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error sending WhatsApp notifications: ${error.message}`,
+      );
+    }
   }
 }

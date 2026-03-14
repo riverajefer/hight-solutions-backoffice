@@ -14,13 +14,26 @@ import {
   Stack,
   Autocomplete,
   Chip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Tooltip,
+  CircularProgress,
 } from '@mui/material';
-import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
+import {
+  Delete as DeleteIcon,
+  Add as AddIcon,
+  CloudUpload as UploadIcon,
+  Visibility as VisibilityIcon,
+  Close as CloseIcon,
+  Image as ImageIcon,
+} from '@mui/icons-material';
 import { v4 as uuidv4 } from 'uuid';
-import { useServices } from '../../portfolio/services/hooks/useServices';
-import type { Service } from '../../../types/service.types';
+import { useProducts } from '../../portfolio/products/hooks/useProducts';
+import type { Product } from '../../../types/product.types';
 import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
 import type { ProductionArea } from '../../../types/production-area.types';
+import axiosInstance from '../../../api/axios';
 
 export interface QuoteItemRow {
   id: string;
@@ -28,9 +41,10 @@ export interface QuoteItemRow {
   quantity: string;
   unitPrice: string;
   total: number;
-  serviceId?: string;
+  productId?: string;
   specifications?: any;
   productionAreaIds?: string[];
+  sampleImageId?: string | null;
 }
 
 interface QuoteItemsTableProps {
@@ -38,6 +52,9 @@ interface QuoteItemsTableProps {
   onChange: (items: QuoteItemRow[]) => void;
   errors?: Record<string, any>;
   disabled?: boolean;
+  quoteId?: string; // For uploading images on existing quotes
+  onImageUpload?: (itemId: string, file: File) => Promise<void>;
+  onImageDelete?: (itemId: string) => Promise<void>;
 }
 
 const formatCurrency = (value: number): string => {
@@ -61,12 +78,68 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
   onChange,
   errors = {},
   disabled = false,
+  onImageUpload,
+  onImageDelete,
 }) => {
-  const { servicesQuery } = useServices();
-  const services: Service[] = servicesQuery.data || [];
+  const { productsQuery } = useProducts();
+  const products: Product[] = productsQuery.data || [];
 
   const { productionAreasQuery } = useProductionAreas();
   const productionAreas: ProductionArea[] = productionAreasQuery.data || [];
+
+  const [viewImageDialog, setViewImageDialog] = React.useState<{
+    open: boolean;
+    url: string;
+  }>({ open: false, url: '' });
+
+  const [uploadingItemId, setUploadingItemId] = React.useState<string | null>(null);
+  const [thumbnailUrls, setThumbnailUrls] = React.useState<Record<string, string>>({});
+
+  // Fetch thumbnail URLs for items that have sampleImageId
+  React.useEffect(() => {
+    const fetchThumbnails = async () => {
+      const itemsWithImages = items.filter(
+        (item) => item.sampleImageId && !thumbnailUrls[item.sampleImageId]
+      );
+      if (itemsWithImages.length === 0) return;
+
+      const newUrls: Record<string, string> = {};
+      await Promise.all(
+        itemsWithImages.map(async (item) => {
+          try {
+            const { data } = await axiosInstance.get(`/storage/${item.sampleImageId}/url`);
+            newUrls[item.sampleImageId!] = data.url;
+          } catch {
+            // ignore
+          }
+        })
+      );
+      if (Object.keys(newUrls).length > 0) {
+        setThumbnailUrls((prev) => ({ ...prev, ...newUrls }));
+      }
+    };
+    fetchThumbnails();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.map((i) => i.sampleImageId).join(',')]);
+
+  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+  const handlePasteForItem = (itemId: string, e: React.ClipboardEvent) => {
+    const clipItems = e.clipboardData?.items;
+    if (!clipItems || !onImageUpload) return;
+    for (let i = 0; i < clipItems.length; i++) {
+      if (clipItems[i].type.indexOf('image') !== -1) {
+        const file = clipItems[i].getAsFile();
+        if (file && ALLOWED_IMAGE_TYPES.includes(file.type)) {
+          const extension = file.type.split('/')[1] || 'png';
+          const newFile = new File([file], `pasted-image-${Date.now()}.${extension}`, { type: file.type });
+          handleImageUpload(itemId, newFile);
+          e.preventDefault();
+          break;
+        }
+      }
+    }
+  };
 
   const handleAddRow = () => {
     const newItem: QuoteItemRow = {
@@ -107,12 +180,44 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
     onChange(updatedItems);
   };
 
+  const handleImageUpload = async (itemId: string, file: File) => {
+    if (!onImageUpload) return;
+    setUploadingItemId(itemId);
+    try {
+      await onImageUpload(itemId, file);
+    } finally {
+      setUploadingItemId(null);
+    }
+  };
+
+  const handleImageDelete = async (itemId: string) => {
+    if (!onImageDelete) return;
+    setUploadingItemId(itemId);
+    try {
+      await onImageDelete(itemId);
+    } finally {
+      setUploadingItemId(null);
+    }
+  };
+
+  const handleViewImage = async (sampleImageId: string) => {
+    try {
+      // Get signed URL from storage API using axiosInstance (handles auth automatically)
+      const { data } = await axiosInstance.get(`/storage/${sampleImageId}/url`);
+      setViewImageDialog({ open: true, url: data.url });
+    } catch (error) {
+      console.error('Error loading image:', error);
+    }
+  };
+
   const subtotal = items.reduce((sum, item) => sum + item.total, 0);
+
+  const showImageColumn = !!onImageUpload || !!onImageDelete || items.some(item => !!item.sampleImageId);
 
   return (
     <Box>
-      <TableContainer>
-        <Table size="small">
+      <TableContainer sx={{ overflowX: 'auto', width: '100%' }}>
+        <Table size="small" sx={{ minWidth: 600 }}>
           <TableHead>
             <TableRow
               sx={{
@@ -127,13 +232,14 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
                 },
               }}
             >
-              <TableCell width="8%" align="center">Cantidad</TableCell>
-              <TableCell width="25%">Servicio (Opcional)</TableCell>
-              <TableCell width="25%">Descripción</TableCell>
-              <TableCell width="17%">Áreas de Producción</TableCell>
-              <TableCell width="12%" align="right">Valor Unitario</TableCell>
-              <TableCell width="8%" align="right">Valor Total</TableCell>
-              <TableCell width="5%" align="center">Acciones</TableCell>
+              {showImageColumn && <TableCell width="8%" sx={{ minWidth: 80 }} align="center">Imagen</TableCell>}
+              <TableCell width={showImageColumn ? "7%" : "8%"} sx={{ minWidth: 80 }} align="center">Cantidad</TableCell>
+              <TableCell width={showImageColumn ? "22%" : "25%"} sx={{ minWidth: 130 }}>Servicio (Opcional)</TableCell>
+              <TableCell width={showImageColumn ? "22%" : "25%"} sx={{ minWidth: 150, display: { xs: 'none', sm: 'table-cell' } }}>Descripción</TableCell>
+              <TableCell width={showImageColumn ? "15%" : "17%"} sx={{ minWidth: 140, display: { xs: 'none', sm: 'table-cell' } }}>Áreas de Producción</TableCell>
+              <TableCell width={showImageColumn ? "11%" : "12%"} sx={{ minWidth: 100 }} align="right">Valor Unitario</TableCell>
+              <TableCell width={showImageColumn ? "10%" : "8%"} sx={{ minWidth: 90 }} align="right">Valor Total</TableCell>
+              <TableCell width="5%" sx={{ minWidth: 50 }} align="center">Acciones</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -142,6 +248,121 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
 
               return (
                 <TableRow key={item.id} hover>
+                  {showImageColumn && (
+                    <TableCell
+                      align="center"
+                      onPaste={(e) => !item.sampleImageId && handlePasteForItem(item.id, e)}
+                    >
+                      {uploadingItemId === item.id ? (
+                        <CircularProgress size={20} />
+                      ) : item.sampleImageId ? (
+                        <Stack spacing={0.5} alignItems="center">
+                          {/* Thumbnail */}
+                          {thumbnailUrls[item.sampleImageId] ? (
+                            <Box
+                              component="img"
+                              src={thumbnailUrls[item.sampleImageId]}
+                              alt="Muestra"
+                              onClick={() => handleViewImage(item.sampleImageId!)}
+                              sx={{
+                                width: 48,
+                                height: 48,
+                                objectFit: 'cover',
+                                borderRadius: 0.5,
+                                border: '1px solid',
+                                borderColor: 'grey.300',
+                                cursor: 'pointer',
+                                transition: 'opacity 0.2s',
+                                '&:hover': { opacity: 0.8 },
+                              }}
+                            />
+                          ) : (
+                            <Box
+                              onClick={() => handleViewImage(item.sampleImageId!)}
+                              sx={{
+                                width: 48,
+                                height: 48,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                borderRadius: 0.5,
+                                border: '1px solid',
+                                borderColor: 'grey.300',
+                                bgcolor: 'grey.50',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <ImageIcon fontSize="small" color="disabled" />
+                            </Box>
+                          )}
+                          <Stack direction="row" spacing={0} justifyContent="center">
+                            <Tooltip title="Ver imagen">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleViewImage(item.sampleImageId!)}
+                              >
+                                <VisibilityIcon sx={{ fontSize: 16 }} />
+                              </IconButton>
+                            </Tooltip>
+                            {onImageDelete && (
+                              <Tooltip title="Eliminar imagen">
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => handleImageDelete(item.id)}
+                                  disabled={disabled}
+                                >
+                                  <DeleteIcon sx={{ fontSize: 16 }} />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Stack>
+                        </Stack>
+                      ) : (
+                        onImageUpload && (
+                          <Box
+                            tabIndex={0}
+                            onPaste={(e) => handlePasteForItem(item.id, e)}
+                            sx={{
+                              border: '2px dashed',
+                              borderColor: 'grey.300',
+                              borderRadius: 1,
+                              p: 0.75,
+                              textAlign: 'center',
+                              cursor: 'pointer',
+                              transition: 'border-color 0.2s, background-color 0.2s',
+                              minWidth: 64,
+                              '&:hover, &:focus': {
+                                borderColor: 'primary.main',
+                                bgcolor: 'action.hover',
+                              },
+                            }}
+                            onClick={() => {
+                              // Trigger file input via the hidden input
+                              const input = document.getElementById(`quote-img-input-${item.id}`);
+                              input?.click();
+                            }}
+                          >
+                            <UploadIcon sx={{ fontSize: 20, color: 'grey.400' }} />
+                            <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.65rem', lineHeight: 1.2, mt: 0.25 }}>
+                              Subir o pegar
+                            </Typography>
+                            <input
+                              id={`quote-img-input-${item.id}`}
+                              type="file"
+                              hidden
+                              accept="image/jpeg,image/png,image/gif,image/webp"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleImageUpload(item.id, file);
+                                e.target.value = '';
+                              }}
+                            />
+                          </Box>
+                        )
+                      )}
+                    </TableCell>
+                  )}
                   <TableCell>
                     <TextField
                       fullWidth
@@ -155,21 +376,44 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
                     />
                   </TableCell>
                   <TableCell>
-                    <Autocomplete<Service>
+                    <Autocomplete<Product>
                       size="small"
-                      options={services}
+                      options={products}
                       getOptionLabel={(option) => option.name}
-                      value={services.find((s) => s.id === item.serviceId) || null}
+                      renderOption={(props, option) => (
+                        <li {...props}>
+                          <Typography variant="body2" sx={{ fontSize: '0.8125rem', whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                            {option.name}
+                          </Typography>
+                        </li>
+                      )}
+                      componentsProps={{
+                        paper: {
+                          sx: {
+                            width: 'fit-content',
+                            minWidth: '200px',
+                            maxWidth: '400px'
+                          }
+                        }
+                      }}
+                      sx={{
+                        '& .MuiInputBase-input': {
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden'
+                        }
+                      }}
+                      value={products.find((s) => s.id === item.productId) || null}
                       onChange={(_event, newValue) => {
                         const updatedItems = items.map((i) => {
                           if (i.id !== item.id) return i;
                           const quantity = parseFloat(i.quantity);
                           const hasBasePrice = newValue?.basePrice !== undefined && newValue?.basePrice !== null;
                           const basePriceValue = hasBasePrice ? Number(newValue!.basePrice!) : parseFloat(i.unitPrice);
-                          
-                          return { 
-                            ...i, 
-                            serviceId: newValue?.id || undefined,
+
+                          return {
+                            ...i,
+                            productId: newValue?.id || undefined,
                             description: i.description || newValue?.name || '',
                             unitPrice: i.unitPrice || (hasBasePrice ? newValue!.basePrice!.toString() : ''),
                             total: !isNaN(quantity) && !isNaN(basePriceValue) ? quantity * basePriceValue : i.total
@@ -178,10 +422,17 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
                         onChange(updatedItems);
                       }}
                       disabled={disabled}
-                      renderInput={(params) => <TextField {...params} size="small" placeholder="Buscar servicio..." />}
+                      renderInput={(params) => (
+                        <TextField 
+                          {...params} 
+                          size="small" 
+                          placeholder="Buscar producto..." 
+                          inputProps={{ ...params.inputProps, style: { fontSize: '0.8125rem' } }}
+                        />
+                      )}
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -193,7 +444,7 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
                       maxRows={2}
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                     <Autocomplete<ProductionArea, true>
                       multiple
                       size="small"
@@ -277,7 +528,7 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
               );
             })}
             <TableRow sx={{ backgroundColor: 'action.hover' }}>
-              <TableCell colSpan={5} align="right">
+              <TableCell colSpan={showImageColumn ? 6 : 5} align="right">
                 <Typography variant="body2" fontWeight={700}>SUBTOTAL:</Typography>
               </TableCell>
               <TableCell align="right">
@@ -302,6 +553,37 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
           Agregar Ítem
         </Button>
       </Stack>
+
+      {/* View Image Dialog */}
+      <Dialog
+        open={viewImageDialog.open}
+        onClose={() => setViewImageDialog({ open: false, url: '' })}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          Imagen de Muestra
+          <IconButton
+            onClick={() => setViewImageDialog({ open: false, url: '' })}
+            sx={{ position: 'absolute', right: 8, top: 8 }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <Box
+            component="img"
+            src={viewImageDialog.url}
+            alt="Muestra"
+            sx={{
+              width: '100%',
+              height: 'auto',
+              maxHeight: '70vh',
+              objectFit: 'contain',
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };

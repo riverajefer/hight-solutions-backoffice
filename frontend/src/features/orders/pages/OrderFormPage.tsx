@@ -9,25 +9,32 @@ import {
   Grid,
   Typography,
   Divider,
-  Paper,
   MenuItem,
   CircularProgress,
+  alpha,
+  useTheme,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { commercialChannelsApi } from '../../../api/commercialChannels.api';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, type SubmitHandler, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { DatePicker } from '@mui/x-date-pickers';
 import {
+  ArrowBack as ArrowBackIcon,
   Save as SaveIcon,
-  Cancel as CancelIcon,
+  CheckCircle as CheckCircleIcon,
+  Person as PersonIcon,
+  ShoppingCart as ShoppingCartIcon,
+  AttachMoney as AttachMoneyIcon,
+  Notes as NotesIcon,
 } from '@mui/icons-material';
 import { v4 as uuidv4 } from 'uuid';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { useOrders, useOrder } from '../hooks';
+import { ordersApi } from '../../../api/orders.api';
 import { useEditRequests } from '../../../hooks/useEditRequests';
 import {
   ClientSelector,
@@ -50,7 +57,7 @@ const orderItemSchema = z.object({
   quantity: z.string().min(1, 'La cantidad es requerida'),
   unitPrice: z.string().min(1, 'El precio unitario es requerido'),
   total: z.number().min(0),
-  serviceId: z.string().optional(),
+  productId: z.string().optional(),
   specifications: z.record(z.any()).optional(),
   productionAreaIds: z.array(z.string()),
 });
@@ -61,14 +68,12 @@ const initialPaymentSchema = z
     paymentMethod: z.enum(['CASH', 'TRANSFER', 'CARD', 'CHECK', 'CREDIT', 'OTHER']),
     reference: z.string().optional(),
     notes: z.string().optional(),
+    receiptFile: z.any().optional(),
+    receiptFileUrl: z.any().optional(),
   })
   .refine(
     (data) => {
-      // Si es crédito, el monto puede ser 0
-      if (data.paymentMethod === 'CREDIT') {
-        return data.amount >= 0;
-      }
-      // En otros casos debe ser mayor a 0 (como estaba antes con .positive())
+      if (data.paymentMethod === 'CREDIT') return data.amount >= 0;
       return data.amount > 0;
     },
     {
@@ -83,7 +88,10 @@ const orderFormSchema = z
       message: 'Debe seleccionar un cliente',
     }).nullable(),
     deliveryDate: z.date().nullable(),
+    deliveryDateReason: z.string().optional(),
     notes: z.string().optional(),
+    requiresColorProof: z.boolean().default(false),
+    colorProofPrice: z.number().min(0).optional(),
     items: z.array(orderItemSchema).min(1, 'Debe agregar al menos un item'),
     applyTax: z.boolean(),
     taxRate: z.number().min(0).max(100),
@@ -92,7 +100,6 @@ const orderFormSchema = z
   })
   .refine(
     (data) => {
-      // Validar que todos los items tengan valores válidos
       return data.items.every((item) => {
         const qty = parseFloat(item.quantity);
         const price = parseFloat(item.unitPrice);
@@ -106,22 +113,168 @@ const orderFormSchema = z
   )
   .refine(
     (data) => {
-      // Validar que el monto del abono no exceda el total
       const subtotal = data.items.reduce((sum, item) => sum + item.total, 0);
       const tax = data.applyTax ? subtotal * (data.taxRate / 100) : 0;
-      const total = subtotal + tax;
+      const colorProofPrice = data.requiresColorProof ? (data.colorProofPrice || 0) : 0;
+      const total = subtotal + tax + colorProofPrice;
       return data.payment.amount <= total;
     },
     {
       message: 'El monto del abono no puede ser mayor al total de la orden',
       path: ['payment', 'amount'],
     }
+  )
+  .refine(
+    () => true,
+    {
+      message: 'Debe indicar la razón del cambio de fecha',
+      path: ['deliveryDateReason'],
+    }
   );
 
 type OrderFormData = z.infer<typeof orderFormSchema>;
 
+const formatCurrencyInput = (value: string): string => {
+  const numericValue = value.replace(/\D/g, '');
+  if (!numericValue) return '';
+  const number = parseInt(numericValue, 10);
+  return new Intl.NumberFormat('es-CO').format(number);
+};
+
+const formatCurrency = (value: number): string =>
+  new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    minimumFractionDigits: 0,
+  }).format(value);
+
 // ============================================================
-// COMPONENT
+// STEP CONFIG
+// ============================================================
+
+interface StepConfig {
+  label: string;
+  subtitle: string;
+  icon: React.ReactNode;
+}
+
+const STEPS: StepConfig[] = [
+  { label: 'Cliente y Fechas', subtitle: 'Datos del cliente y canal de ventas', icon: <PersonIcon fontSize="small" /> },
+  { label: 'Ítems de la Orden', subtitle: 'Productos y cantidades', icon: <ShoppingCartIcon fontSize="small" /> },
+  { label: 'Totales y Pago', subtitle: 'Impuestos, abono y prueba de color', icon: <AttachMoneyIcon fontSize="small" /> },
+  { label: 'Observaciones y Confirmar', subtitle: 'Notas finales y guardar', icon: <NotesIcon fontSize="small" /> },
+];
+
+// ============================================================
+// STEP HEADER COMPONENT
+// ============================================================
+
+interface StepHeaderProps {
+  index: number;
+  config: StepConfig;
+  status: 'active' | 'completed' | 'visited' | 'pending';
+  clickable?: boolean;
+  onClick?: () => void;
+}
+
+const StepHeader: React.FC<StepHeaderProps> = ({ index, config, status, clickable, onClick }) => {
+  const theme = useTheme();
+  const isActive = status === 'active';
+  const isCompleted = status === 'completed';
+  const isVisited = status === 'visited';
+
+  const successGreen = theme.palette.success.dark;
+
+  const numberBg = isActive
+    ? theme.palette.primary.main
+    : isCompleted
+    ? successGreen
+    : isVisited
+    ? theme.palette.warning.main
+    : theme.palette.action.disabled;
+
+  const borderColor = isActive
+    ? alpha(theme.palette.primary.main, 0.2)
+    : isVisited
+    ? alpha(theme.palette.warning.main, 0.2)
+    : 'transparent';
+
+  const bgColor = isActive
+    ? alpha(theme.palette.primary.main, 0.06)
+    : isVisited
+    ? alpha(theme.palette.warning.main, 0.06)
+    : 'transparent';
+
+  const labelColor = isActive
+    ? theme.palette.primary.main
+    : isCompleted
+    ? successGreen
+    : isVisited
+    ? theme.palette.warning.main
+    : theme.palette.text.primary;
+
+  return (
+    <Box
+      onClick={clickable ? onClick : undefined}
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5,
+        p: 2,
+        cursor: clickable ? 'pointer' : 'default',
+        borderRadius: 2,
+        bgcolor: bgColor,
+        border: `1px solid ${borderColor}`,
+        transition: 'all 0.2s ease',
+        '&:hover': clickable ? { bgcolor: alpha(theme.palette.action.hover, 0.08) } : {},
+      }}
+    >
+      <Box sx={{ position: 'relative', flexShrink: 0 }}>
+        <Box
+          sx={{
+            width: 32,
+            height: 32,
+            borderRadius: '50%',
+            bgcolor: numberBg,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#fff',
+            fontWeight: 700,
+            fontSize: 14,
+          }}
+        >
+          {index + 1}
+        </Box>
+        {isCompleted && (
+          <CheckCircleIcon
+            sx={{
+              position: 'absolute',
+              bottom: -4,
+              right: -6,
+              fontSize: 16,
+              color: successGreen,
+              bgcolor: 'background.paper',
+              borderRadius: '50%',
+            }}
+          />
+        )}
+      </Box>
+
+      <Box>
+        <Typography variant="subtitle2" fontWeight={600} sx={{ color: labelColor }}>
+          {config.label}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {config.subtitle}
+        </Typography>
+      </Box>
+    </Box>
+  );
+};
+
+// ============================================================
+// MAIN COMPONENT
 // ============================================================
 
 export const OrderFormPage: React.FC = () => {
@@ -136,19 +289,18 @@ export const OrderFormPage: React.FC = () => {
   const isAdmin = user?.role?.name === 'admin';
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeStep, setActiveStep] = useState(0);
+  const [visitedSteps, setVisitedSteps] = useState<Set<number>>(new Set([0]));
 
-  // Cargar canales de venta
   const { data: channels = [], isLoading: channelsLoading } = useQuery({
     queryKey: ['commercial-channels'],
     queryFn: () => commercialChannelsApi.getAll(),
   });
 
-  // Nombre completo del usuario en sesión
   const currentUserFullName = user
     ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email
     : '';
 
-  // React Hook Form
   const {
     control,
     handleSubmit,
@@ -156,12 +308,15 @@ export const OrderFormPage: React.FC = () => {
     setValue,
     formState: { errors, isValid },
   } = useForm<OrderFormData>({
-    resolver: zodResolver(orderFormSchema),
+    resolver: zodResolver(orderFormSchema) as Resolver<OrderFormData>,
     mode: 'onChange',
     defaultValues: {
       client: null,
       deliveryDate: null,
+      deliveryDateReason: '',
       notes: '',
+      requiresColorProof: false,
+      colorProofPrice: undefined,
       items: [
         {
           id: uuidv4(),
@@ -184,52 +339,63 @@ export const OrderFormPage: React.FC = () => {
     },
   });
 
-  // Watch values for calculations and conditional logic
   const selectedClient = watch('client');
   const items = watch('items');
   const applyTax = watch('applyTax');
   const taxRate = watch('taxRate');
+  const deliveryDate = watch('deliveryDate');
+  const requiresColorProof = watch('requiresColorProof');
+  const colorProofPrice = requiresColorProof ? watch('colorProofPrice') || 0 : 0;
+  const commercialChannelId = watch('commercialChannelId');
 
-  // Calculate totals
   const subtotal = items.reduce((sum, item) => sum + item.total, 0);
   const tax = applyTax ? subtotal * (taxRate / 100) : 0;
-  const total = subtotal + tax;
+  const total = subtotal + tax + colorProofPrice;
 
-  // Deshabilitar campos si no hay cliente seleccionado
   const isClientSelected = !!selectedClient;
 
-  // Actualizar IVA automáticamente según tipo de cliente (solo en modo creación)
+  const [isDatePostponed, setIsDatePostponed] = useState(false);
+  const [originalDeliveryDate, setOriginalDeliveryDate] = useState<Date | null>(null);
+
+  useEffect(() => {
+    if (isEdit && orderQuery.data && deliveryDate) {
+      const currentDate = orderQuery.data.deliveryDate ? new Date(orderQuery.data.deliveryDate) : null;
+      const newDate = deliveryDate;
+      if (currentDate && !originalDeliveryDate) setOriginalDeliveryDate(currentDate);
+      if (originalDeliveryDate && newDate > originalDeliveryDate) {
+        setIsDatePostponed(true);
+      } else {
+        setIsDatePostponed(false);
+        setValue('deliveryDateReason', '');
+      }
+    }
+  }, [deliveryDate, isEdit, orderQuery.data, originalDeliveryDate, setValue]);
+
   useEffect(() => {
     if (!isEdit && selectedClient) {
-      // Si es empresa, aplicar IVA; si es natural, no aplicar
-      const shouldApplyTax = selectedClient.personType === 'EMPRESA';
-      setValue('applyTax', shouldApplyTax);
+      setValue('applyTax', selectedClient.personType === 'EMPRESA');
     }
   }, [selectedClient, setValue, isEdit]);
 
-  // Load order data for edit mode
   useEffect(() => {
     if (isEdit && orderQuery.data) {
       const order = orderQuery.data;
-
-      // Validar acceso a edición
       const canEdit =
-        order.status === 'DRAFT' ||           // DRAFT siempre editable
-        isAdmin ||                             // Admin puede editar todo
-        activePermissionQuery.data !== null;   // Permiso temporal activo
+        order.status === 'DRAFT' ||
+        isAdmin ||
+        activePermissionQuery.data !== null;
 
       if (!canEdit) {
-        enqueueSnackbar('No tienes permiso para editar esta orden', {
-          variant: 'error'
-        });
+        enqueueSnackbar('No tienes permiso para editar esta orden', { variant: 'error' });
         navigate(`/orders/${id}`);
         return;
       }
 
-      // Populate form with existing data
       setValue('client', order.client as any);
       setValue('deliveryDate', order.deliveryDate ? new Date(order.deliveryDate) : null);
       setValue('notes', order.notes || '');
+      setValue('requiresColorProof', order.requiresColorProof || false);
+      setValue('colorProofPrice', order.colorProofPrice ? parseFloat(order.colorProofPrice) : 0);
       setValue(
         'items',
         order.items.map((item) => ({
@@ -238,7 +404,7 @@ export const OrderFormPage: React.FC = () => {
           quantity: item.quantity.toString(),
           unitPrice: item.unitPrice,
           total: parseFloat(item.total),
-          serviceId: item.service?.id,
+          productId: item.product?.id,
           specifications: item.specifications || undefined,
           productionAreaIds: item.productionAreas
             ? item.productionAreas.map((pa) => pa.productionArea.id)
@@ -248,7 +414,6 @@ export const OrderFormPage: React.FC = () => {
       setValue('applyTax', parseFloat(order.taxRate) > 0);
       setValue('taxRate', parseFloat(order.taxRate) * 100);
 
-      // Cargar abono inicial (primer pago si existe)
       const firstPayment = order.payments && order.payments.length > 0 ? order.payments[0] : null;
       setValue('payment', {
         amount: firstPayment ? parseFloat(firstPayment.amount) : 0,
@@ -257,24 +422,60 @@ export const OrderFormPage: React.FC = () => {
         notes: firstPayment?.notes || '',
       });
       setValue('commercialChannelId', order.commercialChannelId || '');
+      // En edición todos los pasos fueron completados
+      setVisitedSteps(new Set([0, 1, 2, 3]));
     }
   }, [isEdit, orderQuery.data, id, navigate, setValue, isAdmin, activePermissionQuery.data]);
 
-  // Handle form submission
-  const onSubmit = async (data: OrderFormData) => {
-    setIsSubmitting(true);
+  // ── Step navigation ──────────────────────────────────────────────────────────
 
+  const goToStep = (step: number) => {
+    setActiveStep(step);
+    setVisitedSteps((prev) => new Set([...prev, step]));
+  };
+
+  const hasValidItems = items.length > 0 && items.some((item) => item.description && item.quantity && item.unitPrice);
+
+  const getStepStatus = (i: number): 'active' | 'completed' | 'visited' | 'pending' => {
+    if (i === activeStep) return 'active';
+    if (!visitedSteps.has(i)) return 'pending';
+    // Validación básica por paso
+    const validByStep = [
+      isClientSelected && !!commercialChannelId,  // paso 0: cliente + canal de ventas
+      hasValidItems,                  // paso 1: al menos un item completo
+      hasValidItems,                  // paso 2: requiere items para tener sentido
+      true,                           // paso 3
+    ];
+    return validByStep[i] ? 'completed' : 'visited';
+  };
+
+  const canGoNext = () => {
+    if (activeStep === 0) return isClientSelected && !!commercialChannelId;
+    if (activeStep === 1) return hasValidItems;
+    if (activeStep === 2) return hasValidItems;
+    return true;
+  };
+
+  // ── Submit ───────────────────────────────────────────────────────────────────
+
+  const onSubmit: SubmitHandler<OrderFormData> = async (data) => {
+    setIsSubmitting(true);
     try {
       const orderDto = {
         clientId: data.client!.id,
         deliveryDate: data.deliveryDate?.toISOString(),
+        ...(isEdit && isDatePostponed && data.deliveryDateReason && {
+          deliveryDateReason: data.deliveryDateReason,
+        }),
         notes: data.notes,
+        requiresColorProof: data.requiresColorProof,
+        colorProofPrice: data.requiresColorProof ? data.colorProofPrice : 0,
         items: data.items.map((item) => ({
           ...(isEdit && item.id && { id: item.id }),
           description: item.description,
           quantity: parseFloat(item.quantity),
           unitPrice: parseFloat(item.unitPrice),
-          serviceId: item.serviceId,
+          productId: item.productId,
           specifications: item.specifications,
           productionAreaIds: item.productionAreaIds,
         })),
@@ -288,42 +489,402 @@ export const OrderFormPage: React.FC = () => {
       };
 
       if (isEdit) {
-        // Actualizar orden existente
         await updateOrderMutation.mutateAsync(orderDto);
         navigate(`/orders/${id}`);
       } else {
-        // Crear nueva orden
         const newOrder = await createOrderMutation.mutateAsync(orderDto);
+        
+        if (data.payment.receiptFile && newOrder.payments && newOrder.payments.length > 0) {
+          try {
+            await ordersApi.uploadPaymentReceipt(newOrder.id, newOrder.payments[0].id, data.payment.receiptFile);
+            enqueueSnackbar('Orden y comprobante guardados exitosamente', { variant: 'success' });
+          } catch (e: any) {
+            console.error('Error al subir el comprobante:', e);
+            enqueueSnackbar('Orden creada, pero hubo un error subiendo el comprobante', { variant: 'warning' });
+          }
+        }
+        
         navigate(`/orders/${newOrder.id}`);
       }
     } catch (error: any) {
-      // Manejo especial para error 403 (permiso expirado)
       if (error?.response?.status === 403) {
-        enqueueSnackbar(
-          'Tu permiso de edición ha expirado. Solicita un nuevo permiso.',
-          { variant: 'error' }
-        );
+        enqueueSnackbar('Tu permiso de edición ha expirado. Solicita un nuevo permiso.', { variant: 'error' });
         navigate(`/orders/${id}`);
       } else {
-        // Otros errores manejados por mutation hook
         setIsSubmitting(false);
       }
     }
   };
 
-  // Loading state
-  if (isEdit && orderQuery.isLoading) {
-    return <LoadingSpinner />;
-  }
+  // ── Loading ──────────────────────────────────────────────────────────────────
+
+  if (isEdit && orderQuery.isLoading) return <LoadingSpinner />;
+
+  // ── Step renderers ────────────────────────────────────────────────────────────
+
+  const renderStep0 = () => (
+    <Stack spacing={3}>
+      <Card variant="outlined" sx={{ borderRadius: 2 }}>
+        <CardContent sx={{ pb: '16px !important' }}>
+          <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
+            Cliente y Fechas
+          </Typography>
+          <Divider sx={{ mb: 3 }} />
+
+          <Stack spacing={3}>
+            <Controller
+              name="client"
+              control={control}
+              render={({ field }) => (
+                <ClientSelector
+                  value={field.value}
+                  onChange={field.onChange}
+                  error={!!errors.client}
+                  helperText={errors.client?.message}
+                  currentUserId={user?.id}
+                  isAdmin={isAdmin}
+                />
+              )}
+            />
+
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <TextField
+                fullWidth
+                label="Fecha de Orden"
+                value={new Date().toLocaleDateString('es-CO')}
+                disabled={!isClientSelected}
+                InputProps={{ readOnly: true }}
+                helperText="Fecha de registro"
+              />
+
+              <Controller
+                name="deliveryDate"
+                control={control}
+                render={({ field }) => (
+                  <DatePicker
+                    label="Fecha de Entrega (Opcional)"
+                    value={field.value}
+                    onChange={field.onChange}
+                    disabled={!isClientSelected}
+                    minDate={new Date()}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        helperText: isClientSelected ? 'Fecha estimada' : 'Seleccione cliente',
+                      },
+                    }}
+                  />
+                )}
+              />
+
+              <TextField
+                fullWidth
+                label="Creado por"
+                value={currentUserFullName}
+                InputProps={{ readOnly: true }}
+                helperText="Usuario responsable"
+              />
+            </Stack>
+
+            {isEdit && isDatePostponed && (
+              <Controller
+                name="deliveryDateReason"
+                control={control}
+                rules={{ required: isDatePostponed ? 'Debe indicar la razón del cambio de fecha' : false }}
+                render={({ field, fieldState }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    multiline
+                    rows={2}
+                    label="Razón del cambio de fecha de entrega *"
+                    placeholder="Explique por qué se está posponiendo la fecha de entrega..."
+                    error={!!fieldState.error}
+                    helperText={fieldState.error?.message || 'Este campo es obligatorio cuando se pospone la fecha de entrega'}
+                    sx={{ '& .MuiOutlinedInput-root': { backgroundColor: 'warning.lighter' } }}
+                  />
+                )}
+              />
+            )}
+
+            <Controller
+              name="commercialChannelId"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  select
+                  fullWidth
+                  label="Canal de Ventas *"
+                  error={!!errors.commercialChannelId}
+                  helperText={errors.commercialChannelId?.message || 'Canal por el cual se realizó la venta'}
+                  disabled={!isClientSelected || channelsLoading}
+                  InputProps={{
+                    startAdornment: channelsLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null,
+                  }}
+                >
+                  {channels.length > 0 ? (
+                    channels.map((channel) => (
+                      <MenuItem key={channel.id} value={channel.id}>
+                        {channel.name}
+                      </MenuItem>
+                    ))
+                  ) : (
+                    <MenuItem disabled value="">
+                      No hay canales disponibles
+                    </MenuItem>
+                  )}
+                </TextField>
+              )}
+            />
+          </Stack>
+        </CardContent>
+      </Card>
+    </Stack>
+  );
+
+  const renderStep1 = () => (
+    <Stack spacing={3}>
+      <Card variant="outlined" sx={{ borderRadius: 2 }}>
+        <CardContent sx={{ pb: '16px !important' }}>
+          <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
+            Ítems de la Orden
+          </Typography>
+          <Divider sx={{ mb: 3 }} />
+
+          <Stack spacing={3}>
+            {!isClientSelected && (
+              <Typography variant="body2" color="text.secondary">
+                Primero debe seleccionar un cliente para agregar ítems a la orden.
+              </Typography>
+            )}
+
+            <Controller
+              name="items"
+              control={control}
+              render={({ field }) => (
+                <OrderItemsTable
+                  items={field.value}
+                  onChange={field.onChange}
+                  errors={errors}
+                  disabled={!isClientSelected}
+                />
+              )}
+            />
+          </Stack>
+        </CardContent>
+      </Card>
+    </Stack>
+  );
+
+  const renderStep2 = () => (
+    <Stack spacing={3}>
+      {/* Prueba de color */}
+      <Card variant="outlined" sx={{ borderRadius: 2 }}>
+        <CardContent sx={{ pb: '16px !important' }}>
+          <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
+            Prueba de Color
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} sm={6}>
+              <Controller
+                name="requiresColorProof"
+                control={control}
+                render={({ field }) => (
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <input
+                      type="checkbox"
+                      id="requiresColorProof"
+                      checked={field.value}
+                      onChange={(e) => field.onChange(e.target.checked)}
+                      disabled={!isClientSelected}
+                      style={{ marginRight: '8px', width: '18px', height: '18px' }}
+                    />
+                    <label htmlFor="requiresColorProof" style={{ cursor: 'pointer', userSelect: 'none' }}>
+                      ¿Requiere prueba de color?
+                    </label>
+                  </Box>
+                )}
+              />
+            </Grid>
+            {requiresColorProof && (
+              <Grid item xs={12} sm={6}>
+                <Controller
+                  name="colorProofPrice"
+                  control={control}
+                  render={({ field, fieldState }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      label="Valor de la prueba de color"
+                      size="small"
+                      disabled={!isClientSelected}
+                      error={!!fieldState.error}
+                      helperText={fieldState.error?.message}
+                      InputProps={{
+                        startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>,
+                        inputProps: { inputMode: 'numeric' },
+                      }}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/\D/g, '');
+                        if (raw === '') { field.onChange(undefined); return; }
+                        const val = parseInt(raw, 10);
+                        field.onChange(isNaN(val) ? undefined : val);
+                      }}
+                      value={field.value !== undefined ? formatCurrencyInput(field.value.toString()) : ''}
+                    />
+                  )}
+                />
+              </Grid>
+            )}
+          </Grid>
+        </CardContent>
+      </Card>
+
+      <Controller
+        name="applyTax"
+        control={control}
+        render={({ field: applyTaxField }) => (
+          <Controller
+            name="taxRate"
+            control={control}
+            render={({ field: taxRateField }) => (
+              <OrderTotals
+                items={items}
+                applyTax={applyTaxField.value}
+                taxRate={taxRateField.value}
+                requiresColorProof={requiresColorProof}
+                colorProofPrice={colorProofPrice}
+                onApplyTaxChange={applyTaxField.onChange}
+                onTaxRateChange={taxRateField.onChange}
+                disabled={!isClientSelected}
+              />
+            )}
+          />
+        )}
+      />
+
+      <Controller
+        name="payment"
+        control={control}
+        render={({ field: paymentField }) => (
+          <InitialPayment
+            total={total}
+            enabled={true}
+            value={paymentField.value}
+            onEnabledChange={() => {}}
+            onChange={paymentField.onChange}
+            errors={errors as any}
+            disabled={!isClientSelected}
+            required={true}
+          />
+        )}
+      />
+    </Stack>
+  );
+
+  const renderStep3 = () => (
+    <Stack spacing={3}>
+      <Card variant="outlined" sx={{ borderRadius: 2 }}>
+        <CardContent sx={{ pb: '16px !important' }}>
+          <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
+            Observaciones y Confirmar
+          </Typography>
+          <Divider sx={{ mb: 3 }} />
+
+          <Controller
+            name="notes"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                fullWidth
+                multiline
+                rows={4}
+                label="Notas u Observaciones"
+                placeholder="Agregue cualquier información adicional sobre esta orden..."
+                helperText={
+                  isClientSelected
+                    ? 'Opcional: instrucciones especiales, detalles importantes, etc.'
+                    : 'Primero seleccione un cliente'
+                }
+                disabled={!isClientSelected}
+              />
+            )}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Resumen */}
+      <Card variant="outlined" sx={{ borderRadius: 2 }}>
+        <CardContent sx={{ pb: '16px !important' }}>
+          <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
+            Resumen
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+          <Stack spacing={0.5}>
+            <Typography variant="body2">
+              <strong>Cliente:</strong> {selectedClient?.name ?? '—'}
+            </Typography>
+            <Typography variant="body2">
+              <strong>Canal:</strong>{' '}
+              {channels.find((c) => c.id === watch('commercialChannelId'))?.name ?? '—'}
+            </Typography>
+            <Typography variant="body2">
+              <strong>Ítems:</strong> {items.length}
+            </Typography>
+            <Typography variant="body2">
+              <strong>Subtotal:</strong> {formatCurrency(subtotal)}
+            </Typography>
+            {applyTax && (
+              <Typography variant="body2">
+                <strong>IVA ({taxRate}%):</strong> {formatCurrency(tax)}
+              </Typography>
+            )}
+            {requiresColorProof && (
+              <Typography variant="body2">
+                <strong>Prueba de color:</strong> {formatCurrency(colorProofPrice)}
+              </Typography>
+            )}
+            <Divider sx={{ my: 0.5 }} />
+            <Typography variant="body2" fontWeight={700}>
+              <strong>Total:</strong> {formatCurrency(total)}
+            </Typography>
+            <Divider sx={{ my: 0.5 }} />
+            <Typography variant="body2" color="primary.main" fontWeight={600}>
+              <strong>Anticipo:</strong> {formatCurrency(watch('payment.amount') || 0)}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              <strong>Método de pago:</strong> {
+                {
+                  CASH: 'Efectivo',
+                  TRANSFER: 'Transferencia',
+                  CARD: 'Tarjeta',
+                  CHECK: 'Cheque',
+                  CREDIT: 'Crédito',
+                  OTHER: 'Otro'
+                }[watch('payment.paymentMethod')] || watch('payment.paymentMethod')
+              }
+            </Typography>
+            <Divider sx={{ my: 0.5 }} />
+            <Typography variant="body2" color="error.main" fontWeight={700}>
+              <strong>Saldo por pagar:</strong> {formatCurrency(total - (watch('payment.amount') || 0))}
+            </Typography>
+          </Stack>
+        </CardContent>
+      </Card>
+    </Stack>
+  );
+
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       {isSubmitting && (
-        <LoadingSpinner 
-          fullScreen 
-          message={isEdit ? 'Guardando cambios...' : 'Creando orden...'} 
-        />
+        <LoadingSpinner fullScreen message={isEdit ? 'Guardando cambios...' : 'Creando orden...'} />
       )}
+
       <PageHeader
         title={isEdit ? 'Editar Orden' : 'Nueva Orden de Pedido'}
         breadcrumbs={[
@@ -332,259 +893,94 @@ export const OrderFormPage: React.FC = () => {
         ]}
       />
 
-      {/* Banner de permiso activo */}
       {isEdit && id && <ActivePermissionBanner orderId={id} />}
 
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <Stack spacing={3} sx={{ mt: 3 }}>
-          {/* Sección 1: Información del Cliente y Fechas */}
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
-                1. Información del Cliente y Fechas
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              
-              <Grid container spacing={3}>
-                <Grid item xs={12}>
-                  <Controller
-                    name="client"
-                    control={control}
-                    render={({ field }) => (
-                      <ClientSelector
-                        value={field.value}
-                        onChange={field.onChange}
-                        error={!!errors.client}
-                        helperText={errors.client?.message}
-                      />
-                    )}
-                  />
-                </Grid>
-
-                {/* Fecha de Orden (readonly) */}
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    fullWidth
-                    label="Fecha de Orden"
-                    size="small"
-                    value={new Date().toLocaleDateString('es-CO')}
-                    disabled={!isClientSelected}
-                    InputProps={{
-                      readOnly: true,
-                    }}
-                    helperText="Fecha de registro"
-                  />
-                </Grid>
-
-                {/* Fecha de Entrega */}
-                <Grid item xs={12} sm={4}>
-                  <Controller
-                    name="deliveryDate"
-                    control={control}
-                    render={({ field }) => (
-                      <DatePicker
-                        label="Fecha de Entrega (Opcional)"
-                        value={field.value}
-                        onChange={field.onChange}
-                        disabled={!isClientSelected}
-                        minDate={new Date()}
-                        slotProps={{
-                          textField: {
-                            fullWidth: true,
-                            size: 'small',
-                            helperText: isClientSelected
-                              ? 'Fecha estimada'
-                              : 'Seleccione cliente',
-                          },
-                        }}
-                      />
-                    )}
-                  />
-                </Grid>
-
-                {/* Creado por (readonly) */}
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    fullWidth
-                    label="Creado por"
-                    size="small"
-                    value={currentUserFullName}
-                    InputProps={{
-                      readOnly: true,
-                    }}
-                    helperText="Usuario responsable"
-                  />
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
-
-          {/* Sección 3: Items */}
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
-                2. Items de la Orden
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              {!isClientSelected && (
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Primero debe seleccionar un cliente para agregar items a la orden.
-                </Typography>
-              )}
-              <Controller
-                name="items"
-                control={control}
-                render={({ field }) => (
-                  <OrderItemsTable
-                    items={field.value}
-                    onChange={field.onChange}
-                    errors={errors}
-                    disabled={!isClientSelected}
-                  />
-                )}
+      {/* ── PASOS TOP ── */}
+      <Box
+        sx={{
+          position: 'relative',
+          bgcolor: 'background.default',
+          pt: 2,
+          pb: 1,
+          mb: 3,
+          mx: { xs: -1, sm: -2, md: -3 }, // Para abarcar todo el margen
+          px: { xs: 1, sm: 2, md: 3 },
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        <Stack
+          direction="row"
+          spacing={2}
+          sx={{
+            overflowX: 'auto',
+            pb: 1,
+            '&::-webkit-scrollbar': { height: 6 },
+            '&::-webkit-scrollbar-thumb': { borderRadius: 3, bgcolor: 'rgba(255,255,255,0.2)' },
+          }}
+        >
+          {STEPS.map((step, i) => (
+            <Box key={i} sx={{ minWidth: { xs: 240, md: 0 }, flex: { md: 1 } }}>
+              <StepHeader
+                index={i}
+                config={step}
+                status={getStepStatus(i)}
+                clickable={visitedSteps.has(i) && i !== activeStep}
+                onClick={() => goToStep(i)}
               />
-            </CardContent>
-          </Card>
-
-          {/* Sección 4: Totales */}
-          <Controller
-            name="applyTax"
-            control={control}
-            render={({ field: applyTaxField }) => (
-              <Controller
-                name="taxRate"
-                control={control}
-                render={({ field: taxRateField }) => (
-                  <OrderTotals
-                    items={items}
-                    applyTax={applyTaxField.value}
-                    taxRate={taxRateField.value}
-                    onApplyTaxChange={applyTaxField.onChange}
-                    onTaxRateChange={taxRateField.onChange}
-                    disabled={!isClientSelected}
-                  />
-                )}
-              />
-            )}
-          />
-
-          {/* Sección 5: Abono Inicial (Obligatorio) */}
-          <Controller
-            name="payment"
-            control={control}
-            render={({ field: paymentField }) => (
-              <InitialPayment
-                total={total}
-                enabled={true}
-                value={paymentField.value}
-                onEnabledChange={() => {}} // No permitir deshabilitar
-                onChange={paymentField.onChange}
-                errors={errors as any}
-                disabled={!isClientSelected}
-                required={true}
-              />
-            )}
-          />
-
-          {/* Sección 5: Canal de Ventas */}
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
-                5. Canal de Ventas
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              <Controller
-                name="commercialChannelId"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    select
-                    fullWidth
-                    label="Seleccione el Canal de Venta"
-                    error={!!errors.commercialChannelId}
-                    helperText={errors.commercialChannelId?.message || 'Canal por el cual se realizó la venta'}
-                    disabled={!isClientSelected || channelsLoading}
-                    InputProps={{
-                      startAdornment: channelsLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null
-                    }}
-                  >
-                    {channels.length > 0 ? (
-                      channels.map((channel) => (
-                        <MenuItem key={channel.id} value={channel.id}>
-                          {channel.name}
-                        </MenuItem>
-                      ))
-                    ) : (
-                      <MenuItem disabled value="">
-                        No hay canales disponibles
-                      </MenuItem>
-                    )}
-                  </TextField>
-                )}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Sección 6: Notas */}
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
-                6. Observaciones
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              <Controller
-                name="notes"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    fullWidth
-                    multiline
-                    rows={4}
-                    label="Notas u Observaciones"
-                    placeholder="Agregue cualquier información adicional sobre esta orden..."
-                    helperText={
-                      isClientSelected
-                        ? 'Opcional: instrucciones especiales, detalles importantes, etc.'
-                        : 'Primero seleccione un cliente'
-                    }
-                    disabled={!isClientSelected}
-                  />
-                )}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Acciones */}
-          <Paper sx={{ p: 2 }}>
-            <Stack direction="row" spacing={2} justifyContent="flex-end">
-              <Button
-                variant="outlined"
-                color="error"
-                startIcon={<CancelIcon />}
-                onClick={() => navigate('/orders')}
-                disabled={isSubmitting}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                variant="contained"
-                color="success"
-                startIcon={<SaveIcon />}
-                disabled={isSubmitting || !isValid}
-              >
-                {isSubmitting
-                  ? 'Guardando...'
-                  : isEdit
-                  ? 'Guardar Cambios'
-                  : 'Crear Orden'}
-              </Button>
-            </Stack>
-          </Paper>
+            </Box>
+          ))}
         </Stack>
-      </form>
+      </Box>
+
+      <Box sx={{ maxWidth: '100%' }}>
+          {/* ── Contenido del paso activo ── */}
+          <Box flex={1}>
+            {activeStep === 0 && renderStep0()}
+            {activeStep === 1 && renderStep1()}
+            {activeStep === 2 && renderStep2()}
+            {activeStep === 3 && renderStep3()}
+
+            {/* Navegación */}
+            <Stack
+              direction={{ xs: 'column-reverse', sm: 'row' }}
+              justifyContent="space-between"
+              spacing={{ xs: 1, sm: 0 }}
+              sx={{ mt: 4 }}
+            >
+              <Button
+                startIcon={<ArrowBackIcon />}
+                onClick={() =>
+                  activeStep === 0 ? navigate('/orders') : goToStep(activeStep - 1)
+                }
+                disabled={isSubmitting}
+                fullWidth={false}
+              >
+                {activeStep === 0 ? 'Cancelar' : 'Anterior'}
+              </Button>
+
+              {activeStep < STEPS.length - 1 ? (
+                <Button
+                  variant="contained"
+                  onClick={() => goToStep(activeStep + 1)}
+                  disabled={!canGoNext() || isSubmitting}
+                >
+                  Siguiente
+                </Button>
+              ) : (
+                <Button
+                  variant="contained"
+                  color="success"
+                  startIcon={<SaveIcon />}
+                  disabled={isSubmitting || !isValid}
+                  onClick={handleSubmit(onSubmit)}
+                >
+                  {isSubmitting ? 'Guardando...' : isEdit ? 'Guardar Cambios' : 'Crear Orden'}
+                </Button>
+              )}
+            </Stack>
+          </Box>
+      </Box>
     </Box>
   );
 };

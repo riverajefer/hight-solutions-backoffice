@@ -36,9 +36,11 @@ export class ClientsService {
   }
 
   /**
-   * Create a new client
+   * Create a new client.
+   * If the creator is not an admin (does not have `approve_client_ownership_auth`),
+   * they are assigned as the advisor of the client.
    */
-  async create(createClientDto: CreateClientDto) {
+  async create(createClientDto: CreateClientDto, creatorId: string) {
     // Validate email uniqueness
     const existingClient = await this.clientsRepository.findByEmail(
       createClientDto.email,
@@ -72,19 +74,34 @@ export class ClientsService {
       );
     }
 
-    // Set NIT to null for NATURAL type
+    // Set NIT and Cedula based on personType
     const nit = createClientDto.personType === PersonType.NATURAL ? null : createClientDto.nit;
+    const cedula = createClientDto.personType === PersonType.EMPRESA ? null : createClientDto.cedula;
+
+    // Determine advisorId: non-admin users become the advisor of the client
+    let advisorConnect: { connect: { id: string } } | undefined;
+    const creator = await this.clientsRepository.findUserWithPermissions(creatorId);
+    const isAdmin = creator?.role?.permissions?.some(
+      (rp) => rp.permission.name === 'approve_client_ownership_auth',
+    );
+    if (!isAdmin) {
+      advisorConnect = { connect: { id: creatorId } };
+    }
 
     return this.clientsRepository.create({
       name: createClientDto.name,
       manager: createClientDto.manager,
+      encargado: createClientDto.encargado,
       phone: createClientDto.phone,
+      landlinePhone: createClientDto.landlinePhone,
       address: createClientDto.address,
       email: createClientDto.email,
       personType: createClientDto.personType,
       nit,
+      cedula,
       department: { connect: { id: createClientDto.departmentId } },
       city: { connect: { id: createClientDto.cityId } },
+      ...(advisorConnect && { advisor: advisorConnect }),
     });
   }
 
@@ -149,17 +166,25 @@ export class ClientsService {
 
     if (updateClientDto.name !== undefined) updateData.name = updateClientDto.name;
     if (updateClientDto.manager !== undefined) updateData.manager = updateClientDto.manager;
+    if (updateClientDto.encargado !== undefined) updateData.encargado = updateClientDto.encargado;
     if (updateClientDto.phone !== undefined) updateData.phone = updateClientDto.phone;
+    if (updateClientDto.landlinePhone !== undefined) updateData.landlinePhone = updateClientDto.landlinePhone;
     if (updateClientDto.address !== undefined) updateData.address = updateClientDto.address;
     if (updateClientDto.email !== undefined) updateData.email = updateClientDto.email;
     if (updateClientDto.personType !== undefined) updateData.personType = updateClientDto.personType;
     if (updateClientDto.isActive !== undefined) updateData.isActive = updateClientDto.isActive;
 
-    // Handle NIT based on personType
+    // Handle NIT and Cedula based on personType
     if (updateClientDto.nit !== undefined) {
       updateData.nit = finalPersonType === PersonType.NATURAL ? null : updateClientDto.nit;
     } else if (updateClientDto.personType === PersonType.NATURAL) {
       updateData.nit = null;
+    }
+
+    if (updateClientDto.cedula !== undefined) {
+      updateData.cedula = finalPersonType === PersonType.EMPRESA ? null : updateClientDto.cedula;
+    } else if (updateClientDto.personType === PersonType.EMPRESA) {
+      updateData.cedula = null;
     }
 
     // Handle department/city updates
@@ -170,7 +195,25 @@ export class ClientsService {
       updateData.city = { connect: { id: updateClientDto.cityId } };
     }
 
+    // Handle advisor assignment / removal
+    if (updateClientDto.advisorId !== undefined) {
+      if (updateClientDto.advisorId === null) {
+        updateData.advisor = { disconnect: true };
+      } else {
+        updateData.advisor = { connect: { id: updateClientDto.advisorId } };
+      }
+    }
+
     return this.clientsRepository.update(id, updateData);
+  }
+
+  /**
+   * Update only the special condition field of a client.
+   * Requires the 'update_client_special_condition' permission (enforced in controller).
+   */
+  async updateSpecialCondition(id: string, specialCondition?: string | null) {
+    await this.findOne(id);
+    return this.clientsRepository.updateSpecialCondition(id, specialCondition ?? null);
   }
 
   /**

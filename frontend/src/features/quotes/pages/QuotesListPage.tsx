@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -10,19 +10,22 @@ import {
   IconButton,
   Tooltip,
 } from '@mui/material';
-import { GridColDef } from '@mui/x-data-grid';
+import { GridRenderCellParams } from '@mui/x-data-grid';
+import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../hooks';
 import {
   PostAdd as PostAddIcon,
   ShoppingCartCheckout as ConvertIcon,
+  SwapHoriz as SwapHorizIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { DataTable } from '../../../components/common/DataTable';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { ActionsCell } from '../../../components/common/DataTable/ActionsCell';
-import { useQuotes } from '../hooks/useQuotes';
+import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
+import { useQuotes } from '../hooks';
 import { useClients } from '../../clients/hooks/useClients';
-import { QuoteStatusChip } from '../components/QuoteStatusChip';
+import { QuoteStatusChip, ChangeQuoteStatusDialog } from '../components';
 import type { Quote, QuoteStatus, FilterQuotesDto } from '../../../types/quote.types';
 import { QuoteStatus as QStatus } from '../../../types/quote.types';
 import type { Client } from '../../../types/client.types';
@@ -41,13 +44,22 @@ const formatDate = (date: string): string => {
   return new Intl.DateTimeFormat('es-CO').format(new Date(date));
 };
 
+const formatDateTime = (date: string): string => {
+  return new Intl.DateTimeFormat('es-CO', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(date));
+};
+
 const QUOTE_STATUS_OPTIONS: { value: QuoteStatus; label: string }[] = [
-  { value: QStatus.DRAFT, label: 'Borrador' },
-  { value: QStatus.SENT, label: 'Enviada' },
-  { value: QStatus.ACCEPTED, label: 'Aceptada' },
-  { value: QStatus.REJECTED, label: 'Rechazada' },
-  { value: QStatus.CONVERTED, label: 'Convertida' },
-  { value: QStatus.CANCELLED, label: 'Cancelada' },
+  { value: QStatus.DRAFT,       label: 'Borrador' },
+  { value: QStatus.SENT,        label: 'Enviada' },
+  { value: QStatus.ACCEPTED,    label: 'Aceptada' },
+  { value: QStatus.NO_RESPONSE, label: 'Sin respuesta' },
+  { value: QStatus.CONVERTED,   label: 'Convertida' },
 ];
 
 export const QuotesListPage: React.FC = () => {
@@ -60,8 +72,9 @@ export const QuotesListPage: React.FC = () => {
 
   const [confirmDelete, setConfirmDelete] = useState<Quote | null>(null);
   const [confirmConvert, setConfirmConvert] = useState<Quote | null>(null);
+  const [changeStatusQuote, setChangeStatusQuote] = useState<Quote | null>(null);
 
-  const { quotesQuery, deleteQuoteMutation, convertToOrderMutation } = useQuotes(filters);
+  const { quotesQuery, deleteQuoteMutation, convertToOrderMutation, updateQuoteMutation } = useQuotes(filters);
   const { clientsQuery } = useClients({ includeInactive: false });
 
   const quotes = quotesQuery.data?.data || [];
@@ -102,12 +115,20 @@ export const QuotesListPage: React.FC = () => {
     } catch (error) {}
   };
 
-  const columns: GridColDef<Quote>[] = [
+  const handleChangeStatus = async (newStatus: QuoteStatus) => {
+    if (!changeStatusQuote) return;
+    await updateQuoteMutation.mutateAsync({
+      id: changeStatusQuote.id,
+      data: { status: newStatus },
+    });
+  };
+
+  const rawColumns: ResponsiveGridColDef<Quote>[] = useMemo(() => [
     {
       field: 'quoteNumber',
       headerName: 'Nº Cotización',
       width: 150,
-      renderCell: (params) => (
+      renderCell: (params: GridRenderCellParams<Quote>) => (
         <Box sx={{ fontWeight: 600, color: 'primary.main' }}>{params.value}</Box>
       ),
     },
@@ -115,19 +136,21 @@ export const QuotesListPage: React.FC = () => {
       field: 'client',
       headerName: 'Cliente',
       width: 250,
-      valueGetter: (_, row) => row.client?.name || '',
+      valueGetter: (_: any, row: Quote) => row.client?.name || '',
     },
     {
       field: 'quoteDate',
       headerName: 'Fecha',
-      width: 130,
-      renderCell: (params) => formatDate(params.value),
+      width: 160,
+      responsive: 'sm',
+      renderCell: (params: GridRenderCellParams<Quote>) => formatDateTime(params.value),
     },
     {
       field: 'validUntil',
       headerName: 'Vence',
       width: 130,
-      renderCell: (params) => params.value ? formatDate(params.value) : '-',
+      responsive: 'md',
+      renderCell: (params: GridRenderCellParams<Quote>) => params.value ? formatDate(params.value) : '-',
     },
     {
       field: 'total',
@@ -135,24 +158,26 @@ export const QuotesListPage: React.FC = () => {
       width: 150,
       align: 'right',
       headerAlign: 'right',
-      renderCell: (params) => formatCurrency(params.value),
+      responsive: 'sm',
+      renderCell: (params: GridRenderCellParams<Quote>) => formatCurrency(params.value),
     },
     {
       field: 'status',
       headerName: 'Estado',
       width: 150,
-      renderCell: (params) => <QuoteStatusChip status={params.value as QuoteStatus} />,
+      renderCell: (params: GridRenderCellParams<Quote>) => <QuoteStatusChip status={params.value as QuoteStatus} />,
     },
     {
       field: 'actions',
       headerName: 'Acciones',
       width: 200,
       sortable: false,
-      renderCell: (params) => {
+      renderCell: (params: GridRenderCellParams<Quote>) => {
         const isConverted = params.row.status === QStatus.CONVERTED;
-        const canEdit = !isConverted && params.row.status !== QStatus.CANCELLED;
-        const canDelete = !isConverted;
-        const canConvert = !isConverted && params.row.status === QStatus.ACCEPTED;
+        const canEdit = !isConverted;
+        const canDelete = params.row.status === QStatus.DRAFT;
+        const canConvert = params.row.status === QStatus.ACCEPTED;
+        const canChangeStatus = !isConverted;
 
         return (
           <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
@@ -161,6 +186,20 @@ export const QuotesListPage: React.FC = () => {
               onEdit={canEdit ? () => navigate(`/quotes/${params.row.id}/edit`) : undefined}
               onDelete={canDelete ? () => setConfirmDelete(params.row) : undefined}
             />
+            {canChangeStatus && (
+              <Tooltip title="Cambiar Estado">
+                <IconButton
+                  size="small"
+                  color="primary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setChangeStatusQuote(params.row);
+                  }}
+                >
+                  <SwapHorizIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
             {canConvert && (
               <Tooltip title="Convertir a Orden">
                 <IconButton
@@ -179,10 +218,15 @@ export const QuotesListPage: React.FC = () => {
         );
       },
     },
-  ];
+  ], [navigate, setConfirmDelete, setConfirmConvert, setChangeStatusQuote]);
+
+  const columns = useResponsiveColumns(rawColumns);
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
+      {updateQuoteMutation.isPending && (
+        <LoadingSpinner fullScreen message="Actualizando estado..." />
+      )}
       <PageHeader
         title="Cotizaciones"
         breadcrumbs={[{ label: 'Cotizaciones' }]}
@@ -197,13 +241,13 @@ export const QuotesListPage: React.FC = () => {
         }
       />
 
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3, mt: 2 }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3, mt: 2 }} flexWrap="wrap" useFlexGap>
         <TextField
           select
           label="Estado"
           value={filters.status || ''}
           onChange={(e) => handleFilterChange('status', e.target.value || undefined)}
-          sx={{ minWidth: 200 }}
+          sx={{ minWidth: { xs: '100%', sm: 200 } }}
           size="small"
         >
           <MenuItem value="">Todos los estados</MenuItem>
@@ -213,7 +257,7 @@ export const QuotesListPage: React.FC = () => {
         </TextField>
 
         <Autocomplete
-          sx={{ minWidth: 300 }}
+          sx={{ minWidth: { xs: '100%', sm: 300 } }}
           size="small"
           options={clients}
           value={selectedClient}
@@ -267,6 +311,14 @@ export const QuotesListPage: React.FC = () => {
         onConfirm={handleConvertQuote}
         onCancel={() => setConfirmConvert(null)}
         isLoading={convertToOrderMutation.isPending}
+      />
+
+      <ChangeQuoteStatusDialog
+        open={!!changeStatusQuote}
+        quote={changeStatusQuote}
+        onClose={() => setChangeStatusQuote(null)}
+        onConfirm={handleChangeStatus}
+        isLoading={updateQuoteMutation.isPending}
       />
     </Box>
   );

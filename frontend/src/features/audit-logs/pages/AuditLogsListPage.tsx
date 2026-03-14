@@ -36,7 +36,7 @@ const AuditLogsListPage: React.FC = () => {
   };
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title="Logs de Auditoría"
         subtitle="Historial detallado de todas las acciones realizadas en el sistema"

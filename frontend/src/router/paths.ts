@@ -43,12 +43,12 @@ export const PATHS = {
   UNITS_OF_MEASURE: '/portfolio/units-of-measure',
   UNITS_OF_MEASURE_CREATE: '/portfolio/units-of-measure/new',
   UNITS_OF_MEASURE_EDIT: '/portfolio/units-of-measure/:id/edit',
-  SERVICE_CATEGORIES: '/portfolio/service-categories',
-  SERVICE_CATEGORIES_CREATE: '/portfolio/service-categories/new',
-  SERVICE_CATEGORIES_EDIT: '/portfolio/service-categories/:id/edit',
-  SERVICES: '/portfolio/services',
-  SERVICES_CREATE: '/portfolio/services/new',
-  SERVICES_EDIT: '/portfolio/services/:id/edit',
+  PRODUCT_CATEGORIES: '/portfolio/product-categories',
+  PRODUCT_CATEGORIES_CREATE: '/portfolio/product-categories/new',
+  PRODUCT_CATEGORIES_EDIT: '/portfolio/product-categories/:id/edit',
+  PRODUCTS: '/portfolio/products',
+  PRODUCTS_CREATE: '/portfolio/products/new',
+  PRODUCTS_EDIT: '/portfolio/products/:id/edit',
   SUPPLY_CATEGORIES: '/portfolio/supply-categories',
   SUPPLY_CATEGORIES_CREATE: '/portfolio/supply-categories/new',
   SUPPLY_CATEGORIES_EDIT: '/portfolio/supply-categories/:id/edit',
@@ -61,6 +61,11 @@ export const PATHS = {
   ORDERS_EDIT: '/orders/:id/edit',
   ORDERS_DETAIL: '/orders/:id',
   PENDING_PAYMENT_ORDERS: '/orders/pending-payment',
+  STATUS_CHANGE_REQUESTS: '/orders/status-change-requests',
+  ORDERS_PROFITABILITY: '/orders/profitability',
+  // Order Timeline
+  ORDER_FLOW: '/orders/flow/:type/:id',
+  ORDER_FLOW_BASE: '/orders/flow',
   // Quotes Routes
   QUOTES: '/quotes',
   QUOTES_CREATE: '/quotes/new',
@@ -72,5 +77,34 @@ export const PATHS = {
   COMMERCIAL_CHANNELS_EDIT: '/commercial-channels/:id/edit',
   COMMERCIAL_CHANNELS_VIEW: '/commercial-channels/:id',
   NOTIFICATIONS: '/notifications',
+  // Company
+  COMPANY: '/company',
+  // Work Orders Routes
+  WORK_ORDERS: '/work-orders',
+  WORK_ORDERS_CREATE: '/work-orders/new',
+  WORK_ORDERS_EDIT: '/work-orders/:id/edit',
+  WORK_ORDERS_DETAIL: '/work-orders/:id',
+  // Expense Orders Routes
+  EXPENSE_ORDERS: '/expense-orders',
+  EXPENSE_ORDERS_CREATE: '/expense-orders/new',
+  EXPENSE_ORDERS_EDIT: '/expense-orders/:id/edit',
+  EXPENSE_ORDERS_DETAIL: '/expense-orders/:id',
+  // Payroll Routes
+  PAYROLL_EMPLOYEES: '/payroll/employees',
+  PAYROLL_EMPLOYEES_CREATE: '/payroll/employees/create',
+  PAYROLL_EMPLOYEES_EDIT: '/payroll/employees/:id/edit',
+  PAYROLL_EMPLOYEES_HISTORY: '/payroll/employees/:id/history',
+  PAYROLL_PERIODS: '/payroll/periods',
+  PAYROLL_PERIODS_CREATE: '/payroll/periods/create',
+  PAYROLL_PERIODS_EDIT: '/payroll/periods/:id/edit',
+  PAYROLL_PERIODS_DETAIL: '/payroll/periods/:id',
+  PAYROLL_ITEM_EDIT: '/payroll/periods/:periodId/items/:itemId/edit',
+  CHANGE_PASSWORD: '/change-password',
+  // Attendance - Control de Asistencia
+  ATTENDANCE: '/attendance',
+  // Inventory - Movimientos de Inventario
+  INVENTORY_MOVEMENTS: '/inventory/movements',
+  INVENTORY_MOVEMENTS_NEW: '/inventory/movements/new',
+  INVENTORY_LOW_STOCK: '/inventory/low-stock',
 };
 

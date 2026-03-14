@@ -10,3 +10,6 @@ export { RequestEditPermissionButton } from './RequestEditPermissionButton';
 export { EditRequestsList } from './EditRequestsList';
 export { OrderChangeHistoryTab } from './OrderChangeHistoryTab';
 export { OrderPdfButton } from './OrderPdfButton';
+export { ApplyDiscountDialog } from './ApplyDiscountDialog';
+export { DiscountsSection } from './DiscountsSection';
+export { ToolbarButton } from './ToolbarButton';

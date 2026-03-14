@@ -12,21 +12,29 @@ import {
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import BlockIcon from '@mui/icons-material/Block';
 import EmailIcon from '@mui/icons-material/Email';
+import PhoneIcon from '@mui/icons-material/Phone';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import BadgeIcon from '@mui/icons-material/Badge';
+import KeyIcon from '@mui/icons-material/Key';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import LockResetIcon from '@mui/icons-material/LockReset';
 import WorkIcon from '@mui/icons-material/Work';
 import BusinessIcon from '@mui/icons-material/Business';
 import { User } from '../../../types';
 import { StatusBadge } from '../../../components/common/DataTable';
-import { formatDate } from '../../../utils/helpers';
+import { formatDateTime } from '../../../utils/helpers';
 
 interface UserDetailProps {
   user: User;
   onEdit: () => void;
   onBack: () => void;
+  onDeactivate?: () => void;
   canEdit?: boolean;
+  canDeactivate?: boolean;
 }
 
 const DetailItem: React.FC<{ 
@@ -38,25 +46,6 @@ const DetailItem: React.FC<{
     <Box 
       sx={{ 
         p: 1.5, 
-        bgcolor: 'primary.light', 
-        color: 'primary.main',
-        borderRadius: 2,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        opacity: 0.15
-      }}
-    >
-      {/* Clone element to force color if needed, but primary.main usually works for icons if passed as children to a Box with that color. 
-          Actually icons usually take currentColor. So setting color on Box works.
-          But opacity applies to children too.
-          Better approach:
-      */}
-    </Box>
-    {/* Re-doing the icon part for better styling */}
-     <Box 
-      sx={{ 
-        p: 1, 
         bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.1)', 
         color: 'primary.main',
         borderRadius: 2,
@@ -69,9 +58,9 @@ const DetailItem: React.FC<{
       <Typography variant="body2" color="text.secondary" gutterBottom>
         {label}
       </Typography>
-      <Typography variant="body1" fontWeight={500}>
+      <Box sx={{ typography: 'body1', fontWeight: 500 }}>
         {value}
-      </Typography>
+      </Box>
     </Box>
   </Box>
 );
@@ -80,7 +69,9 @@ export const UserDetail: React.FC<UserDetailProps> = ({
   user, 
   onEdit, 
   onBack,
-  canEdit = false 
+  onDeactivate,
+  canEdit = false,
+  canDeactivate = false,
 }) => {
   const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
 
@@ -98,6 +89,7 @@ export const UserDetail: React.FC<UserDetailProps> = ({
         >
           <Box display="flex" alignItems="center" gap={2}>
             <Avatar 
+              src={user.profilePhoto || undefined}
               sx={{ 
                 width: 80, 
                 height: 80, 
@@ -106,7 +98,7 @@ export const UserDetail: React.FC<UserDetailProps> = ({
                 fontWeight: 'bold'
               }}
             >
-              {fullName.charAt(0).toUpperCase()}
+              {!user.profilePhoto && fullName.charAt(0).toUpperCase()}
             </Avatar>
             <Box>
               <Typography variant="h4" fontWeight="bold" gutterBottom>
@@ -141,6 +133,16 @@ export const UserDetail: React.FC<UserDetailProps> = ({
                 Editar
               </Button>
             )}
+            {canDeactivate && (
+              <Button
+                variant="outlined"
+                color="warning"
+                startIcon={<BlockIcon />}
+                onClick={onDeactivate}
+              >
+                Desactivar usuario
+              </Button>
+            )}
           </Box>
         </Box>
 
@@ -153,16 +155,32 @@ export const UserDetail: React.FC<UserDetailProps> = ({
               Información Personal
             </Typography>
             <Box display="flex" flexDirection="column" gap={3}>
-              <DetailItem 
-                icon={<BadgeIcon />} 
-                label="Nombre Completo" 
-                value={fullName} 
+              <DetailItem
+                icon={<BadgeIcon />}
+                label="Nombre Completo"
+                value={fullName}
               />
-              <DetailItem 
-                icon={<EmailIcon />} 
-                label="Correo Electrónico" 
-                value={user.email} 
-              />
+              {user.username && (
+                <DetailItem
+                  icon={<AccountCircleIcon />}
+                  label="Usuario"
+                  value={user.username}
+                />
+              )}
+              {user.email && (
+                <DetailItem
+                  icon={<EmailIcon />}
+                  label="Correo Electrónico"
+                  value={user.email}
+                />
+              )}
+              {user.phone && (
+                <DetailItem
+                  icon={<PhoneIcon />}
+                  label="Número de celular"
+                  value={user.phone}
+                />
+              )}
             </Box>
           </Grid>
           
@@ -171,6 +189,15 @@ export const UserDetail: React.FC<UserDetailProps> = ({
               Información del Sistema
             </Typography>
             <Box display="flex" flexDirection="column" gap={3}>
+              <DetailItem
+                icon={<KeyIcon />}
+                label="ID de Usuario"
+                value={
+                  <Typography variant="body2" sx={{ fontFamily: 'monospace', bgcolor: 'action.hover', px: 1, py: 0.5, borderRadius: 1, display: 'inline-block' }}>
+                    {user.id}
+                  </Typography>
+                }
+              />
               <DetailItem
                 icon={<VerifiedUserIcon />}
                 label="Rol Asignado"
@@ -189,7 +216,17 @@ export const UserDetail: React.FC<UserDetailProps> = ({
               <DetailItem
                 icon={<AccessTimeIcon />}
                 label="Fecha de Registro"
-                value={user.createdAt ? formatDate(user.createdAt) : 'N/A'}
+                value={user.createdAt ? formatDateTime(user.createdAt) : 'N/A'}
+              />
+              <DetailItem
+                icon={<CalendarTodayIcon />}
+                label="Última Actualización"
+                value={user.updatedAt ? formatDateTime(user.updatedAt) : 'N/A'}
+              />
+              <DetailItem
+                icon={<LockResetIcon />}
+                label="Requiere Cambio de Contraseña"
+                value={user.mustChangePassword ? 'Sí' : 'No'}
               />
             </Box>
           </Grid>

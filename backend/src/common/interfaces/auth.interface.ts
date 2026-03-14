@@ -2,7 +2,7 @@ import { Request } from 'express';
 
 export interface JwtPayload {
   sub: string; // userId
-  email: string;
+  username: string;
   roleId: string;
   type: 'access' | 'refresh';
 }
@@ -14,12 +14,14 @@ export interface TokenPair {
 
 export interface AuthenticatedUser {
   id: string;
-  email: string;
+  username: string;
+  email?: string | null;
   roleId: string;
   firstName?: string | null;
   lastName?: string | null;
   profilePhoto?: string | null;
   cargoId?: string | null;
+  mustChangePassword?: boolean;
   role?: {
     id: string;
     name: string;

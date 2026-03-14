@@ -5,6 +5,7 @@ import { getRoleColumns } from '../config/columns';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES, PERMISSIONS } from '../../../utils/constants';
 import { useAuthStore } from '../../../store/authStore';
+import { useResponsiveColumns } from '../../../hooks';
 
 interface RolesTableProps {
   roles: Role[];
@@ -28,16 +29,18 @@ export const RolesTable: React.FC<RolesTableProps> = ({
     navigate(ROUTES.ROLES_PERMISSIONS.replace(':id', role.id));
   };
 
-  const columns = useMemo(
-    () => getRoleColumns({ 
-      onEdit: handleEdit, 
-      onDelete, 
+  const rawColumns = useMemo(
+    () => getRoleColumns({
+      onEdit: handleEdit,
+      onDelete,
       onViewPermissions: handleViewPermissions,
       canEdit: hasPermission(PERMISSIONS.UPDATE_ROLES),
       canDelete: hasPermission(PERMISSIONS.DELETE_ROLES)
     }),
     [onDelete, navigate, hasPermission]
   );
+
+  const columns = useResponsiveColumns(rawColumns);
 
   return (
     <DataTable

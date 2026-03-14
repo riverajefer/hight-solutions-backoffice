@@ -1,8 +1,10 @@
 export interface User {
   id: string;
-  email: string;
+  username?: string | null;
+  email?: string | null;
   firstName?: string;
   lastName?: string;
+  phone?: string | null;
   profilePhoto?: string | null;
   roleId: string;
   cargoId?: string;
@@ -19,6 +21,7 @@ export interface User {
     };
   };
   isActive?: boolean;
+  mustChangePassword?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -33,7 +36,7 @@ export interface UpdateProfilePhotoDto {
 }
 
 export interface LoginDto {
-  email: string;
+  username: string;
   password: string;
 }
 
@@ -45,7 +48,9 @@ export interface RegisterDto {
 }
 
 export interface CreateUserDto {
-  email: string;
+  username?: string;
+  email?: string;
+  phone?: string;
   password: string;
   firstName?: string;
   lastName?: string;
@@ -54,12 +59,15 @@ export interface CreateUserDto {
 }
 
 export interface UpdateUserDto {
+  username?: string;
   email?: string;
+  phone?: string;
   password?: string;
   firstName?: string;
   lastName?: string;
   roleId?: string;
   cargoId?: string | null;
+  isActive?: boolean;
 }
 
 export interface AuthResponse {

@@ -1,5 +1,5 @@
 {
-  "name": "hight-solutions-backoffice-frontend",
+  "name": "high-solutions-backoffice-frontend",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -10,9 +10,11 @@
     "build:prod": "tsc && vite build --mode production",
     "env:info": "node scripts/env-info.js",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview --host 0.0.0.0 --port $PORT"
+    "preview": "vite preview --host 0.0.0.0 --port $PORT",
+    "prepare": "if [ -d \"../.git\" ]; then cd .. && git config core.hooksPath frontend/.husky && chmod +x frontend/.husky/pre-push; fi"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^2.0.4",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@hookform/resolvers": "^5.2.2",
@@ -22,6 +24,7 @@
     "@mui/x-date-pickers": "^7.29.4",
     "@tanstack/react-query": "^5.28.0",
     "@types/uuid": "^10.0.0",
+    "@xyflow/react": "^12.10.1",
     "axios": "^1.6.2",
     "date-fns": "^2.30.0",
     "jspdf": "^4.1.0",
@@ -35,6 +38,7 @@
     "zustand": "^4.4.7"
   },
   "devDependencies": {
+    "@types/dagre": "^0.7.53",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
     "@typescript-eslint/eslint-plugin": "^6.15.0",
@@ -43,6 +47,7 @@
     "eslint": "^8.56.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
+    "husky": "^9.1.7",
     "typescript": "^5.3.3",
     "vite": "^5.0.8"
   }

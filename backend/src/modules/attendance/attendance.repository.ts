@@ -1,0 +1,257 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../../database/prisma.service';
+import { AttendanceSource, AttendanceType } from '../../generated/prisma';
+import { AttendanceFilterDto, AdjustAttendanceDto } from './dto';
+
+@Injectable()
+export class AttendanceRepository {
+  constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Busca el registro de asistencia activo (sin clockOut) de un usuario
+   */
+  async findActiveRecord(userId: string) {
+    return this.prisma.attendanceRecord.findFirst({
+      where: { userId, clockOut: null },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            cargo: { select: { id: true, name: true, area: { select: { id: true, name: true } } } },
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Crea un registro de clock-in
+   */
+  async createClockIn(userId: string, now: Date) {
+    const date = new Date(now);
+    date.setUTCHours(0, 0, 0, 0);
+
+    return this.prisma.attendanceRecord.create({
+      data: {
+        userId,
+        date,
+        clockIn: now,
+        type: AttendanceType.MANUAL,
+        source: AttendanceSource.BUTTON,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            cargo: { select: { id: true, name: true, area: { select: { id: true, name: true } } } },
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Actualiza un registro con clockOut y calcula totalMinutes
+   */
+  async updateClockOut(
+    recordId: string,
+    now: Date,
+    source: AttendanceSource,
+    notes?: string,
+  ) {
+    const record = await this.prisma.attendanceRecord.findUnique({ where: { id: recordId } });
+    const totalMinutes = record
+      ? Math.floor((now.getTime() - new Date(record.clockIn).getTime()) / 60000)
+      : null;
+
+    return this.prisma.attendanceRecord.update({
+      where: { id: recordId },
+      data: {
+        clockOut: now,
+        source,
+        type: source === AttendanceSource.BUTTON ? AttendanceType.MANUAL : AttendanceType.AUTO,
+        notes: notes ?? record?.notes,
+        totalMinutes,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            cargo: { select: { id: true, name: true, area: { select: { id: true, name: true } } } },
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Lista todos los registros con filtros y paginación (admin)
+   */
+  async findAll(filters: AttendanceFilterDto) {
+    const { startDate, endDate, userId, areaId, cargoId, type, source, page = 1, limit = 20 } = filters;
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+
+    if (startDate) where.clockIn = { ...(where.clockIn || {}), gte: new Date(startDate) };
+    if (endDate) where.clockIn = { ...(where.clockIn || {}), lte: new Date(endDate) };
+    if (userId) where.userId = userId;
+    if (type) where.type = type;
+    if (source) where.source = source;
+
+    if (areaId || cargoId) {
+      where.user = { cargo: {} };
+      if (cargoId) where.user.cargo.id = cargoId;
+      if (areaId) where.user.cargo.area = { id: areaId };
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.attendanceRecord.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { clockIn: 'desc' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              cargo: { select: { id: true, name: true, area: { select: { id: true, name: true } } } },
+            },
+          },
+        },
+      }),
+      this.prisma.attendanceRecord.count({ where }),
+    ]);
+
+    return {
+      data,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  /**
+   * Lista los registros del propio usuario con filtros y paginación
+   */
+  async findMyRecords(userId: string, filters: AttendanceFilterDto) {
+    return this.findAll({ ...filters, userId });
+  }
+
+  /**
+   * Ajusta (corrige) un registro manualmente
+   */
+  async adjustRecord(id: string, dto: AdjustAttendanceDto) {
+    const existing = await this.prisma.attendanceRecord.findUnique({ where: { id } });
+    if (!existing) return null;
+
+    const clockIn = dto.clockIn ? new Date(dto.clockIn) : existing.clockIn;
+    const clockOut = dto.clockOut ? new Date(dto.clockOut) : existing.clockOut;
+
+    const totalMinutes =
+      clockOut
+        ? Math.floor((new Date(clockOut).getTime() - new Date(clockIn).getTime()) / 60000)
+        : existing.totalMinutes;
+
+    return this.prisma.attendanceRecord.update({
+      where: { id },
+      data: {
+        clockIn,
+        clockOut,
+        notes: dto.notes !== undefined ? dto.notes : existing.notes,
+        totalMinutes,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            cargo: { select: { id: true, name: true, area: { select: { id: true, name: true } } } },
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Encuentra registros abiertos cuyo usuario no ha tenido heartbeat en X minutos
+   */
+  async findOpenRecordsInactiveFor(minutesAgo: number) {
+    const threshold = new Date(Date.now() - minutesAgo * 60000);
+
+    // Obtener registros sin clockOut
+    const openRecords = await this.prisma.attendanceRecord.findMany({
+      where: { clockOut: null },
+      select: { id: true, userId: true, clockIn: true },
+    });
+
+    if (openRecords.length === 0) return [];
+
+    // Verificar cada registro si el usuario tuvo actividad reciente
+    const inactive: typeof openRecords = [];
+    for (const record of openRecords) {
+      const lastHeartbeat = await this.prisma.activityHeartbeat.findFirst({
+        where: { userId: record.userId },
+        orderBy: { timestamp: 'desc' },
+        select: { timestamp: true },
+      });
+
+      const noRecentActivity = !lastHeartbeat || lastHeartbeat.timestamp < threshold;
+      if (noRecentActivity) {
+        inactive.push(record);
+      }
+    }
+
+    return inactive;
+  }
+
+  /**
+   * Encuentra todos los registros abiertos (para cierre de fin de día)
+   */
+  async findAllOpenRecords() {
+    return this.prisma.attendanceRecord.findMany({
+      where: { clockOut: null },
+      select: { id: true, userId: true, clockIn: true },
+    });
+  }
+
+  /**
+   * Obtiene el último heartbeat de un usuario
+   */
+  async getLastHeartbeat(userId: string) {
+    return this.prisma.activityHeartbeat.findFirst({
+      where: { userId },
+      orderBy: { timestamp: 'desc' },
+    });
+  }
+
+  /**
+   * Crea un heartbeat de actividad
+   */
+  async createHeartbeat(userId: string, endpoint?: string) {
+    return this.prisma.activityHeartbeat.create({
+      data: { userId, endpoint },
+    });
+  }
+
+  /**
+   * Elimina heartbeats anteriores a una fecha (cleanup)
+   */
+  async deleteOldHeartbeats(before: Date) {
+    return this.prisma.activityHeartbeat.deleteMany({
+      where: { timestamp: { lt: before } },
+    });
+  }
+}

@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
+  Alert,
   Box,
   Card,
   CardContent,
@@ -9,12 +10,23 @@ import {
   Collapse,
   Divider,
   MenuItem,
+  FormLabel,
+  Stack,
+  Button,
+  IconButton,
+  Chip,
 } from '@mui/material';
+import {
+  AttachFile as AttachFileIcon,
+  Image as ImageIcon,
+  Close as CloseIcon,
+} from '@mui/icons-material';
 import type {
   InitialPaymentData,
   PaymentMethod,
 } from '../../../types/order.types';
 import { PAYMENT_METHOD_LABELS } from '../../../types/order.types';
+import { useAuthStore } from '../../../store/authStore';
 
 interface InitialPaymentProps {
   total: number;
@@ -57,12 +69,15 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
   disabled = false,
   required = false,
 }) => {
+  const receiptFileInputRef = useRef<HTMLInputElement>(null);
+
   const handleFieldChange = (field: keyof InitialPaymentData, newValue: any) => {
     const updatedData: InitialPaymentData = {
       amount: value?.amount ?? 0,
       paymentMethod: value?.paymentMethod || 'CASH',
       reference: value?.reference,
       notes: value?.notes,
+      receiptFile: value?.receiptFile,
       [field]: newValue,
     };
 
@@ -79,9 +94,16 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
     <Card variant="outlined" sx={{ borderRadius: 2 }}>
       <CardContent sx={{ pb: '16px !important' }}>
         <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
-          4. Abono Inicial
+          Abono Inicial
         </Typography>
         <Divider sx={{ mb: 2 }} />
+
+        {/* Alerta: anticipo requiere aprobación de Caja */}
+        {enabled && !useAuthStore.getState().permissions.includes('approve_advance_payments') && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            El anticipo debe ser aprobado por Caja antes de que la orden pueda avanzar de estado.
+          </Alert>
+        )}
 
         <Collapse in={enabled || required}>
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
@@ -150,18 +172,8 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
               />
             </Grid>
 
-            {/* Fila 2: Referencia y Notas */}
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Referencia"
-                placeholder="Ej: REF-12345"
-                value={value?.reference || ''}
-                onChange={(e) => handleFieldChange('reference', e.target.value)}
-                disabled={disabled}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
+            {/* Fila 2: Notas */}
+            <Grid item xs={12}>
               <TextField
                 fullWidth
                 label="Notas del Pago"
@@ -172,7 +184,121 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
               />
             </Grid>
 
-            {/* Fila 3: Saldo Calculado */}
+            {/* Fila 3: Comprobante */}
+            <Grid item xs={12}>
+              <Box>
+                <FormLabel sx={{ mb: 1, display: 'block' }}>
+                  Comprobante de Pago (Opcional)
+                </FormLabel>
+                <input
+                  type="file"
+                  hidden
+                  accept="image/jpeg,image/png,image/gif,image/webp,.pdf"
+                  ref={receiptFileInputRef}
+                  disabled={disabled}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFieldChange('receiptFile', file);
+                    if (e.target) e.target.value = '';
+                  }}
+                />
+
+                {!value?.receiptFile ? (
+                  <Stack spacing={1}>
+                    <Button
+                      variant="outlined"
+                      startIcon={<AttachFileIcon />}
+                      size="small"
+                      disabled={disabled}
+                      onClick={() => receiptFileInputRef.current?.click()}
+                      sx={{ textTransform: 'none', alignSelf: 'flex-start' }}
+                    >
+                      Adjuntar imagen o PDF
+                    </Button>
+                    <Box
+                      onPaste={(e) => {
+                        if (disabled) return;
+                        const items = e.clipboardData.items;
+                        for (let i = 0; i < items.length; i++) {
+                          if (items[i].type.indexOf('image') !== -1) {
+                            const file = items[i].getAsFile();
+                            if (file) handleFieldChange('receiptFile', file);
+                            break;
+                          }
+                        }
+                      }}
+                      tabIndex={disabled ? -1 : 0}
+                      sx={{
+                        border: '2px dashed',
+                        borderColor: 'grey.300',
+                        borderRadius: 1,
+                        p: 2,
+                        textAlign: 'center',
+                        cursor: disabled ? 'not-allowed' : 'pointer',
+                        opacity: disabled ? 0.6 : 1,
+                        transition: 'border-color 0.2s, background-color 0.2s',
+                        '&:hover, &:focus': !disabled ? {
+                          borderColor: 'primary.main',
+                          bgcolor: 'action.hover',
+                        } : {},
+                      }}
+                      onClick={() => {
+                        if (!disabled) receiptFileInputRef.current?.click();
+                      }}
+                    >
+                      <ImageIcon sx={{ fontSize: 28, color: 'grey.400', mb: 0.5 }} />
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        O pega una imagen aquí (Ctrl+V / ⌘+V)
+                      </Typography>
+                    </Box>
+                  </Stack>
+                ) : (
+                  <Stack spacing={1.5} direction="row" alignItems="center">
+                    {value.receiptFile.type.startsWith('image/') ? (
+                      <Box
+                        sx={{
+                          position: 'relative',
+                          width: 80,
+                          height: 80,
+                          border: '1px solid',
+                          borderColor: 'grey.300',
+                          borderRadius: 1,
+                          overflow: 'hidden',
+                          bgcolor: 'grey.50',
+                        }}
+                      >
+                        <Box
+                          component="img"
+                          src={URL.createObjectURL(value.receiptFile)}
+                          alt="Vista previa"
+                          sx={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                          }}
+                        />
+                      </Box>
+                    ) : (
+                      <Chip
+                        icon={<AttachFileIcon />}
+                        label={value.receiptFile.name}
+                        variant="outlined"
+                      />
+                    )}
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => handleFieldChange('receiptFile', null)}
+                      disabled={disabled}
+                    >
+                      <CloseIcon />
+                    </IconButton>
+                  </Stack>
+                )}
+              </Box>
+            </Grid>
+
+            {/* Fila 4: Saldo Calculado */}
             <Grid item xs={12}>
               <Box
                 sx={{

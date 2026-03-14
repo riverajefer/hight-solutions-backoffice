@@ -8,8 +8,8 @@ export type OrderStatus =
   | 'IN_PRODUCTION'
   | 'READY'
   | 'DELIVERED'
+  | 'DELIVERED_ON_CREDIT'
   | 'WARRANTY'
-  | 'RETURNED'
   | 'PAID';
 
 export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'CHECK' | 'CREDIT' | 'OTHER';
@@ -18,19 +18,66 @@ export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'CHECK' | 'CREDIT' | 
 // ENTITIES
 // ============================================================
 
+export interface AdvancePaymentApproval {
+  id: string;
+  orderId: string;
+  paymentId: string;
+  requestedById: string;
+  reason: string | null;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  reviewedById: string | null;
+  reviewedAt: string | null;
+  reviewNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  requestedBy: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
+  reviewedBy?: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  } | null;
+}
+
 export interface Order {
   id: string;
   orderNumber: string;
   orderDate: string;
   deliveryDate: string | null;
+
+  // Auditoría de cambios de fecha de entrega
+  previousDeliveryDate?: string | null;
+  deliveryDateReason?: string | null;
+  deliveryDateChangedAt?: string | null;
+  deliveryDateChangedBy?: string | null;
+  deliveryDateChangedByUser?: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  } | null;
+
+  requiresColorProof: boolean;
+  colorProofPrice: string; // Decimal viene como string del backend
+
   subtotal: string; // Decimal viene como string del backend
   taxRate: string;
   tax: string;
+  discountAmount: string; // Total de descuentos aplicados
   total: string;
   paidAmount: string;
   balance: string;
+  advancePaymentStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+  advancePaymentApprovals?: AdvancePaymentApproval[];
+  clientOwnershipAuthStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   status: OrderStatus;
   notes: string | null;
+  electronicInvoiceNumber: string | null;
   createdAt: string;
   updatedAt: string;
   client: {
@@ -38,6 +85,13 @@ export interface Order {
     name: string;
     email: string | null;
     phone: string | null;
+    advisorId?: string | null;
+    advisor?: {
+      id: string;
+      firstName: string | null;
+      lastName: string | null;
+      email: string;
+    } | null;
   };
   createdBy: {
     id: string;
@@ -52,6 +106,13 @@ export interface Order {
   } | null;
   items: OrderItem[];
   payments: Payment[];
+  discounts: OrderDiscount[];
+  /** OT activa (no cancelada) vinculada a esta orden, si existe */
+  workOrders?: {
+    id: string;
+    workOrderNumber: string;
+    status: string;
+  }[];
 }
 
 export interface CommercialChannel {
@@ -69,8 +130,9 @@ export interface OrderItem {
   unitPrice: string; // Decimal
   total: string; // Decimal
   specifications: Record<string, any> | null;
+  sampleImageId?: string;
   sortOrder: number;
-  service: {
+  product: {
     id: string;
     name: string;
     slug: string;
@@ -90,8 +152,22 @@ export interface Payment {
   paymentDate: string;
   reference: string | null;
   notes: string | null;
+  receiptFileId: string | null;
   createdAt: string;
   receivedBy: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
+}
+
+export interface OrderDiscount {
+  id: string;
+  amount: string; // Decimal
+  reason: string; // Motivo del descuento (obligatorio)
+  appliedAt: string; // Fecha de aplicación
+  appliedBy: {
     id: string;
     email: string;
     firstName: string | null;
@@ -111,7 +187,7 @@ export interface InitialPaymentDto {
 }
 
 export interface CreateOrderItemDto {
-  serviceId?: string;
+  productId?: string;
   description: string;
   quantity: number;
   unitPrice: number;
@@ -123,6 +199,8 @@ export interface CreateOrderDto {
   clientId: string;
   deliveryDate?: string; // ISO date string
   notes?: string;
+  requiresColorProof?: boolean;
+  colorProofPrice?: number;
   items: CreateOrderItemDto[];
   initialPayment?: InitialPaymentDto;
   commercialChannelId?: string;
@@ -136,6 +214,8 @@ export interface UpdateOrderDto {
   clientId?: string;
   deliveryDate?: string;
   notes?: string;
+  requiresColorProof?: boolean;
+  colorProofPrice?: number;
   items?: CreateOrderItemDto[];
   initialPayment?: InitialPaymentDto;
   commercialChannelId?: string;
@@ -146,7 +226,7 @@ export interface UpdateOrderStatusDto {
 }
 
 export interface AddOrderItemDto {
-  serviceId?: string;
+  productId?: string;
   description: string;
   quantity: number;
   unitPrice: number;
@@ -159,7 +239,7 @@ export interface UpdateOrderItemDto {
   quantity?: number;
   unitPrice?: number;
   specifications?: Record<string, any>;
-  serviceId?: string;
+  productId?: string;
   productionAreaIds?: string[];
 }
 
@@ -169,6 +249,12 @@ export interface CreatePaymentDto {
   paymentDate?: string; // ISO date string
   reference?: string;
   notes?: string;
+  receiptFileId?: string;
+}
+
+export interface ApplyDiscountDto {
+  amount: number;
+  reason: string; // Motivo del descuento (obligatorio)
 }
 
 // ============================================================
@@ -177,11 +263,14 @@ export interface CreatePaymentDto {
 
 export interface FilterOrdersDto {
   status?: OrderStatus;
+  search?: string;
   clientId?: string;
   orderDateFrom?: string; // ISO date string
   orderDateTo?: string; // ISO date string
   page?: number;
   limit?: number;
+  /** Si true, excluye órdenes que ya tienen una OT activa (no cancelada) */
+  excludeWithWorkOrder?: boolean;
 }
 
 // ============================================================
@@ -208,7 +297,7 @@ export interface OrderItemRow {
   quantity: string; // String en UI para inputs controlados
   unitPrice: string; // String en UI
   total: number; // Calculado
-  serviceId?: string;
+  productId?: string;
   specifications?: Record<string, any>;
   productionAreaIds: string[];
 }
@@ -218,6 +307,8 @@ export interface InitialPaymentData {
   paymentMethod: PaymentMethod;
   reference?: string;
   notes?: string;
+  receiptFile?: File | null;
+  receiptFileUrl?: string | null;
 }
 
 // ============================================================
@@ -242,9 +333,26 @@ export const ORDER_STATUS_CONFIG: Record<OrderStatus, OrderStatusConfig> = {
   IN_PRODUCTION: { label: 'En Producción', color: 'warning' },
   READY: { label: 'Lista para entrega', color: 'success' },
   DELIVERED: { label: 'Entregada', color: 'primary' },
+  DELIVERED_ON_CREDIT: { label: 'Entregado a Crédito', color: 'warning' },
   WARRANTY: { label: 'Garantía', color: 'secondary' },
-  RETURNED: { label: 'Devolución', color: 'error' },
   PAID: { label: 'Pagada', color: 'success' },
+};
+
+/**
+ * Transiciones válidas de estado de orden.
+ * Flujo: DRAFT → CONFIRMED → IN_PRODUCTION → READY → PAID → DELIVERED | DELIVERED_ON_CREDIT → WARRANTY
+ *
+ * "Entregada a Crédito" es la excepción: se entrega sin pago completo.
+ */
+export const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+  DRAFT: ['CONFIRMED'],
+  CONFIRMED: ['IN_PRODUCTION'],
+  IN_PRODUCTION: ['READY'],
+  READY: ['PAID', 'DELIVERED_ON_CREDIT'],
+  PAID: ['DELIVERED'],
+  DELIVERED: ['WARRANTY'],
+  DELIVERED_ON_CREDIT: ['WARRANTY'],
+  WARRANTY: ['DELIVERED'],
 };
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
@@ -255,3 +363,53 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   CREDIT: 'Crédito',
   OTHER: 'Otro',
 };
+
+// ============================================================
+// PROFITABILITY TYPES
+// ============================================================
+
+export interface ExpenseOrderSummary {
+  id: string;
+  ogNumber: string;
+  status: string;
+  workOrderNumber: string | null;
+  itemsTotal: number;
+}
+
+export interface OrderProfitability {
+  orderId: string;
+  orderNumber: string;
+  orderTotal: number;
+  expenseOrders: ExpenseOrderSummary[];
+  totalExpenses: number;
+  utility: number;
+  utilityPercentage: number;
+}
+
+export interface OrderProfitabilityListItem {
+  orderId: string;
+  orderNumber: string;
+  clientName: string;
+  orderTotal: number;
+  totalExpenses: number;
+  utility: number;
+  utilityPercentage: number;
+  status: string;
+  orderDate: string;
+}
+
+export interface PaginatedProfitability {
+  data: OrderProfitabilityListItem[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface FilterProfitabilityDto {
+  search?: string;
+  status?: string;
+  orderDateFrom?: string;
+  orderDateTo?: string;
+  page?: number;
+  limit?: number;
+}

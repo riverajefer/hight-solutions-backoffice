@@ -1,1 +1,6 @@
-docs/
+frontend/.env.development
+backend/.env.development
+frontend/.env.staging
+backend/.env.staging
+backend/.env.production
+frontend/.env.production

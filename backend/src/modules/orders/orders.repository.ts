@@ -11,14 +11,37 @@ export class OrdersRepository {
     orderNumber: true,
     orderDate: true,
     deliveryDate: true,
+
+    // Auditoría de cambios de fecha de entrega
+    previousDeliveryDate: true,
+    deliveryDateReason: true,
+    deliveryDateChangedAt: true,
+    deliveryDateChangedBy: true,
+
     subtotal: true,
     taxRate: true,
     tax: true,
+    discountAmount: true,
     total: true,
     paidAmount: true,
     balance: true,
+    advancePaymentStatus: true,
+    advancePaymentApprovals: {
+      include: {
+        requestedBy: {
+          select: { id: true, email: true, firstName: true, lastName: true },
+        },
+        reviewedBy: {
+          select: { id: true, email: true, firstName: true, lastName: true },
+        },
+      }
+    },
+    clientOwnershipAuthStatus: true,
+    requiresColorProof: true,
+    colorProofPrice: true,
     status: true,
     notes: true,
+    electronicInvoiceNumber: true,
     createdAt: true,
     updatedAt: true,
     commercialChannelId: true,
@@ -34,6 +57,15 @@ export class OrdersRepository {
         name: true,
         email: true,
         phone: true,
+        advisorId: true,
+        advisor: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
       },
     },
     createdBy: {
@@ -53,7 +85,8 @@ export class OrdersRepository {
         total: true,
         specifications: true,
         sortOrder: true,
-        service: {
+        productId: true,
+        product: {
           select: {
             id: true,
             name: true,
@@ -93,6 +126,34 @@ export class OrdersRepository {
       },
       orderBy: { paymentDate: 'desc' as const },
     },
+    discounts: {
+      select: {
+        id: true,
+        amount: true,
+        reason: true,
+        appliedAt: true,
+        appliedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: { appliedAt: 'desc' as const },
+    },
+    workOrders: {
+      where: {
+        status: { not: 'CANCELLED' as const },
+      },
+      select: {
+        id: true,
+        workOrderNumber: true,
+        status: true,
+      },
+      take: 1,
+    },
   };
 
   async findAll(status?: OrderStatus) {
@@ -107,18 +168,31 @@ export class OrdersRepository {
 
   async findAllWithFilters(filters: {
     status?: OrderStatus;
+    search?: string;
     clientId?: string;
     orderDateFrom?: Date;
     orderDateTo?: Date;
     page?: number;
     limit?: number;
+    excludeWithWorkOrder?: boolean;
   }) {
-    const { status, clientId, orderDateFrom, orderDateTo, page = 1, limit = 20 } = filters;
+    const { status, search, clientId, orderDateFrom, orderDateTo, page = 1, limit = 20, excludeWithWorkOrder } = filters;
 
     const where: Prisma.OrderWhereInput = {};
 
     if (status) {
       where.status = status;
+    }
+
+    if (search) {
+      where.OR = [
+        { orderNumber: { contains: search, mode: 'insensitive' } },
+        { client: { name: { contains: search, mode: 'insensitive' } } },
+        { client: { email: { contains: search, mode: 'insensitive' } } },
+        { client: { phone: { contains: search, mode: 'insensitive' } } },
+        { notes: { contains: search, mode: 'insensitive' } },
+        { electronicInvoiceNumber: { contains: search, mode: 'insensitive' } },
+      ];
     }
 
     if (clientId) {
@@ -133,6 +207,14 @@ export class OrdersRepository {
       if (orderDateTo) {
         where.orderDate.lte = orderDateTo;
       }
+    }
+
+    if (excludeWithWorkOrder) {
+      where.workOrders = {
+        none: {
+          status: { not: 'CANCELLED' },
+        },
+      };
     }
 
     const skip = (page - 1) * limit;
@@ -160,10 +242,30 @@ export class OrdersRepository {
   }
 
   async findById(id: string) {
-    return this.prisma.order.findUnique({
+    const order = await this.prisma.order.findUnique({
       where: { id },
       select: this.selectFields,
     });
+
+    // Si hay información de cambio de fecha, buscar el usuario que lo hizo
+    if (order && order.deliveryDateChangedBy) {
+      const changedByUser = await this.prisma.user.findUnique({
+        where: { id: order.deliveryDateChangedBy },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      });
+
+      return {
+        ...order,
+        deliveryDateChangedByUser: changedByUser,
+      };
+    }
+
+    return order;
   }
 
   async findByOrderNumber(orderNumber: string) {
@@ -206,6 +308,14 @@ export class OrdersRepository {
     return this.prisma.order.update({
       where: { id },
       data: { status },
+      select: this.selectFields,
+    });
+  }
+
+  async registerElectronicInvoice(id: string, electronicInvoiceNumber: string) {
+    return this.prisma.order.update({
+      where: { id },
+      data: { electronicInvoiceNumber },
       select: this.selectFields,
     });
   }
@@ -293,6 +403,7 @@ export class OrdersRepository {
         paymentDate: true,
         reference: true,
         notes: true,
+        receiptFileId: true,
         createdAt: true,
         receivedBy: {
           select: {
@@ -314,6 +425,7 @@ export class OrdersRepository {
     financials: {
       subtotal: Prisma.Decimal;
       tax: Prisma.Decimal;
+      discountAmount: Prisma.Decimal;
       total: Prisma.Decimal;
       paidAmount: Prisma.Decimal;
       balance: Prisma.Decimal;
@@ -324,5 +436,117 @@ export class OrdersRepository {
       data: financials,
       select: this.selectFields,
     });
+  }
+
+  // ========== DISCOUNT MANAGEMENT ==========
+
+  async findDiscountsByOrderId(orderId: string) {
+    return this.prisma.orderDiscount.findMany({
+      where: { orderId },
+      select: {
+        id: true,
+        amount: true,
+        reason: true,
+        appliedAt: true,
+        appliedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: { appliedAt: 'desc' },
+    });
+  }
+
+  // ========== PROFITABILITY ==========
+
+  async getOrderProfitabilityData(orderId: string) {
+    return this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        orderNumber: true,
+        total: true,
+        workOrders: {
+          select: {
+            workOrderNumber: true,
+            expenseOrders: {
+              select: {
+                id: true,
+                ogNumber: true,
+                status: true,
+                items: {
+                  select: { total: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async getProfitabilityList(filters: {
+    search?: string;
+    status?: string;
+    orderDateFrom?: Date;
+    orderDateTo?: Date;
+    page: number;
+    limit: number;
+  }) {
+    const { search, status, orderDateFrom, orderDateTo, page, limit } = filters;
+
+    const where: Prisma.OrderWhereInput = {};
+
+    if (status) {
+      where.status = status as OrderStatus;
+    }
+
+    if (search) {
+      where.OR = [
+        { orderNumber: { contains: search, mode: 'insensitive' } },
+        { client: { name: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    if (orderDateFrom || orderDateTo) {
+      where.orderDate = {};
+      if (orderDateFrom) (where.orderDate as Prisma.DateTimeFilter).gte = orderDateFrom;
+      if (orderDateTo) (where.orderDate as Prisma.DateTimeFilter).lte = orderDateTo;
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [orders, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where,
+        select: {
+          id: true,
+          orderNumber: true,
+          total: true,
+          status: true,
+          orderDate: true,
+          client: { select: { name: true } },
+          workOrders: {
+            select: {
+              expenseOrders: {
+                select: {
+                  items: { select: { total: true } },
+                },
+              },
+            },
+          },
+        },
+        orderBy: { orderDate: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+
+    return { orders, total };
   }
 }

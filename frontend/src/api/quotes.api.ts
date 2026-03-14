@@ -38,4 +38,26 @@ export const quotesApi = {
     const { data } = await axios.post<Order>(`/quotes/${id}/convert`);
     return data;
   },
+
+  uploadItemSampleImage: async (quoteId: string, itemId: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const { data } = await axios.post(
+      `/quotes/${quoteId}/items/${itemId}/sample-image`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return data;
+  },
+
+  deleteItemSampleImage: async (quoteId: string, itemId: string) => {
+    const { data } = await axios.delete(
+      `/quotes/${quoteId}/items/${itemId}/sample-image`
+    );
+    return data;
+  },
 };

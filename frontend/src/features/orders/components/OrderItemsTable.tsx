@@ -14,14 +14,16 @@ import {
   Stack,
   Autocomplete,
   Chip,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
 import { v4 as uuidv4 } from 'uuid';
 import type { OrderItemRow } from '../../../types/order.types';
 import { useProductionAreas } from '../../../features/production-areas/hooks/useProductionAreas';
 import type { ProductionArea } from '../../../types/production-area.types';
-import { useServices } from '../../portfolio/services/hooks/useServices';
-import type { Service } from '../../../types/service.types';
+import { useProducts } from '../../portfolio/products/hooks/useProducts';
+import type { Product } from '../../../types/product.types';
 
 interface OrderItemsTableProps {
   items: OrderItemRow[];
@@ -58,11 +60,13 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
   errors = {},
   disabled = false,
 }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { productionAreasQuery } = useProductionAreas();
   const productionAreas: ProductionArea[] = productionAreasQuery.data || [];
 
-  const { servicesQuery } = useServices();
-  const services: Service[] = servicesQuery.data || [];
+  const { productsQuery } = useProducts();
+  const products: Product[] = productsQuery.data || [];
 
   const handleAddRow = () => {
     const newItem: OrderItemRow = {
@@ -118,8 +122,34 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
 
   return (
     <Box>
-      <TableContainer>
-        <Table size="small">
+      {isMobile && (
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ display: 'block', mb: 1, fontStyle: 'italic' }}
+        >
+          Desliza horizontalmente para ver todas las columnas →
+        </Typography>
+      )}
+      <TableContainer
+        sx={{
+          overflowX: 'auto',
+          '&::-webkit-scrollbar': {
+            height: 8,
+          },
+          '&::-webkit-scrollbar-track': {
+            backgroundColor: 'transparent',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: 'rgba(0,0,0,0.2)',
+            borderRadius: 4,
+            '&:hover': {
+              backgroundColor: 'rgba(0,0,0,0.3)',
+            },
+          },
+        }}
+      >
+        <Table size="small" sx={{ minWidth: 750 }}>
           <TableHead>
             <TableRow
               sx={{
@@ -131,35 +161,60 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                   backgroundImage: 'none !important',
                   color: '#ffffff !important',
                   fontWeight: 800,
-                  fontSize: '0.7rem',
+                  fontSize: { xs: '0.6rem', sm: '0.65rem', md: '0.7rem' },
                   textTransform: 'uppercase',
                   letterSpacing: '0.1em',
                   borderBottom: '2px solid',
                   borderBottomColor: (theme) =>
                     theme.palette.mode === 'light' ? '#1a1f23ff' : '#1a1f23ff',
-                  padding: '10px 16px',
+                  padding: { xs: '8px 4px', sm: '10px 8px', md: '10px 8px' },
                 },
               }}
             >
-              <TableCell width="8%" align="center">
+              <TableCell
+                width="8%"
+                align="center"
+                sx={{ minWidth: 60 }}
+              >
                 Cantidad
               </TableCell>
-              <TableCell width="25%">
+              <TableCell
+                width="18%"
+                sx={{ minWidth: 120 }}
+              >
                 Servicio (Opcional)
               </TableCell>
-              <TableCell width="25%">
+              <TableCell
+                width="22%"
+                sx={{ minWidth: 140, display: { xs: 'none', sm: 'table-cell' } }}
+              >
                 Descripción
               </TableCell>
-              <TableCell width="20%">
+              <TableCell
+                width="17%"
+                sx={{ minWidth: 130, display: { xs: 'none', sm: 'table-cell' } }}
+              >
                 Áreas de Producción
               </TableCell>
-              <TableCell width="12%" align="right">
+              <TableCell
+                width="17%"
+                align="right"
+                sx={{ minWidth: 130 }}
+              >
                 Valor Unitario
               </TableCell>
-              <TableCell width="10%" align="right">
+              <TableCell
+                width="13%"
+                align="right"
+                sx={{ minWidth: 100 }}
+              >
                 Valor Total
               </TableCell>
-              <TableCell width="5%" align="center">
+              <TableCell
+                width="5%"
+                align="center"
+                sx={{ minWidth: 50 }}
+              >
                 Acciones
               </TableCell>
             </TableRow>
@@ -183,6 +238,8 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                       borderBottom: '1px solid',
                       borderBottomColor: 'divider',
                       paddingY: '8px',
+                      paddingX: { xs: '4px', sm: '8px', md: '8px' },
+                      fontSize: { xs: '0.75rem', sm: '0.8rem', md: '0.8125rem' },
                     },
                   }}
                 >
@@ -207,24 +264,24 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                     />
                   </TableCell>
 
-                  {/* Servicio */}
+                  {/* Producto */}
                   <TableCell>
-                    <Autocomplete<Service>
+                    <Autocomplete<Product>
                       size="small"
-                      options={services}
+                      options={products}
                       getOptionLabel={(option) => option.name}
-                      value={services.find((s) => s.id === item.serviceId) || null}
+                      value={products.find((s) => s.id === item.productId) || null}
                       onChange={(_event, newValue) => {
                         const updatedItems = items.map((i) => {
                           if (i.id !== item.id) return i;
-                          
+
                           const quantity = parseFloat(i.quantity);
                           const hasBasePrice = newValue?.basePrice !== undefined && newValue?.basePrice !== null;
                           const basePriceValue = hasBasePrice ? newValue!.basePrice! : parseFloat(i.unitPrice);
-                          
-                          return { 
-                            ...i, 
-                            serviceId: newValue?.id || undefined,
+
+                          return {
+                            ...i,
+                            productId: newValue?.id || undefined,
                             description: newValue?.name || '',
                             unitPrice: i.unitPrice || (hasBasePrice ? newValue!.basePrice!.toString() : ''),
                             total: !isNaN(quantity) && !isNaN(basePriceValue) ? quantity * basePriceValue : i.total
@@ -233,6 +290,15 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                         onChange(updatedItems);
                       }}
                       disabled={disabled}
+                      slotProps={{
+                        paper: {
+                          sx: {
+                            width: 'max-content',
+                            minWidth: '100%',
+                            maxWidth: '90vw'
+                          }
+                        }
+                      }}
                       renderInput={(params) => (
                         <TextField
                           {...params}
@@ -249,7 +315,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                   </TableCell>
 
                   {/* Descripción */}
-                  <TableCell>
+                  <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -273,7 +339,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                   </TableCell>
 
                   {/* Áreas de Producción */}
-                  <TableCell>
+                  <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                     <Autocomplete<ProductionArea, true>
                       multiple
                       size="small"
@@ -292,6 +358,15 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                         onChange(updatedItems);
                       }}
                       disabled={disabled}
+                      slotProps={{
+                        paper: {
+                          sx: {
+                            width: 'max-content',
+                            minWidth: '100%',
+                            maxWidth: '90vw'
+                          }
+                        }
+                      }}
                       renderTags={(value, getTagProps) =>
                         value.map((option, index) => (
                           <Chip

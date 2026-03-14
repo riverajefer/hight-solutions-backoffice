@@ -9,6 +9,7 @@ import {
   Divider,
   alpha,
   useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
@@ -42,6 +43,7 @@ export const CustomToolbar: React.FC<CustomToolbarProps> = ({
 }) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const handleClearSearch = () => {
     if (onSearchChange) {
@@ -52,12 +54,12 @@ export const CustomToolbar: React.FC<CustomToolbarProps> = ({
   return (
     <Box
       sx={{
-        p: 2,
+        p: { xs: 1.5, sm: 2 },
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         flexWrap: 'wrap',
-        gap: 2,
+        gap: { xs: 1.5, sm: 2 },
         borderBottom: '1px solid',
         borderColor: 'divider',
         backgroundColor: isDark
@@ -73,8 +75,8 @@ export const CustomToolbar: React.FC<CustomToolbarProps> = ({
           gap: 1,
           alignItems: 'center',
           flex: 1,
-          minWidth: '280px',
-          maxWidth: '500px',
+          minWidth: { xs: '100%', sm: '200px', md: '280px' },
+          maxWidth: { xs: '100%', sm: '100%', md: '500px' },
         }}
       >
         {onSearchChange && (
@@ -251,32 +253,53 @@ export const CustomToolbar: React.FC<CustomToolbarProps> = ({
                 }}
               />
             )}
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<AddIcon />}
-              onClick={onAdd}
-              sx={{
-                px: 2.5,
-                py: 0.875,
-                fontWeight: 600,
-                borderRadius: 2,
-                boxShadow: isDark
-                  ? `0 0 10px ${alpha(theme.palette.primary.main, 0.3)}`
-                  : 'none',
-                '&:hover': {
+            {isMobile ? (
+              <Tooltip title={addButtonText}>
+                <IconButton
+                  color="primary"
+                  onClick={onAdd}
+                  sx={{
+                    backgroundColor: theme.palette.primary.main,
+                    color: theme.palette.primary.contrastText,
+                    '&:hover': {
+                      backgroundColor: theme.palette.primary.dark,
+                      boxShadow: isDark
+                        ? `0 0 15px ${alpha(theme.palette.primary.main, 0.5)}`
+                        : `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}`,
+                    },
+                  }}
+                >
+                  <AddIcon />
+                </IconButton>
+              </Tooltip>
+            ) : (
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<AddIcon />}
+                onClick={onAdd}
+                sx={{
+                  px: 2.5,
+                  py: 0.875,
+                  fontWeight: 600,
+                  borderRadius: 2,
                   boxShadow: isDark
-                    ? `0 0 15px ${alpha(theme.palette.primary.main, 0.5)}`
-                    : `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}`,
-                  transform: 'translateY(-1px)',
-                },
-                '&:active': {
-                  transform: 'translateY(0)',
-                },
-              }}
-            >
-              {addButtonText}
-            </Button>
+                    ? `0 0 10px ${alpha(theme.palette.primary.main, 0.3)}`
+                    : 'none',
+                  '&:hover': {
+                    boxShadow: isDark
+                      ? `0 0 15px ${alpha(theme.palette.primary.main, 0.5)}`
+                      : `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}`,
+                    transform: 'translateY(-1px)',
+                  },
+                  '&:active': {
+                    transform: 'translateY(0)',
+                  },
+                }}
+              >
+                {addButtonText}
+              </Button>
+            )}
           </>
         )}
       </Box>

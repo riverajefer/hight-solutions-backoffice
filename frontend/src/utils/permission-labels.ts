@@ -40,10 +40,13 @@ export const PERMISSION_LABELS: Record<string, string> = {
   delete_cargos: 'Eliminar Cargos',
 
   // Clientes
+  browse_clients: 'Navegar Clientes',
   create_clients: 'Crear Clientes',
   read_clients: 'Ver Clientes',
   update_clients: 'Actualizar Clientes',
   delete_clients: 'Eliminar Clientes',
+  update_client_special_condition: 'Editar Condición Especial',
+  approve_client_ownership_auth: 'Aprobar Propiedad de Cliente',
 
   // Proveedores
   create_suppliers: 'Crear Proveedores',
@@ -56,15 +59,15 @@ export const PERMISSION_LABELS: Record<string, string> = {
   update_units_of_measure: 'Actualizar Unidades de Medida',
   delete_units_of_measure: 'Eliminar Unidades de Medida',
 
-  create_service_categories: 'Crear Categorías de Servicios',
-  read_service_categories: 'Ver Categorías de Servicios',
-  update_service_categories: 'Actualizar Categorías de Servicios',
-  delete_service_categories: 'Eliminar Categorías de Servicios',
+  create_product_categories: 'Crear Categorías de Productos',
+  read_product_categories: 'Ver Categorías de Productos',
+  update_product_categories: 'Actualizar Categorías de Productos',
+  delete_product_categories: 'Eliminar Categorías de Productos',
 
-  create_services: 'Crear Servicios',
-  read_services: 'Ver Servicios',
-  update_services: 'Actualizar Servicios',
-  delete_services: 'Eliminar Servicios',
+  create_products: 'Crear Productos',
+  read_products: 'Ver Productos',
+  update_products: 'Actualizar Productos',
+  delete_products: 'Eliminar Productos',
 
   create_supply_categories: 'Crear Categorías de Insumos',
   read_supply_categories: 'Ver Categorías de Insumos',
@@ -99,6 +102,65 @@ export const PERMISSION_LABELS: Record<string, string> = {
    read_orders: 'Ver Órdenes',
    update_orders: 'Actualizar Órdenes',
    delete_orders: 'Eliminar Órdenes',
+   approve_orders: 'Aprobar Órdenes',
+   change_order_status: 'Cambiar Estado de Órdenes',
+   read_pending_orders: 'Ver Órdenes Pendientes de Pago',
+   apply_discounts: 'Aplicar Descuentos',
+   delete_discounts: 'Eliminar Descuentos',
+
+  // Archivos
+  upload_files: 'Subir Archivos',
+  read_files: 'Ver y Descargar Archivos',
+  delete_files: 'Eliminar Archivos',
+  manage_storage: 'Gestionar Almacenamiento',
+
+  // Órdenes de trabajo
+  create_work_orders: 'Crear Órdenes de Trabajo',
+  read_work_orders: 'Ver Órdenes de Trabajo',
+  update_work_orders: 'Actualizar Órdenes de Trabajo',
+  delete_work_orders: 'Eliminar Órdenes de Trabajo',
+
+  // Tipos de gasto
+  create_expense_types: 'Crear Tipos de Gasto',
+  read_expense_types: 'Ver Tipos de Gasto',
+  update_expense_types: 'Actualizar Tipos de Gasto',
+  delete_expense_types: 'Eliminar Tipos de Gasto',
+
+  // Órdenes de gasto
+  create_expense_orders: 'Crear Órdenes de Gasto',
+  read_expense_orders: 'Ver Órdenes de Gasto',
+  update_expense_orders: 'Actualizar Órdenes de Gasto',
+  delete_expense_orders: 'Eliminar Órdenes de Gasto',
+  approve_expense_orders: 'Aprobar Órdenes de Gasto',
+
+  // Anticipos
+  approve_advance_payments: 'Aprobar/Rechazar Anticipos',
+
+  // Compañía
+  read_company: 'Ver Información de Compañía',
+  update_company: 'Editar Información de Compañía',
+
+  // Nómina — Empleados
+  create_payroll_employees: 'Agregar Empleados a Nómina',
+  read_payroll_employees: 'Ver Empleados de Nómina',
+  update_payroll_employees: 'Editar Empleados de Nómina',
+  delete_payroll_employees: 'Eliminar Empleados de Nómina',
+
+  // Nómina — Periodos y registros
+  create_payroll_periods: 'Crear Periodos de Nómina',
+  read_payroll_periods: 'Ver Periodos de Nómina',
+  update_payroll_periods: 'Editar Periodos y Registros de Nómina',
+  delete_payroll_periods: 'Eliminar Periodos de Nómina',
+
+  // Asistencia
+  use_attendance: 'Marcar Entrada/Salida',
+  read_attendance: 'Ver Registros de Asistencia',
+  manage_attendance: 'Ajustar Registros de Asistencia',
+
+  // Inventario
+  create_inventory_movements: 'Crear Movimientos de Inventario',
+  read_inventory_movements: 'Ver Movimientos de Inventario',
+  manage_inventory: 'Gestionar Inventario',
 };
 
 /**

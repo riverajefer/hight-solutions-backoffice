@@ -39,3 +39,4 @@ coverage/
 tmp/
 temp/
 src/generated/*
+src/coverage-phase1/*

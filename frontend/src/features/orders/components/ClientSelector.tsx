@@ -10,12 +10,14 @@ import {
   Stack,
   Box,
   IconButton,
+  Alert,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Close as CloseIcon,
   Business as BusinessIcon,
   Person as PersonIcon,
+  WarningAmber as WarningAmberIcon,
 } from '@mui/icons-material';
 import { useClients } from '../../clients/hooks/useClients';
 import type { Client } from '../../../types/client.types';
@@ -26,6 +28,8 @@ interface ClientSelectorProps {
   onChange: (client: Client | null) => void;
   error?: boolean;
   helperText?: string;
+  currentUserId?: string;
+  isAdmin?: boolean;
 }
 
 export const ClientSelector: React.FC<ClientSelectorProps> = ({
@@ -33,8 +37,11 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
   onChange,
   error,
   helperText,
+  currentUserId,
+  isAdmin,
 }) => {
   const [modalOpen, setModalOpen] = useState(false);
+  const [inputValue, setInputValue] = useState('');
   const { clientsQuery } = useClients({ includeInactive: false });
 
   const clients = clientsQuery.data || [];
@@ -112,6 +119,18 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
             </Grid>
           </CardContent>
         </Card>
+
+        {/* Advertencia cuando el cliente pertenece a otro asesor */}
+        {value.advisorId && value.advisorId !== currentUserId && !isAdmin && (
+          <Alert severity="warning" icon={<WarningAmberIcon />} sx={{ mt: 1.5 }}>
+            <strong>Cliente de otro asesor.</strong>{' '}
+            Este cliente pertenece al asesor{' '}
+            {value.advisor?.firstName && value.advisor?.lastName
+              ? `${value.advisor.firstName} ${value.advisor.lastName}`
+              : value.advisor?.email || 'desconocido'}
+            . Crear esta orden requerirá autorización de administración.
+          </Alert>
+        )}
       </Box>
     );
   }
@@ -119,13 +138,41 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
   // Si no hay cliente, mostrar autocomplete
   return (
     <Box>
-      <Stack direction="row" spacing={2} alignItems="flex-start">
+      <Stack direction="row" spacing={2} alignItems="center">
         <Autocomplete
           fullWidth
           options={clients}
           value={value}
-          onChange={(_, newValue) => onChange(newValue)}
+          onChange={(_, newValue) => {
+            onChange(newValue);
+            setInputValue('');
+          }}
+          inputValue={inputValue}
+          onInputChange={(_, newInputValue) => {
+            setInputValue(newInputValue);
+          }}
           getOptionLabel={(option) => option.name}
+          filterOptions={(options, { inputValue: searchInput }) => {
+            const trimmedInput = searchInput.trim();
+            if (trimmedInput.length < 3) {
+              return [];
+            }
+            
+            const searchTerms = trimmedInput.toLowerCase().split(' ');
+            const filtered = options.filter((option) => {
+              const searchableString = [
+                option.name,
+                option.nit,
+                option.cedula,
+                option.phone,
+                option.email
+              ].filter(Boolean).join(' ').toLowerCase();
+              
+              return searchTerms.every(term => searchableString.includes(term));
+            });
+            
+            return filtered.slice(0, 5);
+          }}
           renderOption={(props, option) => (
             <li {...props} key={option.id}>
               <Stack direction="row" spacing={1} alignItems="center">
@@ -136,10 +183,6 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
                 )}
                 <Box>
                   <Typography variant="body2">{option.name}</Typography>
-                  <Typography variant="caption" color="textSecondary">
-                    {option.phone && `${option.phone} • `}
-                    {option.email}
-                  </Typography>
                 </Box>
               </Stack>
             </li>
@@ -148,7 +191,7 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
             <TextField
               {...params}
               label="Cliente"
-              placeholder="Buscar cliente..."
+              placeholder="Buscar por nombre, NIT, documento o celular..."
               error={error}
               helperText={helperText}
               InputProps={{
@@ -163,7 +206,11 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
             />
           )}
           loading={clientsQuery.isLoading}
-          noOptionsText="No se encontraron clientes"
+          noOptionsText={
+            inputValue.trim().length < 3
+              ? 'Escribe al menos 3 caracteres para buscar un cliente'
+              : 'No se encontraron clientes'
+          }
         />
         <Button
           variant="outlined"

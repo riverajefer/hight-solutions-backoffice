@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Box,
   FormGroup,
@@ -38,22 +38,52 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   Áreas: ['create_areas', 'read_areas', 'update_areas', 'delete_areas'],
 
   // Comercial
-  Clientes: ['create_clients', 'read_clients', 'update_clients', 'delete_clients'],
+  Clientes: ['browse_clients', 'create_clients', 'read_clients', 'update_clients', 'delete_clients', 'update_client_special_condition', 'approve_client_ownership_auth'],
   Cotizaciones: ['create_quotes', 'read_quotes', 'update_quotes', 'delete_quotes', 'convert_quotes'],
-  Órdenes: ['create_orders', 'read_orders', 'update_orders', 'delete_orders'],
+  Órdenes: ['create_orders', 'read_orders', 'update_orders', 'delete_orders', 'approve_orders', 'change_order_status', 'apply_discounts', 'delete_discounts', 'read_pending_orders'],
   'Canales Comerciales': ['create_commercial_channels', 'read_commercial_channels', 'update_commercial_channels', 'delete_commercial_channels'],
+  Archivos: ['upload_files', 'read_files', 'delete_files', 'manage_storage'],
 
   // Inventario y Catálogos
+  Movimientos: ['create_inventory_movements', 'read_inventory_movements', 'manage_inventory'],
   Proveedores: ['create_suppliers', 'read_suppliers', 'update_suppliers', 'delete_suppliers'],
-  Servicios: ['create_services', 'read_services', 'update_services', 'delete_services'],
-  'Categorías de Servicios': ['create_service_categories', 'read_service_categories', 'update_service_categories', 'delete_service_categories'],
+  Productos: ['create_products', 'read_products', 'update_products', 'delete_products'],
+  'Categorías de Productos': ['create_product_categories', 'read_product_categories', 'update_product_categories', 'delete_product_categories'],
   Insumos: ['create_supplies', 'read_supplies', 'update_supplies', 'delete_supplies'],
   'Categorías de Insumos': ['create_supply_categories', 'read_supply_categories', 'update_supply_categories', 'delete_supply_categories'],
   'Unidades de medida': ['create_units_of_measure', 'read_units_of_measure', 'update_units_of_measure', 'delete_units_of_measure'],
   
-  // Producción y Otros
+  // Producción 
   'Áreas de Producción': ['create_production_areas', 'read_production_areas', 'update_production_areas', 'delete_production_areas'],
-  Auditoría: ['read_audit_logs'],
+  'Órdenes de Trabajo': ['create_work_orders', 'read_work_orders', 'update_work_orders', 'delete_work_orders'],
+
+  // Gastos y Pagos
+  'Tipos de Gasto': ['create_expense_types', 'read_expense_types', 'update_expense_types', 'delete_expense_types'],
+  'Órdenes de Gasto': ['create_expense_orders', 'read_expense_orders', 'update_expense_orders', 'delete_expense_orders', 'approve_expense_orders'],
+  Anticipos: ['approve_advance_payments'],
+  
+  // Auditoría y Control
+  Auditoría: ['read_audit_logs', 'read_session_logs'],
+  Asistencia: ['use_attendance', 'read_attendance', 'manage_attendance'],
+
+  // Compañía
+  Compañía: ['read_company', 'update_company'],
+
+  // Nómina
+  'Empleados de Nómina': [
+    'create_payroll_employees',
+    'read_payroll_employees',
+    'update_payroll_employees',
+    'delete_payroll_employees',
+  ],
+  'Periodos de Nómina': [
+    'create_payroll_periods',
+    'read_payroll_periods',
+    'update_payroll_periods',
+    'delete_payroll_periods',
+  ],
+
+  Otros: [],
 };
 
 // Mapeo de Tabs a grupos
@@ -64,22 +94,40 @@ const TABS = [
   },
   {
     label: 'Comercial',
-    groups: ['Clientes', 'Cotizaciones', 'Órdenes', 'Canales Comerciales'],
+    groups: ['Clientes', 'Cotizaciones', 'Órdenes', 'Canales Comerciales', 'Archivos'],
   },
   {
     label: 'Inventario',
     groups: [
+      'Movimientos',
       'Proveedores',
-      'Servicios',
-      'Categorías de Servicios',
+      'Productos',
+      'Categorías de Productos',
       'Insumos',
       'Categorías de Insumos',
       'Unidades de medida',
     ],
   },
   {
-    label: 'Producción y Otros',
-    groups: ['Áreas de Producción', 'Auditoría'],
+    label: 'Producción',
+    groups: ['Áreas de Producción', 'Órdenes de Trabajo'],
+  },
+  {
+    label: 'Gastos y Pagos',
+    groups: ['Tipos de Gasto', 'Órdenes de Gasto', 'Anticipos'],
+  },
+  {
+    label: 'Nómina',
+    groups: ['Empleados de Nómina', 'Periodos de Nómina'],
+  },
+  {
+    label: 'Configuración y Otros',
+    groups: [
+      'Auditoría',
+      'Asistencia',
+      'Compañía',
+      'Otros',
+    ],
   },
 ];
 
@@ -95,6 +143,19 @@ export const PermissionsSelector: React.FC<PermissionsSelectorProps> = ({
     queryKey: ['permissions'],
     queryFn: () => permissionsApi.getAll(),
   });
+
+  const configuredPermissionNames = useMemo(
+    () => new Set(Object.values(PERMISSION_GROUPS).flat()),
+    [],
+  );
+
+  const uncategorizedPermissionNames = useMemo(
+    () =>
+      permissions
+        .map((permission: Permission) => permission.name)
+        .filter((name) => !configuredPermissionNames.has(name)),
+    [permissions, configuredPermissionNames],
+  );
 
   const handlePermissionChange = (permissionId: string, checked: boolean) => {
     if (checked) {
@@ -114,17 +175,33 @@ export const PermissionsSelector: React.FC<PermissionsSelectorProps> = ({
     {} as Record<string, Permission>,
   );
 
+  const getPermissionNamesForGroup = (groupName: string): string[] => {
+    if (groupName === 'Otros') {
+      return uncategorizedPermissionNames;
+    }
+
+    return PERMISSION_GROUPS[groupName] || [];
+  };
+
+  const shouldShowGroup = (groupName: string): boolean => {
+    if (groupName === 'Otros') {
+      return uncategorizedPermissionNames.length > 0;
+    }
+
+    return true;
+  };
+
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setCurrentTab(newValue);
   };
 
   // Select all / Deselect all for current tab
   const handleSelectAllInTab = (checked: boolean) => {
-    const currentGroups = TABS[currentTab].groups;
+    const currentGroups = TABS[currentTab].groups.filter(shouldShowGroup);
     const permissionsInTab: string[] = [];
 
     currentGroups.forEach(groupName => {
-      const groupPermissions = PERMISSION_GROUPS[groupName];
+      const groupPermissions = getPermissionNamesForGroup(groupName);
       if (groupPermissions) {
         groupPermissions.forEach(permName => {
           const perm = permissionMap[permName];
@@ -185,9 +262,17 @@ export const PermissionsSelector: React.FC<PermissionsSelectorProps> = ({
 
       <Box role="tabpanel">
         <Grid container spacing={3}>
-          {TABS[currentTab].groups.map((groupName) => {
-            const permissionNames = PERMISSION_GROUPS[groupName];
+          {TABS[currentTab].groups.filter(shouldShowGroup).map((groupName) => {
+            const permissionNames = getPermissionNamesForGroup(groupName);
             if (!permissionNames) return null;
+
+            const availablePermissions = permissionNames
+              .map((permName) => permissionMap[permName])
+              .filter((permission): permission is Permission => Boolean(permission));
+
+            const missingPermissionNames = permissionNames.filter(
+              (permName) => !permissionMap[permName],
+            );
 
             return (
               <Grid item xs={12} sm={6} md={4} key={groupName}>
@@ -215,36 +300,43 @@ export const PermissionsSelector: React.FC<PermissionsSelectorProps> = ({
                     {groupName}
                   </Typography>
                   <FormGroup>
-                    {permissionNames.map((permName) => {
-                      const permission = permissionMap[permName];
-                      if (!permission) return null;
+                    {availablePermissions.map((permission) => (
+                      <FormControlLabel
+                        key={permission.id}
+                        control={
+                          <Checkbox
+                            checked={selectedPermissions.includes(permission.id)}
+                            onChange={(e) =>
+                              handlePermissionChange(
+                                permission.id,
+                                e.target.checked,
+                              )
+                            }
+                            disabled={disabled}
+                            size="small"
+                            sx={{ py: 0.5 }}
+                          />
+                        }
+                        label={
+                          <Typography variant="body2">
+                            {getPermissionLabel(permission.name)}
+                          </Typography>
+                        }
+                        sx={{ mb: 0.5, ml: -0.5 }}
+                      />
+                    ))}
 
-                      return (
-                        <FormControlLabel
-                          key={permission.id}
-                          control={
-                            <Checkbox
-                              checked={selectedPermissions.includes(permission.id)}
-                              onChange={(e) =>
-                                handlePermissionChange(
-                                  permission.id,
-                                  e.target.checked,
-                                )
-                              }
-                              disabled={disabled}
-                              size="small"
-                              sx={{ py: 0.5 }}
-                            />
-                          }
-                          label={
-                            <Typography variant="body2">
-                              {getPermissionLabel(permission.name)}
-                            </Typography>
-                          }
-                          sx={{ mb: 0.5, ml: -0.5 }}
-                        />
-                      );
-                    })}
+                    {availablePermissions.length === 0 && (
+                      <Typography variant="caption" color="text.secondary">
+                        No hay permisos disponibles para este grupo en este ambiente.
+                      </Typography>
+                    )}
+
+                    {missingPermissionNames.length > 0 && (
+                      <Typography variant="caption" color="warning.main" sx={{ mt: 1, display: 'block' }}>
+                        Faltan permisos en la base de datos: {missingPermissionNames.join(', ')}
+                      </Typography>
+                    )}
                   </FormGroup>
                 </Paper>
               </Grid>

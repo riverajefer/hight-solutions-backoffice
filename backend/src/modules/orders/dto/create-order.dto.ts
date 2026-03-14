@@ -61,12 +61,12 @@ export class CreateOrderItemDto {
   id?: string;
 
   @ApiPropertyOptional({
-    description: 'ID del servicio (opcional)',
+    description: 'ID del producto (opcional)',
     example: 'uuid-service',
   })
   @IsOptional()
   @IsUUID()
-  serviceId?: string;
+  productId?: string;
 
   @ApiProperty({
     description: 'Descripción del item',
@@ -157,4 +157,20 @@ export class CreateOrderDto {
   @IsOptional()
   @IsUUID()
   commercialChannelId?: string;
+
+  @ApiPropertyOptional({
+    description: '¿Requiere prueba de color?',
+    example: true,
+  })
+  @IsOptional()
+  requiresColorProof?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Precio de la prueba de color',
+    example: 15000,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  colorProofPrice?: number;
 }

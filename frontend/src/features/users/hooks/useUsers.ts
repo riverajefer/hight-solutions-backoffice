@@ -40,11 +40,20 @@ export const useUsers = () => {
     },
   });
 
+  const deactivateUserMutation = useMutation({
+    mutationFn: (id: string) => usersApi.deactivate(id),
+    onSuccess: (_, userId) => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['users', userId] });
+    },
+  });
+
   return {
     usersQuery,
     getUserQuery,
     createUserMutation,
     updateUserMutation,
     deleteUserMutation,
+    deactivateUserMutation,
   };
 };

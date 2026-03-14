@@ -71,12 +71,14 @@ http://localhost:3000/api/v1
 | [03-GUARDS-DECORATORS-GUIDE.md](./03-GUARDS-DECORATORS-GUIDE.md) | Authentication & authorization patterns |
 | [04-DTOS-VALIDATION-GUIDE.md](./04-DTOS-VALIDATION-GUIDE.md) | Data validation best practices |
 | [05-AI-PROMPT-TEMPLATE.md](./05-AI-PROMPT-TEMPLATE.md) | Template for AI coding assistance prompts |
+| [06-TESTING-GUIDE.md](./06-TESTING-GUIDE.md) | Unit testing guide: setup, patterns, mocks, existing tests |
 
 ### Additional Resources
 | Document | Description |
 |----------|-------------|
 | [AUDIT_LOG_SETUP.md](./AUDIT_LOG_SETUP.md) | Audit logging implementation |
 | [EXTENSIONS.md](./EXTENSIONS.md) | Guide for adding new features |
+| [MIGRATION_P3009_RECOVERY.md](./MIGRATION_P3009_RECOVERY.md) | Runbook to recover failed Prisma migrations (P3009) in staging |
 
 ## Key Features
 
@@ -146,7 +148,7 @@ Abre `05-AI-PROMPT-TEMPLATE.md`, copia el template apropiado, rellena los detall
 
 Si quisieras crear un módulo de **Productos** ahora mismo, usarías este prompt:
 ```
-Necesito crear un módulo de Products para el proyecto Hight Solutions Backoffice.
+Necesito crear un módulo de Products para el proyecto High Solutions Backoffice.
 
 Lee primero:
 - docs/ai-guides/00-ARCHITECTURE-OVERVIEW.md

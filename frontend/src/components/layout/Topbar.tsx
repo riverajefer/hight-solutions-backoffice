@@ -17,6 +17,7 @@ import {
 import MenuIcon from '@mui/icons-material/Menu';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
+import BusinessIcon from '@mui/icons-material/Business';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
@@ -24,7 +25,10 @@ import { ROUTES } from '../../utils/constants';
 import { formatFullName } from '../../utils/helpers';
 import { ThemeToggler } from '../common/ThemeToggler';
 import { NotificationBell } from './NotificationBell';
+import { PendingApprovalsBell } from './PendingApprovalsBell';
+import { AttendanceButton } from './AttendanceButton';
 import { gradients, neonColors, neonAccents, darkSurfaces } from '../../theme';
+import { PERMISSIONS } from '../../utils/constants';
 
 interface TopbarProps {
   onMenuClick?: () => void;
@@ -38,7 +42,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isDark = theme.palette.mode === 'dark';
-  const { user, logout } = useAuthStore();
+  const { user, logout, hasPermission } = useAuthStore();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -60,15 +64,20 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
     navigate(ROUTES.PROFILE);
   };
 
+  const handleCompany = () => {
+    handleMenuClose();
+    navigate(ROUTES.COMPANY);
+  };
+
   const userName = user ? formatFullName(user.firstName, user.lastName) : 'Usuario';
   const userInitials = user
     ? `${user.firstName?.charAt(0) || ''}${user.lastName?.charAt(0) || ''}`.toUpperCase() ||
-      user.email.charAt(0).toUpperCase()
+      (user.email ?? user.username ?? 'U').charAt(0).toUpperCase()
     : 'U';
 
   return (
     <AppBar
-      position="static"
+      position="sticky"
       elevation={0}
       sx={{
         background: isDark
@@ -119,11 +128,17 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
               : 'none',
           }}
         >
-          Hight Solutions Backoffice
+          High Solutions CRM
         </Typography>
 
         <Box display="flex" alignItems="center" gap={2}>
           <ThemeToggler />
+
+          {/* Attendance Button — visible solo para usuarios con permiso use_attendance */}
+          {hasPermission(PERMISSIONS.USE_ATTENDANCE) && <AttendanceButton />}
+
+          {/* Pending Approvals Bell */}
+          <PendingApprovalsBell />
 
           {/* Notification Bell */}
           <NotificationBell />
@@ -225,6 +240,12 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
           onClose={handleMenuClose}
           transformOrigin={{ horizontal: 'right', vertical: 'top' }}
           anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+          BackdropProps={{
+            sx: {
+              backdropFilter: 'none', // Evita que la ventana quede en blur si hay un delay en el cierre
+              backgroundColor: 'transparent', // Menos invasivo para un menú de topbar
+            },
+          }}
           PaperProps={{
             sx: {
               mt: 1.5,
@@ -314,6 +335,42 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
               Mi Perfil
             </Typography>
           </MenuItem>
+
+          {hasPermission('read_company') && (
+            <MenuItem
+              onClick={handleCompany}
+              sx={{
+                py: 1.5,
+                mx: 1,
+                my: 0.5,
+                borderRadius: '10px',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  background: isDark
+                    ? alpha(neonColors.primary.main, 0.15)
+                    : alpha(neonColors.primary.main, 0.08),
+                  transform: 'translateX(4px)',
+                },
+              }}
+            >
+              <ListItemIcon>
+                <BusinessIcon
+                  fontSize="small"
+                  sx={{
+                    color: isDark ? neonColors.primary.main : neonColors.primary.dark,
+                  }}
+                />
+              </ListItemIcon>
+              <Typography
+                sx={{
+                  color: isDark ? 'white' : 'text.primary',
+                  fontWeight: 500,
+                }}
+              >
+                Información de Compañía
+              </Typography>
+            </MenuItem>
+          )}
 
           <Divider
             sx={{

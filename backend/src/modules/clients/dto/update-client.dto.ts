@@ -49,12 +49,12 @@ export class UpdateClientDto {
     description: 'Número de celular',
     example: '3001234567',
     minLength: 10,
-    maxLength: 20,
+    maxLength: 10,
   })
   @IsString()
   @IsOptional()
-  @MinLength(10, { message: 'El número de celular debe tener al menos 10 dígitos' })
-  @MaxLength(20, { message: 'El número de celular no puede exceder 20 caracteres' })
+  @MinLength(10, { message: 'El número de celular debe tener exactamente 10 dígitos' })
+  @MaxLength(10, { message: 'El número de celular no puede exceder 10 dígitos' })
   phone?: string;
 
   @ApiPropertyOptional({
@@ -64,7 +64,8 @@ export class UpdateClientDto {
   })
   @IsString()
   @IsOptional()
-  @MaxLength(20)
+  @MinLength(10, { message: 'El teléfono fijo debe tener exactamente 10 dígitos' })
+  @MaxLength(10, { message: 'El teléfono fijo debe tener exactamente 10 dígitos' })
   landlinePhone?: string;
 
   @ApiPropertyOptional({
@@ -119,7 +120,7 @@ export class UpdateClientDto {
   @IsString()
   @IsOptional()
   @MinLength(5, { message: 'El NIT debe tener al menos 5 caracteres' })
-  @MaxLength(20, { message: 'El NIT no puede exceder 20 caracteres' })
+  @MaxLength(12, { message: 'El NIT no puede exceder 12 caracteres' })
   nit?: string;
 
   @ApiPropertyOptional({
@@ -131,7 +132,7 @@ export class UpdateClientDto {
   @IsString()
   @IsOptional()
   @MinLength(6, { message: 'La cédula debe tener al menos 6 caracteres' })
-  @MaxLength(15, { message: 'La cédula no puede exceder 15 caracteres' })
+  @MaxLength(10, { message: 'La cédula no puede exceder 10 dígitos' })
   cedula?: string;
 
   @ApiPropertyOptional({
@@ -141,4 +142,24 @@ export class UpdateClientDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Condición especial del cliente (solo editable por administradores)',
+    example: 'Cliente con descuento preferencial por volumen',
+    maxLength: 500,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(500, { message: 'La condición especial no puede exceder 500 caracteres' })
+  specialCondition?: string;
+
+  @ApiPropertyOptional({
+    description: 'ID del asesor responsable del cliente (null para quitar el asesor)',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((o) => o.advisorId !== null)
+  @IsUUID('4', { message: 'El asesor debe ser un UUID válido' })
+  advisorId?: string | null;
 }

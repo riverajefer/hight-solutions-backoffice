@@ -12,6 +12,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { JwtPayload, TokenPair, AuthenticatedUser } from '../../common/interfaces';
 import { RegisterDto } from './dto';
 import { SessionLogsService } from '../session-logs/session-logs.service';
+import { AttendanceService } from '../attendance/attendance.service';
 
 @Injectable()
 export class AuthService {
@@ -23,6 +24,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     @Inject(forwardRef(() => SessionLogsService))
     private readonly sessionLogsService: SessionLogsService,
+    private readonly attendanceService: AttendanceService,
   ) {}
 
   /**
@@ -30,20 +32,23 @@ export class AuthService {
    * Retorna el usuario sin el password si es válido, null si no
    */
   async validateUser(
-    email: string,
+    username: string,
     password: string,
   ): Promise<AuthenticatedUser | null> {
     const user = await this.prisma.user.findUnique({
-      where: { email },
+      where: { username },
       select: {
         id: true,
+        username: true,
         email: true,
+        isActive: true,
         password: true,
         roleId: true,
         firstName: true,
         lastName: true,
         profilePhoto: true,
         cargoId: true,
+        mustChangePassword: true,
         role: {
           select: {
             id: true,
@@ -69,6 +74,10 @@ export class AuthService {
       return null;
     }
 
+    if (!user.isActive) {
+      return null;
+    }
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
@@ -77,12 +86,14 @@ export class AuthService {
 
     return {
       id: user.id,
+      username: user.username!,
       email: user.email,
       roleId: user.roleId,
       firstName: user.firstName,
       lastName: user.lastName,
       profilePhoto: user.profilePhoto,
       cargoId: user.cargoId,
+      mustChangePassword: user.mustChangePassword,
       role: user.role,
       cargo: user.cargo,
     };
@@ -134,13 +145,15 @@ export class AuthService {
    * Registra un nuevo usuario
    */
   async register(registerDto: RegisterDto): Promise<TokenPair> {
-    // Verificar si el email ya existe
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email: registerDto.email },
-    });
+    // Verificar si el email ya existe (si se proporcionó)
+    if (registerDto.email) {
+      const existingUser = await this.prisma.user.findUnique({
+        where: { email: registerDto.email },
+      });
 
-    if (existingUser) {
-      throw new BadRequestException('Email already registered');
+      if (existingUser) {
+        throw new BadRequestException('Email already registered');
+      }
     }
 
     // Verificar si el rol existe
@@ -158,22 +171,36 @@ export class AuthService {
       this.SALT_ROUNDS,
     );
 
+    // Generar username desde email si no se proporciona uno
+    const usernameBase = registerDto.email
+      ? registerDto.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '')
+      : 'user';
+    let username = usernameBase;
+    let counter = 1;
+    while (await this.prisma.user.findUnique({ where: { username } })) {
+      username = `${usernameBase}${counter}`;
+      counter++;
+    }
+
     // Crear el usuario
     const user = await this.prisma.user.create({
       data: {
+        username,
         email: registerDto.email,
         password: hashedPassword,
         roleId: registerDto.roleId,
       },
       select: {
         id: true,
+        username: true,
         email: true,
+        isActive: true,
         roleId: true,
       },
     });
 
     // Generar y retornar tokens
-    return this.login(user);
+    return this.login({ ...user, username: user.username! } as AuthenticatedUser);
   }
 
   /**
@@ -184,12 +211,15 @@ export class AuthService {
       where: { id: userId },
       select: {
         id: true,
+        username: true,
         email: true,
+        isActive: true,
         roleId: true,
         firstName: true,
         lastName: true,
         profilePhoto: true,
         cargoId: true,
+        mustChangePassword: true,
         refreshToken: true,
         role: {
           select: {
@@ -212,7 +242,7 @@ export class AuthService {
       },
     });
 
-    if (!user || !user.refreshToken) {
+    if (!user || !user.refreshToken || !user.isActive) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
@@ -228,12 +258,14 @@ export class AuthService {
 
     const authenticatedUser: AuthenticatedUser = {
       id: user.id,
+      username: user.username!,
       email: user.email,
       roleId: user.roleId,
       firstName: user.firstName,
       lastName: user.lastName,
       profilePhoto: user.profilePhoto,
       cargoId: user.cargoId,
+      mustChangePassword: user.mustChangePassword,
       role: user.role,
       cargo: user.cargo,
     };
@@ -262,6 +294,9 @@ export class AuthService {
    * Cierra la sesión del usuario eliminando su refresh token
    */
   async logout(userId: string): Promise<void> {
+    // Cerrar registro de asistencia activo si existe
+    await this.attendanceService.closeOpenRecordOnLogout(userId);
+
     // Create logout log
     await this.sessionLogsService.createLogoutLog(userId);
 
@@ -299,18 +334,24 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
+    if (!user.isActive) {
+      throw new UnauthorizedException('User inactive');
+    }
+
     // Extraer solo los nombres de los permisos
     const permissions = user.role.permissions.map((rp: any) => rp.permission.name);
 
     return {
       user: {
         id: user.id,
+        username: user.username,
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
         profilePhoto: user.profilePhoto,
         roleId: user.roleId,
         cargoId: user.cargoId,
+        mustChangePassword: user.mustChangePassword,
         role: {
           id: user.role.id,
           name: user.role.name,
@@ -347,19 +388,59 @@ export class AuthService {
   }
 
   /**
+   * Cambia la contraseña del usuario autenticado
+   * Limpia el flag mustChangePassword al completar el cambio
+   */
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, password: true, isActive: true },
+    });
+
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('Usuario no encontrado o inactivo');
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(
+      currentPassword,
+      user.password,
+    );
+    if (!isCurrentPasswordValid) {
+      throw new BadRequestException('La contraseña actual es incorrecta');
+    }
+
+    if (currentPassword === newPassword) {
+      throw new BadRequestException(
+        'La nueva contraseña debe ser diferente a la actual',
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, this.SALT_ROUNDS);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword, mustChangePassword: false },
+    });
+  }
+
+  /**
    * Genera un par de tokens (access + refresh)
    */
   private async generateTokens(user: AuthenticatedUser): Promise<TokenPair> {
     const accessPayload: JwtPayload = {
       sub: user.id,
-      email: user.email,
+      username: user.username,
       roleId: user.roleId,
       type: 'access',
     };
 
     const refreshPayload: JwtPayload = {
       sub: user.id,
-      email: user.email,
+      username: user.username,
       roleId: user.roleId,
       type: 'refresh',
     };
@@ -398,6 +479,10 @@ export class AuthService {
     });
 
     if (!user) {
+      return [];
+    }
+
+    if (!user.isActive) {
       return [];
     }
 

@@ -13,7 +13,7 @@ import { Request } from 'express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard, JwtAuthGuard } from './guards';
-import { LoginDto, RefreshTokenDto, RegisterDto, UpdateProfilePhotoDto } from './dto';
+import { LoginDto, RefreshTokenDto, RegisterDto, UpdateProfilePhotoDto, ChangePasswordDto } from './dto';
 import { CurrentUser, Public } from '../../common/decorators';
 import { AuthenticatedUser, TokenPair } from '../../common/interfaces';
 
@@ -115,6 +115,28 @@ export class AuthController {
     @CurrentUser('id') userId: string,
   ): Promise<{ user: any; permissions: string[] }> {
     return this.authService.getUserProfile(userId);
+  }
+
+  /**
+   * POST /api/v1/auth/change-password
+   * Cambia la contraseña del usuario autenticado (obligatorio en primer login)
+   */
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Cambiar contraseña propia (obligatorio en primer login)' })
+  @ApiResponse({ status: 200, description: 'Contraseña actualizada correctamente' })
+  async changePassword(
+    @CurrentUser('id') userId: string,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ): Promise<{ message: string }> {
+    await this.authService.changePassword(
+      userId,
+      changePasswordDto.currentPassword,
+      changePasswordDto.newPassword,
+    );
+    return { message: 'Contraseña actualizada correctamente' };
   }
 
   /**

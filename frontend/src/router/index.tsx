@@ -35,16 +35,17 @@ const SuppliersListPage = lazy(() => import('../features/suppliers/pages/Supplie
 const SupplierFormPage = lazy(() => import('../features/suppliers/pages/SupplierFormPage'));
 const SupplierDetailPage = lazy(() => import('../features/suppliers/pages/SupplierDetailPage'));
 const SessionLogsPage = lazy(() => import('../features/session-logs/pages/SessionLogsPage'));
+const AttendancePage = lazy(() => import('../features/attendance/pages/AttendancePage'));
 const ProfilePage = lazy(() => import('../features/settings/pages/ProfilePage'));
 // Portfolio - Units of Measure
 const UnitsOfMeasureListPage = lazy(() => import('../features/portfolio/units-of-measure/pages/UnitsOfMeasureListPage'));
 const UnitOfMeasureFormPage = lazy(() => import('../features/portfolio/units-of-measure/pages/UnitOfMeasureFormPage'));
-// Portfolio - Service Categories
-const ServiceCategoriesListPage = lazy(() => import('../features/portfolio/service-categories/pages/ServiceCategoriesListPage'));
-const ServiceCategoryFormPage = lazy(() => import('../features/portfolio/service-categories/pages/ServiceCategoryFormPage'));
-// Portfolio - Services
-const ServicesListPage = lazy(() => import('../features/portfolio/services/pages/ServicesListPage'));
-const ServiceFormPage = lazy(() => import('../features/portfolio/services/pages/ServiceFormPage'));
+// Portfolio - Product Categories
+const ProductCategoriesListPage = lazy(() => import('../features/portfolio/product-categories/pages/ProductCategoriesListPage'));
+const ProductCategoryFormPage = lazy(() => import('../features/portfolio/product-categories/pages/ProductCategoryFormPage'));
+// Portfolio - Products
+const ProductsListPage = lazy(() => import('../features/portfolio/products/pages/ProductsListPage'));
+const ProductFormPage = lazy(() => import('../features/portfolio/products/pages/ProductFormPage'));
 // Portfolio - Supply Categories
 const SupplyCategoriesListPage = lazy(() => import('../features/portfolio/supply-categories/pages/SupplyCategoriesListPage'));
 const SupplyCategoryFormPage = lazy(() => import('../features/portfolio/supply-categories/pages/SupplyCategoryFormPage'));
@@ -56,6 +57,8 @@ const OrdersListPage = lazy(() => import('../features/orders/pages/OrdersListPag
 const OrderFormPage = lazy(() => import('../features/orders/pages/OrderFormPage'));
 const OrderDetailPage = lazy(() => import('../features/orders/pages/OrderDetailPage'));
 const PendingPaymentOrdersPage = lazy(() => import('../features/orders/pages/PendingPaymentOrdersPage'));
+const StatusChangeRequestsPage = lazy(() => import('../features/orders/pages/StatusChangeRequestsPage'));
+const ProfitabilityPage = lazy(() => import('../features/orders/pages/ProfitabilityPage'));
 // Commercial Channels
 const CommercialChannelsListPage = lazy(() => import('../features/commercial-channels/pages/CommercialChannelsListPage'));
 const CommercialChannelFormPage = lazy(() => import('../features/commercial-channels/pages/CommercialChannelFormPage'));
@@ -65,6 +68,30 @@ const QuotesListPage = lazy(() => import('../features/quotes/pages/QuotesListPag
 const QuoteFormPage = lazy(() => import('../features/quotes/pages/QuoteFormPage'));
 const QuoteDetailPage = lazy(() => import('../features/quotes/pages/QuoteDetailPage'));
 const NotificationsPage = lazy(() => import('../features/notifications/pages/NotificationsPage'));
+const CompanyPage = lazy(() => import('../features/company/pages/CompanyPage'));
+// Work Orders
+const WorkOrdersListPage = lazy(() => import('../features/work-orders/pages/WorkOrdersListPage'));
+const WorkOrderFormPage = lazy(() => import('../features/work-orders/pages/WorkOrderFormPage'));
+const WorkOrderDetailPage = lazy(() => import('../features/work-orders/pages/WorkOrderDetailPage'));
+// Expense Orders
+const ExpenseOrdersListPage = lazy(() => import('../features/expense-orders/pages/ExpenseOrdersListPage'));
+const ExpenseOrderFormPage = lazy(() => import('../features/expense-orders/pages/ExpenseOrderFormPage'));
+const ExpenseOrderDetailPage = lazy(() => import('../features/expense-orders/pages/ExpenseOrderDetailPage'));
+// Order Timeline
+const OrderFlowPage = lazy(() => import('../features/order-timeline/pages/OrderFlowPage'));
+// Payroll
+const PayrollEmployeesListPage = lazy(() => import('../features/payroll/pages/PayrollEmployeesListPage'));
+const PayrollEmployeeFormPage = lazy(() => import('../features/payroll/pages/PayrollEmployeeFormPage'));
+const PayrollPeriodsListPage = lazy(() => import('../features/payroll/pages/PayrollPeriodsListPage'));
+const PayrollPeriodFormPage = lazy(() => import('../features/payroll/pages/PayrollPeriodFormPage'));
+const PayrollPeriodDetailPage = lazy(() => import('../features/payroll/pages/PayrollPeriodDetailPage'));
+const PayrollItemFormPage = lazy(() => import('../features/payroll/pages/PayrollItemFormPage'));
+const EmployeePayrollHistoryPage = lazy(() => import('../features/payroll/pages/EmployeePayrollHistoryPage'));
+const ChangePasswordPage = lazy(() => import('../features/auth/pages/ChangePasswordPage'));
+// Inventory - Movimientos de Inventario
+const InventoryMovementsListPage = lazy(() => import('../features/inventory/pages/InventoryMovementsListPage'));
+const InventoryMovementFormPage = lazy(() => import('../features/inventory/pages/InventoryMovementFormPage'));
+const LowStockAlertsPage = lazy(() => import('../features/inventory/pages/LowStockAlertsPage'));
 
 
 const RoutesConfig: FC = () => {
@@ -86,6 +113,16 @@ const RoutesConfig: FC = () => {
             <AuthLayout>
               <RegisterPage />
             </AuthLayout>
+          }
+        />
+        <Route
+          path={PATHS.CHANGE_PASSWORD}
+          element={
+            <AuthGuard>
+              <AuthLayout>
+                <ChangePasswordPage />
+              </AuthLayout>
+            </AuthGuard>
           }
         />
 
@@ -395,7 +432,7 @@ const RoutesConfig: FC = () => {
           element={
             <AuthGuard>
               <MainLayout>
-                <PermissionGuard permission={PERMISSIONS.READ_CLIENTS}>
+                <PermissionGuard permission={PERMISSIONS.BROWSE_CLIENTS}>
                   <ClientsListPage />
                 </PermissionGuard>
               </MainLayout>
@@ -527,76 +564,76 @@ const RoutesConfig: FC = () => {
           }
         />
 
-        {/* Service Categories Routes */}
+        {/* Product Categories Routes */}
         <Route
-          path={PATHS.SERVICE_CATEGORIES}
+          path={PATHS.PRODUCT_CATEGORIES}
           element={
             <AuthGuard>
               <MainLayout>
-                <PermissionGuard permission={PERMISSIONS.READ_SERVICE_CATEGORIES}>
-                  <ServiceCategoriesListPage />
+                <PermissionGuard permission={PERMISSIONS.READ_PRODUCT_CATEGORIES}>
+                  <ProductCategoriesListPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>
           }
         />
         <Route
-          path={PATHS.SERVICE_CATEGORIES_CREATE}
+          path={PATHS.PRODUCT_CATEGORIES_CREATE}
           element={
             <AuthGuard>
               <MainLayout>
-                <PermissionGuard permission={PERMISSIONS.CREATE_SERVICE_CATEGORIES}>
-                  <ServiceCategoryFormPage />
+                <PermissionGuard permission={PERMISSIONS.CREATE_PRODUCT_CATEGORIES}>
+                  <ProductCategoryFormPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>
           }
         />
         <Route
-          path={PATHS.SERVICE_CATEGORIES_EDIT}
+          path={PATHS.PRODUCT_CATEGORIES_EDIT}
           element={
             <AuthGuard>
               <MainLayout>
-                <PermissionGuard permission={PERMISSIONS.UPDATE_SERVICE_CATEGORIES}>
-                  <ServiceCategoryFormPage />
+                <PermissionGuard permission={PERMISSIONS.UPDATE_PRODUCT_CATEGORIES}>
+                  <ProductCategoryFormPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>
           }
         />
 
-        {/* Services Routes */}
+        {/* Products Routes */}
         <Route
-          path={PATHS.SERVICES}
+          path={PATHS.PRODUCTS}
           element={
             <AuthGuard>
               <MainLayout>
-                <PermissionGuard permission={PERMISSIONS.READ_SERVICES}>
-                  <ServicesListPage />
+                <PermissionGuard permission={PERMISSIONS.READ_PRODUCTS}>
+                  <ProductsListPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>
           }
         />
         <Route
-          path={PATHS.SERVICES_CREATE}
+          path={PATHS.PRODUCTS_CREATE}
           element={
             <AuthGuard>
               <MainLayout>
-                <PermissionGuard permission={PERMISSIONS.CREATE_SERVICES}>
-                  <ServiceFormPage />
+                <PermissionGuard permission={PERMISSIONS.CREATE_PRODUCTS}>
+                  <ProductFormPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>
           }
         />
         <Route
-          path={PATHS.SERVICES_EDIT}
+          path={PATHS.PRODUCTS_EDIT}
           element={
             <AuthGuard>
               <MainLayout>
-                <PermissionGuard permission={PERMISSIONS.UPDATE_SERVICES}>
-                  <ServiceFormPage />
+                <PermissionGuard permission={PERMISSIONS.UPDATE_PRODUCTS}>
+                  <ProductFormPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>
@@ -729,6 +766,32 @@ const RoutesConfig: FC = () => {
           }
         />
 
+        {/* Order Timeline Routes */}
+        <Route
+          path={PATHS.ORDER_FLOW}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_ORDERS}>
+                  <OrderFlowPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.ORDER_FLOW_BASE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_ORDERS}>
+                  <OrderFlowPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
         {/* Quotes Routes */}
         <Route
           path={PATHS.QUOTES}
@@ -848,6 +911,58 @@ const RoutesConfig: FC = () => {
           }
         />
 
+        {/* Attendance - Control de Asistencia */}
+        <Route
+          path={PATHS.ATTENDANCE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_ATTENDANCE}>
+                  <AttendancePage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Inventory - Movimientos de Inventario */}
+        <Route
+          path={PATHS.INVENTORY_MOVEMENTS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_INVENTORY_MOVEMENTS}>
+                  <InventoryMovementsListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.INVENTORY_MOVEMENTS_NEW}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_INVENTORY_MOVEMENTS}>
+                  <InventoryMovementFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.INVENTORY_LOW_STOCK}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_INVENTORY_MOVEMENTS}>
+                  <LowStockAlertsPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
         {/* Notifications Routes */}
         <Route
           path={PATHS.NOTIFICATIONS}
@@ -872,7 +987,256 @@ const RoutesConfig: FC = () => {
             </AuthGuard>
           }
         />
+        {/* Status Change Requests */}
+        <Route
+          path={PATHS.STATUS_CHANGE_REQUESTS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={[PERMISSIONS.APPROVE_ORDERS, PERMISSIONS.APPROVE_ADVANCE_PAYMENTS, PERMISSIONS.APPROVE_CLIENT_OWNERSHIP_AUTH, PERMISSIONS.APPROVE_EXPENSE_ORDERS]}>
+                  <StatusChangeRequestsPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        {/* Profitability */}
+        <Route
+          path={PATHS.ORDERS_PROFITABILITY}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_ORDERS}>
+                  <ProfitabilityPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
 
+        {/* Company Route */}
+        <Route
+          path={PATHS.COMPANY}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_COMPANY}>
+                  <CompanyPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Work Orders Routes */}
+        <Route
+          path={PATHS.WORK_ORDERS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_WORK_ORDERS}>
+                  <WorkOrdersListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.WORK_ORDERS_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_WORK_ORDERS}>
+                  <WorkOrderFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.WORK_ORDERS_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_WORK_ORDERS}>
+                  <WorkOrderFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.WORK_ORDERS_DETAIL}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_WORK_ORDERS}>
+                  <WorkOrderDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Expense Orders Routes */}
+        <Route
+          path={PATHS.EXPENSE_ORDERS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_EXPENSE_ORDERS}>
+                  <ExpenseOrdersListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.EXPENSE_ORDERS_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_EXPENSE_ORDERS}>
+                  <ExpenseOrderFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.EXPENSE_ORDERS_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_EXPENSE_ORDERS}>
+                  <ExpenseOrderFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.EXPENSE_ORDERS_DETAIL}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_EXPENSE_ORDERS}>
+                  <ExpenseOrderDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Payroll Routes */}
+        <Route
+          path={PATHS.PAYROLL_EMPLOYEES}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_PAYROLL_EMPLOYEES}>
+                  <PayrollEmployeesListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PAYROLL_EMPLOYEES_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_PAYROLL_EMPLOYEES}>
+                  <PayrollEmployeeFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PAYROLL_EMPLOYEES_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_PAYROLL_EMPLOYEES}>
+                  <PayrollEmployeeFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PAYROLL_EMPLOYEES_HISTORY}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_PAYROLL_EMPLOYEES}>
+                  <EmployeePayrollHistoryPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PAYROLL_PERIODS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_PAYROLL_PERIODS}>
+                  <PayrollPeriodsListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PAYROLL_PERIODS_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_PAYROLL_PERIODS}>
+                  <PayrollPeriodFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PAYROLL_PERIODS_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_PAYROLL_PERIODS}>
+                  <PayrollPeriodFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PAYROLL_PERIODS_DETAIL}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_PAYROLL_PERIODS}>
+                  <PayrollPeriodDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PAYROLL_ITEM_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_PAYROLL_PERIODS}>
+                  <PayrollItemFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
 
         {/* Settings Routes */}
         <Route

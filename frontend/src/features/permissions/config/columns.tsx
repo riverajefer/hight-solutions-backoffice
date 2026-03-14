@@ -1,8 +1,8 @@
-import { GridColDef } from '@mui/x-data-grid';
 import { Tooltip, Typography } from '@mui/material';
 import { ActionsCell } from '../../../components/common/DataTable';
 import { Permission } from '../../../types';
 import { getPermissionLabel } from '../../../utils/permission-labels';
+import type { ResponsiveGridColDef } from '../../../hooks';
 
 interface PermissionColumnsProps {
   onEdit: (permission: Permission) => void;
@@ -11,16 +11,17 @@ interface PermissionColumnsProps {
   canDelete?: boolean;
 }
 
-export const getPermissionColumns = ({ 
-  onEdit, 
+export const getPermissionColumns = ({
+  onEdit,
   onDelete,
   canEdit = true,
   canDelete = true,
-}: PermissionColumnsProps): GridColDef<Permission>[] => [
+}: PermissionColumnsProps): ResponsiveGridColDef<Permission>[] => [
   {
     field: 'id',
     headerName: 'ID',
     width: 90,
+    responsive: 'lg',
   },
   {
     field: 'name',
@@ -34,6 +35,7 @@ export const getPermissionColumns = ({
     headerName: 'Código/Key',
     flex: 1,
     minWidth: 150,
+    responsive: 'sm',
     renderCell: (params) => (
       <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 600 }}>
         {(params.row as any).code || params.row.name.toLowerCase().replace(/\s+/g, '_')}
@@ -44,6 +46,7 @@ export const getPermissionColumns = ({
     field: 'module',
     headerName: 'Módulo/Categoría',
     width: 150,
+    responsive: 'md',
     valueGetter: (_, row) => (row as any).module || 'General',
   },
   {
@@ -51,6 +54,7 @@ export const getPermissionColumns = ({
     headerName: 'Descripción',
     flex: 2,
     minWidth: 250,
+    responsive: 'md',
     renderCell: (params) => (
       <Tooltip title={params.value || ''}>
         <Typography variant="body2" noWrap>
@@ -64,6 +68,7 @@ export const getPermissionColumns = ({
     headerName: 'Roles',
     width: 100,
     type: 'number',
+    responsive: 'sm',
     valueGetter: (_, row) => (row as any)._count?.roles || 0,
   },
   {

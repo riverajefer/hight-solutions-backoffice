@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { User, LoginDto, AuthResponse } from '../types';
-import { authApi } from '../api';
+import { authApi } from '../api/auth.api';
 
 interface AuthState {
   user: User | null;
@@ -9,6 +9,7 @@ interface AuthState {
   refreshToken: string | null;
   permissions: string[];
   isAuthenticated: boolean;
+  mustChangePassword: boolean;
   isLoading: boolean;
   error: string | null;
 
@@ -16,6 +17,7 @@ interface AuthState {
   login: (credentials: LoginDto) => Promise<void>;
   logout: () => Promise<void>;
   refreshAccessToken: () => Promise<void>;
+  clearMustChangePassword: () => void;
   hasPermission: (permission: string) => boolean;
   hasAnyPermission: (permissions: string[]) => boolean;
   setUser: (user: User | null) => void;
@@ -30,6 +32,7 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: null,
       permissions: [],
       isAuthenticated: false,
+      mustChangePassword: false,
       isLoading: false,
       error: null,
 
@@ -44,6 +47,7 @@ export const useAuthStore = create<AuthState>()(
             refreshToken: response.refreshToken,
             permissions: response.permissions || [],
             isAuthenticated: true,
+            mustChangePassword: response.user.mustChangePassword ?? false,
             isLoading: false,
           });
         } catch (error: unknown) {
@@ -71,6 +75,7 @@ export const useAuthStore = create<AuthState>()(
           refreshToken: null,
           permissions: [],
           isAuthenticated: false,
+          mustChangePassword: false,
           error: null,
         });
         localStorage.removeItem('auth-storage');
@@ -90,6 +95,7 @@ export const useAuthStore = create<AuthState>()(
             accessToken: response.accessToken,
             refreshToken: response.refreshToken,
             user: response.user,
+            mustChangePassword: response.user?.mustChangePassword ?? get().mustChangePassword,
           });
           
           // Recargar permisos después de refrescar el token
@@ -105,6 +111,13 @@ export const useAuthStore = create<AuthState>()(
           get().logout();
           throw error;
         }
+      },
+
+      clearMustChangePassword: () => {
+        set((state) => ({
+          mustChangePassword: false,
+          user: state.user ? { ...state.user, mustChangePassword: false } : null,
+        }));
       },
 
       hasPermission: (permission: string) => {
@@ -132,6 +145,7 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         isAuthenticated: state.isAuthenticated,
         permissions: state.permissions,
+        mustChangePassword: state.mustChangePassword,
       }),
     }
   )

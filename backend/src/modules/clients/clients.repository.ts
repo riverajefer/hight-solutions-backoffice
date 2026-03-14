@@ -23,7 +23,20 @@ export class ClientsRepository {
         cityId: true,
         personType: true,
         nit: true,
+        cedula: true,
+        encargado: true,
+        landlinePhone: true,
+        specialCondition: true,
         isActive: true,
+        advisorId: true,
+        advisor: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
         department: {
@@ -61,7 +74,20 @@ export class ClientsRepository {
         cityId: true,
         personType: true,
         nit: true,
+        cedula: true,
+        encargado: true,
+        landlinePhone: true,
+        specialCondition: true,
         isActive: true,
+        advisorId: true,
+        advisor: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
         department: {
@@ -119,7 +145,20 @@ export class ClientsRepository {
         cityId: true,
         personType: true,
         nit: true,
+        cedula: true,
+        encargado: true,
+        landlinePhone: true,
+        specialCondition: true,
         isActive: true,
+        advisorId: true,
+        advisor: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
         department: {
@@ -157,7 +196,20 @@ export class ClientsRepository {
         cityId: true,
         personType: true,
         nit: true,
+        cedula: true,
+        encargado: true,
+        landlinePhone: true,
+        specialCondition: true,
         isActive: true,
+        advisorId: true,
+        advisor: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
         department: {
@@ -173,6 +225,22 @@ export class ClientsRepository {
             name: true,
           },
         },
+      },
+    });
+  }
+
+  /**
+   * Update only the special condition field
+   */
+  async updateSpecialCondition(id: string, specialCondition: string | null) {
+    return this.prisma.client.update({
+      where: { id },
+      data: { specialCondition },
+      select: {
+        id: true,
+        name: true,
+        specialCondition: true,
+        updatedAt: true,
       },
     });
   }
@@ -194,6 +262,22 @@ export class ClientsRepository {
       select: { email: true },
     });
     return clients.map((c) => c.email);
+  }
+
+  /**
+   * Find user by ID including their role permissions (for advisor assignment check).
+   */
+  async findUserWithPermissions(userId: string) {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        role: {
+          include: {
+            permissions: { include: { permission: true } },
+          },
+        },
+      },
+    });
   }
 
   /**

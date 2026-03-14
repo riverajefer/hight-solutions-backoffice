@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -10,8 +10,11 @@ import {
   CircularProgress,
   Box,
   Typography,
+  Alert,
 } from '@mui/material';
 import type { Order, OrderStatus } from '../../../types/order.types';
+import { ORDER_STATUS_CONFIG, ALLOWED_TRANSITIONS } from '../../../types/order.types';
+import { StatusChangeAuthRequestDialog } from './StatusChangeAuthRequestDialog';
 
 interface ChangeStatusDialogProps {
   open: boolean;
@@ -21,17 +24,6 @@ interface ChangeStatusDialogProps {
   isLoading?: boolean;
 }
 
-const ORDER_STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
-  { value: 'DRAFT', label: 'Borrador' },
-  { value: 'CONFIRMED', label: 'Confirmada' },
-  { value: 'IN_PRODUCTION', label: 'En Producción' },
-  { value: 'READY', label: 'Lista para entrega' },
-  { value: 'DELIVERED', label: 'Entregada' },
-  { value: 'WARRANTY', label: 'Garantía' },
-  { value: 'RETURNED', label: 'Devolución' },
-  { value: 'PAID', label: 'Pagada' },
-];
-
 export const ChangeStatusDialog: React.FC<ChangeStatusDialogProps> = ({
   open,
   order,
@@ -40,81 +32,190 @@ export const ChangeStatusDialog: React.FC<ChangeStatusDialogProps> = ({
   isLoading = false,
 }) => {
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus | ''>('');
+  const [showAuthRequestDialog, setShowAuthRequestDialog] = useState(false);
+  const [authorizationError, setAuthorizationError] = useState<string | null>(null);
+
+  // Calcular opciones de estado válidas según el estado actual
+  const availableStatuses = useMemo(() => {
+    if (!order) return [];
+    const nextStatuses = ALLOWED_TRANSITIONS[order.status] || [];
+    return nextStatuses.map((status) => ({
+      value: status,
+      label: ORDER_STATUS_CONFIG[status]?.label || status,
+    }));
+  }, [order]);
 
   React.useEffect(() => {
     if (order && open) {
-      setSelectedStatus(order.status);
+      // Auto-seleccionar si solo hay una opción válida
+      const nextStatuses = ALLOWED_TRANSITIONS[order.status] || [];
+      setSelectedStatus(nextStatuses.length === 1 ? nextStatuses[0] : '');
+      setAuthorizationError(null);
     }
   }, [order, open]);
 
+  // Validar si el cambio de estado es permitido
+  const statusValidation = useMemo(() => {
+    if (!order || !selectedStatus) {
+      return { allowed: true, reason: null };
+    }
+
+    const balance = parseFloat(order.balance);
+
+    // Validación de saldo para PAID
+    if (selectedStatus === 'PAID') {
+      if (balance > 0) {
+        return {
+          allowed: false,
+          reason: `No se puede cambiar al estado PAGADA con saldo pendiente ($${order.balance}). Use el estado "Entregado a Crédito" o complete los pagos primero.`,
+        };
+      }
+    }
+
+    return { allowed: true, reason: null };
+  }, [order, selectedStatus]);
+
   const handleConfirm = async () => {
-    if (!selectedStatus || selectedStatus === order?.status) {
+    if (!selectedStatus) {
       onClose();
       return;
     }
 
-    await onConfirm(selectedStatus);
-    onClose();
+    try {
+      await onConfirm(selectedStatus);
+      setAuthorizationError(null);
+      onClose();
+    } catch (error: any) {
+      // Si el error es 403 (Forbidden), significa que requiere autorización
+      if (error.response?.status === 403) {
+        const errorMessage = error.response?.data?.message || '';
+        if (errorMessage.includes('autorización')) {
+          setAuthorizationError(errorMessage);
+          setShowAuthRequestDialog(true);
+        } else {
+          setAuthorizationError(errorMessage);
+        }
+      } else {
+        // Otros errores se propagan normalmente
+        throw error;
+      }
+    }
   };
 
   const handleClose = () => {
     if (!isLoading) {
       setSelectedStatus('');
+      setAuthorizationError(null);
       onClose();
     }
+  };
+
+  const handleAuthRequestClose = () => {
+    setShowAuthRequestDialog(false);
+    handleClose();
   };
 
   if (!order) return null;
 
   const currentStatusLabel =
-    ORDER_STATUS_OPTIONS.find((opt) => opt.value === order.status)?.label || order.status;
+    ORDER_STATUS_CONFIG[order.status]?.label || order.status;
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Cambiar Estado de Orden</DialogTitle>
-      <DialogContent>
-        <Box sx={{ mb: 2 }}>
-          <Typography variant="body2" color="text.secondary">
-            Orden: <strong>{order.orderNumber}</strong>
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Estado actual: <strong>{currentStatusLabel}</strong>
-          </Typography>
-        </Box>
+    <>
+      <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
+        <DialogTitle>Cambiar Estado de Orden</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              Orden: <strong>{order.orderNumber}</strong>
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Estado actual: <strong>{currentStatusLabel}</strong>
+            </Typography>
+            {parseFloat(order.balance) > 0 && (
+              <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
+                Saldo pendiente: <strong>${order.balance}</strong>
+              </Typography>
+            )}
+          </Box>
 
-        <TextField
-          select
-          fullWidth
-          label="Nuevo Estado"
-          value={selectedStatus}
-          onChange={(e) => setSelectedStatus(e.target.value as OrderStatus)}
-          disabled={isLoading}
-          required
-          sx={{ mt: 2 }}
-        >
-          {ORDER_STATUS_OPTIONS.map((option) => (
-            <MenuItem
-              key={option.value}
-              value={option.value}
-              disabled={option.value === order.status}
+          {/* Bloqueo por anticipo pendiente o rechazado */}
+          {order.advancePaymentStatus === 'PENDING' && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              El anticipo de esta orden está pendiente de aprobación por Caja. No se puede cambiar el estado hasta que sea aprobado.
+            </Alert>
+          )}
+          {order.advancePaymentStatus === 'REJECTED' && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              El anticipo de esta orden fue rechazado por Caja. No se puede cambiar el estado.
+            </Alert>
+          )}
+
+          {authorizationError && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              {authorizationError}
+            </Alert>
+          )}
+
+          {availableStatuses.length === 0 ? (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              Este estado no tiene transiciones disponibles.
+            </Alert>
+          ) : (
+            <TextField
+              select
+              fullWidth
+              label="Nuevo Estado"
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value as OrderStatus)}
+              disabled={isLoading}
+              required
+              sx={{ mt: 2 }}
             >
-              {option.label}
-            </MenuItem>
-          ))}
-        </TextField>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose} disabled={isLoading}>
-          Cancelar
-        </Button>
-        <Button
-          onClick={handleConfirm}
-          variant="contained"
-          disabled={isLoading || !selectedStatus || selectedStatus === order.status}
-        >
-          {isLoading ? <CircularProgress size={24} /> : 'Cambiar Estado'}
-        </Button>
-      </DialogActions>
-    </Dialog>
+              {availableStatuses.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
+
+          {!statusValidation.allowed && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {statusValidation.reason}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClose} disabled={isLoading}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleConfirm}
+            variant="contained"
+            disabled={
+              isLoading ||
+              !selectedStatus ||
+              availableStatuses.length === 0 ||
+              !statusValidation.allowed ||
+              order.advancePaymentStatus === 'PENDING' ||
+              order.advancePaymentStatus === 'REJECTED'
+            }
+          >
+            {isLoading ? <CircularProgress size={24} /> : 'Cambiar Estado'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog para solicitar autorización */}
+      {showAuthRequestDialog && selectedStatus && (
+        <StatusChangeAuthRequestDialog
+          open={showAuthRequestDialog}
+          onClose={handleAuthRequestClose}
+          order={order}
+          requestedStatus={selectedStatus}
+        />
+      )}
+    </>
   );
 };

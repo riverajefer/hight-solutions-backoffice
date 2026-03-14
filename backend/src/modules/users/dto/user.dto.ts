@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEmail,
   IsNotEmpty,
   IsOptional,
@@ -9,13 +10,22 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateUserDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
+    example: 'johndoe',
+    description: 'Username (auto-generated from first and last name if not provided)'
+  })
+  @IsString()
+  @MinLength(3, { message: 'Username must be at least 3 characters' })
+  @IsOptional()
+  username?: string;
+
+  @ApiPropertyOptional({
     example: 'user@example.com',
-    description: 'User email address'
+    description: 'User email address (optional)'
   })
   @IsEmail({}, { message: 'Please provide a valid email address' })
-  @IsNotEmpty({ message: 'Email is required' })
-  email: string;
+  @IsOptional()
+  email?: string;
 
   @ApiProperty({
     example: 'password123',
@@ -52,6 +62,14 @@ export class CreateUserDto {
   roleId: string;
 
   @ApiPropertyOptional({
+    example: '+57 311 832 2699',
+    description: 'Phone number (optional)'
+  })
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
+  @ApiPropertyOptional({
     example: '123e4567-e89b-12d3-a456-426614174000',
     description: 'Cargo ID (optional)'
   })
@@ -61,6 +79,15 @@ export class CreateUserDto {
 }
 
 export class UpdateUserDto {
+  @ApiPropertyOptional({
+    example: 'johndoe',
+    description: 'Username'
+  })
+  @IsString()
+  @MinLength(3, { message: 'Username must be at least 3 characters' })
+  @IsOptional()
+  username?: string;
+
   @ApiPropertyOptional({
     example: 'user@example.com',
     description: 'User email address'
@@ -104,10 +131,26 @@ export class UpdateUserDto {
   roleId?: string;
 
   @ApiPropertyOptional({
+    example: '+57 311 832 2699',
+    description: 'Phone number (optional)'
+  })
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
+  @ApiPropertyOptional({
     example: '123e4567-e89b-12d3-a456-426614174000',
     description: 'Cargo ID (optional, set to null to remove)'
   })
   @IsUUID()
   @IsOptional()
   cargoId?: string | null;
+
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Whether the user account is active'
+  })
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
 }

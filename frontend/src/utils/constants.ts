@@ -39,23 +39,25 @@ export const PERMISSIONS = {
   DELETE_SUPPLIERS: 'delete_suppliers',
   CREATE_CLIENTS: 'create_clients',
   READ_CLIENTS: 'read_clients',
+  BROWSE_CLIENTS: 'browse_clients',
   UPDATE_CLIENTS: 'update_clients',
   DELETE_CLIENTS: 'delete_clients',
+  UPDATE_CLIENT_SPECIAL_CONDITION: 'update_client_special_condition',
   // Portfolio - Units of Measure
   CREATE_UNITS_OF_MEASURE: 'create_units_of_measure',
   READ_UNITS_OF_MEASURE: 'read_units_of_measure',
   UPDATE_UNITS_OF_MEASURE: 'update_units_of_measure',
   DELETE_UNITS_OF_MEASURE: 'delete_units_of_measure',
-  // Portfolio - Service Categories
-  CREATE_SERVICE_CATEGORIES: 'create_service_categories',
-  READ_SERVICE_CATEGORIES: 'read_service_categories',
-  UPDATE_SERVICE_CATEGORIES: 'update_service_categories',
-  DELETE_SERVICE_CATEGORIES: 'delete_service_categories',
-  // Portfolio - Services
-  CREATE_SERVICES: 'create_services',
-  READ_SERVICES: 'read_services',
-  UPDATE_SERVICES: 'update_services',
-  DELETE_SERVICES: 'delete_services',
+  // Portfolio - Product Categories
+  CREATE_PRODUCT_CATEGORIES: 'create_product_categories',
+  READ_PRODUCT_CATEGORIES: 'read_product_categories',
+  UPDATE_PRODUCT_CATEGORIES: 'update_product_categories',
+  DELETE_PRODUCT_CATEGORIES: 'delete_product_categories',
+  // Portfolio - Products
+  CREATE_PRODUCTS: 'create_products',
+  READ_PRODUCTS: 'read_products',
+  UPDATE_PRODUCTS: 'update_products',
+  DELETE_PRODUCTS: 'delete_products',
   // Portfolio - Supply Categories
   CREATE_SUPPLY_CATEGORIES: 'create_supply_categories',
   READ_SUPPLY_CATEGORIES: 'read_supply_categories',
@@ -71,6 +73,11 @@ export const PERMISSIONS = {
   READ_ORDERS: 'read_orders',
   UPDATE_ORDERS: 'update_orders',
   DELETE_ORDERS: 'delete_orders',
+  APPROVE_ORDERS: 'approve_orders',
+  CHANGE_ORDER_STATUS: 'change_order_status',
+  READ_PENDING_ORDERS: 'read_pending_orders',
+  APPROVE_ADVANCE_PAYMENTS: 'approve_advance_payments',
+  APPROVE_CLIENT_OWNERSHIP_AUTH: 'approve_client_ownership_auth',
   //READ_COMMERCIAL_CHANNELS
   READ_COMMERCIAL_CHANNELS: 'read_commercial_channels',
   CREATE_COMMERCIAL_CHANNELS: 'create_commercial_channels',
@@ -82,6 +89,43 @@ export const PERMISSIONS = {
   UPDATE_QUOTES: 'update_quotes',
   DELETE_QUOTES: 'delete_quotes',
   CONVERT_QUOTES: 'convert_quotes',
+  // Company
+  READ_COMPANY: 'read_company',
+  UPDATE_COMPANY: 'update_company',
+  // Work Orders
+  CREATE_WORK_ORDERS: 'create_work_orders',
+  READ_WORK_ORDERS: 'read_work_orders',
+  UPDATE_WORK_ORDERS: 'update_work_orders',
+  DELETE_WORK_ORDERS: 'delete_work_orders',
+  // Expense Types
+  CREATE_EXPENSE_TYPES: 'create_expense_types',
+  READ_EXPENSE_TYPES: 'read_expense_types',
+  UPDATE_EXPENSE_TYPES: 'update_expense_types',
+  DELETE_EXPENSE_TYPES: 'delete_expense_types',
+  // Expense Orders
+  CREATE_EXPENSE_ORDERS: 'create_expense_orders',
+  READ_EXPENSE_ORDERS: 'read_expense_orders',
+  UPDATE_EXPENSE_ORDERS: 'update_expense_orders',
+  DELETE_EXPENSE_ORDERS: 'delete_expense_orders',
+  APPROVE_EXPENSE_ORDERS: 'approve_expense_orders',
+  // Payroll - Empleados de nómina
+  CREATE_PAYROLL_EMPLOYEES: 'create_payroll_employees',
+  READ_PAYROLL_EMPLOYEES: 'read_payroll_employees',
+  UPDATE_PAYROLL_EMPLOYEES: 'update_payroll_employees',
+  DELETE_PAYROLL_EMPLOYEES: 'delete_payroll_employees',
+  // Payroll - Periodos de nómina
+  CREATE_PAYROLL_PERIODS: 'create_payroll_periods',
+  READ_PAYROLL_PERIODS: 'read_payroll_periods',
+  UPDATE_PAYROLL_PERIODS: 'update_payroll_periods',
+  DELETE_PAYROLL_PERIODS: 'delete_payroll_periods',
+  // Attendance - Control de Asistencia
+  USE_ATTENDANCE: 'use_attendance',
+  READ_ATTENDANCE: 'read_attendance',
+  MANAGE_ATTENDANCE: 'manage_attendance',
+  // Inventory - Movimientos de Inventario
+  CREATE_INVENTORY_MOVEMENTS: 'create_inventory_movements',
+  READ_INVENTORY_MOVEMENTS: 'read_inventory_movements',
+  MANAGE_INVENTORY: 'manage_inventory',
 };
 
 export const ROUTES = {
@@ -130,12 +174,12 @@ export const ROUTES = {
   UNITS_OF_MEASURE: '/portfolio/units-of-measure',
   UNITS_OF_MEASURE_CREATE: '/portfolio/units-of-measure/new',
   UNITS_OF_MEASURE_EDIT: '/portfolio/units-of-measure/:id/edit',
-  SERVICE_CATEGORIES: '/portfolio/service-categories',
-  SERVICE_CATEGORIES_CREATE: '/portfolio/service-categories/new',
-  SERVICE_CATEGORIES_EDIT: '/portfolio/service-categories/:id/edit',
-  SERVICES: '/portfolio/services',
-  SERVICES_CREATE: '/portfolio/services/new',
-  SERVICES_EDIT: '/portfolio/services/:id/edit',
+  PRODUCT_CATEGORIES: '/portfolio/product-categories',
+  PRODUCT_CATEGORIES_CREATE: '/portfolio/product-categories/new',
+  PRODUCT_CATEGORIES_EDIT: '/portfolio/product-categories/:id/edit',
+  PRODUCTS: '/portfolio/products',
+  PRODUCTS_CREATE: '/portfolio/products/new',
+  PRODUCTS_EDIT: '/portfolio/products/:id/edit',
   SUPPLY_CATEGORIES: '/portfolio/supply-categories',
   SUPPLY_CATEGORIES_CREATE: '/portfolio/supply-categories/new',
   SUPPLY_CATEGORIES_EDIT: '/portfolio/supply-categories/:id/edit',
@@ -148,11 +192,44 @@ export const ROUTES = {
   ORDERS_EDIT: '/orders/:id/edit',
   ORDERS_DETAIL: '/orders/:id',
   PENDING_PAYMENT_ORDERS: '/orders/pending-payment',
+  STATUS_CHANGE_REQUESTS: '/orders/status-change-requests',
+  ORDERS_PROFITABILITY: '/orders/profitability',
+  // Order Timeline
+  ORDER_FLOW: '/orders/flow/:type/:id',
+  ORDER_FLOW_BASE: '/orders/flow',
   // Quotes
   QUOTES: '/quotes',
   QUOTES_CREATE: '/quotes/new',
   QUOTES_EDIT: '/quotes/:id/edit',
   QUOTES_DETAIL: '/quotes/:id',
+  // Company
+  COMPANY: '/company',
+  // Work Orders
+  WORK_ORDERS: '/work-orders',
+  WORK_ORDERS_CREATE: '/work-orders/new',
+  WORK_ORDERS_DETAIL: '/work-orders/:id',
+  WORK_ORDERS_EDIT: '/work-orders/:id/edit',
+  // Expense Orders
+  EXPENSE_ORDERS: '/expense-orders',
+  EXPENSE_ORDERS_CREATE: '/expense-orders/new',
+  EXPENSE_ORDERS_EDIT: '/expense-orders/:id/edit',
+  EXPENSE_ORDERS_DETAIL: '/expense-orders/:id',
+  // Payroll
+  PAYROLL_EMPLOYEES: '/payroll/employees',
+  PAYROLL_EMPLOYEES_CREATE: '/payroll/employees/create',
+  PAYROLL_EMPLOYEES_EDIT: '/payroll/employees/:id/edit',
+  PAYROLL_EMPLOYEES_HISTORY: '/payroll/employees/:id/history',
+  PAYROLL_PERIODS: '/payroll/periods',
+  PAYROLL_PERIODS_CREATE: '/payroll/periods/create',
+  PAYROLL_PERIODS_EDIT: '/payroll/periods/:id/edit',
+  PAYROLL_PERIODS_DETAIL: '/payroll/periods/:id',
+  PAYROLL_ITEM_EDIT: '/payroll/periods/:periodId/items/:itemId/edit',
+  // Attendance
+  ATTENDANCE: '/attendance',
+  // Inventory
+  INVENTORY_MOVEMENTS: '/inventory/movements',
+  INVENTORY_MOVEMENTS_NEW: '/inventory/movements/new',
+  INVENTORY_LOW_STOCK: '/inventory/low-stock',
 };
 
 export const DEFAULT_PAGINATION = {

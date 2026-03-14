@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Box } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
-import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { GridRenderCellParams } from '@mui/x-data-grid';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { DataTable, ActionsCell } from '../../../components/common/DataTable';
 import { useCommercialChannels } from '../hooks/useCommercialChannels';
 import { CommercialChannel } from '../../../types/commercialChannel.types';
+import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../hooks';
 
 const CommercialChannelsListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -29,7 +30,7 @@ const CommercialChannelsListPage: React.FC = () => {
     }
   };
 
-  const columns: GridColDef[] = [
+  const rawColumns: ResponsiveGridColDef[] = useMemo(() => [
     {
       field: 'name',
       headerName: 'Nombre',
@@ -41,6 +42,7 @@ const CommercialChannelsListPage: React.FC = () => {
       headerName: 'Descripción',
       flex: 2,
       minWidth: 300,
+      responsive: 'md',
     },
     {
       field: 'actions',
@@ -56,10 +58,12 @@ const CommercialChannelsListPage: React.FC = () => {
         />
       ),
     },
-  ];
+  ], [navigate]);
+
+  const columns = useResponsiveColumns(rawColumns);
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title="Canales de Venta"
         subtitle="Gestiona los canales de venta de la empresa"

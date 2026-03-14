@@ -47,7 +47,7 @@ const UserFormPage: React.FC = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
         title={isEdit ? 'Editar Usuario' : 'Crear Usuario'}
         breadcrumbs={[
@@ -57,7 +57,7 @@ const UserFormPage: React.FC = () => {
       />
 
       <UserForm
-        initialData={isEdit ? userQuery.data : undefined}
+        initialData={isEdit && userQuery.data ? { ...userQuery.data, username: userQuery.data.username ?? undefined, email: userQuery.data.email ?? undefined, phone: userQuery.data.phone ?? undefined } : undefined}
         onSubmit={handleSubmit}
         isLoading={createUserMutation.isPending || updateUserMutation.isPending}
         error={error}

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule } from './config/config.module';
@@ -15,8 +15,8 @@ import { LocationsModule } from './modules/locations/locations.module';
 import { ClientsModule } from './modules/clients/clients.module';
 import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { UnitsOfMeasureModule } from './modules/portfolio/units-of-measure/units-of-measure.module';
-import { ServiceCategoriesModule } from './modules/portfolio/service-categories/service-categories.module';
-import { ServicesModule } from './modules/portfolio/services/services.module';
+import { ProductCategoriesModule } from './modules/portfolio/product-categories/product-categories.module';
+import { ProductsModule } from './modules/portfolio/products/products.module';
 import { SupplyCategoriesModule } from './modules/portfolio/supply-categories/supply-categories.module';
 import { SuppliesModule } from './modules/portfolio/supplies/supplies.module';
 import { ConsecutivesModule } from './modules/consecutives/consecutives.module';
@@ -25,11 +25,30 @@ import { ProductionAreasModule } from './modules/production-areas/production-are
 import { CommercialChannelsModule } from './modules/commercial-channels/commercial-channels.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OrderEditRequestsModule } from './modules/order-edit-requests/order-edit-requests.module';
+import { OrderStatusChangeRequestsModule } from './modules/order-status-change-requests/order-status-change-requests.module';
+import { ExpenseOrderAuthRequestsModule } from './modules/expense-order-auth-requests/expense-order-auth-requests.module';
+import { AdvancePaymentApprovalsModule } from './modules/advance-payment-approvals/advance-payment-approvals.module';
+import { ClientOwnershipAuthRequestsModule } from './modules/client-ownership-auth-requests/client-ownership-auth-requests.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
+import { StorageModule } from './modules/storage/storage.module';
+import { CompanyModule } from './modules/company/company.module';
+import { WorkOrdersModule } from './modules/work-orders/work-orders.module';
+import { ExpenseTypesModule } from './modules/expense-types/expense-types.module';
+import { ExpenseOrdersModule } from './modules/expense-orders/expense-orders.module';
+import { OrderTimelineModule } from './modules/order-timeline/order-timeline.module';
 import { AuditContextInterceptor } from './common/interceptors/audit-context.interceptor';
+import { HeartbeatInterceptor } from './common/interceptors/heartbeat.interceptor';
+import { MaintenanceMiddleware } from './common/middleware/maintenance.middleware';
+import { WhatsappModule } from './modules/whatsapp/whatsapp.module';
+import { HealthModule } from './health/health.module';
+import { PayrollModule } from './modules/payroll/payroll.module';
+import { AttendanceModule } from './modules/attendance/attendance.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
 
 @Module({
   imports: [
+    // Health check (sin prefijo /api/v1, siempre disponible)
+    HealthModule,
     // Configuración centralizada
     ConfigModule,
     // Cron Jobs
@@ -49,10 +68,10 @@ import { AuditContextInterceptor } from './common/interceptors/audit-context.int
     LocationsModule,
     ClientsModule,
     SuppliersModule,
-    // Módulo de Portfolio (Catálogos de Servicios e Insumos)
+    // Módulo de Portfolio (Catálogos de Productos e Insumos)
     UnitsOfMeasureModule,
-    ServiceCategoriesModule,
-    ServicesModule,
+    ProductCategoriesModule,
+    ProductsModule,
     SupplyCategoriesModule,
     SuppliesModule,
     // Módulo de Consecutivos (Sistema de numeración automática)
@@ -67,14 +86,52 @@ import { AuditContextInterceptor } from './common/interceptors/audit-context.int
     CommercialChannelsModule,
     // Módulo de Notificaciones
     NotificationsModule,
+    // Módulo de WhatsApp Cloud API (global)
+    WhatsappModule,
     // Módulo de Solicitudes de Edición de Órdenes
     OrderEditRequestsModule,
+    // Módulo de Solicitudes de Cambio de Estado de Órdenes
+    OrderStatusChangeRequestsModule,
+    // Módulo de Almacenamiento (AWS S3)
+    StorageModule,
+    // Módulo de Información de la Compañía
+    CompanyModule,
+    // Módulo de Órdenes de Trabajo
+    WorkOrdersModule,
+    // Módulo de Tipos de Gasto
+    ExpenseTypesModule,
+    // Módulo de Órdenes de Gastos
+    ExpenseOrdersModule,
+    // Módulo de Solicitudes de Autorización de Órdenes de Gasto
+    ExpenseOrderAuthRequestsModule,
+    // Módulo de Aprobación de Anticipos
+    AdvancePaymentApprovalsModule,
+    // Módulo de Autorización de Propiedad de Cliente
+    ClientOwnershipAuthRequestsModule,
+    // Módulo de Trazabilidad de Órdenes
+    OrderTimelineModule,
+    // Módulo de Nómina
+    PayrollModule,
+    // Módulo de Control de Asistencia y Tiempo
+    AttendanceModule,
+    // Módulo de Inventario y Movimientos de Insumos
+    InventoryModule,
   ],
   providers: [
     {
       provide: APP_INTERCEPTOR,
       useClass: AuditContextInterceptor,
     },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: HeartbeatInterceptor,
+    },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer
+      .apply(MaintenanceMiddleware)
+      .forRoutes('*');
+  }
+}

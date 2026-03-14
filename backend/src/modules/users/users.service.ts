@@ -2,12 +2,14 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto, UpdateUserDto } from './dto';
 import { UsersRepository } from './users.repository';
 import { RolesRepository } from '../roles/roles.repository';
 import { CargosRepository } from '../cargos/cargos.repository';
+import { AuthenticatedUser } from '../../common/interfaces';
 
 @Injectable()
 export class UsersService {
@@ -18,6 +20,15 @@ export class UsersService {
     private readonly rolesRepository: RolesRepository,
     private readonly cargosRepository: CargosRepository,
   ) {}
+
+  private async assertAdmin(currentUser: AuthenticatedUser): Promise<void> {
+    const role = await this.rolesRepository.findById(currentUser.roleId);
+    const roleName = role?.name?.toLowerCase();
+
+    if (roleName !== 'admin') {
+      throw new ForbiddenException('Only admin users can deactivate users');
+    }
+  }
 
   /**
    * Obtiene todos los usuarios con su rol
@@ -37,25 +48,69 @@ export class UsersService {
     }
 
     // Transformar la estructura de permisos para mejor legibilidad
+    const userResult = user as any;
     return {
-      ...user,
+      ...userResult,
       role: {
-        id: user.role.id,
-        name: user.role.name,
-        permissions: user.role.permissions.map((rp) => rp.permission),
+        id: userResult.role.id,
+        name: userResult.role.name,
+        permissions: userResult.role.permissions.map((rp: any) => rp.permission),
       },
     };
+  }
+
+  /**
+   * Genera un username único a partir del nombre y apellido.
+   * Si el username base ya existe, agrega un sufijo numérico incremental.
+   */
+  private async generateUniqueUsername(
+    firstName?: string,
+    lastName?: string,
+  ): Promise<string> {
+    const parts = [firstName, lastName].filter(Boolean).join('');
+    const base = parts.toLowerCase().replace(/\s+/g, '') || 'user';
+
+    const exists = await this.usersRepository.findByUsername(base);
+    if (!exists) return base;
+
+    for (let counter = 1; counter <= 999; counter++) {
+      const candidate = `${base}${counter}`;
+      const taken = await this.usersRepository.findByUsername(candidate);
+      if (!taken) return candidate;
+    }
+
+    throw new BadRequestException(
+      'Could not generate a unique username. Please provide one manually.',
+    );
   }
 
   /**
    * Crea un nuevo usuario
    */
   async create(createUserDto: CreateUserDto) {
-    // Verificar si el email ya existe
-    const existingUser = await this.usersRepository.findByEmail(createUserDto.email);
+    // Determinar el username
+    let username: string;
+    if (createUserDto.username) {
+      const existingByUsername = await this.usersRepository.findByUsername(
+        createUserDto.username,
+      );
+      if (existingByUsername) {
+        throw new BadRequestException('Username already taken');
+      }
+      username = createUserDto.username;
+    } else {
+      username = await this.generateUniqueUsername(
+        createUserDto.firstName,
+        createUserDto.lastName,
+      );
+    }
 
-    if (existingUser) {
-      throw new BadRequestException('Email already registered');
+    // Verificar si el email ya existe (si se proporciona)
+    if (createUserDto.email) {
+      const existingUser = await this.usersRepository.findByEmail(createUserDto.email);
+      if (existingUser) {
+        throw new BadRequestException('Email already registered');
+      }
     }
 
     // Verificar si el rol existe
@@ -84,12 +139,15 @@ export class UsersService {
       this.SALT_ROUNDS,
     );
 
-    // Crear el usuario
+    // Crear el usuario (mustChangePassword=true porque fue creado por un admin)
     return this.usersRepository.create({
-      email: createUserDto.email,
+      username: username as string,
+      ...(createUserDto.email && { email: createUserDto.email }),
+      ...(createUserDto.phone && { phone: createUserDto.phone }),
       password: hashedPassword,
       firstName: createUserDto.firstName,
       lastName: createUserDto.lastName,
+      mustChangePassword: true,
       role: {
         connect: { id: createUserDto.roleId },
       },
@@ -107,6 +165,18 @@ export class UsersService {
   async update(id: string, updateUserDto: UpdateUserDto) {
     // Verificar que el usuario existe
     await this.findOne(id);
+
+    // Si se actualiza el username, verificar unicidad
+    if (updateUserDto.username) {
+      const existingByUsername =
+        await this.usersRepository.findByUsernameExcludingId(
+          updateUserDto.username,
+          id,
+        );
+      if (existingByUsername) {
+        throw new BadRequestException('Username already taken');
+      }
+    }
 
     // Si se actualiza el email, verificar que no exista
     if (updateUserDto.email) {
@@ -143,14 +213,28 @@ export class UsersService {
     }
 
     // Preparar datos de actualización
-    const { password, roleId, cargoId, ...updateData } = updateUserDto;
+    const { password, roleId, cargoId, username, isActive, ...updateData } = updateUserDto;
 
-    // Si se actualiza el password, hashearlo
+    // Incluir username si fue provisto
+    if (username) {
+      (updateData as any).username = username;
+    }
+
+    // Si se actualiza el password, hashearlo y forzar cambio en próximo login
     if (password) {
       (updateData as any).password = await bcrypt.hash(
         password,
         this.SALT_ROUNDS,
       );
+      (updateData as any).mustChangePassword = true;
+    }
+
+    // Si se actualiza isActive, incluirlo y limpiar refreshToken si se desactiva
+    if (isActive !== undefined) {
+      (updateData as any).isActive = isActive;
+      if (!isActive) {
+        (updateData as any).refreshToken = null;
+      }
     }
 
     // Si se actualiza el roleId, usar la sintaxis de Prisma connect
@@ -173,11 +257,37 @@ export class UsersService {
   /**
    * Elimina un usuario
    */
-  async remove(id: string) {
+  async remove(id: string, currentUser: AuthenticatedUser) {
+    await this.assertAdmin(currentUser);
+
     await this.findOne(id);
 
     await this.usersRepository.delete(id);
 
     return { message: `User with ID ${id} deleted successfully` };
+  }
+
+  /**
+   * Desactiva un usuario (soft delete)
+   */
+  async deactivate(id: string, currentUser: AuthenticatedUser) {
+    await this.assertAdmin(currentUser);
+
+    const user = await this.usersRepository.findById(id);
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    if (user.isActive === false) {
+      throw new BadRequestException('User is already deactivated');
+    }
+
+    const deactivatedUser = await this.usersRepository.deactivate(id);
+
+    return {
+      message: `User with ID ${id} deactivated successfully`,
+      user: deactivatedUser,
+    };
   }
 }

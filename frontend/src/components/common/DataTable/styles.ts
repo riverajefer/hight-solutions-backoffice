@@ -27,7 +27,7 @@ export const dataGridStyles: SxProps<Theme> = {
       theme.palette.mode === 'light'
         ? theme.palette.primary.main
         : theme.palette.primary.dark,
-    minHeight: '56px !important',
+    minHeight: { xs: '44px !important', sm: '56px !important' },
     boxShadow: (theme) =>
       theme.palette.mode === 'light'
         ? '0 2px 4px rgba(0, 0, 0, 0.05)'
@@ -37,7 +37,7 @@ export const dataGridStyles: SxProps<Theme> = {
   '& .MuiDataGrid-columnHeaderTitle': {
     fontWeight: 700,
     letterSpacing: '0.05em',
-    fontSize: '0.85rem',
+    fontSize: { xs: '0.7rem', sm: '0.85rem' },
   },
 
   '& .MuiDataGrid-columnSeparator': {
@@ -47,14 +47,17 @@ export const dataGridStyles: SxProps<Theme> = {
         : alpha(theme.palette.primary.main, 0.2),
   },
 
-  // Celdas con transiciones suaves
+  // Celdas con transiciones suaves y padding responsive
   '& .MuiDataGrid-cell': {
     borderBottom: '1px solid',
     borderColor: 'divider',
     display: 'flex',
     alignItems: 'center',
-    padding: (theme) => theme.spacing(1, 2),
+    padding: { xs: '6px 8px', sm: '8px 16px' },
+    fontSize: { xs: '0.8rem', sm: '0.875rem' },
     transition: 'all 0.2s ease',
+    position: 'relative' as any,
+    zIndex: 1,
     '&:focus': {
       outline: 'none',
     },
@@ -107,6 +110,70 @@ export const dataGridStyles: SxProps<Theme> = {
         : alpha(theme.palette.primary.dark, 0.15),
   },
 
+  // Fila atrasada — entrega vencida y orden no finalizada
+  '& .MuiDataGrid-row.row-overdue': {
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? alpha(theme.palette.error.light, 0.15)
+        : alpha(theme.palette.error.dark, 0.25),
+    borderLeft: (theme) => `4px solid ${theme.palette.error.main}`,
+    '&:hover': {
+      backgroundColor: (theme) =>
+        theme.palette.mode === 'light'
+          ? alpha(theme.palette.error.light, 0.25)
+          : alpha(theme.palette.error.dark, 0.35),
+      transform: 'translateX(2px)',
+    },
+  },
+
+  // Fila entrega hoy — se entrega el día de hoy y orden no finalizada
+  '& .MuiDataGrid-row.row-due-today': {
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? alpha(theme.palette.info.light, 0.15)
+        : alpha(theme.palette.info.dark, 0.25),
+    borderLeft: (theme) => `4px solid ${theme.palette.info.main}`,
+    '&:hover': {
+      backgroundColor: (theme) =>
+        theme.palette.mode === 'light'
+          ? alpha(theme.palette.info.light, 0.25)
+          : alpha(theme.palette.info.dark, 0.35),
+      transform: 'translateX(2px)',
+    },
+  },
+
+  // Fila anticipo pendiente — anticipo esperando aprobación de Caja
+  '& .MuiDataGrid-row.row-advance-pending': {
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? alpha(theme.palette.warning.light, 0.15)
+        : alpha(theme.palette.warning.dark, 0.25),
+    borderLeft: (theme) => `4px solid ${theme.palette.warning.main}`,
+    '&:hover': {
+      backgroundColor: (theme) =>
+        theme.palette.mode === 'light'
+          ? alpha(theme.palette.warning.light, 0.25)
+          : alpha(theme.palette.warning.dark, 0.35),
+      transform: 'translateX(2px)',
+    },
+  },
+
+  // Fila anticipo rechazado — anticipo rechazado por Caja
+  '& .MuiDataGrid-row.row-advance-rejected': {
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? alpha(theme.palette.error.light, 0.12)
+        : alpha(theme.palette.error.dark, 0.2),
+    borderLeft: (theme) => `4px solid ${theme.palette.error.main}`,
+    '&:hover': {
+      backgroundColor: (theme) =>
+        theme.palette.mode === 'light'
+          ? alpha(theme.palette.error.light, 0.22)
+          : alpha(theme.palette.error.dark, 0.3),
+      transform: 'translateX(2px)',
+    },
+  },
+
   // Footer
   '& .MuiDataGrid-footerContainer': {
     borderTop: '1px solid',
@@ -117,9 +184,25 @@ export const dataGridStyles: SxProps<Theme> = {
         : alpha(theme.palette.secondary.main, 0.1),
   },
 
-  // Pagination
+  // Pagination responsive
   '& .MuiTablePagination-root': {
     color: 'text.secondary',
+    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+    '& .MuiTablePagination-selectLabel': {
+      display: { xs: 'none', sm: 'block' },
+      fontSize: { xs: '0.75rem', sm: '0.875rem' },
+    },
+    '& .MuiTablePagination-displayedRows': {
+      fontSize: { xs: '0.75rem', sm: '0.875rem' },
+    },
+    '& .MuiTablePagination-select': {
+      fontSize: { xs: '0.75rem', sm: '0.875rem' },
+    },
+    '& .MuiTablePagination-toolbar': {
+      minHeight: { xs: 40, sm: 52 },
+      paddingLeft: { xs: 1, sm: 2 },
+      paddingRight: { xs: 1, sm: 2 },
+    },
   },
 
   '& .MuiTablePagination-selectIcon': {
@@ -151,8 +234,105 @@ export const dataGridStyles: SxProps<Theme> = {
     backgroundColor: 'background.paper',
   },
 
+  // Ensure sticky columns position relative to render zone
+  '& .MuiDataGrid-virtualScrollerRenderZone': {
+    position: 'relative',
+  },
+
   '& .all-columns-header': {
     backgroundColor: (theme) => theme.palette.background.default,
+  },
+
+  // Columnas pegajosas (row number + Nº Orden)
+  '& .sticky-column-row-number': {
+    position: 'sticky !important' as any,
+    left: '0px !important',
+    zIndex: '5 !important',
+    backgroundColor: 'inherit',
+  },
+
+  '& .MuiDataGrid-columnHeader.sticky-column-row-number': {
+    position: 'sticky !important' as any,
+    left: '0px !important',
+    zIndex: '10 !important',
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? '#e8eaf6'
+        : '#1e1e3a',
+  },
+
+  '& .sticky-column-order-number': {
+    position: 'sticky !important' as any,
+    left: '70px !important',
+    zIndex: '4 !important',
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? '#e8eaf6'
+        : '#1e1e3a',
+    boxShadow: '2px 0 4px rgba(0,0,0,0.08)',
+  },
+
+  '& .MuiDataGrid-columnHeader.sticky-column-order-number': {
+    position: 'sticky !important' as any,
+    left: '70px !important',
+    zIndex: '10 !important',
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? '#e8eaf6'
+        : '#1e1e3a',
+    boxShadow: '2px 0 4px rgba(0,0,0,0.08)',
+  },
+
+  // Fondos OPACOS para sticky columns en filas normales (evitan transparencia al hacer scroll)
+  '& .MuiDataGrid-row:nth-of-type(odd) .sticky-column-row-number, & .MuiDataGrid-row:nth-of-type(odd) .sticky-column-order-number': {
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? theme.palette.background.paper
+        : '#1a1a2e',
+  },
+
+  '& .MuiDataGrid-row:nth-of-type(even) .sticky-column-row-number, & .MuiDataGrid-row:nth-of-type(even) .sticky-column-order-number': {
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? '#f5f5f5'
+        : '#1e1e3a',
+  },
+
+  // Fondos opacos para filas con estados especiales
+  '& .MuiDataGrid-row.row-overdue .sticky-column-row-number, & .MuiDataGrid-row.row-overdue .sticky-column-order-number': {
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? '#fce4ec'
+        : '#3d1c1c',
+  },
+
+  '& .MuiDataGrid-row.row-due-today .sticky-column-row-number, & .MuiDataGrid-row.row-due-today .sticky-column-order-number': {
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? '#e3f2fd'
+        : '#1c2a3d',
+  },
+
+  '& .MuiDataGrid-row.row-advance-pending .sticky-column-row-number, & .MuiDataGrid-row.row-advance-pending .sticky-column-order-number': {
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? '#fff3e0'
+        : '#3d2e1c',
+  },
+
+  '& .MuiDataGrid-row.row-advance-rejected .sticky-column-row-number, & .MuiDataGrid-row.row-advance-rejected .sticky-column-order-number': {
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? '#fce4ec'
+        : '#3d1c1c',
+  },
+
+  // Hover en sticky columns: fondo opaco consistente
+  '& .MuiDataGrid-row:hover .sticky-column-row-number, & .MuiDataGrid-row:hover .sticky-column-order-number': {
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? '#e8eaf6'
+        : '#262650',
   },
 
   // Menu de columnas

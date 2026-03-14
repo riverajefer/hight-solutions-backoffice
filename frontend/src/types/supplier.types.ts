@@ -7,7 +7,9 @@ import type { PersonType } from './client.types';
 export interface Supplier {
   id: string;
   name: string;
+  encargado?: string;
   phone?: string;
+  landlinePhone?: string;
   address?: string;
   email: string;
   departmentId: string;
@@ -30,7 +32,9 @@ export interface Supplier {
 
 export interface CreateSupplierDto {
   name: string;
+  encargado?: string;
   phone?: string;
+  landlinePhone?: string;
   address?: string;
   email: string;
   departmentId: string;
@@ -41,7 +45,9 @@ export interface CreateSupplierDto {
 
 export interface UpdateSupplierDto {
   name?: string;
+  encargado?: string;
   phone?: string;
+  landlinePhone?: string;
   address?: string;
   email?: string;
   departmentId?: string;

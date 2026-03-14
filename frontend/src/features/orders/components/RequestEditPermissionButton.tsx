@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import {
-  Button,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   TextField,
+  Button,
 } from '@mui/material';
 import { EditNote as EditNoteIcon } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
+import { ToolbarButton } from './ToolbarButton';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useEditRequests } from '../../../hooks/useEditRequests';
@@ -42,15 +43,9 @@ export const RequestEditPermissionButton: React.FC<
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      observations: '',
-    },
+    defaultValues: { observations: '' },
   });
 
-  // No mostrar el botón si:
-  // - Es admin
-  // - La orden está en DRAFT
-  // - Ya tiene un permiso activo
   const isAdmin = user?.role?.name === 'admin';
   const isDraft = orderStatus === 'DRAFT';
   const hasActivePermission = !!activePermissionQuery.data;
@@ -72,14 +67,12 @@ export const RequestEditPermissionButton: React.FC<
 
   return (
     <>
-      <Button
-        variant="outlined"
-        color="primary"
-        startIcon={<EditNoteIcon />}
+      <ToolbarButton
+        icon={<EditNoteIcon />}
+        label="Pedir Edición"
         onClick={handleOpen}
-      >
-        Solicitar Permiso de Edición
-      </Button>
+        tooltip="Solicitar Permiso de Edición"
+      />
 
       <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
         <DialogTitle>Solicitar Permiso de Edición</DialogTitle>

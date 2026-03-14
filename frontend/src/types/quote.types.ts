@@ -1,41 +1,53 @@
 import { Client } from './client.types';
 import type { User } from './user.types';
 import { CommercialChannel } from './commercialChannel.types';
-import { Service } from './service.types';
+import { Product } from './product.types';
 
 export enum QuoteStatus {
   DRAFT = 'DRAFT',
   SENT = 'SENT',
   ACCEPTED = 'ACCEPTED',
-  REJECTED = 'REJECTED',
+  NO_RESPONSE = 'NO_RESPONSE',
   CONVERTED = 'CONVERTED',
-  CANCELLED = 'CANCELLED',
 }
 
 export const QUOTE_STATUS_CONFIG: Record<
   QuoteStatus,
   { label: string; color: 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' }
 > = {
-  [QuoteStatus.DRAFT]: { label: 'Borrador', color: 'default' },
-  [QuoteStatus.SENT]: { label: 'Enviada', color: 'info' },
-  [QuoteStatus.ACCEPTED]: { label: 'Aceptada', color: 'success' },
-  [QuoteStatus.REJECTED]: { label: 'Rechazada', color: 'error' },
-  [QuoteStatus.CONVERTED]: { label: 'Convertida', color: 'secondary' },
-  [QuoteStatus.CANCELLED]: { label: 'Cancelada', color: 'error' },
+  [QuoteStatus.DRAFT]:       { label: 'Borrador',      color: 'default' },
+  [QuoteStatus.SENT]:        { label: 'Enviada',        color: 'info' },
+  [QuoteStatus.ACCEPTED]:    { label: 'Aceptada',       color: 'success' },
+  [QuoteStatus.NO_RESPONSE]: { label: 'Sin respuesta',  color: 'warning' },
+  [QuoteStatus.CONVERTED]:   { label: 'Convertida',     color: 'secondary' },
+};
+
+/**
+ * Transiciones válidas de estado de cotización.
+ * Flujo: DRAFT → SENT → ACCEPTED → CONVERTED
+ *                      ↘ NO_RESPONSE (terminal)
+ */
+export const ALLOWED_QUOTE_TRANSITIONS: Record<QuoteStatus, QuoteStatus[]> = {
+  [QuoteStatus.DRAFT]:       [QuoteStatus.SENT],
+  [QuoteStatus.SENT]:        [QuoteStatus.ACCEPTED, QuoteStatus.NO_RESPONSE],
+  [QuoteStatus.ACCEPTED]:    [QuoteStatus.CONVERTED],
+  [QuoteStatus.NO_RESPONSE]: [],
+  [QuoteStatus.CONVERTED]:   [],
 };
 
 
 export interface QuoteItem {
   id: string;
   quoteId: string;
-  serviceId?: string;
+  productId?: string;
   description: string;
   quantity: number | string;
   unitPrice: number | string;
   total: number | string;
   specifications?: any;
+  sampleImageId?: string;
   sortOrder: number;
-  service?: Service;
+  product?: Product;
   createdAt: string;
   updatedAt: string;
 }
@@ -72,11 +84,12 @@ export interface Quote {
 
 export interface CreateQuoteItemDto {
   id?: string;
-  serviceId?: string;
+  productId?: string;
   description: string;
   quantity: number;
   unitPrice: number;
   specifications?: any;
+  sampleImageId?: string | null;
 }
 
 export interface CreateQuoteDto {

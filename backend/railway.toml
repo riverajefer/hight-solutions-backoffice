@@ -6,7 +6,7 @@ builder = "RAILPACK"
 
 [deploy]
 # Start command for production
-startCommand = "npm run start:prod"
+startCommand = "npx prisma migrate deploy && npm run start:prod"
 
 # Restart policy
 restartPolicyType = "ON_FAILURE"

@@ -1,13 +1,14 @@
 import jsPDF from 'jspdf';
 import logo from '../../../assets/logo-dark.webp';
 import type { Order } from '../../../types/order.types';
-import { formatCurrency, formatDate } from '../../../utils/formatters';
+import { formatCurrency, formatDate, formatDateTime } from '../../../utils/formatters';
 import {
   COMPANY_INFO,
   PDF_COLORS,
   PDF_FONTS,
   PDF_LAYOUT,
 } from '../../../utils/pdfConstants';
+import axiosInstance from '../../../api/axios';
 
 /** Get string width in mm */
 function strWidthMm(doc: jsPDF, text: string): number {
@@ -15,6 +16,44 @@ function strWidthMm(doc: jsPDF, text: string): number {
 }
 
 /** Load image from URL to Base64 */
+async function loadImageFromBlob(url: string): Promise<string> {
+  return new Promise(async (resolve, reject) => {
+    try {
+      // Fetch the image with authentication
+      const response = await axiosInstance.get(url, {
+        responseType: 'blob',
+      });
+
+      const blob = response.data;
+      const blobUrl = URL.createObjectURL(blob);
+
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          URL.revokeObjectURL(blobUrl);
+          resolve(canvas.toDataURL('image/png'));
+        } else {
+          URL.revokeObjectURL(blobUrl);
+          reject(new Error('Canvas context error'));
+        }
+      };
+      img.onerror = (e) => {
+        URL.revokeObjectURL(blobUrl);
+        reject(e);
+      };
+      img.src = blobUrl;
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+/** Load image from URL to Base64 (for logo) */
 function loadImage(url: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -37,10 +76,10 @@ function loadImage(url: string): Promise<string> {
 }
 
 const SERVICES_LIST = [
-  ['+Papelería empresarial', '+Cuadernos, agendas', '+Vinilo', '+Banner', '+Etiquetas'],
-  ['+Impresión gran formato', '+Impresión sobre rígidos', '+Sublimación textil', '+Roll ups, arañas', '+Calandra'],
-  ['+Señalización', '+Promocionales', '+Confección', '+Mugs', '+DTF UV'],
-  ['+DTF textil', '+Gorras', '+Bordados']
+  ['• Papelería empresarial', '• Cuadernos, agendas', '• Vinilo', '• Banner', '• Etiquetas'],
+  ['• Impresión gran formato', '• Impresión sobre rígidos', '• Sublimación textil', '• Roll ups, arañas', '• Calandra'],
+  ['• Señalización', '• Promocionales', '• Confección', '• Mugs', '• DTF UV'],
+  ['• DTF textil', '• Gorras', '• Bordados']
 ];
 
 // ---------------------------------------------------------------------------
@@ -114,8 +153,38 @@ async function drawHeader(doc: jsPDF): Promise<number> {
   setFillColor(doc, [0, 0, 0]);
   doc.rect(logoX + logoW + 5, barY, PDF_LAYOUT.pageWidth - (logoX + logoW + 5), barHeight, 'F');
   
-  // Services List
+  // Company Info
   let y = logoY + logoH + 8;
+  
+  // Title
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  setTextColor(doc, [0, 0, 0]);
+  doc.text('High Solutions', PDF_LAYOUT.pageWidth / 2, y, { align: 'center' });
+  y += 5;
+
+  // Websites
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  setTextColor(doc, [41, 171, 226]); // Cyan color for links
+  doc.text('www.HS-group.com.co  |  www.highsolutions.com.co', PDF_LAYOUT.pageWidth / 2, y, { align: 'center' });
+  y += 5;
+
+  // Address & Contact
+  doc.setFontSize(8);
+  setTextColor(doc, [100, 100, 100]); // Gray color for address
+  doc.text('Cra 28 #10-18, Bogotá D.C - Barrio Ricaurte', PDF_LAYOUT.pageWidth / 2, y, { align: 'center' });
+  y += 4;
+  doc.text('Tel: 305 451 8018 / 304 484 8835 / 305 4525079 | comercial1@hsgroup.com.co | hsolutionssas@gmail.com', PDF_LAYOUT.pageWidth / 2, y, { align: 'center' });
+  y += 6;
+
+  // Separator
+  setDrawColor(doc, [220, 220, 220]);
+  doc.setLineWidth(0.3);
+  doc.line(PDF_LAYOUT.marginLeft, y, PDF_LAYOUT.pageWidth - PDF_LAYOUT.marginRight, y);
+  y += 5;
+
+  // Services List
   doc.setFontSize(7);
   doc.setFont('helvetica', 'normal'); // Font style looks like a techno font in image, using normal for now
   setTextColor(doc, [0, 0, 0]);
@@ -149,7 +218,7 @@ function drawOrderInfo(doc: jsPDF, y: number, order: Order): number {
   setTextColor(doc, PDF_COLORS.bodyText);
   doc.text(order.orderNumber, PDF_LAYOUT.marginLeft + 30, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(formatDate(order.orderDate), PDF_LAYOUT.marginLeft + 30, y + 5);
+  doc.text(formatDateTime(order.orderDate), PDF_LAYOUT.marginLeft + 30, y + 5);
 
   // Right column labels
   const rightLabelX = PDF_LAYOUT.marginLeft + 100;
@@ -163,7 +232,7 @@ function drawOrderInfo(doc: jsPDF, y: number, order: Order): number {
   // Right column values
   doc.setFontSize(PDF_FONTS.value);
   setTextColor(doc, PDF_COLORS.bodyText);
-  doc.text(formatDate(new Date()), rightLabelX + 38, y);
+  doc.text(formatDateTime(new Date()), rightLabelX + 38, y);
   if (order.deliveryDate) {
     doc.text(formatDate(order.deliveryDate), rightLabelX + 38, y + 5);
   }
@@ -209,13 +278,42 @@ function drawClientSection(doc: jsPDF, y: number, order: Order): number {
   return y + 3;
 }
 
-function drawItemsTable(doc: jsPDF, y: number, order: Order): number {
-  const colWidths = [20, 85, 37.5, 37.5]; // Cant | Descripción | Val. Unitario | Val. Total
-  const colLabels = ['Cant.', 'Descripción', 'Val. Unitario', 'Val. Total'];
-  const colAligns: ('center' | 'left' | 'right')[] = ['center', 'left', 'right', 'right'];
+async function drawItemsTable(doc: jsPDF, y: number, order: Order): Promise<number> {
+  // Determine if we need an image column
+  const hasImages = order.items?.some(item => item.sampleImageId);
+
+  const colWidths = hasImages
+    ? [25, 15, 70, 32.5, 37.5] // Imagen | Cant | Descripción | Val. Unitario | Val. Total
+    : [20, 85, 37.5, 37.5]; // Cant | Descripción | Val. Unitario | Val. Total
+
+  const colLabels = hasImages
+    ? ['Imagen', 'Cant.', 'Descripción', 'Val. Unitario', 'Val. Total']
+    : ['Cant.', 'Descripción', 'Val. Unitario', 'Val. Total'];
+
+  const colAligns: ('center' | 'left' | 'right')[] = hasImages
+    ? ['center', 'center', 'left', 'right', 'right']
+    : ['center', 'left', 'right', 'right'];
+
   const rowHeight = 6;
   const headerHeight = 7;
   const x0 = PDF_LAYOUT.marginLeft;
+
+  // Load all sample images upfront
+  const imageCache: Record<string, string> = {};
+  if (hasImages) {
+    for (const item of order.items || []) {
+      if (item.sampleImageId) {
+        try {
+          // Use backend proxy endpoint with authentication
+          const viewUrl = `/storage/${item.sampleImageId}/view`;
+          const imageData = await loadImageFromBlob(viewUrl);
+          imageCache[item.sampleImageId] = imageData;
+        } catch (error) {
+          console.error(`Failed to load image ${item.sampleImageId}:`, error);
+        }
+      }
+    }
+  }
 
   const drawTableHeader = (atY: number) => {
     setFillColor(doc, PDF_COLORS.tableHeaderBg);
@@ -238,10 +336,14 @@ function drawItemsTable(doc: jsPDF, y: number, order: Order): number {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(PDF_FONTS.tableBody);
 
-  order.items.forEach((item, idx) => {
+  for (let idx = 0; idx < order.items.length; idx++) {
+    const item = order.items[idx];
+
     // Calculate required row height based on description wrapping
-    const descLines = calcLineCount(doc, item.description, colWidths[1] - 4);
-    const dynamicRowHeight = Math.max(rowHeight, descLines * 4 + 2);
+    const descColIndex = hasImages ? 2 : 1;
+    const descLines = calcLineCount(doc, item.description, colWidths[descColIndex] - 4);
+    const imageHeight = item.sampleImageId && imageCache[item.sampleImageId] ? 20 : 0;
+    const dynamicRowHeight = Math.max(rowHeight, descLines * 4 + 2, imageHeight + 4);
 
     // Page break check
     if (y + dynamicRowHeight > PDF_LAYOUT.pageHeight - PDF_LAYOUT.marginBottom - 5) {
@@ -265,16 +367,34 @@ function drawItemsTable(doc: jsPDF, y: number, order: Order): number {
     setTextColor(doc, PDF_COLORS.bodyText);
     const textY = y + dynamicRowHeight * 0.5 + (strWidthMm(doc, 'M') * 0.35);
 
-    const values = [
-      String(item.quantity),
-      item.description,
-      formatCurrency(item.unitPrice),
-      formatCurrency(item.total),
-    ];
+    const values = hasImages
+      ? [
+          '', // Image placeholder
+          String(item.quantity),
+          item.description,
+          formatCurrency(item.unitPrice),
+          formatCurrency(item.total),
+        ]
+      : [
+          String(item.quantity),
+          item.description,
+          formatCurrency(item.unitPrice),
+          formatCurrency(item.total),
+        ];
 
     let cx = x0;
     values.forEach((val, i) => {
-      if (i === 1) {
+      if (hasImages && i === 0) {
+        // Image column
+        if (item.sampleImageId && imageCache[item.sampleImageId]) {
+          const imgData = imageCache[item.sampleImageId];
+          const imgWidth = 18;
+          const imgHeight = 18;
+          const imgX = cx + (colWidths[i] - imgWidth) / 2;
+          const imgY = y + (dynamicRowHeight - imgHeight) / 2;
+          doc.addImage(imgData, 'PNG', imgX, imgY, imgWidth, imgHeight);
+        }
+      } else if ((hasImages && i === 2) || (!hasImages && i === 1)) {
         // Description: left-aligned with padding, support multi-line
         const lines = doc.splitTextToSize(val, colWidths[i] - 4);
         const lineH = 4;
@@ -283,14 +403,14 @@ function drawItemsTable(doc: jsPDF, y: number, order: Order): number {
         lines.forEach((line: string, li: number) => {
           doc.text(line, cx + 2, startY + li * lineH);
         });
-      } else {
+      } else if (val !== '') {
         doc.text(val, cx + colWidths[i] / 2, textY, { align: colAligns[i] });
       }
       cx += colWidths[i];
     });
 
     y += dynamicRowHeight;
-  });
+  }
 
   return y + 4;
 }
@@ -317,6 +437,26 @@ function drawFinancials(doc: jsPDF, y: number, order: Order): number {
     doc.text(`IVA (${rate}%):`, labelX, y);
     doc.setFont('helvetica', 'bold');
     doc.text(formatCurrency(order.tax), valueRight, y, { align: 'right' });
+    y += lineH;
+  }
+
+  // Prueba de Color
+  if (order.requiresColorProof) {
+    doc.setFont('helvetica', 'normal');
+    doc.text('Prueba de Color:', labelX, y);
+    doc.setFont('helvetica', 'bold');
+    doc.text(formatCurrency(order.colorProofPrice), valueRight, y, { align: 'right' });
+    y += lineH;
+  }
+
+  // Descuentos — only if discountAmount > 0
+  if (parseFloat(order.discountAmount) > 0) {
+    doc.setFont('helvetica', 'normal');
+    setTextColor(doc, [220, 53, 69]); // Color rojo para descuentos
+    doc.text('Descuentos:', labelX, y);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`-${formatCurrency(order.discountAmount)}`, valueRight, y, { align: 'right' });
+    setTextColor(doc, PDF_COLORS.bodyText); // Restaurar color
     y += lineH;
   }
 
@@ -355,7 +495,7 @@ function drawFinancials(doc: jsPDF, y: number, order: Order): number {
 }
 
 function drawNotes(doc: jsPDF, y: number, order: Order): number {
-  if (!order.notes) return y;
+  if (!order.notes && !order.requiresColorProof) return y;
 
   // Separator
   setDrawColor(doc, PDF_COLORS.tableHeaderBg);
@@ -367,22 +507,33 @@ function drawNotes(doc: jsPDF, y: number, order: Order): number {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(PDF_FONTS.sectionTitle);
   setTextColor(doc, PDF_COLORS.sectionTitleText);
-  doc.text('Observaciones', PDF_LAYOUT.marginLeft, y);
+  doc.text('Observaciones y Detalles', PDF_LAYOUT.marginLeft, y);
   y += 5;
 
+  // Prueba de color
+  if (order.requiresColorProof) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(PDF_FONTS.tableBody);
+    setTextColor(doc, [0, 102, 204]); // Un azul para destacar
+    doc.text('✓ Requiere prueba de color', PDF_LAYOUT.marginLeft, y);
+    y += 5;
+  }
+
   // Text (wrapped)
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(PDF_FONTS.tableBody);
-  setTextColor(doc, PDF_COLORS.bodyText);
-  const lines = doc.splitTextToSize(order.notes, PDF_LAYOUT.contentWidth);
-  lines.forEach((line: string) => {
-    if (y > PDF_LAYOUT.pageHeight - PDF_LAYOUT.marginBottom - 6) {
-      doc.addPage();
-      y = PDF_LAYOUT.marginTop;
-    }
-    doc.text(line, PDF_LAYOUT.marginLeft, y);
-    y += 4;
-  });
+  if (order.notes) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(PDF_FONTS.tableBody);
+    setTextColor(doc, PDF_COLORS.bodyText);
+    const lines = doc.splitTextToSize(order.notes, PDF_LAYOUT.contentWidth);
+    lines.forEach((line: string) => {
+      if (y > PDF_LAYOUT.pageHeight - PDF_LAYOUT.marginBottom - 6) {
+        doc.addPage();
+        y = PDF_LAYOUT.marginTop;
+      }
+      doc.text(line, PDF_LAYOUT.marginLeft, y);
+      y += 4;
+    });
+  }
 
   return y + 3;
 }
@@ -407,6 +558,22 @@ function drawAttendedBy(doc: jsPDF, y: number, order: Order): number {
   doc.setFont('helvetica', 'bold');
   doc.text(name, PDF_LAYOUT.marginLeft + strWidthMm(doc, 'Atendido por: '), y);
 
+  // Move legal notes closer to the footer
+  // The footer separator line is at: PDF_LAYOUT.pageHeight - PDF_LAYOUT.marginBottom - 4
+  // We'll place the notes just above that line
+  const notesY = PDF_LAYOUT.pageHeight - PDF_LAYOUT.marginBottom - 15;
+
+  // Legal Notes
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  setTextColor(doc, [200, 80, 90]); // Softer red color
+  
+  const note1 = 'NOTA: NO SE ENTREGARÁ TRABAJO SIN CANCELAR LA TOTALIDAD DEL VALOR, SIN EXCEPCIONES.';
+  const note2 = 'EN 30 DÍAS VENCE LA FECHA DE ENTREGA, NO SE RESPONDE POR NINGÚN TRABAJO.';
+
+  doc.text(note1, PDF_LAYOUT.pageWidth / 2, notesY, { align: 'center' });
+  doc.text(note2, PDF_LAYOUT.pageWidth / 2, notesY + 4, { align: 'center' });
+
   return y + 6;
 }
 
@@ -427,7 +594,7 @@ export async function generateOrderPdf(order: Order): Promise<jsPDF> {
 
   y = drawOrderInfo(doc, y, order);
   y = drawClientSection(doc, y, order);
-  y = drawItemsTable(doc, y, order);
+  y = await drawItemsTable(doc, y, order);
   y = drawFinancials(doc, y, order);
   y = drawNotes(doc, y, order);
   drawAttendedBy(doc, y, order);

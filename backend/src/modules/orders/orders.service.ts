@@ -2,10 +2,15 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { OrdersRepository } from './orders.repository';
 import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { StorageService } from '../storage/storage.service';
+import { OrderStatusChangeRequestsService } from '../order-status-change-requests/order-status-change-requests.service';
+import { AdvancePaymentApprovalsService } from '../advance-payment-approvals/advance-payment-approvals.service';
+import { ClientOwnershipAuthRequestsService } from '../client-ownership-auth-requests/client-ownership-auth-requests.service';
 import {
   CreateOrderDto,
   UpdateOrderDto,
@@ -13,8 +18,14 @@ import {
   AddOrderItemDto,
   UpdateOrderItemDto,
   CreatePaymentDto,
+  ApplyDiscountDto,
+  OrderProfitabilityDto,
+  OrderProfitabilityListItemDto,
+  PaginatedProfitabilityDto,
+  ExpenseOrderSummaryDto,
 } from './dto';
 import { OrderStatus, Prisma } from '../../generated/prisma';
+import { isValidTransition, getValidNextStatuses } from './order-status-transitions';
 import { PrismaService } from '../../database/prisma.service';
 
 @Injectable()
@@ -24,18 +35,24 @@ export class OrdersService {
     private readonly consecutivesService: ConsecutivesService,
     private readonly prisma: PrismaService,
     private readonly auditLogsService: AuditLogsService,
+    private readonly storageService: StorageService,
+    private readonly statusChangeRequestsService: OrderStatusChangeRequestsService,
+    private readonly advancePaymentApprovalsService: AdvancePaymentApprovalsService,
+    private readonly clientOwnershipAuthRequestsService: ClientOwnershipAuthRequestsService,
   ) {}
 
   async findAll(filters: FilterOrdersDto) {
-    const { status, clientId, orderDateFrom, orderDateTo, page, limit } = filters;
+    const { status, search, clientId, orderDateFrom, orderDateTo, page, limit, excludeWithWorkOrder } = filters;
 
     return this.ordersRepository.findAllWithFilters({
       status,
+      search,
       clientId,
       orderDateFrom: orderDateFrom ? new Date(orderDateFrom) : undefined,
       orderDateTo: orderDateTo ? new Date(orderDateTo) : undefined,
       page,
       limit,
+      excludeWithWorkOrder,
     });
   }
 
@@ -70,8 +87,8 @@ export class OrdersService {
         total: itemTotal,
         specifications: item.specifications || undefined,
         sortOrder: index + 1,
-        ...(item.serviceId && {
-          service: { connect: { id: item.serviceId } },
+        ...(item.productId && {
+          product: { connect: { id: item.productId } },
         }),
         ...(item.productionAreaIds && item.productionAreaIds.length > 0 && {
           productionAreas: {
@@ -85,7 +102,14 @@ export class OrdersService {
 
     const taxRate = new Prisma.Decimal(0.19);
     const tax = subtotal.mul(taxRate);
-    const total = subtotal.add(tax);
+    const discountAmount = new Prisma.Decimal(0);
+    
+    const requiresColorProof = createOrderDto.requiresColorProof || false;
+    const colorProofPrice = requiresColorProof && createOrderDto.colorProofPrice 
+      ? new Prisma.Decimal(createOrderDto.colorProofPrice) 
+      : new Prisma.Decimal(0);
+      
+    const total = subtotal.add(tax).sub(discountAmount).add(colorProofPrice);
 
     // Manejar pago inicial
     let paidAmount = new Prisma.Decimal(0);
@@ -116,29 +140,62 @@ export class OrdersService {
     const balance = total.sub(paidAmount);
 
     // Crear orden con items y pago inicial (en transacción)
-    const newOrder = await this.ordersRepository.create({
-      orderNumber,
-      orderDate: new Date(),
-      deliveryDate: createOrderDto.deliveryDate
-        ? new Date(createOrderDto.deliveryDate)
-        : undefined,
-      subtotal,
-      taxRate,
-      tax,
-      total,
-      paidAmount,
-      balance,
-      notes: createOrderDto.notes,
-      client: { connect: { id: createOrderDto.clientId } },
-      createdBy: { connect: { id: createdById } },
-      ...(createOrderDto.commercialChannelId && {
-        commercialChannel: { connect: { id: createOrderDto.commercialChannelId } },
-      }),
-      items: {
-        create: items,
-      },
-      ...(payments && { payments }),
-    });
+    // Se implementa un mecanismo de reintento en caso de colisión de número de orden (P2002)
+    let newOrder;
+    let attempts = 0;
+    const maxAttempts = 3;
+    let currentOrderNumber = orderNumber;
+
+    while (attempts < maxAttempts) {
+      try {
+        newOrder = await this.ordersRepository.create({
+          orderNumber: currentOrderNumber,
+          orderDate: new Date(),
+          deliveryDate: createOrderDto.deliveryDate
+            ? new Date(createOrderDto.deliveryDate)
+            : undefined,
+          subtotal,
+          taxRate,
+          tax,
+          discountAmount,
+          requiresColorProof,
+          colorProofPrice,
+          total,
+          paidAmount,
+          balance,
+          notes: createOrderDto.notes,
+          client: { connect: { id: createOrderDto.clientId } },
+          createdBy: { connect: { id: createdById } },
+          ...(createOrderDto.commercialChannelId && {
+            commercialChannel: { connect: { id: createOrderDto.commercialChannelId } },
+          }),
+          items: {
+            create: items,
+          },
+          ...(payments && { payments }),
+        });
+        break; // Éxito, salir del bucle
+      } catch (error) {
+        attempts++;
+        
+        // Determinar si es un error de duplicado de order_number
+        // Prisma puede devolver el target en diferentes formatos dependiendo de la configuración
+        const isUniqueConstraintError = error.code === 'P2002';
+        const target = JSON.stringify(error.meta?.target || '');
+        const isOrderNumberTarget = 
+          target.includes('order_number') || 
+          target.includes('orders_order_number_key') ||
+          (error.meta?.modelName === 'Order' && (error.meta?.target === undefined || target === '""'));
+
+        if (isUniqueConstraintError && isOrderNumberTarget && attempts < maxAttempts) {
+          // Sincronizar el contador de consecutivos y generar un nuevo número
+          await this.consecutivesService.syncCounter('ORDER');
+          currentOrderNumber = await this.consecutivesService.generateNumber('ORDER');
+          continue;
+        }
+        throw error; // Re-lanzar si no es P2002 o se agotaron los intentos
+      }
+    }
 
     // Registrar en audit log (fuera de la transacción, sin esperar para no afectar performance)
     if (newOrder) {
@@ -151,15 +208,100 @@ export class OrdersService {
       );
     }
 
+    // Ejecutar ambas verificaciones post-creación en paralelo para no perder ninguna
+    // aunque una de ellas sea verdadera (evitar early-return que omita la otra)
+    let needsRefetch = false;
+
+    // Verificar si el anticipo requiere aprobación (usuario no-admin/no-caja)
+    if (newOrder && createOrderDto.initialPayment && paidAmount.greaterThan(0)) {
+      const approvalCheck = await this.advancePaymentApprovalsService.requiresApproval(createdById);
+
+      if (approvalCheck.required) {
+        // Buscar el payment recién creado
+        const payment = await this.prisma.payment.findFirst({
+          where: { orderId: newOrder.id },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        if (payment) {
+          await this.advancePaymentApprovalsService.createFromOrderCreation(
+            createdById,
+            newOrder.id,
+            payment.id,
+          );
+          needsRefetch = true;
+        }
+      }
+    }
+
+    // Verificar si el cliente pertenece a otro asesor y se requiere autorización
+    if (newOrder) {
+      const ownershipCheck = await this.clientOwnershipAuthRequestsService.requiresAuth(
+        createdById,
+        createOrderDto.clientId,
+      );
+
+      if (ownershipCheck.required && ownershipCheck.advisorId) {
+        await this.clientOwnershipAuthRequestsService.createFromOrderCreation(
+          createdById,
+          newOrder.id,
+          ownershipCheck.advisorId,
+        );
+        needsRefetch = true;
+      }
+    }
+
+    // Re-fetch una sola vez si cualquiera de los checks creó un registro pendiente
+    if (needsRefetch && newOrder) {
+      return this.findOne(newOrder.id);
+    }
+
     return newOrder;
   }
 
   async update(id: string, updateOrderDto: UpdateOrderDto, userId: string) {
     const oldOrder = await this.findOne(id);
 
+    // Validar cambio de fecha de entrega
+    if (updateOrderDto.deliveryDate) {
+      const newDeliveryDate = new Date(updateOrderDto.deliveryDate);
+      const currentDeliveryDate = oldOrder.deliveryDate ? new Date(oldOrder.deliveryDate) : null;
+
+      // Si hay una fecha anterior y la nueva es posterior (pospone), requiere razón
+      if (currentDeliveryDate && newDeliveryDate > currentDeliveryDate) {
+        if (!updateOrderDto.deliveryDateReason || updateOrderDto.deliveryDateReason.trim() === '') {
+          throw new BadRequestException(
+            'Debe proporcionar una razón para posponer la fecha de entrega'
+          );
+        }
+      }
+    }
+
     // Si viene items o initialPayment, usamos una transacción para actualizar todo el conjunto
     if (updateOrderDto.items || updateOrderDto.initialPayment) {
       const updatedOrder = await this.prisma.$transaction(async (tx) => {
+        // Preparar datos de actualización de fecha
+        const deliveryDateUpdateData: any = {};
+
+        if (updateOrderDto.deliveryDate) {
+          const newDeliveryDate = new Date(updateOrderDto.deliveryDate);
+          const currentDeliveryDate = oldOrder.deliveryDate ? new Date(oldOrder.deliveryDate) : null;
+
+          deliveryDateUpdateData.deliveryDate = newDeliveryDate;
+
+          // Si la fecha cambió, registrar auditoría
+          if (currentDeliveryDate && newDeliveryDate.getTime() !== currentDeliveryDate.getTime()) {
+            deliveryDateUpdateData.previousDeliveryDate = currentDeliveryDate;
+            deliveryDateUpdateData.deliveryDateChangedAt = new Date();
+            deliveryDateUpdateData.deliveryDateChangedBy = userId;
+
+            // Solo guardar razón si se pospone
+            if (newDeliveryDate > currentDeliveryDate && updateOrderDto.deliveryDateReason) {
+              deliveryDateUpdateData.deliveryDateReason = updateOrderDto.deliveryDateReason;
+            }
+          }
+        }
+
         // 1. Actualizar datos básicos de la orden
         await tx.order.update({
           where: { id },
@@ -167,9 +309,7 @@ export class OrdersService {
             ...(updateOrderDto.clientId && {
               client: { connect: { id: updateOrderDto.clientId } },
             }),
-            ...(updateOrderDto.deliveryDate && {
-              deliveryDate: new Date(updateOrderDto.deliveryDate),
-            }),
+            ...deliveryDateUpdateData,
             ...(updateOrderDto.notes !== undefined && {
               notes: updateOrderDto.notes,
             }),
@@ -178,6 +318,12 @@ export class OrdersService {
             }),
             ...(updateOrderDto.commercialChannelId && {
               commercialChannel: { connect: { id: updateOrderDto.commercialChannelId } },
+            }),
+            ...(updateOrderDto.requiresColorProof !== undefined && {
+              requiresColorProof: updateOrderDto.requiresColorProof,
+            }),
+            ...(updateOrderDto.colorProofPrice !== undefined && {
+              colorProofPrice: new Prisma.Decimal(updateOrderDto.colorProofPrice),
             }),
           },
         });
@@ -226,7 +372,7 @@ export class OrdersService {
                 unitPrice: item.unitPrice,
                 total: itemTotal,
                 specifications: item.specifications || undefined,
-                ...(item.serviceId && { serviceId: item.serviceId }),
+                ...(item.productId && { productId: item.productId }),
               },
             });
 
@@ -263,7 +409,7 @@ export class OrdersService {
                   total: itemTotal,
                   specifications: item.specifications || undefined,
                   sortOrder: remainingCount + i + 1,
-                  ...(item.serviceId && { serviceId: item.serviceId }),
+                  ...(item.productId && { productId: item.productId }),
                 },
                 select: { id: true },
               });
@@ -328,13 +474,33 @@ export class OrdersService {
     }
 
     // Si no hay items ni pago, actualización normal
+    // Preparar datos de actualización de fecha
+    const deliveryDateUpdateData: any = {};
+
+    if (updateOrderDto.deliveryDate) {
+      const newDeliveryDate = new Date(updateOrderDto.deliveryDate);
+      const currentDeliveryDate = oldOrder.deliveryDate ? new Date(oldOrder.deliveryDate) : null;
+
+      deliveryDateUpdateData.deliveryDate = newDeliveryDate;
+
+      // Si la fecha cambió, registrar auditoría
+      if (currentDeliveryDate && newDeliveryDate.getTime() !== currentDeliveryDate.getTime()) {
+        deliveryDateUpdateData.previousDeliveryDate = currentDeliveryDate;
+        deliveryDateUpdateData.deliveryDateChangedAt = new Date();
+        deliveryDateUpdateData.deliveryDateChangedBy = userId;
+
+        // Solo guardar razón si se pospone
+        if (newDeliveryDate > currentDeliveryDate && updateOrderDto.deliveryDateReason) {
+          deliveryDateUpdateData.deliveryDateReason = updateOrderDto.deliveryDateReason;
+        }
+      }
+    }
+
     await this.ordersRepository.update(id, {
       ...(updateOrderDto.clientId && {
         client: { connect: { id: updateOrderDto.clientId } },
       }),
-      ...(updateOrderDto.deliveryDate && {
-        deliveryDate: new Date(updateOrderDto.deliveryDate),
-      }),
+      ...deliveryDateUpdateData,
       ...(updateOrderDto.notes !== undefined && {
         notes: updateOrderDto.notes,
       }),
@@ -344,7 +510,18 @@ export class OrdersService {
       ...(updateOrderDto.commercialChannelId && {
         commercialChannel: { connect: { id: updateOrderDto.commercialChannelId } },
       }),
+      ...(updateOrderDto.requiresColorProof !== undefined && {
+        requiresColorProof: updateOrderDto.requiresColorProof,
+      }),
+      ...(updateOrderDto.colorProofPrice !== undefined && {
+        colorProofPrice: new Prisma.Decimal(updateOrderDto.colorProofPrice),
+      }),
     });
+
+    // Si se actualizó el precio de la prueba de color, recalcular totales
+    if (updateOrderDto.colorProofPrice !== undefined || updateOrderDto.requiresColorProof !== undefined) {
+      await this.recalculateOrderTotals(id, this.prisma);
+    }
 
     // Retornar la orden actualizada con sus relaciones
     const updatedOrder = await this.findOne(id);
@@ -364,32 +541,106 @@ export class OrdersService {
   async updateStatus(id: string, status: OrderStatus, userId: string) {
     const order = await this.findOne(id);
 
-    // SECURITY: Prevent reverting to DRAFT status to bypass edit restrictions
-    // If an order is already processed (CONFIRMED, etc), it should not go back to DRAFT.
-    // Users should use the "Edit Request" flow instead.
-    if (status === OrderStatus.DRAFT && order.status !== OrderStatus.DRAFT) {
-      throw new BadRequestException(
-        'No se puede revertir el estado de la orden a BORRADOR. Por favor, use el flujo de solicitud de edición para modificar la orden.',
-      );
-    }
-    
-    // Log change
-    if (order.status !== status) {
-        await this.ordersRepository.updateStatus(id, status);
-        
-        // Registrar en audit log (sin esperar)
-        const updatedOrder = await this.findOne(id);
-        this.auditLogsService.logOrderChange(
-          'UPDATE',
-          id,
-          order,
-          updatedOrder,
-          userId,
-        );
-        return updatedOrder;
+    // No-op si el estado es el mismo
+    if (order.status === status) {
+      return order;
     }
 
-    return order;
+    // Bloquear cambio de estado si el anticipo está pendiente de aprobación
+    if (order.advancePaymentStatus === 'PENDING') {
+      throw new BadRequestException(
+        'No se puede cambiar el estado de esta orden porque tiene un anticipo pendiente de aprobación por Caja.',
+      );
+    }
+
+    // Bloquear cambio de estado si el anticipo fue rechazado
+    if (order.advancePaymentStatus === 'REJECTED') {
+      throw new BadRequestException(
+        'No se puede cambiar el estado de esta orden porque el anticipo fue rechazado.',
+      );
+    }
+
+    // Bloquear cambio de estado si la autorización de propiedad de cliente está pendiente
+    if (order.clientOwnershipAuthStatus === 'PENDING') {
+      throw new BadRequestException(
+        'No se puede cambiar el estado de esta orden porque la autorización de propiedad del cliente está pendiente de aprobación por un administrador.',
+      );
+    }
+
+    // Bloquear cambio de estado si la autorización de propiedad de cliente fue rechazada
+    if (order.clientOwnershipAuthStatus === 'REJECTED') {
+      throw new BadRequestException(
+        'No se puede cambiar el estado de esta orden porque la autorización de propiedad del cliente fue rechazada. Contacte al administrador.',
+      );
+    }
+
+    // Validar que la transición sea permitida por el flujo secuencial
+    if (!isValidTransition(order.status as OrderStatus, status)) {
+      const validNext = getValidNextStatuses(order.status as OrderStatus);
+      const validLabels = validNext.length > 0
+        ? validNext.join(', ')
+        : 'ninguno (estado terminal)';
+      throw new BadRequestException(
+        `Transición de estado no permitida: ${order.status} → ${status}. ` +
+        `Las transiciones válidas desde ${order.status} son: ${validLabels}.`,
+      );
+    }
+
+    // Validación de saldo para PAID
+    if (status === OrderStatus.PAID) {
+      const balance = new Prisma.Decimal(order.balance);
+
+      if (balance.greaterThan(0)) {
+        throw new BadRequestException(
+          `No se puede cambiar al estado PAGADA con saldo pendiente. ` +
+          `Saldo actual: $${order.balance}. ` +
+          `Use el estado DELIVERED_ON_CREDIT (Entregado a Crédito) o complete los pagos primero.`,
+        );
+      }
+    }
+
+    // Autorización para DELIVERED_ON_CREDIT (usuarios no-admin necesitan aprobación)
+    if (status === OrderStatus.DELIVERED_ON_CREDIT) {
+      const authCheck = await this.statusChangeRequestsService.requiresAuthorization(
+        id,
+        status,
+        userId,
+      );
+
+      if (authCheck.required) {
+        const hasApproval = await this.statusChangeRequestsService.hasApprovedRequest(
+          id,
+          userId,
+          status,
+        );
+
+        if (!hasApproval) {
+          throw new ForbiddenException(
+            `Este cambio de estado requiere autorización de un administrador. ` +
+            `Razón: ${authCheck.reason}. ` +
+            `Por favor, cree una solicitud de cambio de estado.`,
+          );
+        }
+
+        await this.statusChangeRequestsService.consumeApprovedRequest(
+          id,
+          userId,
+          status,
+        );
+      }
+    }
+
+    await this.ordersRepository.updateStatus(id, status);
+
+    const updatedOrder = await this.findOne(id);
+    this.auditLogsService.logOrderChange(
+      'UPDATE',
+      id,
+      order,
+      updatedOrder,
+      userId,
+    );
+    return updatedOrder;
   }
 
   async remove(id: string, userId?: string) {
@@ -415,6 +666,42 @@ export class OrdersService {
     );
 
     return { message: 'Order deleted successfully' };
+  }
+
+  // ========== ELECTRONIC INVOICE ==========
+
+  async registerElectronicInvoice(id: string, electronicInvoiceNumber: string, userId: string) {
+    const order = await this.findOne(id);
+
+    // Solo aplicable si la orden tiene IVA (tax > 0)
+    if (parseFloat(order.tax.toString()) === 0) {
+      throw new BadRequestException(
+        'La factura electrónica solo aplica para órdenes que incluyan IVA.',
+      );
+    }
+
+    // Solo disponible cuando la orden ya fue creada (no en DRAFT)
+    if (order.status === 'DRAFT') {
+      throw new BadRequestException(
+        'No se puede registrar una factura electrónica en una orden en estado BORRADOR.',
+      );
+    }
+
+    const updatedOrder = await this.ordersRepository.registerElectronicInvoice(
+      id,
+      electronicInvoiceNumber,
+    );
+
+    // Registrar en audit log (sin esperar)
+    this.auditLogsService.logOrderChange(
+      'UPDATE',
+      id,
+      order,
+      updatedOrder,
+      userId,
+    );
+
+    return updatedOrder;
   }
 
   // ========== ITEM MANAGEMENT ==========
@@ -453,8 +740,8 @@ export class OrdersService {
           total: itemTotal,
           specifications: addItemDto.specifications,
           sortOrder,
-          ...(addItemDto.serviceId && {
-            serviceId: addItemDto.serviceId,
+          ...(addItemDto.productId && {
+            productId: addItemDto.productId,
           }),
           ...(addItemDto.productionAreaIds && addItemDto.productionAreaIds.length > 0 && {
             productionAreas: {
@@ -510,8 +797,8 @@ export class OrdersService {
         updateData.specifications = updateItemDto.specifications;
       }
 
-      if (updateItemDto.serviceId !== undefined) {
-        updateData.serviceId = updateItemDto.serviceId;
+      if (updateItemDto.productId !== undefined) {
+        updateData.productId = updateItemDto.productId;
       }
 
       // Recalcular total del item si cambió cantidad o precio
@@ -597,6 +884,8 @@ export class OrdersService {
       OrderStatus.IN_PRODUCTION,
       OrderStatus.READY,
       OrderStatus.DELIVERED,
+      OrderStatus.DELIVERED_ON_CREDIT,
+      OrderStatus.PAID,
       OrderStatus.WARRANTY,
     ];
 
@@ -628,6 +917,7 @@ export class OrdersService {
             : new Date(),
           reference: createPaymentDto.reference,
           notes: createPaymentDto.notes,
+          receiptFileId: createPaymentDto.receiptFileId,
           receivedById,
         },
         select: {
@@ -662,6 +952,7 @@ export class OrdersService {
         paymentDate: true,
         reference: true,
         notes: true,
+        receiptFileId: true,
         createdAt: true,
         receivedBy: {
           select: {
@@ -703,15 +994,31 @@ export class OrdersService {
       subtotal = subtotal.add(item.total);
     }
 
-    // Obtener taxRate de la orden
+    // Obtener taxRate y colorProof de la orden
     const order = await tx.order.findUnique({
       where: { id: orderId },
-      select: { taxRate: true },
+      select: { taxRate: true, requiresColorProof: true, colorProofPrice: true },
     });
 
     const taxRate = order?.taxRate || new Prisma.Decimal(0.19);
     const tax = subtotal.mul(taxRate);
-    const total = subtotal.add(tax);
+
+    // Calcular discountAmount sumando todos los descuentos
+    const discounts = await tx.orderDiscount.findMany({
+      where: { orderId },
+      select: { amount: true },
+    });
+
+    let discountAmount = new Prisma.Decimal(0);
+    for (const discount of discounts) {
+      discountAmount = discountAmount.add(discount.amount);
+    }
+
+    const colorProofPrice = order?.requiresColorProof && order?.colorProofPrice 
+      ? new Prisma.Decimal(order.colorProofPrice) 
+      : new Prisma.Decimal(0);
+
+    const total = subtotal.add(tax).sub(discountAmount).add(colorProofPrice);
 
     // Calcular paidAmount sumando todos los pagos
     const payments = await tx.payment.findMany({
@@ -732,6 +1039,7 @@ export class OrdersService {
       data: {
         subtotal,
         tax,
+        discountAmount,
         total,
         paidAmount,
         balance,
@@ -741,6 +1049,7 @@ export class OrdersService {
         orderNumber: true,
         subtotal: true,
         tax: true,
+        discountAmount: true,
         total: true,
         paidAmount: true,
         balance: true,
@@ -750,12 +1059,334 @@ export class OrdersService {
         taxRate: true,
         items: {
           include: {
-            service: true,
+            product: true,
           },
         },
         client: true,
         payments: true,
       },
     });
+  }
+
+  // ========== PAYMENT RECEIPT MANAGEMENT ==========
+
+  async uploadPaymentReceipt(
+    orderId: string,
+    paymentId: string,
+    file: Express.Multer.File,
+    userId: string,
+  ) {
+    // Verificar que la orden existe
+    await this.findOne(orderId);
+
+    // Verificar que el pago existe y pertenece a la orden
+    const payment = await this.prisma.payment.findFirst({
+      where: {
+        id: paymentId,
+        orderId,
+      },
+    });
+
+    if (!payment) {
+      throw new NotFoundException(
+        `Payment ${paymentId} not found for order ${orderId}`,
+      );
+    }
+
+    // Si ya existe un comprobante, eliminarlo primero
+    if (payment.receiptFileId) {
+      await this.storageService.deleteFile(payment.receiptFileId, userId);
+    }
+
+    // Subir el nuevo archivo
+    const uploadedFile = await this.storageService.uploadFile(file, {
+      entityType: 'payment',
+      entityId: paymentId,
+      userId,
+    });
+
+    // Actualizar el payment con el ID del archivo
+    await this.prisma.payment.update({
+      where: { id: paymentId },
+      data: { receiptFileId: uploadedFile.id },
+    });
+
+    return {
+      message: 'Receipt uploaded successfully',
+      file: uploadedFile,
+    };
+  }
+
+  async deletePaymentReceipt(orderId: string, paymentId: string) {
+    // Verificar que la orden existe
+    await this.findOne(orderId);
+
+    // Verificar que el pago existe y pertenece a la orden
+    const payment = await this.prisma.payment.findFirst({
+      where: {
+        id: paymentId,
+        orderId,
+      },
+    });
+
+    if (!payment) {
+      throw new NotFoundException(
+        `Payment ${paymentId} not found for order ${orderId}`,
+      );
+    }
+
+    if (!payment.receiptFileId) {
+      throw new BadRequestException('Payment does not have a receipt');
+    }
+
+    // Eliminar el archivo (hard delete ya que es eliminación explícita por admin)
+    await this.storageService.hardDeleteFile(payment.receiptFileId);
+
+    // Actualizar el payment removiendo el ID del archivo
+    await this.prisma.payment.update({
+      where: { id: paymentId },
+      data: { receiptFileId: null },
+    });
+
+    return {
+      message: 'Receipt deleted successfully',
+    };
+  }
+
+  // ========== DISCOUNT MANAGEMENT ==========
+
+  async applyDiscount(
+    orderId: string,
+    applyDiscountDto: ApplyDiscountDto,
+    appliedById: string,
+  ) {
+    const order = await this.findOne(orderId);
+
+    // Solo se pueden aplicar descuentos a órdenes CONFIRMED en adelante
+    const allowedStatuses: OrderStatus[] = [
+      OrderStatus.CONFIRMED,
+      OrderStatus.IN_PRODUCTION,
+      OrderStatus.READY,
+      OrderStatus.DELIVERED,
+      OrderStatus.DELIVERED_ON_CREDIT,
+      OrderStatus.PAID,
+      OrderStatus.WARRANTY,
+    ];
+
+    if (!allowedStatuses.includes(order.status)) {
+      throw new BadRequestException(
+        'Los descuentos solo pueden aplicarse a órdenes CONFIRMADAS o en estado posterior',
+      );
+    }
+
+    const discountAmount = new Prisma.Decimal(applyDiscountDto.amount);
+
+    // Validar que el descuento no exceda el total de la orden
+    const currentTotal = new Prisma.Decimal(order.total);
+    const currentDiscountAmount = new Prisma.Decimal(order.discountAmount);
+    const newDiscountAmount = currentDiscountAmount.add(discountAmount);
+
+    // El total base es subtotal + tax
+    const baseTotal = new Prisma.Decimal(order.subtotal).add(order.tax);
+
+    if (newDiscountAmount.greaterThan(baseTotal)) {
+      throw new BadRequestException(
+        `El descuento total (${newDiscountAmount}) no puede exceder el subtotal + impuestos (${baseTotal})`,
+      );
+    }
+
+    // Usar transacción para crear descuento y recalcular totales
+    const discountId = await this.prisma.$transaction(async (tx) => {
+      // Crear el descuento
+      const discount = await tx.orderDiscount.create({
+        data: {
+          orderId,
+          amount: discountAmount,
+          reason: applyDiscountDto.reason,
+          appliedById,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      // Recalcular totales de la orden
+      await this.recalculateOrderTotals(orderId, tx);
+
+      return discount.id;
+    });
+
+    // Obtener el descuento completo fuera de la transacción
+    return this.prisma.orderDiscount.findUnique({
+      where: { id: discountId },
+      select: {
+        id: true,
+        amount: true,
+        reason: true,
+        appliedAt: true,
+        appliedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+  }
+
+  async getDiscounts(orderId: string) {
+    // Verificar que la orden existe
+    await this.findOne(orderId);
+
+    return this.ordersRepository.findDiscountsByOrderId(orderId);
+  }
+
+  async removeDiscount(orderId: string, discountId: string) {
+    const order = await this.findOne(orderId);
+
+    // Solo se pueden eliminar descuentos de órdenes CONFIRMED en adelante
+    const allowedStatuses: OrderStatus[] = [
+      OrderStatus.CONFIRMED,
+      OrderStatus.IN_PRODUCTION,
+      OrderStatus.READY,
+      OrderStatus.DELIVERED,
+      OrderStatus.DELIVERED_ON_CREDIT,
+      OrderStatus.PAID,
+      OrderStatus.WARRANTY,
+    ];
+
+    if (!allowedStatuses.includes(order.status)) {
+      throw new BadRequestException(
+        'Los descuentos solo pueden eliminarse de órdenes CONFIRMADAS o en estado posterior',
+      );
+    }
+
+    // Verificar que el descuento existe y pertenece a la orden
+    const discount = await this.prisma.orderDiscount.findFirst({
+      where: {
+        id: discountId,
+        orderId,
+      },
+    });
+
+    if (!discount) {
+      throw new NotFoundException(
+        `Descuento ${discountId} no encontrado para la orden ${orderId}`,
+      );
+    }
+
+    // Usar transacción para eliminar descuento y recalcular totales
+    return this.prisma.$transaction(async (tx) => {
+      // Eliminar el descuento
+      await tx.orderDiscount.delete({
+        where: { id: discountId },
+      });
+
+      // Recalcular totales
+      return this.recalculateOrderTotals(orderId, tx);
+    });
+  }
+
+  // ========== PROFITABILITY ==========
+
+  private _calcProfitability(
+    orderTotal: Prisma.Decimal,
+    workOrders: { expenseOrders: { items: { total: Prisma.Decimal }[] }[] }[],
+  ) {
+    let totalExpensesDecimal = new Prisma.Decimal(0);
+    for (const wo of workOrders) {
+      for (const eg of wo.expenseOrders) {
+        for (const item of eg.items) {
+          totalExpensesDecimal = totalExpensesDecimal.add(item.total);
+        }
+      }
+    }
+    const orderTotalNum = Number(orderTotal.toString());
+    const totalExpenses = Number(totalExpensesDecimal.toString());
+    const utility = orderTotalNum - totalExpenses;
+    const utilityPercentage = orderTotalNum > 0 ? (utility / orderTotalNum) * 100 : 0;
+    return { totalExpenses, utility, utilityPercentage };
+  }
+
+  async getOrderProfitability(orderId: string): Promise<OrderProfitabilityDto> {
+    const order = await this.ordersRepository.getOrderProfitabilityData(orderId);
+    if (!order) {
+      throw new NotFoundException(`Order with ID ${orderId} not found`);
+    }
+
+    const expenseOrders: ExpenseOrderSummaryDto[] = [];
+    for (const wo of order.workOrders) {
+      for (const eg of wo.expenseOrders) {
+        const itemsTotal = eg.items.reduce(
+          (sum, item) => sum + Number(item.total.toString()),
+          0,
+        );
+        expenseOrders.push({
+          id: eg.id,
+          ogNumber: eg.ogNumber,
+          status: eg.status,
+          workOrderNumber: wo.workOrderNumber,
+          itemsTotal,
+        });
+      }
+    }
+
+    const { totalExpenses, utility, utilityPercentage } = this._calcProfitability(
+      order.total,
+      order.workOrders,
+    );
+
+    return {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      orderTotal: Number(order.total.toString()),
+      expenseOrders,
+      totalExpenses,
+      utility,
+      utilityPercentage,
+    };
+  }
+
+  async getProfitabilityList(filters: {
+    search?: string;
+    status?: string;
+    orderDateFrom?: string;
+    orderDateTo?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedProfitabilityDto> {
+    const page = filters.page ?? 1;
+    const limit = filters.limit ?? 20;
+
+    const { orders, total } = await this.ordersRepository.getProfitabilityList({
+      search: filters.search,
+      status: filters.status,
+      orderDateFrom: filters.orderDateFrom ? new Date(filters.orderDateFrom) : undefined,
+      orderDateTo: filters.orderDateTo ? new Date(filters.orderDateTo) : undefined,
+      page,
+      limit,
+    });
+
+    const data: OrderProfitabilityListItemDto[] = orders.map((order) => {
+      const { totalExpenses, utility, utilityPercentage } = this._calcProfitability(
+        order.total,
+        order.workOrders,
+      );
+      return {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        clientName: order.client.name,
+        orderTotal: Number(order.total.toString()),
+        totalExpenses,
+        utility,
+        utilityPercentage,
+        status: order.status,
+        orderDate: order.orderDate.toISOString(),
+      };
+    });
+
+    return { data, total, page, limit };
   }
 }

@@ -53,4 +53,12 @@ export class CreatePaymentDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({
+    description: 'ID del archivo de comprobante de pago',
+    example: 'uuid-del-archivo',
+  })
+  @IsOptional()
+  @IsString()
+  receiptFileId?: string;
 }
