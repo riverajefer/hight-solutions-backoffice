@@ -133,6 +133,8 @@ export default function OrderFlowDiagram({ data }: OrderFlowDiagramProps) {
           durationMs: 0,
           isOngoing: false,
           _utilityColor: utilityColor,
+          _totalIncome: profitabilityData.orderTotal,
+          _totalExpenses: profitabilityData.totalExpenses,
         } as Record<string, unknown>,
         selectable: false,
         draggable: true,

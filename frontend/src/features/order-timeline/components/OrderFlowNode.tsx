@@ -19,6 +19,13 @@ import BrushOutlinedIcon from '@mui/icons-material/BrushOutlined';
 import AssignmentIndOutlinedIcon from '@mui/icons-material/AssignmentIndOutlined';
 import HowToRegOutlinedIcon from '@mui/icons-material/HowToRegOutlined';
 import AdminPanelSettingsOutlinedIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
+import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined';
+import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
+import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined';
+import InsertDriveFileOutlinedIcon from '@mui/icons-material/InsertDriveFileOutlined';
+import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
+import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+import MoneyOffIcon from '@mui/icons-material/MoneyOff';
 import type { OrderTreeNode } from '../types/order-timeline.types';
 
 function formatDuration(ms: number): string {
@@ -275,6 +282,41 @@ function OrderFlowNode({ data }: NodeProps) {
                   </Typography>
                 </Box>
               )}
+
+              {nodeData.deliveryDate && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <LocalShippingOutlinedIcon sx={{ fontSize: 11, color: theme.palette.text.disabled, flexShrink: 0 }} />
+                  <Typography
+                    variant="caption"
+                    sx={{ fontSize: '0.68rem', color: theme.palette.text.secondary, lineHeight: 1.3 }}
+                  >
+                    Entrega: {new Date(nodeData.deliveryDate).toLocaleDateString('es-CO', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </Typography>
+                </Box>
+              )}
+
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.25 }}>
+                {nodeData.itemsCount != null && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                    <Inventory2OutlinedIcon sx={{ fontSize: 10, color: theme.palette.text.disabled }} />
+                    <Typography variant="caption" sx={{ fontSize: '0.65rem', color: theme.palette.text.secondary }}>
+                      {nodeData.itemsCount} items
+                    </Typography>
+                  </Box>
+                )}
+                {nodeData.workOrdersCount != null && nodeData.workOrdersCount > 0 && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                    <BuildIcon sx={{ fontSize: 10, color: theme.palette.text.disabled }} />
+                    <Typography variant="caption" sx={{ fontSize: '0.65rem', color: theme.palette.text.secondary }}>
+                      {nodeData.workOrdersCount} OT
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
             </Box>
           )}
 
@@ -331,6 +373,38 @@ function OrderFlowNode({ data }: NodeProps) {
                   </Typography>
                 </Box>
               )}
+
+              {nodeData.fileName && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <InsertDriveFileOutlinedIcon sx={{ fontSize: 11, color: theme.palette.text.disabled, flexShrink: 0 }} />
+                  <Typography
+                    noWrap
+                    variant="caption"
+                    sx={{ fontSize: '0.68rem', color: theme.palette.text.secondary, lineHeight: 1.3 }}
+                  >
+                    {nodeData.fileName}
+                  </Typography>
+                </Box>
+              )}
+
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.25 }}>
+                {nodeData.otItemsCount != null && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                    <Inventory2OutlinedIcon sx={{ fontSize: 10, color: theme.palette.text.disabled }} />
+                    <Typography variant="caption" sx={{ fontSize: '0.65rem', color: theme.palette.text.secondary }}>
+                      {nodeData.otItemsCount} items
+                    </Typography>
+                  </Box>
+                )}
+                {nodeData.expenseOrdersCount != null && nodeData.expenseOrdersCount > 0 && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                    <ReceiptLongOutlinedIcon sx={{ fontSize: 10, color: theme.palette.text.disabled }} />
+                    <Typography variant="caption" sx={{ fontSize: '0.65rem', color: theme.palette.text.secondary }}>
+                      {nodeData.expenseOrdersCount} OG
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
             </Box>
           )}
 
@@ -410,6 +484,65 @@ function OrderFlowNode({ data }: NodeProps) {
                     sx={{ fontSize: '0.68rem', color: '#22D3EE', fontWeight: 600, lineHeight: 1.3 }}
                   >
                     Auth: {nodeData.authorizedByName}
+                  </Typography>
+                </Box>
+              )}
+
+              {(nodeData.expenseTypeName || nodeData.expenseSubcategoryName) && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <CategoryOutlinedIcon sx={{ fontSize: 11, color: theme.palette.text.disabled, flexShrink: 0 }} />
+                  <Typography
+                    noWrap
+                    variant="caption"
+                    sx={{ fontSize: '0.68rem', color: theme.palette.text.secondary, lineHeight: 1.3 }}
+                  >
+                    {[nodeData.expenseTypeName, nodeData.expenseSubcategoryName].filter(Boolean).join(' / ')}
+                  </Typography>
+                </Box>
+              )}
+
+              {nodeData.ogItemsCount != null && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3, mt: 0.25 }}>
+                  <Inventory2OutlinedIcon sx={{ fontSize: 10, color: theme.palette.text.disabled }} />
+                  <Typography variant="caption" sx={{ fontSize: '0.65rem', color: theme.palette.text.secondary }}>
+                    {nodeData.ogItemsCount} items
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          )}
+
+          {/* UTIL metadata: desglose ingreso / gastos */}
+          {isUtil && (nodeData._totalIncome != null || nodeData._totalExpenses != null) && (
+            <Box
+              sx={{
+                mt: 0.75,
+                pt: 0.75,
+                borderTop: `1px dashed ${alpha(effectiveColor, 0.25)}`,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 0.4,
+              }}
+            >
+              {nodeData._totalIncome != null && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <AttachMoneyIcon sx={{ fontSize: 11, color: '#10B981', flexShrink: 0 }} />
+                  <Typography
+                    variant="caption"
+                    sx={{ fontSize: '0.68rem', color: '#10B981', fontWeight: 600, lineHeight: 1.3 }}
+                  >
+                    Ingreso: ${(nodeData._totalIncome as number).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </Typography>
+                </Box>
+              )}
+              {nodeData._totalExpenses != null && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <MoneyOffIcon sx={{ fontSize: 11, color: '#EF4444', flexShrink: 0 }} />
+                  <Typography
+                    variant="caption"
+                    sx={{ fontSize: '0.68rem', color: '#EF4444', fontWeight: 600, lineHeight: 1.3 }}
+                  >
+                    Gastos: ${(nodeData._totalExpenses as number).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </Typography>
                 </Box>
               )}

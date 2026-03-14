@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -32,6 +32,8 @@ type FormValues = z.infer<typeof formSchema>;
 
 const ProductionOrderFormPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const preselectedWorkOrderId = searchParams.get('workOrderId') ?? '';
   const createOrder = useCreateProductionOrder();
   const templatesQuery = useProductTemplates({ isActive: true });
   const { workOrdersQuery } = useWorkOrders();
@@ -44,7 +46,7 @@ const ProductionOrderFormPage: React.FC = () => {
     resolver: zodResolver(formSchema),
     defaultValues: {
       templateId: '',
-      workOrderId: '',
+      workOrderId: preselectedWorkOrderId,
       notes: '',
     },
   });
@@ -89,27 +91,6 @@ const ProductionOrderFormPage: React.FC = () => {
             </Typography>
             <Stack spacing={2}>
               <Controller
-                name="templateId"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    select
-                    label="Plantilla de producto"
-                    fullWidth
-                    error={!!errors.templateId}
-                    helperText={errors.templateId?.message}
-                    disabled={templatesQuery.isLoading}
-                  >
-                    {templates.map((t: any) => (
-                      <MenuItem key={t.id} value={t.id}>
-                        {t.name} — {t.category}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                )}
-              />
-              <Controller
                 name="workOrderId"
                 control={control}
                 render={({ field }) => (
@@ -125,6 +106,27 @@ const ProductionOrderFormPage: React.FC = () => {
                     {workOrders.map((wo: any) => (
                       <MenuItem key={wo.id} value={wo.id}>
                         {wo.workOrderNumber} — {wo.order?.client?.name || 'Sin cliente'}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                )}
+              />
+              <Controller
+                name="templateId"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    select
+                    label="Plantilla de producto"
+                    fullWidth
+                    error={!!errors.templateId}
+                    helperText={errors.templateId?.message}
+                    disabled={templatesQuery.isLoading}
+                  >
+                    {templates.map((t: any) => (
+                      <MenuItem key={t.id} value={t.id}>
+                        {t.name} — {t.category}
                       </MenuItem>
                     ))}
                   </TextField>
