@@ -85,10 +85,21 @@ export class WhatsappService {
       `Sending WhatsApp template "${templateName}" to ${normalizedTo} (original: ${to})`,
     );
 
+    // Sanitizar parámetros: Meta rechaza null/undefined/empty con error #132018
+    const sanitizedParams = params.map((value) => {
+      if (value === null || value === undefined || value === '') {
+        this.logger.warn(
+          `Template "${templateName}": body param is ${value === '' ? 'empty' : String(value)}, replacing with "-"`,
+        );
+        return '-';
+      }
+      return String(value);
+    });
+
     const components: Record<string, unknown>[] = [
       {
         type: 'body',
-        parameters: params.map((value) => ({
+        parameters: sanitizedParams.map((value) => ({
           type: 'text',
           text: value,
         })),
@@ -117,6 +128,10 @@ export class WhatsappService {
         components,
       },
     };
+
+    this.logger.debug(
+      `WhatsApp API payload for "${templateName}": ${JSON.stringify(body.template, null, 2)}`,
+    );
 
     try {
       const response = await fetch(this.baseUrl, {
@@ -356,7 +371,7 @@ export class WhatsappService {
       'solicitud_edicion_op_v2',
       [nombreSolicitante, rolSolicitante, numeroOrden, motivo],
       'es_CO',
-      [{ index: 0, text: orderId }], // sufijo dinámico del botón URL "Ver Orden"
+      [{ index: 2, text: orderId }], // sufijo dinámico del botón URL "Ver Orden" (índice 2: después de 2 quick-reply)
     );
 
     if (!messageId) {
