@@ -1,5 +1,8 @@
 import axiosInstance from './axios';
 import type {
+  StepDefinition,
+  UpdateFieldSchemaPayload,
+  UpdateFieldSchemaResponse,
   ProductTemplate,
   ProductTemplateSummary,
   ProductionOrder,
@@ -15,8 +18,16 @@ export const productionApi = {
     return data;
   },
 
-  getStepDefinitionById: async (id: string) => {
+  getStepDefinitionById: async (id: string): Promise<StepDefinition> => {
     const { data } = await axiosInstance.get(`/step-definitions/${id}`);
+    return data;
+  },
+
+  updateStepDefinitionSchema: async (
+    id: string,
+    payload: UpdateFieldSchemaPayload,
+  ): Promise<UpdateFieldSchemaResponse> => {
+    const { data } = await axiosInstance.patch(`/step-definitions/${id}/field-schema`, payload);
     return data;
   },
 

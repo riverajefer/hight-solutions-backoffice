@@ -19,7 +19,7 @@ import {
   Alert,
   Collapse,
 } from '@mui/material';
-import { DatePicker } from '@mui/x-date-pickers';
+import { DatePicker, DateTimePicker } from '@mui/x-date-pickers';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -34,6 +34,7 @@ import {
 } from '../hooks/useProduction';
 import { useAuthStore } from '../../../store/authStore';
 import { useSuppliers } from '../../suppliers/hooks/useSuppliers';
+import { useClients } from '../../clients/hooks/useClients';
 import { PERMISSIONS, ROUTES } from '../../../utils/constants';
 import {
   resolveEffectiveFields,
@@ -91,34 +92,79 @@ const SupplierFieldInput: React.FC<FieldInputProps> = ({ field, value, onChange,
   );
 };
 
-const FieldInput: React.FC<FieldInputProps> = ({ field, value, onChange, readOnly }) => {
-  const isSupplierField =
-    field.key.toLowerCase().includes('proveedor') ||
-    field.label.toLowerCase().includes('proveedor') ||
-    field.key.toLowerCase().includes('destino') ||
-    field.label.toLowerCase().includes('destino');
+const ClientFieldInput: React.FC<FieldInputProps> = ({ field, value, onChange, readOnly }) => {
+  const { clientsQuery } = useClients();
 
-  if (isSupplierField) {
+  return (
+    <TextField
+      select
+      label={field.label}
+      value={value ?? ''}
+      onChange={(e) => onChange(e.target.value)}
+      size="small"
+      fullWidth
+      disabled={readOnly || clientsQuery.isLoading}
+      required={field.required}
+    >
+      {(clientsQuery.data ?? []).map((c) => (
+        <MenuItem key={c.id} value={c.name}>
+          {c.name}
+        </MenuItem>
+      ))}
+    </TextField>
+  );
+};
+
+const FieldInput: React.FC<FieldInputProps> = ({ field, value, onChange, readOnly }) => {
+  // ── Explicit type checks (new field types) ─────────────────────────────────
+  if (field.type === 'supplier') {
     return <SupplierFieldInput field={field} value={value} onChange={onChange} readOnly={readOnly} />;
   }
 
-  const isDateField =
-    field.key.toLowerCase().includes('fecha') ||
-    field.label.toLowerCase().includes('fecha');
+  if (field.type === 'client') {
+    return <ClientFieldInput field={field} value={value} onChange={onChange} readOnly={readOnly} />;
+  }
 
-  if (isDateField) {
+  if (field.type === 'textarea') {
+    return (
+      <TextField
+        label={field.label}
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value)}
+        size="small"
+        fullWidth
+        multiline
+        rows={3}
+        disabled={readOnly}
+        required={field.required}
+        placeholder={field.placeholder}
+      />
+    );
+  }
+
+  if (field.type === 'date') {
     return (
       <DatePicker
         label={field.label}
         value={value ? new Date(value) : null}
-        onChange={(newValue) => onChange(newValue ? newValue.toISOString() : null)}
+        onChange={(newValue) => onChange(newValue ? (newValue as Date).toISOString() : null)}
         disabled={readOnly}
         slotProps={{
-          textField: {
-            size: 'small',
-            fullWidth: true,
-            required: field.required,
-          },
+          textField: { size: 'small', fullWidth: true, required: field.required },
+        }}
+      />
+    );
+  }
+
+  if (field.type === 'datetime') {
+    return (
+      <DateTimePicker
+        label={field.label}
+        value={value ? new Date(value) : null}
+        onChange={(newValue) => onChange(newValue ? (newValue as Date).toISOString() : null)}
+        disabled={readOnly}
+        slotProps={{
+          textField: { size: 'small', fullWidth: true, required: field.required },
         }}
       />
     );
@@ -139,6 +185,7 @@ const FieldInput: React.FC<FieldInputProps> = ({ field, value, onChange, readOnl
       />
     );
   }
+
   if (field.type === 'select' && field.options) {
     return (
       <TextField
@@ -159,16 +206,63 @@ const FieldInput: React.FC<FieldInputProps> = ({ field, value, onChange, readOnl
       </TextField>
     );
   }
+
+  if (field.type === 'number' || field.type === 'quantity' || field.type === 'measurement') {
+    return (
+      <TextField
+        label={field.label}
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
+        size="small"
+        fullWidth
+        type="number"
+        disabled={readOnly}
+        required={field.required}
+        placeholder={field.placeholder}
+      />
+    );
+  }
+
+  // ── Heuristic fallbacks (backward compat for orders before explicit types) ──
+  const isSupplierField =
+    field.key.toLowerCase().includes('proveedor') ||
+    field.label.toLowerCase().includes('proveedor') ||
+    field.key.toLowerCase().includes('destino') ||
+    field.label.toLowerCase().includes('destino');
+
+  if (isSupplierField) {
+    return <SupplierFieldInput field={field} value={value} onChange={onChange} readOnly={readOnly} />;
+  }
+
+  const isDateField =
+    field.key.toLowerCase().includes('fecha') ||
+    field.label.toLowerCase().includes('fecha');
+
+  if (isDateField) {
+    return (
+      <DatePicker
+        label={field.label}
+        value={value ? new Date(value) : null}
+        onChange={(newValue) => onChange(newValue ? (newValue as Date).toISOString() : null)}
+        disabled={readOnly}
+        slotProps={{
+          textField: { size: 'small', fullWidth: true, required: field.required },
+        }}
+      />
+    );
+  }
+
+  // Default: text field
   return (
     <TextField
       label={field.label}
       value={value ?? ''}
-      onChange={(e) => onChange(field.type === 'number' ? Number(e.target.value) : e.target.value)}
+      onChange={(e) => onChange(e.target.value)}
       size="small"
       fullWidth
-      type={field.type === 'number' ? 'number' : 'text'}
       disabled={readOnly}
       required={field.required}
+      placeholder={field.placeholder}
     />
   );
 };

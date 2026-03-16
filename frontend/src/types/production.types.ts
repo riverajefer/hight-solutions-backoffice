@@ -21,13 +21,52 @@ export type ProductionStepStatus =
   | 'SKIPPED'
   | 'BLOCKED';
 
+export type FieldType =
+  | 'text'
+  | 'number'
+  | 'boolean'
+  | 'select'
+  | 'textarea'
+  | 'date'
+  | 'datetime'
+  | 'supplier'
+  | 'client'
+  | 'material'
+  | 'measurement'
+  | 'quantity';
+
+export interface FieldValidation {
+  min?: number;
+  max?: number;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+}
+
 export interface FieldDef {
   key: string;
   label: string;
-  type: 'text' | 'number' | 'boolean' | 'select';
+  type: FieldType;
   stage: 'specification' | 'execution';
   required: boolean;
+  order?: number;
+  placeholder?: string;
+  defaultValue?: any;
   options?: string[];
+  validation?: FieldValidation;
+}
+
+export interface UpdateFieldSchemaPayload {
+  fieldSchema: { fields: FieldDef[] };
+}
+
+export interface UpdateFieldSchemaResponse {
+  id: string;
+  type: string;
+  name: string;
+  description?: string;
+  fieldSchema: { fields: FieldDef[] };
+  warning?: string;
 }
 
 export interface StepDefinition {

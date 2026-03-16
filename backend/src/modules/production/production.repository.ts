@@ -97,6 +97,27 @@ export class ProductionRepository {
     });
   }
 
+  updateStepDefinitionFieldSchema(id: string, fieldSchema: object) {
+    return this.prisma.stepDefinition.update({
+      where: { id },
+      data: { fieldSchema },
+      select: { id: true, type: true, name: true, description: true, fieldSchema: true },
+    });
+  }
+
+  findStepDefinitionWithOrderSteps(id: string) {
+    return this.prisma.stepDefinition.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        productionOrderSteps: {
+          take: 1,
+          select: { id: true },
+        },
+      },
+    });
+  }
+
   // ─── Product Templates ───────────────────────────────────────────────────────
 
   findAllTemplates(filters: { category?: string; isActive?: boolean }) {

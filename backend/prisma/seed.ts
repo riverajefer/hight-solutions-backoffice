@@ -281,6 +281,7 @@ async function main() {
 
     // Production Module — Step Definitions
     { name: 'read_step_definitions', description: 'Ver definiciones de pasos de producción' },
+    { name: 'update_step_definitions', description: 'Editar el fieldSchema de definiciones de pasos' },
 
     // Production Module — Órdenes de Producción
     { name: 'read_production_orders', description: 'Ver órdenes de producción' },

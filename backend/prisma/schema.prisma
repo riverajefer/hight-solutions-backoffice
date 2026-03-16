@@ -1378,19 +1378,6 @@ model InventoryMovement {
 // MÓDULO DE PRODUCCIÓN - PLANTILLAS Y ÓRDENES DE PRODUCCIÓN
 // =============================================================================
 
-enum StepType {
-  PAPEL
-  PLANCHAS
-  CARTON
-  MUESTRA_COLOR
-  PLASTIFICADO
-  CORTE
-  TROQUEL
-  REVISION
-  ARMADO
-  EMPAQUE
-}
-
 enum ComponentPhase {
   impresion
   material
@@ -1413,10 +1400,10 @@ enum ProductionStepStatus {
   BLOCKED
 }
 
-// Catálogo de tipos de paso atómico (9 tipos predefinidos, reutilizables)
+// Catálogo de tipos de paso de producción (dinámico — convention: UPPERCASE_SNAKE_CASE)
 model StepDefinition {
   id          String   @id @default(uuid())
-  type        StepType @unique
+  type        String   @unique // Convention: UPPERCASE_SNAKE_CASE (e.g. PAPEL, BARNIZADO_UV)
   name        String
   description String?
   fieldSchema Json     @map("field_schema") // { fields: [{ key, label, type, stage, required, options? }] }

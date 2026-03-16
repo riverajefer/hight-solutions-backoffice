@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { productionApi } from '../../../api/production.api';
-import type { ProductionOrderStatus } from '../../../types/production.types';
+import type { ProductionOrderStatus, UpdateFieldSchemaPayload } from '../../../types/production.types';
 
 export const QUERY_KEYS = {
   STEP_DEFINITIONS: ['step-definitions'],
+  STEP_DEFINITION: (id: string) => ['step-definitions', id],
   TEMPLATES: (filters?: object) => ['product-templates', filters],
   TEMPLATE: (id: string) => ['product-templates', id],
   ORDERS: (filters?: object) => ['production-orders', filters],
@@ -15,6 +16,39 @@ export function useStepDefinitions() {
   return useQuery({
     queryKey: QUERY_KEYS.STEP_DEFINITIONS,
     queryFn: productionApi.getStepDefinitions,
+  });
+}
+
+export function useStepDefinition(id: string) {
+  return useQuery({
+    queryKey: QUERY_KEYS.STEP_DEFINITION(id),
+    queryFn: () => productionApi.getStepDefinitionById(id),
+    enabled: !!id,
+  });
+}
+
+export function useUpdateStepDefinitionSchema(id: string) {
+  const queryClient = useQueryClient();
+  const { enqueueSnackbar } = useSnackbar();
+
+  return useMutation({
+    mutationFn: (payload: UpdateFieldSchemaPayload) =>
+      productionApi.updateStepDefinitionSchema(id, payload),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.STEP_DEFINITIONS });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.STEP_DEFINITION(id) });
+      if (data.warning) {
+        enqueueSnackbar(data.warning, { variant: 'warning', autoHideDuration: 8000 });
+      } else {
+        enqueueSnackbar('Esquema de campos actualizado exitosamente', { variant: 'success' });
+      }
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(
+        error?.response?.data?.message || 'Error al actualizar el esquema de campos',
+        { variant: 'error' },
+      );
+    },
   });
 }
 

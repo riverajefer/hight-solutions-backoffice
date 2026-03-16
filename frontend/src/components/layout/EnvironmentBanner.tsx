@@ -30,9 +30,9 @@ export const EnvironmentBanner: FC = () => {
     top: 0,
     width: '100%',
     zIndex: 9999,
-    padding: '8px 16px',
+    padding: '3px 16px',
     textAlign: 'center',
-    fontSize: '14px',
+    fontSize: '12px',
     fontWeight: 500,
     color: textColorClass === 'text-black' ? '#000' : '#fff',
     backgroundColor:

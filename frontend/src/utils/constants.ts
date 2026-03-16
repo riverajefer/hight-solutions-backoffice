@@ -132,6 +132,7 @@ export const PERMISSIONS = {
   UPDATE_PRODUCT_TEMPLATES: 'update_product_templates',
   DELETE_PRODUCT_TEMPLATES: 'delete_product_templates',
   READ_STEP_DEFINITIONS: 'read_step_definitions',
+  UPDATE_STEP_DEFINITIONS: 'update_step_definitions',
   // Production Module — Órdenes de Producción
   READ_PRODUCTION_ORDERS: 'read_production_orders',
   CREATE_PRODUCTION_ORDERS: 'create_production_orders',
@@ -248,6 +249,8 @@ export const ROUTES = {
   PRODUCTION_ORDERS: '/production/orders',
   PRODUCTION_ORDERS_CREATE: '/production/orders/new',
   PRODUCTION_ORDERS_DETAIL: '/production/orders/:id',
+  STEP_DEFINITIONS: '/production/step-definitions',
+  STEP_DEFINITIONS_BUILDER: '/production/step-definitions/:id/builder',
 };
 
 export const DEFAULT_PAGINATION = {
