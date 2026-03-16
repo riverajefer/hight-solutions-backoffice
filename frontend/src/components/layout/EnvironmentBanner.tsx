@@ -13,7 +13,7 @@ export const EnvironmentBanner: FC = () => {
   
   if (['staging', 'stage'].includes(env)) {
     bgColorClass = 'bg-orange-500';
-    message = '⚠️ Entorno de pruebas (STAGING) - Los cambios realizados aquí no afectan el sistema en producción.';
+    message = '⚠️ Usted está en un sistema de pruebas';
   } else if (env === 'qa') {
     bgColorClass = 'bg-yellow-400';
     textColorClass = 'text-black';
