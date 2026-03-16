@@ -81,6 +81,10 @@ export class WhatsappWebhookController {
     @RawBody() rawBody: Buffer,
     @Headers('x-hub-signature-256') signature: string,
   ): Promise<{ status: string }> {
+    this.logger.debug(
+      `Webhook received: ${JSON.stringify(body?.entry?.[0]?.changes?.[0]?.value?.messages ?? 'no messages')}`,
+    );
+
     // 1. Validar firma de Meta (protege contra payloads falsos)
     this.webhookService.verifyMetaSignature(rawBody, signature);
 
