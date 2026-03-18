@@ -2,9 +2,15 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import {
+  ApprovalRequestHandler,
+  ApprovalRequestInfo,
+  ApprovalRequestRegistry,
+} from '../whatsapp/approval-request-registry';
 import {
   ApproveClientOwnershipAuthRequestDto,
   RejectClientOwnershipAuthRequestDto,
@@ -19,11 +25,114 @@ const USER_SELECT = {
 } as const;
 
 @Injectable()
-export class ClientOwnershipAuthRequestsService {
+export class ClientOwnershipAuthRequestsService implements OnModuleInit, ApprovalRequestHandler {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly approvalRegistry: ApprovalRequestRegistry,
   ) {}
+
+  onModuleInit() {
+    this.approvalRegistry.register('CLIENT_OWNERSHIP_AUTH', this);
+  }
+
+  // ─── ApprovalRequestHandler interface ───
+
+  async findPendingRequest(requestId: string): Promise<ApprovalRequestInfo | null> {
+    const request = await this.prisma.clientOwnershipAuthRequest.findUnique({
+      where: { id: requestId },
+      include: { order: { select: { orderNumber: true } } },
+    });
+    if (!request) return null;
+    return {
+      id: request.id,
+      status: request.status,
+      requestedById: request.requestedById,
+      displayLabel: `autorización de cliente - Orden ${request.order.orderNumber}`,
+    };
+  }
+
+  async approveViaWhatsApp(requestId: string, reviewerId: string): Promise<void> {
+    const request = await this.prisma.clientOwnershipAuthRequest.update({
+      where: { id: requestId },
+      data: {
+        status: EditRequestStatus.APPROVED,
+        reviewedById: reviewerId,
+        reviewedAt: new Date(),
+        reviewNotes: 'Aprobado vía WhatsApp',
+      },
+      include: { order: { select: { id: true, orderNumber: true } } },
+    });
+
+    await this.prisma.order.update({
+      where: { id: request.orderId },
+      data: { clientOwnershipAuthStatus: EditRequestStatus.APPROVED },
+    });
+
+    await this.notificationsService.create({
+      userId: request.requestedById,
+      type: NotificationType.CLIENT_OWNERSHIP_AUTH_APPROVED,
+      title: 'Autorización aprobada',
+      message: `La autorización para la orden ${request.order.orderNumber} fue aprobada. La orden puede proceder normalmente.`,
+      relatedId: request.orderId,
+      relatedType: 'Order',
+    });
+  }
+
+  async rejectViaWhatsApp(requestId: string, reviewerId: string): Promise<void> {
+    const request = await this.prisma.clientOwnershipAuthRequest.update({
+      where: { id: requestId },
+      data: {
+        status: EditRequestStatus.REJECTED,
+        reviewedById: reviewerId,
+        reviewedAt: new Date(),
+        reviewNotes: 'Rechazado vía WhatsApp',
+      },
+      include: { order: { select: { id: true, orderNumber: true } } },
+    });
+
+    await this.prisma.order.update({
+      where: { id: request.orderId },
+      data: { clientOwnershipAuthStatus: EditRequestStatus.REJECTED },
+    });
+
+    await this.notificationsService.create({
+      userId: request.requestedById,
+      type: NotificationType.CLIENT_OWNERSHIP_AUTH_REJECTED,
+      title: 'Autorización rechazada',
+      message: `La solicitud de autorización para la orden ${request.order.orderNumber} fue rechazada. La orden quedará bloqueada.`,
+      relatedId: request.orderId,
+      relatedType: 'Order',
+    });
+  }
+
+  /**
+   * Busca reviewer por teléfono validando permiso approve_client_ownership_auth
+   * (en vez de solo rol admin).
+   */
+  async findReviewerByPhone(phone: string): Promise<{ id: string } | null> {
+    const clean = phone.replace(/[^\d]/g, '');
+    const variants = [
+      clean,
+      `+${clean}`,
+      clean.startsWith('57') ? clean.slice(2) : null,
+    ].filter(Boolean) as string[];
+
+    return this.prisma.user.findFirst({
+      where: {
+        isActive: true,
+        phone: { in: variants },
+        role: {
+          permissions: {
+            some: { permission: { name: 'approve_client_ownership_auth' } },
+          },
+        },
+      },
+      select: { id: true },
+    });
+  }
+
+  // ─── Domain methods ───
 
   /**
    * Verifica si el creador de la orden necesita autorización para asociar el cliente.

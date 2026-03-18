@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHmac } from 'crypto';
 import { PrismaService } from '../../database/prisma.service';
+import { ApprovalRequestType } from '../../generated/prisma';
 
 @Injectable()
 export class WhatsappService {
@@ -387,6 +388,7 @@ export class WhatsappService {
         data: {
           messageId,
           requestId,
+          requestType: ApprovalRequestType.ORDER_EDIT,
           adminPhone: normalizedPhone,
           expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000), // 48 horas
         },
@@ -396,6 +398,77 @@ export class WhatsappService {
       );
     } catch (error) {
       // No es crítico: si falla el guardado, el admin puede seguir gestionando desde el sistema
+      this.logger.error(
+        `Failed to save WhatsApp action context for messageId=${messageId}: ${error.message}`,
+      );
+    }
+  }
+
+  /**
+   * Envía notificación genérica de solicitud de aprobación vía WhatsApp.
+   * Usa el template "solicitud_aprobacion_v1" con estructura:
+   *
+   * Body: "Nueva solicitud de aprobación: {{1}} ({{2}}) solicita {{3}}.
+   *        Motivo: {{4}}"
+   *
+   * Botones (en orden de índice):
+   *   0 → Quick Reply "Autorizar" (payload: APPROVE)
+   *   1 → Quick Reply "Rechazar"  (payload: REJECT)
+   *   2 → URL "Ver detalle" (base + {{1}} sufijo dinámico con requestId)
+   *
+   * Guarda WhatsappActionContext con requestType para que el webhook
+   * despache al handler correcto vía ApprovalRequestRegistry.
+   *
+   * NOTA: Requiere que el template esté aprobado por Meta.
+   * Hasta entonces, usar notificarSolicitudConBotones() para ORDER_EDIT.
+   */
+  async sendApprovalNotification(params: {
+    telefono: string;
+    requesterName: string;
+    requesterRole: string;
+    actionDescription: string;
+    reason: string;
+    requestId: string;
+    requestType: ApprovalRequestType;
+  }): Promise<void> {
+    const normalizedPhone = this.normalizePhone(params.telefono);
+
+    const messageId = await this.sendTemplateMessage(
+      params.telefono,
+      'solicitud_aprobacion_v1',
+      [
+        params.requesterName,
+        params.requesterRole,
+        params.actionDescription,
+        params.reason,
+      ],
+      'es_CO',
+      // Botón URL "Ver detalle" (índice 2, después de 2 quick-reply)
+      // El sufijo es el requestId que se concatena a la URL base del template
+      [{ index: 2, text: params.requestId }],
+    );
+
+    if (!messageId) {
+      this.logger.warn(
+        `Could not save WhatsApp action context for request ${params.requestId}: no messageId returned`,
+      );
+      return;
+    }
+
+    try {
+      await this.prisma.whatsappActionContext.create({
+        data: {
+          messageId,
+          requestId: params.requestId,
+          requestType: params.requestType,
+          adminPhone: normalizedPhone,
+          expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000), // 48 horas
+        },
+      });
+      this.logger.debug(
+        `WhatsApp action context saved: messageId=${messageId} requestId=${params.requestId} type=${params.requestType}`,
+      );
+    } catch (error) {
       this.logger.error(
         `Failed to save WhatsApp action context for messageId=${messageId}: ${error.message}`,
       );

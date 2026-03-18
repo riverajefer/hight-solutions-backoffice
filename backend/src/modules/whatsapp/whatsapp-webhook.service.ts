@@ -8,7 +8,8 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WhatsappService } from './whatsapp.service';
-import { EditRequestStatus, NotificationType } from '../../generated/prisma';
+import { ApprovalRequestRegistry } from './approval-request-registry';
+import { EditRequestStatus, NotificationType, ApprovalRequestType } from '../../generated/prisma';
 
 @Injectable()
 export class WhatsappWebhookService {
@@ -21,6 +22,7 @@ export class WhatsappWebhookService {
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
     private readonly whatsappService: WhatsappService,
+    private readonly approvalRegistry: ApprovalRequestRegistry,
   ) {
     this.appSecret =
       this.configService.get<string>('whatsapp.appSecret') || '';
@@ -190,7 +192,28 @@ export class WhatsappWebhookService {
       return;
     }
 
-    // 3. Buscar la solicitud en DB
+    // 3. Despachar según requestType
+    const requestType = ctx.requestType || ApprovalRequestType.ORDER_EDIT;
+
+    if (requestType === ApprovalRequestType.ORDER_EDIT) {
+      // Path legacy: lógica directa para ORDER_EDIT (backward compatible)
+      await this.handleOrderEditApproval(ctx, fromPhone, isApprove, contextMessageId);
+    } else {
+      // Path genérico: delegar al handler registrado
+      await this.handleGenericApproval(ctx, requestType, fromPhone, isApprove);
+    }
+  }
+
+  /**
+   * Path legacy para solicitudes de edición de orden.
+   * Mantiene la lógica existente sin cambios para backward compatibility.
+   */
+  private async handleOrderEditApproval(
+    ctx: { requestId: string; messageId: string },
+    fromPhone: string,
+    isApprove: boolean,
+    contextMessageId: string,
+  ): Promise<void> {
     const request = await this.prisma.orderEditRequest.findFirst({
       where: { id: ctx.requestId },
       include: {
@@ -219,7 +242,6 @@ export class WhatsappWebhookService {
       return;
     }
 
-    // 4. Buscar el admin por teléfono
     const admin = await this.findAdminByPhone(fromPhone);
 
     if (!admin) {
@@ -230,19 +252,95 @@ export class WhatsappWebhookService {
       return;
     }
 
-    // 5. Ejecutar acción
     if (isApprove) {
       await this.approveRequest(request, admin.id, fromPhone);
     } else {
       await this.rejectRequest(request, admin.id, fromPhone);
     }
 
-    // 6. Eliminar contexto (uso único — evita re-procesamiento)
     await this.prisma.whatsappActionContext
       .delete({ where: { messageId: contextMessageId } })
       .catch(() => {
         /* ignorar si ya fue eliminado */
       });
+  }
+
+  /**
+   * Path genérico para cualquier tipo de solicitud de aprobación.
+   * Delega al handler registrado en ApprovalRequestRegistry.
+   * Soporta findReviewerByPhone custom por handler (para módulos que
+   * validan por permiso en vez de por rol admin).
+   */
+  private async handleGenericApproval(
+    ctx: { requestId: string; messageId: string },
+    requestType: string,
+    fromPhone: string,
+    isApprove: boolean,
+  ): Promise<void> {
+    const handler = this.approvalRegistry.getHandler(requestType);
+    if (!handler) {
+      this.logger.warn(`No handler registered for request type: ${requestType}`);
+      await this.whatsappService.sendTextMessage(
+        fromPhone,
+        '⚠️ Tipo de solicitud no reconocido.',
+      );
+      return;
+    }
+
+    const requestInfo = await handler.findPendingRequest(ctx.requestId);
+    if (!requestInfo) {
+      await this.whatsappService.sendTextMessage(
+        fromPhone,
+        '⚠️ Solicitud no encontrada.',
+      );
+      return;
+    }
+
+    if (requestInfo.status !== 'PENDING') {
+      const statusLabel = requestInfo.status === 'APPROVED' ? 'aprobada' : 'rechazada';
+      await this.whatsappService.sendTextMessage(
+        fromPhone,
+        `ℹ️ La solicitud para ${requestInfo.displayLabel} ya fue ${statusLabel} anteriormente.`,
+      );
+      return;
+    }
+
+    // Usar findReviewerByPhone del handler si existe, o findAdminByPhone por defecto
+    const reviewer = handler.findReviewerByPhone
+      ? await handler.findReviewerByPhone(fromPhone)
+      : await this.findAdminByPhone(fromPhone);
+
+    if (!reviewer) {
+      await this.whatsappService.sendTextMessage(
+        fromPhone,
+        '⚠️ No tienes permisos para realizar esta acción.',
+      );
+      return;
+    }
+
+    if (isApprove) {
+      await handler.approveViaWhatsApp(ctx.requestId, reviewer.id);
+      await this.whatsappService.sendTextMessage(
+        fromPhone,
+        `✅ ${requestInfo.displayLabel} fue autorizada correctamente.`,
+      );
+    } else {
+      await handler.rejectViaWhatsApp(ctx.requestId, reviewer.id);
+      await this.whatsappService.sendTextMessage(
+        fromPhone,
+        `❌ ${requestInfo.displayLabel} fue rechazada.`,
+      );
+    }
+
+    await this.prisma.whatsappActionContext
+      .delete({ where: { messageId: ctx.messageId } })
+      .catch(() => {
+        /* ignorar si ya fue eliminado */
+      });
+
+    this.logger.log(
+      `Approval request ${ctx.requestId} (${requestType}) ${isApprove ? 'APPROVED' : 'REJECTED'} via WhatsApp by phone ${fromPhone}`,
+    );
   }
 
   /**
