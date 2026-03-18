@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Box,
   Button,
@@ -8,15 +8,17 @@ import {
 } from '@mui/material';
 import BuildIcon from '@mui/icons-material/Build';
 import TuneIcon from '@mui/icons-material/Tune';
+import AddIcon from '@mui/icons-material/Add';
 import { GridRenderCellParams } from '@mui/x-data-grid';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { DataTable } from '../../../components/common/DataTable';
-import { useStepDefinitions } from '../hooks/useProduction';
+import { useStepDefinitions, useCreateStepDefinition } from '../hooks/useProduction';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS, ROUTES } from '../../../utils/constants';
-import type { StepDefinition } from '../../../types/production.types';
+import type { StepDefinition, CreateStepDefinitionDto } from '../../../types/production.types';
 import type { ResponsiveGridColDef } from '../../../hooks';
+import { CreateStepDefinitionDialog } from '../components/CreateStepDefinitionDialog';
 
 const STEP_TYPE_LABELS: Record<string, string> = {
   PAPEL: 'Papel',
@@ -35,9 +37,20 @@ const StepDefinitionsListPage: React.FC = () => {
   const navigate = useNavigate();
   const { hasPermission } = useAuthStore();
   const canEdit = hasPermission(PERMISSIONS.UPDATE_STEP_DEFINITIONS);
+  const canCreate = hasPermission(PERMISSIONS.CREATE_STEP_DEFINITIONS);
+
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const stepDefsQuery = useStepDefinitions();
   const stepDefs: StepDefinition[] = stepDefsQuery.data || [];
+
+  const createMutation = useCreateStepDefinition();
+
+  const handleCreateSubmit = async (dto: CreateStepDefinitionDto) => {
+    const result = await createMutation.mutateAsync(dto);
+    setCreateDialogOpen(false);
+    navigate(ROUTES.STEP_DEFINITIONS_BUILDER.replace(':id', result.id));
+  };
 
   const columns: ResponsiveGridColDef[] = useMemo(
     () => [
@@ -50,7 +63,7 @@ const StepDefinitionsListPage: React.FC = () => {
       {
         field: 'type',
         headerName: 'Tipo',
-        width: 160,
+        width: 180,
         renderCell: (params: GridRenderCellParams) => (
           <Chip
             label={STEP_TYPE_LABELS[params.value] ?? params.value}
@@ -129,6 +142,17 @@ const StepDefinitionsListPage: React.FC = () => {
         title="Definiciones de Pasos"
         subtitle="Gestiona los campos de cada tipo de paso de producción"
         icon={<TuneIcon />}
+        action={
+          canCreate ? (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateDialogOpen(true)}
+            >
+              Nuevo Paso
+            </Button>
+          ) : undefined
+        }
       />
 
       <DataTable
@@ -136,6 +160,13 @@ const StepDefinitionsListPage: React.FC = () => {
         columns={columns}
         loading={stepDefsQuery.isLoading}
         getRowId={(row) => row.id}
+      />
+
+      <CreateStepDefinitionDialog
+        open={createDialogOpen}
+        onClose={() => setCreateDialogOpen(false)}
+        onSubmit={handleCreateSubmit}
+        isSubmitting={createMutation.isPending}
       />
     </Box>
   );

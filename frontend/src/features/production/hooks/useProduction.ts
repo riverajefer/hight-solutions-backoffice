@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { productionApi } from '../../../api/production.api';
-import type { ProductionOrderStatus, UpdateFieldSchemaPayload } from '../../../types/production.types';
+import type { ProductionOrderStatus, UpdateFieldSchemaPayload, CreateStepDefinitionDto } from '../../../types/production.types';
 
 export const QUERY_KEYS = {
   STEP_DEFINITIONS: ['step-definitions'],
@@ -24,6 +24,24 @@ export function useStepDefinition(id: string) {
     queryKey: QUERY_KEYS.STEP_DEFINITION(id),
     queryFn: () => productionApi.getStepDefinitionById(id),
     enabled: !!id,
+  });
+}
+
+export function useCreateStepDefinition() {
+  const queryClient = useQueryClient();
+  const { enqueueSnackbar } = useSnackbar();
+
+  return useMutation({
+    mutationFn: (dto: CreateStepDefinitionDto) => productionApi.createStepDefinition(dto),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.STEP_DEFINITIONS });
+      enqueueSnackbar('Definición de paso creada exitosamente', { variant: 'success' });
+    },
+    onError: (error: any) => {
+      const message =
+        error?.response?.data?.message || 'Error al crear la definición de paso';
+      enqueueSnackbar(message, { variant: 'error' });
+    },
   });
 }
 

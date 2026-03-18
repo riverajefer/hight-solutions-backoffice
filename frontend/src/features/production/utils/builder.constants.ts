@@ -9,6 +9,7 @@ import {
   CheckCircle,
   PenTool as Wrench, // Using PenTool as Wrench equivalent from standard lucide
   BoxSelect,
+  Layers,
   LucideIcon
 } from 'lucide-react';
 
@@ -32,4 +33,6 @@ export const STEP_CATEGORY_STYLES: Record<string, { lightBg: string; lightText: 
   REVISION:       { lightBg: 'rgba(245, 158, 11, 0.1)', lightText: '#b45309', lightBgColor: '#fffbeb', darkBg: 'rgba(245, 158, 11, 0.2)', darkText: '#fcd34d', darkBgColor: 'rgba(245, 158, 11, 0.3)', icon: CheckCircle },
   ARMADO:         { lightBg: 'rgba(59, 130, 246, 0.1)', lightText: '#1d4ed8', lightBgColor: '#eff6ff', darkBg: 'rgba(59, 130, 246, 0.2)', darkText: '#93c5fd', darkBgColor: 'rgba(59, 130, 246, 0.3)', icon: Wrench },
   EMPAQUE:        { lightBg: 'rgba(34, 197, 94, 0.1)',  lightText: '#15803d', lightBgColor: '#f0fdf4', darkBg: 'rgba(34, 197, 94, 0.2)', darkText: '#86efac', darkBgColor: 'rgba(34, 197, 94, 0.3)', icon: BoxSelect },
+  // Fallback for custom / unknown step types
+  _DEFAULT:       { lightBg: 'rgba(100, 116, 139, 0.1)', lightText: '#475569', lightBgColor: '#f8fafc', darkBg: 'rgba(100, 116, 139, 0.2)', darkText: '#94a3b8', darkBgColor: 'rgba(100, 116, 139, 0.3)', icon: Layers },
 };

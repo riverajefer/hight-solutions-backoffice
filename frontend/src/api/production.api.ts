@@ -1,6 +1,7 @@
 import axiosInstance from './axios';
 import type {
   StepDefinition,
+  CreateStepDefinitionDto,
   UpdateFieldSchemaPayload,
   UpdateFieldSchemaResponse,
   ProductTemplate,
@@ -20,6 +21,11 @@ export const productionApi = {
 
   getStepDefinitionById: async (id: string): Promise<StepDefinition> => {
     const { data } = await axiosInstance.get(`/step-definitions/${id}`);
+    return data;
+  },
+
+  createStepDefinition: async (dto: CreateStepDefinitionDto): Promise<StepDefinition> => {
+    const { data } = await axiosInstance.post('/step-definitions', dto);
     return data;
   },
 

@@ -20,7 +20,7 @@ const DraggableStepBlock: React.FC<DraggableStepBlockProps> = ({ stepDef, index 
     },
   });
 
-  const styleConfig = STEP_CATEGORY_STYLES[stepDef.type] || STEP_CATEGORY_STYLES['PAPEL'];
+  const styleConfig = STEP_CATEGORY_STYLES[stepDef.type] || STEP_CATEGORY_STYLES['_DEFAULT'];
   const Icon = styleConfig.icon;
   
   const bgColors = isDark ? styleConfig.darkBg : styleConfig.lightBg;
@@ -192,7 +192,7 @@ export const StepLibrary: React.FC<StepLibraryProps> = ({ stepDefinitions }) => 
 
       {STEP_CATEGORIES.map((category) => {
         const stepsInCategory = stepDefinitions.filter((s) => category.types.includes(s.type));
-        
+
         if (stepsInCategory.length === 0) return null;
 
         return (
@@ -238,6 +238,54 @@ export const StepLibrary: React.FC<StepLibraryProps> = ({ stepDefinitions }) => 
           </Box>
         );
       })}
+
+      {/* Dynamic section for custom / user-created steps not in any known category */}
+      {(() => {
+        const knownTypes = new Set(STEP_CATEGORIES.flatMap((c) => c.types));
+        const customSteps = stepDefinitions.filter((s) => !knownTypes.has(s.type));
+        if (customSteps.length === 0) return null;
+        return (
+          <Box mb={3} sx={{ position: 'relative', zIndex: 1 }}>
+            <Typography
+              variant="caption"
+              fontWeight={600}
+              sx={{
+                textTransform: 'uppercase',
+                mb: 1,
+                display: 'block',
+                letterSpacing: '0.08em',
+                color: isDark ? 'rgba(193, 227, 238, 0.7)' : 'text.secondary',
+                ...(isDark && {
+                  textShadow: '0 0 8px rgba(46, 176, 196, 0.3)',
+                }),
+              }}
+            >
+              Personalizados
+            </Typography>
+            {isDark && (
+              <Box
+                sx={{
+                  height: 1,
+                  mb: 1.5,
+                  borderRadius: 1,
+                  background: gradients.neonHorizontal,
+                  backgroundSize: '200% 100%',
+                  opacity: 0.4,
+                  '@keyframes gradientShift': {
+                    '0%': { backgroundPosition: '0% 50%' },
+                    '50%': { backgroundPosition: '100% 50%' },
+                    '100%': { backgroundPosition: '0% 50%' },
+                  },
+                  animation: 'gradientShift 4s ease infinite',
+                }}
+              />
+            )}
+            {customSteps.map((step, idx) => (
+              <DraggableStepBlock key={step.id} stepDef={step} index={idx} />
+            ))}
+          </Box>
+        );
+      })()}
     </Box>
   );
 };

@@ -1,10 +1,10 @@
-import { Controller, Get, Patch, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { StepDefinitionsService } from './step-definitions.service';
-import { UpdateFieldSchemaDto } from './dto';
+import { UpdateFieldSchemaDto, CreateStepDefinitionDto } from './dto';
 
 @ApiTags('step-definitions')
 @ApiBearerAuth()
@@ -12,6 +12,15 @@ import { UpdateFieldSchemaDto } from './dto';
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class StepDefinitionsController {
   constructor(private readonly service: StepDefinitionsService) {}
+
+  @Post()
+  @RequirePermissions('create_step_definitions')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Crear una nueva definición de paso' })
+  @ApiBody({ type: CreateStepDefinitionDto })
+  create(@Body() dto: CreateStepDefinitionDto) {
+    return this.service.create(dto);
+  }
 
   @Get()
   @RequirePermissions('read_step_definitions')

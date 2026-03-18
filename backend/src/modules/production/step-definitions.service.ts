@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { ProductionRepository } from './production.repository';
-import { UpdateFieldSchemaDto } from './dto';
+import { UpdateFieldSchemaDto, CreateStepDefinitionDto } from './dto';
 
 @Injectable()
 export class StepDefinitionsService {
@@ -14,6 +14,19 @@ export class StepDefinitionsService {
     const stepDef = await this.repo.findStepDefinitionById(id);
     if (!stepDef) throw new NotFoundException(`StepDefinition con id ${id} no encontrada`);
     return stepDef;
+  }
+
+  async create(dto: CreateStepDefinitionDto) {
+    // Normalize type to uppercase
+    const type = dto.type.toUpperCase();
+
+    // Check for duplicate type
+    const existing = await this.repo.findStepDefinitionByType(type);
+    if (existing) {
+      throw new ConflictException(`Ya existe una definición de paso con el tipo "${type}"`);
+    }
+
+    return this.repo.createStepDefinition({ ...dto, type });
   }
 
   async updateFieldSchema(id: string, dto: UpdateFieldSchemaDto) {

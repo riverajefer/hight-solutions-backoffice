@@ -1,14 +1,17 @@
-export type StepType =
-  | 'PAPEL'
-  | 'PLANCHAS'
-  | 'CARTON'
-  | 'MUESTRA_COLOR'
-  | 'PLASTIFICADO'
-  | 'CORTE'
-  | 'TROQUEL'
-  | 'REVISION'
-  | 'ARMADO'
-  | 'EMPAQUE';
+/** Free-form string type code for step definitions (e.g. 'PAPEL', 'BARNIZADO_UV') */
+export type StepType = string;
+
+/** Known step type codes for display labels — not exhaustive */
+export const KNOWN_STEP_TYPES: StepType[] = [
+  'PAPEL', 'PLANCHAS', 'CARTON', 'MUESTRA_COLOR',
+  'PLASTIFICADO', 'CORTE', 'TROQUEL', 'REVISION', 'ARMADO', 'EMPAQUE',
+];
+
+export interface CreateStepDefinitionDto {
+  name: string;
+  type: string;
+  description?: string;
+}
 
 export type ComponentPhase = 'impresion' | 'material' | 'armado' | 'despacho';
 

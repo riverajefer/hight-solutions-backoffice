@@ -105,6 +105,25 @@ export class ProductionRepository {
     });
   }
 
+  findStepDefinitionByType(type: string) {
+    return this.prisma.stepDefinition.findUnique({
+      where: { type },
+      select: { id: true, type: true },
+    });
+  }
+
+  createStepDefinition(data: { name: string; type: string; description?: string }) {
+    return this.prisma.stepDefinition.create({
+      data: {
+        name: data.name,
+        type: data.type,
+        description: data.description,
+        fieldSchema: { fields: [] },
+      },
+      select: { id: true, type: true, name: true, description: true, fieldSchema: true },
+    });
+  }
+
   findStepDefinitionWithOrderSteps(id: string) {
     return this.prisma.stepDefinition.findUnique({
       where: { id },
