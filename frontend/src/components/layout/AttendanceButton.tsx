@@ -48,6 +48,7 @@ export const AttendanceButton: React.FC = () => {
   const [clockOutOpen, setClockOutOpen] = useState(false);
   const [notes, setNotes] = useState('');
   const [elapsed, setElapsed] = useState('');
+  const [isGatheringLocation, setIsGatheringLocation] = useState(false);
 
   // Estado de asistencia actual
   const { data: status, isLoading } = useQuery({
@@ -69,9 +70,42 @@ export const AttendanceButton: React.FC = () => {
     return () => clearInterval(interval);
   }, [status?.active, status?.record?.clockIn]);
 
+  const getDeviceInfo = () => {
+    return {
+      userAgent: navigator.userAgent,
+      platform: navigator.platform || (navigator as any).userAgentData?.platform || 'Unknown',
+      language: navigator.language,
+      screenResolution: `${window.screen.width}x${window.screen.height}`,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    };
+  };
+
+  const getGeolocation = (): Promise<{ latitude: number; longitude: number; accuracy: number } | null> => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve(null);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+          });
+        },
+        () => {
+          // Si el usuario no acepta o hay error, resolvemos null para continuar normalmente
+          resolve(null);
+        },
+        { timeout: 5000, maximumAge: 60000 }
+      );
+    });
+  };
+
   // Mutation: clock-in
   const clockInMutation = useMutation({
-    mutationFn: () => attendanceApi.clockIn(),
+    mutationFn: (dto: any) => attendanceApi.clockIn(dto),
     onSuccess: () => {
       enqueueSnackbar('Entrada registrada exitosamente', { variant: 'success' });
       queryClient.invalidateQueries({ queryKey: ATTENDANCE_STATUS_QUERY_KEY });
@@ -99,8 +133,27 @@ export const AttendanceButton: React.FC = () => {
     },
   });
 
-  const handleClockIn = () => {
-    clockInMutation.mutate();
+  const handleClockIn = async () => {
+    setIsGatheringLocation(true);
+    try {
+      // Recopilar info de dispositivo
+      const deviceInfo = getDeviceInfo();
+      
+      // Intentar obtener ubicación (si no acepta, retorna null y continúa)
+      const location = await getGeolocation();
+
+      const metadata = {
+        device: deviceInfo,
+        ...(location && { location }),
+      };
+
+      clockInMutation.mutate({ metadata }, {
+        onSettled: () => setIsGatheringLocation(false),
+      });
+    } catch (e) {
+      setIsGatheringLocation(false);
+      clockInMutation.mutate({}); // Continuar sin metadata en caso de error extremo
+    }
   };
 
   const handleOpenClockOut = () => {
@@ -121,7 +174,7 @@ export const AttendanceButton: React.FC = () => {
   }
 
   const isActive = status?.active ?? false;
-  const isWorking = clockInMutation.isPending || clockOutMutation.isPending;
+  const isWorking = clockInMutation.isPending || clockOutMutation.isPending || isGatheringLocation;
 
   return (
     <>

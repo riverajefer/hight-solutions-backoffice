@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { AttendanceRepository } from './attendance.repository';
 import { AttendanceSource } from '../../generated/prisma';
-import { ClockOutDto, AttendanceFilterDto, AdjustAttendanceDto } from './dto';
+import { ClockInDto, ClockOutDto, AttendanceFilterDto, AdjustAttendanceDto } from './dto';
 
 @Injectable()
 export class AttendanceService {
@@ -15,14 +15,30 @@ export class AttendanceService {
    * Marca entrada para un usuario.
    * Lanza ConflictException si ya tiene un registro activo.
    */
-  async clockIn(userId: string) {
+  async clockIn(userId: string, dto?: ClockInDto, ip?: string) {
     const existing = await this.repository.findActiveRecord(userId);
     if (existing) {
       throw new ConflictException(
         'Ya tienes una entrada activa. Debes marcar salida antes de marcar una nueva entrada.',
       );
     }
-    return this.repository.createClockIn(userId, new Date());
+
+    // Preparar metadatos incluyendo el mock de geolocalización por IP
+    let finalMetadata = dto?.metadata ? { ...dto.metadata } : {};
+    
+    if (ip) {
+      finalMetadata.ipAddress = ip;
+      // Mock de geolocalización por IP (backend enrichment)
+      // En un entorno real se usaría un servicio externo como ipapi, maxmind, etc.
+      finalMetadata.geoIp = {
+        country: 'Colombia', // Mock
+        city: 'Bogotá',      // Mock
+        lat: 4.6097,
+        lng: -74.0817,
+      };
+    }
+
+    return this.repository.createClockIn(userId, new Date(), dto?.notes, Object.keys(finalMetadata).length > 0 ? finalMetadata : undefined);
   }
 
   /**
