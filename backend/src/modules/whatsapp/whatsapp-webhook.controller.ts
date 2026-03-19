@@ -38,14 +38,21 @@ export class WhatsappWebhookController {
    * Verificación de webhook de Meta (GET).
    * Meta llama este endpoint para confirmar que la URL es válida.
    * Responde con hub.challenge si hub.verify_token coincide.
+   *
+   * NOTA: NestJS/Express usa `qs` que parsea "hub.mode" como objeto anidado
+   * { hub: { mode, verify_token, challenge } }, NO como clave plana "hub.mode".
+   * Por eso se usa @Query() query y se accede vía query.hub.*
    */
   @Get()
   @ApiOperation({ summary: 'Meta webhook verification' })
-  verifyWebhook(
-    @Query('hub.mode') mode: string,
-    @Query('hub.verify_token') verifyToken: string,
-    @Query('hub.challenge') challenge: string,
-  ): string {
+  verifyWebhook(@Query() query: Record<string, any>): string {
+    // qs parsea "hub.mode=subscribe" como clave plana { 'hub.mode': 'subscribe' }
+    // NO como objeto anidado { hub: { mode: 'subscribe' } }
+    // Por eso se accede con bracket notation query['hub.mode']
+    const mode = query['hub.mode'] as string;
+    const verifyToken = query['hub.verify_token'] as string;
+    const challenge = query['hub.challenge'] as string;
+
     const configuredToken = this.configService.get<string>(
       'whatsapp.verifyToken',
     );
@@ -74,6 +81,10 @@ export class WhatsappWebhookController {
     @RawBody() rawBody: Buffer,
     @Headers('x-hub-signature-256') signature: string,
   ): Promise<{ status: string }> {
+    this.logger.debug(
+      `Webhook received: ${JSON.stringify(body?.entry?.[0]?.changes?.[0]?.value?.messages ?? 'no messages')}`,
+    );
+
     // 1. Validar firma de Meta (protege contra payloads falsos)
     this.webhookService.verifyMetaSignature(rawBody, signature);
 

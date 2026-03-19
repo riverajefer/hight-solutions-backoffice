@@ -1,17 +1,25 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
+import {
+  ApprovalRequestHandler,
+  ApprovalRequestInfo,
+  ApprovalRequestRegistry,
+} from '../whatsapp/approval-request-registry';
 import {
   ApproveExpenseOrderAuthRequestDto,
   CreateExpenseOrderAuthRequestDto,
   RejectExpenseOrderAuthRequestDto,
 } from './dto';
-import { EditRequestStatus, NotificationType } from '../../generated/prisma';
+import { ApprovalRequestType, EditRequestStatus, NotificationType } from '../../generated/prisma';
 
 const USER_SELECT = {
   id: true,
@@ -21,11 +29,81 @@ const USER_SELECT = {
 } as const;
 
 @Injectable()
-export class ExpenseOrderAuthRequestsService {
+export class ExpenseOrderAuthRequestsService implements OnModuleInit, ApprovalRequestHandler {
+  private readonly logger = new Logger(ExpenseOrderAuthRequestsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly approvalRegistry: ApprovalRequestRegistry,
+    private readonly whatsappService: WhatsappService,
   ) {}
+
+  onModuleInit() {
+    this.approvalRegistry.register('EXPENSE_ORDER_AUTH', this);
+  }
+
+  // ─── ApprovalRequestHandler interface ───
+
+  async findPendingRequest(requestId: string): Promise<ApprovalRequestInfo | null> {
+    const request = await this.prisma.expenseOrderAuthRequest.findUnique({
+      where: { id: requestId },
+      include: { expenseOrder: { select: { ogNumber: true } } },
+    });
+    if (!request) return null;
+    return {
+      id: request.id,
+      status: request.status,
+      requestedById: request.requestedById,
+      displayLabel: `autorización de la OG ${request.expenseOrder.ogNumber}`,
+    };
+  }
+
+  async approveViaWhatsApp(requestId: string, reviewerId: string): Promise<void> {
+    const request = await this.prisma.expenseOrderAuthRequest.update({
+      where: { id: requestId },
+      data: {
+        status: EditRequestStatus.APPROVED,
+        reviewedById: reviewerId,
+        reviewedAt: new Date(),
+        reviewNotes: 'Aprobado vía WhatsApp',
+      },
+      include: { expenseOrder: { select: { ogNumber: true } } },
+    });
+
+    await this.notificationsService.create({
+      userId: request.requestedById,
+      type: NotificationType.EXPENSE_ORDER_AUTH_REQUEST_APPROVED,
+      title: 'Solicitud de autorización de OG aprobada',
+      message: `Tu solicitud para autorizar la OG ${request.expenseOrder.ogNumber} ha sido aprobada.`,
+      relatedId: request.expenseOrderId,
+      relatedType: 'ExpenseOrder',
+    });
+  }
+
+  async rejectViaWhatsApp(requestId: string, reviewerId: string): Promise<void> {
+    const request = await this.prisma.expenseOrderAuthRequest.update({
+      where: { id: requestId },
+      data: {
+        status: EditRequestStatus.REJECTED,
+        reviewedById: reviewerId,
+        reviewedAt: new Date(),
+        reviewNotes: 'Rechazado vía WhatsApp',
+      },
+      include: { expenseOrder: { select: { ogNumber: true } } },
+    });
+
+    await this.notificationsService.create({
+      userId: request.requestedById,
+      type: NotificationType.EXPENSE_ORDER_AUTH_REQUEST_REJECTED,
+      title: 'Solicitud de autorización de OG rechazada',
+      message: `Tu solicitud para autorizar la OG ${request.expenseOrder.ogNumber} ha sido rechazada.`,
+      relatedId: request.expenseOrderId,
+      relatedType: 'ExpenseOrder',
+    });
+  }
+
+  // ─── Domain methods ───
 
   /**
    * Crear solicitud de autorización de OG
@@ -81,7 +159,7 @@ export class ExpenseOrderAuthRequestsService {
       },
     });
 
-    // 5. Notificar a todos los administradores
+    // 5. Notificar a todos los administradores (in-app)
     await this.notificationsService.notifyAllAdmins({
       type: NotificationType.EXPENSE_ORDER_AUTH_REQUEST_PENDING,
       title: 'Nueva solicitud de autorización de OG',
@@ -89,6 +167,21 @@ export class ExpenseOrderAuthRequestsService {
       relatedId: request.id,
       relatedType: 'ExpenseOrderAuthRequest',
     });
+
+    // 6. Notificar administradores por WhatsApp (fire & forget)
+    const requesterName =
+      [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
+      request.requestedBy.email ||
+      'Usuario';
+    const requesterRole = user?.role?.name || 'usuario';
+
+    this.notifyAdminsByWhatsApp(
+      request.id,
+      requesterName,
+      requesterRole,
+      `autorizar la OG ${request.expenseOrder.ogNumber}`,
+      dto.reason || 'Sin motivo especificado',
+    );
 
     return request;
   }
@@ -308,5 +401,59 @@ export class ExpenseOrderAuthRequestsService {
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  private async notifyAdminsByWhatsApp(
+    requestId: string,
+    requesterName: string,
+    requesterRole: string,
+    actionDescription: string,
+    reason: string,
+  ): Promise<void> {
+    try {
+      const adminRole = await this.prisma.role.findUnique({
+        where: { name: 'admin' },
+        include: {
+          users: {
+            where: { isActive: true, phone: { not: null } },
+            select: { phone: true },
+          },
+        },
+      });
+
+      const adminsWithPhone = adminRole?.users || [];
+
+      if (adminsWithPhone.length === 0) {
+        this.logger.warn(
+          'No active administrators with phone number found for WhatsApp notification',
+        );
+        return;
+      }
+
+      const results = await Promise.allSettled(
+        adminsWithPhone.map((admin) =>
+          this.whatsappService.sendApprovalNotification({
+            telefono: admin.phone!,
+            requesterName,
+            requesterRole,
+            actionDescription,
+            reason,
+            requestId,
+            requestType: ApprovalRequestType.EXPENSE_ORDER_AUTH,
+          }),
+        ),
+      );
+
+      const fulfilled = results.filter((r) => r.status === 'fulfilled').length;
+      const rejected = results.filter((r) => r.status === 'rejected').length;
+
+      this.logger.log(
+        `WhatsApp notifications for expense order auth request ${requestId}: ${fulfilled} sent, ${rejected} failed`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error sending WhatsApp notifications: ${error.message}`,
+      );
+    }
   }
 }

@@ -662,6 +662,14 @@ enum EditRequestStatus {
   EXPIRED   // Expirada (permiso venció)
 }
 
+enum ApprovalRequestType {
+  ORDER_EDIT
+  STATUS_CHANGE
+  EXPENSE_ORDER_AUTH
+  CLIENT_OWNERSHIP_AUTH
+  ADVANCE_PAYMENT
+}
+
 enum NotificationType {
   EDIT_REQUEST_PENDING              // Nueva solicitud de edición
   EDIT_REQUEST_APPROVED             // Solicitud aprobada
@@ -722,6 +730,23 @@ model OrderEditRequest {
   @@index([status])
   @@index([expiresAt])
   @@map("order_edit_requests")
+}
+
+// Contexto de acción para botones quick-reply de templates de WhatsApp.
+// Vincula el messageId devuelto por Meta con la solicitud correspondiente.
+// Se usa para resolver qué requestId aprobar/rechazar cuando el admin toca un botón.
+model WhatsappActionContext {
+  id          String              @id @default(uuid())
+  messageId   String              @unique  @map("message_id")  // wamid.XXX devuelto por Meta
+  requestId   String              @map("request_id")           // ID de la solicitud (polimórfico)
+  requestType ApprovalRequestType @default(ORDER_EDIT) @map("request_type") // tipo de solicitud
+  adminPhone  String              @map("admin_phone")          // teléfono normalizado E.164 sin "+"
+  expiresAt   DateTime            @map("expires_at")           // now + 48h
+  createdAt   DateTime            @default(now()) @map("created_at")
+
+  @@index([messageId])
+  @@index([expiresAt])
+  @@map("whatsapp_action_contexts")
 }
 
 model OrderStatusChangeRequest {
@@ -1362,19 +1387,6 @@ model InventoryMovement {
 // MÓDULO DE PRODUCCIÓN - PLANTILLAS Y ÓRDENES DE PRODUCCIÓN
 // =============================================================================
 
-enum StepType {
-  PAPEL
-  PLANCHAS
-  CARTON
-  MUESTRA_COLOR
-  PLASTIFICADO
-  CORTE
-  TROQUEL
-  REVISION
-  ARMADO
-  EMPAQUE
-}
-
 enum ComponentPhase {
   impresion
   material
@@ -1397,10 +1409,10 @@ enum ProductionStepStatus {
   BLOCKED
 }
 
-// Catálogo de tipos de paso atómico (9 tipos predefinidos, reutilizables)
+// Catálogo de tipos de paso de producción (dinámico — convention: UPPERCASE_SNAKE_CASE)
 model StepDefinition {
   id          String   @id @default(uuid())
-  type        StepType @unique
+  type        String   @unique // Convention: UPPERCASE_SNAKE_CASE (e.g. PAPEL, BARNIZADO_UV)
   name        String
   description String?
   fieldSchema Json     @map("field_schema") // { fields: [{ key, label, type, stage, required, options? }] }

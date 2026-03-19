@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { WhatsappService } from './whatsapp.service';
+import { PrismaService } from '../../database/prisma.service';
 import { Logger } from '@nestjs/common';
 
 describe('WhatsappService', () => {
@@ -22,6 +23,16 @@ describe('WhatsappService', () => {
           provide: ConfigService,
           useValue: {
             get: jest.fn((key: string) => mockConfig[key]),
+          },
+        },
+        {
+          provide: PrismaService,
+          useValue: {
+            whatsappActionContext: {
+              create: jest.fn(),
+              findUnique: jest.fn(),
+              delete: jest.fn(),
+            },
           },
         },
       ],
@@ -60,6 +71,10 @@ describe('WhatsappService', () => {
               get: jest.fn().mockReturnValue(undefined),
             },
           },
+          {
+            provide: PrismaService,
+            useValue: { whatsappActionContext: { create: jest.fn(), findUnique: jest.fn(), delete: jest.fn() } },
+          },
         ],
       }).compile();
 
@@ -80,6 +95,10 @@ describe('WhatsappService', () => {
                     return undefined;
                 }),
               },
+            },
+            {
+              provide: PrismaService,
+              useValue: { whatsappActionContext: { create: jest.fn(), findUnique: jest.fn(), delete: jest.fn() } },
             },
           ],
         }).compile();

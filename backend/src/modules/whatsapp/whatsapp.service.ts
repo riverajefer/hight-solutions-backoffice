@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHmac } from 'crypto';
+import { PrismaService } from '../../database/prisma.service';
+import { ApprovalRequestType } from '../../generated/prisma';
 
 @Injectable()
 export class WhatsappService {
@@ -12,7 +14,10 @@ export class WhatsappService {
   private readonly isConfigured: boolean;
   private readonly actionSecret: string;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
+  ) {
     this.accessToken =
       this.configService.get<string>('whatsapp.accessToken') || '';
     this.phoneNumberId =
@@ -81,10 +86,21 @@ export class WhatsappService {
       `Sending WhatsApp template "${templateName}" to ${normalizedTo} (original: ${to})`,
     );
 
+    // Sanitizar parámetros: Meta rechaza null/undefined/empty con error #132018
+    const sanitizedParams = params.map((value) => {
+      if (value === null || value === undefined || value === '') {
+        this.logger.warn(
+          `Template "${templateName}": body param is ${value === '' ? 'empty' : String(value)}, replacing with "-"`,
+        );
+        return '-';
+      }
+      return String(value);
+    });
+
     const components: Record<string, unknown>[] = [
       {
         type: 'body',
-        parameters: params.map((value) => ({
+        parameters: sanitizedParams.map((value) => ({
           type: 'text',
           text: value,
         })),
@@ -113,6 +129,10 @@ export class WhatsappService {
         components,
       },
     };
+
+    this.logger.debug(
+      `WhatsApp API payload for "${templateName}": ${JSON.stringify(body.template, null, 2)}`,
+    );
 
     try {
       const response = await fetch(this.baseUrl, {
@@ -323,10 +343,17 @@ export class WhatsappService {
   }
 
   /**
-   * Envía notificación de solicitud de edición de OP con botones interactivos.
-   * Flujo de 2 mensajes:
-   *   1. Template existente para abrir ventana de conversación de 24h en Meta.
-   *   2. Mensaje interactivo con 3 botones firmados con HMAC.
+   * Envía notificación de solicitud de edición de OP usando el template
+   * "solicitud_edicion_op_v2" que incluye 3 botones integrados:
+   *   - URL "🔗 Ver Orden" (botón 0, sufijo dinámico con orderId)
+   *   - Quick Reply "✅ Autorizar" (botón 1, payload APPROVE)
+   *   - Quick Reply "❌ Rechazar" (botón 2, payload REJECT)
+   *
+   * Después de enviar, guarda el messageId en DB para que el webhook pueda
+   * resolver qué solicitud aprobar/rechazar cuando el admin toque un botón.
+   *
+   * IMPORTANTE: Los templates con quick-reply NO requieren ventana activa de 24h,
+   * a diferencia de los mensajes interactivos no-template.
    */
   async notificarSolicitudConBotones(
     telefono: string,
@@ -337,41 +364,111 @@ export class WhatsappService {
     orderId: string,
     requestId: string,
   ): Promise<void> {
-    // 1. Abrir ventana de conversación con el template existente
-    await this.notificarSolicitudEdicionOP(
-      telefono,
-      nombreSolicitante,
-      rolSolicitante,
-      numeroOrden,
-      motivo,
-      orderId,
-    );
-
-    // 2. Generar HMAC por admin (phone normalizado) para cada acción
     const normalizedPhone = this.normalizePhone(telefono);
-    const approveHmac = this.generateActionHmac(
-      'approve',
-      requestId,
-      normalizedPhone,
-    );
-    const rejectHmac = this.generateActionHmac(
-      'reject',
-      requestId,
-      normalizedPhone,
+
+    // Enviar template v2 que ya contiene los 3 botones
+    const messageId = await this.sendTemplateMessage(
+      telefono,
+      'solicitud_edicion_op_v2',
+      [nombreSolicitante, rolSolicitante, numeroOrden, motivo],
+      'es_CO',
+      [{ index: 2, text: orderId }], // sufijo dinámico del botón URL "Ver Orden" (índice 2: después de 2 quick-reply)
     );
 
-    // 3. Enviar mensaje interactivo con 3 botones
-    const bodyText =
-      `📋 *Solicitud de edición de Orden de Pedido*\n\n` +
-      `*Orden:* ${numeroOrden}\n` +
-      `*Solicitante:* ${nombreSolicitante} (${rolSolicitante})\n` +
-      `*Motivo:* ${motivo}\n\n` +
-      `¿Qué deseas hacer?`;
+    if (!messageId) {
+      this.logger.warn(
+        `Could not save WhatsApp action context for request ${requestId}: no messageId returned`,
+      );
+      return;
+    }
 
-    await this.sendInteractiveButtonMessage(telefono, bodyText, [
-      { id: `view:${requestId}`, title: '🔗 Ver Orden' },
-      { id: `approve:${requestId}:${approveHmac}`, title: '✅ Autorizar' },
-      { id: `reject:${requestId}:${rejectHmac}`, title: '❌ Rechazar' },
-    ]);
+    // Guardar contexto messageId → requestId para que el webhook lo resuelva
+    try {
+      await this.prisma.whatsappActionContext.create({
+        data: {
+          messageId,
+          requestId,
+          requestType: ApprovalRequestType.ORDER_EDIT,
+          adminPhone: normalizedPhone,
+          expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000), // 48 horas
+        },
+      });
+      this.logger.debug(
+        `WhatsApp action context saved: messageId=${messageId} requestId=${requestId}`,
+      );
+    } catch (error) {
+      // No es crítico: si falla el guardado, el admin puede seguir gestionando desde el sistema
+      this.logger.error(
+        `Failed to save WhatsApp action context for messageId=${messageId}: ${error.message}`,
+      );
+    }
+  }
+
+  /**
+   * Envía notificación genérica de solicitud de aprobación vía WhatsApp.
+   * Usa el template "solicitud_aprobacion_v1" (aprobado por Meta) con estructura:
+   *
+   * Body: "Nueva solicitud de aprobación: {{1}} ({{2}}) solicita {{3}}.
+   *        Motivo: {{4}}
+   *        Por favor, revisa la solicitud y selecciona una opción para continuar."
+   *
+   * Botones (en orden de índice Meta):
+   *   0 → URL "Ver detalle" (base: https://api.pruebas.crmhighsolutions.com/api/v1/approvals/ + {{1}} requestId)
+   *   1 → Quick Reply "Autorizar" (payload: APPROVE)
+   *   2 → Quick Reply "Rechazar"  (payload: REJECT)
+   *
+   * Guarda WhatsappActionContext con requestType para que el webhook
+   * despache al handler correcto vía ApprovalRequestRegistry.
+   */
+  async sendApprovalNotification(params: {
+    telefono: string;
+    requesterName: string;
+    requesterRole: string;
+    actionDescription: string;
+    reason: string;
+    requestId: string;
+    requestType: ApprovalRequestType;
+  }): Promise<void> {
+    const normalizedPhone = this.normalizePhone(params.telefono);
+
+    const messageId = await this.sendTemplateMessage(
+      params.telefono,
+      'solicitud_aprobacion_v1',
+      [
+        params.requesterName,
+        params.requesterRole,
+        params.actionDescription,
+        params.reason,
+      ],
+      'es_CO',
+      // Botón URL "Ver detalle" (índice 0: Call-to-Action va antes de Quick Reply en Meta)
+      [{ index: 0, text: params.requestId }],
+    );
+
+    if (!messageId) {
+      this.logger.warn(
+        `Could not save WhatsApp action context for request ${params.requestId}: no messageId returned`,
+      );
+      return;
+    }
+
+    try {
+      await this.prisma.whatsappActionContext.create({
+        data: {
+          messageId,
+          requestId: params.requestId,
+          requestType: params.requestType,
+          adminPhone: normalizedPhone,
+          expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000), // 48 horas
+        },
+      });
+      this.logger.debug(
+        `WhatsApp action context saved: messageId=${messageId} requestId=${params.requestId} type=${params.requestType}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to save WhatsApp action context for messageId=${messageId}: ${error.message}`,
+      );
+    }
   }
 }

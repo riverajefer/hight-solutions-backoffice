@@ -1,14 +1,17 @@
-export type StepType =
-  | 'PAPEL'
-  | 'PLANCHAS'
-  | 'CARTON'
-  | 'MUESTRA_COLOR'
-  | 'PLASTIFICADO'
-  | 'CORTE'
-  | 'TROQUEL'
-  | 'REVISION'
-  | 'ARMADO'
-  | 'EMPAQUE';
+/** Free-form string type code for step definitions (e.g. 'PAPEL', 'BARNIZADO_UV') */
+export type StepType = string;
+
+/** Known step type codes for display labels — not exhaustive */
+export const KNOWN_STEP_TYPES: StepType[] = [
+  'PAPEL', 'PLANCHAS', 'CARTON', 'MUESTRA_COLOR',
+  'PLASTIFICADO', 'CORTE', 'TROQUEL', 'REVISION', 'ARMADO', 'EMPAQUE',
+];
+
+export interface CreateStepDefinitionDto {
+  name: string;
+  type: string;
+  description?: string;
+}
 
 export type ComponentPhase = 'impresion' | 'material' | 'armado' | 'despacho';
 
@@ -21,13 +24,52 @@ export type ProductionStepStatus =
   | 'SKIPPED'
   | 'BLOCKED';
 
+export type FieldType =
+  | 'text'
+  | 'number'
+  | 'boolean'
+  | 'select'
+  | 'textarea'
+  | 'date'
+  | 'datetime'
+  | 'supplier'
+  | 'client'
+  | 'material'
+  | 'measurement'
+  | 'quantity';
+
+export interface FieldValidation {
+  min?: number;
+  max?: number;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+}
+
 export interface FieldDef {
   key: string;
   label: string;
-  type: 'text' | 'number' | 'boolean' | 'select';
+  type: FieldType;
   stage: 'specification' | 'execution';
   required: boolean;
+  order?: number;
+  placeholder?: string;
+  defaultValue?: any;
   options?: string[];
+  validation?: FieldValidation;
+}
+
+export interface UpdateFieldSchemaPayload {
+  fieldSchema: { fields: FieldDef[] };
+}
+
+export interface UpdateFieldSchemaResponse {
+  id: string;
+  type: string;
+  name: string;
+  description?: string;
+  fieldSchema: { fields: FieldDef[] };
+  warning?: string;
 }
 
 export interface StepDefinition {

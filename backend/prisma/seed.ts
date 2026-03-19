@@ -1,4 +1,4 @@
-import { PrismaClient, OrderStatus, QuoteStatus, StepType, ComponentPhase } from '../src/generated/prisma';
+import { PrismaClient, OrderStatus, QuoteStatus, ComponentPhase } from '../src/generated/prisma';
 import * as bcrypt from 'bcrypt';
 import { randomInt, randomUUID } from 'node:crypto';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -281,6 +281,8 @@ async function main() {
 
     // Production Module — Step Definitions
     { name: 'read_step_definitions', description: 'Ver definiciones de pasos de producción' },
+    { name: 'create_step_definitions', description: 'Crear nuevas definiciones de pasos de producción' },
+    { name: 'update_step_definitions', description: 'Editar el fieldSchema de definiciones de pasos' },
 
     // Production Module — Órdenes de Producción
     { name: 'read_production_orders', description: 'Ver órdenes de producción' },
@@ -2495,13 +2497,13 @@ async function main() {
 
   // Step Definitions — 9 tipos de paso atómico reutilizables
   const stepDefinitionsData: Array<{
-    type: StepType;
+    type: string;
     name: string;
     description: string;
     fieldSchema: object;
   }> = [
     {
-      type: StepType.PAPEL,
+      type: 'PAPEL',
       name: 'Papel',
       description: 'Recepción y verificación de papel para impresión',
       fieldSchema: {
@@ -2518,7 +2520,7 @@ async function main() {
       },
     },
     {
-      type: StepType.PLANCHAS,
+      type: 'PLANCHAS',
       name: 'Planchas',
       description: 'Preparación y entrega de planchas al impresor',
       fieldSchema: {
@@ -2533,7 +2535,7 @@ async function main() {
       },
     },
     {
-      type: StepType.CARTON,
+      type: 'CARTON',
       name: 'Cartón',
       description: 'Recepción y verificación de cartón para empaste/tapa',
       fieldSchema: {
@@ -2547,7 +2549,7 @@ async function main() {
       },
     },
     {
-      type: StepType.MUESTRA_COLOR,
+      type: 'MUESTRA_COLOR',
       name: 'Muestra de color',
       description: 'Aprobación de muestra de color antes de impresión completa',
       fieldSchema: {
@@ -2559,7 +2561,7 @@ async function main() {
       },
     },
     {
-      type: StepType.PLASTIFICADO,
+      type: 'PLASTIFICADO',
       name: 'Plastificado',
       description: 'Proceso de plastificado de la pieza impresa',
       fieldSchema: {
@@ -2572,7 +2574,7 @@ async function main() {
       },
     },
     {
-      type: StepType.CORTE,
+      type: 'CORTE',
       name: 'Corte',
       description: 'Proceso de corte de la pieza impresa',
       fieldSchema: {
@@ -2587,7 +2589,7 @@ async function main() {
       },
     },
     {
-      type: StepType.TROQUEL,
+      type: 'TROQUEL',
       name: 'Troquel',
       description: 'Proceso de troquelado para formas especiales',
       fieldSchema: {
@@ -2600,7 +2602,7 @@ async function main() {
       },
     },
     {
-      type: StepType.REVISION,
+      type: 'REVISION',
       name: 'Revisión',
       description: 'Control de calidad del componente',
       fieldSchema: {
@@ -2616,7 +2618,7 @@ async function main() {
       },
     },
     {
-      type: StepType.ARMADO,
+      type: 'ARMADO',
       name: 'Armado',
       description: 'Ensamble final del producto',
       fieldSchema: {
@@ -2633,7 +2635,7 @@ async function main() {
       },
     },
     {
-      type: StepType.EMPAQUE,
+      type: 'EMPAQUE',
       name: 'Empaque',
       description: 'Empaque y preparación para despacho',
       fieldSchema: {
@@ -2672,7 +2674,7 @@ async function main() {
       order: number;
       phase: ComponentPhase;
       isRequired?: boolean;
-      steps: Array<{ stepType: StepType; order: number; isRequired?: boolean; fieldOverrides?: object }>;
+      steps: Array<{ stepType: string; order: number; isRequired?: boolean; fieldOverrides?: object }>;
     }>,
   ) => {
     let template = await prisma.productTemplate.findFirst({ where: { name: templateData.name } });
@@ -2720,65 +2722,65 @@ async function main() {
       {
         name: 'Portadas', order: 1, phase: ComponentPhase.impresion,
         steps: [
-          { stepType: StepType.PAPEL, order: 1 },
-          { stepType: StepType.PLANCHAS, order: 2 },
-          { stepType: StepType.MUESTRA_COLOR, order: 3 },
-          { stepType: StepType.PLASTIFICADO, order: 4 },
-          { stepType: StepType.CORTE, order: 5 },
-          { stepType: StepType.REVISION, order: 6 },
+          { stepType: 'PAPEL', order: 1 },
+          { stepType: 'PLANCHAS', order: 2 },
+          { stepType: 'MUESTRA_COLOR', order: 3 },
+          { stepType: 'PLASTIFICADO', order: 4 },
+          { stepType: 'CORTE', order: 5 },
+          { stepType: 'REVISION', order: 6 },
         ],
       },
       {
         name: 'Hojas internas', order: 2, phase: ComponentPhase.impresion,
         steps: [
-          { stepType: StepType.PAPEL, order: 1 },
-          { stepType: StepType.PLANCHAS, order: 2 },
-          { stepType: StepType.MUESTRA_COLOR, order: 3 },
-          { stepType: StepType.CORTE, order: 4 },
-          { stepType: StepType.REVISION, order: 5 },
+          { stepType: 'PAPEL', order: 1 },
+          { stepType: 'PLANCHAS', order: 2 },
+          { stepType: 'MUESTRA_COLOR', order: 3 },
+          { stepType: 'CORTE', order: 4 },
+          { stepType: 'REVISION', order: 5 },
         ],
       },
       {
         name: 'Insertos', order: 3, phase: ComponentPhase.impresion,
         steps: [
-          { stepType: StepType.PAPEL, order: 1 },
-          { stepType: StepType.PLANCHAS, order: 2 },
-          { stepType: StepType.MUESTRA_COLOR, order: 3 },
-          { stepType: StepType.CORTE, order: 4 },
-          { stepType: StepType.REVISION, order: 5 },
+          { stepType: 'PAPEL', order: 1 },
+          { stepType: 'PLANCHAS', order: 2 },
+          { stepType: 'MUESTRA_COLOR', order: 3 },
+          { stepType: 'CORTE', order: 4 },
+          { stepType: 'REVISION', order: 5 },
         ],
       },
       {
         name: 'Guardas impresas', order: 4, phase: ComponentPhase.impresion,
         steps: [
-          { stepType: StepType.PAPEL, order: 1 },
-          { stepType: StepType.PLASTIFICADO, order: 2, isRequired: false },
+          { stepType: 'PAPEL', order: 1 },
+          { stepType: 'PLASTIFICADO', order: 2, isRequired: false },
         ],
       },
       {
         name: 'Guardas en blanco', order: 5, phase: ComponentPhase.material,
         steps: [
-          { stepType: StepType.PAPEL, order: 1 },
+          { stepType: 'PAPEL', order: 1 },
         ],
       },
       {
         name: 'Cartón', order: 6, phase: ComponentPhase.material,
         steps: [
-          { stepType: StepType.CARTON, order: 1 },
+          { stepType: 'CARTON', order: 1 },
         ],
       },
       {
         name: 'Armado', order: 7, phase: ComponentPhase.armado,
         steps: [
-          { stepType: StepType.ARMADO, order: 1 },
+          { stepType: 'ARMADO', order: 1 },
         ],
       },
       {
         name: 'Empaque y despacho', order: 8, phase: ComponentPhase.despacho,
         steps: [
-          { stepType: StepType.EMPAQUE, order: 1 },
+          { stepType: 'EMPAQUE', order: 1 },
           {
-            stepType: StepType.REVISION, order: 2,
+            stepType: 'REVISION', order: 2,
             fieldOverrides: {
               remove: ['medidaAncho', 'medidaAlto'],
               add: [
@@ -2802,26 +2804,26 @@ async function main() {
       {
         name: 'Pieza principal', order: 1, phase: ComponentPhase.impresion,
         steps: [
-          { stepType: StepType.PAPEL, order: 1 },
-          { stepType: StepType.PLANCHAS, order: 2 },
-          { stepType: StepType.MUESTRA_COLOR, order: 3 },
-          { stepType: StepType.PLASTIFICADO, order: 4 },
-          { stepType: StepType.CORTE, order: 5 },
-          { stepType: StepType.REVISION, order: 6 },
+          { stepType: 'PAPEL', order: 1 },
+          { stepType: 'PLANCHAS', order: 2 },
+          { stepType: 'MUESTRA_COLOR', order: 3 },
+          { stepType: 'PLASTIFICADO', order: 4 },
+          { stepType: 'CORTE', order: 5 },
+          { stepType: 'REVISION', order: 6 },
         ],
       },
       {
         name: 'Troquel', order: 2, phase: ComponentPhase.impresion,
         steps: [
-          { stepType: StepType.TROQUEL, order: 1 },
-          { stepType: StepType.REVISION, order: 2 },
+          { stepType: 'TROQUEL', order: 1 },
+          { stepType: 'REVISION', order: 2 },
         ],
       },
       {
         name: 'Armado', order: 3, phase: ComponentPhase.armado,
         steps: [
           {
-            stepType: StepType.ARMADO, order: 1,
+            stepType: 'ARMADO', order: 1,
             fieldOverrides: {
               override: [{ key: 'tipoArmado', label: 'Tipo de armado' }],
             },
@@ -2831,9 +2833,9 @@ async function main() {
       {
         name: 'Empaque', order: 4, phase: ComponentPhase.despacho,
         steps: [
-          { stepType: StepType.EMPAQUE, order: 1 },
+          { stepType: 'EMPAQUE', order: 1 },
           {
-            stepType: StepType.REVISION, order: 2,
+            stepType: 'REVISION', order: 2,
             fieldOverrides: {
               remove: ['medidaAncho', 'medidaAlto'],
               add: [

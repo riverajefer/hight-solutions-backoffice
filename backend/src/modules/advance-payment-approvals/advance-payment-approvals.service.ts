@@ -1,16 +1,24 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
+import {
+  ApprovalRequestHandler,
+  ApprovalRequestInfo,
+  ApprovalRequestRegistry,
+} from '../whatsapp/approval-request-registry';
 import {
   ApproveAdvancePaymentApprovalDto,
   RejectAdvancePaymentApprovalDto,
 } from './dto';
-import { EditRequestStatus, NotificationType, Prisma } from '../../generated/prisma';
+import { ApprovalRequestType, EditRequestStatus, NotificationType, Prisma } from '../../generated/prisma';
 
 const USER_SELECT = {
   id: true,
@@ -20,11 +28,135 @@ const USER_SELECT = {
 } as const;
 
 @Injectable()
-export class AdvancePaymentApprovalsService {
+export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalRequestHandler {
+  private readonly logger = new Logger(AdvancePaymentApprovalsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly approvalRegistry: ApprovalRequestRegistry,
+    private readonly whatsappService: WhatsappService,
   ) {}
+
+  onModuleInit() {
+    this.approvalRegistry.register('ADVANCE_PAYMENT', this);
+  }
+
+  // ─── ApprovalRequestHandler interface ───
+
+  async findPendingRequest(requestId: string): Promise<ApprovalRequestInfo | null> {
+    const request = await this.prisma.advancePaymentApproval.findUnique({
+      where: { id: requestId },
+      include: { order: { select: { orderNumber: true } } },
+    });
+    if (!request) return null;
+    return {
+      id: request.id,
+      status: request.status,
+      requestedById: request.requestedById,
+      displayLabel: `aprobación de anticipo - Orden ${request.order.orderNumber}`,
+    };
+  }
+
+  async approveViaWhatsApp(requestId: string, reviewerId: string): Promise<void> {
+    const request = await this.prisma.advancePaymentApproval.update({
+      where: { id: requestId },
+      data: {
+        status: EditRequestStatus.APPROVED,
+        reviewedById: reviewerId,
+        reviewedAt: new Date(),
+        reviewNotes: 'Aprobado vía WhatsApp',
+      },
+      include: { order: { select: { id: true, orderNumber: true } } },
+    });
+
+    await this.prisma.order.update({
+      where: { id: request.orderId },
+      data: { advancePaymentStatus: EditRequestStatus.APPROVED },
+    });
+
+    await this.notificationsService.create({
+      userId: request.requestedById,
+      type: NotificationType.ADVANCE_PAYMENT_APPROVAL_APPROVED,
+      title: 'Anticipo aprobado',
+      message: `El anticipo de la orden ${request.order.orderNumber} ha sido aprobado. Ya puedes cambiar el estado de la orden.`,
+      relatedId: request.orderId,
+      relatedType: 'Order',
+    });
+  }
+
+  async rejectViaWhatsApp(requestId: string, reviewerId: string): Promise<void> {
+    const request = await this.prisma.advancePaymentApproval.findFirst({
+      where: { id: requestId, status: EditRequestStatus.PENDING },
+      include: {
+        order: { select: { id: true, orderNumber: true, total: true } },
+        payment: { select: { id: true, amount: true } },
+      },
+    });
+
+    if (!request) return;
+
+    await this.prisma.advancePaymentApproval.update({
+      where: { id: requestId },
+      data: {
+        status: EditRequestStatus.REJECTED,
+        reviewedById: reviewerId,
+        reviewedAt: new Date(),
+        reviewNotes: 'Rechazado vía WhatsApp',
+      },
+    });
+
+    // Eliminar pago y revertir montos
+    await this.prisma.payment.delete({
+      where: { id: request.paymentId },
+    });
+
+    const orderTotal = new Prisma.Decimal(request.order.total);
+    await this.prisma.order.update({
+      where: { id: request.orderId },
+      data: {
+        advancePaymentStatus: EditRequestStatus.REJECTED,
+        paidAmount: new Prisma.Decimal(0),
+        balance: orderTotal,
+      },
+    });
+
+    await this.notificationsService.create({
+      userId: request.requestedById,
+      type: NotificationType.ADVANCE_PAYMENT_APPROVAL_REJECTED,
+      title: 'Anticipo rechazado',
+      message: `El anticipo de la orden ${request.order.orderNumber} ha sido rechazado. El pago ha sido eliminado.`,
+      relatedId: request.orderId,
+      relatedType: 'Order',
+    });
+  }
+
+  /**
+   * Busca reviewer por teléfono validando permiso approve_advance_payments.
+   */
+  async findReviewerByPhone(phone: string): Promise<{ id: string } | null> {
+    const clean = phone.replace(/[^\d]/g, '');
+    const variants = [
+      clean,
+      `+${clean}`,
+      clean.startsWith('57') ? clean.slice(2) : null,
+    ].filter(Boolean) as string[];
+
+    return this.prisma.user.findFirst({
+      where: {
+        isActive: true,
+        phone: { in: variants },
+        role: {
+          permissions: {
+            some: { permission: { name: 'approve_advance_payments' } },
+          },
+        },
+      },
+      select: { id: true },
+    });
+  }
+
+  // ─── Domain methods ───
 
   /**
    * Verificar si el usuario requiere aprobación de anticipo
@@ -100,7 +232,7 @@ export class AdvancePaymentApprovalsService {
       data: { advancePaymentStatus: EditRequestStatus.PENDING },
     });
 
-    // Notificar a usuarios con permiso approve_advance_payments
+    // Notificar a usuarios con permiso approve_advance_payments (in-app)
     await this.notificationsService.notifyUsersWithPermission(
       'approve_advance_payments',
       {
@@ -110,6 +242,19 @@ export class AdvancePaymentApprovalsService {
         relatedId: request.id,
         relatedType: 'AdvancePaymentApproval',
       },
+    );
+
+    // Notificar por WhatsApp a usuarios con permiso (fire & forget)
+    const requesterName =
+      [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
+      user?.email ||
+      'Usuario';
+
+    this.notifyReviewersByWhatsApp(
+      request.id,
+      requesterName,
+      `aprobación del anticipo de la orden ${order.orderNumber}`,
+      'El anticipo requiere aprobación de Caja',
     );
 
     return request;
@@ -316,6 +461,60 @@ export class AdvancePaymentApprovalsService {
     if (!hasPermission) {
       throw new ForbiddenException(
         'Solo usuarios con permiso de aprobación de anticipos pueden aprobar/rechazar solicitudes',
+      );
+    }
+  }
+
+  private async notifyReviewersByWhatsApp(
+    requestId: string,
+    requesterName: string,
+    actionDescription: string,
+    reason: string,
+  ): Promise<void> {
+    try {
+      const usersWithPermission = await this.prisma.user.findMany({
+        where: {
+          isActive: true,
+          phone: { not: null },
+          role: {
+            permissions: {
+              some: { permission: { name: 'approve_advance_payments' } },
+            },
+          },
+        },
+        select: { phone: true },
+      });
+
+      if (usersWithPermission.length === 0) {
+        this.logger.warn(
+          'No active users with approve_advance_payments permission and phone found for WhatsApp notification',
+        );
+        return;
+      }
+
+      const results = await Promise.allSettled(
+        usersWithPermission.map((user) =>
+          this.whatsappService.sendApprovalNotification({
+            telefono: user.phone!,
+            requesterName,
+            requesterRole: 'vendedor',
+            actionDescription,
+            reason,
+            requestId,
+            requestType: ApprovalRequestType.ADVANCE_PAYMENT,
+          }),
+        ),
+      );
+
+      const fulfilled = results.filter((r) => r.status === 'fulfilled').length;
+      const rejected = results.filter((r) => r.status === 'rejected').length;
+
+      this.logger.log(
+        `WhatsApp notifications for advance payment approval ${requestId}: ${fulfilled} sent, ${rejected} failed`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error sending WhatsApp notifications: ${error.message}`,
       );
     }
   }

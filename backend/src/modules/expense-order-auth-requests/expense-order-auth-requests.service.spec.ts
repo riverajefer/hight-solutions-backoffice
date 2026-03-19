@@ -7,6 +7,8 @@ import {
 import { ExpenseOrderAuthRequestsService } from './expense-order-auth-requests.service';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ApprovalRequestRegistry } from '../whatsapp/approval-request-registry';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { EditRequestStatus, NotificationType } from '../../generated/prisma';
 
 describe('ExpenseOrderAuthRequestsService', () => {
@@ -85,6 +87,8 @@ describe('ExpenseOrderAuthRequestsService', () => {
         ExpenseOrderAuthRequestsService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: NotificationsService, useValue: mockNotificationsService },
+        { provide: ApprovalRequestRegistry, useValue: { register: jest.fn() } },
+        { provide: WhatsappService, useValue: { sendApprovalNotification: jest.fn() } },
       ],
     }).compile();
 

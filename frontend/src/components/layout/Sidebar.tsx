@@ -55,6 +55,7 @@ import GroupsIcon from '@mui/icons-material/Groups';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import TuneIcon from '@mui/icons-material/Tune';
 import { useAuthStore } from '../../store/authStore';
 import { ROUTES, PERMISSIONS } from '../../utils/constants';
 import { neonColors, neonAccents, gradients } from '../../theme';
@@ -310,10 +311,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           path: ROUTES.PRODUCT_TEMPLATES,
           permission: PERMISSIONS.READ_PRODUCT_TEMPLATES,
         },
+        {
+          label: 'Definiciones de Pasos',
+          icon: <TuneIcon />,
+          path: ROUTES.STEP_DEFINITIONS,
+          permission: PERMISSIONS.READ_STEP_DEFINITIONS,
+        },
       ],
       permissions: [
         PERMISSIONS.READ_PRODUCTION_ORDERS,
         PERMISSIONS.READ_PRODUCT_TEMPLATES,
+        PERMISSIONS.READ_STEP_DEFINITIONS,
       ],
     },
     {

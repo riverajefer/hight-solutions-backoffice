@@ -99,6 +99,8 @@ const ProductTemplateFormPage = lazy(() => import('../features/production/pages/
 const ProductionOrdersListPage = lazy(() => import('../features/production/pages/ProductionOrdersListPage'));
 const ProductionOrderDetailPage = lazy(() => import('../features/production/pages/ProductionOrderDetailPage'));
 const ProductionOrderFormPage = lazy(() => import('../features/production/pages/ProductionOrderFormPage'));
+const StepDefinitionsListPage = lazy(() => import('../features/production/pages/StepDefinitionsListPage'));
+const FormBuilderPage = lazy(() => import('../features/production/pages/FormBuilderPage'));
 
 
 const RoutesConfig: FC = () => {
@@ -1341,6 +1343,32 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.READ_PRODUCTION_ORDERS}>
                   <ProductionOrderDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Step Definitions & Form Builder Routes */}
+        <Route
+          path={PATHS.STEP_DEFINITIONS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_STEP_DEFINITIONS}>
+                  <StepDefinitionsListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.STEP_DEFINITIONS_BUILDER}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_STEP_DEFINITIONS}>
+                  <FormBuilderPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

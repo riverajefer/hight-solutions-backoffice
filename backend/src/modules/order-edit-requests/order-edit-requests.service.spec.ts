@@ -8,6 +8,7 @@ import { OrderEditRequestsService } from './order-edit-requests.service';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
+import { ApprovalRequestRegistry } from '../whatsapp/approval-request-registry';
 import {
   createMockPrismaService,
   MockPrismaService,
@@ -28,6 +29,12 @@ const mockNotificationsService = {
 const mockWhatsappService = {
   sendTemplateMessage: jest.fn().mockResolvedValue('mock-message-id'),
   notificarSolicitudEdicionOP: jest.fn().mockResolvedValue('mock-message-id'),
+};
+
+const mockApprovalRegistry = {
+  register: jest.fn(),
+  getHandler: jest.fn(),
+  hasHandler: jest.fn(),
 };
 
 // ---------------------------------------------------------------------------
@@ -86,6 +93,7 @@ describe('OrderEditRequestsService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: NotificationsService, useValue: mockNotificationsService },
         { provide: WhatsappService, useValue: mockWhatsappService },
+        { provide: ApprovalRequestRegistry, useValue: mockApprovalRegistry },
       ],
     }).compile();
 

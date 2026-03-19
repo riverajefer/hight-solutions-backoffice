@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { OrderStatusChangeRequestsService } from './order-status-change-requests.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ApprovalRequestRegistry } from '../whatsapp/approval-request-registry';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { PrismaService } from '../../database/prisma.service';
 import {
   createMockPrismaService,
@@ -76,6 +78,8 @@ describe('OrderStatusChangeRequestsService', () => {
         OrderStatusChangeRequestsService,
         { provide: PrismaService, useValue: prisma },
         { provide: NotificationsService, useValue: mockNotificationsService },
+        { provide: ApprovalRequestRegistry, useValue: { register: jest.fn() } },
+        { provide: WhatsappService, useValue: { sendApprovalNotification: jest.fn() } },
       ],
     }).compile();
 
