@@ -1,11 +1,13 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   ForbiddenException,
   OnModuleInit,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 import {
   ApprovalRequestHandler,
   ApprovalRequestInfo,
@@ -15,7 +17,7 @@ import {
   ApproveClientOwnershipAuthRequestDto,
   RejectClientOwnershipAuthRequestDto,
 } from './dto';
-import { EditRequestStatus, NotificationType } from '../../generated/prisma';
+import { ApprovalRequestType, EditRequestStatus, NotificationType } from '../../generated/prisma';
 
 const USER_SELECT = {
   id: true,
@@ -26,10 +28,13 @@ const USER_SELECT = {
 
 @Injectable()
 export class ClientOwnershipAuthRequestsService implements OnModuleInit, ApprovalRequestHandler {
+  private readonly logger = new Logger(ClientOwnershipAuthRequestsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
     private readonly approvalRegistry: ApprovalRequestRegistry,
+    private readonly whatsappService: WhatsappService,
   ) {}
 
   onModuleInit() {
@@ -238,6 +243,19 @@ export class ClientOwnershipAuthRequestsService implements OnModuleInit, Approva
       },
     );
 
+    // Notificar por WhatsApp a usuarios con permiso (fire & forget)
+    const requesterName =
+      [requester?.firstName, requester?.lastName].filter(Boolean).join(' ') ||
+      requester?.email ||
+      'Usuario';
+
+    this.notifyReviewersByWhatsApp(
+      request.id,
+      requesterName,
+      `crear la orden ${order.orderNumber} para un cliente asignado a otro asesor`,
+      'Este cliente pertenece a otro asesor. Se requiere autorización.',
+    );
+
     return request;
   }
 
@@ -416,6 +434,60 @@ export class ClientOwnershipAuthRequestsService implements OnModuleInit, Approva
     if (!hasPermission) {
       throw new ForbiddenException(
         'Solo administradores pueden aprobar o rechazar solicitudes de autorización de propiedad de cliente.',
+      );
+    }
+  }
+
+  private async notifyReviewersByWhatsApp(
+    requestId: string,
+    requesterName: string,
+    actionDescription: string,
+    reason: string,
+  ): Promise<void> {
+    try {
+      const usersWithPermission = await this.prisma.user.findMany({
+        where: {
+          isActive: true,
+          phone: { not: null },
+          role: {
+            permissions: {
+              some: { permission: { name: 'approve_client_ownership_auth' } },
+            },
+          },
+        },
+        select: { phone: true, role: { select: { name: true } } },
+      });
+
+      if (usersWithPermission.length === 0) {
+        this.logger.warn(
+          'No active users with approve_client_ownership_auth permission and phone found for WhatsApp notification',
+        );
+        return;
+      }
+
+      const results = await Promise.allSettled(
+        usersWithPermission.map((user) =>
+          this.whatsappService.sendApprovalNotification({
+            telefono: user.phone!,
+            requesterName,
+            requesterRole: 'vendedor',
+            actionDescription,
+            reason,
+            requestId,
+            requestType: ApprovalRequestType.CLIENT_OWNERSHIP_AUTH,
+          }),
+        ),
+      );
+
+      const fulfilled = results.filter((r) => r.status === 'fulfilled').length;
+      const rejected = results.filter((r) => r.status === 'rejected').length;
+
+      this.logger.log(
+        `WhatsApp notifications for client ownership auth ${requestId}: ${fulfilled} sent, ${rejected} failed`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error sending WhatsApp notifications: ${error.message}`,
       );
     }
   }

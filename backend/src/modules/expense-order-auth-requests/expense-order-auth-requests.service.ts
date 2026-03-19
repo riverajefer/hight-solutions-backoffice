@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
@@ -7,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 import {
   ApprovalRequestHandler,
   ApprovalRequestInfo,
@@ -17,7 +19,7 @@ import {
   CreateExpenseOrderAuthRequestDto,
   RejectExpenseOrderAuthRequestDto,
 } from './dto';
-import { EditRequestStatus, NotificationType } from '../../generated/prisma';
+import { ApprovalRequestType, EditRequestStatus, NotificationType } from '../../generated/prisma';
 
 const USER_SELECT = {
   id: true,
@@ -28,10 +30,13 @@ const USER_SELECT = {
 
 @Injectable()
 export class ExpenseOrderAuthRequestsService implements OnModuleInit, ApprovalRequestHandler {
+  private readonly logger = new Logger(ExpenseOrderAuthRequestsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
     private readonly approvalRegistry: ApprovalRequestRegistry,
+    private readonly whatsappService: WhatsappService,
   ) {}
 
   onModuleInit() {
@@ -154,7 +159,7 @@ export class ExpenseOrderAuthRequestsService implements OnModuleInit, ApprovalRe
       },
     });
 
-    // 5. Notificar a todos los administradores
+    // 5. Notificar a todos los administradores (in-app)
     await this.notificationsService.notifyAllAdmins({
       type: NotificationType.EXPENSE_ORDER_AUTH_REQUEST_PENDING,
       title: 'Nueva solicitud de autorización de OG',
@@ -162,6 +167,21 @@ export class ExpenseOrderAuthRequestsService implements OnModuleInit, ApprovalRe
       relatedId: request.id,
       relatedType: 'ExpenseOrderAuthRequest',
     });
+
+    // 6. Notificar administradores por WhatsApp (fire & forget)
+    const requesterName =
+      [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
+      request.requestedBy.email ||
+      'Usuario';
+    const requesterRole = user?.role?.name || 'usuario';
+
+    this.notifyAdminsByWhatsApp(
+      request.id,
+      requesterName,
+      requesterRole,
+      `autorizar la OG ${request.expenseOrder.ogNumber}`,
+      dto.reason || 'Sin motivo especificado',
+    );
 
     return request;
   }
@@ -381,5 +401,59 @@ export class ExpenseOrderAuthRequestsService implements OnModuleInit, ApprovalRe
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  private async notifyAdminsByWhatsApp(
+    requestId: string,
+    requesterName: string,
+    requesterRole: string,
+    actionDescription: string,
+    reason: string,
+  ): Promise<void> {
+    try {
+      const adminRole = await this.prisma.role.findUnique({
+        where: { name: 'admin' },
+        include: {
+          users: {
+            where: { isActive: true, phone: { not: null } },
+            select: { phone: true },
+          },
+        },
+      });
+
+      const adminsWithPhone = adminRole?.users || [];
+
+      if (adminsWithPhone.length === 0) {
+        this.logger.warn(
+          'No active administrators with phone number found for WhatsApp notification',
+        );
+        return;
+      }
+
+      const results = await Promise.allSettled(
+        adminsWithPhone.map((admin) =>
+          this.whatsappService.sendApprovalNotification({
+            telefono: admin.phone!,
+            requesterName,
+            requesterRole,
+            actionDescription,
+            reason,
+            requestId,
+            requestType: ApprovalRequestType.EXPENSE_ORDER_AUTH,
+          }),
+        ),
+      );
+
+      const fulfilled = results.filter((r) => r.status === 'fulfilled').length;
+      const rejected = results.filter((r) => r.status === 'rejected').length;
+
+      this.logger.log(
+        `WhatsApp notifications for expense order auth request ${requestId}: ${fulfilled} sent, ${rejected} failed`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error sending WhatsApp notifications: ${error.message}`,
+      );
+    }
   }
 }

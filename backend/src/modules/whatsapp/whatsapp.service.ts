@@ -406,21 +406,19 @@ export class WhatsappService {
 
   /**
    * Envía notificación genérica de solicitud de aprobación vía WhatsApp.
-   * Usa el template "solicitud_aprobacion_v1" con estructura:
+   * Usa el template "solicitud_aprobacion_v1" (aprobado por Meta) con estructura:
    *
    * Body: "Nueva solicitud de aprobación: {{1}} ({{2}}) solicita {{3}}.
-   *        Motivo: {{4}}"
+   *        Motivo: {{4}}
+   *        Por favor, revisa la solicitud y selecciona una opción para continuar."
    *
-   * Botones (en orden de índice):
-   *   0 → Quick Reply "Autorizar" (payload: APPROVE)
-   *   1 → Quick Reply "Rechazar"  (payload: REJECT)
-   *   2 → URL "Ver detalle" (base + {{1}} sufijo dinámico con requestId)
+   * Botones (en orden de índice Meta):
+   *   0 → URL "Ver detalle" (base: https://api.pruebas.crmhighsolutions.com/api/v1/approvals/ + {{1}} requestId)
+   *   1 → Quick Reply "Autorizar" (payload: APPROVE)
+   *   2 → Quick Reply "Rechazar"  (payload: REJECT)
    *
    * Guarda WhatsappActionContext con requestType para que el webhook
    * despache al handler correcto vía ApprovalRequestRegistry.
-   *
-   * NOTA: Requiere que el template esté aprobado por Meta.
-   * Hasta entonces, usar notificarSolicitudConBotones() para ORDER_EDIT.
    */
   async sendApprovalNotification(params: {
     telefono: string;
@@ -443,9 +441,8 @@ export class WhatsappService {
         params.reason,
       ],
       'es_CO',
-      // Botón URL "Ver detalle" (índice 2, después de 2 quick-reply)
-      // El sufijo es el requestId que se concatena a la URL base del template
-      [{ index: 2, text: params.requestId }],
+      // Botón URL "Ver detalle" (índice 0: Call-to-Action va antes de Quick Reply en Meta)
+      [{ index: 0, text: params.requestId }],
     );
 
     if (!messageId) {

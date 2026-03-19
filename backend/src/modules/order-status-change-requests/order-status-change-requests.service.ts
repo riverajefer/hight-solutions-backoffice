@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
@@ -7,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 import {
   ApprovalRequestHandler,
   ApprovalRequestInfo,
@@ -18,17 +20,33 @@ import {
   RejectStatusChangeRequestDto,
 } from './dto';
 import {
+  ApprovalRequestType,
   EditRequestStatus,
   NotificationType,
   OrderStatus,
 } from '../../generated/prisma';
 
+const ORDER_STATUS_LABELS: Record<string, string> = {
+  DRAFT: 'Borrador',
+  CONFIRMED: 'Confirmada',
+  IN_PRODUCTION: 'En Producción',
+  READY: 'Lista para Entrega',
+  DELIVERED: 'Entregada',
+  DELIVERED_ON_CREDIT: 'Entregado a Crédito',
+  WARRANTY: 'Garantía',
+  PAID: 'Pagada',
+  RETURNED: 'Devuelta',
+};
+
 @Injectable()
 export class OrderStatusChangeRequestsService implements OnModuleInit, ApprovalRequestHandler {
+  private readonly logger = new Logger(OrderStatusChangeRequestsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
     private readonly approvalRegistry: ApprovalRequestRegistry,
+    private readonly whatsappService: WhatsappService,
   ) {}
 
   onModuleInit() {
@@ -174,7 +192,7 @@ export class OrderStatusChangeRequestsService implements OnModuleInit, ApprovalR
       },
     });
 
-    // 6. Notificar a todos los administradores
+    // 6. Notificar a todos los administradores (in-app)
     await this.notificationsService.notifyAllAdmins({
       type: NotificationType.STATUS_CHANGE_REQUEST_PENDING,
       title: 'Nueva solicitud de cambio de estado',
@@ -182,6 +200,21 @@ export class OrderStatusChangeRequestsService implements OnModuleInit, ApprovalR
       relatedId: request.id,
       relatedType: 'OrderStatusChangeRequest',
     });
+
+    // 7. Notificar administradores por WhatsApp (fire & forget)
+    const requesterName =
+      [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
+      request.requestedBy.email ||
+      'Usuario';
+    const requesterRole = user?.role?.name || 'usuario';
+
+    this.notifyAdminsByWhatsApp(
+      request.id,
+      requesterName,
+      requesterRole,
+      `cambiar el estado de la Orden ${request.order.orderNumber} de ${ORDER_STATUS_LABELS[dto.currentStatus] || dto.currentStatus} a ${ORDER_STATUS_LABELS[dto.requestedStatus] || dto.requestedStatus}`,
+      dto.reason || 'Sin motivo especificado',
+    );
 
     return request;
   }
@@ -563,6 +596,60 @@ export class OrderStatusChangeRequestsService implements OnModuleInit, ApprovalR
       // No cambiar el estado, solo registrar que fue usada (opcional: podrías agregar un campo "used" si quieres)
       // Por ahora, las solicitudes aprobadas permanecen en estado APPROVED
       // Esto permite audit trail completo
+    }
+  }
+
+  private async notifyAdminsByWhatsApp(
+    requestId: string,
+    requesterName: string,
+    requesterRole: string,
+    actionDescription: string,
+    reason: string,
+  ): Promise<void> {
+    try {
+      const adminRole = await this.prisma.role.findUnique({
+        where: { name: 'admin' },
+        include: {
+          users: {
+            where: { isActive: true, phone: { not: null } },
+            select: { phone: true },
+          },
+        },
+      });
+
+      const adminsWithPhone = adminRole?.users || [];
+
+      if (adminsWithPhone.length === 0) {
+        this.logger.warn(
+          'No active administrators with phone number found for WhatsApp notification',
+        );
+        return;
+      }
+
+      const results = await Promise.allSettled(
+        adminsWithPhone.map((admin) =>
+          this.whatsappService.sendApprovalNotification({
+            telefono: admin.phone!,
+            requesterName,
+            requesterRole,
+            actionDescription,
+            reason,
+            requestId,
+            requestType: ApprovalRequestType.STATUS_CHANGE,
+          }),
+        ),
+      );
+
+      const fulfilled = results.filter((r) => r.status === 'fulfilled').length;
+      const rejected = results.filter((r) => r.status === 'rejected').length;
+
+      this.logger.log(
+        `WhatsApp notifications for status change request ${requestId}: ${fulfilled} sent, ${rejected} failed`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error sending WhatsApp notifications: ${error.message}`,
+      );
     }
   }
 }

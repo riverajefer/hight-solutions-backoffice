@@ -9,7 +9,7 @@ import {
   createMockPrismaService,
   MockPrismaService,
 } from '../../database/prisma.service.mock';
-import { WorkOrderStatus } from '../../generated/prisma';
+import { WorkOrderStatus, WorkOrderTimeEntryType } from '../../generated/prisma';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Fixtures
@@ -57,6 +57,10 @@ const mockWorkOrdersRepository = {
   addSupplyToItem: jest.fn(),
   removeSupplyFromItem: jest.fn(),
   delete: jest.fn(),
+  createTimeEntry: jest.fn(),
+  updateTimeEntry: jest.fn(),
+  deleteTimeEntry: jest.fn(),
+  findTimeEntryById: jest.fn(),
 };
 
 const mockConsecutivesService = {

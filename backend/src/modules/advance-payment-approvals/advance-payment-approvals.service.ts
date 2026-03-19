@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
@@ -7,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 import {
   ApprovalRequestHandler,
   ApprovalRequestInfo,
@@ -16,7 +18,7 @@ import {
   ApproveAdvancePaymentApprovalDto,
   RejectAdvancePaymentApprovalDto,
 } from './dto';
-import { EditRequestStatus, NotificationType, Prisma } from '../../generated/prisma';
+import { ApprovalRequestType, EditRequestStatus, NotificationType, Prisma } from '../../generated/prisma';
 
 const USER_SELECT = {
   id: true,
@@ -27,10 +29,13 @@ const USER_SELECT = {
 
 @Injectable()
 export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalRequestHandler {
+  private readonly logger = new Logger(AdvancePaymentApprovalsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
     private readonly approvalRegistry: ApprovalRequestRegistry,
+    private readonly whatsappService: WhatsappService,
   ) {}
 
   onModuleInit() {
@@ -227,7 +232,7 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       data: { advancePaymentStatus: EditRequestStatus.PENDING },
     });
 
-    // Notificar a usuarios con permiso approve_advance_payments
+    // Notificar a usuarios con permiso approve_advance_payments (in-app)
     await this.notificationsService.notifyUsersWithPermission(
       'approve_advance_payments',
       {
@@ -237,6 +242,19 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
         relatedId: request.id,
         relatedType: 'AdvancePaymentApproval',
       },
+    );
+
+    // Notificar por WhatsApp a usuarios con permiso (fire & forget)
+    const requesterName =
+      [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
+      user?.email ||
+      'Usuario';
+
+    this.notifyReviewersByWhatsApp(
+      request.id,
+      requesterName,
+      `aprobación del anticipo de la orden ${order.orderNumber}`,
+      'El anticipo requiere aprobación de Caja',
     );
 
     return request;
@@ -443,6 +461,60 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
     if (!hasPermission) {
       throw new ForbiddenException(
         'Solo usuarios con permiso de aprobación de anticipos pueden aprobar/rechazar solicitudes',
+      );
+    }
+  }
+
+  private async notifyReviewersByWhatsApp(
+    requestId: string,
+    requesterName: string,
+    actionDescription: string,
+    reason: string,
+  ): Promise<void> {
+    try {
+      const usersWithPermission = await this.prisma.user.findMany({
+        where: {
+          isActive: true,
+          phone: { not: null },
+          role: {
+            permissions: {
+              some: { permission: { name: 'approve_advance_payments' } },
+            },
+          },
+        },
+        select: { phone: true },
+      });
+
+      if (usersWithPermission.length === 0) {
+        this.logger.warn(
+          'No active users with approve_advance_payments permission and phone found for WhatsApp notification',
+        );
+        return;
+      }
+
+      const results = await Promise.allSettled(
+        usersWithPermission.map((user) =>
+          this.whatsappService.sendApprovalNotification({
+            telefono: user.phone!,
+            requesterName,
+            requesterRole: 'vendedor',
+            actionDescription,
+            reason,
+            requestId,
+            requestType: ApprovalRequestType.ADVANCE_PAYMENT,
+          }),
+        ),
+      );
+
+      const fulfilled = results.filter((r) => r.status === 'fulfilled').length;
+      const rejected = results.filter((r) => r.status === 'rejected').length;
+
+      this.logger.log(
+        `WhatsApp notifications for advance payment approval ${requestId}: ${fulfilled} sent, ${rejected} failed`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error sending WhatsApp notifications: ${error.message}`,
       );
     }
   }
