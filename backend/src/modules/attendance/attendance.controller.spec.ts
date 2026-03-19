@@ -57,7 +57,9 @@ describe('AttendanceController', () => {
   describe('clockIn', () => {
     it('should call clockIn on service', async () => {
       mockService.clockIn.mockResolvedValue({ id: 'record-id' } as any);
-      const result = await controller.clockIn(mockUser);
+      const dto = {};
+      const ip = '127.0.0.1';
+      const result = await controller.clockIn(mockUser, dto, ip);
       expect(result).toEqual({ id: 'record-id' });
       expect(service.clockIn).toHaveBeenCalledWith(mockUser.id);
     });

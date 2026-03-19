@@ -6,6 +6,7 @@ export interface AttendanceUser {
   firstName?: string;
   lastName?: string;
   email?: string;
+  phone?: string;
   cargo?: {
     id: string;
     name: string;
@@ -25,6 +26,7 @@ export interface AttendanceRecord {
   type: AttendanceType;
   source: AttendanceSource;
   notes?: string;
+  metadata?: Record<string, any>;
   totalMinutes?: number;
   createdAt: string;
   updatedAt: string;
@@ -58,6 +60,11 @@ export interface AttendanceFilter {
   source?: AttendanceSource;
   page?: number;
   limit?: number;
+}
+
+export interface ClockInDto {
+  notes?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface ClockOutDto {

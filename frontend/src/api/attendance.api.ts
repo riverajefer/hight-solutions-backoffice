@@ -6,6 +6,7 @@ import {
   AttendanceFilter,
   ClockOutDto,
   AdjustAttendanceDto,
+  ClockInDto,
 } from '../types';
 
 const BASE_URL = '/attendance';
@@ -14,8 +15,8 @@ export const attendanceApi = {
   /**
    * Marca entrada de asistencia
    */
-  clockIn: async (): Promise<AttendanceRecord> => {
-    const { data } = await axiosInstance.post<AttendanceRecord>(`${BASE_URL}/clock-in`);
+  clockIn: async (dto?: ClockInDto): Promise<AttendanceRecord> => {
+    const { data } = await axiosInstance.post<AttendanceRecord>(`${BASE_URL}/clock-in`, dto || {});
     return data;
   },
 

@@ -20,6 +20,7 @@ export class AttendanceRepository {
             firstName: true,
             lastName: true,
             email: true,
+              phone: true,
             cargo: { select: { id: true, name: true, area: { select: { id: true, name: true } } } },
           },
         },
@@ -30,7 +31,7 @@ export class AttendanceRepository {
   /**
    * Crea un registro de clock-in
    */
-  async createClockIn(userId: string, now: Date) {
+  async createClockIn(userId: string, now: Date, notes?: string, metadata?: any) {
     const date = new Date(now);
     date.setUTCHours(0, 0, 0, 0);
 
@@ -41,6 +42,8 @@ export class AttendanceRepository {
         clockIn: now,
         type: AttendanceType.MANUAL,
         source: AttendanceSource.BUTTON,
+        notes,
+        metadata: metadata ?? undefined,
       },
       include: {
         user: {
@@ -49,6 +52,7 @@ export class AttendanceRepository {
             firstName: true,
             lastName: true,
             email: true,
+              phone: true,
             cargo: { select: { id: true, name: true, area: { select: { id: true, name: true } } } },
           },
         },
@@ -86,6 +90,7 @@ export class AttendanceRepository {
             firstName: true,
             lastName: true,
             email: true,
+              phone: true,
             cargo: { select: { id: true, name: true, area: { select: { id: true, name: true } } } },
           },
         },
@@ -127,6 +132,7 @@ export class AttendanceRepository {
               firstName: true,
               lastName: true,
               email: true,
+              phone: true,
               cargo: { select: { id: true, name: true, area: { select: { id: true, name: true } } } },
             },
           },
@@ -178,6 +184,7 @@ export class AttendanceRepository {
             firstName: true,
             lastName: true,
             email: true,
+              phone: true,
             cargo: { select: { id: true, name: true, area: { select: { id: true, name: true } } } },
           },
         },

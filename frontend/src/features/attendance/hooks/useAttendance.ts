@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { attendanceApi } from '../../../api';
-import { AttendanceFilter, ClockOutDto, AdjustAttendanceDto } from '../../../types';
+import { AttendanceFilter, ClockOutDto, AdjustAttendanceDto, ClockInDto } from '../../../types';
 
 export const ATTENDANCE_STATUS_QUERY_KEY = ['attendance', 'my-status'];
 
@@ -26,7 +26,7 @@ export const useAttendance = () => {
 
   // Mutation: marcar entrada
   const clockInMutation = useMutation({
-    mutationFn: () => attendanceApi.clockIn(),
+    mutationFn: (dto?: ClockInDto) => attendanceApi.clockIn(dto),
     onSuccess: () => {
       enqueueSnackbar('Entrada registrada exitosamente', { variant: 'success' });
       queryClient.invalidateQueries({ queryKey: ATTENDANCE_STATUS_QUERY_KEY });
