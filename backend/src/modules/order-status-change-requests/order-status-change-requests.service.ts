@@ -3,9 +3,15 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import {
+  ApprovalRequestHandler,
+  ApprovalRequestInfo,
+  ApprovalRequestRegistry,
+} from '../whatsapp/approval-request-registry';
 import {
   CreateStatusChangeRequestDto,
   ApproveStatusChangeRequestDto,
@@ -18,11 +24,78 @@ import {
 } from '../../generated/prisma';
 
 @Injectable()
-export class OrderStatusChangeRequestsService {
+export class OrderStatusChangeRequestsService implements OnModuleInit, ApprovalRequestHandler {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly approvalRegistry: ApprovalRequestRegistry,
   ) {}
+
+  onModuleInit() {
+    this.approvalRegistry.register('STATUS_CHANGE', this);
+  }
+
+  // ─── ApprovalRequestHandler interface ───
+
+  async findPendingRequest(requestId: string): Promise<ApprovalRequestInfo | null> {
+    const request = await this.prisma.orderStatusChangeRequest.findUnique({
+      where: { id: requestId },
+      include: { order: { select: { orderNumber: true } } },
+    });
+    if (!request) return null;
+    return {
+      id: request.id,
+      status: request.status,
+      requestedById: request.requestedById,
+      displayLabel: `cambio de estado de la Orden ${request.order.orderNumber}`,
+    };
+  }
+
+  async approveViaWhatsApp(requestId: string, reviewerId: string): Promise<void> {
+    const request = await this.prisma.orderStatusChangeRequest.update({
+      where: { id: requestId },
+      data: {
+        status: EditRequestStatus.APPROVED,
+        reviewedById: reviewerId,
+        reviewedAt: new Date(),
+        reviewNotes: 'Aprobado vía WhatsApp',
+      },
+      include: { order: { select: { orderNumber: true } } },
+    });
+
+    await this.notificationsService.create({
+      userId: request.requestedById,
+      type: NotificationType.STATUS_CHANGE_REQUEST_APPROVED,
+      title: 'Solicitud de cambio de estado aprobada',
+      message: `Tu solicitud para cambiar la orden ${request.order.orderNumber} a ${request.requestedStatus} ha sido aprobada.`,
+      relatedId: request.orderId,
+      relatedType: 'Order',
+    });
+  }
+
+  async rejectViaWhatsApp(requestId: string, reviewerId: string): Promise<void> {
+    const request = await this.prisma.orderStatusChangeRequest.update({
+      where: { id: requestId },
+      data: {
+        status: EditRequestStatus.REJECTED,
+        reviewedById: reviewerId,
+        reviewedAt: new Date(),
+        reviewNotes: 'Rechazado vía WhatsApp',
+      },
+      include: { order: { select: { orderNumber: true } } },
+    });
+
+    await this.notificationsService.create({
+      userId: request.requestedById,
+      type: NotificationType.STATUS_CHANGE_REQUEST_REJECTED,
+      title: 'Solicitud de cambio de estado rechazada',
+      message: `Tu solicitud para cambiar la orden ${request.order.orderNumber} a ${request.requestedStatus} ha sido rechazada.`,
+      relatedId: request.orderId,
+      relatedType: 'Order',
+    });
+  }
+
+  // ─── Domain methods ───
 
   /**
    * Crear solicitud de cambio de estado

@@ -3,9 +3,15 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import {
+  ApprovalRequestHandler,
+  ApprovalRequestInfo,
+  ApprovalRequestRegistry,
+} from '../whatsapp/approval-request-registry';
 import {
   ApproveAdvancePaymentApprovalDto,
   RejectAdvancePaymentApprovalDto,
@@ -20,11 +26,132 @@ const USER_SELECT = {
 } as const;
 
 @Injectable()
-export class AdvancePaymentApprovalsService {
+export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalRequestHandler {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly approvalRegistry: ApprovalRequestRegistry,
   ) {}
+
+  onModuleInit() {
+    this.approvalRegistry.register('ADVANCE_PAYMENT', this);
+  }
+
+  // ─── ApprovalRequestHandler interface ───
+
+  async findPendingRequest(requestId: string): Promise<ApprovalRequestInfo | null> {
+    const request = await this.prisma.advancePaymentApproval.findUnique({
+      where: { id: requestId },
+      include: { order: { select: { orderNumber: true } } },
+    });
+    if (!request) return null;
+    return {
+      id: request.id,
+      status: request.status,
+      requestedById: request.requestedById,
+      displayLabel: `aprobación de anticipo - Orden ${request.order.orderNumber}`,
+    };
+  }
+
+  async approveViaWhatsApp(requestId: string, reviewerId: string): Promise<void> {
+    const request = await this.prisma.advancePaymentApproval.update({
+      where: { id: requestId },
+      data: {
+        status: EditRequestStatus.APPROVED,
+        reviewedById: reviewerId,
+        reviewedAt: new Date(),
+        reviewNotes: 'Aprobado vía WhatsApp',
+      },
+      include: { order: { select: { id: true, orderNumber: true } } },
+    });
+
+    await this.prisma.order.update({
+      where: { id: request.orderId },
+      data: { advancePaymentStatus: EditRequestStatus.APPROVED },
+    });
+
+    await this.notificationsService.create({
+      userId: request.requestedById,
+      type: NotificationType.ADVANCE_PAYMENT_APPROVAL_APPROVED,
+      title: 'Anticipo aprobado',
+      message: `El anticipo de la orden ${request.order.orderNumber} ha sido aprobado. Ya puedes cambiar el estado de la orden.`,
+      relatedId: request.orderId,
+      relatedType: 'Order',
+    });
+  }
+
+  async rejectViaWhatsApp(requestId: string, reviewerId: string): Promise<void> {
+    const request = await this.prisma.advancePaymentApproval.findFirst({
+      where: { id: requestId, status: EditRequestStatus.PENDING },
+      include: {
+        order: { select: { id: true, orderNumber: true, total: true } },
+        payment: { select: { id: true, amount: true } },
+      },
+    });
+
+    if (!request) return;
+
+    await this.prisma.advancePaymentApproval.update({
+      where: { id: requestId },
+      data: {
+        status: EditRequestStatus.REJECTED,
+        reviewedById: reviewerId,
+        reviewedAt: new Date(),
+        reviewNotes: 'Rechazado vía WhatsApp',
+      },
+    });
+
+    // Eliminar pago y revertir montos
+    await this.prisma.payment.delete({
+      where: { id: request.paymentId },
+    });
+
+    const orderTotal = new Prisma.Decimal(request.order.total);
+    await this.prisma.order.update({
+      where: { id: request.orderId },
+      data: {
+        advancePaymentStatus: EditRequestStatus.REJECTED,
+        paidAmount: new Prisma.Decimal(0),
+        balance: orderTotal,
+      },
+    });
+
+    await this.notificationsService.create({
+      userId: request.requestedById,
+      type: NotificationType.ADVANCE_PAYMENT_APPROVAL_REJECTED,
+      title: 'Anticipo rechazado',
+      message: `El anticipo de la orden ${request.order.orderNumber} ha sido rechazado. El pago ha sido eliminado.`,
+      relatedId: request.orderId,
+      relatedType: 'Order',
+    });
+  }
+
+  /**
+   * Busca reviewer por teléfono validando permiso approve_advance_payments.
+   */
+  async findReviewerByPhone(phone: string): Promise<{ id: string } | null> {
+    const clean = phone.replace(/[^\d]/g, '');
+    const variants = [
+      clean,
+      `+${clean}`,
+      clean.startsWith('57') ? clean.slice(2) : null,
+    ].filter(Boolean) as string[];
+
+    return this.prisma.user.findFirst({
+      where: {
+        isActive: true,
+        phone: { in: variants },
+        role: {
+          permissions: {
+            some: { permission: { name: 'approve_advance_payments' } },
+          },
+        },
+      },
+      select: { id: true },
+    });
+  }
+
+  // ─── Domain methods ───
 
   /**
    * Verificar si el usuario requiere aprobación de anticipo

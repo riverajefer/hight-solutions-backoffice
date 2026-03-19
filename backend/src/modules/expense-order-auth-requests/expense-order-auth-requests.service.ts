@@ -3,9 +3,15 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import {
+  ApprovalRequestHandler,
+  ApprovalRequestInfo,
+  ApprovalRequestRegistry,
+} from '../whatsapp/approval-request-registry';
 import {
   ApproveExpenseOrderAuthRequestDto,
   CreateExpenseOrderAuthRequestDto,
@@ -21,11 +27,78 @@ const USER_SELECT = {
 } as const;
 
 @Injectable()
-export class ExpenseOrderAuthRequestsService {
+export class ExpenseOrderAuthRequestsService implements OnModuleInit, ApprovalRequestHandler {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly approvalRegistry: ApprovalRequestRegistry,
   ) {}
+
+  onModuleInit() {
+    this.approvalRegistry.register('EXPENSE_ORDER_AUTH', this);
+  }
+
+  // ─── ApprovalRequestHandler interface ───
+
+  async findPendingRequest(requestId: string): Promise<ApprovalRequestInfo | null> {
+    const request = await this.prisma.expenseOrderAuthRequest.findUnique({
+      where: { id: requestId },
+      include: { expenseOrder: { select: { ogNumber: true } } },
+    });
+    if (!request) return null;
+    return {
+      id: request.id,
+      status: request.status,
+      requestedById: request.requestedById,
+      displayLabel: `autorización de la OG ${request.expenseOrder.ogNumber}`,
+    };
+  }
+
+  async approveViaWhatsApp(requestId: string, reviewerId: string): Promise<void> {
+    const request = await this.prisma.expenseOrderAuthRequest.update({
+      where: { id: requestId },
+      data: {
+        status: EditRequestStatus.APPROVED,
+        reviewedById: reviewerId,
+        reviewedAt: new Date(),
+        reviewNotes: 'Aprobado vía WhatsApp',
+      },
+      include: { expenseOrder: { select: { ogNumber: true } } },
+    });
+
+    await this.notificationsService.create({
+      userId: request.requestedById,
+      type: NotificationType.EXPENSE_ORDER_AUTH_REQUEST_APPROVED,
+      title: 'Solicitud de autorización de OG aprobada',
+      message: `Tu solicitud para autorizar la OG ${request.expenseOrder.ogNumber} ha sido aprobada.`,
+      relatedId: request.expenseOrderId,
+      relatedType: 'ExpenseOrder',
+    });
+  }
+
+  async rejectViaWhatsApp(requestId: string, reviewerId: string): Promise<void> {
+    const request = await this.prisma.expenseOrderAuthRequest.update({
+      where: { id: requestId },
+      data: {
+        status: EditRequestStatus.REJECTED,
+        reviewedById: reviewerId,
+        reviewedAt: new Date(),
+        reviewNotes: 'Rechazado vía WhatsApp',
+      },
+      include: { expenseOrder: { select: { ogNumber: true } } },
+    });
+
+    await this.notificationsService.create({
+      userId: request.requestedById,
+      type: NotificationType.EXPENSE_ORDER_AUTH_REQUEST_REJECTED,
+      title: 'Solicitud de autorización de OG rechazada',
+      message: `Tu solicitud para autorizar la OG ${request.expenseOrder.ogNumber} ha sido rechazada.`,
+      relatedId: request.expenseOrderId,
+      relatedType: 'ExpenseOrder',
+    });
+  }
+
+  // ─── Domain methods ───
 
   /**
    * Crear solicitud de autorización de OG

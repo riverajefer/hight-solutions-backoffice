@@ -114,5 +114,7 @@ export const PATHS = {
   PRODUCTION_ORDERS: '/production/orders',
   PRODUCTION_ORDERS_CREATE: '/production/orders/new',
   PRODUCTION_ORDERS_DETAIL: '/production/orders/:id',
+  STEP_DEFINITIONS: '/production/step-definitions',
+  STEP_DEFINITIONS_BUILDER: '/production/step-definitions/:id/builder',
 };
 
