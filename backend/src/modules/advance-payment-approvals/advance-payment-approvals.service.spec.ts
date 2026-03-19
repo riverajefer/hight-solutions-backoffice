@@ -3,6 +3,7 @@ import { AdvancePaymentApprovalsService } from './advance-payment-approvals.serv
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ApprovalRequestRegistry } from '../whatsapp/approval-request-registry';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { EditRequestStatus, NotificationType, Prisma } from '../../generated/prisma';
 
@@ -43,6 +44,7 @@ describe('AdvancePaymentApprovalsService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: NotificationsService, useValue: notificationsService },
         { provide: ApprovalRequestRegistry, useValue: { register: jest.fn() } },
+        { provide: WhatsappService, useValue: { sendApprovalNotification: jest.fn() } },
       ],
     }).compile();
 

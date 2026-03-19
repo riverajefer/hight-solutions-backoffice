@@ -1,0 +1,202 @@
+
+> nestjs-auth-rbac@1.0.0 test:cov
+> jest --coverage
+
+-----------------------------------------------|---------|----------|---------|---------|---------------------------------------------------------------------
+File                                           | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s                                                   
+-----------------------------------------------|---------|----------|---------|---------|---------------------------------------------------------------------
+All files                                      |   76.42 |    61.06 |   77.03 |    76.4 |                                                                     
+ common/decorators                             |   70.58 |        0 |   66.66 |   64.28 |                                                                     
+  current-user.decorator.ts                    |   28.57 |        0 |       0 |   28.57 | 10-17                                                               
+  public.decorator.ts                          |     100 |      100 |     100 |     100 |                                                                     
+  require-permissions.decorator.ts             |     100 |      100 |     100 |     100 |                                                                     
+ common/guards                                 |     100 |      100 |     100 |     100 |                                                                     
+  can-edit-order.guard.ts                      |     100 |      100 |     100 |     100 |                                                                     
+  permissions.guard.ts                         |     100 |      100 |     100 |     100 |                                                                     
+ common/interceptors                           |       0 |        0 |       0 |       0 |                                                                     
+  audit-context.interceptor.ts                 |       0 |      100 |       0 |       0 | 1-48                                                                
+  heartbeat.interceptor.ts                     |       0 |        0 |       0 |       0 | 1-39                                                                
+ common/middleware                             |       0 |        0 |       0 |       0 |                                                                     
+  maintenance.middleware.ts                    |       0 |        0 |       0 |       0 | 1-106                                                               
+ common/utils                                  |   88.88 |    61.53 |      70 |   88.88 |                                                                     
+  audit-context.ts                             |   57.14 |        0 |       0 |   57.14 | 14,25,39                                                            
+  environment.util.ts                          |     100 |      100 |     100 |     100 |                                                                     
+ database                                      |   27.27 |        0 |    9.09 |   21.05 |                                                                     
+  prisma.service.mock.ts                       |     100 |      100 |     100 |     100 |                                                                     
+  prisma.service.ts                            |   21.95 |        0 |       0 |   18.91 | 17-135                                                              
+ health                                        |       0 |      100 |       0 |       0 |                                                                     
+  health.controller.ts                         |       0 |      100 |       0 |       0 | 1-16                                                                
+ modules/advance-payment-approvals             |   79.78 |    53.84 |   77.27 |   80.68 |                                                                     
+  advance-payment-approvals.controller.ts      |     100 |      100 |     100 |     100 |                                                                     
+  advance-payment-approvals.service.ts         |   73.61 |    53.84 |   68.75 |      75 | 37-140                                                              
+ modules/areas                                 |     100 |      100 |     100 |     100 |                                                                     
+  areas.controller.ts                          |     100 |      100 |     100 |     100 |                                                                     
+  areas.repository.ts                          |     100 |      100 |     100 |     100 |                                                                     
+  areas.service.ts                             |     100 |      100 |     100 |     100 |                                                                     
+ modules/attendance                            |   93.33 |    61.36 |   97.22 |   96.99 |                                                                     
+  attendance.controller.ts                     |     100 |      100 |     100 |     100 |                                                                     
+  attendance.repository.ts                     |   82.75 |    51.42 |   91.66 |   91.48 | 112-114,234                                                         
+  attendance.scheduler.ts                      |     100 |      100 |     100 |     100 |                                                                     
+  attendance.service.ts                        |     100 |      100 |     100 |     100 |                                                                     
+ modules/audit-logs                            |   69.23 |    62.06 |   74.28 |      68 |                                                                     
+  audit-logs.controller.ts                     |     100 |    69.23 |     100 |     100 | 20-21,76-254                                                        
+  audit-logs.example.controller.ts             |       0 |        0 |       0 |       0 | 1-122                                                               
+  audit-logs.service.ts                        |     100 |       90 |     100 |     100 | 110,125                                                             
+ modules/auth                                  |    85.6 |       60 |    87.5 |   84.87 |                                                                     
+  auth.controller.ts                           |   93.33 |       80 |   88.88 |   92.85 | 134-139                                                             
+  auth.service.ts                              |   83.15 |    56.66 |   86.66 |   82.41 | 181-182,378-424,482,486                                             
+ modules/auth/guards                           |     100 |      100 |     100 |     100 |                                                                     
+  jwt-auth.guard.ts                            |     100 |      100 |     100 |     100 |                                                                     
+  local-auth.guard.ts                          |     100 |      100 |     100 |     100 |                                                                     
+ modules/auth/strategies                       |   97.14 |       80 |     100 |   96.77 |                                                                     
+  jwt.strategy.ts                              |   95.45 |       75 |     100 |      95 | 16                                                                  
+  local.strategy.ts                            |     100 |      100 |     100 |     100 |                                                                     
+ modules/cargos                                |     100 |      100 |     100 |     100 |                                                                     
+  cargos.controller.ts                         |     100 |      100 |     100 |     100 |                                                                     
+  cargos.repository.ts                         |     100 |      100 |     100 |     100 |                                                                     
+  cargos.service.ts                            |     100 |      100 |     100 |     100 |                                                                     
+ modules/client-ownership-auth-requests        |    9.78 |        0 |       0 |    8.04 |                                                                     
+  client-ownership-auth-requests.controller.ts |       0 |      100 |       0 |       0 | 1-82                                                                
+  client-ownership-auth-requests.service.ts    |   12.85 |        0 |       0 |   10.44 | 30-417                                                              
+ modules/clients                               |   91.08 |    78.91 |   94.87 |   92.82 |                                                                     
+  clients.controller.ts                        |     100 |      100 |     100 |     100 |                                                                     
+  clients.repository.ts                        |   90.47 |      100 |   85.71 |   88.88 | 252,271                                                             
+  clients.service.ts                           |    89.8 |    78.16 |     100 |    92.1 | 88,145,185,200-203,270,353,358,365,368,371,374,377,380              
+ modules/commercial-channels                   |     100 |      100 |     100 |     100 |                                                                     
+  commercial-channels.controller.ts            |     100 |      100 |     100 |     100 |                                                                     
+  commercial-channels.repository.ts            |     100 |      100 |     100 |     100 |                                                                     
+  commercial-channels.service.ts               |     100 |      100 |     100 |     100 |                                                                     
+ modules/company                               |     100 |      100 |     100 |     100 |                                                                     
+  company.controller.ts                        |     100 |      100 |     100 |     100 |                                                                     
+  company.repository.ts                        |     100 |      100 |     100 |     100 |                                                                     
+  company.service.ts                           |     100 |      100 |     100 |     100 |                                                                     
+ modules/consecutives                          |    61.9 |       30 |   69.23 |   59.45 |                                                                     
+  consecutives.repository.ts                   |   59.09 |    33.33 |   66.66 |      55 | 35,47-50,77-94                                                      
+  consecutives.service.ts                      |      65 |        0 |   71.42 |    64.7 | 31-44,71                                                            
+ modules/expense-order-auth-requests           |   89.77 |    76.92 |   81.81 |   90.36 |                                                                     
+  expense-order-auth-requests.controller.ts    |     100 |      100 |     100 |     100 |                                                                     
+  expense-order-auth-requests.service.ts       |   85.93 |    76.92 |   73.33 |   86.88 | 38-91                                                               
+ modules/expense-orders                        |   74.19 |    39.77 |   79.41 |   73.41 |                                                                     
+  expense-orders.controller.ts                 |   96.42 |      100 |    87.5 |   96.15 | 96                                                                  
+  expense-orders.repository.ts                 |   85.71 |    73.33 |      80 |   83.33 | 179,252-255,294                                                     
+  expense-orders.service.ts                    |   64.65 |    30.98 |   72.72 |   64.86 | 115-127,159-163,169-171,180-186,199-211,218-253,259,294-296,301-309 
+ modules/expense-types                         |     100 |      100 |     100 |     100 |                                                                     
+  expense-types.controller.ts                  |     100 |      100 |     100 |     100 |                                                                     
+  expense-types.repository.ts                  |     100 |      100 |     100 |     100 |                                                                     
+  expense-types.service.ts                     |     100 |      100 |     100 |     100 |                                                                     
+ modules/inventory                             |   92.85 |     60.6 |   92.85 |   95.08 |                                                                     
+  inventory.controller.ts                      |     100 |      100 |     100 |     100 |                                                                     
+  inventory.repository.ts                      |     100 |    69.23 |     100 |     100 | 49,57,91                                                            
+  inventory.scheduler.ts                       |     100 |      100 |     100 |     100 |                                                                     
+  inventory.service.ts                         |   85.71 |    52.63 |   83.33 |   90.32 | 98-99,125,167-168,207                                               
+ modules/locations                             |     100 |      100 |     100 |     100 |                                                                     
+  locations.controller.ts                      |     100 |      100 |     100 |     100 |                                                                     
+  locations.repository.ts                      |     100 |      100 |     100 |     100 |                                                                     
+  locations.service.ts                         |     100 |      100 |     100 |     100 |                                                                     
+ modules/notifications                         |   88.88 |    85.71 |   88.23 |   91.48 |                                                                     
+  notifications.controller.ts                  |     100 |      100 |     100 |     100 |                                                                     
+  notifications.service.ts                     |      80 |    85.71 |   81.81 |      84 | 145-165                                                             
+ modules/order-edit-requests                   |   82.75 |    77.41 |   64.51 |   83.82 |                                                                     
+  order-edit-requests-global.controller.ts     |   95.45 |      100 |      80 |      95 | 51                                                                  
+  order-edit-requests.controller.ts            |     100 |      100 |     100 |     100 |                                                                     
+  order-edit-requests.service.ts               |   75.75 |    77.41 |   47.36 |   77.65 | 32-90,463-498,560-586,658-681                                       
+ modules/order-edit-requests/services          |     100 |      100 |     100 |     100 |                                                                     
+  order-edit-permissions-expire.service.ts     |     100 |      100 |     100 |     100 |                                                                     
+ modules/order-status-change-requests          |   88.77 |    81.81 |   73.91 |   89.24 |                                                                     
+  order-status-change-requests.controller.ts   |   96.15 |      100 |    87.5 |   95.83 | 91                                                                  
+  order-status-change-requests.service.ts      |   86.11 |    81.81 |   66.66 |   86.95 | 35-88,443                                                           
+ modules/order-timeline                        |   62.74 |    30.55 |      65 |   61.22 |                                                                     
+  order-timeline.controller.ts                 |     100 |    83.33 |     100 |     100 | 45                                                                  
+  order-timeline.service.ts                    |    52.5 |    25.75 |   58.82 |   51.28 | 176-189,214-263,370,386-394,422,428-465,519-545,580,584-588,602-604 
+ modules/orders                                |   85.39 |    68.46 |   86.74 |   85.47 |                                                                     
+  order-status-transitions.ts                  |     100 |       50 |     100 |     100 | 22-26                                                               
+  orders.controller.ts                         |   96.15 |        0 |      90 |      96 | 79,106                                                              
+  orders.repository.ts                         |   67.69 |    52.17 |   80.95 |   68.85 | 160-162,188,213,434,467-550                                         
+  orders.service.ts                            |   86.75 |     71.9 |    87.5 |   86.57 | 179-196,221-232,245-250,256,523,551,558,565,572,1298-1390           
+ modules/payroll/employees                     |     100 |    89.47 |     100 |     100 |                                                                     
+  payroll-employees.controller.ts              |     100 |      100 |     100 |     100 |                                                                     
+  payroll-employees.repository.ts              |     100 |      100 |     100 |     100 |                                                                     
+  payroll-employees.service.ts                 |     100 |    89.47 |     100 |     100 | 52-59                                                               
+ modules/payroll/items                         |   83.33 |      100 |   42.85 |   81.81 |                                                                     
+  payroll-items.repository.ts                  |   42.85 |      100 |       0 |   33.33 | 43-87                                                               
+  payroll-items.service.ts                     |     100 |      100 |     100 |     100 |                                                                     
+ modules/payroll/periods                       |   76.34 |    66.66 |   48.48 |   74.11 |                                                                     
+  payroll-periods.controller.ts                |   84.21 |      100 |      50 |   83.33 | 52,80,89,96,107,114                                                 
+  payroll-periods.repository.ts                |      30 |        0 |       0 |   22.22 | 21-118                                                              
+  payroll-periods.service.ts                   |   94.28 |       80 |    90.9 |   93.54 | 69-70                                                               
+ modules/permissions                           |   98.61 |    85.71 |      96 |   98.48 |                                                                     
+  permissions.controller.ts                    |     100 |      100 |     100 |     100 |                                                                     
+  permissions.repository.ts                    |     100 |      100 |     100 |     100 |                                                                     
+  permissions.service.ts                       |   97.14 |    85.71 |   88.88 |   96.96 | 25                                                                  
+ modules/portfolio/product-categories          |     100 |      100 |     100 |     100 |                                                                     
+  product-categories.controller.ts             |     100 |      100 |     100 |     100 |                                                                     
+  product-categories.repository.ts             |     100 |      100 |     100 |     100 |                                                                     
+  product-categories.service.ts                |     100 |      100 |     100 |     100 |                                                                     
+ modules/portfolio/products                    |   98.73 |    95.12 |     100 |   98.63 |                                                                     
+  products.controller.ts                       |     100 |      100 |     100 |     100 |                                                                     
+  products.repository.ts                       |     100 |      100 |     100 |     100 |                                                                     
+  products.service.ts                          |   97.67 |    94.44 |     100 |   97.56 | 126                                                                 
+ modules/portfolio/supplies                    |   98.79 |    96.07 |     100 |    98.7 |                                                                     
+  supplies.controller.ts                       |     100 |      100 |     100 |     100 |                                                                     
+  supplies.repository.ts                       |     100 |      100 |     100 |     100 |                                                                     
+  supplies.service.ts                          |   97.72 |    95.65 |     100 |   97.61 | 133                                                                 
+ modules/portfolio/supply-categories           |     100 |      100 |     100 |     100 |                                                                     
+  supply-categories.controller.ts              |     100 |      100 |     100 |     100 |                                                                     
+  supply-categories.repository.ts              |     100 |      100 |     100 |     100 |                                                                     
+  supply-categories.service.ts                 |     100 |      100 |     100 |     100 |                                                                     
+ modules/portfolio/units-of-measure            |     100 |      100 |     100 |     100 |                                                                     
+  units-of-measure.controller.ts               |     100 |      100 |     100 |     100 |                                                                     
+  units-of-measure.repository.ts               |     100 |      100 |     100 |     100 |                                                                     
+  units-of-measure.service.ts                  |     100 |      100 |     100 |     100 |                                                                     
+ modules/production                            |       0 |        0 |       0 |       0 |                                                                     
+  product-templates.controller.ts              |       0 |        0 |       0 |       0 | 1-56                                                                
+  product-templates.service.ts                 |       0 |        0 |       0 |       0 | 1-88                                                                
+  production-orders.controller.ts              |       0 |      100 |       0 |       0 | 1-83                                                                
+  production-orders.service.ts                 |       0 |        0 |       0 |       0 | 1-292                                                               
+  production.repository.ts                     |       0 |        0 |       0 |       0 | 1-360                                                               
+  step-definitions.controller.ts               |       0 |      100 |       0 |       0 | 1-44                                                                
+  step-definitions.service.ts                  |       0 |        0 |       0 |       0 | 1-66                                                                
+ modules/production-areas                      |     100 |      100 |     100 |     100 |                                                                     
+  production-areas.controller.ts               |     100 |      100 |     100 |     100 |                                                                     
+  production-areas.repository.ts               |     100 |      100 |     100 |     100 |                                                                     
+  production-areas.service.ts                  |     100 |      100 |     100 |     100 |                                                                     
+ modules/quotes                                |   95.45 |    79.43 |   95.45 |   95.16 |                                                                     
+  quote-status-transitions.ts                  |   83.33 |       25 |      50 |   83.33 | 21                                                                  
+  quotes.controller.ts                         |     100 |      100 |     100 |     100 |                                                                     
+  quotes.repository.ts                         |     100 |      100 |     100 |     100 |                                                                     
+  quotes.service.ts                            |   94.07 |    79.78 |   95.65 |    93.7 | 122-123,306-311,321                                                 
+ modules/roles                                 |     100 |      100 |     100 |     100 |                                                                     
+  roles.controller.ts                          |     100 |      100 |     100 |     100 |                                                                     
+  roles.repository.ts                          |     100 |      100 |     100 |     100 |                                                                     
+  roles.service.ts                             |     100 |      100 |     100 |     100 |                                                                     
+ modules/session-logs                          |     100 |      100 |     100 |     100 |                                                                     
+  session-logs.controller.ts                   |     100 |      100 |     100 |     100 |                                                                     
+  session-logs.repository.ts                   |     100 |      100 |     100 |     100 |                                                                     
+  session-logs.service.ts                      |     100 |      100 |     100 |     100 |                                                                     
+ modules/storage                               |   87.19 |    68.57 |      95 |   86.66 |                                                                     
+  storage-s3.service.ts                        |   98.38 |       75 |     100 |   98.33 | 35                                                                  
+  storage.controller.ts                        |   58.18 |    33.33 |   77.77 |    56.6 | 173-199,217-235                                                     
+  storage.repository.ts                        |     100 |      100 |     100 |     100 |                                                                     
+  storage.service.ts                           |   97.18 |    68.75 |     100 |    97.1 | 81,145                                                              
+ modules/storage/constants                     |     100 |      100 |     100 |     100 |                                                                     
+  file-config.constants.ts                     |     100 |      100 |     100 |     100 |                                                                     
+ modules/storage/exceptions                    |    90.9 |      100 |      80 |    90.9 |                                                                     
+  storage.exceptions.ts                        |    90.9 |      100 |      80 |    90.9 | 34                                                                  
+ modules/suppliers                             |   94.17 |       85 |     100 |   98.86 |                                                                     
+  suppliers.controller.ts                      |     100 |      100 |     100 |     100 |                                                                     
+  suppliers.repository.ts                      |     100 |      100 |     100 |     100 |                                                                     
+  suppliers.service.ts                         |    91.3 |    83.78 |     100 |   98.27 | 126                                                                 
+ modules/users                                 |   84.02 |       70 |   89.65 |   84.44 |                                                                     
+  users.controller.ts                          |     100 |      100 |     100 |     100 |                                                                     
+  users.repository.ts                          |   82.35 |      100 |      75 |      80 | 139-159,263                                                         
+  users.service.ts                             |   80.76 |       70 |     100 |   81.81 | 76-82,94-100,172-177,207,211,220,234-236                            
+ modules/whatsapp                              |   18.06 |    24.79 |   17.14 |   16.98 |                                                                     
+  approval-request-registry.ts                 |      40 |      100 |       0 |      25 | 44-57                                                               
+  whatsapp-webhook.controller.ts               |       0 |        0 |       0 |       0 | 1-97                                                                
+  whatsapp-webhook.service.ts                  |       0 |        0 |       0 |       0 | 1-566                                                               
+  whatsapp.service.ts                          |   48.21 |    63.82 |   46.15 |   46.78 | 92-95,203-470                                                       
+ modules/work-orders                           |   71.86 |    46.15 |   78.43 |   70.45 |                                                                     
+  work-orders.controller.ts                    |   94.11 |      100 |   81.81 |   93.75 | 162,177                                                             
+  work-orders.repository.ts                    |   93.47 |      100 |      85 |   93.18 | 408-460                                                             
+  work-orders.service.ts                       |   60.26 |    35.52 |      70 |   58.33 | 97,121-127,179,186,215-221,273-394                                  
+-----------------------------------------------|---------|----------|---------|---------|---------------------------------------------------------------------
