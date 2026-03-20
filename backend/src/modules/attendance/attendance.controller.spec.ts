@@ -61,7 +61,7 @@ describe('AttendanceController', () => {
       const ip = '127.0.0.1';
       const result = await controller.clockIn(mockUser, dto, ip);
       expect(result).toEqual({ id: 'record-id' });
-      expect(service.clockIn).toHaveBeenCalledWith(mockUser.id);
+      expect(service.clockIn).toHaveBeenCalledWith(mockUser.id, dto, ip);
     });
   });
 
