@@ -85,6 +85,31 @@ describe('ProductTemplatesService', () => {
       expect(repo.createComponent).toHaveBeenCalled();
       expect(repo.createComponentStep).toHaveBeenCalled();
     });
+
+    it('should handle steps with fieldOverrides', async () => {
+      repo.createTemplate.mockResolvedValue({ id: '1' } as any);
+      repo.createComponent.mockResolvedValue({ id: 'c1' } as any);
+      repo.findTemplateById.mockResolvedValue({ id: '1' } as any);
+
+      const dto = {
+        name: 'T', category: 'C',
+        components: [{
+          name: 'C1', order: 1, phase: 'PRE', isRequired: true,
+          steps: [
+            { stepDefinitionId: 's1', order: 1, isRequired: true, fieldOverrides: { color: 'red' } },
+            { stepDefinitionId: 's2', order: 2, isRequired: false },
+          ],
+        }],
+      } as any;
+
+      await service.create(dto);
+      expect(repo.createComponentStep).toHaveBeenCalledWith(
+        expect.objectContaining({ fieldOverrides: { color: 'red' } }),
+      );
+      expect(repo.createComponentStep).toHaveBeenCalledWith(
+        expect.objectContaining({ fieldOverrides: null }),
+      );
+    });
   });
 
   describe('update', () => {
