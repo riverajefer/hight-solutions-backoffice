@@ -93,4 +93,66 @@ describe('PayrollPeriodsController', () => {
       expect(res).toEqual({ message: 'Deleted' });
     });
   });
+
+  describe('getSummary', () => {
+    it('should return period summary', async () => {
+      const summary = { totalPayment: 3000, totalBaseSalary: 2400 };
+      periodsService.getSummary.mockResolvedValue(summary as any);
+      const result = await controller.getSummary('p1');
+      expect(periodsService.getSummary).toHaveBeenCalledWith('p1');
+      expect(result).toBe(summary);
+    });
+  });
+
+  describe('generateItems', () => {
+    it('should generate items for the period', async () => {
+      const response = { message: 'Generated', count: 5 };
+      periodsService.generateItems.mockResolvedValue(response as any);
+      const result = await controller.generateItems('p1');
+      expect(periodsService.generateItems).toHaveBeenCalledWith('p1');
+      expect(result).toBe(response);
+    });
+  });
+
+  describe('getItems', () => {
+    it('should return items for a period', async () => {
+      const items = [{ id: 'i1' }];
+      itemsService.findByPeriod.mockResolvedValue(items as any);
+      const result = await controller.getItems('p1');
+      expect(itemsService.findByPeriod).toHaveBeenCalledWith('p1');
+      expect(result).toBe(items);
+    });
+  });
+
+  describe('createItem', () => {
+    it('should create an item in the period', async () => {
+      const dto: any = { employeeId: 'e1', baseSalary: 1000 };
+      const created = { id: 'i1', ...dto };
+      itemsService.create.mockResolvedValue(created as any);
+      const result = await controller.createItem('p1', dto);
+      expect(itemsService.create).toHaveBeenCalledWith('p1', dto);
+      expect(result).toBe(created);
+    });
+  });
+
+  describe('updateItem', () => {
+    it('should update an item in the period', async () => {
+      const dto: any = { baseSalary: 2000 };
+      const updated = { id: 'i1', ...dto };
+      itemsService.update.mockResolvedValue(updated as any);
+      const result = await controller.updateItem('p1', 'i1', dto);
+      expect(itemsService.update).toHaveBeenCalledWith('p1', 'i1', dto);
+      expect(result).toBe(updated);
+    });
+  });
+
+  describe('removeItem', () => {
+    it('should remove an item from the period', async () => {
+      const response = { message: 'Deleted' };
+      itemsService.remove.mockResolvedValue(response as any);
+      const result = await controller.removeItem('p1', 'i1');
+      expect(itemsService.remove).toHaveBeenCalledWith('p1', 'i1');
+      expect(result).toBe(response);
+    });
+  });
 });

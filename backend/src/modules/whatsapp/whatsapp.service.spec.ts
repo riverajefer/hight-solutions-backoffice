@@ -255,4 +255,275 @@ describe('WhatsappService', () => {
       );
     });
   });
+
+  describe('sendTemplateMessage - param sanitization', () => {
+    it('should replace null params with "-"', async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue({ messages: [{ id: 'msg1' }] }),
+      });
+      await service.sendTemplateMessage('573118322699', 'tpl', [null as any, 'valid']);
+      const fetchArgs = (global.fetch as jest.Mock).mock.calls[0];
+      const body = JSON.parse(fetchArgs[1].body);
+      const bodyParams = body.template.components[0].parameters;
+      expect(bodyParams[0].text).toBe('-');
+      expect(bodyParams[1].text).toBe('valid');
+    });
+
+    it('should replace undefined params with "-"', async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue({ messages: [{ id: 'msg1' }] }),
+      });
+      await service.sendTemplateMessage('573118322699', 'tpl', [undefined as any]);
+      const fetchArgs = (global.fetch as jest.Mock).mock.calls[0];
+      const body = JSON.parse(fetchArgs[1].body);
+      expect(body.template.components[0].parameters[0].text).toBe('-');
+    });
+
+    it('should replace empty string params with "-"', async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue({ messages: [{ id: 'msg1' }] }),
+      });
+      await service.sendTemplateMessage('573118322699', 'tpl', ['']);
+      const fetchArgs = (global.fetch as jest.Mock).mock.calls[0];
+      const body = JSON.parse(fetchArgs[1].body);
+      expect(body.template.components[0].parameters[0].text).toBe('-');
+    });
+  });
+
+  describe('generateActionHmac / validateActionHmac', () => {
+    it('should generate a deterministic HMAC', () => {
+      const hmac1 = service.generateActionHmac('approve', 'req1', '57300000');
+      const hmac2 = service.generateActionHmac('approve', 'req1', '57300000');
+      expect(hmac1).toBe(hmac2);
+      expect(hmac1.length).toBe(32);
+    });
+
+    it('should produce different HMACs for different inputs', () => {
+      const hmac1 = service.generateActionHmac('approve', 'req1', '57300000');
+      const hmac2 = service.generateActionHmac('reject', 'req1', '57300000');
+      expect(hmac1).not.toBe(hmac2);
+    });
+
+    it('should validate a correct HMAC', () => {
+      const hmac = service.generateActionHmac('approve', 'req1', '57300000');
+      expect(service.validateActionHmac('approve', 'req1', '57300000', hmac)).toBe(true);
+    });
+
+    it('should reject an incorrect HMAC', () => {
+      expect(service.validateActionHmac('approve', 'req1', '57300000', 'bad')).toBe(false);
+    });
+  });
+
+  describe('sendInteractiveButtonMessage', () => {
+    const buttons = [{ id: 'approve:r1:hmac', title: 'Aprobar' }];
+
+    it('should return null if not configured', async () => {
+      (service as any).isConfigured = false;
+      const result = await service.sendInteractiveButtonMessage('57300000', 'body', buttons);
+      expect(result).toBeNull();
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('should send interactive message and return messageId', async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue({ messages: [{ id: 'int-msg-1' }] }),
+      });
+      const result = await service.sendInteractiveButtonMessage('3118322699', 'Choose', buttons);
+      expect(result).toBe('int-msg-1');
+      const fetchArgs = (global.fetch as jest.Mock).mock.calls[0];
+      const body = JSON.parse(fetchArgs[1].body);
+      expect(body.type).toBe('interactive');
+      expect(body.interactive.type).toBe('button');
+      expect(body.interactive.action.buttons[0].reply.id).toBe('approve:r1:hmac');
+    });
+
+    it('should return null on API error', async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: false, statusText: 'Bad Request',
+        json: jest.fn().mockResolvedValue({ error: { message: 'Invalid' } }),
+      });
+      const result = await service.sendInteractiveButtonMessage('573000', 'body', buttons);
+      expect(result).toBeNull();
+    });
+
+    it('should return null on fetch exception', async () => {
+      (global.fetch as jest.Mock).mockRejectedValue(new Error('Network error'));
+      const result = await service.sendInteractiveButtonMessage('573000', 'body', buttons);
+      expect(result).toBeNull();
+    });
+
+    it('should return null when response has no messageId', async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue({}),
+      });
+      const result = await service.sendInteractiveButtonMessage('573000', 'body', buttons);
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('sendTextMessage', () => {
+    it('should return null if not configured', async () => {
+      (service as any).isConfigured = false;
+      const result = await service.sendTextMessage('573000', 'hello');
+      expect(result).toBeNull();
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('should send text message and return messageId', async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue({ messages: [{ id: 'txt-1' }] }),
+      });
+      const result = await service.sendTextMessage('3118322699', 'Hola');
+      expect(result).toBe('txt-1');
+      const fetchArgs = (global.fetch as jest.Mock).mock.calls[0];
+      const body = JSON.parse(fetchArgs[1].body);
+      expect(body.type).toBe('text');
+      expect(body.text.body).toBe('Hola');
+      expect(body.to).toBe('573118322699');
+    });
+
+    it('should return null on API error', async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: false, statusText: 'Forbidden',
+        json: jest.fn().mockResolvedValue({}),
+      });
+      const result = await service.sendTextMessage('573000', 'hi');
+      expect(result).toBeNull();
+    });
+
+    it('should return null on fetch exception', async () => {
+      (global.fetch as jest.Mock).mockRejectedValue(new Error('timeout'));
+      const result = await service.sendTextMessage('573000', 'hi');
+      expect(result).toBeNull();
+    });
+
+    it('should return null when no messageId in response', async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue({}),
+      });
+      const result = await service.sendTextMessage('573000', 'hi');
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('notificarSolicitudConBotones', () => {
+    let prismaService: any;
+
+    beforeEach(() => {
+      prismaService = service['prisma'];
+    });
+
+    it('should send template and save action context', async () => {
+      jest.spyOn(service, 'sendTemplateMessage').mockResolvedValue('msg-btn-1');
+      prismaService.whatsappActionContext.create.mockResolvedValue({});
+
+      await service.notificarSolicitudConBotones(
+        '3118322699', 'Juan', 'Vendedor', 'OP-100', 'Motivo', 'ord1', 'req1',
+      );
+
+      expect(service.sendTemplateMessage).toHaveBeenCalledWith(
+        '3118322699', 'solicitud_edicion_op_v2',
+        ['Juan', 'Vendedor', 'OP-100', 'Motivo'], 'es_CO',
+        [{ index: 2, text: 'ord1' }],
+      );
+      expect(prismaService.whatsappActionContext.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          messageId: 'msg-btn-1', requestId: 'req1',
+          requestType: 'ORDER_EDIT', adminPhone: '573118322699',
+        }),
+      });
+    });
+
+    it('should return early if sendTemplateMessage returns null', async () => {
+      jest.spyOn(service, 'sendTemplateMessage').mockResolvedValue(null);
+      prismaService.whatsappActionContext.create.mockResolvedValue({});
+
+      await service.notificarSolicitudConBotones(
+        '573000', 'J', 'V', 'OP-1', 'M', 'o1', 'r1',
+      );
+
+      expect(prismaService.whatsappActionContext.create).not.toHaveBeenCalled();
+    });
+
+    it('should log error but not throw if prisma create fails', async () => {
+      jest.spyOn(service, 'sendTemplateMessage').mockResolvedValue('msg-btn-2');
+      prismaService.whatsappActionContext.create.mockRejectedValue(new Error('unique constraint'));
+
+      const loggerSpy = jest.spyOn(service['logger'], 'error');
+      await expect(
+        service.notificarSolicitudConBotones('573000', 'J', 'V', 'OP-1', 'M', 'o1', 'r1'),
+      ).resolves.toBeUndefined();
+      expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('unique constraint'));
+    });
+  });
+
+  describe('sendApprovalNotification', () => {
+    let prismaService: any;
+
+    beforeEach(() => {
+      prismaService = service['prisma'];
+    });
+
+    it('should send generic approval template and save context', async () => {
+      jest.spyOn(service, 'sendTemplateMessage').mockResolvedValue('msg-appr-1');
+      prismaService.whatsappActionContext.create.mockResolvedValue({});
+
+      await service.sendApprovalNotification({
+        telefono: '3118322699',
+        requesterName: 'Ana',
+        requesterRole: 'Manager',
+        actionDescription: 'Gasto $50K',
+        reason: 'Urgente',
+        requestId: 'greq1',
+        requestType: 'EXPENSE_ORDER_AUTH' as any,
+      });
+
+      expect(service.sendTemplateMessage).toHaveBeenCalledWith(
+        '3118322699', 'solicitud_aprobacion_v1',
+        ['Ana', 'Manager', 'Gasto $50K', 'Urgente'], 'es_CO',
+        [{ index: 0, text: 'greq1' }],
+      );
+      expect(prismaService.whatsappActionContext.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          messageId: 'msg-appr-1', requestId: 'greq1',
+          requestType: 'EXPENSE_ORDER_AUTH', adminPhone: '573118322699',
+        }),
+      });
+    });
+
+    it('should return early if sendTemplateMessage returns null', async () => {
+      jest.spyOn(service, 'sendTemplateMessage').mockResolvedValue(null);
+      prismaService.whatsappActionContext.create.mockResolvedValue({});
+
+      await service.sendApprovalNotification({
+        telefono: '573000', requesterName: 'X', requesterRole: 'R',
+        actionDescription: 'D', reason: 'M', requestId: 'r1',
+        requestType: 'EXPENSE_ORDER_AUTH' as any,
+      });
+
+      expect(prismaService.whatsappActionContext.create).not.toHaveBeenCalled();
+    });
+
+    it('should log error but not throw if context save fails', async () => {
+      jest.spyOn(service, 'sendTemplateMessage').mockResolvedValue('msg-appr-2');
+      prismaService.whatsappActionContext.create.mockRejectedValue(new Error('db error'));
+
+      const loggerSpy = jest.spyOn(service['logger'], 'error');
+      await expect(
+        service.sendApprovalNotification({
+          telefono: '573000', requesterName: 'X', requesterRole: 'R',
+          actionDescription: 'D', reason: 'M', requestId: 'r1',
+          requestType: 'EXPENSE_ORDER_AUTH' as any,
+        }),
+      ).resolves.toBeUndefined();
+      expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('db error'));
+    });
+  });
 });
