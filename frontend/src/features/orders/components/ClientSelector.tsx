@@ -30,6 +30,7 @@ interface ClientSelectorProps {
   helperText?: string;
   currentUserId?: string;
   isAdmin?: boolean;
+  documentType?: 'orden' | 'cotización' | 'documento';
 }
 
 export const ClientSelector: React.FC<ClientSelectorProps> = ({
@@ -39,6 +40,7 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
   helperText,
   currentUserId,
   isAdmin,
+  documentType = 'orden',
 }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
@@ -128,7 +130,7 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
             {value.advisor?.firstName && value.advisor?.lastName
               ? `${value.advisor.firstName} ${value.advisor.lastName}`
               : value.advisor?.email || 'desconocido'}
-            . Crear esta orden requerirá autorización de administración.
+            . Crear est{documentType === 'orden' ? 'a' : documentType === 'cotización' ? 'a' : 'e'} {documentType} requerirá autorización de administración.
           </Alert>
         )}
       </Box>

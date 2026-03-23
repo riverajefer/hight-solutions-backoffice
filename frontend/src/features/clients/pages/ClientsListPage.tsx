@@ -90,6 +90,19 @@ const ClientsListPage: React.FC = () => {
       valueGetter: (value: { name: string } | undefined) => value?.name || '-',
     },
     {
+      field: 'advisor',
+      headerName: 'Creado por',
+      width: 180,
+      responsive: 'md',
+      valueGetter: (_: any, row: Client) => {
+        if (!row.advisor) return '-';
+        const firstName = row.advisor.firstName || '';
+        const lastName = row.advisor.lastName || '';
+        if (firstName || lastName) return `${firstName} ${lastName}`.trim();
+        return row.advisor.email || '-';
+      },
+    },
+    {
       field: 'isActive',
       headerName: 'Estado',
       width: 100,

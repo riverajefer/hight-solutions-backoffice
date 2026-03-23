@@ -139,6 +139,19 @@ export const QuotesListPage: React.FC = () => {
       valueGetter: (_: any, row: Quote) => row.client?.name || '',
     },
     {
+      field: 'createdBy',
+      headerName: 'Creado por',
+      width: 180,
+      responsive: 'md',
+      valueGetter: (_: any, row: Quote) => {
+        if (!row.createdBy) return '';
+        const firstName = row.createdBy.firstName || '';
+        const lastName = row.createdBy.lastName || '';
+        if (firstName || lastName) return `${firstName} ${lastName}`.trim();
+        return row.createdBy.email || '';
+      },
+    },
+    {
       field: 'quoteDate',
       headerName: 'Fecha',
       width: 160,

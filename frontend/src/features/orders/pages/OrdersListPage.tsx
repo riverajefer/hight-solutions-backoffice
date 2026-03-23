@@ -25,6 +25,7 @@ import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { ActionsCell } from '../../../components/common/DataTable/ActionsCell';
 import { useOrders } from '../hooks';
 import { useClients } from '../../clients/hooks/useClients';
+import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
 import { OrderStatusChip, ChangeStatusDialog } from '../components';
 import { ROUTES } from '../../../utils/constants';
 import type {
@@ -124,11 +125,18 @@ export const OrdersListPage: React.FC = () => {
   const { ordersQuery, deleteOrderMutation, updateStatusMutation } =
     useOrders(filters);
   const { clientsQuery } = useClients({ includeInactive: false });
+  const { productionAreasQuery } = useProductionAreas();
 
   const orders = ordersQuery.data?.data || [];
   const clients = clientsQuery.data || [];
+  const productionAreas = productionAreasQuery.data || [];
+
   const selectedClient = filters.clientId
     ? clients.find((c) => c.id === filters.clientId)
+    : null;
+    
+  const selectedArea = filters.productionAreaId
+    ? productionAreas.find((a: any) => a.id === filters.productionAreaId)
     : null;
 
   // Handlers
@@ -322,6 +330,39 @@ export const OrdersListPage: React.FC = () => {
         row.createdBy?.firstName + ' ' + row.createdBy?.lastName,
     },
     {
+      field: 'productionAreas',
+      headerName: 'Áreas',
+      width: 150,
+      responsive: 'md',
+      sortable: false,
+      renderCell: (params: any) => {
+        const areas = new Set<string>();
+        params.row.items?.forEach((item: any) => {
+          item.productionAreas?.forEach((pa: any) => {
+            if (pa.productionArea?.name) {
+              areas.add(pa.productionArea.name);
+            }
+          });
+        });
+        
+        if (areas.size === 0) return <span style={{ color: '#aaa' }}>-</span>;
+        
+        const areasList = Array.from(areas);
+        return (
+          <Tooltip title={areasList.join(', ')}>
+            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', maxHeight: '100%', overflow: 'hidden' }}>
+              {areasList.slice(0, 2).map((area, idx) => (
+                <Chip key={idx} label={area} size="small" variant="outlined" sx={{ fontSize: '0.7rem', height: 20 }} />
+              ))}
+              {areasList.length > 2 && (
+                <Chip label={`+${areasList.length - 2}`} size="small" variant="outlined" sx={{ fontSize: '0.7rem', height: 20 }} />
+              )}
+            </Box>
+          </Tooltip>
+        );
+      },
+    },
+    {
       field: 'taxRate',
       headerName: 'IVA',
       width: 70,
@@ -461,7 +502,8 @@ export const OrdersListPage: React.FC = () => {
     filters.clientId ||
     filters.orderDateFrom ||
     filters.orderDateTo ||
-    filters.search;
+    filters.search ||
+    filters.productionAreaId;
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
@@ -486,7 +528,7 @@ export const OrdersListPage: React.FC = () => {
           gridTemplateColumns: {
             xs: '1fr',
             sm: '1fr 1fr',
-            md: '1fr 1.5fr 1fr 1fr auto',
+            md: '1fr 1fr 1.5fr 1fr 1fr auto',
           },
           gap: 2,
           mb: 3,
@@ -511,6 +553,26 @@ export const OrdersListPage: React.FC = () => {
             </MenuItem>
           ))}
         </TextField>
+
+        {/* Área de producción */}
+        <Autocomplete
+          fullWidth
+          size='small'
+          options={productionAreas}
+          value={selectedArea}
+          onChange={(_, newValue) =>
+            handleFilterChange('productionAreaId', newValue?.id)
+          }
+          getOptionLabel={(option: any) => option.name}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label='Área Producción'
+              placeholder='Todas las áreas'
+            />
+          )}
+          loading={productionAreasQuery.isLoading}
+        />
 
         {/* Cliente */}
         <Autocomplete

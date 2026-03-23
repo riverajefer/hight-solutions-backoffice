@@ -42,7 +42,7 @@ export class OrdersService {
   ) {}
 
   async findAll(filters: FilterOrdersDto) {
-    const { status, search, clientId, orderDateFrom, orderDateTo, page, limit, excludeWithWorkOrder } = filters;
+    const { status, search, clientId, orderDateFrom, orderDateTo, page, limit, excludeWithWorkOrder, productionAreaId } = filters;
 
     return this.ordersRepository.findAllWithFilters({
       status,
@@ -53,6 +53,7 @@ export class OrdersService {
       page,
       limit,
       excludeWithWorkOrder,
+      productionAreaId,
     });
   }
 
