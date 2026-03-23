@@ -11,7 +11,6 @@ import {
   Typography,
   useTheme,
   useMediaQuery,
-  alpha,
   IconButton,
   Tooltip,
 } from '@mui/material';
@@ -58,7 +57,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import TuneIcon from '@mui/icons-material/Tune';
 import { useAuthStore } from '../../store/authStore';
 import { ROUTES, PERMISSIONS } from '../../utils/constants';
-import { neonColors, neonAccents, gradients } from '../../theme';
+import { neonColors } from '../../theme';
 import logo from '../../assets/logo.png';
 
 const DRAWER_WIDTH = 280;
