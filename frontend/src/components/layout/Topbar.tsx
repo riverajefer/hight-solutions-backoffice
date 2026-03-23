@@ -23,7 +23,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { ROUTES } from '../../utils/constants';
 import { formatFullName } from '../../utils/helpers';
-import { ThemeToggler } from '../common/ThemeToggler';
 import { NotificationBell } from './NotificationBell';
 import { PendingApprovalsBell } from './PendingApprovalsBell';
 import { AttendanceButton } from './AttendanceButton';
@@ -132,7 +131,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
         </Typography>
 
         <Box display="flex" alignItems="center" gap={2}>
-          <ThemeToggler />
 
           {/* Attendance Button — visible solo para usuarios con permiso use_attendance */}
           {hasPermission(PERMISSIONS.USE_ATTENDANCE) && <AttendanceButton />}
