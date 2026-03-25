@@ -1,5 +1,6 @@
-import React from 'react';
-import { Box, Card, CardContent, TextField, Button, Typography, Alert, useTheme } from '@mui/material';
+import React, { useState } from 'react';
+import { Box, Card, CardContent, TextField, Button, Typography, Alert, useTheme, IconButton, InputAdornment } from '@mui/material';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -24,6 +25,7 @@ interface LoginFormProps {
 export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading = false, error }) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
@@ -99,12 +101,26 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading = fals
 
           <TextField
             label="Contraseña"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             fullWidth
             {...register('password')}
             error={!!errors.password}
             helperText={errors.password?.message}
             disabled={isLoading}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label="toggle password visibility"
+                    onClick={() => setShowPassword(!showPassword)}
+                    onMouseDown={(e) => e.preventDefault()}
+                    edge="end"
+                  >
+                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
           />
 
           <Button variant="contained" type="submit" fullWidth sx={{ mt: 2 }} disabled={isLoading}>
