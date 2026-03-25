@@ -272,6 +272,7 @@ export interface FilterOrdersDto {
   /** Si true, excluye órdenes que ya tienen una OT activa (no cancelada) */
   excludeWithWorkOrder?: boolean;
   productionAreaId?: string;
+  createdById?: string;
 }
 
 // ============================================================

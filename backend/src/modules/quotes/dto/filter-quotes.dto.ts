@@ -37,4 +37,9 @@ export class FilterQuotesDto {
   @Min(1)
   @Type(() => Number)
   limit?: number;
+
+  @ApiPropertyOptional({ description: 'Filtrar por Asesor / Creador (id)' })
+  @IsOptional()
+  @IsUUID()
+  createdById?: string;
 }

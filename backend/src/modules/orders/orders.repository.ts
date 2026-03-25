@@ -176,13 +176,18 @@ export class OrdersRepository {
     limit?: number;
     excludeWithWorkOrder?: boolean;
     productionAreaId?: string;
+    createdById?: string;
   }) {
-    const { status, search, clientId, orderDateFrom, orderDateTo, page = 1, limit = 20, excludeWithWorkOrder, productionAreaId } = filters;
+    const { status, search, clientId, orderDateFrom, orderDateTo, page = 1, limit = 20, excludeWithWorkOrder, productionAreaId, createdById } = filters;
 
     const where: Prisma.OrderWhereInput = {};
 
     if (status) {
       where.status = status;
+    }
+
+    if (createdById) {
+      where.createdById = createdById;
     }
 
     if (search) {
