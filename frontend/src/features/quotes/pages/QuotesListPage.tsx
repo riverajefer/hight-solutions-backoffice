@@ -29,7 +29,6 @@ import { useUsers } from '../../users/hooks/useUsers';
 import { QuoteStatusChip, ChangeQuoteStatusDialog } from '../components';
 import type { Quote, QuoteStatus, FilterQuotesDto } from '../../../types/quote.types';
 import { QuoteStatus as QStatus } from '../../../types/quote.types';
-import type { Client } from '../../../types/client.types';
 
 const formatCurrency = (value: string | number): string => {
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
