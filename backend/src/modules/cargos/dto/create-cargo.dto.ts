@@ -24,9 +24,9 @@ export class CreateCargoDto {
   description?: string;
 
   @ApiProperty({
-    description: 'ID del área a la que pertenece el cargo',
+    description: 'ID del área de producción a la que pertenece el cargo',
     example: '123e4567-e89b-12d3-a456-426614174000',
   })
   @IsUUID()
-  areaId: string;
+  productionAreaId: string;
 }

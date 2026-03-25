@@ -62,19 +62,6 @@ model User {
   @@map("users")
 }
 
-model Area {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  cargos Cargo[]
-
-  @@map("areas")
-}
-
 model Cargo {
   id          String   @id @default(uuid())
   name        String
@@ -83,13 +70,13 @@ model Cargo {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  areaId String
-  area   Area   @relation(fields: [areaId], references: [id])
+  productionAreaId String
+  productionArea   ProductionArea @relation(fields: [productionAreaId], references: [id])
 
   users     User[]
   employees Employee[]
 
-  @@unique([name, areaId])
+  @@unique([name, productionAreaId])
   @@map("cargos")
 }
 
@@ -810,6 +797,7 @@ model ProductionArea {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  cargos            Cargo[]
   orderItems        OrderItemProductionArea[]
   quoteItems        QuoteItemProductionArea[]
   workOrderItems    WorkOrderItemProductionArea[]

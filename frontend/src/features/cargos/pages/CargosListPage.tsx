@@ -39,22 +39,22 @@ const CargosListPage: React.FC = () => {
       minWidth: 150,
     },
     {
-      field: 'area',
-      headerName: 'Área',
+      field: 'productionArea',
+      headerName: 'Área de Producción',
       flex: 1,
       minWidth: 150,
       responsive: 'md',
-      valueGetter: (value: Cargo['area']) => value?.name || '',
+      valueGetter: (value: Cargo['productionArea']) => value?.name || '',
       renderCell: (params: GridRenderCellParams<Cargo>) => (
         <Chip
-          label={params.row.area?.name || 'Sin área'}
+          label={params.row.productionArea?.name || 'Sin área de producción'}
           size="small"
           color="secondary"
           variant="outlined"
           onClick={(e) => {
             e.stopPropagation();
-            if (params.row.area?.id) {
-              navigate(`/areas/${params.row.area.id}`);
+            if (params.row.productionArea?.id) {
+              navigate(`/production-areas/${params.row.productionArea.id}`);
             }
           }}
           sx={{ cursor: 'pointer' }}

@@ -335,12 +335,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           permission: PERMISSIONS.READ_USERS,
         },
         {
-          label: 'Áreas',
-          icon: <BusinessIcon />,
-          path: ROUTES.AREAS,
-          permission: PERMISSIONS.READ_AREAS,
-        },
-        {
           label: 'Cargos',
           icon: <WorkIcon />,
           path: ROUTES.CARGOS,
@@ -349,7 +343,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
       ],
       permissions: [
         PERMISSIONS.READ_USERS,
-        PERMISSIONS.READ_AREAS,
         PERMISSIONS.READ_CARGOS,
       ],
     },

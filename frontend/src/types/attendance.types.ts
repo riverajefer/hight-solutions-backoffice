@@ -10,7 +10,7 @@ export interface AttendanceUser {
   cargo?: {
     id: string;
     name: string;
-    area: {
+    productionArea: {
       id: string;
       name: string;
     };
@@ -54,7 +54,7 @@ export interface AttendanceFilter {
   startDate?: string;
   endDate?: string;
   userId?: string;
-  areaId?: string;
+  productionAreaId?: string;
   cargoId?: string;
   type?: AttendanceType;
   source?: AttendanceSource;

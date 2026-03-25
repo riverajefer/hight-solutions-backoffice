@@ -19,10 +19,10 @@ export class AttendanceFilterDto {
   @IsString()
   userId?: string;
 
-  @ApiPropertyOptional({ description: 'Filtrar por areaId' })
+  @ApiPropertyOptional({ description: 'Filtrar por productionAreaId' })
   @IsOptional()
   @IsString()
-  areaId?: string;
+  productionAreaId?: string;
 
   @ApiPropertyOptional({ description: 'Filtrar por cargoId' })
   @IsOptional()

@@ -17,8 +17,8 @@ import { z } from 'zod';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { useCargos, useCargo } from '../hooks/useCargos';
-import { useAreas } from '../../areas/hooks/useAreas';
-import { CreateCargoDto, UpdateCargoDto, Area } from '../../../types';
+import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
+import { CreateCargoDto, UpdateCargoDto, ProductionArea } from '../../../types';
 
 const cargoSchema = z.object({
   name: z
@@ -30,7 +30,7 @@ const cargoSchema = z.object({
     .max(500, 'La descripción no puede exceder 500 caracteres')
     .optional()
     .or(z.literal('')),
-  areaId: z.string().min(1, 'Debe seleccionar un área'),
+  productionAreaId: z.string().min(1, 'Debe seleccionar un área de producción'),
 });
 
 type CargoFormData = z.infer<typeof cargoSchema>;
@@ -42,14 +42,14 @@ const CargoFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [error, setError] = useState<string | null>(null);
 
-  // Obtener el areaId si viene desde la página de detalle de área
-  const preselectedAreaId = (location.state as { areaId?: string })?.areaId;
+  // Obtener el productionAreaId si viene desde la página de detalle de área de producción
+  const preselectedProductionAreaId = (location.state as { productionAreaId?: string })?.productionAreaId;
 
   const isEdit = !!id;
   const { data: cargo, isLoading: isLoadingCargo } = useCargo(id || '');
   const { createCargoMutation, updateCargoMutation } = useCargos();
-  const { areasQuery } = useAreas();
-  const areas = areasQuery.data || [];
+  const { productionAreasQuery } = useProductionAreas();
+  const productionAreas = productionAreasQuery.data || [];
 
   const {
     control,
@@ -62,7 +62,7 @@ const CargoFormPage: React.FC = () => {
     defaultValues: {
       name: '',
       description: '',
-      areaId: preselectedAreaId || '',
+      productionAreaId: preselectedProductionAreaId || '',
     },
   });
 
@@ -71,16 +71,16 @@ const CargoFormPage: React.FC = () => {
       reset({
         name: cargo.name,
         description: cargo.description || '',
-        areaId: cargo.areaId,
+        productionAreaId: cargo.productionAreaId,
       });
     }
   }, [cargo, isEdit, reset]);
 
   useEffect(() => {
-    if (preselectedAreaId && !isEdit) {
-      setValue('areaId', preselectedAreaId);
+    if (preselectedProductionAreaId && !isEdit) {
+      setValue('productionAreaId', preselectedProductionAreaId);
     }
-  }, [preselectedAreaId, isEdit, setValue]);
+  }, [preselectedProductionAreaId, isEdit, setValue]);
 
   const onSubmit = async (data: CargoFormData) => {
     try {
@@ -143,23 +143,23 @@ const CargoFormPage: React.FC = () => {
               />
 
               <Controller
-                name="areaId"
+                name="productionAreaId"
                 control={control}
                 render={({ field }) => (
                   <Autocomplete
-                    options={areas}
-                    getOptionLabel={(option: Area) => option.name}
-                    value={areas.find((a) => a.id === field.value) || null}
+                    options={productionAreas}
+                    getOptionLabel={(option: ProductionArea) => option.name}
+                    value={productionAreas.find((a) => a.id === field.value) || null}
                     onChange={(_, newValue) => {
                       field.onChange(newValue?.id || '');
                     }}
-                    loading={areasQuery.isLoading}
+                    loading={productionAreasQuery.isLoading}
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        label="Área"
-                        error={!!errors.areaId}
-                        helperText={errors.areaId?.message}
+                        label="Área de Producción"
+                        error={!!errors.productionAreaId}
+                        helperText={errors.productionAreaId?.message}
                         required
                       />
                     )}

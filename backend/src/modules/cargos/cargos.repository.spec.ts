@@ -11,10 +11,10 @@ const mockCargo = {
   name: 'Operario',
   description: 'Operario de producción',
   isActive: true,
-  areaId: 'area-1',
+  productionAreaId: 'area-1',
   createdAt: new Date(),
   updatedAt: new Date(),
-  area: { id: 'area-1', name: 'Producción', isActive: true },
+  productionArea: { id: 'area-1', name: 'Producción', isActive: true },
   _count: { users: 2 },
 };
 
@@ -51,29 +51,29 @@ describe('CargosRepository', () => {
       expect(callArg.where).toEqual({});
     });
 
-    it('should order by area name then cargo name', async () => {
+    it('should order by productionArea name then cargo name', async () => {
       prisma.cargo.findMany.mockResolvedValue([mockCargo]);
       await repository.findAll();
       const callArg = prisma.cargo.findMany.mock.calls[0][0];
-      expect(callArg.orderBy).toEqual([{ area: { name: 'asc' } }, { name: 'asc' }]);
+      expect(callArg.orderBy).toEqual([{ productionArea: { name: 'asc' } }, { name: 'asc' }]);
     });
 
-    it('should include area and _count in select', async () => {
+    it('should include productionArea and _count in select', async () => {
       prisma.cargo.findMany.mockResolvedValue([mockCargo]);
       await repository.findAll();
       const callArg = prisma.cargo.findMany.mock.calls[0][0];
-      expect(callArg.select.area).toBeDefined();
+      expect(callArg.select.productionArea).toBeDefined();
       expect(callArg.select._count).toBeDefined();
     });
   });
 
   describe('findByArea', () => {
-    it('should filter by areaId and active only by default', async () => {
+    it('should filter by productionAreaId and active only by default', async () => {
       prisma.cargo.findMany.mockResolvedValue([mockCargo]);
       await repository.findByArea('area-1');
       expect(prisma.cargo.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { areaId: 'area-1', isActive: true },
+          where: { productionAreaId: 'area-1', isActive: true },
         }),
       );
     });
@@ -82,7 +82,7 @@ describe('CargosRepository', () => {
       prisma.cargo.findMany.mockResolvedValue([mockCargo]);
       await repository.findByArea('area-1', true);
       const callArg = prisma.cargo.findMany.mock.calls[0][0];
-      expect(callArg.where).toEqual({ areaId: 'area-1' });
+      expect(callArg.where).toEqual({ productionAreaId: 'area-1' });
     });
   });
 
@@ -103,21 +103,21 @@ describe('CargosRepository', () => {
   });
 
   describe('findByNameAndArea', () => {
-    it('should call findUnique with composite key name_areaId', async () => {
+    it('should call findUnique with composite key name_productionAreaId', async () => {
       prisma.cargo.findUnique.mockResolvedValue(mockCargo);
       await repository.findByNameAndArea('Operario', 'area-1');
       expect(prisma.cargo.findUnique).toHaveBeenCalledWith({
-        where: { name_areaId: { name: 'Operario', areaId: 'area-1' } },
+        where: { name_productionAreaId: { name: 'Operario', productionAreaId: 'area-1' } },
       });
     });
   });
 
   describe('findByNameAndAreaExcludingId', () => {
-    it('should use findFirst with name, areaId and NOT id clause', async () => {
+    it('should use findFirst with name, productionAreaId and NOT id clause', async () => {
       prisma.cargo.findFirst.mockResolvedValue(null);
       await repository.findByNameAndAreaExcludingId('Operario', 'area-1', 'cargo-2');
       expect(prisma.cargo.findFirst).toHaveBeenCalledWith({
-        where: { name: 'Operario', areaId: 'area-1', NOT: { id: 'cargo-2' } },
+        where: { name: 'Operario', productionAreaId: 'area-1', NOT: { id: 'cargo-2' } },
       });
     });
   });

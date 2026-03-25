@@ -7,7 +7,7 @@ export class CargosRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Encuentra todos los cargos activos con información del área
+   * Encuentra todos los cargos activos con información del área de producción
    */
   async findAll(includeInactive = false) {
     return this.prisma.cargo.findMany({
@@ -17,10 +17,10 @@ export class CargosRepository {
         name: true,
         description: true,
         isActive: true,
-        areaId: true,
+        productionAreaId: true,
         createdAt: true,
         updatedAt: true,
-        area: {
+        productionArea: {
           select: {
             id: true,
             name: true,
@@ -33,17 +33,17 @@ export class CargosRepository {
           },
         },
       },
-      orderBy: [{ area: { name: 'asc' } }, { name: 'asc' }],
+      orderBy: [{ productionArea: { name: 'asc' } }, { name: 'asc' }],
     });
   }
 
   /**
-   * Encuentra cargos por área
+   * Encuentra cargos por área de producción
    */
-  async findByArea(areaId: string, includeInactive = false) {
+  async findByArea(productionAreaId: string, includeInactive = false) {
     return this.prisma.cargo.findMany({
       where: {
-        areaId,
+        productionAreaId,
         ...(includeInactive ? {} : { isActive: true }),
       },
       select: {
@@ -51,7 +51,7 @@ export class CargosRepository {
         name: true,
         description: true,
         isActive: true,
-        areaId: true,
+        productionAreaId: true,
         createdAt: true,
         updatedAt: true,
         _count: {
@@ -65,7 +65,7 @@ export class CargosRepository {
   }
 
   /**
-   * Encuentra un cargo por ID con área y conteo de usuarios
+   * Encuentra un cargo por ID con área de producción y conteo de usuarios
    */
   async findById(id: string) {
     return this.prisma.cargo.findUnique({
@@ -75,10 +75,10 @@ export class CargosRepository {
         name: true,
         description: true,
         isActive: true,
-        areaId: true,
+        productionAreaId: true,
         createdAt: true,
         updatedAt: true,
-        area: {
+        productionArea: {
           select: {
             id: true,
             name: true,
@@ -95,28 +95,28 @@ export class CargosRepository {
   }
 
   /**
-   * Encuentra un cargo por nombre y área
+   * Encuentra un cargo por nombre y área de producción
    */
-  async findByNameAndArea(name: string, areaId: string) {
+  async findByNameAndArea(name: string, productionAreaId: string) {
     return this.prisma.cargo.findUnique({
       where: {
-        name_areaId: { name, areaId },
+        name_productionAreaId: { name, productionAreaId },
       },
     });
   }
 
   /**
-   * Encuentra un cargo por nombre y área excluyendo un ID específico
+   * Encuentra un cargo por nombre y área de producción excluyendo un ID específico
    */
   async findByNameAndAreaExcludingId(
     name: string,
-    areaId: string,
+    productionAreaId: string,
     excludeId: string,
   ) {
     return this.prisma.cargo.findFirst({
       where: {
         name,
-        areaId,
+        productionAreaId,
         NOT: { id: excludeId },
       },
     });
@@ -133,10 +133,10 @@ export class CargosRepository {
         name: true,
         description: true,
         isActive: true,
-        areaId: true,
+        productionAreaId: true,
         createdAt: true,
         updatedAt: true,
-        area: {
+        productionArea: {
           select: {
             id: true,
             name: true,
@@ -158,10 +158,10 @@ export class CargosRepository {
         name: true,
         description: true,
         isActive: true,
-        areaId: true,
+        productionAreaId: true,
         createdAt: true,
         updatedAt: true,
-        area: {
+        productionArea: {
           select: {
             id: true,
             name: true,

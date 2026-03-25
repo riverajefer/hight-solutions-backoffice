@@ -225,10 +225,10 @@ const ProfilePage: React.FC = () => {
                     size="small"
                   />
                 )}
-                {user.cargo?.area && (
+                {user.cargo?.productionArea && (
                   <Chip
                     icon={<BusinessIcon />}
-                    label={user.cargo.area.name}
+                    label={user.cargo.productionArea.name}
                     variant="outlined"
                     size="small"
                   />
@@ -292,7 +292,7 @@ const ProfilePage: React.FC = () => {
                 <DetailItem
                   icon={<BusinessIcon />}
                   label="Área"
-                  value={user.cargo?.area?.name || 'Sin área asignada'}
+                  value={user.cargo?.productionArea?.name || 'Sin área asignada'}
                 />
               </Stack>
             </CardContent>
