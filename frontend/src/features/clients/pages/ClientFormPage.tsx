@@ -62,7 +62,7 @@ const clientSchema = z.object({
     errorMap: () => ({ message: 'Debe seleccionar un tipo de persona' }),
   }),
   nit: z.string().max(12, 'El NIT no puede exceder 12 caracteres').optional().or(z.literal('')),
-  cedula: z.string().max(10, 'La cédula no puede exceder 10 dígitos').optional().or(z.literal('')),
+  cedula: z.string().max(12, 'La cédula no puede exceder 12 caracteres').optional().or(z.literal('')),
   specialCondition: z
     .string()
     .max(500, 'La condición especial no puede exceder 500 caracteres')
@@ -520,11 +520,11 @@ const ClientFormPage: React.FC = () => {
                         label="Cédula o nit"
                         fullWidth
                         error={!!errors.cedula}
-                        helperText={errors.cedula?.message || 'Máximo 10 dígitos'}
-                        placeholder="1234567890"
-                        inputProps={{ maxLength: 10 }}
+                        helperText={errors.cedula?.message || 'Máximo 12 caracteres'}
+                        placeholder="1234567890-1"
+                        inputProps={{ maxLength: 12 }}
                         onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          const val = e.target.value.replace(/[^0-9-]/g, '').slice(0, 12);
                           field.onChange(val);
                         }}
                       />
@@ -542,7 +542,7 @@ const ClientFormPage: React.FC = () => {
                         label="NIT"
                         fullWidth
                         error={!!errors.nit}
-                        helperText={errors.nit?.message || 'Máximo 10 dígitos'}
+                        helperText={errors.nit?.message || 'Máximo 12 caracteres (ej: 900123456-7)'}
                         required
                         placeholder="900.123.456-7"
                       />

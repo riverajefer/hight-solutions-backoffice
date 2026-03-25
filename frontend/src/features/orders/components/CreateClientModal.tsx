@@ -248,10 +248,11 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
                 label="Cédula o nit"
                 value={formData.cedula}
                 onChange={(e) => {  
-                  const value = e.target.value.replace(/\D/g, '').slice(0, 12);
+                  const value = e.target.value.replace(/[^0-9-]/g, '').slice(0, 12);
                   handleChange('cedula', value);
                 }}
-                placeholder="1234567890"
+                inputProps={{ maxLength: 12 }}
+                placeholder="1234567890-1"
                 helperText="Número de cédula de ciudadanía"
               />
             </Grid>
@@ -265,12 +266,12 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
                 label="NIT"
                 value={formData.nit}
                 onChange={(e) => {
-                  const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  const value = e.target.value.replace(/[^0-9-]/g, '').slice(0, 12);
                   handleChange('nit', value);
                 }}
-                inputProps={{ maxLength: 10 }}
-                placeholder="1234567890"
-                helperText="Máximo 10 dígitos"
+                inputProps={{ maxLength: 12 }}
+                placeholder="900123456-7"
+                helperText="Máximo 12 caracteres (ej: 900123456-7)"
               />
             </Grid>
           )}

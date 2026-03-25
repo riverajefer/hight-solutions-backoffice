@@ -111,4 +111,5 @@ export interface FilterQuotesDto {
   dateTo?: string;
   page?: number;
   limit?: number;
+  createdById?: string;
 }

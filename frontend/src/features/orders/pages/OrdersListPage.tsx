@@ -26,6 +26,7 @@ import { ActionsCell } from '../../../components/common/DataTable/ActionsCell';
 import { useOrders } from '../hooks';
 import { useClients } from '../../clients/hooks/useClients';
 import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
+import { useUsers } from '../../users/hooks/useUsers';
 import { OrderStatusChip, ChangeStatusDialog } from '../components';
 import { ROUTES } from '../../../utils/constants';
 import type {
@@ -126,10 +127,12 @@ export const OrdersListPage: React.FC = () => {
     useOrders(filters);
   const { clientsQuery } = useClients({ includeInactive: false });
   const { productionAreasQuery } = useProductionAreas();
+  const { usersQuery } = useUsers();
 
   const orders = ordersQuery.data?.data || [];
   const clients = clientsQuery.data || [];
   const productionAreas = productionAreasQuery.data || [];
+  const users = usersQuery.data || [];
 
   const selectedClient = filters.clientId
     ? clients.find((c) => c.id === filters.clientId)
@@ -137,6 +140,10 @@ export const OrdersListPage: React.FC = () => {
     
   const selectedArea = filters.productionAreaId
     ? productionAreas.find((a: any) => a.id === filters.productionAreaId)
+    : null;
+
+  const selectedUser = filters.createdById
+    ? users.find((u: any) => u.id === filters.createdById)
     : null;
 
   // Handlers
@@ -323,7 +330,7 @@ export const OrdersListPage: React.FC = () => {
     },
     {
       field: 'createdBy',
-      headerName: 'Creado por',
+      headerName: 'Asesor',
       width: 140,
       responsive: 'lg',
       valueGetter: (_: any, row: any) =>
@@ -503,7 +510,8 @@ export const OrdersListPage: React.FC = () => {
     filters.orderDateFrom ||
     filters.orderDateTo ||
     filters.search ||
-    filters.productionAreaId;
+    filters.productionAreaId ||
+    filters.createdById;
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
@@ -528,7 +536,8 @@ export const OrdersListPage: React.FC = () => {
           gridTemplateColumns: {
             xs: '1fr',
             sm: '1fr 1fr',
-            md: '1fr 1fr 1.5fr 1fr 1fr auto',
+            md: 'repeat(3, 1fr)',
+            lg: '1fr 1fr 1fr 1.5fr 1fr 1fr auto',
           },
           gap: 2,
           mb: 3,
@@ -572,6 +581,26 @@ export const OrdersListPage: React.FC = () => {
             />
           )}
           loading={productionAreasQuery.isLoading}
+        />
+
+        {/* Asesor */}
+        <Autocomplete
+          fullWidth
+          size='small'
+          options={users}
+          value={selectedUser}
+          onChange={(_, newValue) =>
+            handleFilterChange('createdById', newValue?.id)
+          }
+          getOptionLabel={(option: any) => `${option.firstName} ${option.lastName}`}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label='Asesor'
+              placeholder='Todos los asesores'
+            />
+          )}
+          loading={usersQuery.isLoading}
         />
 
         {/* Cliente */}

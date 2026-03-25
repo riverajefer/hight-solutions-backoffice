@@ -90,13 +90,18 @@ export class QuotesRepository {
     dateTo?: Date;
     page?: number;
     limit?: number;
+    createdById?: string;
   }) {
-    const { status, clientId, dateFrom, dateTo, page = 1, limit = 20 } = filters;
+    const { status, clientId, dateFrom, dateTo, page = 1, limit = 20, createdById } = filters;
 
     const where: Prisma.QuoteWhereInput = {};
 
     if (status) {
       where.status = status;
+    }
+
+    if (createdById) {
+      where.createdById = createdById;
     }
 
     if (clientId) {

@@ -89,4 +89,12 @@ export class FilterOrdersDto {
   @IsOptional()
   @IsUUID()
   productionAreaId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filtrar por Asesor / Creador (id)',
+    example: 'uuid-user',
+  })
+  @IsOptional()
+  @IsUUID()
+  createdById?: string;
 }

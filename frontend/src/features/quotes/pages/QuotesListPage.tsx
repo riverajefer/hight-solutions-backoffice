@@ -25,10 +25,10 @@ import { ActionsCell } from '../../../components/common/DataTable/ActionsCell';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { useQuotes } from '../hooks';
 import { useClients } from '../../clients/hooks/useClients';
+import { useUsers } from '../../users/hooks/useUsers';
 import { QuoteStatusChip, ChangeQuoteStatusDialog } from '../components';
 import type { Quote, QuoteStatus, FilterQuotesDto } from '../../../types/quote.types';
 import { QuoteStatus as QStatus } from '../../../types/quote.types';
-import type { Client } from '../../../types/client.types';
 
 const formatCurrency = (value: string | number): string => {
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
@@ -76,11 +76,18 @@ export const QuotesListPage: React.FC = () => {
 
   const { quotesQuery, deleteQuoteMutation, convertToOrderMutation, updateQuoteMutation } = useQuotes(filters);
   const { clientsQuery } = useClients({ includeInactive: false });
+  const { usersQuery } = useUsers();
 
   const quotes = quotesQuery.data?.data || [];
   const clients = clientsQuery.data || [];
+  const users = usersQuery.data || [];
+  
   const selectedClient = filters.clientId
     ? clients.find((c) => c.id === filters.clientId)
+    : null;
+
+  const selectedUser = filters.createdById
+    ? users.find((u: any) => u.id === filters.createdById)
     : null;
 
   const handleFilterChange = (key: keyof FilterQuotesDto, value: any) => {
@@ -140,7 +147,7 @@ export const QuotesListPage: React.FC = () => {
     },
     {
       field: 'createdBy',
-      headerName: 'Creado por',
+      headerName: 'Asesor',
       width: 180,
       responsive: 'md',
       valueGetter: (_: any, row: Quote) => {
@@ -275,9 +282,20 @@ export const QuotesListPage: React.FC = () => {
           options={clients}
           value={selectedClient}
           onChange={(_, val) => handleFilterChange('clientId', val?.id)}
-          getOptionLabel={(opt: Client) => opt.name}
-          renderInput={(params) => <TextField {...params} label="Cliente" />}
+          getOptionLabel={(opt) => opt.name}
+          renderInput={(params) => <TextField {...params} label="Cliente" placeholder="Todos los clientes" />}
           loading={clientsQuery.isLoading}
+        />
+
+        <Autocomplete
+          sx={{ minWidth: { xs: '100%', sm: 300 } }}
+          size="small"
+          options={users}
+          value={selectedUser}
+          onChange={(_, val) => handleFilterChange('createdById', val?.id)}
+          getOptionLabel={(opt: any) => `${opt.firstName} ${opt.lastName}`}
+          renderInput={(params) => <TextField {...params} label="Asesor" placeholder="Todos los asesores" />}
+          loading={usersQuery.isLoading}
         />
 
         <DatePicker
