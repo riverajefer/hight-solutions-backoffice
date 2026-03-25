@@ -21,7 +21,6 @@ import SecurityIcon from '@mui/icons-material/Security';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import HistoryIcon from '@mui/icons-material/History';
 import LoginIcon from '@mui/icons-material/Login';
-import BusinessIcon from '@mui/icons-material/Business';
 import WorkIcon from '@mui/icons-material/Work';
 import BadgeIcon from '@mui/icons-material/Badge';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';

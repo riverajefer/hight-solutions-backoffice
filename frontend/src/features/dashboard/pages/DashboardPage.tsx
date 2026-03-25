@@ -37,7 +37,6 @@ import {
   permissionsApi,
   clientsApi,
   suppliersApi,
-  areasApi,
   cargosApi,
   auditLogsApi,
   sessionLogsApi,
@@ -316,10 +315,10 @@ const DashboardPage: React.FC = () => {
   });
 
   const { data: areas = [], isLoading: areasLoading } = useQuery({
-    queryKey: ['areas'],
+    queryKey: ['production-areas'],
     queryFn: async () => {
-      if (!hasPermission(PERMISSIONS.READ_AREAS)) return [];
-      return areasApi.getAll();
+      if (!hasPermission(PERMISSIONS.READ_PRODUCTION_AREAS)) return [];
+      return productionAreasApi.getAll();
     },
   });
 
@@ -799,17 +798,17 @@ const DashboardPage: React.FC = () => {
               />
             </Grid>
           )}
-          {hasPermission(PERMISSIONS.READ_AREAS) && (
+          {hasPermission(PERMISSIONS.READ_PRODUCTION_AREAS) && (
             <Grid item xs={12} sm={6} md={4} lg={3}>
               <StatCard
-                title="Áreas"
+                title="Áreas de Producción"
                 value={areasCount}
                 icon={<BusinessIcon />}
                 color="#2DD4BF"
                 neonColor={NEON_COLORS.general}
                 action={{
-                  label: 'Ver áreas',
-                  onClick: () => navigate(ROUTES.AREAS),
+                  label: 'Ver áreas de producción',
+                  onClick: () => navigate(ROUTES.PRODUCTION_AREAS),
                 }}
               />
             </Grid>
@@ -1144,7 +1143,7 @@ const DashboardPage: React.FC = () => {
                 color="#10B981"
                 neonColor={NEON_COLORS.logistics}
                 action={{
-                  label: 'Ver áreas',
+                  label: 'Ver áreas de producción',
                   onClick: () => navigate(ROUTES.PRODUCTION_AREAS),
                 }}
               />
@@ -1246,17 +1245,17 @@ const DashboardPage: React.FC = () => {
               />
             </Grid>
           )}
-          {hasPermission(PERMISSIONS.READ_AREAS) && (
+          {hasPermission(PERMISSIONS.READ_PRODUCTION_AREAS) && (
             <Grid item xs={12} sm={6} md={4}>
               <StatCard
-                title="Áreas"
+                title="Áreas de Producción"
                 value={areasCount}
                 icon={<BusinessIcon />}
                 color="#2DD4BF"
                 neonColor={NEON_COLORS.organization}
                 action={{
-                  label: 'Ver áreas',
-                  onClick: () => navigate(ROUTES.AREAS),
+                  label: 'Ver áreas de producción',
+                  onClick: () => navigate(ROUTES.PRODUCTION_AREAS),
                 }}
               />
             </Grid>

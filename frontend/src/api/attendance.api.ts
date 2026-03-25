@@ -81,7 +81,7 @@ function buildParams(filters?: AttendanceFilter): URLSearchParams {
   if (filters.startDate) params.append('startDate', filters.startDate);
   if (filters.endDate) params.append('endDate', filters.endDate);
   if (filters.userId) params.append('userId', filters.userId);
-  if (filters.areaId) params.append('areaId', filters.areaId);
+  if (filters.productionAreaId) params.append('productionAreaId', filters.productionAreaId);
   if (filters.cargoId) params.append('cargoId', filters.cargoId);
   if (filters.type) params.append('type', filters.type);
   if (filters.source) params.append('source', filters.source);
