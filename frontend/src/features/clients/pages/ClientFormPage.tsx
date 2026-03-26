@@ -320,7 +320,6 @@ const ClientFormPage: React.FC = () => {
                       fullWidth
                       error={!!errors.email}
                       helperText={errors.email?.message}
-                      required
                     />
                   )}
                 />
@@ -533,7 +532,7 @@ const ClientFormPage: React.FC = () => {
                         fullWidth
                         error={!!errors.nit}
                         helperText={errors.nit?.message || 'Máximo 12 caracteres (ej: 900123456-7)'}
-                        required
+
                         placeholder="900.123.456-7"
                         inputProps={{ maxLength: 12 }}
                         onChange={(e) => {

@@ -22,7 +22,8 @@ const ClientsListPage: React.FC = () => {
   const [confirmDelete, setConfirmDelete] = useState<Client | null>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
 
-  const { clientsQuery, deleteClientMutation, uploadCsvMutation } = useClients();
+  const { clientsQuery, deleteClientMutation, uploadCsvMutation } =
+    useClients();
   const clients = clientsQuery.data || [];
 
   const handleDeleteConfirm = async () => {
@@ -30,7 +31,9 @@ const ClientsListPage: React.FC = () => {
 
     try {
       await deleteClientMutation.mutateAsync(confirmDelete.id);
-      enqueueSnackbar('Cliente eliminado correctamente', { variant: 'success' });
+      enqueueSnackbar('Cliente eliminado correctamente', {
+        variant: 'success',
+      });
       setConfirmDelete(null);
     } catch (error: unknown) {
       const message =
@@ -39,128 +42,135 @@ const ClientsListPage: React.FC = () => {
     }
   };
 
-  const rawColumns: ResponsiveGridColDef[] = useMemo(() => [
-    {
-      field: 'name',
-      headerName: 'Nombre',
-      flex: 1,
-      minWidth: 180,
-    },
-    {
-      field: 'email',
-      headerName: 'Email',
-      flex: 1,
-      minWidth: 200,
-      responsive: 'md',
-    },
-    {
-      field: 'phone',
-      headerName: 'Teléfono',
-      width: 140,
-      responsive: 'md',
-    },
-    {
-      field: 'personType',
-      headerName: 'Tipo',
-      width: 120,
-      align: 'center',
-      headerAlign: 'center',
-      responsive: 'sm',
-      renderCell: (params: GridRenderCellParams) => (
-        <Chip
-          label={params.value === 'EMPRESA' ? 'Empresa' : 'Natural'}
-          size="small"
-          color={params.value === 'EMPRESA' ? 'primary' : 'default'}
-          variant="outlined"
-        />
-      ),
-    },
-    {
-      field: 'city',
-      headerName: 'Ciudad',
-      width: 150,
-      responsive: 'md',
-      valueGetter: (value: { name: string } | undefined) => value?.name || '-',
-    },
-    {
-      field: 'department',
-      headerName: 'Departamento',
-      width: 150,
-      responsive: 'md',
-      valueGetter: (value: { name: string } | undefined) => value?.name || '-',
-    },
-    {
-      field: 'advisor',
-      headerName: 'Creado por',
-      width: 180,
-      responsive: 'md',
-      valueGetter: (_: any, row: Client) => {
-        if (!row.advisor) return '-';
-        const firstName = row.advisor.firstName || '';
-        const lastName = row.advisor.lastName || '';
-        if (firstName || lastName) return `${firstName} ${lastName}`.trim();
-        return row.advisor.email || '-';
+  const rawColumns: ResponsiveGridColDef[] = useMemo(
+    () => [
+      {
+        field: 'name',
+        headerName: 'Nombre',
+        flex: 1,
+        minWidth: 180,
       },
-    },
-    {
-      field: 'isActive',
-      headerName: 'Estado',
-      width: 100,
-      align: 'center',
-      headerAlign: 'center',
-      renderCell: (params: GridRenderCellParams) => (
-        <Chip
-          label={params.value ? 'Activo' : 'Inactivo'}
-          size="small"
-          color={params.value ? 'success' : 'default'}
-        />
-      ),
-    },
-    {
-      field: 'actions',
-      headerName: 'Acciones',
-      width: 120,
-      sortable: false,
-      filterable: false,
-      renderCell: (params: GridRenderCellParams<Client>) => (
-        <ActionsCell
-          onView={
-            hasPermission(PERMISSIONS.READ_CLIENTS)
-              ? () => navigate(`/clients/${params.row.id}`)
-              : undefined
-          }
-          onEdit={
-            hasPermission(PERMISSIONS.UPDATE_CLIENTS)
-              ? () => navigate(`/clients/${params.row.id}/edit`)
-              : undefined
-          }
-          onDelete={
-            hasPermission(PERMISSIONS.DELETE_CLIENTS)
-              ? () => setConfirmDelete(params.row)
-              : undefined
-          }
-        />
-      ),
-    },
-  ], [navigate, hasPermission]);
+      {
+        field: 'email',
+        headerName: 'Email',
+        flex: 1,
+        minWidth: 200,
+        responsive: 'md',
+      },
+      {
+        field: 'phone',
+        headerName: 'Teléfono',
+        width: 140,
+        responsive: 'md',
+      },
+      {
+        field: 'personType',
+        headerName: 'Tipo',
+        width: 120,
+        align: 'center',
+        headerAlign: 'center',
+        responsive: 'sm',
+        renderCell: (params: GridRenderCellParams) => (
+          <Chip
+            label={params.value === 'EMPRESA' ? 'Empresa' : 'Natural'}
+            size='small'
+            color={params.value === 'EMPRESA' ? 'primary' : 'default'}
+            variant='outlined'
+          />
+        ),
+      },
+      {
+        field: 'city',
+        headerName: 'Ciudad',
+        width: 150,
+        responsive: 'md',
+        valueGetter: (value: { name: string } | undefined) =>
+          value?.name || '-',
+      },
+      {
+        field: 'department',
+        headerName: 'Departamento',
+        width: 150,
+        responsive: 'md',
+        valueGetter: (value: { name: string } | undefined) =>
+          value?.name || '-',
+      },
+      {
+        field: 'advisor',
+        headerName: 'Creado por',
+        width: 180,
+        responsive: 'md',
+        valueGetter: (_: any, row: Client) => {
+          if (!row.advisor) return '-';
+          const firstName = row.advisor.firstName || '';
+          const lastName = row.advisor.lastName || '';
+          if (firstName || lastName) return `${firstName} ${lastName}`.trim();
+          return row.advisor.email || '-';
+        },
+      },
+      {
+        field: 'isActive',
+        headerName: 'Estado',
+        width: 100,
+        align: 'center',
+        headerAlign: 'center',
+        renderCell: (params: GridRenderCellParams) => (
+          <Chip
+            label={params.value ? 'Activo' : 'Inactivo'}
+            size='small'
+            color={params.value ? 'success' : 'default'}
+          />
+        ),
+      },
+      {
+        field: 'actions',
+        headerName: 'Acciones',
+        width: 120,
+        sortable: false,
+        filterable: false,
+        renderCell: (params: GridRenderCellParams<Client>) => (
+          <ActionsCell
+            onView={
+              hasPermission(PERMISSIONS.READ_CLIENTS)
+                ? () => navigate(`/clients/${params.row.id}`)
+                : undefined
+            }
+            onEdit={
+              hasPermission(PERMISSIONS.UPDATE_CLIENTS)
+                ? () => navigate(`/clients/${params.row.id}/edit`)
+                : undefined
+            }
+            onDelete={
+              hasPermission(PERMISSIONS.DELETE_CLIENTS)
+                ? () => setConfirmDelete(params.row)
+                : undefined
+            }
+          />
+        ),
+      },
+    ],
+    [navigate, hasPermission],
+  );
 
   const columns = useResponsiveColumns(rawColumns);
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
-        title="Clientes"
-        subtitle="Gestiona los clientes de la organización"
+        title='Clientes'
+        subtitle='Gestiona los clientes de la organización'
         action={
           hasPermission(PERMISSIONS.CREATE_CLIENTS) ? (
-            <Button
-              variant="outlined"
-              color="primary"
-              startIcon={<UploadFileIcon />}
-              onClick={() => setUploadModalOpen(true)}
-            >
-              Subida Masiva
-            </Button>
+            <>
+{/*               <Button
+                variant='outlined'
+                color='primary'
+                startIcon={<UploadFileIcon />}
+                onClick={() => setUploadModalOpen(true)}
+              >
+                Subida Masiva
+              </Button> */}
+            </>
           ) : undefined
         }
       />
@@ -175,15 +185,23 @@ const ClientsListPage: React.FC = () => {
               ? () => navigate('/clients/new')
               : undefined
           }
-          addButtonText="Nuevo Cliente"
-          searchPlaceholder="Buscar clientes..."
+          addButtonText='Nuevo Cliente'
+          searchPlaceholder='Buscar clientes...'
         />
       ) : (
-        <Box sx={{ mt: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+        <Box
+          sx={{
+            mt: 4,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 2,
+          }}
+        >
           <Button
-            variant="contained"
-            color="primary"
-            size="large"
+            variant='contained'
+            color='primary'
+            size='large'
             onClick={() => navigate('/clients/new')}
           >
             Crear Nuevo Cliente
@@ -193,13 +211,13 @@ const ClientsListPage: React.FC = () => {
 
       <ConfirmDialog
         open={!!confirmDelete}
-        title="Eliminar Cliente"
+        title='Eliminar Cliente'
         message={`¿Estás seguro de que deseas eliminar el cliente "${confirmDelete?.name}"?`}
         onConfirm={handleDeleteConfirm}
         onCancel={() => setConfirmDelete(null)}
         isLoading={deleteClientMutation.isPending}
-        confirmText="Eliminar"
-        severity="error"
+        confirmText='Eliminar'
+        severity='error'
       />
 
       <UploadCsvModal
