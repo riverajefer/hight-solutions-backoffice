@@ -58,6 +58,7 @@ model User {
   inventoryMovements                   InventoryMovement[]
   productionOrdersCreated              ProductionOrder[]            @relation("ProductionOrderCreatedBy")
   productionStepsCompleted             ProductionOrderStep[]        @relation("ProductionStepCompletedBy")
+  authoredComments                     Comment[]                    @relation("CommentAuthor")
 
   @@map("users")
 }
@@ -1527,4 +1528,34 @@ model ProductionOrderStep {
   @@index([componentId])
   @@index([status])
   @@map("production_order_steps")
+}
+
+// =============================================================================
+// MÓDULO DE COMENTARIOS — Comentarios Polimórficos
+// =============================================================================
+
+enum CommentEntityType {
+  QUOTE
+  ORDER
+  WORK_ORDER
+}
+
+model Comment {
+  id         String            @id @default(uuid())
+  content    String
+  entityType CommentEntityType @map("entity_type")
+  entityId   String            @map("entity_id")
+  authorId   String            @map("author_id")
+  parentId   String?           @map("parent_id")
+  deletedAt  DateTime?         @map("deleted_at")
+  createdAt  DateTime          @default(now()) @map("created_at")
+  updatedAt  DateTime          @updatedAt @map("updated_at")
+
+  author  User      @relation("CommentAuthor", fields: [authorId], references: [id])
+  parent  Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies Comment[] @relation("CommentReplies")
+
+  @@index([entityType, entityId])
+  @@index([parentId])
+  @@map("comments")
 }

@@ -44,6 +44,7 @@ import { PayrollModule } from './modules/payroll/payroll.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { ProductionModule } from './modules/production/production.module';
+import { CommentsModule } from './modules/comments/comments.module';
 
 @Module({
   imports: [
@@ -117,6 +118,8 @@ import { ProductionModule } from './modules/production/production.module';
     InventoryModule,
     // Módulo de Producción — Plantillas y Órdenes de Producción
     ProductionModule,
+    // Módulo de Comentarios Polimórficos (COT / OP / OT)
+    CommentsModule,
   ],
   providers: [
     {

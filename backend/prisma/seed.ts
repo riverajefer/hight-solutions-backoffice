@@ -282,6 +282,11 @@ async function main() {
     { name: 'read_production_orders', description: 'Ver órdenes de producción' },
     { name: 'create_production_orders', description: 'Crear órdenes de producción desde plantilla' },
     { name: 'update_production_orders', description: 'Actualizar pasos de órdenes de producción' },
+
+    // Comments (Comentarios polimórficos en COT / OP / OT)
+    { name: 'create_comments', description: 'Crear comentarios en cotizaciones, órdenes y órdenes de trabajo' },
+    { name: 'read_comments', description: 'Ver comentarios en cotizaciones, órdenes y órdenes de trabajo' },
+    { name: 'delete_comments', description: 'Eliminar cualquier comentario (independiente del autor)' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
@@ -423,6 +428,9 @@ async function main() {
     'read_production_orders',
     'create_production_orders',
     'update_production_orders',
+    // Comments (Manager)
+    'create_comments',
+    'read_comments',
   ]);
 
   // User - solo lectura básica
@@ -432,6 +440,9 @@ async function main() {
     'read_orders',
     // Attendance (User)
     'use_attendance',
+    // Comments (User)
+    'create_comments',
+    'read_comments',
   ]);
 
   // Caja - gestión de pagos y anticipos
@@ -447,6 +458,9 @@ async function main() {
     'read_pending_orders',
     // Attendance (Caja)
     'use_attendance',
+    // Comments (Caja)
+    'create_comments',
+    'read_comments',
   ]);
 
   // ============================================
