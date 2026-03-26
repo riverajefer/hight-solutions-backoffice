@@ -233,12 +233,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           permission: PERMISSIONS.READ_SUPPLIERS,
         },
         {
-          label: 'Áreas de Producción',
-          icon: <FactoryIcon />,
-          path: ROUTES.PRODUCTION_AREAS,
-          permission: PERMISSIONS.READ_PRODUCTION_AREAS,
-        },
-        {
           label: 'Productos',
           icon: <MiscellaneousServicesIcon />,
           path: ROUTES.PRODUCTS,
@@ -283,7 +277,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
       ],
       permissions: [
         PERMISSIONS.READ_SUPPLIERS,
-        PERMISSIONS.READ_PRODUCTION_AREAS,
         PERMISSIONS.READ_PRODUCTS,
         PERMISSIONS.READ_SUPPLIES,
         PERMISSIONS.READ_PRODUCT_CATEGORIES,
@@ -339,10 +332,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           path: ROUTES.CARGOS,
           permission: PERMISSIONS.READ_CARGOS,
         },
+        {
+          label: 'Áreas de Producción',
+          icon: <FactoryIcon />,
+          path: ROUTES.PRODUCTION_AREAS,
+          permission: PERMISSIONS.READ_PRODUCTION_AREAS,
+        },        
       ],
       permissions: [
         PERMISSIONS.READ_USERS,
         PERMISSIONS.READ_CARGOS,
+        PERMISSIONS.READ_PRODUCTION_AREAS,
       ],
     },
     {
