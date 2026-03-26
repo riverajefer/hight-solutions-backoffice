@@ -168,6 +168,8 @@ export const ExpenseOrderDetailPage = () => {
   const [itemForm, setItemForm] = useState<ItemForm>(defaultItemForm());
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [referenceFile, setReferenceFile] = useState<File | null>(null);
+  const referenceFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // ── View receipt dialog ──────────────────────────────────────────────────────
   const [receiptDialog, setReceiptDialog] = useState<{
@@ -178,6 +180,16 @@ export const ExpenseOrderDetailPage = () => {
     fileId: string;
   }>({ open: false, url: '', mimeType: '', originalName: '', fileId: '' });
   const [loadingReceiptId, setLoadingReceiptId] = useState<string | null>(null);
+
+  // ── View reference image dialog ───────────────────────────────────────────────
+  const [referenceDialog, setReferenceDialog] = useState<{
+    open: boolean;
+    url: string;
+    mimeType: string;
+    originalName: string;
+    fileId: string;
+  }>({ open: false, url: '', mimeType: '', originalName: '', fileId: '' });
+  const [loadingReferenceId, setLoadingReferenceId] = useState<string | null>(null);
 
   const canUpdate = hasPermission(PERMISSIONS.UPDATE_EXPENSE_ORDERS);
   const canApprove = hasPermission(PERMISSIONS.APPROVE_EXPENSE_ORDERS);
@@ -214,12 +226,20 @@ export const ExpenseOrderDetailPage = () => {
     setItemForm(defaultItemForm());
     setReceiptFile(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    setReferenceFile(null);
+    if (referenceFileInputRef.current) referenceFileInputRef.current.value = '';
   };
 
   const handleReceiptFileChange = (file: File | null) => {
     if (!file) return;
     if (!ALLOWED_IMAGE_TYPES.includes(file.type)) return;
     setReceiptFile(file);
+  };
+
+  const handleReferenceFileChange = (file: File | null) => {
+    if (!file) return;
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) return;
+    setReferenceFile(file);
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
@@ -239,6 +259,23 @@ export const ExpenseOrderDetailPage = () => {
     }
   };
 
+  const handlePasteReference = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          const extension = file.type.split('/')[1] || 'png';
+          const newFile = new File([file], `pasted-image-${Date.now()}.${extension}`, { type: file.type });
+          handleReferenceFileChange(newFile);
+          e.preventDefault();
+          break;
+        }
+      }
+    }
+  };
+
   const isItemFormValid =
     itemForm.name.trim().length > 0 &&
     parseFloat(itemForm.quantity) > 0 &&
@@ -248,10 +285,16 @@ export const ExpenseOrderDetailPage = () => {
     if (!id || !isItemFormValid) return;
 
     let receiptFileId: string | undefined;
+    let referenceFileId: string | undefined;
 
     if (receiptFile) {
       const uploaded = await storageApi.uploadFile(receiptFile, { entityType: 'expense_order' });
       receiptFileId = uploaded.id;
+    }
+
+    if (referenceFile) {
+      const uploaded = await storageApi.uploadFile(referenceFile, { entityType: 'expense_order' });
+      referenceFileId = uploaded.id;
     }
 
     const dto: CreateExpenseItemDto = {
@@ -266,6 +309,7 @@ export const ExpenseOrderDetailPage = () => {
           ? itemForm.productionAreaIds
           : undefined,
       receiptFileId,
+      referenceFileId,
     };
 
     await addExpenseItemMutation.mutateAsync({ id, dto });
@@ -289,6 +333,25 @@ export const ExpenseOrderDetailPage = () => {
       });
     } finally {
       setLoadingReceiptId(null);
+    }
+  };
+
+  const handleViewReference = async (fileId: string) => {
+    setLoadingReferenceId(fileId);
+    try {
+      const [urlResponse, fileData] = await Promise.all([
+        storageApi.getFileUrl(fileId),
+        storageApi.getFile(fileId),
+      ]);
+      setReferenceDialog({
+        open: true,
+        url: urlResponse.url,
+        mimeType: fileData.mimeType,
+        originalName: fileData.originalName,
+        fileId,
+      });
+    } finally {
+      setLoadingReferenceId(null);
     }
   };
 
@@ -519,6 +582,7 @@ export const ExpenseOrderDetailPage = () => {
                     <TableCell>Proveedor</TableCell>
                     {og.workOrder && <TableCell>Áreas</TableCell>}
                     <TableCell align="center">Comprobante</TableCell>
+                    <TableCell align="center">Referencia</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -580,16 +644,40 @@ export const ExpenseOrderDetailPage = () => {
                           </Typography>
                         )}
                       </TableCell>
+                      <TableCell align="center">
+                        {item.referenceFileId ? (
+                          <Tooltip title="Ver imagen de referencia">
+                            <span>
+                              <IconButton
+                                size="small"
+                                color="secondary"
+                                onClick={() => handleViewReference(item.referenceFileId!)}
+                                disabled={loadingReferenceId === item.referenceFileId}
+                              >
+                                {loadingReferenceId === item.referenceFileId ? (
+                                  <CircularProgress size={16} color="inherit" />
+                                ) : (
+                                  <ImageIcon fontSize="small" />
+                                )}
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        ) : (
+                          <Typography variant="caption" color="text.disabled">
+                            —
+                          </Typography>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                   <TableRow>
-                    <TableCell colSpan={og.workOrder ? 3 : 3} />
+                    <TableCell colSpan={3} />
                     <TableCell align="right">
                       <Typography variant="subtitle2" fontWeight={700}>
                         {formatCurrency(totalAmount)}
                       </Typography>
                     </TableCell>
-                    <TableCell colSpan={og.workOrder ? 4 : 3} />
+                    <TableCell colSpan={og.workOrder ? 5 : 4} />
                   </TableRow>
                 </TableBody>
               </Table>
@@ -887,111 +975,196 @@ export const ExpenseOrderDetailPage = () => {
               </TextField>
             )}
 
-            {/* Receipt image upload */}
+            {/* Images section */}
             <Box>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                Comprobante de pago (imagen)
-              </Typography>
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/gif,image/webp"
-                hidden
-                ref={fileInputRef}
-                onChange={(e) => handleReceiptFileChange(e.target.files?.[0] ?? null)}
-              />
+              <Divider sx={{ mb: 2 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ px: 1 }}>
+                  Imágenes
+                </Typography>
+              </Divider>
+              <Grid container spacing={2}>
+                {/* Comprobante de pago */}
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 500 }}>
+                    Comprobante de pago
+                  </Typography>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    hidden
+                    ref={fileInputRef}
+                    onChange={(e) => handleReceiptFileChange(e.target.files?.[0] ?? null)}
+                  />
+                  {!receiptFile ? (
+                    <Stack spacing={1}>
+                      <Button
+                        variant="outlined"
+                        startIcon={<AttachFileIcon />}
+                        size="small"
+                        onClick={() => fileInputRef.current?.click()}
+                        sx={{ textTransform: 'none', alignSelf: 'flex-start' }}
+                      >
+                        Adjuntar imagen
+                      </Button>
+                      <Box
+                        onPaste={handlePaste}
+                        tabIndex={0}
+                        sx={{
+                          border: '2px dashed',
+                          borderColor: 'grey.300',
+                          borderRadius: 1,
+                          p: 2,
+                          textAlign: 'center',
+                          cursor: 'pointer',
+                          transition: 'border-color 0.2s, background-color 0.2s',
+                          '&:hover, &:focus': {
+                            borderColor: 'primary.main',
+                            bgcolor: 'action.hover',
+                          },
+                        }}
+                        onClick={() => {
+                          (document.activeElement as HTMLElement)?.blur();
+                        }}
+                      >
+                        <ImageIcon sx={{ fontSize: 28, color: 'grey.400', mb: 0.5 }} />
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          O pega una imagen aquí (Ctrl+V / ⌘+V)
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  ) : (
+                    <Stack spacing={1.5}>
+                      <Box
+                        sx={{
+                          width: 'fit-content',
+                          border: '1px solid',
+                          borderColor: 'grey.300',
+                          borderRadius: 1,
+                          overflow: 'hidden',
+                          bgcolor: 'grey.50',
+                        }}
+                      >
+                        <Box
+                          component="img"
+                          src={URL.createObjectURL(receiptFile)}
+                          alt="Vista previa comprobante"
+                          sx={{ display: 'block', maxWidth: 200, maxHeight: 140, objectFit: 'contain' }}
+                          onLoad={(e) => URL.revokeObjectURL((e.target as HTMLImageElement).src)}
+                        />
+                      </Box>
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <Chip
+                          icon={<ImageIcon />}
+                          label={`${receiptFile.name} (${(receiptFile.size / 1024).toFixed(1)} KB)`}
+                          color="primary"
+                          variant="outlined"
+                          size="small"
+                          onDelete={() => {
+                            setReceiptFile(null);
+                            if (fileInputRef.current) fileInputRef.current.value = '';
+                          }}
+                          deleteIcon={<CloseIcon />}
+                          sx={{ maxWidth: 240 }}
+                        />
+                        <IconButton size="small" onClick={() => fileInputRef.current?.click()} title="Cambiar imagen">
+                          <AttachFileIcon fontSize="small" />
+                        </IconButton>
+                      </Stack>
+                    </Stack>
+                  )}
+                </Grid>
 
-              {!receiptFile ? (
-                <Stack spacing={1}>
-                  <Button
-                    variant="outlined"
-                    startIcon={<AttachFileIcon />}
-                    size="small"
-                    onClick={() => fileInputRef.current?.click()}
-                    sx={{ textTransform: 'none', alignSelf: 'flex-start' }}
-                  >
-                    Adjuntar imagen
-                  </Button>
-                  <Box
-                    onPaste={handlePaste}
-                    tabIndex={0}
-                    sx={{
-                      border: '2px dashed',
-                      borderColor: 'grey.300',
-                      borderRadius: 1,
-                      p: 2,
-                      textAlign: 'center',
-                      cursor: 'pointer',
-                      transition: 'border-color 0.2s, background-color 0.2s',
-                      '&:hover, &:focus': {
-                        borderColor: 'primary.main',
-                        bgcolor: 'action.hover',
-                      },
-                    }}
-                    onClick={() => {
-                      // Focus the box so paste events work
-                      (document.activeElement as HTMLElement)?.blur();
-                    }}
-                  >
-                    <ImageIcon sx={{ fontSize: 28, color: 'grey.400', mb: 0.5 }} />
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      O pega una imagen aquí (Ctrl+V / ⌘+V)
-                    </Typography>
-                  </Box>
-                </Stack>
-              ) : (
-                <Stack spacing={1.5}>
-                  {/* Thumbnail preview */}
-                  <Box
-                    sx={{
-                      position: 'relative',
-                      width: 'fit-content',
-                      border: '1px solid',
-                      borderColor: 'grey.300',
-                      borderRadius: 1,
-                      overflow: 'hidden',
-                      bgcolor: 'grey.50',
-                    }}
-                  >
-                    <Box
-                      component="img"
-                      src={URL.createObjectURL(receiptFile)}
-                      alt="Vista previa"
-                      sx={{
-                        display: 'block',
-                        maxWidth: 200,
-                        maxHeight: 140,
-                        objectFit: 'contain',
-                      }}
-                      onLoad={(e) => {
-                        // Revoke URL after load to free memory
-                        URL.revokeObjectURL((e.target as HTMLImageElement).src);
-                      }}
-                    />
-                  </Box>
-                  <Stack direction="row" alignItems="center" spacing={1}>
-                    <Chip
-                      icon={<ImageIcon />}
-                      label={`${receiptFile.name} (${(receiptFile.size / 1024).toFixed(1)} KB)`}
-                      color="primary"
-                      variant="outlined"
-                      size="small"
-                      onDelete={() => {
-                        setReceiptFile(null);
-                        if (fileInputRef.current) fileInputRef.current.value = '';
-                      }}
-                      deleteIcon={<CloseIcon />}
-                      sx={{ maxWidth: 300 }}
-                    />
-                    <IconButton
-                      size="small"
-                      onClick={() => fileInputRef.current?.click()}
-                      title="Cambiar imagen"
-                    >
-                      <AttachFileIcon fontSize="small" />
-                    </IconButton>
-                  </Stack>
-                </Stack>
-              )}
+                {/* Imagen de referencia */}
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 500 }}>
+                    Imagen de referencia
+                  </Typography>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    hidden
+                    ref={referenceFileInputRef}
+                    onChange={(e) => handleReferenceFileChange(e.target.files?.[0] ?? null)}
+                  />
+                  {!referenceFile ? (
+                    <Stack spacing={1}>
+                      <Button
+                        variant="outlined"
+                        startIcon={<AttachFileIcon />}
+                        size="small"
+                        onClick={() => referenceFileInputRef.current?.click()}
+                        sx={{ textTransform: 'none', alignSelf: 'flex-start' }}
+                      >
+                        Adjuntar imagen
+                      </Button>
+                      <Box
+                        onPaste={handlePasteReference}
+                        tabIndex={0}
+                        sx={{
+                          border: '2px dashed',
+                          borderColor: 'grey.300',
+                          borderRadius: 1,
+                          p: 2,
+                          textAlign: 'center',
+                          cursor: 'pointer',
+                          transition: 'border-color 0.2s, background-color 0.2s',
+                          '&:hover, &:focus': {
+                            borderColor: 'primary.main',
+                            bgcolor: 'action.hover',
+                          },
+                        }}
+                        onClick={() => {
+                          (document.activeElement as HTMLElement)?.blur();
+                        }}
+                      >
+                        <ImageIcon sx={{ fontSize: 28, color: 'grey.400', mb: 0.5 }} />
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          O pega una imagen aquí (Ctrl+V / ⌘+V)
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  ) : (
+                    <Stack spacing={1.5}>
+                      <Box
+                        sx={{
+                          width: 'fit-content',
+                          border: '1px solid',
+                          borderColor: 'grey.300',
+                          borderRadius: 1,
+                          overflow: 'hidden',
+                          bgcolor: 'grey.50',
+                        }}
+                      >
+                        <Box
+                          component="img"
+                          src={URL.createObjectURL(referenceFile)}
+                          alt="Vista previa referencia"
+                          sx={{ display: 'block', maxWidth: 200, maxHeight: 140, objectFit: 'contain' }}
+                          onLoad={(e) => URL.revokeObjectURL((e.target as HTMLImageElement).src)}
+                        />
+                      </Box>
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <Chip
+                          icon={<ImageIcon />}
+                          label={`${referenceFile.name} (${(referenceFile.size / 1024).toFixed(1)} KB)`}
+                          color="secondary"
+                          variant="outlined"
+                          size="small"
+                          onDelete={() => {
+                            setReferenceFile(null);
+                            if (referenceFileInputRef.current) referenceFileInputRef.current.value = '';
+                          }}
+                          deleteIcon={<CloseIcon />}
+                          sx={{ maxWidth: 240 }}
+                        />
+                        <IconButton size="small" onClick={() => referenceFileInputRef.current?.click()} title="Cambiar imagen">
+                          <AttachFileIcon fontSize="small" />
+                        </IconButton>
+                      </Stack>
+                    </Stack>
+                  )}
+                </Grid>
+              </Grid>
             </Box>
           </Stack>
         </DialogContent>
@@ -1100,6 +1273,96 @@ export const ExpenseOrderDetailPage = () => {
           <Button
             variant="contained"
             onClick={() => setReceiptDialog((d) => ({ ...d, open: false }))}
+          >
+            Cerrar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── View reference image dialog ───────────────────────────────────────── */}
+      <Dialog
+        open={referenceDialog.open}
+        onClose={() => setReferenceDialog((d) => ({ ...d, open: false }))}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <ImageIcon color="secondary" fontSize="small" />
+              <Typography variant="subtitle1" fontWeight={600}>
+                Imagen de referencia
+              </Typography>
+              {referenceDialog.originalName && (
+                <Typography variant="caption" color="text.secondary">
+                  — {referenceDialog.originalName}
+                </Typography>
+              )}
+            </Stack>
+            <Stack direction="row" spacing={1}>
+              <Tooltip title="Descargar">
+                <IconButton
+                  size="small"
+                  onClick={() =>
+                    handleDownloadReceipt(referenceDialog.fileId, referenceDialog.originalName)
+                  }
+                >
+                  <DownloadIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <IconButton
+                size="small"
+                onClick={() => setReferenceDialog((d) => ({ ...d, open: false }))}
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Stack>
+          </Stack>
+        </DialogTitle>
+        <DialogContent sx={{ p: 0 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              minHeight: 400,
+              bgcolor: 'grey.100',
+              p: 2,
+            }}
+          >
+            {referenceDialog.mimeType.startsWith('image/') ? (
+              <Box
+                component="img"
+                src={referenceDialog.url}
+                alt="Imagen de referencia"
+                sx={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: 1 }}
+              />
+            ) : referenceDialog.mimeType === 'application/pdf' ? (
+              <iframe
+                src={referenceDialog.url}
+                title="Imagen de referencia"
+                style={{ width: '100%', height: '70vh', border: 'none' }}
+              />
+            ) : (
+              <Typography color="text.secondary">
+                No se puede previsualizar este tipo de archivo.
+              </Typography>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            startIcon={<DownloadIcon />}
+            onClick={() =>
+              handleDownloadReceipt(referenceDialog.fileId, referenceDialog.originalName)
+            }
+          >
+            Descargar
+          </Button>
+          <Button
+            variant="contained"
+            color="secondary"
+            onClick={() => setReferenceDialog((d) => ({ ...d, open: false }))}
           >
             Cerrar
           </Button>

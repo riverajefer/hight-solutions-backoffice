@@ -1055,7 +1055,8 @@ model ExpenseOrderItem {
   unitPrice      Decimal       @map("unit_price")
   total          Decimal // quantity * unitPrice
   paymentMethod  PaymentMethod @default(CASH) @map("payment_method")
-  receiptFileId  String?       @map("receipt_file_id") // Comprobante de pago
+  receiptFileId   String?       @map("receipt_file_id") // Comprobante de pago
+  referenceFileId String?       @map("reference_file_id") // Imagen de referencia
 
   sortOrder Int      @default(0) @map("sort_order")
   createdAt DateTime @default(now()) @map("created_at")

@@ -24,6 +24,7 @@ export class UsersRepository {
         updatedAt: true,
         firstName: true,
         lastName: true,
+        profilePhoto: true,
         role: {
           select: {
             id: true,
