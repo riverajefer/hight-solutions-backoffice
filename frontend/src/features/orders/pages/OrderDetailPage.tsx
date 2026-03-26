@@ -101,6 +101,7 @@ import {
   PAYMENT_METHOD_LABELS,
   ALLOWED_TRANSITIONS,
 } from '../../../types/order.types';
+import { CommentSection } from '../../comments';
 
 const formatCurrency = (value: string): string => {
   const numValue = parseFloat(value);
@@ -1325,6 +1326,9 @@ export const OrderDetailPage: React.FC = () => {
           <OrderChangeHistoryTab orderId={id!} orderNumber={order.orderNumber} />
         </TabPanel>
       </Box>
+
+      {/* Comentarios */}
+      <CommentSection entityType="ORDER" entityId={order.id} />
 
       {/* Menu de Acciones */}
       <Menu

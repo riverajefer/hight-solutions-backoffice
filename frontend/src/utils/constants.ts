@@ -134,6 +134,10 @@ export const PERMISSIONS = {
   READ_PRODUCTION_ORDERS: 'read_production_orders',
   CREATE_PRODUCTION_ORDERS: 'create_production_orders',
   UPDATE_PRODUCTION_ORDERS: 'update_production_orders',
+  // Comments — Comentarios polimórficos (COT / OP / OT)
+  CREATE_COMMENTS: 'create_comments',
+  READ_COMMENTS: 'read_comments',
+  DELETE_COMMENTS: 'delete_comments',
 };
 
 export const ROUTES = {

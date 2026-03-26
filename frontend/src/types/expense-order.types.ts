@@ -76,6 +76,7 @@ export interface ExpenseOrderItem {
   total: string;
   paymentMethod: PaymentMethod;
   receiptFileId?: string | null;
+  referenceFileId?: string | null;
   sortOrder: number;
   supplier?: {
     id: string;
@@ -185,6 +186,7 @@ export interface CreateExpenseItemDto {
   paymentMethod: PaymentMethod;
   productionAreaIds?: string[];
   receiptFileId?: string;
+  referenceFileId?: string;
 }
 
 export interface CreateExpenseOrderDto {
@@ -208,6 +210,7 @@ export interface UpdateExpenseItemDto {
   paymentMethod?: PaymentMethod;
   productionAreaIds?: string[];
   receiptFileId?: string;
+  referenceFileId?: string;
 }
 
 export interface UpdateExpenseOrderDto {
