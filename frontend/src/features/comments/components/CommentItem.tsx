@@ -21,10 +21,7 @@ import { useUsers } from '../../users/hooks/useUsers';
 const MentionTag: React.FC<{ username: string }> = ({ username }) => {
   const { usersQuery } = useUsers();
   
-  // Extraemos usuarios de la caché (viene paginado si aplica o en forma de arreglo)
-  const usersArray = Array.isArray(usersQuery.data) 
-    ? usersQuery.data 
-    : (usersQuery.data?.data || []);
+  const usersArray = usersQuery.data || [];
     
   const mentionedUser = usersArray.find((u: any) => u.username === username);
 
