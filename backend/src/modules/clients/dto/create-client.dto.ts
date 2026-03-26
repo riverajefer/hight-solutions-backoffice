@@ -75,12 +75,13 @@ export class CreateClientDto {
   @MaxLength(300)
   address?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Correo electrónico del cliente',
     example: 'contacto@empresaabc.com',
   })
+  @IsOptional()
   @IsEmail({}, { message: 'El email debe tener un formato válido' })
-  email: string;
+  email?: string;
 
   @ApiProperty({
     description: 'ID del departamento',

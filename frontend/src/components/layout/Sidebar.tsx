@@ -200,7 +200,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           label: 'Clientes',
           icon: <BadgeIcon />,
           path: ROUTES.CLIENTS,
-          permission: PERMISSIONS.BROWSE_CLIENTS,
+          permission: [PERMISSIONS.BROWSE_CLIENTS, PERMISSIONS.CREATE_CLIENTS],
         },
         {
           label: 'Canales de Venta',
@@ -214,6 +214,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
         PERMISSIONS.READ_WORK_ORDERS,
         PERMISSIONS.READ_EXPENSE_ORDERS,
         PERMISSIONS.BROWSE_CLIENTS,
+        PERMISSIONS.CREATE_CLIENTS,
         PERMISSIONS.READ_COMMERCIAL_CHANNELS,
         PERMISSIONS.APPROVE_ORDERS,
         PERMISSIONS.APPROVE_ADVANCE_PAYMENTS,

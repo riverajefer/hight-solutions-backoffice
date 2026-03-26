@@ -12,7 +12,7 @@ export interface Client {
   phone: string;
   landlinePhone?: string;
   address?: string;
-  email: string;
+  email?: string | null;
   departmentId: string;
   cityId: string;
   personType: PersonType;
@@ -47,7 +47,7 @@ export interface CreateClientDto {
   phone: string;
   landlinePhone?: string;
   address?: string;
-  email: string;
+  email?: string;
   departmentId: string;
   cityId: string;
   personType: PersonType;
