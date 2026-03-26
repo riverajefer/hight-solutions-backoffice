@@ -11,6 +11,7 @@ import {
   CircularProgress,
   Autocomplete,
 } from '@mui/material';
+import { useSnackbar } from 'notistack';
 import { useClients } from '../../clients/hooks/useClients';
 import { useDepartments, useCitiesByDepartment } from '../../locations/hooks/useLocations';
 import type { Client, PersonType } from '../../../types/client.types';
@@ -40,6 +41,7 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const { enqueueSnackbar } = useSnackbar();
   const { createClientMutation } = useClients();
   const departmentsQuery = useDepartments();
 
@@ -137,6 +139,18 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
       newErrors.cityId = 'La ciudad es requerida';
     }
 
+    if (formData.personType === 'NATURAL' && formData.cedula) {
+      if (formData.cedula.length > 12) {
+        newErrors.cedula = 'La cédula no puede exceder 12 caracteres';
+      }
+    }
+
+    if (formData.personType === 'EMPRESA' && formData.nit) {
+      if (formData.nit.length > 12) {
+        newErrors.nit = 'El NIT no puede exceder 12 caracteres';
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -176,9 +190,11 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
       setErrors({});
 
       onSuccess(client);
-    } catch (error) {
-      // Error is handled by the mutation hook (notistack)
-      console.error('Error creating client:', error);
+      enqueueSnackbar('Cliente creado correctamente', { variant: 'success' });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al guardar cliente';
+      enqueueSnackbar(message, { variant: 'error' });
+      console.error('Error creating client:', err);
     }
   };
 
@@ -253,7 +269,8 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
                 }}
                 inputProps={{ maxLength: 12 }}
                 placeholder="1234567890-1"
-                helperText="Número de cédula de ciudadanía"
+                error={!!errors.cedula}
+                helperText={errors.cedula || "Máximo 12 caracteres"}
               />
             </Grid>
           )}
@@ -271,7 +288,8 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
                 }}
                 inputProps={{ maxLength: 12 }}
                 placeholder="900123456-7"
-                helperText="Máximo 12 caracteres (ej: 900123456-7)"
+                error={!!errors.nit}
+                helperText={errors.nit || "Máximo 12 caracteres (ej: 900123456-7)"}
               />
             </Grid>
           )}

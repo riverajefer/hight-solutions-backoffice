@@ -545,6 +545,11 @@ const ClientFormPage: React.FC = () => {
                         helperText={errors.nit?.message || 'Máximo 12 caracteres (ej: 900123456-7)'}
                         required
                         placeholder="900.123.456-7"
+                        inputProps={{ maxLength: 12 }}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^0-9-]/g, '').slice(0, 12);
+                          field.onChange(val);
+                        }}
                       />
                     )}
                   />
