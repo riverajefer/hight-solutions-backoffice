@@ -34,7 +34,7 @@ export class UsersRepository {
           select: {
             id: true,
             name: true,
-            area: {
+            productionArea: {
               select: {
                 id: true,
                 name: true,
@@ -88,7 +88,7 @@ export class UsersRepository {
             id: true,
             name: true,
             description: true,
-            area: {
+            productionArea: {
               select: {
                 id: true,
                 name: true,
@@ -192,7 +192,7 @@ export class UsersRepository {
           select: {
             id: true,
             name: true,
-            area: {
+            productionArea: {
               select: {
                 id: true,
                 name: true,
@@ -234,7 +234,7 @@ export class UsersRepository {
           select: {
             id: true,
             name: true,
-            area: {
+            productionArea: {
               select: {
                 id: true,
                 name: true,
@@ -286,7 +286,7 @@ export class UsersRepository {
           select: {
             id: true,
             name: true,
-            area: {
+            productionArea: {
               select: {
                 id: true,
                 name: true,

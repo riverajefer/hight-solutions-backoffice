@@ -210,8 +210,8 @@ export const UserDetail: React.FC<UserDetailProps> = ({
               />
               <DetailItem
                 icon={<BusinessIcon />}
-                label="Área"
-                value={(user as any).cargo?.area?.name || 'N/A'}
+                label="Área de Producción"
+                value={(user as any).cargo?.productionArea?.name || 'N/A'}
               />
               <DetailItem
                 icon={<AccessTimeIcon />}

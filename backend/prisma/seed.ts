@@ -43,12 +43,6 @@ async function main() {
       description: 'Assign/remove permissions to/from roles',
     },
 
-    // Areas
-    { name: 'create_areas', description: 'Create new areas' },
-    { name: 'read_areas', description: 'View areas' },
-    { name: 'update_areas', description: 'Update area information' },
-    { name: 'delete_areas', description: 'Delete areas' },
-
     // Production Areas (CRUD)
     { name: 'create_production_areas', description: 'Create new production areas' },
     { name: 'read_production_areas', description: 'View production areas' },
@@ -386,7 +380,6 @@ async function main() {
     'update_users',
     'read_roles',
     'read_permissions',
-    'read_areas',
     'read_cargos',
     'read_clients',
     'browse_clients',
@@ -533,37 +526,28 @@ async function main() {
   console.log(`  ✓ Regular user: ${regularUser.username}`);
 
   // ============================================
-  // 5. Crear Áreas de Ejemplo
+  // 5. Asegurar áreas organizacionales como Áreas de Producción
   // ============================================
-  console.log('\n🏢 Creating areas...');
+  console.log('\n🏢 Creating org areas as production areas...');
 
-  const areasData = [
-    {
-      name: 'Tecnología',
-      description: 'Área de desarrollo de software y soporte tecnológico',
-    },
-    {
-      name: 'Recursos Humanos',
-      description: 'Gestión del talento humano y bienestar organizacional',
-    },
-    {
-      name: 'Finanzas',
-      description: 'Gestión contable y financiera de la empresa',
-    },
+  const orgAreasData = [
+    { name: 'Tecnología', description: 'Área de desarrollo de software y soporte tecnológico' },
+    { name: 'Recursos Humanos', description: 'Gestión del talento humano y bienestar organizacional' },
+    { name: 'Finanzas', description: 'Gestión contable y financiera de la empresa' },
     { name: 'Comercial', description: 'Ventas y relaciones comerciales' },
     { name: 'Operaciones', description: 'Gestión de procesos operativos' },
   ];
 
-  const areas: { [key: string]: { id: string } } = {};
+  const productionAreasByName: { [key: string]: { id: string } } = {};
 
-  for (const areaData of areasData) {
-    const area = await prisma.area.upsert({
-      where: { name: areaData.name },
-      update: { description: areaData.description },
-      create: areaData,
+  for (const orgArea of orgAreasData) {
+    const pa = await prisma.productionArea.upsert({
+      where: { name: orgArea.name },
+      update: {},
+      create: orgArea,
     });
-    areas[areaData.name] = area;
-    console.log(`  ✓ Area: ${areaData.name}`);
+    productionAreasByName[orgArea.name] = pa;
+    console.log(`  ✓ Production Area (org): ${orgArea.name}`);
   }
 
   // ============================================
@@ -625,17 +609,17 @@ async function main() {
   ];
 
   for (const cargoData of cargosData) {
-    const area = areas[cargoData.areaName];
-    if (area) {
+    const productionArea = productionAreasByName[cargoData.areaName];
+    if (productionArea) {
       await prisma.cargo.upsert({
         where: {
-          name_areaId: { name: cargoData.name, areaId: area.id },
+          name_productionAreaId: { name: cargoData.name, productionAreaId: productionArea.id },
         },
         update: { description: cargoData.description },
         create: {
           name: cargoData.name,
           description: cargoData.description,
-          areaId: area.id,
+          productionAreaId: productionArea.id,
         },
       });
       console.log(`  ✓ Cargo: ${cargoData.name} (${cargoData.areaName})`);
@@ -2383,7 +2367,7 @@ async function main() {
   console.log(`   - Permissions: ${permissionsData.length}`);
   console.log(`   - Roles: 3 (admin, manager, user)`);
   console.log(`   - Users: 3`);
-  console.log(`   - Areas: ${areasData.length}`);
+  console.log(`   - Cargos: ${cargosData.length}`);
   // ============================================
   // Company - Información institucional inicial
   // ============================================

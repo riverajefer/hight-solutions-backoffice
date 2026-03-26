@@ -21,7 +21,7 @@ export class AttendanceRepository {
             lastName: true,
             email: true,
               phone: true,
-            cargo: { select: { id: true, name: true, area: { select: { id: true, name: true } } } },
+            cargo: { select: { id: true, name: true, productionArea: { select: { id: true, name: true } } } },
           },
         },
       },
@@ -53,7 +53,7 @@ export class AttendanceRepository {
             lastName: true,
             email: true,
               phone: true,
-            cargo: { select: { id: true, name: true, area: { select: { id: true, name: true } } } },
+            cargo: { select: { id: true, name: true, productionArea: { select: { id: true, name: true } } } },
           },
         },
       },
@@ -91,7 +91,7 @@ export class AttendanceRepository {
             lastName: true,
             email: true,
               phone: true,
-            cargo: { select: { id: true, name: true, area: { select: { id: true, name: true } } } },
+            cargo: { select: { id: true, name: true, productionArea: { select: { id: true, name: true } } } },
           },
         },
       },
@@ -102,7 +102,7 @@ export class AttendanceRepository {
    * Lista todos los registros con filtros y paginación (admin)
    */
   async findAll(filters: AttendanceFilterDto) {
-    const { startDate, endDate, userId, areaId, cargoId, type, source, page = 1, limit = 20 } = filters;
+    const { startDate, endDate, userId, productionAreaId, cargoId, type, source, page = 1, limit = 20 } = filters;
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -113,10 +113,10 @@ export class AttendanceRepository {
     if (type) where.type = type;
     if (source) where.source = source;
 
-    if (areaId || cargoId) {
+    if (productionAreaId || cargoId) {
       where.user = { cargo: {} };
       if (cargoId) where.user.cargo.id = cargoId;
-      if (areaId) where.user.cargo.area = { id: areaId };
+      if (productionAreaId) where.user.cargo.productionArea = { id: productionAreaId };
     }
 
     const [data, total] = await Promise.all([
@@ -133,7 +133,7 @@ export class AttendanceRepository {
               lastName: true,
               email: true,
               phone: true,
-              cargo: { select: { id: true, name: true, area: { select: { id: true, name: true } } } },
+              cargo: { select: { id: true, name: true, productionArea: { select: { id: true, name: true } } } },
             },
           },
         },
@@ -185,7 +185,7 @@ export class AttendanceRepository {
             lastName: true,
             email: true,
               phone: true,
-            cargo: { select: { id: true, name: true, area: { select: { id: true, name: true } } } },
+            cargo: { select: { id: true, name: true, productionArea: { select: { id: true, name: true } } } },
           },
         },
       },

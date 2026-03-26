@@ -9,7 +9,6 @@ import { RolesModule } from './modules/roles/roles.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { SessionLogsModule } from './modules/session-logs/session-logs.module';
-import { AreasModule } from './modules/areas/areas.module';
 import { CargosModule } from './modules/cargos/cargos.module';
 import { LocationsModule } from './modules/locations/locations.module';
 import { ClientsModule } from './modules/clients/clients.module';
@@ -63,7 +62,6 @@ import { ProductionModule } from './modules/production/production.module';
     PermissionsModule,
     AuditLogsModule,
     SessionLogsModule,
-    AreasModule,
     CargosModule,
     // Módulos de ubicaciones, clientes y proveedores
     LocationsModule,

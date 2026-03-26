@@ -82,15 +82,15 @@ const CargoDetailPage: React.FC = () => {
 
                 <Box>
                   <Typography variant="caption" color="text.secondary">
-                    Área
+                    Área de Producción
                   </Typography>
                   <Box mt={0.5}>
                     <Chip
                       icon={<BusinessIcon />}
-                      label={cargo.area?.name || 'Sin área'}
+                      label={cargo.productionArea?.name || 'Sin área de producción'}
                       size="small"
                       color="secondary"
-                      onClick={() => cargo.area?.id && navigate(`/areas/${cargo.area.id}`)}
+                      onClick={() => cargo.productionArea?.id && navigate(`/production-areas/${cargo.productionArea.id}`)}
                       sx={{ cursor: 'pointer' }}
                     />
                   </Box>

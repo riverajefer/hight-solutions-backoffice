@@ -3,14 +3,14 @@ export interface Cargo {
   name: string;
   description?: string;
   isActive: boolean;
-  areaId: string;
-  area?: CargoArea;
+  productionAreaId: string;
+  productionArea?: CargoProductionArea;
   usersCount?: number;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface CargoArea {
+export interface CargoProductionArea {
   id: string;
   name: string;
   isActive?: boolean;
@@ -19,13 +19,13 @@ export interface CargoArea {
 export interface CreateCargoDto {
   name: string;
   description?: string;
-  areaId: string;
+  productionAreaId: string;
 }
 
 export interface UpdateCargoDto {
   name?: string;
   description?: string;
-  areaId?: string;
+  productionAreaId?: string;
   isActive?: boolean;
 }
 

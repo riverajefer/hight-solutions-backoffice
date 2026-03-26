@@ -5,17 +5,17 @@ import {
 } from '@nestjs/common';
 import { CreateCargoDto, UpdateCargoDto } from './dto';
 import { CargosRepository } from './cargos.repository';
-import { AreasRepository } from '../areas/areas.repository';
+import { ProductionAreasRepository } from '../production-areas/production-areas.repository';
 
 @Injectable()
 export class CargosService {
   constructor(
     private readonly cargosRepository: CargosRepository,
-    private readonly areasRepository: AreasRepository,
+    private readonly productionAreasRepository: ProductionAreasRepository,
   ) {}
 
   /**
-   * Obtiene todos los cargos activos con información del área
+   * Obtiene todos los cargos activos con información del área de producción
    */
   async findAll(includeInactive = false) {
     const cargos = await this.cargosRepository.findAll(includeInactive);
@@ -28,18 +28,18 @@ export class CargosService {
   }
 
   /**
-   * Obtiene cargos por área
+   * Obtiene cargos por área de producción
    */
-  async findByArea(areaId: string, includeInactive = false) {
-    // Verificar que el área existe
-    const area = await this.areasRepository.findById(areaId);
+  async findByArea(productionAreaId: string, includeInactive = false) {
+    // Verificar que el área de producción existe
+    const area = await this.productionAreasRepository.findById(productionAreaId);
 
     if (!area) {
-      throw new NotFoundException(`Área con ID ${areaId} no encontrada`);
+      throw new NotFoundException(`Área de producción con ID ${productionAreaId} no encontrada`);
     }
 
     const cargos = await this.cargosRepository.findByArea(
-      areaId,
+      productionAreaId,
       includeInactive,
     );
 
@@ -51,7 +51,7 @@ export class CargosService {
   }
 
   /**
-   * Obtiene un cargo por ID con área y conteo de usuarios
+   * Obtiene un cargo por ID con área de producción y conteo de usuarios
    */
   async findOne(id: string) {
     const cargo = await this.cargosRepository.findById(id);
@@ -71,38 +71,38 @@ export class CargosService {
    * Crea un nuevo cargo
    */
   async create(createCargoDto: CreateCargoDto) {
-    // Verificar que el área existe y está activa
-    const area = await this.areasRepository.findById(createCargoDto.areaId);
+    // Verificar que el área de producción existe y está activa
+    const area = await this.productionAreasRepository.findById(createCargoDto.productionAreaId);
 
     if (!area) {
       throw new BadRequestException(
-        `Área con ID ${createCargoDto.areaId} no encontrada`,
+        `Área de producción con ID ${createCargoDto.productionAreaId} no encontrada`,
       );
     }
 
     if (!area.isActive) {
       throw new BadRequestException(
-        `No se puede crear un cargo en un área inactiva`,
+        `No se puede crear un cargo en un área de producción inactiva`,
       );
     }
 
-    // Verificar nombre único dentro del área
+    // Verificar nombre único dentro del área de producción
     const existingCargo = await this.cargosRepository.findByNameAndArea(
       createCargoDto.name,
-      createCargoDto.areaId,
+      createCargoDto.productionAreaId,
     );
 
     if (existingCargo) {
       throw new BadRequestException(
-        `Ya existe un cargo con el nombre "${createCargoDto.name}" en esta área`,
+        `Ya existe un cargo con el nombre "${createCargoDto.name}" en esta área de producción`,
       );
     }
 
     return this.cargosRepository.create({
       name: createCargoDto.name,
       description: createCargoDto.description,
-      area: {
-        connect: { id: createCargoDto.areaId },
+      productionArea: {
+        connect: { id: createCargoDto.productionAreaId },
       },
     });
   }
@@ -114,28 +114,28 @@ export class CargosService {
     // Verificar que el cargo existe
     const cargo = await this.findOne(id);
 
-    // Si se actualiza el área, verificar que existe y está activa
-    if (updateCargoDto.areaId && updateCargoDto.areaId !== cargo.areaId) {
-      const area = await this.areasRepository.findById(updateCargoDto.areaId);
+    // Si se actualiza el área de producción, verificar que existe y está activa
+    if (updateCargoDto.productionAreaId && updateCargoDto.productionAreaId !== cargo.productionAreaId) {
+      const area = await this.productionAreasRepository.findById(updateCargoDto.productionAreaId);
 
       if (!area) {
         throw new BadRequestException(
-          `Área con ID ${updateCargoDto.areaId} no encontrada`,
+          `Área de producción con ID ${updateCargoDto.productionAreaId} no encontrada`,
         );
       }
 
       if (!area.isActive) {
         throw new BadRequestException(
-          `No se puede mover el cargo a un área inactiva`,
+          `No se puede mover el cargo a un área de producción inactiva`,
         );
       }
     }
 
     // Si se actualiza el nombre o el área, verificar unicidad
     const nameToCheck = updateCargoDto.name || cargo.name;
-    const areaToCheck = updateCargoDto.areaId || cargo.areaId;
+    const areaToCheck = updateCargoDto.productionAreaId || cargo.productionAreaId;
 
-    if (updateCargoDto.name || updateCargoDto.areaId) {
+    if (updateCargoDto.name || updateCargoDto.productionAreaId) {
       const existingCargo =
         await this.cargosRepository.findByNameAndAreaExcludingId(
           nameToCheck,
@@ -145,17 +145,17 @@ export class CargosService {
 
       if (existingCargo) {
         throw new BadRequestException(
-          `Ya existe un cargo con el nombre "${nameToCheck}" en esta área`,
+          `Ya existe un cargo con el nombre "${nameToCheck}" en esta área de producción`,
         );
       }
     }
 
     // Preparar datos de actualización
-    const { areaId, ...updateData } = updateCargoDto;
+    const { productionAreaId, ...updateData } = updateCargoDto;
 
-    // Si se actualiza el areaId, usar la sintaxis de Prisma connect
-    if (areaId) {
-      (updateData as any).area = { connect: { id: areaId } };
+    // Si se actualiza el productionAreaId, usar la sintaxis de Prisma connect
+    if (productionAreaId) {
+      (updateData as any).productionArea = { connect: { id: productionAreaId } };
     }
 
     return this.cargosRepository.update(id, updateData);

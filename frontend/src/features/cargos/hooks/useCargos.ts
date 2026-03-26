@@ -48,10 +48,10 @@ export const useCargo = (id: string) => {
   });
 };
 
-export const useCargosByArea = (areaId: string, params?: CargoQueryParams) => {
+export const useCargosByProductionArea = (productionAreaId: string, params?: CargoQueryParams) => {
   return useQuery({
-    queryKey: ['cargos', 'area', areaId, params],
-    queryFn: () => cargosApi.getByArea(areaId, params),
-    enabled: !!areaId,
+    queryKey: ['cargos', 'production-area', productionAreaId, params],
+    queryFn: () => cargosApi.getByProductionArea(productionAreaId, params),
+    enabled: !!productionAreaId,
   });
 };

@@ -19,9 +19,6 @@ const RolePermissionsPage = lazy(() => import('../features/roles/pages/RolePermi
 const PermissionsListPage = lazy(() => import('../features/permissions/pages/PermissionsListPage'));
 const PermissionFormPage = lazy(() => import('../features/permissions/pages/PermissionFormPage'));
 const AuditLogsListPage = lazy(() => import('../features/audit-logs/pages/AuditLogsListPage'));
-const AreasListPage = lazy(() => import('../features/areas/pages/AreasListPage'));
-const AreaFormPage = lazy(() => import('../features/areas/pages/AreaFormPage'));
-const AreaDetailPage = lazy(() => import('../features/areas/pages/AreaDetailPage'));
 const ProductionAreasListPage = lazy(() => import('../features/production-areas/pages/ProductionAreasListPage'));
 const ProductionAreaFormPage = lazy(() => import('../features/production-areas/pages/ProductionAreaFormPage'));
 const ProductionAreaDetailPage = lazy(() => import('../features/production-areas/pages/ProductionAreaDetailPage'));
@@ -279,56 +276,6 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.UPDATE_PERMISSIONS}>
                   <PermissionFormPage />
-                </PermissionGuard>
-              </MainLayout>
-            </AuthGuard>
-          }
-        />
-
-        {/* Areas Routes */}
-        <Route
-          path={PATHS.AREAS}
-          element={
-            <AuthGuard>
-              <MainLayout>
-                <PermissionGuard permission={PERMISSIONS.READ_AREAS}>
-                  <AreasListPage />
-                </PermissionGuard>
-              </MainLayout>
-            </AuthGuard>
-          }
-        />
-        <Route
-          path={PATHS.AREAS_CREATE}
-          element={
-            <AuthGuard>
-              <MainLayout>
-                <PermissionGuard permission={PERMISSIONS.CREATE_AREAS}>
-                  <AreaFormPage />
-                </PermissionGuard>
-              </MainLayout>
-            </AuthGuard>
-          }
-        />
-        <Route
-          path={PATHS.AREAS_VIEW}
-          element={
-            <AuthGuard>
-              <MainLayout>
-                <PermissionGuard permission={PERMISSIONS.READ_AREAS}>
-                  <AreaDetailPage />
-                </PermissionGuard>
-              </MainLayout>
-            </AuthGuard>
-          }
-        />
-        <Route
-          path={PATHS.AREAS_EDIT}
-          element={
-            <AuthGuard>
-              <MainLayout>
-                <PermissionGuard permission={PERMISSIONS.UPDATE_AREAS}>
-                  <AreaFormPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

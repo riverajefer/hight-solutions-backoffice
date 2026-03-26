@@ -20,10 +20,10 @@ export const cargosApi = {
   },
 
   /**
-   * Listar cargos por área
+   * Listar cargos por área de producción
    */
-  getByArea: async (areaId: string, params?: CargoQueryParams): Promise<CargoListResponse> => {
-    const response = await axiosInstance.get<CargoListResponse>(`/cargos/area/${areaId}`, { params });
+  getByProductionArea: async (productionAreaId: string, params?: CargoQueryParams): Promise<CargoListResponse> => {
+    const response = await axiosInstance.get<CargoListResponse>(`/cargos/production-area/${productionAreaId}`, { params });
     return response.data;
   },
 

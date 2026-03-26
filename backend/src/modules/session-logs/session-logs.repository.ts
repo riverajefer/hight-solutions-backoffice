@@ -92,7 +92,7 @@ export class SessionLogsRepository {
                 select: {
                   id: true,
                   name: true,
-                  area: {
+                  productionArea: {
                     select: {
                       id: true,
                       name: true,
@@ -143,7 +143,7 @@ export class SessionLogsRepository {
                 select: {
                   id: true,
                   name: true,
-                  area: {
+                  productionArea: {
                     select: {
                       id: true,
                       name: true,
@@ -191,7 +191,7 @@ export class SessionLogsRepository {
               select: {
                 id: true,
                 name: true,
-                area: {
+                productionArea: {
                   select: {
                     id: true,
                     name: true,

@@ -191,11 +191,11 @@ const AttendancePage: React.FC = () => {
       valueGetter: (_v: any, row: AttendanceRecord) => row.user?.phone || '—',
     },
     {
-      field: 'area',
-      headerName: 'Área',
-      width: 130,
+      field: 'productionArea',
+      headerName: 'Área de Producción',
+      width: 160,
       responsive: 'md',
-      valueGetter: (_v: any, row: AttendanceRecord) => row.user?.cargo?.area?.name || '—',
+      valueGetter: (_v: any, row: AttendanceRecord) => row.user?.cargo?.productionArea?.name || '—',
     },
     {
       field: 'cargo',

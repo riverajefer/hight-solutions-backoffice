@@ -21,7 +21,6 @@ import SecurityIcon from '@mui/icons-material/Security';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import HistoryIcon from '@mui/icons-material/History';
 import LoginIcon from '@mui/icons-material/Login';
-import BusinessIcon from '@mui/icons-material/Business';
 import WorkIcon from '@mui/icons-material/Work';
 import BadgeIcon from '@mui/icons-material/Badge';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
@@ -335,12 +334,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           permission: PERMISSIONS.READ_USERS,
         },
         {
-          label: 'Áreas',
-          icon: <BusinessIcon />,
-          path: ROUTES.AREAS,
-          permission: PERMISSIONS.READ_AREAS,
-        },
-        {
           label: 'Cargos',
           icon: <WorkIcon />,
           path: ROUTES.CARGOS,
@@ -349,7 +342,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
       ],
       permissions: [
         PERMISSIONS.READ_USERS,
-        PERMISSIONS.READ_AREAS,
         PERMISSIONS.READ_CARGOS,
       ],
     },

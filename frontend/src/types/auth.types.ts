@@ -15,7 +15,7 @@ export interface User {
   cargo?: {
     id: string;
     name: string;
-    area?: {
+    productionArea?: {
       id: string;
       name: string;
     };
