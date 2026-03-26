@@ -55,7 +55,7 @@ const clientSchema = z.object({
     .max(300, 'La dirección no puede exceder 300 caracteres')
     .optional()
     .or(z.literal('')),
-  email: z.string().email('El email debe tener un formato válido'),
+  email: z.string().email('El email debe tener un formato válido').optional().or(z.literal('')),
   departmentId: z.string().min(1, 'Debe seleccionar un departamento'),
   cityId: z.string().min(1, 'Debe seleccionar una ciudad'),
   personType: z.enum(['NATURAL', 'EMPRESA'], {
@@ -68,18 +68,7 @@ const clientSchema = z.object({
     .max(500, 'La condición especial no puede exceder 500 caracteres')
     .optional()
     .or(z.literal('')),
-}).refine(
-  (data) => {
-    if (data.personType === 'EMPRESA') {
-      return data.nit && data.nit.length >= 5;
-    }
-    return true;
-  },
-  {
-    message: 'El NIT es requerido para tipo EMPRESA (mínimo 5 caracteres)',
-    path: ['nit'],
-  }
-);
+});
 
 type ClientFormData = z.infer<typeof clientSchema>;
 
@@ -187,7 +176,7 @@ const ClientFormPage: React.FC = () => {
         phone: client.phone || '',
         landlinePhone: client.landlinePhone || '',
         address: client.address || '',
-        email: client.email,
+        email: client.email || '',
         departmentId: client.departmentId,
         cityId: client.cityId,
         personType: client.personType,
@@ -213,8 +202,9 @@ const ClientFormPage: React.FC = () => {
         encargado: rest.encargado || undefined,
         landlinePhone: rest.landlinePhone || undefined,
         address: rest.address || undefined,
-        nit: rest.personType === 'EMPRESA' ? rest.nit : undefined,
-        cedula: rest.personType === 'NATURAL' ? rest.cedula : undefined,
+        email: rest.email || undefined,
+        nit: (rest.personType === 'EMPRESA' && rest.nit) ? rest.nit : undefined,
+        cedula: (rest.personType === 'NATURAL' && rest.cedula) ? rest.cedula : undefined,
       };
 
       if (isEdit && id) {

@@ -182,7 +182,7 @@ model Client {
   phone            String?
   landlinePhone    String?    @map("landline_phone")
   address          String?
-  email            String     @unique
+  email            String?    @unique
   departmentId     String     @map("department_id")
   cityId           String     @map("city_id")
   personType       PersonType @map("person_type")
@@ -1046,15 +1046,15 @@ model ExpenseOrder {
 }
 
 model ExpenseOrderItem {
-  id             String        @id @default(uuid())
-  expenseOrderId String        @map("expense_order_id")
-  quantity       Decimal
-  name           String // Nombre del gasto
-  description    String?
-  supplierId     String?       @map("supplier_id") // Proveedor (opcional)
-  unitPrice      Decimal       @map("unit_price")
-  total          Decimal // quantity * unitPrice
-  paymentMethod  PaymentMethod @default(CASH) @map("payment_method")
+  id              String        @id @default(uuid())
+  expenseOrderId  String        @map("expense_order_id")
+  quantity        Decimal
+  name            String // Nombre del gasto
+  description     String?
+  supplierId      String?       @map("supplier_id") // Proveedor (opcional)
+  unitPrice       Decimal       @map("unit_price")
+  total           Decimal // quantity * unitPrice
+  paymentMethod   PaymentMethod @default(CASH) @map("payment_method")
   receiptFileId   String?       @map("receipt_file_id") // Comprobante de pago
   referenceFileId String?       @map("reference_file_id") // Imagen de referencia
 

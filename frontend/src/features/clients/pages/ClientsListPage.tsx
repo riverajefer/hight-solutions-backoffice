@@ -165,18 +165,31 @@ const ClientsListPage: React.FC = () => {
         }
       />
 
-      <DataTable
-        rows={clients}
-        columns={columns}
-        loading={clientsQuery.isLoading}
-        onAdd={
-          hasPermission(PERMISSIONS.CREATE_CLIENTS)
-            ? () => navigate('/clients/new')
-            : undefined
-        }
-        addButtonText="Nuevo Cliente"
-        searchPlaceholder="Buscar clientes..."
-      />
+      {hasPermission(PERMISSIONS.BROWSE_CLIENTS) ? (
+        <DataTable
+          rows={clients}
+          columns={columns}
+          loading={clientsQuery.isLoading}
+          onAdd={
+            hasPermission(PERMISSIONS.CREATE_CLIENTS)
+              ? () => navigate('/clients/new')
+              : undefined
+          }
+          addButtonText="Nuevo Cliente"
+          searchPlaceholder="Buscar clientes..."
+        />
+      ) : (
+        <Box sx={{ mt: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+          <Button
+            variant="contained"
+            color="primary"
+            size="large"
+            onClick={() => navigate('/clients/new')}
+          >
+            Crear Nuevo Cliente
+          </Button>
+        </Box>
+      )}
 
       <ConfirmDialog
         open={!!confirmDelete}

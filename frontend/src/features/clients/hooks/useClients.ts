@@ -1,17 +1,21 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clientsApi } from '../../../api/clients.api';
 import { CreateClientDto, UpdateClientDto, UpdateClientSpecialConditionDto, ClientQueryParams } from '../../../types';
+import { useAuthStore } from '../../../store/authStore';
+import { PERMISSIONS } from '../../../utils/constants';
 
 /**
  * Hook for clients CRUD operations
  */
 export const useClients = (params?: ClientQueryParams) => {
   const queryClient = useQueryClient();
+  const { hasPermission } = useAuthStore();
 
   // Query for fetching all clients
   const clientsQuery = useQuery({
     queryKey: ['clients', params],
     queryFn: () => clientsApi.getAll(params),
+    enabled: hasPermission(PERMISSIONS.READ_CLIENTS),
   });
 
   // Mutation for creating a client
