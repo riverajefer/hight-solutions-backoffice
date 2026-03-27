@@ -77,3 +77,27 @@ export interface AdjustAttendanceDto {
   notes?: string;
   reason: string;
 }
+
+export interface AttendanceSummary {
+  hoursToday: number;
+  hoursThisWeek: number;
+  daysWorkedThisWeek: number;
+  dailyAverage: number;
+}
+
+export interface AttendanceBreak {
+  start: string;
+  end: string;
+  minutes: number;
+}
+
+export type DayStatus = 'complete' | 'in_progress' | 'incomplete';
+
+export interface DayGroup {
+  date: string;
+  records: AttendanceRecord[];
+  totalMinutes: number;
+  breakMinutes: number;
+  breaks: AttendanceBreak[];
+  status: DayStatus;
+}

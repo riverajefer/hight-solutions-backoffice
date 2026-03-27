@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AttendanceService } from './attendance.service';
-import { ClockInDto, ClockOutDto, AttendanceFilterDto, AdjustAttendanceDto } from './dto';
+import { ClockInDto, ClockOutDto, AttendanceFilterDto, AdjustAttendanceDto, AttendanceSummaryFilterDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
@@ -61,6 +61,17 @@ export class AttendanceController {
   @ApiResponse({ status: 200, description: 'Estado de asistencia obtenido' })
   async getMyStatus(@CurrentUser() user: AuthenticatedUser) {
     return this.attendanceService.getMyStatus(user.id);
+  }
+
+  @Get('my-summary')
+  @RequirePermissions('use_attendance')
+  @ApiOperation({ summary: 'Resumen de asistencia del usuario (horas hoy, semana, promedio)' })
+  @ApiResponse({ status: 200, description: 'Resumen obtenido exitosamente' })
+  async getMySummary(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() filters: AttendanceSummaryFilterDto,
+  ) {
+    return this.attendanceService.getMySummary(user.id, filters);
   }
 
   @Get('my-records')

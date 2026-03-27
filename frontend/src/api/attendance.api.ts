@@ -7,6 +7,7 @@ import {
   ClockOutDto,
   AdjustAttendanceDto,
   ClockInDto,
+  AttendanceSummary,
 } from '../types';
 
 const BASE_URL = '/attendance';
@@ -33,6 +34,20 @@ export const attendanceApi = {
    */
   getMyStatus: async (): Promise<AttendanceStatus> => {
     const { data } = await axiosInstance.get<AttendanceStatus>(`${BASE_URL}/my-status`);
+    return data;
+  },
+
+  /**
+   * Obtiene el resumen de asistencia del usuario en sesión
+   */
+  getMySummary: async (filters?: { startDate?: string; endDate?: string }): Promise<AttendanceSummary> => {
+    const params = new URLSearchParams();
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    const query = params.toString();
+    const { data } = await axiosInstance.get<AttendanceSummary>(
+      `${BASE_URL}/my-summary${query ? `?${query}` : ''}`
+    );
     return data;
   },
 
