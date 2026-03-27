@@ -10,17 +10,22 @@ import {
   TextField,
   CircularProgress,
   Tooltip,
+  IconButton,
   alpha,
   useTheme,
 } from '@mui/material';
 import PlayCircleIcon from '@mui/icons-material/PlayCircle';
 import StopCircleIcon from '@mui/icons-material/StopCircle';
+import PauseCircleIcon from '@mui/icons-material/PauseCircle';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import WorkHistoryIcon from '@mui/icons-material/WorkHistory';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMutation } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
+import { useNavigate } from 'react-router-dom';
 import { attendanceApi } from '../../api';
 import { ATTENDANCE_STATUS_QUERY_KEY } from '../../features/attendance/hooks/useAttendance';
+import { ROUTES } from '../../utils/constants';
 import { neonColors, neonAccents } from '../../theme';
 
 /**
@@ -44,6 +49,7 @@ export const AttendanceButton: React.FC = () => {
   const isDark = theme.palette.mode === 'dark';
   const { enqueueSnackbar } = useSnackbar();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const [clockOutOpen, setClockOutOpen] = useState(false);
   const [notes, setNotes] = useState('');
@@ -103,13 +109,19 @@ export const AttendanceButton: React.FC = () => {
     });
   };
 
+  const invalidateAttendanceQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ATTENDANCE_STATUS_QUERY_KEY });
+    queryClient.invalidateQueries({ queryKey: ['attendance', 'records'] });
+    queryClient.invalidateQueries({ queryKey: ['attendance', 'my-records'] });
+    queryClient.invalidateQueries({ queryKey: ['attendance', 'my-summary'] });
+  };
+
   // Mutation: clock-in
   const clockInMutation = useMutation({
     mutationFn: (dto: any) => attendanceApi.clockIn(dto),
     onSuccess: () => {
       enqueueSnackbar('Entrada registrada exitosamente', { variant: 'success' });
-      queryClient.invalidateQueries({ queryKey: ATTENDANCE_STATUS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: ['attendance', 'records'] });
+      invalidateAttendanceQueries();
     },
     onError: (error: any) => {
       const msg = error?.response?.data?.message || 'Error al marcar entrada';
@@ -124,11 +136,23 @@ export const AttendanceButton: React.FC = () => {
       enqueueSnackbar('Salida registrada exitosamente', { variant: 'success' });
       setClockOutOpen(false);
       setNotes('');
-      queryClient.invalidateQueries({ queryKey: ATTENDANCE_STATUS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: ['attendance', 'records'] });
+      invalidateAttendanceQueries();
     },
     onError: (error: any) => {
       const msg = error?.response?.data?.message || 'Error al marcar salida';
+      enqueueSnackbar(msg, { variant: 'error' });
+    },
+  });
+
+  // Mutation: pause (clock-out with "Pausa" note)
+  const pauseMutation = useMutation({
+    mutationFn: () => attendanceApi.clockOut({ notes: 'Pausa' }),
+    onSuccess: () => {
+      enqueueSnackbar('Pausa iniciada', { variant: 'info' });
+      invalidateAttendanceQueries();
+    },
+    onError: (error: any) => {
+      const msg = error?.response?.data?.message || 'Error al iniciar pausa';
       enqueueSnackbar(msg, { variant: 'error' });
     },
   });
@@ -174,11 +198,31 @@ export const AttendanceButton: React.FC = () => {
   }
 
   const isActive = status?.active ?? false;
-  const isWorking = clockInMutation.isPending || clockOutMutation.isPending || isGatheringLocation;
+  const isWorking = clockInMutation.isPending || clockOutMutation.isPending || pauseMutation.isPending || isGatheringLocation;
 
   return (
     <>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        {/* Link a Mi Asistencia */}
+        <Tooltip title="Mi Asistencia">
+          <IconButton
+            size="small"
+            onClick={() => navigate(ROUTES.MY_ATTENDANCE)}
+            sx={{
+              color: isDark ? neonColors.primary.light : 'rgba(255,255,255,0.8)',
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                backgroundColor: isDark
+                  ? alpha(neonColors.primary.main, 0.2)
+                  : alpha(theme.palette.common.white, 0.15),
+                transform: 'translateY(-1px)',
+              },
+            }}
+          >
+            <WorkHistoryIcon sx={{ fontSize: 20 }} />
+          </IconButton>
+        </Tooltip>
+
         {/* Timer chip cuando hay entrada activa */}
         {isActive && elapsed && (
           <Tooltip title="Tiempo trabajado hoy">
@@ -237,35 +281,66 @@ export const AttendanceButton: React.FC = () => {
             </Button>
           </Tooltip>
         ) : (
-          <Tooltip title="Marcar salida de asistencia">
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={isWorking ? <CircularProgress size={14} color="inherit" /> : <StopCircleIcon />}
-              onClick={handleOpenClockOut}
-              disabled={isWorking}
-              sx={{
-                borderColor: isDark
-                  ? alpha(neonAccents.neonMagenta, 0.6)
-                  : alpha(theme.palette.error.main, 0.5),
-                color: isDark ? neonAccents.neonMagenta : theme.palette.error.main,
-                backgroundColor: alpha(theme.palette.error.main, 0.08),
-                fontSize: '0.75rem',
-                px: 1.5,
-                py: 0.5,
-                borderRadius: '8px',
-                whiteSpace: 'nowrap',
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  backgroundColor: alpha(theme.palette.error.main, 0.18),
-                  borderColor: isDark ? neonAccents.neonMagenta : theme.palette.error.main,
-                  transform: 'translateY(-1px)',
-                },
-              }}
-            >
-              Marcar Salida
-            </Button>
-          </Tooltip>
+          <>
+            <Tooltip title="Tomar una pausa (almuerzo, descanso, etc.)">
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={pauseMutation.isPending ? <CircularProgress size={14} color="inherit" /> : <PauseCircleIcon />}
+                onClick={() => pauseMutation.mutate()}
+                disabled={isWorking}
+                sx={{
+                  borderColor: isDark
+                    ? alpha(theme.palette.warning.main, 0.6)
+                    : alpha(theme.palette.warning.main, 0.5),
+                  color: isDark ? theme.palette.warning.light : theme.palette.warning.dark,
+                  backgroundColor: alpha(theme.palette.warning.main, 0.08),
+                  fontSize: '0.75rem',
+                  px: 1.5,
+                  py: 0.5,
+                  borderRadius: '8px',
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    backgroundColor: alpha(theme.palette.warning.main, 0.18),
+                    borderColor: theme.palette.warning.main,
+                    transform: 'translateY(-1px)',
+                  },
+                }}
+              >
+                Pausar
+              </Button>
+            </Tooltip>
+            <Tooltip title="Marcar salida de asistencia">
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={clockOutMutation.isPending ? <CircularProgress size={14} color="inherit" /> : <StopCircleIcon />}
+                onClick={handleOpenClockOut}
+                disabled={isWorking}
+                sx={{
+                  borderColor: isDark
+                    ? alpha(neonAccents.neonMagenta, 0.6)
+                    : alpha(theme.palette.error.main, 0.5),
+                  color: isDark ? neonAccents.neonMagenta : theme.palette.error.main,
+                  backgroundColor: alpha(theme.palette.error.main, 0.08),
+                  fontSize: '0.75rem',
+                  px: 1.5,
+                  py: 0.5,
+                  borderRadius: '8px',
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    backgroundColor: alpha(theme.palette.error.main, 0.18),
+                    borderColor: isDark ? neonAccents.neonMagenta : theme.palette.error.main,
+                    transform: 'translateY(-1px)',
+                  },
+                }}
+              >
+                Marcar Salida
+              </Button>
+            </Tooltip>
+          </>
         )}
       </Box>
 

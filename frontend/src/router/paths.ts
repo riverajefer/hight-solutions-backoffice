@@ -97,6 +97,7 @@ export const PATHS = {
   PAYROLL_ITEM_EDIT: '/payroll/periods/:periodId/items/:itemId/edit',
   CHANGE_PASSWORD: '/change-password',
   // Attendance - Control de Asistencia
+  MY_ATTENDANCE: '/my-attendance',
   ATTENDANCE: '/attendance',
   // Inventory - Movimientos de Inventario
   INVENTORY_MOVEMENTS: '/inventory/movements',

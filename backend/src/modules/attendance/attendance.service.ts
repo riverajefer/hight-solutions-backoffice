@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { AttendanceRepository } from './attendance.repository';
 import { AttendanceSource } from '../../generated/prisma';
-import { ClockInDto, ClockOutDto, AttendanceFilterDto, AdjustAttendanceDto } from './dto';
+import { ClockInDto, ClockOutDto, AttendanceFilterDto, AdjustAttendanceDto, AttendanceSummaryFilterDto } from './dto';
 
 @Injectable()
 export class AttendanceService {
@@ -66,6 +66,39 @@ export class AttendanceService {
    */
   async getMyRecords(userId: string, filters: AttendanceFilterDto) {
     return this.repository.findMyRecords(userId, filters);
+  }
+
+  /**
+   * Devuelve el resumen de asistencia del usuario (horas hoy, semana, etc.)
+   */
+  async getMySummary(userId: string, filters: AttendanceSummaryFilterDto) {
+    const now = new Date();
+
+    // Today range
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(now);
+    todayEnd.setHours(23, 59, 59, 999);
+
+    // Week range (Monday to Sunday) or custom range
+    let weekStart: Date;
+    let weekEnd: Date;
+
+    if (filters.startDate && filters.endDate) {
+      weekStart = new Date(filters.startDate);
+      weekEnd = new Date(filters.endDate);
+    } else {
+      const dayOfWeek = now.getDay();
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      weekStart = new Date(now);
+      weekStart.setDate(now.getDate() + mondayOffset);
+      weekStart.setHours(0, 0, 0, 0);
+      weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      weekEnd.setHours(23, 59, 59, 999);
+    }
+
+    return this.repository.getSummary(userId, weekStart, weekEnd, todayStart, todayEnd);
   }
 
   /**

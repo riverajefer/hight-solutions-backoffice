@@ -251,6 +251,7 @@ export const WorkOrdersListPage = () => {
         searchValue={filters.search ?? ''}
         onSearchChange={(value) => handleFilterChange('search', value)}
         serverSideSearch
+        onRowClick={handleView}
       />
 
       <ConfirmDialog

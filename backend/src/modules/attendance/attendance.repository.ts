@@ -254,6 +254,62 @@ export class AttendanceRepository {
   }
 
   /**
+   * Obtiene el resumen de asistencia de un usuario para un rango de fechas
+   */
+  async getSummary(userId: string, weekStart: Date, weekEnd: Date, todayStart: Date, todayEnd: Date) {
+    const [todayRecords, weekRecords] = await Promise.all([
+      this.prisma.attendanceRecord.findMany({
+        where: {
+          userId,
+          clockIn: { gte: todayStart, lte: todayEnd },
+        },
+        select: { totalMinutes: true, clockIn: true, clockOut: true },
+      }),
+      this.prisma.attendanceRecord.findMany({
+        where: {
+          userId,
+          clockIn: { gte: weekStart, lte: weekEnd },
+        },
+        select: { totalMinutes: true, clockIn: true, clockOut: true, date: true },
+      }),
+    ]);
+
+    // Hours today: sum totalMinutes of completed + elapsed of active
+    const now = new Date();
+    let todayMinutes = 0;
+    for (const r of todayRecords) {
+      if (r.totalMinutes != null) {
+        todayMinutes += r.totalMinutes;
+      } else if (r.clockIn && !r.clockOut) {
+        todayMinutes += Math.floor((now.getTime() - new Date(r.clockIn).getTime()) / 60000);
+      }
+    }
+
+    // Hours this week
+    let weekMinutes = 0;
+    const uniqueDays = new Set<string>();
+    for (const r of weekRecords) {
+      if (r.totalMinutes != null) {
+        weekMinutes += r.totalMinutes;
+      } else if (r.clockIn && !r.clockOut) {
+        weekMinutes += Math.floor((now.getTime() - new Date(r.clockIn).getTime()) / 60000);
+      }
+      const dayKey = new Date(r.clockIn).toISOString().slice(0, 10);
+      uniqueDays.add(dayKey);
+    }
+
+    const daysWorked = uniqueDays.size;
+    const dailyAverage = daysWorked > 0 ? weekMinutes / daysWorked : 0;
+
+    return {
+      hoursToday: Number((todayMinutes / 60).toFixed(2)),
+      hoursThisWeek: Number((weekMinutes / 60).toFixed(2)),
+      daysWorkedThisWeek: daysWorked,
+      dailyAverage: Number((dailyAverage / 60).toFixed(2)),
+    };
+  }
+
+  /**
    * Elimina heartbeats anteriores a una fecha (cleanup)
    */
   async deleteOldHeartbeats(before: Date) {

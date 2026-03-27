@@ -233,6 +233,7 @@ export const ROUTES = {
   PAYROLL_PERIODS_DETAIL: '/payroll/periods/:id',
   PAYROLL_ITEM_EDIT: '/payroll/periods/:periodId/items/:itemId/edit',
   // Attendance
+  MY_ATTENDANCE: '/my-attendance',
   ATTENDANCE: '/attendance',
   // Inventory
   INVENTORY_MOVEMENTS: '/inventory/movements',

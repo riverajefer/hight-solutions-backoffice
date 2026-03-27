@@ -666,14 +666,6 @@ export const ExpenseOrderFormPage = () => {
         )}
       />
 
-      <TextField
-        label="Observaciones generales"
-        value={observations}
-        onChange={(e) => setObservations(e.target.value)}
-        multiline
-        rows={4}
-        placeholder="Comentarios adicionales sobre esta OG..."
-      />
     </Stack>
   );
 
