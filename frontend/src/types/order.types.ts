@@ -73,6 +73,7 @@ export interface Order {
   paidAmount: string;
   balance: string;
   advancePaymentStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+  discountApprovalStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   advancePaymentApprovals?: AdvancePaymentApproval[];
   clientOwnershipAuthStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   status: OrderStatus;

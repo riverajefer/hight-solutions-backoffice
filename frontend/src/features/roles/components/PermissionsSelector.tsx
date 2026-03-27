@@ -11,7 +11,10 @@ import {
   Tab,
   useTheme,
   alpha,
+  TextField,
+  InputAdornment,
 } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
 import { useQuery } from '@tanstack/react-query';
 import { permissionsApi } from '../../../api';
 import { Permission } from '../../../types';
@@ -145,6 +148,7 @@ export const PermissionsSelector: React.FC<PermissionsSelectorProps> = ({
 }) => {
   const theme = useTheme();
   const [currentTab, setCurrentTab] = useState(0);
+  const [searchTerm, setSearchTerm] = useState('');
   
   const { data: permissions = [] } = useQuery({
     queryKey: ['permissions'],
@@ -233,53 +237,90 @@ export const PermissionsSelector: React.FC<PermissionsSelectorProps> = ({
 
   return (
     <Box sx={{ mt: 2 }}>
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs 
-          value={currentTab} 
-          onChange={handleTabChange}
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{
-            '& .MuiTab-root': {
-              fontWeight: 600,
-              textTransform: 'none',
-              minHeight: 48,
-            }
+      <Box sx={{ mb: 3 }}>
+        <TextField
+          fullWidth
+          size="small"
+          placeholder="Buscar un permiso (ej. Crear Usuarios, Órdenes...)"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon color="action" />
+              </InputAdornment>
+            ),
           }}
-        >
-          {TABS.map((tab, index) => (
-            <Tab key={index} label={tab.label} />
-          ))}
-        </Tabs>
-      </Box>
-
-      {/* Select All Checkbox for current Tab */}
-      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
-        <FormControlLabel
-          control={
-            <Checkbox
-              onChange={(e) => handleSelectAllInTab(e.target.checked)}
-              disabled={disabled}
-              size="small"
-            />
-          }
-          label={<Typography variant="body2" color="text.secondary">Seleccionar todo en esta pestaña</Typography>}
         />
       </Box>
 
+      {!searchTerm && (
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+          <Tabs 
+            value={currentTab} 
+            onChange={handleTabChange}
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{
+              '& .MuiTab-root': {
+                fontWeight: 600,
+                textTransform: 'none',
+                minHeight: 48,
+              }
+            }}
+          >
+            {TABS.map((tab, index) => (
+              <Tab key={index} label={tab.label} />
+            ))}
+          </Tabs>
+        </Box>
+      )}
+
+      {/* Select All Checkbox for current Tab (only visible when not searching) */}
+      {!searchTerm && (
+        <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                onChange={(e) => handleSelectAllInTab(e.target.checked)}
+                disabled={disabled}
+                size="small"
+              />
+            }
+            label={<Typography variant="body2" color="text.secondary">Seleccionar todo en esta pestaña</Typography>}
+          />
+        </Box>
+      )}
+
       <Box role="tabpanel">
         <Grid container spacing={3}>
-          {TABS[currentTab].groups.filter(shouldShowGroup).map((groupName) => {
+          {(searchTerm 
+            ? Object.keys(PERMISSION_GROUPS).filter(shouldShowGroup)
+            : TABS[currentTab].groups.filter(shouldShowGroup)
+          ).map((groupName) => {
             const permissionNames = getPermissionNamesForGroup(groupName);
             if (!permissionNames) return null;
 
-            const availablePermissions = permissionNames
+            const allPermissions = permissionNames
               .map((permName) => permissionMap[permName])
               .filter((permission): permission is Permission => Boolean(permission));
+
+            // Filtering by search term
+            const availablePermissions = allPermissions.filter((permission) => {
+              if (!searchTerm) return true;
+              const label = getPermissionLabel(permission.name).toLowerCase();
+              const term = searchTerm.toLowerCase();
+              return label.includes(term) || permission.name.toLowerCase().includes(term);
+            });
 
             const missingPermissionNames = permissionNames.filter(
               (permName) => !permissionMap[permName],
             );
+
+            // Hide the group if there are no matching permissions during search
+            if (searchTerm && availablePermissions.length === 0) {
+              return null;
+            }
 
             return (
               <Grid item xs={12} sm={6} md={4} key={groupName}>

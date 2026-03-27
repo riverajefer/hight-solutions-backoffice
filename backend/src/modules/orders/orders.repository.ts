@@ -26,6 +26,7 @@ export class OrdersRepository {
     paidAmount: true,
     balance: true,
     advancePaymentStatus: true,
+    discountApprovalStatus: true,
     advancePaymentApprovals: {
       include: {
         requestedBy: {
