@@ -197,20 +197,26 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
     userId: string,
     orderId: string,
     paymentId: string,
+    paymentLabel: string = 'anticipo',
   ) {
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      select: { id: true, orderNumber: true },
-    });
+    const [order, user, payment] = await Promise.all([
+      this.prisma.order.findUnique({
+        where: { id: orderId },
+        select: { id: true, orderNumber: true },
+      }),
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: USER_SELECT,
+      }),
+      this.prisma.payment.findUnique({
+        where: { id: paymentId },
+        select: { amount: true, paymentMethod: true },
+      }),
+    ]);
 
     if (!order) {
       throw new NotFoundException(`Orden con id ${orderId} no encontrada`);
     }
-
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: USER_SELECT,
-    });
 
     // Crear solicitud
     const request = await this.prisma.advancePaymentApproval.create({
@@ -232,13 +238,23 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       data: { advancePaymentStatus: EditRequestStatus.PENDING },
     });
 
+    // Formatear monto y método para los mensajes
+    const amountFormatted = payment
+      ? `$${Number(payment.amount).toLocaleString('es-CO')}`
+      : '';
+    const methodLabel = payment
+      ? this.formatPaymentMethod(payment.paymentMethod)
+      : '';
+    const paymentDetail =
+      payment ? ` de ${amountFormatted} vía ${methodLabel}` : '';
+
     // Notificar a usuarios con permiso approve_advance_payments (in-app)
     await this.notificationsService.notifyUsersWithPermission(
       'approve_advance_payments',
       {
         type: NotificationType.ADVANCE_PAYMENT_APPROVAL_PENDING,
-        title: 'Nueva solicitud de aprobación de anticipo',
-        message: `${user?.firstName || user?.email} solicita aprobación del anticipo de la orden ${order.orderNumber}`,
+        title: `Nueva solicitud de aprobación de ${paymentLabel}`,
+        message: `${user?.firstName || user?.email} solicita aprobación del ${paymentLabel}${paymentDetail} de la orden ${order.orderNumber}`,
         relatedId: request.id,
         relatedType: 'AdvancePaymentApproval',
       },
@@ -253,11 +269,23 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
     this.notifyReviewersByWhatsApp(
       request.id,
       requesterName,
-      `aprobación del anticipo de la orden ${order.orderNumber}`,
-      'El anticipo requiere aprobación de Caja',
+      `aprobación del ${paymentLabel}${paymentDetail} de la orden ${order.orderNumber}`,
+      `El ${paymentLabel} requiere aprobación de Caja`,
     );
 
     return request;
+  }
+
+  private formatPaymentMethod(method: string): string {
+    const labels: Record<string, string> = {
+      CASH: 'Efectivo',
+      TRANSFER: 'Transferencia',
+      CARD: 'Tarjeta',
+      CHECK: 'Cheque',
+      CREDIT: 'Crédito',
+      OTHER: 'Otro',
+    };
+    return labels[method] ?? method;
   }
 
   /**
