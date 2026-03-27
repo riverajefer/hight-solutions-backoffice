@@ -236,17 +236,18 @@ export const OrderDetailPage: React.FC = () => {
   const canEdit = ['DRAFT', 'CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'WARRANTY', 'CANCELLED', 'COMPLETED'].includes(
     order.status
   );
-  const canAddPayment = ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'DELIVERED_ON_CREDIT', 'PAID'].includes(
-    order.status
-  );
+  const canAddPayment = 
+    permissions.includes('register_order_payments') && 
+    ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'DELIVERED_ON_CREDIT', 'PAID'].includes(
+      order.status
+    );
   const isAdmin = user?.role?.name === 'admin';
   const hasActiveEditPermission = !!activePermissionQuery.data;
   const canApplyDiscount =
     permissions.includes('apply_discounts') &&
     ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'DELIVERED_ON_CREDIT', 'PAID', 'WARRANTY'].includes(
       order.status
-    ) &&
-    (isAdmin || hasActiveEditPermission);
+    );
   const canDeleteDiscount =
     permissions.includes('delete_discounts');
   const hasIva = parseFloat(order.tax) > 0;

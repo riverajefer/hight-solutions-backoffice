@@ -11,6 +11,7 @@ import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { StorageService } from '../storage/storage.service';
 import { OrderStatusChangeRequestsService } from '../order-status-change-requests/order-status-change-requests.service';
 import { AdvancePaymentApprovalsService } from '../advance-payment-approvals/advance-payment-approvals.service';
+import { DiscountApprovalsService } from '../discount-approvals/discount-approvals.service';
 import { ClientOwnershipAuthRequestsService } from '../client-ownership-auth-requests/client-ownership-auth-requests.service';
 import {
   CreateOrderDto,
@@ -41,6 +42,7 @@ export class OrdersService {
     private readonly storageService: StorageService,
     private readonly statusChangeRequestsService: OrderStatusChangeRequestsService,
     private readonly advancePaymentApprovalsService: AdvancePaymentApprovalsService,
+    private readonly discountApprovalsService: DiscountApprovalsService,
     private readonly clientOwnershipAuthRequestsService: ClientOwnershipAuthRequestsService,
   ) {}
 
@@ -1285,6 +1287,16 @@ export class OrdersService {
 
       return discount.id;
     });
+
+    // Verificar si el descuento requiere aprobación (usuario sin permiso approve_discounts)
+    const discountApprovalCheck = await this.discountApprovalsService.requiresApproval(appliedById);
+    if (discountApprovalCheck.required) {
+      await this.discountApprovalsService.createFromDiscountApplication(
+        appliedById,
+        orderId,
+        discountId,
+      );
+    }
 
     // Obtener el descuento completo fuera de la transacción
     return this.prisma.orderDiscount.findUnique({
