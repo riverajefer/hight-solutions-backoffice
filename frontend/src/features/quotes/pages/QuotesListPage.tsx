@@ -9,6 +9,8 @@ import {
   Button,
   IconButton,
   Tooltip,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import { GridRenderCellParams } from '@mui/x-data-grid';
 import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../hooks';
@@ -16,6 +18,8 @@ import {
   PostAdd as PostAddIcon,
   ShoppingCartCheckout as ConvertIcon,
   SwapHoriz as SwapHorizIcon,
+  TableRows as TableRowsIcon,
+  ViewKanban as ViewKanbanIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -27,6 +31,7 @@ import { useQuotes } from '../hooks';
 import { useClients } from '../../clients/hooks/useClients';
 import { useUsers } from '../../users/hooks/useUsers';
 import { QuoteStatusChip, ChangeQuoteStatusDialog } from '../components';
+import { QuoteKanbanBoard } from '../components/kanban/QuoteKanbanBoard';
 import type { Quote, QuoteStatus, FilterQuotesDto } from '../../../types/quote.types';
 import { QuoteStatus as QStatus } from '../../../types/quote.types';
 
@@ -62,8 +67,20 @@ const QUOTE_STATUS_OPTIONS: { value: QuoteStatus; label: string }[] = [
   { value: QStatus.CONVERTED,   label: 'Convertida' },
 ];
 
+type ViewMode = 'list' | 'board';
+
+const getStoredViewMode = (): ViewMode => {
+  try {
+    return (localStorage.getItem('quotes-view-mode') as ViewMode) || 'list';
+  } catch {
+    return 'list';
+  }
+};
+
 export const QuotesListPage: React.FC = () => {
   const navigate = useNavigate();
+
+  const [viewMode, setViewMode] = useState<ViewMode>(getStoredViewMode);
 
   const [filters, setFilters] = useState<FilterQuotesDto>({
     page: 1,
@@ -81,7 +98,7 @@ export const QuotesListPage: React.FC = () => {
   const quotes = quotesQuery.data?.data || [];
   const clients = clientsQuery.data || [];
   const users = usersQuery.data || [];
-  
+
   const selectedClient = filters.clientId
     ? clients.find((c) => c.id === filters.clientId)
     : null;
@@ -103,6 +120,12 @@ export const QuotesListPage: React.FC = () => {
       page: 1,
       limit: 20,
     });
+  };
+
+  const handleViewModeChange = (_: React.MouseEvent, value: ViewMode | null) => {
+    if (!value) return;
+    setViewMode(value);
+    try { localStorage.setItem('quotes-view-mode', value); } catch {}
   };
 
   const handleDeleteQuote = async () => {
@@ -247,84 +270,117 @@ export const QuotesListPage: React.FC = () => {
       {updateQuoteMutation.isPending && (
         <LoadingSpinner fullScreen message="Actualizando estado..." />
       )}
+
       <PageHeader
         title="Cotizaciones"
         breadcrumbs={[{ label: 'Cotizaciones' }]}
         action={
-          <Button
-            variant="outlined"
-            startIcon={<PostAddIcon />}
-            onClick={() => navigate('/quotes/new')}
-          >
-            Nueva Cotización
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <ToggleButtonGroup
+              value={viewMode}
+              exclusive
+              onChange={handleViewModeChange}
+              size="small"
+            >
+              <ToggleButton value="list" aria-label="vista lista">
+                <Tooltip title="Vista lista">
+                  <TableRowsIcon fontSize="small" />
+                </Tooltip>
+              </ToggleButton>
+              <ToggleButton value="board" aria-label="vista tablero">
+                <Tooltip title="Vista tablero">
+                  <ViewKanbanIcon fontSize="small" />
+                </Tooltip>
+              </ToggleButton>
+            </ToggleButtonGroup>
+            <Button
+              variant="outlined"
+              startIcon={<PostAddIcon />}
+              onClick={() => navigate('/quotes/new')}
+            >
+              Nueva Cotización
+            </Button>
+          </Box>
         }
       />
 
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3, mt: 2 }} flexWrap="wrap" useFlexGap>
-        <TextField
-          select
-          label="Estado"
-          value={filters.status || ''}
-          onChange={(e) => handleFilterChange('status', e.target.value || undefined)}
-          sx={{ minWidth: { xs: '100%', sm: 200 } }}
-          size="small"
-        >
-          <MenuItem value="">Todos los estados</MenuItem>
-          {QUOTE_STATUS_OPTIONS.map((opt) => (
-            <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-          ))}
-        </TextField>
+      {viewMode === 'list' ? (
+        <>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3, mt: 2 }} flexWrap="wrap" useFlexGap>
+            <TextField
+              select
+              label="Estado"
+              value={filters.status || ''}
+              onChange={(e) => handleFilterChange('status', e.target.value || undefined)}
+              sx={{ minWidth: { xs: '100%', sm: 200 } }}
+              size="small"
+            >
+              <MenuItem value="">Todos los estados</MenuItem>
+              {QUOTE_STATUS_OPTIONS.map((opt) => (
+                <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+              ))}
+            </TextField>
 
-        <Autocomplete
-          sx={{ minWidth: { xs: '100%', sm: 300 } }}
-          size="small"
-          options={clients}
-          value={selectedClient}
-          onChange={(_, val) => handleFilterChange('clientId', val?.id)}
-          getOptionLabel={(opt) => opt.name}
-          renderInput={(params) => <TextField {...params} label="Cliente" placeholder="Todos los clientes" />}
-          loading={clientsQuery.isLoading}
-        />
+            <Autocomplete
+              sx={{ minWidth: { xs: '100%', sm: 300 } }}
+              size="small"
+              options={clients}
+              value={selectedClient}
+              onChange={(_, val) => handleFilterChange('clientId', val?.id)}
+              getOptionLabel={(opt) => opt.name}
+              renderInput={(params) => <TextField {...params} label="Cliente" placeholder="Todos los clientes" />}
+              loading={clientsQuery.isLoading}
+            />
 
-        <Autocomplete
-          sx={{ minWidth: { xs: '100%', sm: 300 } }}
-          size="small"
-          options={users}
-          value={selectedUser}
-          onChange={(_, val) => handleFilterChange('createdById', val?.id)}
-          getOptionLabel={(opt: any) => `${opt.firstName} ${opt.lastName}`}
-          renderInput={(params) => <TextField {...params} label="Asesor" placeholder="Todos los asesores" />}
-          loading={usersQuery.isLoading}
-        />
+            <Autocomplete
+              sx={{ minWidth: { xs: '100%', sm: 300 } }}
+              size="small"
+              options={users}
+              value={selectedUser}
+              onChange={(_, val) => handleFilterChange('createdById', val?.id)}
+              getOptionLabel={(opt: any) => `${opt.firstName} ${opt.lastName}`}
+              renderInput={(params) => <TextField {...params} label="Asesor" placeholder="Todos los asesores" />}
+              loading={usersQuery.isLoading}
+            />
 
-        <DatePicker
-          label="Desde"
-          value={filters.dateFrom ? new Date(filters.dateFrom) : null}
-          onChange={(d) => handleFilterChange('dateFrom', d?.toISOString())}
-          slotProps={{ textField: { size: 'small' } }}
-        />
+            <DatePicker
+              label="Desde"
+              value={filters.dateFrom ? new Date(filters.dateFrom) : null}
+              onChange={(d) => handleFilterChange('dateFrom', d?.toISOString())}
+              slotProps={{ textField: { size: 'small' } }}
+            />
 
-        <DatePicker
-          label="Hasta"
-          value={filters.dateTo ? new Date(filters.dateTo) : null}
-          onChange={(d) => handleFilterChange('dateTo', d?.toISOString())}
-          slotProps={{ textField: { size: 'small' } }}
-        />
+            <DatePicker
+              label="Hasta"
+              value={filters.dateTo ? new Date(filters.dateTo) : null}
+              onChange={(d) => handleFilterChange('dateTo', d?.toISOString())}
+              slotProps={{ textField: { size: 'small' } }}
+            />
 
-        {(filters.status || filters.clientId || filters.dateFrom || filters.dateTo) && (
-          <Button variant="outlined" onClick={handleClearFilters} size="small">Limpiar</Button>
-        )}
-      </Stack>
+            {(filters.status || filters.clientId || filters.dateFrom || filters.dateTo) && (
+              <Button variant="outlined" onClick={handleClearFilters} size="small">Limpiar</Button>
+            )}
+          </Stack>
 
-      <DataTable
-        rows={quotes}
-        columns={columns}
-        loading={quotesQuery.isLoading}
-        getRowId={(row) => row.id}
-        onRowClick={(row) => navigate(`/quotes/${row.id}`)}
-        emptyMessage="No se encontraron cotizaciones"
-      />
+          <DataTable
+            rows={quotes}
+            columns={columns}
+            loading={quotesQuery.isLoading}
+            getRowId={(row) => row.id}
+            onRowClick={(row) => navigate(`/quotes/${row.id}`)}
+            emptyMessage="No se encontraron cotizaciones"
+          />
+        </>
+      ) : (
+        <Box sx={{ mt: 2 }}>
+          <QuoteKanbanBoard
+            onViewQuote={(id) => navigate(`/quotes/${id}`)}
+            onEditQuote={(id) => navigate(`/quotes/${id}/edit`)}
+            onDeleteQuote={setConfirmDelete}
+            onConvertQuote={setConfirmConvert}
+          />
+        </Box>
+      )}
 
       <ConfirmDialog
         open={!!confirmDelete}

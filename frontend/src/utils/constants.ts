@@ -85,6 +85,8 @@ export const PERMISSIONS = {
   UPDATE_QUOTES: 'update_quotes',
   DELETE_QUOTES: 'delete_quotes',
   CONVERT_QUOTES: 'convert_quotes',
+  MANAGE_QUOTE_COLUMNS: 'manage_quote_columns',
+  READ_ALL_QUOTES: 'read_all_quotes',
   // Company
   READ_COMPANY: 'read_company',
   UPDATE_COMPANY: 'update_company',

@@ -112,4 +112,5 @@ export interface FilterQuotesDto {
   page?: number;
   limit?: number;
   createdById?: string;
+  search?: string;
 }

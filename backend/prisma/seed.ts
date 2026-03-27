@@ -219,6 +219,8 @@ async function main() {
     { name: 'update_quotes', description: 'Actualizar cotizaciones' },
     { name: 'delete_quotes', description: 'Eliminar cotizaciones' },
     { name: 'convert_quotes', description: 'Convertir cotizaciones a órdenes' },
+    { name: 'manage_quote_columns', description: 'Administrar columnas del tablero Kanban de cotizaciones' },
+    { name: 'read_all_quotes', description: 'Ver todas las cotizaciones en el tablero (no solo las propias)' },
 
     // Storage (File Upload/Management)
     { name: 'upload_files', description: 'Subir archivos al sistema' },
@@ -405,6 +407,7 @@ async function main() {
     'read_quotes',
     'update_quotes',
     'convert_quotes',
+    'read_all_quotes',
     // Work Orders (Manager)
     'create_work_orders',
     'read_work_orders',
@@ -2849,6 +2852,29 @@ async function main() {
       },
     ],
   );
+
+  // ============================================
+  // Quote Kanban Columns (default)
+  // ============================================
+  console.log('\n📋 Creating default Quote Kanban columns...');
+
+  const defaultKanbanColumns = [
+    { mappedStatus: 'DRAFT' as const,       name: 'Borrador',      color: '#757575', displayOrder: 0 },
+    { mappedStatus: 'SENT' as const,        name: 'Enviada',        color: '#0288d1', displayOrder: 1 },
+    { mappedStatus: 'ACCEPTED' as const,    name: 'Aceptada',       color: '#2e7d32', displayOrder: 2 },
+    { mappedStatus: 'NO_RESPONSE' as const, name: 'Sin Respuesta',  color: '#f57c00', displayOrder: 3 },
+    { mappedStatus: 'CONVERTED' as const,   name: 'Convertida',     color: '#7b1fa2', displayOrder: 4 },
+  ];
+
+  for (const col of defaultKanbanColumns) {
+    const existing = await prisma.quoteKanbanColumn.findFirst({
+      where: { mappedStatus: col.mappedStatus, name: col.name },
+    });
+    if (!existing) {
+      await prisma.quoteKanbanColumn.create({ data: col });
+    }
+    console.log(`  ✓ Kanban column: ${col.name}`);
+  }
 
   console.log(`   - Consecutives: ${consecutivesData.length}`);
   console.log(`   - Production Areas: ${productionAreasData.length}`);

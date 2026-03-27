@@ -29,6 +29,7 @@ import { ExpenseOrderAuthRequestsModule } from './modules/expense-order-auth-req
 import { AdvancePaymentApprovalsModule } from './modules/advance-payment-approvals/advance-payment-approvals.module';
 import { ClientOwnershipAuthRequestsModule } from './modules/client-ownership-auth-requests/client-ownership-auth-requests.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
+import { QuoteKanbanColumnsModule } from './modules/quote-kanban-columns/quote-kanban-columns.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { CompanyModule } from './modules/company/company.module';
 import { WorkOrdersModule } from './modules/work-orders/work-orders.module';
@@ -78,6 +79,8 @@ import { CommentsModule } from './modules/comments/comments.module';
     ConsecutivesModule,
     // Módulo de Cotizaciones
     QuotesModule,
+    // Módulo de Columnas del Tablero Kanban de Cotizaciones
+    QuoteKanbanColumnsModule,
     // Módulo de Órdenes de Pedido
     OrdersModule,
     // Módulo de Áreas de Producción
