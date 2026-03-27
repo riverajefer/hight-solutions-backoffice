@@ -27,6 +27,7 @@ import { OrderEditRequestsModule } from './modules/order-edit-requests/order-edi
 import { OrderStatusChangeRequestsModule } from './modules/order-status-change-requests/order-status-change-requests.module';
 import { ExpenseOrderAuthRequestsModule } from './modules/expense-order-auth-requests/expense-order-auth-requests.module';
 import { AdvancePaymentApprovalsModule } from './modules/advance-payment-approvals/advance-payment-approvals.module';
+import { DiscountApprovalsModule } from './modules/discount-approvals/discount-approvals.module';
 import { ClientOwnershipAuthRequestsModule } from './modules/client-ownership-auth-requests/client-ownership-auth-requests.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
 import { QuoteKanbanColumnsModule } from './modules/quote-kanban-columns/quote-kanban-columns.module';
@@ -109,6 +110,8 @@ import { CommentsModule } from './modules/comments/comments.module';
     ExpenseOrderAuthRequestsModule,
     // Módulo de Aprobación de Anticipos
     AdvancePaymentApprovalsModule,
+    // Módulo de Aprobación de Descuentos
+    DiscountApprovalsModule,
     // Módulo de Autorización de Propiedad de Cliente
     ClientOwnershipAuthRequestsModule,
     // Módulo de Trazabilidad de Órdenes

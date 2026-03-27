@@ -40,7 +40,7 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   // Comercial
   Clientes: ['browse_clients', 'create_clients', 'read_clients', 'update_clients', 'delete_clients', 'update_client_special_condition', 'approve_client_ownership_auth'],
   Cotizaciones: ['create_quotes', 'read_quotes', 'update_quotes', 'delete_quotes', 'convert_quotes', 'manage_quote_columns', 'read_all_quotes'],
-  Órdenes: ['create_orders', 'read_orders', 'update_orders', 'delete_orders', 'approve_orders', 'change_order_status', 'register_order_payments', 'apply_discounts', 'delete_discounts', 'read_pending_orders'],
+  Órdenes: ['create_orders', 'read_orders', 'update_orders', 'delete_orders', 'approve_orders', 'change_order_status', 'register_order_payments', 'approve_discounts', 'apply_discounts', 'delete_discounts', 'read_pending_orders'],
   'Canales Comerciales': ['create_commercial_channels', 'read_commercial_channels', 'update_commercial_channels', 'delete_commercial_channels'],
   Archivos: ['upload_files', 'read_files', 'delete_files', 'manage_storage'],
 

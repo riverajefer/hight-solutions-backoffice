@@ -82,7 +82,6 @@ import { RequestEditPermissionButton } from '../components/RequestEditPermission
 import { EditRequestsList } from '../components/EditRequestsList';
 import { AdvancePaymentApprovalsList } from '../components/AdvancePaymentApprovalsList';
 import { StatusChangeAuthRequestDialog } from '../components/StatusChangeAuthRequestDialog';
-import { useEditRequests } from '../../../hooks/useEditRequests';
 import { OrderChangeHistoryTab } from '../components/OrderChangeHistoryTab';
 import { ordersApi } from '../../../api/orders.api';
 import { storageApi } from '../../../api/storage.api';
@@ -168,7 +167,6 @@ export const OrderDetailPage: React.FC = () => {
     id!
   );
   const { paymentsQuery, addPaymentMutation } = useOrderPayments(id!);
-  const { activePermissionQuery } = useEditRequests(id || '');
   const { data: profitabilityData, isLoading: profitabilityLoading } =
     useOrderProfitability(id!);
 
@@ -236,17 +234,17 @@ export const OrderDetailPage: React.FC = () => {
   const canEdit = ['DRAFT', 'CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'WARRANTY', 'CANCELLED', 'COMPLETED'].includes(
     order.status
   );
-  const canAddPayment = ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'DELIVERED_ON_CREDIT', 'PAID'].includes(
-    order.status
-  );
+  const canAddPayment = 
+    permissions.includes('register_order_payments') && 
+    ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'DELIVERED_ON_CREDIT', 'PAID'].includes(
+      order.status
+    );
   const isAdmin = user?.role?.name === 'admin';
-  const hasActiveEditPermission = !!activePermissionQuery.data;
   const canApplyDiscount =
     permissions.includes('apply_discounts') &&
     ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'DELIVERED_ON_CREDIT', 'PAID', 'WARRANTY'].includes(
       order.status
-    ) &&
-    (isAdmin || hasActiveEditPermission);
+    );
   const canDeleteDiscount =
     permissions.includes('delete_discounts');
   const hasIva = parseFloat(order.tax) > 0;

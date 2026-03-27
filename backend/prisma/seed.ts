@@ -258,6 +258,9 @@ async function main() {
     // Advance Payment Approvals
     { name: 'approve_advance_payments', description: 'Aprobar/rechazar anticipos de órdenes' },
 
+    // Discount Approvals
+    { name: 'approve_discounts', description: 'Aprobar o rechazar descuentos en órdenes' },
+
     // Client Ownership Authorization
     { name: 'approve_client_ownership_auth', description: 'Aprobar solicitudes de autorización de propiedad de cliente en órdenes' },
 

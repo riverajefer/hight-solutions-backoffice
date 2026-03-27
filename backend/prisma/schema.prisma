@@ -48,6 +48,8 @@ model User {
   reviewedExpenseOrderAuthRequests     ExpenseOrderAuthRequest[]    @relation("ReviewedExpenseOrderAuthRequests")
   requestedAdvancePaymentApprovals     AdvancePaymentApproval[]     @relation("RequestedAdvancePaymentApprovals")
   reviewedAdvancePaymentApprovals      AdvancePaymentApproval[]     @relation("ReviewedAdvancePaymentApprovals")
+  discountApprovalRequests             DiscountApproval[]           @relation("DiscountApprovalRequests")
+  discountApprovalReviews              DiscountApproval[]           @relation("DiscountApprovalReviews")
   advisedClients                       Client[]                     @relation("ClientAdvisor")
   requestedClientOwnershipAuthRequests ClientOwnershipAuthRequest[] @relation("RequestedClientOwnershipAuthRequests")
   advisedClientOwnershipAuthRequests   ClientOwnershipAuthRequest[] @relation("AdvisedClientOwnershipAuthRequests")
@@ -424,6 +426,9 @@ model Order {
   // Estado de aprobación del anticipo (null = sin anticipo o auto-aprobado por admin/caja)
   advancePaymentStatus EditRequestStatus? @map("advance_payment_status")
 
+  // Estado de aprobación de descuento (null = sin descuento pendiente o auto-aprobado)
+  discountApprovalStatus EditRequestStatus? @map("discount_approval_status")
+
   // Estado de autorización de propiedad de cliente (null = no aplica o autorizado automáticamente)
   clientOwnershipAuthStatus EditRequestStatus? @map("client_ownership_auth_status")
 
@@ -449,6 +454,7 @@ model Order {
   editRequests                OrderEditRequest[]
   statusChangeRequests        OrderStatusChangeRequest[]
   advancePaymentApprovals     AdvancePaymentApproval[]
+  discountApprovals           DiscountApproval[]
   clientOwnershipAuthRequests ClientOwnershipAuthRequest[]
 
   // Referencia a la cotización de origen
@@ -643,8 +649,9 @@ model OrderDiscount {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relaciones
-  order     Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  appliedBy User  @relation("AppliedDiscounts", fields: [appliedById], references: [id])
+  order     Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  appliedBy User             @relation("AppliedDiscounts", fields: [appliedById], references: [id])
+  approvals DiscountApproval[]
 
   @@index([orderId])
   @@index([appliedById])
@@ -669,6 +676,7 @@ enum ApprovalRequestType {
   EXPENSE_ORDER_AUTH
   CLIENT_OWNERSHIP_AUTH
   ADVANCE_PAYMENT
+  DISCOUNT_APPROVAL
 }
 
 enum NotificationType {
@@ -690,6 +698,9 @@ enum NotificationType {
   CLIENT_OWNERSHIP_AUTH_PENDING // Nueva solicitud de autorización de propiedad de cliente
   CLIENT_OWNERSHIP_AUTH_APPROVED // Solicitud de autorización aprobada
   CLIENT_OWNERSHIP_AUTH_REJECTED // Solicitud de autorización rechazada
+  DISCOUNT_APPROVAL_PENDING // Nueva solicitud de aprobación de descuento
+  DISCOUNT_APPROVAL_APPROVED // Descuento aprobado
+  DISCOUNT_APPROVAL_REJECTED // Descuento rechazado
 }
 
 model EditableOrderStatus {
@@ -1143,6 +1154,34 @@ model AdvancePaymentApproval {
   @@index([requestedById])
   @@index([status])
   @@map("advance_payment_approvals")
+}
+
+// =============================================================================
+// MÓDULO DE APROBACIÓN DE DESCUENTOS
+// =============================================================================
+
+model DiscountApproval {
+  id             String            @id @default(uuid())
+  orderId        String            @map("order_id")
+  discountId     String            @map("discount_id")
+  requestedById  String            @map("requested_by_id")
+  status         EditRequestStatus @default(PENDING)
+  reviewedById   String?           @map("reviewed_by_id")
+  reviewedAt     DateTime?         @map("reviewed_at")
+  reviewNotes    String?           @map("review_notes")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  order       Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  discount    OrderDiscount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  requestedBy User          @relation("DiscountApprovalRequests", fields: [requestedById], references: [id])
+  reviewedBy  User?         @relation("DiscountApprovalReviews", fields: [reviewedById], references: [id])
+
+  @@index([orderId])
+  @@index([discountId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("discount_approvals")
 }
 
 // =============================================================================
