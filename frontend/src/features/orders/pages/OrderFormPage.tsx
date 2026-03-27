@@ -411,8 +411,9 @@ export const OrderFormPage: React.FC = () => {
             : [],
         }))
       );
-      setValue('applyTax', parseFloat(order.taxRate) > 0);
-      setValue('taxRate', parseFloat(order.taxRate) * 100);
+      const currentTaxRate = parseFloat(order.taxRate);
+      setValue('applyTax', currentTaxRate > 0);
+      setValue('taxRate', currentTaxRate > 0 ? currentTaxRate * 100 : 19);
 
       const firstPayment = order.payments && order.payments.length > 0 ? order.payments[0] : null;
       setValue('payment', {
@@ -470,6 +471,7 @@ export const OrderFormPage: React.FC = () => {
         notes: data.notes,
         requiresColorProof: data.requiresColorProof,
         colorProofPrice: data.requiresColorProof ? data.colorProofPrice : 0,
+        taxRate: data.applyTax ? data.taxRate / 100 : 0,
         items: data.items.map((item) => ({
           ...(isEdit && item.id && { id: item.id }),
           description: item.description,

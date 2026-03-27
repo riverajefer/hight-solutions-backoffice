@@ -102,7 +102,8 @@ export class OrdersService {
       };
     });
 
-    const taxRate = new Prisma.Decimal(0.19);
+    const providedTaxRate = createOrderDto.taxRate !== undefined ? createOrderDto.taxRate : 0.19;
+    const taxRate = new Prisma.Decimal(providedTaxRate);
     const tax = subtotal.mul(taxRate);
     const discountAmount = new Prisma.Decimal(0);
     
@@ -327,6 +328,9 @@ export class OrdersService {
             ...(updateOrderDto.colorProofPrice !== undefined && {
               colorProofPrice: new Prisma.Decimal(updateOrderDto.colorProofPrice),
             }),
+            ...(updateOrderDto.taxRate !== undefined && {
+              taxRate: new Prisma.Decimal(updateOrderDto.taxRate),
+            }),
           },
         });
 
@@ -518,10 +522,17 @@ export class OrdersService {
       ...(updateOrderDto.colorProofPrice !== undefined && {
         colorProofPrice: new Prisma.Decimal(updateOrderDto.colorProofPrice),
       }),
+      ...(updateOrderDto.taxRate !== undefined && {
+        taxRate: new Prisma.Decimal(updateOrderDto.taxRate),
+      }),
     });
 
-    // Si se actualizó el precio de la prueba de color, recalcular totales
-    if (updateOrderDto.colorProofPrice !== undefined || updateOrderDto.requiresColorProof !== undefined) {
+    // Si se actualizó el precio de la prueba de color o la tasa de impuesto, recalcular totales
+    if (
+      updateOrderDto.colorProofPrice !== undefined || 
+      updateOrderDto.requiresColorProof !== undefined ||
+      updateOrderDto.taxRate !== undefined
+    ) {
       await this.recalculateOrderTotals(id, this.prisma);
     }
 
@@ -1002,7 +1013,9 @@ export class OrdersService {
       select: { taxRate: true, requiresColorProof: true, colorProofPrice: true },
     });
 
-    const taxRate = order?.taxRate || new Prisma.Decimal(0.19);
+    const taxRate = order?.taxRate !== undefined && order?.taxRate !== null 
+      ? order.taxRate 
+      : new Prisma.Decimal(0.19);
     const tax = subtotal.mul(taxRate);
 
     // Calcular discountAmount sumando todos los descuentos

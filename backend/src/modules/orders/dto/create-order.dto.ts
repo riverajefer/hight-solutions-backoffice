@@ -173,4 +173,13 @@ export class CreateOrderDto {
   @IsNumber()
   @Min(0)
   colorProofPrice?: number;
+
+  @ApiPropertyOptional({
+    description: 'Tasa de impuesto (IVA), por defecto 0.19 (19%). Usar 0 para sin IVA.',
+    example: 0.19,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  taxRate?: number;
 }
