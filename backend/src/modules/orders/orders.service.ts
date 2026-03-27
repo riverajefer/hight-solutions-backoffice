@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
@@ -24,12 +25,14 @@ import {
   PaginatedProfitabilityDto,
   ExpenseOrderSummaryDto,
 } from './dto';
-import { OrderStatus, Prisma } from '../../generated/prisma';
+import { EditRequestStatus, OrderStatus, Prisma } from '../../generated/prisma';
 import { isValidTransition, getValidNextStatuses } from './order-status-transitions';
 import { PrismaService } from '../../database/prisma.service';
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     private readonly ordersRepository: OrdersRepository,
     private readonly consecutivesService: ConsecutivesService,
@@ -475,6 +478,45 @@ export class OrdersService {
         updatedOrder,
         userId,
       );
+
+      // Verificar si el anticipo fue AGREGADO en esta edición (transición 0 → >0)
+      const newPaymentAmount = new Prisma.Decimal(updateOrderDto.initialPayment?.amount ?? 0);
+      const hadNoPreviousPayment = new Prisma.Decimal(oldOrder.paidAmount).equals(0);
+      const hasNoPendingApproval = oldOrder.advancePaymentStatus !== EditRequestStatus.PENDING;
+
+      this.logger.debug(
+        `[update] anticipo check — initialPayment: ${JSON.stringify(updateOrderDto.initialPayment)}, ` +
+        `newPaymentAmount: ${newPaymentAmount}, hadNoPreviousPayment: ${hadNoPreviousPayment}, ` +
+        `hasNoPendingApproval: ${hasNoPendingApproval}, oldPaidAmount: ${oldOrder.paidAmount}, ` +
+        `oldAdvanceStatus: ${oldOrder.advancePaymentStatus}`,
+      );
+
+      if (
+        updateOrderDto.initialPayment &&
+        newPaymentAmount.greaterThan(0) &&
+        hadNoPreviousPayment &&
+        hasNoPendingApproval
+      ) {
+        const approvalCheck = await this.advancePaymentApprovalsService.requiresApproval(userId);
+        this.logger.debug(`[update] requiresApproval: ${JSON.stringify(approvalCheck)}`);
+
+        if (approvalCheck.required) {
+          const payment = await this.prisma.payment.findFirst({
+            where: { orderId: id },
+            orderBy: { createdAt: 'desc' },
+          });
+          this.logger.debug(`[update] payment found: ${payment?.id}`);
+
+          if (payment) {
+            await this.advancePaymentApprovalsService.createFromOrderCreation(
+              userId,
+              id,
+              payment.id,
+            );
+            return this.findOne(id);
+          }
+        }
+      }
 
       return updatedOrder;
     }
@@ -956,7 +998,7 @@ export class OrdersService {
     });
 
     // Obtener el pago completo fuera de la transacción
-    return this.prisma.payment.findUnique({
+    const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
       select: {
         id: true,
@@ -977,6 +1019,19 @@ export class OrdersService {
         },
       },
     });
+
+    // Verificar si el pago requiere aprobación de Caja (usuario sin permiso approve_advance_payments)
+    const approvalCheck = await this.advancePaymentApprovalsService.requiresApproval(receivedById);
+    if (approvalCheck.required) {
+      await this.advancePaymentApprovalsService.createFromOrderCreation(
+        receivedById,
+        orderId,
+        paymentId,
+        'pago',
+      );
+    }
+
+    return payment;
   }
 
   async getPayments(orderId: string) {

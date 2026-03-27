@@ -215,7 +215,7 @@ export class OrdersController {
   // ========== PAYMENT MANAGEMENT ENDPOINTS ==========
 
   @Post(':id/payments')
-  @RequirePermissions('approve_orders')
+  @RequirePermissions('register_order_payments')
   @ApiOperation({ summary: 'Add payment to order (only CONFIRMED+)' })
   @ApiParam({ name: 'id', description: 'Order ID' })
   @ApiResponse({ status: 201, description: 'Payment added successfully' })
@@ -241,7 +241,7 @@ export class OrdersController {
   }
 
   @Post(':orderId/payments/:paymentId/receipt')
-  @RequirePermissions('approve_orders', 'upload_files')
+  @RequirePermissions('register_order_payments', 'upload_files')
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload payment receipt' })

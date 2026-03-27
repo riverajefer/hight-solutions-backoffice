@@ -178,6 +178,10 @@ async function main() {
     { name: 'update_orders', description: 'Actualizar órdenes de pedido' },
     { name: 'delete_orders', description: 'Eliminar órdenes de pedido' },
     {
+      name: 'register_order_payments',
+      description: 'Crear abonos y subir comprobantes en órdenes',
+    },
+    {
       name: 'approve_orders',
       description: 'Aprobar/rechazar solicitudes de cambio de estado de órdenes',
     },

@@ -97,6 +97,8 @@ export const PERMISSION_LABELS: Record<string, string> = {
   update_quotes: 'Actualizar Cotizaciones',
   delete_quotes: 'Eliminar Cotizaciones',
   convert_quotes: 'Convertir Cotizaciones',
+  manage_quote_columns: 'Gestionar Columnas de Cotización',
+  read_all_quotes: 'Ver Todas las Cotizaciones',
    // Órdenes
    create_orders: 'Crear Órdenes',
    read_orders: 'Ver Órdenes',
@@ -104,6 +106,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
    delete_orders: 'Eliminar Órdenes',
    approve_orders: 'Aprobar Órdenes',
    change_order_status: 'Cambiar Estado de Órdenes',
+   register_order_payments: 'Agrega pago en OP',
    read_pending_orders: 'Ver Órdenes Pendientes de Pago',
    apply_discounts: 'Aplicar Descuentos',
    delete_discounts: 'Eliminar Descuentos',
@@ -168,11 +171,18 @@ export const PERMISSION_LABELS: Record<string, string> = {
   update_product_templates: 'Actualizar Plantillas de Producto',
   delete_product_templates: 'Eliminar Plantillas de Producto',
   read_step_definitions: 'Ver Etapas de Producción',
+  create_step_definitions: 'Crear Etapas de Producción',
+  update_step_definitions: 'Actualizar Etapas de Producción',
 
   // Producción — Órdenes de Producción
   read_production_orders: 'Ver Órdenes de Producción',
   create_production_orders: 'Crear Órdenes de Producción',
   update_production_orders: 'Actualizar Órdenes de Producción',
+
+  // Comentarios
+  create_comments: 'Crear Comentarios',
+  read_comments: 'Ver Comentarios',
+  delete_comments: 'Eliminar Comentarios',
 };
 
 /**
