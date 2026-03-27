@@ -96,6 +96,7 @@ export interface CreateQuoteDto {
   clientId: string;
   validUntil?: string;
   notes?: string;
+  taxRate?: number;
   items: CreateQuoteItemDto[];
   commercialChannelId?: string;
 }

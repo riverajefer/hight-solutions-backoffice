@@ -83,7 +83,8 @@ export class QuotesService {
       return itemData;
     });
 
-    const taxRate = new Prisma.Decimal(0.19);
+    const providedTaxRate = createQuoteDto.taxRate !== undefined ? createQuoteDto.taxRate : 0.19;
+    const taxRate = new Prisma.Decimal(providedTaxRate);
     const tax = subtotal.mul(taxRate);
     const total = subtotal.add(tax);
 
@@ -141,6 +142,9 @@ export class QuotesService {
             ...(updateQuoteDto.status && !isConverting && { status: updateQuoteDto.status }),
             ...(updateQuoteDto.commercialChannelId && {
               commercialChannel: { connect: { id: updateQuoteDto.commercialChannelId } },
+            }),
+            ...(updateQuoteDto.taxRate !== undefined && {
+              taxRate: new Prisma.Decimal(updateQuoteDto.taxRate),
             }),
           },
         });
@@ -231,7 +235,14 @@ export class QuotesService {
         ...(updateQuoteDto.commercialChannelId && {
           commercialChannel: { connect: { id: updateQuoteDto.commercialChannelId } },
         }),
+        ...(updateQuoteDto.taxRate !== undefined && {
+          taxRate: new Prisma.Decimal(updateQuoteDto.taxRate),
+        }),
       });
+
+      if (updateQuoteDto.taxRate !== undefined) {
+        await this.recalculateQuoteTotals(id, this.prisma);
+      }
     }
 
     if (isConverting) {

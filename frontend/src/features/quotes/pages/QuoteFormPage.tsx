@@ -365,6 +365,7 @@ export const QuoteFormPage: React.FC = () => {
         clientId: data.client!.id,
         validUntil: data.validUntil?.toISOString(),
         notes: data.notes,
+        taxRate: data.applyTax ? data.taxRate / 100 : 0,
         items: data.items.map((item) => ({
           ...(isEdit && { id: item.id }),
           description: item.description,
