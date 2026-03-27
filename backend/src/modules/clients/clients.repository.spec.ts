@@ -153,7 +153,10 @@ describe('ClientsRepository', () => {
       const result = await repository.findAllEmails();
 
       expect(result).toEqual(['a@test.com', 'b@test.com']);
-      expect(prisma.client.findMany).toHaveBeenCalledWith({ select: { email: true } });
+      expect(prisma.client.findMany).toHaveBeenCalledWith({ 
+        select: { email: true },
+        where: { email: { not: null } }
+      });
     });
   });
 

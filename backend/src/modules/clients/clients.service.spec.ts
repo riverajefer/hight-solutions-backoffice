@@ -506,14 +506,14 @@ describe('ClientsService', () => {
       expect(result.errors[0].error).toContain('email tiene formato inválido');
     });
 
-    it('should collect error for EMPRESA row missing nit', async () => {
-      const badRow = 'Empresa Sin NIT,ok@test.com,3001234567,EMPRESA,Cundinamarca,Bogotá,,';
-      const csv = buildCsv(badRow);
+    it('should allow EMPRESA row missing nit', async () => {
+      const goodRow = 'Empresa Sin NIT,ok@test.com,3001234567,EMPRESA,Cundinamarca,Bogotá,,';
+      const csv = buildCsv(goodRow);
 
       const result = await service.uploadClients(csv);
 
-      expect(result.failed).toBe(1);
-      expect(result.errors[0].error).toContain('nit es requerido');
+      expect(result.failed).toBe(0);
+      expect(result.successful).toBe(1);
     });
 
     it('should collect error for invalid personType value', async () => {

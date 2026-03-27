@@ -201,6 +201,7 @@ export interface CreateOrderDto {
   notes?: string;
   requiresColorProof?: boolean;
   colorProofPrice?: number;
+  taxRate?: number;
   items: CreateOrderItemDto[];
   initialPayment?: InitialPaymentDto;
   commercialChannelId?: string;
@@ -216,6 +217,7 @@ export interface UpdateOrderDto {
   notes?: string;
   requiresColorProof?: boolean;
   colorProofPrice?: number;
+  taxRate?: number;
   items?: CreateOrderItemDto[];
   initialPayment?: InitialPaymentDto;
   commercialChannelId?: string;
