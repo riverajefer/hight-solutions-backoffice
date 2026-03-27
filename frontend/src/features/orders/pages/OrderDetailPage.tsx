@@ -491,12 +491,24 @@ export const OrderDetailPage: React.FC = () => {
       {/* Alertas de anticipo */}
       {order.advancePaymentStatus === 'PENDING' && (
         <Alert severity="warning" icon={<WarningIcon />} sx={{ mt: 2 }}>
-          <strong>Anticipo pendiente de aprobación.</strong> El anticipo de esta orden está siendo revisado por Caja. No se puede cambiar el estado hasta que sea aprobado.
+          <strong>Pago pendiente de aprobación.</strong> El pago registrado en esta orden está siendo revisado por Caja. No se puede cambiar el estado hasta que sea aprobado.
         </Alert>
       )}
       {order.advancePaymentStatus === 'REJECTED' && (
         <Alert severity="error" sx={{ mt: 2 }}>
-          <strong>Anticipo rechazado.</strong> El anticipo de esta orden fue rechazado por Caja. El pago ha sido revertido.
+          <strong>Pago rechazado.</strong> El pago registrado en esta orden fue rechazado por Caja. El pago ha sido revertido.
+        </Alert>
+      )}
+
+      {/* Alertas de descuento */}
+      {order.discountApprovalStatus === 'PENDING' && (
+        <Alert severity="warning" icon={<WarningIcon />} sx={{ mt: 2 }}>
+          <strong>Descuento pendiente de aprobación.</strong> El descuento aplicado en esta orden está siendo revisado. No se puede cambiar el estado hasta que sea aprobado o rechazado.
+        </Alert>
+      )}
+      {order.discountApprovalStatus === 'REJECTED' && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          <strong>Descuento rechazado.</strong> El descuento aplicado en esta orden fue rechazado. Verifique con administración.
         </Alert>
       )}
 
