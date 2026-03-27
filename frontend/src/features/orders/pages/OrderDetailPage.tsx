@@ -242,7 +242,6 @@ export const OrderDetailPage: React.FC = () => {
       order.status
     );
   const isAdmin = user?.role?.name === 'admin';
-  const hasActiveEditPermission = !!activePermissionQuery.data;
   const canApplyDiscount =
     permissions.includes('apply_discounts') &&
     ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'DELIVERED_ON_CREDIT', 'PAID', 'WARRANTY'].includes(
