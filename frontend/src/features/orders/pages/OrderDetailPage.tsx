@@ -168,7 +168,6 @@ export const OrderDetailPage: React.FC = () => {
     id!
   );
   const { paymentsQuery, addPaymentMutation } = useOrderPayments(id!);
-  const { activePermissionQuery } = useEditRequests(id || '');
   const { data: profitabilityData, isLoading: profitabilityLoading } =
     useOrderProfitability(id!);
 
