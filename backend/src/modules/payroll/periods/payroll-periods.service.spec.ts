@@ -132,4 +132,42 @@ describe('PayrollPeriodsService', () => {
       expect(result).toEqual({ message: 'Se generaron registros para 1 empleado(s) activo(s)', count: 1 });
     });
   });
+
+  describe('getSummary', () => {
+    it('should return summary from repository', async () => {
+      periodsRepository.findById.mockResolvedValue({ id: 'p1' } as any);
+      const summary = { totalPayment: 3000, totalBaseSalary: 2400, employeeCount: 2, totalEpsAndPension: 300, totalPayrollCost: 3300 };
+      periodsRepository.getSummary.mockResolvedValue(summary as any);
+
+      const result = await service.getSummary('p1');
+      expect(periodsRepository.getSummary).toHaveBeenCalledWith('p1');
+      expect(result).toEqual(summary);
+    });
+
+    it('should throw NotFoundException if period not found', async () => {
+      periodsRepository.findById.mockResolvedValue(null);
+      await expect(service.getSummary('non-existent')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('update (date conversion)', () => {
+    it('should convert date strings to Date objects', async () => {
+      periodsRepository.findById.mockResolvedValue({ id: 'p1' } as any);
+      periodsRepository.update.mockResolvedValue({ id: 'p1' } as any);
+
+      await service.update('p1', { startDate: '2024-01-01', endDate: '2024-01-31' });
+      expect(periodsRepository.update).toHaveBeenCalledWith('p1', expect.objectContaining({
+        startDate: expect.any(Date),
+        endDate: expect.any(Date),
+      }));
+    });
+
+    it('should pass through non-date fields without conversion', async () => {
+      periodsRepository.findById.mockResolvedValue({ id: 'p1' } as any);
+      periodsRepository.update.mockResolvedValue({ id: 'p1', name: 'New' } as any);
+
+      await service.update('p1', { name: 'New' });
+      expect(periodsRepository.update).toHaveBeenCalledWith('p1', { name: 'New' });
+    });
+  });
 });

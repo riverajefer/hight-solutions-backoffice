@@ -86,6 +86,7 @@ export class ExpenseOrdersService {
       total: item.quantity * item.unitPrice,
       paymentMethod: item.paymentMethod,
       receiptFileId: item.receiptFileId,
+      referenceFileId: item.referenceFileId,
       productionAreaIds: item.productionAreaIds,
       sortOrder: index,
     }));
@@ -205,6 +206,7 @@ export class ExpenseOrdersService {
         total: (item.quantity ?? 1) * (item.unitPrice ?? 0),
         paymentMethod: item.paymentMethod ?? 'CASH',
         receiptFileId: item.receiptFileId,
+        referenceFileId: item.referenceFileId,
         productionAreaIds: item.productionAreaIds,
         sortOrder: index,
       }));
@@ -245,6 +247,7 @@ export class ExpenseOrdersService {
       total: dto.quantity * dto.unitPrice,
       paymentMethod: dto.paymentMethod,
       receiptFileId: dto.receiptFileId,
+      referenceFileId: dto.referenceFileId,
       productionAreaIds: dto.productionAreaIds,
       sortOrder,
     });

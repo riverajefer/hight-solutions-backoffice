@@ -82,7 +82,6 @@ import { RequestEditPermissionButton } from '../components/RequestEditPermission
 import { EditRequestsList } from '../components/EditRequestsList';
 import { AdvancePaymentApprovalsList } from '../components/AdvancePaymentApprovalsList';
 import { StatusChangeAuthRequestDialog } from '../components/StatusChangeAuthRequestDialog';
-import { useEditRequests } from '../../../hooks/useEditRequests';
 import { OrderChangeHistoryTab } from '../components/OrderChangeHistoryTab';
 import { ordersApi } from '../../../api/orders.api';
 import { storageApi } from '../../../api/storage.api';
@@ -101,6 +100,7 @@ import {
   PAYMENT_METHOD_LABELS,
   ALLOWED_TRANSITIONS,
 } from '../../../types/order.types';
+import { CommentSection } from '../../comments';
 
 const formatCurrency = (value: string): string => {
   const numValue = parseFloat(value);
@@ -167,7 +167,6 @@ export const OrderDetailPage: React.FC = () => {
     id!
   );
   const { paymentsQuery, addPaymentMutation } = useOrderPayments(id!);
-  const { activePermissionQuery } = useEditRequests(id || '');
   const { data: profitabilityData, isLoading: profitabilityLoading } =
     useOrderProfitability(id!);
 
@@ -235,17 +234,17 @@ export const OrderDetailPage: React.FC = () => {
   const canEdit = ['DRAFT', 'CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'WARRANTY', 'CANCELLED', 'COMPLETED'].includes(
     order.status
   );
-  const canAddPayment = ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'DELIVERED_ON_CREDIT', 'PAID'].includes(
-    order.status
-  );
+  const canAddPayment = 
+    permissions.includes('register_order_payments') && 
+    ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'DELIVERED_ON_CREDIT', 'PAID'].includes(
+      order.status
+    );
   const isAdmin = user?.role?.name === 'admin';
-  const hasActiveEditPermission = !!activePermissionQuery.data;
   const canApplyDiscount =
     permissions.includes('apply_discounts') &&
     ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'DELIVERED_ON_CREDIT', 'PAID', 'WARRANTY'].includes(
       order.status
-    ) &&
-    (isAdmin || hasActiveEditPermission);
+    );
   const canDeleteDiscount =
     permissions.includes('delete_discounts');
   const hasIva = parseFloat(order.tax) > 0;
@@ -492,12 +491,24 @@ export const OrderDetailPage: React.FC = () => {
       {/* Alertas de anticipo */}
       {order.advancePaymentStatus === 'PENDING' && (
         <Alert severity="warning" icon={<WarningIcon />} sx={{ mt: 2 }}>
-          <strong>Anticipo pendiente de aprobación.</strong> El anticipo de esta orden está siendo revisado por Caja. No se puede cambiar el estado hasta que sea aprobado.
+          <strong>Pago pendiente de aprobación.</strong> El pago registrado en esta orden está siendo revisado por Caja. No se puede cambiar el estado hasta que sea aprobado.
         </Alert>
       )}
       {order.advancePaymentStatus === 'REJECTED' && (
         <Alert severity="error" sx={{ mt: 2 }}>
-          <strong>Anticipo rechazado.</strong> El anticipo de esta orden fue rechazado por Caja. El pago ha sido revertido.
+          <strong>Pago rechazado.</strong> El pago registrado en esta orden fue rechazado por Caja. El pago ha sido revertido.
+        </Alert>
+      )}
+
+      {/* Alertas de descuento */}
+      {order.discountApprovalStatus === 'PENDING' && (
+        <Alert severity="warning" icon={<WarningIcon />} sx={{ mt: 2 }}>
+          <strong>Descuento pendiente de aprobación.</strong> El descuento aplicado en esta orden está siendo revisado. No se puede cambiar el estado hasta que sea aprobado o rechazado.
+        </Alert>
+      )}
+      {order.discountApprovalStatus === 'REJECTED' && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          <strong>Descuento rechazado.</strong> El descuento aplicado en esta orden fue rechazado. Verifique con administración.
         </Alert>
       )}
 
@@ -1325,6 +1336,9 @@ export const OrderDetailPage: React.FC = () => {
           <OrderChangeHistoryTab orderId={id!} orderNumber={order.orderNumber} />
         </TabPanel>
       </Box>
+
+      {/* Comentarios */}
+      <CommentSection entityType="ORDER" entityId={order.id} />
 
       {/* Menu de Acciones */}
       <Menu

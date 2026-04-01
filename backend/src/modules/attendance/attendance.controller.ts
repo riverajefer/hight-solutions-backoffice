@@ -9,10 +9,11 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Ip,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AttendanceService } from './attendance.service';
-import { ClockOutDto, AttendanceFilterDto, AdjustAttendanceDto } from './dto';
+import { ClockInDto, ClockOutDto, AttendanceFilterDto, AdjustAttendanceDto, AttendanceSummaryFilterDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
@@ -32,8 +33,13 @@ export class AttendanceController {
   @ApiOperation({ summary: 'Marcar entrada de asistencia' })
   @ApiResponse({ status: 201, description: 'Entrada registrada exitosamente' })
   @ApiResponse({ status: 409, description: 'Ya tienes una entrada activa' })
-  async clockIn(@CurrentUser() user: AuthenticatedUser) {
-    return this.attendanceService.clockIn(user.id);
+  async clockIn(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ClockInDto,
+    @Ip() ip: string,
+  ) {
+    console.log('Incoming clockIn DTO:', dto);
+    return this.attendanceService.clockIn(user.id, dto, ip);
   }
 
   @Post('clock-out')
@@ -55,6 +61,17 @@ export class AttendanceController {
   @ApiResponse({ status: 200, description: 'Estado de asistencia obtenido' })
   async getMyStatus(@CurrentUser() user: AuthenticatedUser) {
     return this.attendanceService.getMyStatus(user.id);
+  }
+
+  @Get('my-summary')
+  @RequirePermissions('use_attendance')
+  @ApiOperation({ summary: 'Resumen de asistencia del usuario (horas hoy, semana, promedio)' })
+  @ApiResponse({ status: 200, description: 'Resumen obtenido exitosamente' })
+  async getMySummary(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() filters: AttendanceSummaryFilterDto,
+  ) {
+    return this.attendanceService.getMySummary(user.id, filters);
   }
 
   @Get('my-records')

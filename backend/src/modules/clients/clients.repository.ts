@@ -260,8 +260,9 @@ export class ClientsRepository {
   async findAllEmails(): Promise<string[]> {
     const clients = await this.prisma.client.findMany({
       select: { email: true },
+      where: { email: { not: null } },
     });
-    return clients.map((c) => c.email);
+    return clients.map((c) => c.email as string);
   }
 
   /**
@@ -286,7 +287,7 @@ export class ClientsRepository {
    */
   async createMany(clients: Array<{
     name: string;
-    email: string;
+    email?: string | null;
     phone: string;
     personType: import('../../generated/prisma').PersonType;
     departmentId: string;

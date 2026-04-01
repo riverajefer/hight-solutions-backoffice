@@ -362,7 +362,7 @@ export const UserForm: React.FC<UserFormProps> = ({
               <Autocomplete
                 options={cargos as Cargo[]}
                 getOptionLabel={(option: Cargo) =>
-                  option.area ? `${option.name} (${option.area.name})` : option.name
+                  option.productionArea ? `${option.name} (${option.productionArea.name})` : option.name
                 }
                 value={(cargos as Cargo[]).find((c) => c.id === field.value) || null}
                 onChange={(_, newValue) => {

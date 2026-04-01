@@ -72,6 +72,7 @@ export class ExpenseOrdersRepository {
         total: true,
         paymentMethod: true,
         receiptFileId: true,
+        referenceFileId: true,
         sortOrder: true,
         supplier: {
           select: { id: true, name: true, email: true },
@@ -154,6 +155,7 @@ export class ExpenseOrdersRepository {
       total: number;
       paymentMethod: string;
       receiptFileId?: string;
+      referenceFileId?: string;
       productionAreaIds?: string[];
       sortOrder: number;
     }>;
@@ -173,6 +175,7 @@ export class ExpenseOrdersRepository {
             total: item.total,
             paymentMethod: item.paymentMethod as any,
             receiptFileId: item.receiptFileId,
+            referenceFileId: item.referenceFileId,
             sortOrder: item.sortOrder,
             productionAreas: item.productionAreaIds?.length
               ? {
@@ -218,6 +221,7 @@ export class ExpenseOrdersRepository {
       total: number;
       paymentMethod: string;
       receiptFileId?: string;
+      referenceFileId?: string;
       productionAreaIds?: string[];
       sortOrder: number;
     }>,
@@ -238,6 +242,7 @@ export class ExpenseOrdersRepository {
           total: item.total,
           paymentMethod: item.paymentMethod as any,
           receiptFileId: item.receiptFileId,
+          referenceFileId: item.referenceFileId,
           sortOrder: item.sortOrder,
         })),
       });
@@ -273,6 +278,7 @@ export class ExpenseOrdersRepository {
       total: number;
       paymentMethod: string;
       receiptFileId?: string;
+      referenceFileId?: string;
       productionAreaIds?: string[];
       sortOrder: number;
     },
@@ -288,6 +294,7 @@ export class ExpenseOrdersRepository {
         total: item.total,
         paymentMethod: item.paymentMethod as any,
         receiptFileId: item.receiptFileId,
+        referenceFileId: item.referenceFileId,
         sortOrder: item.sortOrder,
         productionAreas: item.productionAreaIds?.length
           ? {

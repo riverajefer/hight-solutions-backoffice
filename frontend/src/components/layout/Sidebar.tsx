@@ -11,7 +11,6 @@ import {
   Typography,
   useTheme,
   useMediaQuery,
-  alpha,
   IconButton,
   Tooltip,
 } from '@mui/material';
@@ -22,7 +21,6 @@ import SecurityIcon from '@mui/icons-material/Security';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import HistoryIcon from '@mui/icons-material/History';
 import LoginIcon from '@mui/icons-material/Login';
-import BusinessIcon from '@mui/icons-material/Business';
 import WorkIcon from '@mui/icons-material/Work';
 import BadgeIcon from '@mui/icons-material/Badge';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
@@ -58,7 +56,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import TuneIcon from '@mui/icons-material/Tune';
 import { useAuthStore } from '../../store/authStore';
 import { ROUTES, PERMISSIONS } from '../../utils/constants';
-import { neonColors, neonAccents, gradients } from '../../theme';
+import { neonColors } from '../../theme';
 import logo from '../../assets/logo.png';
 
 const DRAWER_WIDTH = 280;
@@ -202,7 +200,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           label: 'Clientes',
           icon: <BadgeIcon />,
           path: ROUTES.CLIENTS,
-          permission: PERMISSIONS.BROWSE_CLIENTS,
+          permission: [PERMISSIONS.BROWSE_CLIENTS, PERMISSIONS.CREATE_CLIENTS],
         },
         {
           label: 'Canales de Venta',
@@ -216,6 +214,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
         PERMISSIONS.READ_WORK_ORDERS,
         PERMISSIONS.READ_EXPENSE_ORDERS,
         PERMISSIONS.BROWSE_CLIENTS,
+        PERMISSIONS.CREATE_CLIENTS,
         PERMISSIONS.READ_COMMERCIAL_CHANNELS,
         PERMISSIONS.APPROVE_ORDERS,
         PERMISSIONS.APPROVE_ADVANCE_PAYMENTS,
@@ -233,12 +232,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           icon: <LocalShippingIcon />,
           path: ROUTES.SUPPLIERS,
           permission: PERMISSIONS.READ_SUPPLIERS,
-        },
-        {
-          label: 'Áreas de Producción',
-          icon: <FactoryIcon />,
-          path: ROUTES.PRODUCTION_AREAS,
-          permission: PERMISSIONS.READ_PRODUCTION_AREAS,
         },
         {
           label: 'Productos',
@@ -285,7 +278,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
       ],
       permissions: [
         PERMISSIONS.READ_SUPPLIERS,
-        PERMISSIONS.READ_PRODUCTION_AREAS,
         PERMISSIONS.READ_PRODUCTS,
         PERMISSIONS.READ_SUPPLIES,
         PERMISSIONS.READ_PRODUCT_CATEGORIES,
@@ -336,22 +328,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           permission: PERMISSIONS.READ_USERS,
         },
         {
-          label: 'Áreas',
-          icon: <BusinessIcon />,
-          path: ROUTES.AREAS,
-          permission: PERMISSIONS.READ_AREAS,
-        },
-        {
           label: 'Cargos',
           icon: <WorkIcon />,
           path: ROUTES.CARGOS,
           permission: PERMISSIONS.READ_CARGOS,
         },
+        {
+          label: 'Áreas de Producción',
+          icon: <FactoryIcon />,
+          path: ROUTES.PRODUCTION_AREAS,
+          permission: PERMISSIONS.READ_PRODUCTION_AREAS,
+        },        
       ],
       permissions: [
         PERMISSIONS.READ_USERS,
-        PERMISSIONS.READ_AREAS,
         PERMISSIONS.READ_CARGOS,
+        PERMISSIONS.READ_PRODUCTION_AREAS,
       ],
     },
     {
@@ -423,57 +415,54 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
     },
   ];
 
-  const getItemStyles = (active: boolean) => ({
-    mx: 0.50,
-    my: 0.5,
-    borderRadius: '8px',
-    py: 0.9,
-    transition: 'all 0.2s ease',
-    position: 'relative' as const,
-    background: active
-      ? isDark
-        ? `linear-gradient(90deg, ${alpha(neonColors.primary.main, 0.2)}, ${alpha(neonAccents.vividPurple, 0.1)})`
-        : `linear-gradient(90deg, ${alpha(neonColors.primary.main, 0.12)}, ${alpha(neonAccents.vividPurple, 0.06)})`
-      : 'transparent',
-    boxShadow: active && isDark
-      ? `inset 0 0 20px ${alpha(neonColors.primary.main, 0.15)}`
-      : active
-        ? `0 2px 8px ${alpha(neonColors.primary.main, 0.15)}`
-        : 'none',
-    color: active
-      ? '#FFFFFF'
-      : 'rgba(255, 255, 255, 0.7)',
-    '&::before': active ? {
-      content: '""',
-      position: 'absolute',
-      left: 0,
-      top: '50%',
-      transform: 'translateY(-50%)',
-      width: 4,
-      height: '60%',
-      background: `linear-gradient(180deg, ${neonColors.primary.main}, ${neonAccents.vividPurple})`,
-      borderRadius: '0 4px 4px 0',
-      boxShadow: isDark ? `0 0 10px ${neonColors.primary.main}` : 'none',
-    } : {},
-    '&:hover': {
-      backgroundColor: 'rgba(255, 255, 255, 0.08)',
-      transform: 'translateX(4px)',
-    },
-    '& .MuiListItemIcon-root': {
-      color: active
+  const getItemStyles = (active: boolean, variant: 'main' | 'parent' | 'subitem' = 'main') => {
+    // Para el padre activo, usamos un estilo más sutil
+    const isParentActive = active && variant === 'parent';
+    // Para el subitem activo, el resaltado principal
+    const isSubActive = active && variant === 'subitem';
+    // Para un item normal activo
+    const isMainActive = active && variant === 'main';
+
+    const getBgColor = () => {
+      if (isMainActive || isSubActive) {
+        return isDark
+          ? 'rgba(255, 255, 255, 0.15)'
+          : 'rgba(0, 0, 0, 0.08)';
+      }
+      if (isParentActive) {
+        return 'transparent';
+      }
+      return 'transparent';
+    };
+
+    return {
+      mx: 1,
+      my: variant === 'subitem' ? 0.2 : 0.5,
+      borderRadius: '10px',
+      py: variant === 'subitem' ? 0.75 : 0.9,
+      transition: 'all 0.2s ease',
+      position: 'relative' as const,
+      backgroundColor: getBgColor(),
+      color: active || isParentActive
         ? '#FFFFFF'
-        : 'rgba(255, 255, 255, 0.7)',
-      minWidth: 36,
-      transition: 'all 0.3s ease',
-      filter: active && isDark
-        ? `drop-shadow(0 0 4px ${alpha(neonColors.primary.main, 0.6)})`
-        : 'none',
-    },
-    '& .MuiListItemText-primary': {
-      fontWeight: active ? 600 : 500,
-      fontSize: '0.875rem',
-    },
-  });
+        : '#F1F1F1',
+      '&:hover': {
+        backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.04)',
+        transform: 'none',
+      },
+      '& .MuiListItemIcon-root': {
+        color: active || isParentActive
+          ? '#FFFFFF'
+          : '#F1F1F1',
+        minWidth: 36,
+        transition: 'all 0.3s ease',
+      },
+      '& .MuiListItemText-primary': {
+        fontWeight: active ? 500 : 400,
+        fontSize: variant === 'subitem' ? '0.85rem' : '0.875rem',
+      },
+    };
+  };
 
   const content = (
     <Box
@@ -481,7 +470,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        background: gradients.darkSidebar,
+        bgcolor: isDark ? '#0F0F0F' : '#FFFFFF',
       }}
     >
       {/* Hamburger Button - Only on Desktop */}
@@ -498,11 +487,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
             <IconButton
               onClick={onToggleCollapse}
               sx={{
-                color: isDark ? neonColors.primary.main : neonColors.primary.dark,
+                color: isDark ? '#FFFFFF' : neonColors.primary.dark,
                 transition: 'all 0.3s ease',
                 '&:hover': {
-                  backgroundColor: alpha(neonColors.primary.main, isDark ? 0.2 : 0.1),
-                  transform: 'scale(1.1)',
+                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.04)',
                 },
               }}
             >
@@ -529,9 +517,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
             transition: 'all 0.3s ease',
             '&:hover': {
               boxShadow: isDark
-                ? `0 10px 30px ${alpha(neonColors.primary.main, 0.2)}, 0 0 20px ${alpha(neonAccents.vividPurple, 0.15)}`
-                : '0 12px 25px -5px rgba(0, 0, 0, 0.2)',
-              transform: 'translateY(-1.5px)',
+                ? `0 4px 12px rgba(255, 255, 255, 0.05)`
+                : '0 4px 12px rgba(0, 0, 0, 0.05)',
+              backgroundColor: 'rgba(255, 255, 255, 0.05)'
             },
           }}
         >
@@ -545,10 +533,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
               height: 'auto',
               objectFit: 'contain',
               transition: 'transform 0.3s ease',
-              filter: isDark ? 'drop-shadow(0 0 8px rgba(46, 176, 196, 0.3))' : 'none',
-              '&:hover': {
-                transform: 'scale(1.05)',
-              }
+              filter: isDark ? 'drop-shadow(0 0 4px rgba(255, 255, 255, 0.1))' : 'none',
+              // '&:hover': { transform: 'scale(1.02)' }
             }}
           />
         </Box>
@@ -570,12 +556,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
             background: 'transparent',
           },
           '&::-webkit-scrollbar-thumb': {
-            background: isDark ? alpha(neonColors.primary.main, 0.2) : 'rgba(0, 0, 0, 0.1)',
+            background: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)',
             borderRadius: '10px',
             transition: 'background 0.3s ease',
           },
           '&::-webkit-scrollbar-thumb:hover': {
-            background: isDark ? alpha(neonColors.primary.main, 0.4) : 'rgba(0, 0, 0, 0.2)',
+            background: isDark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.2)',
           },
         }}
       >
@@ -601,7 +587,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
                     <ListItemButton
                       onClick={() => handleMenuClick(menuKey)}
                       sx={{
-                        ...getItemStyles(isSubChildActive),
+                        ...getItemStyles(isSubChildActive, 'parent'),
                         justifyContent: collapsed ? 'center' : 'flex-start',
                       }}
                     >
@@ -612,7 +598,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
                   </Tooltip>
                 </ListItem>
                 <Collapse in={isMenuOpen && !collapsed} timeout="auto" unmountOnExit>
-                  <List component="div" disablePadding sx={{ mb: 0.25 }}>
+                  <List component="div" disablePadding sx={{ 
+                    mb: 0.5, 
+                    position: 'relative',
+                    '&::before': {
+                      content: '""',
+                      position: 'absolute',
+                      left: 28, // Alineado mejor con el centro del icono padre
+                      top: 0,
+                      bottom: 16,
+                      width: '1px',
+                      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)',
+                      zIndex: 1,
+                    }
+                  }}>
                     {item.submenu.map((subitem, subindex) => {
                       if (subitem.permission) {
                         const hasAccess = Array.isArray(subitem.permission)
@@ -622,6 +621,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
                       }
 
                       const active = isActive(subitem.path, siblingPaths);
+                      // Extraemos base styles para combinar decoradores específicos
+                      const baseStyles = getItemStyles(active, 'subitem');
+                      
                       return (
                         <ListItem key={subindex} disablePadding>
                           <Tooltip title={collapsed ? subitem.label : ''} placement="right">
@@ -629,18 +631,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
                               component={RouterLink}
                               to={subitem.path}
                               sx={{
-                                ...getItemStyles(active),
-                                pl: 2.5,
-                                py: 0.3,
-                                mx: 1.25,
+                                ...baseStyles,
+                                pl: 5, // Incrementamos el padding izquierdo para separar del hilo principal
+                                py: 0.75,
+                                mx: 1, // Margen de 8px
+                                position: 'relative',
+                                '&::after': {
+                                  // Línea horizontal que conecta el árbol con el subitem
+                                  content: '""',
+                                  position: 'absolute',
+                                  left: 20, // 28px (línea padre) - 8px (margen x del subitem) = 20px 
+                                  top: '50%',
+                                  width: '12px', // Extensión hasta el icono
+                                  height: '1px',
+                                  backgroundColor: active && isDark ? '#FFFFFF' : (isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)'),
+                                  transition: 'background-color 0.2s',
+                                  zIndex: 1,
+                                },
                                 '&:hover': {
-                                  ...getItemStyles(active)['&:hover'],
+                                  ...baseStyles['&:hover'],
+                                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
                                   transform: 'translateX(3px)',
                                 }
                               }}
                             >
                               {subitem.icon && (
-                                <ListItemIcon sx={{ minWidth: 30, '& .MuiSvgIcon-root': { fontSize: '1.05rem' } }}>
+                                <ListItemIcon sx={{ minWidth: 28, '& .MuiSvgIcon-root': { fontSize: '1.05rem' } }}>
                                   {subitem.icon}
                                 </ListItemIcon>
                               )}
@@ -648,7 +664,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
                                 primary={subitem.label} 
                                 primaryTypographyProps={{ 
                                   sx: { 
-                                    fontSize: '0.8rem',
+                                    fontSize: '0.8125rem',
                                     fontWeight: active ? 600 : 400
                                   } 
                                 }} 
@@ -673,7 +689,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
                   component={RouterLink}
                   to={item.path!}
                   sx={{
-                    ...getItemStyles(active),
+                    ...getItemStyles(active, 'main'),
                     justifyContent: collapsed ? 'center' : 'flex-start',
                   }}
                 >
@@ -718,15 +734,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
                   borderRadius: '50%',
                   bgcolor: 'success.main',
                   boxShadow: isDark
-                    ? `0 0 8px ${theme.palette.success.main}, 0 0 16px ${alpha(theme.palette.success.main, 0.5)}`
+                    ? `0 0 6px ${theme.palette.success.main}`
                     : 'none',
                   animation: isDark ? 'pulse 2s infinite' : 'none',
                   '@keyframes pulse': {
                     '0%, 100%': {
-                      boxShadow: `0 0 8px ${theme.palette.success.main}`,
+                      boxShadow: `0 0 4px ${theme.palette.success.main}`,
                     },
                     '50%': {
-                      boxShadow: `0 0 16px ${theme.palette.success.main}, 0 0 24px ${alpha(theme.palette.success.main, 0.5)}`,
+                      boxShadow: `0 0 8px ${theme.palette.success.main}`,
                     },
                   },
                 }}
@@ -749,7 +765,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           sx: {
             width: DRAWER_WIDTH,
             borderRight: 'none',
-            background: gradients.darkSidebar,
+            bgcolor: isDark ? '#0F0F0F' : '#FFFFFF',
           }
         }}
       >
@@ -764,12 +780,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
         width: collapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH,
         flexShrink: 0,
         borderRight: `1px solid ${isDark
-          ? alpha(neonAccents.vividPurple, 0.2)
+          ? 'rgba(255, 255, 255, 0.1)'
           : theme.palette.divider}`,
         height: '100vh',
         position: 'sticky',
         top: 0,
-        background: gradients.darkSidebar,
+        bgcolor: isDark ? '#0F0F0F' : '#FFFFFF',
         transition: 'width 0.3s ease',
       }}
     >

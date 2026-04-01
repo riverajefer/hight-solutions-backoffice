@@ -41,15 +41,17 @@ export class ClientsService {
    * they are assigned as the advisor of the client.
    */
   async create(createClientDto: CreateClientDto, creatorId: string) {
-    // Validate email uniqueness
-    const existingClient = await this.clientsRepository.findByEmail(
-      createClientDto.email,
-    );
-
-    if (existingClient) {
-      throw new BadRequestException(
-        `Ya existe un cliente con el email "${createClientDto.email}"`,
+    // Validate email uniqueness if provided
+    if (createClientDto.email) {
+      const existingClient = await this.clientsRepository.findByEmail(
+        createClientDto.email,
       );
+
+      if (existingClient) {
+        throw new BadRequestException(
+          `Ya existe un cliente con el email "${createClientDto.email}"`,
+        );
+      }
     }
 
     // Validate department exists
@@ -250,7 +252,7 @@ export class ClientsService {
     }
 
     const headers = lines[0].split(',').map((h) => h.trim().replace(/^["']|["']$/g, ''));
-    const requiredHeaders = ['name', 'email', 'phone', 'personType', 'department', 'city'];
+    const requiredHeaders = ['name', 'phone', 'personType', 'department', 'city'];
     const missingHeaders = requiredHeaders.filter((h) => !headers.includes(h));
 
     if (missingHeaders.length > 0) {
@@ -294,7 +296,7 @@ export class ClientsService {
     const errors: { row: number; error: string }[] = [];
     const validatedRows: Array<{
       name: string;
-      email: string;
+      email?: string | null;
       phone: string;
       personType: PersonType;
       departmentId: string;
@@ -333,7 +335,7 @@ export class ClientsService {
       const rowErrors: string[] = [];
 
       const name = getField(values, 'name');
-      const email = getField(values, 'email');
+      const email = getField(values, 'email') || null;
       const phone = getField(values, 'phone');
       const personTypeRaw = getField(values, 'personType');
       const departmentName = getField(values, 'department') || 'Cundinamarca';
@@ -349,9 +351,7 @@ export class ClientsService {
       if (!name || name.length < 2 || name.length > 200) {
         rowErrors.push('name es requerido (2-200 caracteres)');
       }
-      if (!email) {
-        rowErrors.push('email es requerido');
-      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         rowErrors.push('email tiene formato inválido');
       }
       if (!phone || phone.length < 10 || phone.length > 20) {
@@ -378,11 +378,6 @@ export class ClientsService {
       }
       if (address && address.length > 300) {
         rowErrors.push('address no puede exceder 300 caracteres');
-      }
-
-      // NIT required for EMPRESA
-      if (personTypeRaw === 'EMPRESA' && !nit) {
-        rowErrors.push('nit es requerido para clientes de tipo EMPRESA');
       }
 
       // Email uniqueness checks

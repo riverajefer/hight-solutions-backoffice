@@ -26,6 +26,7 @@ export class OrdersRepository {
     paidAmount: true,
     balance: true,
     advancePaymentStatus: true,
+    discountApprovalStatus: true,
     advancePaymentApprovals: {
       include: {
         requestedBy: {
@@ -175,13 +176,19 @@ export class OrdersRepository {
     page?: number;
     limit?: number;
     excludeWithWorkOrder?: boolean;
+    productionAreaId?: string;
+    createdById?: string;
   }) {
-    const { status, search, clientId, orderDateFrom, orderDateTo, page = 1, limit = 20, excludeWithWorkOrder } = filters;
+    const { status, search, clientId, orderDateFrom, orderDateTo, page = 1, limit = 20, excludeWithWorkOrder, productionAreaId, createdById } = filters;
 
     const where: Prisma.OrderWhereInput = {};
 
     if (status) {
       where.status = status;
+    }
+
+    if (createdById) {
+      where.createdById = createdById;
     }
 
     if (search) {
@@ -197,6 +204,18 @@ export class OrdersRepository {
 
     if (clientId) {
       where.clientId = clientId;
+    }
+
+    if (productionAreaId) {
+      where.items = {
+        some: {
+          productionAreas: {
+            some: {
+              productionAreaId,
+            }
+          }
+        }
+      };
     }
 
     if (orderDateFrom || orderDateTo) {

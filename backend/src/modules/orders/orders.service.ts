@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
@@ -10,6 +11,7 @@ import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { StorageService } from '../storage/storage.service';
 import { OrderStatusChangeRequestsService } from '../order-status-change-requests/order-status-change-requests.service';
 import { AdvancePaymentApprovalsService } from '../advance-payment-approvals/advance-payment-approvals.service';
+import { DiscountApprovalsService } from '../discount-approvals/discount-approvals.service';
 import { ClientOwnershipAuthRequestsService } from '../client-ownership-auth-requests/client-ownership-auth-requests.service';
 import {
   CreateOrderDto,
@@ -24,12 +26,14 @@ import {
   PaginatedProfitabilityDto,
   ExpenseOrderSummaryDto,
 } from './dto';
-import { OrderStatus, Prisma } from '../../generated/prisma';
+import { EditRequestStatus, OrderStatus, Prisma } from '../../generated/prisma';
 import { isValidTransition, getValidNextStatuses } from './order-status-transitions';
 import { PrismaService } from '../../database/prisma.service';
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     private readonly ordersRepository: OrdersRepository,
     private readonly consecutivesService: ConsecutivesService,
@@ -38,11 +42,12 @@ export class OrdersService {
     private readonly storageService: StorageService,
     private readonly statusChangeRequestsService: OrderStatusChangeRequestsService,
     private readonly advancePaymentApprovalsService: AdvancePaymentApprovalsService,
+    private readonly discountApprovalsService: DiscountApprovalsService,
     private readonly clientOwnershipAuthRequestsService: ClientOwnershipAuthRequestsService,
   ) {}
 
   async findAll(filters: FilterOrdersDto) {
-    const { status, search, clientId, orderDateFrom, orderDateTo, page, limit, excludeWithWorkOrder } = filters;
+    const { status, search, clientId, orderDateFrom, orderDateTo, page, limit, excludeWithWorkOrder, productionAreaId, createdById } = filters;
 
     return this.ordersRepository.findAllWithFilters({
       status,
@@ -53,6 +58,8 @@ export class OrdersService {
       page,
       limit,
       excludeWithWorkOrder,
+      productionAreaId,
+      createdById,
     });
   }
 
@@ -100,7 +107,8 @@ export class OrdersService {
       };
     });
 
-    const taxRate = new Prisma.Decimal(0.19);
+    const providedTaxRate = createOrderDto.taxRate !== undefined ? createOrderDto.taxRate : 0.19;
+    const taxRate = new Prisma.Decimal(providedTaxRate);
     const tax = subtotal.mul(taxRate);
     const discountAmount = new Prisma.Decimal(0);
     
@@ -325,6 +333,9 @@ export class OrdersService {
             ...(updateOrderDto.colorProofPrice !== undefined && {
               colorProofPrice: new Prisma.Decimal(updateOrderDto.colorProofPrice),
             }),
+            ...(updateOrderDto.taxRate !== undefined && {
+              taxRate: new Prisma.Decimal(updateOrderDto.taxRate),
+            }),
           },
         });
 
@@ -470,6 +481,45 @@ export class OrdersService {
         userId,
       );
 
+      // Verificar si el anticipo fue AGREGADO en esta edición (transición 0 → >0)
+      const newPaymentAmount = new Prisma.Decimal(updateOrderDto.initialPayment?.amount ?? 0);
+      const hadNoPreviousPayment = new Prisma.Decimal(oldOrder.paidAmount).equals(0);
+      const hasNoPendingApproval = oldOrder.advancePaymentStatus !== EditRequestStatus.PENDING;
+
+      this.logger.debug(
+        `[update] anticipo check — initialPayment: ${JSON.stringify(updateOrderDto.initialPayment)}, ` +
+        `newPaymentAmount: ${newPaymentAmount}, hadNoPreviousPayment: ${hadNoPreviousPayment}, ` +
+        `hasNoPendingApproval: ${hasNoPendingApproval}, oldPaidAmount: ${oldOrder.paidAmount}, ` +
+        `oldAdvanceStatus: ${oldOrder.advancePaymentStatus}`,
+      );
+
+      if (
+        updateOrderDto.initialPayment &&
+        newPaymentAmount.greaterThan(0) &&
+        hadNoPreviousPayment &&
+        hasNoPendingApproval
+      ) {
+        const approvalCheck = await this.advancePaymentApprovalsService.requiresApproval(userId);
+        this.logger.debug(`[update] requiresApproval: ${JSON.stringify(approvalCheck)}`);
+
+        if (approvalCheck.required) {
+          const payment = await this.prisma.payment.findFirst({
+            where: { orderId: id },
+            orderBy: { createdAt: 'desc' },
+          });
+          this.logger.debug(`[update] payment found: ${payment?.id}`);
+
+          if (payment) {
+            await this.advancePaymentApprovalsService.createFromOrderCreation(
+              userId,
+              id,
+              payment.id,
+            );
+            return this.findOne(id);
+          }
+        }
+      }
+
       return updatedOrder;
     }
 
@@ -516,10 +566,17 @@ export class OrdersService {
       ...(updateOrderDto.colorProofPrice !== undefined && {
         colorProofPrice: new Prisma.Decimal(updateOrderDto.colorProofPrice),
       }),
+      ...(updateOrderDto.taxRate !== undefined && {
+        taxRate: new Prisma.Decimal(updateOrderDto.taxRate),
+      }),
     });
 
-    // Si se actualizó el precio de la prueba de color, recalcular totales
-    if (updateOrderDto.colorProofPrice !== undefined || updateOrderDto.requiresColorProof !== undefined) {
+    // Si se actualizó el precio de la prueba de color o la tasa de impuesto, recalcular totales
+    if (
+      updateOrderDto.colorProofPrice !== undefined || 
+      updateOrderDto.requiresColorProof !== undefined ||
+      updateOrderDto.taxRate !== undefined
+    ) {
       await this.recalculateOrderTotals(id, this.prisma);
     }
 
@@ -943,7 +1000,7 @@ export class OrdersService {
     });
 
     // Obtener el pago completo fuera de la transacción
-    return this.prisma.payment.findUnique({
+    const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
       select: {
         id: true,
@@ -964,6 +1021,19 @@ export class OrdersService {
         },
       },
     });
+
+    // Verificar si el pago requiere aprobación de Caja (usuario sin permiso approve_advance_payments)
+    const approvalCheck = await this.advancePaymentApprovalsService.requiresApproval(receivedById);
+    if (approvalCheck.required) {
+      await this.advancePaymentApprovalsService.createFromOrderCreation(
+        receivedById,
+        orderId,
+        paymentId,
+        'pago',
+      );
+    }
+
+    return payment;
   }
 
   async getPayments(orderId: string) {
@@ -1000,7 +1070,9 @@ export class OrdersService {
       select: { taxRate: true, requiresColorProof: true, colorProofPrice: true },
     });
 
-    const taxRate = order?.taxRate || new Prisma.Decimal(0.19);
+    const taxRate = order?.taxRate !== undefined && order?.taxRate !== null 
+      ? order.taxRate 
+      : new Prisma.Decimal(0.19);
     const tax = subtotal.mul(taxRate);
 
     // Calcular discountAmount sumando todos los descuentos
@@ -1215,6 +1287,16 @@ export class OrdersService {
 
       return discount.id;
     });
+
+    // Verificar si el descuento requiere aprobación (usuario sin permiso approve_discounts)
+    const discountApprovalCheck = await this.discountApprovalsService.requiresApproval(appliedById);
+    if (discountApprovalCheck.required) {
+      await this.discountApprovalsService.createFromDiscountApplication(
+        appliedById,
+        orderId,
+        discountId,
+      );
+    }
 
     // Obtener el descuento completo fuera de la transacción
     return this.prisma.orderDiscount.findUnique({

@@ -42,13 +42,13 @@ export class CargosController {
   }
 
   /**
-   * GET /api/v1/cargos/area/:areaId
-   * Lista cargos por área
+   * GET /api/v1/cargos/production-area/:productionAreaId
+   * Lista cargos por área de producción
    * Requiere permiso: read_cargos
    */
-  @Get('area/:areaId')
+  @Get('production-area/:productionAreaId')
   @RequirePermissions('read_cargos')
-  @ApiOperation({ summary: 'Listar cargos por área' })
+  @ApiOperation({ summary: 'Listar cargos por área de producción' })
   @ApiQuery({
     name: 'includeInactive',
     required: false,
@@ -56,10 +56,10 @@ export class CargosController {
     description: 'Incluir cargos inactivos',
   })
   findByArea(
-    @Param('areaId') areaId: string,
+    @Param('productionAreaId') productionAreaId: string,
     @Query('includeInactive') includeInactive?: string,
   ) {
-    return this.cargosService.findByArea(areaId, includeInactive === 'true');
+    return this.cargosService.findByArea(productionAreaId, includeInactive === 'true');
   }
 
   /**

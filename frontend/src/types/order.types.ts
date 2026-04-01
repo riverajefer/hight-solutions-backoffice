@@ -73,6 +73,7 @@ export interface Order {
   paidAmount: string;
   balance: string;
   advancePaymentStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+  discountApprovalStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   advancePaymentApprovals?: AdvancePaymentApproval[];
   clientOwnershipAuthStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   status: OrderStatus;
@@ -201,6 +202,7 @@ export interface CreateOrderDto {
   notes?: string;
   requiresColorProof?: boolean;
   colorProofPrice?: number;
+  taxRate?: number;
   items: CreateOrderItemDto[];
   initialPayment?: InitialPaymentDto;
   commercialChannelId?: string;
@@ -216,6 +218,7 @@ export interface UpdateOrderDto {
   notes?: string;
   requiresColorProof?: boolean;
   colorProofPrice?: number;
+  taxRate?: number;
   items?: CreateOrderItemDto[];
   initialPayment?: InitialPaymentDto;
   commercialChannelId?: string;
@@ -271,6 +274,8 @@ export interface FilterOrdersDto {
   limit?: number;
   /** Si true, excluye órdenes que ya tienen una OT activa (no cancelada) */
   excludeWithWorkOrder?: boolean;
+  productionAreaId?: string;
+  createdById?: string;
 }
 
 // ============================================================

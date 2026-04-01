@@ -19,9 +19,6 @@ const RolePermissionsPage = lazy(() => import('../features/roles/pages/RolePermi
 const PermissionsListPage = lazy(() => import('../features/permissions/pages/PermissionsListPage'));
 const PermissionFormPage = lazy(() => import('../features/permissions/pages/PermissionFormPage'));
 const AuditLogsListPage = lazy(() => import('../features/audit-logs/pages/AuditLogsListPage'));
-const AreasListPage = lazy(() => import('../features/areas/pages/AreasListPage'));
-const AreaFormPage = lazy(() => import('../features/areas/pages/AreaFormPage'));
-const AreaDetailPage = lazy(() => import('../features/areas/pages/AreaDetailPage'));
 const ProductionAreasListPage = lazy(() => import('../features/production-areas/pages/ProductionAreasListPage'));
 const ProductionAreaFormPage = lazy(() => import('../features/production-areas/pages/ProductionAreaFormPage'));
 const ProductionAreaDetailPage = lazy(() => import('../features/production-areas/pages/ProductionAreaDetailPage'));
@@ -36,6 +33,7 @@ const SupplierFormPage = lazy(() => import('../features/suppliers/pages/Supplier
 const SupplierDetailPage = lazy(() => import('../features/suppliers/pages/SupplierDetailPage'));
 const SessionLogsPage = lazy(() => import('../features/session-logs/pages/SessionLogsPage'));
 const AttendancePage = lazy(() => import('../features/attendance/pages/AttendancePage'));
+const MyAttendancePage = lazy(() => import('../features/attendance/pages/MyAttendancePage'));
 const ProfilePage = lazy(() => import('../features/settings/pages/ProfilePage'));
 // Portfolio - Units of Measure
 const UnitsOfMeasureListPage = lazy(() => import('../features/portfolio/units-of-measure/pages/UnitsOfMeasureListPage'));
@@ -285,56 +283,6 @@ const RoutesConfig: FC = () => {
           }
         />
 
-        {/* Areas Routes */}
-        <Route
-          path={PATHS.AREAS}
-          element={
-            <AuthGuard>
-              <MainLayout>
-                <PermissionGuard permission={PERMISSIONS.READ_AREAS}>
-                  <AreasListPage />
-                </PermissionGuard>
-              </MainLayout>
-            </AuthGuard>
-          }
-        />
-        <Route
-          path={PATHS.AREAS_CREATE}
-          element={
-            <AuthGuard>
-              <MainLayout>
-                <PermissionGuard permission={PERMISSIONS.CREATE_AREAS}>
-                  <AreaFormPage />
-                </PermissionGuard>
-              </MainLayout>
-            </AuthGuard>
-          }
-        />
-        <Route
-          path={PATHS.AREAS_VIEW}
-          element={
-            <AuthGuard>
-              <MainLayout>
-                <PermissionGuard permission={PERMISSIONS.READ_AREAS}>
-                  <AreaDetailPage />
-                </PermissionGuard>
-              </MainLayout>
-            </AuthGuard>
-          }
-        />
-        <Route
-          path={PATHS.AREAS_EDIT}
-          element={
-            <AuthGuard>
-              <MainLayout>
-                <PermissionGuard permission={PERMISSIONS.UPDATE_AREAS}>
-                  <AreaFormPage />
-                </PermissionGuard>
-              </MainLayout>
-            </AuthGuard>
-          }
-        />
-
         {/* Production Areas Routes */}
         <Route
           path={PATHS.PRODUCTION_AREAS}
@@ -441,7 +389,7 @@ const RoutesConfig: FC = () => {
           element={
             <AuthGuard>
               <MainLayout>
-                <PermissionGuard permission={PERMISSIONS.BROWSE_CLIENTS}>
+                <PermissionGuard permission={[PERMISSIONS.BROWSE_CLIENTS, PERMISSIONS.CREATE_CLIENTS]}>
                   <ClientsListPage />
                 </PermissionGuard>
               </MainLayout>
@@ -914,6 +862,20 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.READ_SESSION_LOGS}>
                   <SessionLogsPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Mi Asistencia - Vista personal */}
+        <Route
+          path={PATHS.MY_ATTENDANCE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.USE_ATTENDANCE}>
+                  <MyAttendancePage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

@@ -46,7 +46,7 @@ describe('AttendanceService', () => {
       repository.createClockIn.mockResolvedValue({ id: 'new-id' } as any);
       const result = await service.clockIn('user-1');
       expect(result).toEqual({ id: 'new-id' });
-      expect(repository.createClockIn).toHaveBeenCalledWith('user-1', expect.any(Date));
+      expect(repository.createClockIn).toHaveBeenCalledWith('user-1', expect.any(Date), undefined, undefined);
     });
   });
 

@@ -81,4 +81,20 @@ export class FilterOrdersDto {
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   excludeWithWorkOrder?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Filtrar por Área de Producción (id)',
+    example: 'uuid-production-area',
+  })
+  @IsOptional()
+  @IsUUID()
+  productionAreaId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filtrar por Asesor / Creador (id)',
+    example: 'uuid-user',
+  })
+  @IsOptional()
+  @IsUUID()
+  createdById?: string;
 }

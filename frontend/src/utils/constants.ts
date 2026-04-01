@@ -19,10 +19,6 @@ export const PERMISSIONS = {
   UPDATE_PERMISSIONS: 'update_permissions',
   DELETE_PERMISSIONS: 'delete_permissions',
   MANAGE_PERMISSIONS: 'manage_permissions',
-  CREATE_AREAS: 'create_areas',
-  READ_AREAS: 'read_areas',
-  UPDATE_AREAS: 'update_areas',
-  DELETE_AREAS: 'delete_areas',
   CREATE_CARGOS: 'create_cargos',
   READ_CARGOS: 'read_cargos',
   UPDATE_CARGOS: 'update_cargos',
@@ -75,6 +71,7 @@ export const PERMISSIONS = {
   DELETE_ORDERS: 'delete_orders',
   APPROVE_ORDERS: 'approve_orders',
   CHANGE_ORDER_STATUS: 'change_order_status',
+  REGISTER_ORDER_PAYMENTS: 'register_order_payments',
   READ_PENDING_ORDERS: 'read_pending_orders',
   APPROVE_ADVANCE_PAYMENTS: 'approve_advance_payments',
   APPROVE_CLIENT_OWNERSHIP_AUTH: 'approve_client_ownership_auth',
@@ -89,6 +86,8 @@ export const PERMISSIONS = {
   UPDATE_QUOTES: 'update_quotes',
   DELETE_QUOTES: 'delete_quotes',
   CONVERT_QUOTES: 'convert_quotes',
+  MANAGE_QUOTE_COLUMNS: 'manage_quote_columns',
+  READ_ALL_QUOTES: 'read_all_quotes',
   // Company
   READ_COMPANY: 'read_company',
   UPDATE_COMPANY: 'update_company',
@@ -138,6 +137,10 @@ export const PERMISSIONS = {
   READ_PRODUCTION_ORDERS: 'read_production_orders',
   CREATE_PRODUCTION_ORDERS: 'create_production_orders',
   UPDATE_PRODUCTION_ORDERS: 'update_production_orders',
+  // Comments — Comentarios polimórficos (COT / OP / OT)
+  CREATE_COMMENTS: 'create_comments',
+  READ_COMMENTS: 'read_comments',
+  DELETE_COMMENTS: 'delete_comments',
 };
 
 export const ROUTES = {
@@ -155,10 +158,6 @@ export const ROUTES = {
   PERMISSIONS: '/permissions',
   PERMISSIONS_CREATE: '/permissions/create',
   PERMISSIONS_EDIT: '/permissions/:id/edit',
-  AREAS: '/areas',
-  AREAS_CREATE: '/areas/new',
-  AREAS_EDIT: '/areas/:id/edit',
-  AREAS_VIEW: '/areas/:id',
   CARGOS: '/cargos',
   CARGOS_CREATE: '/cargos/new',
   CARGOS_EDIT: '/cargos/:id/edit',
@@ -237,6 +236,7 @@ export const ROUTES = {
   PAYROLL_PERIODS_DETAIL: '/payroll/periods/:id',
   PAYROLL_ITEM_EDIT: '/payroll/periods/:periodId/items/:itemId/edit',
   // Attendance
+  MY_ATTENDANCE: '/my-attendance',
   ATTENDANCE: '/attendance',
   // Inventory
   INVENTORY_MOVEMENTS: '/inventory/movements',

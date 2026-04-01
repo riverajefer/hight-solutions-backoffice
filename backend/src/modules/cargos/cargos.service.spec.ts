@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { CargosService } from './cargos.service';
 import { CargosRepository } from './cargos.repository';
-import { AreasRepository } from '../areas/areas.repository';
+import { ProductionAreasRepository } from '../production-areas/production-areas.repository';
 
 const mockCargosRepository = {
   findAll: jest.fn(),
@@ -16,14 +16,13 @@ const mockCargosRepository = {
   delete: jest.fn(),
 };
 
-const mockAreasRepository = {
+const mockProductionAreasRepository = {
   findAll: jest.fn(),
   findById: jest.fn(),
   findByName: jest.fn(),
   findByNameExcludingId: jest.fn(),
   create: jest.fn(),
   update: jest.fn(),
-  countActiveCargos: jest.fn(),
   delete: jest.fn(),
 };
 
@@ -48,10 +47,10 @@ describe('CargosService', () => {
     name: 'Developer',
     description: 'Desarrollador de software',
     isActive: true,
-    areaId: 'area-1',
+    productionAreaId: 'area-1',
     createdAt: new Date(),
     updatedAt: new Date(),
-    area: { id: 'area-1', name: 'Desarrollo' },
+    productionArea: { id: 'area-1', name: 'Desarrollo' },
     _count: { users: 2 },
   };
 
@@ -66,7 +65,7 @@ describe('CargosService', () => {
       providers: [
         CargosService,
         { provide: CargosRepository, useValue: mockCargosRepository },
-        { provide: AreasRepository, useValue: mockAreasRepository },
+        { provide: ProductionAreasRepository, useValue: mockProductionAreasRepository },
       ],
     }).compile();
 
@@ -105,8 +104,8 @@ describe('CargosService', () => {
   // findByArea
   // ─────────────────────────────────────────────
   describe('findByArea', () => {
-    it('should return cargos with usersCount when area exists', async () => {
-      mockAreasRepository.findById.mockResolvedValue(mockActiveArea);
+    it('should return cargos with usersCount when production area exists', async () => {
+      mockProductionAreasRepository.findById.mockResolvedValue(mockActiveArea);
       mockCargosRepository.findByArea.mockResolvedValue([mockCargoFromFindAll]);
 
       const result = await service.findByArea('area-1');
@@ -115,18 +114,18 @@ describe('CargosService', () => {
       expect(result[0]._count).toBeUndefined();
     });
 
-    it('should throw NotFoundException when area does not exist', async () => {
-      mockAreasRepository.findById.mockResolvedValue(null);
+    it('should throw NotFoundException when production area does not exist', async () => {
+      mockProductionAreasRepository.findById.mockResolvedValue(null);
 
       await expect(service.findByArea('bad-id')).rejects.toThrow(NotFoundException);
       await expect(service.findByArea('bad-id')).rejects.toThrow(
-        'Área con ID bad-id no encontrada',
+        'Área de producción con ID bad-id no encontrada',
       );
       expect(mockCargosRepository.findByArea).not.toHaveBeenCalled();
     });
 
-    it('should pass areaId and includeInactive to repository', async () => {
-      mockAreasRepository.findById.mockResolvedValue(mockActiveArea);
+    it('should pass productionAreaId and includeInactive to repository', async () => {
+      mockProductionAreasRepository.findById.mockResolvedValue(mockActiveArea);
       mockCargosRepository.findByArea.mockResolvedValue([]);
 
       await service.findByArea('area-1', true);
@@ -165,51 +164,51 @@ describe('CargosService', () => {
     const createDto = {
       name: 'Tech Lead',
       description: 'Líder técnico',
-      areaId: 'area-1',
+      productionAreaId: 'area-1',
     };
 
     beforeEach(() => {
-      mockAreasRepository.findById.mockResolvedValue(mockActiveArea);
+      mockProductionAreasRepository.findById.mockResolvedValue(mockActiveArea);
       mockCargosRepository.findByNameAndArea.mockResolvedValue(null);
       mockCargosRepository.create.mockResolvedValue(mockCargoFromRepo);
     });
 
-    it('should create cargo with area connect syntax', async () => {
+    it('should create cargo with productionArea connect syntax', async () => {
       await service.create(createDto);
 
       expect(mockCargosRepository.create).toHaveBeenCalledWith({
         name: createDto.name,
         description: createDto.description,
-        area: { connect: { id: createDto.areaId } },
+        productionArea: { connect: { id: createDto.productionAreaId } },
       });
     });
 
-    it('should throw BadRequestException when area does not exist', async () => {
-      mockAreasRepository.findById.mockResolvedValue(null);
+    it('should throw BadRequestException when production area does not exist', async () => {
+      mockProductionAreasRepository.findById.mockResolvedValue(null);
 
       await expect(service.create(createDto)).rejects.toThrow(BadRequestException);
       await expect(service.create(createDto)).rejects.toThrow(
-        `Área con ID ${createDto.areaId} no encontrada`,
+        `Área de producción con ID ${createDto.productionAreaId} no encontrada`,
       );
       expect(mockCargosRepository.create).not.toHaveBeenCalled();
     });
 
-    it('should throw BadRequestException when area is inactive', async () => {
-      mockAreasRepository.findById.mockResolvedValue(mockInactiveArea);
+    it('should throw BadRequestException when production area is inactive', async () => {
+      mockProductionAreasRepository.findById.mockResolvedValue(mockInactiveArea);
 
       await expect(service.create(createDto)).rejects.toThrow(BadRequestException);
       await expect(service.create(createDto)).rejects.toThrow(
-        'No se puede crear un cargo en un área inactiva',
+        'No se puede crear un cargo en un área de producción inactiva',
       );
       expect(mockCargosRepository.create).not.toHaveBeenCalled();
     });
 
-    it('should throw BadRequestException when cargo name already exists in the area', async () => {
+    it('should throw BadRequestException when cargo name already exists in the production area', async () => {
       mockCargosRepository.findByNameAndArea.mockResolvedValue({ id: 'existing' });
 
       await expect(service.create(createDto)).rejects.toThrow(BadRequestException);
       await expect(service.create(createDto)).rejects.toThrow(
-        `Ya existe un cargo con el nombre "${createDto.name}" en esta área`,
+        `Ya existe un cargo con el nombre "${createDto.name}" en esta área de producción`,
       );
       expect(mockCargosRepository.create).not.toHaveBeenCalled();
     });
@@ -221,7 +220,7 @@ describe('CargosService', () => {
   describe('update', () => {
     beforeEach(() => {
       mockCargosRepository.findById.mockResolvedValue(mockCargoFromRepo);
-      mockAreasRepository.findById.mockResolvedValue(mockActiveArea);
+      mockProductionAreasRepository.findById.mockResolvedValue(mockActiveArea);
       mockCargosRepository.findByNameAndAreaExcludingId.mockResolvedValue(null);
       mockCargosRepository.update.mockResolvedValue(mockCargoFromRepo);
     });
@@ -229,19 +228,19 @@ describe('CargosService', () => {
     it('should update cargo description without area validation', async () => {
       await service.update('cargo-1', { description: 'Nueva descripción' });
 
-      expect(mockAreasRepository.findById).not.toHaveBeenCalled();
+      expect(mockProductionAreasRepository.findById).not.toHaveBeenCalled();
       expect(mockCargosRepository.update).toHaveBeenCalledWith(
         'cargo-1',
         expect.objectContaining({ description: 'Nueva descripción' }),
       );
     });
 
-    it('should use Prisma connect syntax when areaId is provided', async () => {
-      await service.update('cargo-1', { areaId: 'area-1' });
+    it('should use Prisma connect syntax when productionAreaId is provided', async () => {
+      await service.update('cargo-1', { productionAreaId: 'area-1' });
 
       const callArg = mockCargosRepository.update.mock.calls[0][1];
-      expect(callArg).toHaveProperty('area', { connect: { id: 'area-1' } });
-      expect(callArg).not.toHaveProperty('areaId');
+      expect(callArg).toHaveProperty('productionArea', { connect: { id: 'area-1' } });
+      expect(callArg).not.toHaveProperty('productionAreaId');
     });
 
     it('should throw NotFoundException when cargo does not exist', async () => {
@@ -250,26 +249,26 @@ describe('CargosService', () => {
       await expect(service.update('bad-id', { name: 'x' })).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw BadRequestException when new area does not exist', async () => {
-      mockAreasRepository.findById.mockResolvedValue(null);
+    it('should throw BadRequestException when new production area does not exist', async () => {
+      mockProductionAreasRepository.findById.mockResolvedValue(null);
 
-      await expect(service.update('cargo-1', { areaId: 'bad-area' })).rejects.toThrow(
+      await expect(service.update('cargo-1', { productionAreaId: 'bad-area' })).rejects.toThrow(
         BadRequestException,
       );
-      await expect(service.update('cargo-1', { areaId: 'bad-area' })).rejects.toThrow(
-        'Área con ID bad-area no encontrada',
+      await expect(service.update('cargo-1', { productionAreaId: 'bad-area' })).rejects.toThrow(
+        'Área de producción con ID bad-area no encontrada',
       );
     });
 
-    it('should throw BadRequestException when new area is inactive', async () => {
-      mockAreasRepository.findById.mockResolvedValue(mockInactiveArea);
+    it('should throw BadRequestException when new production area is inactive', async () => {
+      mockProductionAreasRepository.findById.mockResolvedValue(mockInactiveArea);
 
       await expect(
-        service.update('cargo-1', { areaId: 'area-2' }),
+        service.update('cargo-1', { productionAreaId: 'area-2' }),
       ).rejects.toThrow(BadRequestException);
       await expect(
-        service.update('cargo-1', { areaId: 'area-2' }),
-      ).rejects.toThrow('No se puede mover el cargo a un área inactiva');
+        service.update('cargo-1', { productionAreaId: 'area-2' }),
+      ).rejects.toThrow('No se puede mover el cargo a un área de producción inactiva');
     });
 
     it('should throw BadRequestException when name already exists in target area', async () => {
@@ -280,13 +279,12 @@ describe('CargosService', () => {
       );
     });
 
-    it('should not validate area when areaId is not changing', async () => {
-      // areaId igual al actual → no debería buscar el área
-      await service.update('cargo-1', { areaId: 'area-1' }); // same areaId as cargo.areaId
+    it('should not validate area when productionAreaId is not changing', async () => {
+      // productionAreaId igual al actual → no debería buscar el área
+      await service.update('cargo-1', { productionAreaId: 'area-1' }); // same as cargo.productionAreaId
 
-      // La validación de área se omite cuando el nuevo areaId === cargo.areaId
-      // El findById del área NO debe llamarse en este caso
-      expect(mockAreasRepository.findById).not.toHaveBeenCalled();
+      // La validación de área se omite cuando el nuevo productionAreaId === cargo.productionAreaId
+      expect(mockProductionAreasRepository.findById).not.toHaveBeenCalled();
     });
   });
 

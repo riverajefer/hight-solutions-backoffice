@@ -55,31 +55,20 @@ const clientSchema = z.object({
     .max(300, 'La dirección no puede exceder 300 caracteres')
     .optional()
     .or(z.literal('')),
-  email: z.string().email('El email debe tener un formato válido'),
+  email: z.string().email('El email debe tener un formato válido').optional().or(z.literal('')),
   departmentId: z.string().min(1, 'Debe seleccionar un departamento'),
   cityId: z.string().min(1, 'Debe seleccionar una ciudad'),
   personType: z.enum(['NATURAL', 'EMPRESA'], {
     errorMap: () => ({ message: 'Debe seleccionar un tipo de persona' }),
   }),
   nit: z.string().max(12, 'El NIT no puede exceder 12 caracteres').optional().or(z.literal('')),
-  cedula: z.string().max(10, 'La cédula no puede exceder 10 dígitos').optional().or(z.literal('')),
+  cedula: z.string().max(12, 'La cédula no puede exceder 12 caracteres').optional().or(z.literal('')),
   specialCondition: z
     .string()
     .max(500, 'La condición especial no puede exceder 500 caracteres')
     .optional()
     .or(z.literal('')),
-}).refine(
-  (data) => {
-    if (data.personType === 'EMPRESA') {
-      return data.nit && data.nit.length >= 5;
-    }
-    return true;
-  },
-  {
-    message: 'El NIT es requerido para tipo EMPRESA (mínimo 5 caracteres)',
-    path: ['nit'],
-  }
-);
+});
 
 type ClientFormData = z.infer<typeof clientSchema>;
 
@@ -187,7 +176,7 @@ const ClientFormPage: React.FC = () => {
         phone: client.phone || '',
         landlinePhone: client.landlinePhone || '',
         address: client.address || '',
-        email: client.email,
+        email: client.email || '',
         departmentId: client.departmentId,
         cityId: client.cityId,
         personType: client.personType,
@@ -213,8 +202,9 @@ const ClientFormPage: React.FC = () => {
         encargado: rest.encargado || undefined,
         landlinePhone: rest.landlinePhone || undefined,
         address: rest.address || undefined,
-        nit: rest.personType === 'EMPRESA' ? rest.nit : undefined,
-        cedula: rest.personType === 'NATURAL' ? rest.cedula : undefined,
+        email: rest.email || undefined,
+        nit: (rest.personType === 'EMPRESA' && rest.nit) ? rest.nit : undefined,
+        cedula: (rest.personType === 'NATURAL' && rest.cedula) ? rest.cedula : undefined,
       };
 
       if (isEdit && id) {
@@ -330,7 +320,6 @@ const ClientFormPage: React.FC = () => {
                       fullWidth
                       error={!!errors.email}
                       helperText={errors.email?.message}
-                      required
                     />
                   )}
                 />
@@ -520,11 +509,11 @@ const ClientFormPage: React.FC = () => {
                         label="Cédula o nit"
                         fullWidth
                         error={!!errors.cedula}
-                        helperText={errors.cedula?.message || 'Máximo 10 dígitos'}
-                        placeholder="1234567890"
-                        inputProps={{ maxLength: 10 }}
+                        helperText={errors.cedula?.message || 'Máximo 12 caracteres'}
+                        placeholder="1234567890-1"
+                        inputProps={{ maxLength: 12 }}
                         onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          const val = e.target.value.replace(/[^0-9-]/g, '').slice(0, 12);
                           field.onChange(val);
                         }}
                       />
@@ -542,9 +531,14 @@ const ClientFormPage: React.FC = () => {
                         label="NIT"
                         fullWidth
                         error={!!errors.nit}
-                        helperText={errors.nit?.message || 'Máximo 10 dígitos'}
-                        required
+                        helperText={errors.nit?.message || 'Máximo 12 caracteres (ej: 900123456-7)'}
+
                         placeholder="900.123.456-7"
+                        inputProps={{ maxLength: 12 }}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^0-9-]/g, '').slice(0, 12);
+                          field.onChange(val);
+                        }}
                       />
                     )}
                   />

@@ -39,6 +39,7 @@ import type { Client } from '../../../types/client.types';
 import { quotesApi } from '../../../api/quotes.api';
 import { storageApi } from '../../../api/storage.api';
 import { useSnackbar } from 'notistack';
+import { useAuthStore } from '../../../store/authStore';
 
 // ============================================================
 // VALIDATION SCHEMA
@@ -225,6 +226,8 @@ export const QuoteFormPage: React.FC = () => {
   const isEdit = !!id;
   const { enqueueSnackbar } = useSnackbar();
   const queryClient = useQueryClient();
+  const { user } = useAuthStore();
+  const isAdmin = user?.role?.name === 'admin';
 
   const { quoteQuery, createQuoteMutation, updateQuoteMutation } = useQuotes();
   const currentQuote = isEdit ? quoteQuery(id!).data : null;
@@ -362,6 +365,7 @@ export const QuoteFormPage: React.FC = () => {
         clientId: data.client!.id,
         validUntil: data.validUntil?.toISOString(),
         notes: data.notes,
+        taxRate: data.applyTax ? data.taxRate / 100 : 0,
         items: data.items.map((item) => ({
           ...(isEdit && { id: item.id }),
           description: item.description,
@@ -470,6 +474,9 @@ export const QuoteFormPage: React.FC = () => {
             onChange={field.onChange}
             error={!!errors.client}
             helperText={errors.client?.message}
+            currentUserId={user?.id}
+            isAdmin={isAdmin}
+            documentType="cotización"
           />
         )}
       />

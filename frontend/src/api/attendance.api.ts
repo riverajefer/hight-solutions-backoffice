@@ -6,6 +6,8 @@ import {
   AttendanceFilter,
   ClockOutDto,
   AdjustAttendanceDto,
+  ClockInDto,
+  AttendanceSummary,
 } from '../types';
 
 const BASE_URL = '/attendance';
@@ -14,8 +16,8 @@ export const attendanceApi = {
   /**
    * Marca entrada de asistencia
    */
-  clockIn: async (): Promise<AttendanceRecord> => {
-    const { data } = await axiosInstance.post<AttendanceRecord>(`${BASE_URL}/clock-in`);
+  clockIn: async (dto?: ClockInDto): Promise<AttendanceRecord> => {
+    const { data } = await axiosInstance.post<AttendanceRecord>(`${BASE_URL}/clock-in`, dto || {});
     return data;
   },
 
@@ -32,6 +34,20 @@ export const attendanceApi = {
    */
   getMyStatus: async (): Promise<AttendanceStatus> => {
     const { data } = await axiosInstance.get<AttendanceStatus>(`${BASE_URL}/my-status`);
+    return data;
+  },
+
+  /**
+   * Obtiene el resumen de asistencia del usuario en sesión
+   */
+  getMySummary: async (filters?: { startDate?: string; endDate?: string }): Promise<AttendanceSummary> => {
+    const params = new URLSearchParams();
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    const query = params.toString();
+    const { data } = await axiosInstance.get<AttendanceSummary>(
+      `${BASE_URL}/my-summary${query ? `?${query}` : ''}`
+    );
     return data;
   },
 
@@ -80,7 +96,7 @@ function buildParams(filters?: AttendanceFilter): URLSearchParams {
   if (filters.startDate) params.append('startDate', filters.startDate);
   if (filters.endDate) params.append('endDate', filters.endDate);
   if (filters.userId) params.append('userId', filters.userId);
-  if (filters.areaId) params.append('areaId', filters.areaId);
+  if (filters.productionAreaId) params.append('productionAreaId', filters.productionAreaId);
   if (filters.cargoId) params.append('cargoId', filters.cargoId);
   if (filters.type) params.append('type', filters.type);
   if (filters.source) params.append('source', filters.source);

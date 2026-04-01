@@ -59,7 +59,7 @@ export class AuthService {
           select: {
             id: true,
             name: true,
-            area: {
+            productionArea: {
               select: {
                 id: true,
                 name: true,
@@ -231,7 +231,7 @@ export class AuthService {
           select: {
             id: true,
             name: true,
-            area: {
+            productionArea: {
               select: {
                 id: true,
                 name: true,
@@ -324,7 +324,7 @@ export class AuthService {
         },
         cargo: {
           include: {
-            area: true,
+            productionArea: true,
           },
         },
       },
@@ -359,9 +359,9 @@ export class AuthService {
         cargo: user.cargo ? {
           id: user.cargo.id,
           name: user.cargo.name,
-          area: user.cargo.area ? {
-            id: user.cargo.area.id,
-            name: user.cargo.area.name,
+          productionArea: user.cargo.productionArea ? {
+            id: user.cargo.productionArea.id,
+            name: user.cargo.productionArea.name,
           } : null,
         } : null,
         createdAt: user.createdAt,

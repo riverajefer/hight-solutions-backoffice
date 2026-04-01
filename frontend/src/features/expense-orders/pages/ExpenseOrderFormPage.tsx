@@ -16,6 +16,7 @@ import {
   CardContent,
   InputAdornment,
   Chip,
+  Grid,
   alpha,
   useTheme,
 } from '@mui/material';
@@ -62,6 +63,7 @@ interface ExpenseItemForm {
   paymentMethod: PaymentMethod;
   productionAreaIds: string[];
   receiptFileId: string;
+  referenceFileId: string;
 }
 
 const defaultItem = (): ExpenseItemForm => ({
@@ -74,6 +76,7 @@ const defaultItem = (): ExpenseItemForm => ({
   paymentMethod: PaymentMethod.CASH,
   productionAreaIds: [],
   receiptFileId: '',
+  referenceFileId: '',
 });
 
 // ─── Step config ──────────────────────────────────────────────────────────────
@@ -220,9 +223,11 @@ export const ExpenseOrderFormPage = () => {
 
   // ─── Step 3: Items ──────────────────────────────────────────────────────────
   const [items, setItems] = useState<ExpenseItemForm[]>([defaultItem()]);
-  // receiptFiles[i] holds the File selected for items[i] (not yet uploaded)
+  // receiptFiles[i] and referenceFiles[i] hold the File selected for items[i] (not yet uploaded)
   const [receiptFiles, setReceiptFiles] = useState<(File | null)[]>([null]);
+  const [referenceFiles, setReferenceFiles] = useState<(File | null)[]>([null]);
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const referenceFileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const prefillAppliedRef = useRef(false);
 
   // ─── Data queries ───────────────────────────────────────────────────────────
@@ -261,10 +266,12 @@ export const ExpenseOrderFormPage = () => {
             paymentMethod: item.paymentMethod,
             productionAreaIds: item.productionAreas.map((pa) => pa.productionArea.id),
             receiptFileId: item.receiptFileId ?? '',
+            referenceFileId: item.referenceFileId ?? '',
           })),
         );
-        // Initialize receiptFiles array with nulls (no new files selected yet)
+        // Initialize receiptFiles and referenceFiles arrays with nulls (no new files selected yet)
         setReceiptFiles(existingOG.items.map(() => null));
+        setReferenceFiles(existingOG.items.map(() => null));
       }
       // En edición, todos los pasos ya fueron completados previamente
       setVisitedSteps(new Set([0, 1, 2, 3]));
@@ -352,11 +359,13 @@ export const ExpenseOrderFormPage = () => {
   const addItem = () => {
     setItems((prev) => [...prev, defaultItem()]);
     setReceiptFiles((prev) => [...prev, null]);
+    setReferenceFiles((prev) => [...prev, null]);
   };
 
   const removeItem = (index: number) => {
     setItems((prev) => prev.filter((_, i) => i !== index));
     setReceiptFiles((prev) => prev.filter((_, i) => i !== index));
+    setReferenceFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const updateItem = (index: number, field: keyof ExpenseItemForm, value: unknown) => {
@@ -369,10 +378,21 @@ export const ExpenseOrderFormPage = () => {
 
   const clearReceiptForItem = (index: number) => {
     setReceiptFileForItem(index, null);
-    // If there was an existing uploaded fileId, clear it too
     updateItem(index, 'receiptFileId', '');
     if (fileInputRefs.current[index]) {
       fileInputRefs.current[index]!.value = '';
+    }
+  };
+
+  const setReferenceFileForItem = (index: number, file: File | null) => {
+    setReferenceFiles((prev) => prev.map((f, i) => (i === index ? file : f)));
+  };
+
+  const clearReferenceForItem = (index: number) => {
+    setReferenceFileForItem(index, null);
+    updateItem(index, 'referenceFileId', '');
+    if (referenceFileInputRefs.current[index]) {
+      referenceFileInputRefs.current[index]!.value = '';
     }
   };
 
@@ -380,12 +400,16 @@ export const ExpenseOrderFormPage = () => {
 
   const handleReceiptFileChange = (index: number, file: File | null) => {
     if (!file) return;
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-      return; // Invalid type — input accept already filters, but double-check
-    }
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) return;
     setReceiptFileForItem(index, file);
-    // Clear any previously stored fileId for this item so we know to re-upload
     updateItem(index, 'receiptFileId', '');
+  };
+
+  const handleReferenceFileChange = (index: number, file: File | null) => {
+    if (!file) return;
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) return;
+    setReferenceFileForItem(index, file);
+    updateItem(index, 'referenceFileId', '');
   };
 
   const handlePasteForItem = (index: number, e: React.ClipboardEvent) => {
@@ -398,6 +422,23 @@ export const ExpenseOrderFormPage = () => {
           const extension = file.type.split('/')[1] || 'png';
           const newFile = new File([file], `pasted-image-${Date.now()}.${extension}`, { type: file.type });
           handleReceiptFileChange(index, newFile);
+          e.preventDefault();
+          break;
+        }
+      }
+    }
+  };
+
+  const handlePasteReferenceForItem = (index: number, e: React.ClipboardEvent) => {
+    const clipItems = e.clipboardData?.items;
+    if (!clipItems) return;
+    for (let i = 0; i < clipItems.length; i++) {
+      if (clipItems[i].type.indexOf('image') !== -1) {
+        const file = clipItems[i].getAsFile();
+        if (file) {
+          const extension = file.type.split('/')[1] || 'png';
+          const newFile = new File([file], `pasted-image-${Date.now()}.${extension}`, { type: file.type });
+          handleReferenceFileChange(index, newFile);
           e.preventDefault();
           break;
         }
@@ -418,23 +459,41 @@ export const ExpenseOrderFormPage = () => {
   // ─── Submit ───────────────────────────────────────────────────────────────────
 
   /**
-   * Upload any pending receipt files and return the resolved receiptFileIds
-   * per item (preserving existing fileIds when no new file was chosen).
+   * Upload any pending receipt and reference files, returning resolved IDs per item.
    */
-  const uploadPendingReceipts = async (): Promise<(string | undefined)[]> => {
-    return Promise.all(
-      items.map(async (item, index) => {
-        const file = receiptFiles[index];
-        if (file) {
-          const uploaded = await storageApi.uploadFile(file, { entityType: 'expense_order' });
-          return uploaded.id;
-        }
-        return item.receiptFileId || undefined;
-      }),
-    );
+  const uploadPendingFiles = async (): Promise<{
+    receiptFileIds: (string | undefined)[];
+    referenceFileIds: (string | undefined)[];
+  }> => {
+    const [receiptFileIds, referenceFileIds] = await Promise.all([
+      Promise.all(
+        items.map(async (item, index) => {
+          const file = receiptFiles[index];
+          if (file) {
+            const uploaded = await storageApi.uploadFile(file, { entityType: 'expense_order' });
+            return uploaded.id;
+          }
+          return item.receiptFileId || undefined;
+        }),
+      ),
+      Promise.all(
+        items.map(async (item, index) => {
+          const file = referenceFiles[index];
+          if (file) {
+            const uploaded = await storageApi.uploadFile(file, { entityType: 'expense_order' });
+            return uploaded.id;
+          }
+          return item.referenceFileId || undefined;
+        }),
+      ),
+    ]);
+    return { receiptFileIds, referenceFileIds };
   };
 
-  const buildPayload = (resolvedFileIds: (string | undefined)[]): CreateExpenseOrderDto => ({
+  const buildPayload = (
+    resolvedReceiptIds: (string | undefined)[],
+    resolvedReferenceIds: (string | undefined)[],
+  ): CreateExpenseOrderDto => ({
     expenseTypeId,
     expenseSubcategoryId,
     workOrderId: workOrderId || undefined,
@@ -452,13 +511,14 @@ export const ExpenseOrderFormPage = () => {
       productionAreaIds: hasWorkOrder && item.productionAreaIds.length
         ? item.productionAreaIds
         : undefined,
-      receiptFileId: resolvedFileIds[index],
+      receiptFileId: resolvedReceiptIds[index],
+      referenceFileId: resolvedReferenceIds[index],
     })) as CreateExpenseItemDto[],
   });
 
   const handleSaveDraft = async () => {
-    const resolvedFileIds = await uploadPendingReceipts();
-    const payload = buildPayload(resolvedFileIds);
+    const { receiptFileIds, referenceFileIds } = await uploadPendingFiles();
+    const payload = buildPayload(receiptFileIds, referenceFileIds);
     if (isEditing) {
       await updateExpenseOrderMutation.mutateAsync({ id: id!, dto: payload as UpdateExpenseOrderDto });
       navigate(ROUTES.EXPENSE_ORDERS_DETAIL.replace(':id', id!));
@@ -469,8 +529,8 @@ export const ExpenseOrderFormPage = () => {
   };
 
   const handleCreate = async () => {
-    const resolvedFileIds = await uploadPendingReceipts();
-    const payload = buildPayload(resolvedFileIds);
+    const { receiptFileIds, referenceFileIds } = await uploadPendingFiles();
+    const payload = buildPayload(receiptFileIds, referenceFileIds);
     if (isEditing) {
       await updateExpenseOrderMutation.mutateAsync({ id: id!, dto: payload as UpdateExpenseOrderDto });
       navigate(ROUTES.EXPENSE_ORDERS_DETAIL.replace(':id', id!));
@@ -606,14 +666,6 @@ export const ExpenseOrderFormPage = () => {
         )}
       />
 
-      <TextField
-        label="Observaciones generales"
-        value={observations}
-        onChange={(e) => setObservations(e.target.value)}
-        multiline
-        rows={4}
-        placeholder="Comentarios adicionales sobre esta OG..."
-      />
     </Stack>
   );
 
@@ -769,127 +821,190 @@ export const ExpenseOrderFormPage = () => {
                 />
               )}
 
-              {/* ── Comprobante de pago ── */}
+              {/* ── Imágenes ── */}
               <Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  Comprobante de pago (imagen)
-                </Typography>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/gif,image/webp"
-                  hidden
-                  ref={(el) => { fileInputRefs.current[index] = el; }}
-                  onChange={(e) => handleReceiptFileChange(index, e.target.files?.[0] ?? null)}
-                />
-
-                {/* No file selected and no existing fileId */}
-                {!receiptFiles[index] && !item.receiptFileId && (
-                  <Stack spacing={1}>
-                    <Button
-                      variant="outlined"
-                      startIcon={<AttachFileIcon />}
-                      size="small"
-                      onClick={() => fileInputRefs.current[index]?.click()}
-                      sx={{ textTransform: 'none', alignSelf: 'flex-start' }}
-                    >
-                      Adjuntar imagen
-                    </Button>
-                    <Box
-                      onPaste={(e) => handlePasteForItem(index, e)}
-                      tabIndex={0}
-                      sx={{
-                        border: '2px dashed',
-                        borderColor: 'grey.300',
-                        borderRadius: 1,
-                        p: 2,
-                        textAlign: 'center',
-                        cursor: 'pointer',
-                        transition: 'border-color 0.2s, background-color 0.2s',
-                        '&:hover, &:focus': {
-                          borderColor: 'primary.main',
-                          bgcolor: 'action.hover',
-                        },
-                      }}
-                    >
-                      <ImageIcon sx={{ fontSize: 28, color: 'grey.400', mb: 0.5 }} />
-                      <Typography variant="caption" color="text.secondary" display="block">
-                        O pega una imagen aquí (Ctrl+V / ⌘+V)
-                      </Typography>
-                    </Box>
-                  </Stack>
-                )}
-
-                {/* New file selected (pending upload) */}
-                {receiptFiles[index] && (
-                  <Stack spacing={1.5}>
-                    {/* Thumbnail preview */}
-                    <Box
-                      sx={{
-                        position: 'relative',
-                        width: 'fit-content',
-                        border: '1px solid',
-                        borderColor: 'grey.300',
-                        borderRadius: 1,
-                        overflow: 'hidden',
-                        bgcolor: 'grey.50',
-                      }}
-                    >
-                      <Box
-                        component="img"
-                        src={URL.createObjectURL(receiptFiles[index]!)}
-                        alt="Vista previa"
-                        sx={{
-                          display: 'block',
-                          maxWidth: 200,
-                          maxHeight: 140,
-                          objectFit: 'contain',
-                        }}
-                        onLoad={(e) => {
-                          URL.revokeObjectURL((e.target as HTMLImageElement).src);
-                        }}
-                      />
-                    </Box>
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      <Chip
-                        icon={<ImageIcon />}
-                        label={`${receiptFiles[index]!.name} (${(receiptFiles[index]!.size / 1024).toFixed(1)} KB)`}
-                        color="primary"
-                        variant="outlined"
-                        size="small"
-                        onDelete={() => clearReceiptForItem(index)}
-                        deleteIcon={<CloseIcon />}
-                        sx={{ maxWidth: 320 }}
-                      />
-                      <Typography variant="caption" color="text.secondary">
-                        Se subirá al guardar
-                      </Typography>
-                    </Stack>
-                  </Stack>
-                )}
-
-                {/* Existing uploaded file (edit mode, no new file chosen) */}
-                {!receiptFiles[index] && item.receiptFileId && (
-                  <Stack direction="row" alignItems="center" spacing={1}>
-                    <Chip
-                      icon={<ImageIcon />}
-                      label="Comprobante adjunto"
-                      color="success"
-                      variant="outlined"
-                      size="small"
-                      onDelete={() => clearReceiptForItem(index)}
-                      deleteIcon={<CloseIcon />}
+                <Divider sx={{ mb: 2 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ px: 1 }}>
+                    Imágenes
+                  </Typography>
+                </Divider>
+                <Grid container spacing={2}>
+                  {/* Comprobante de pago */}
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 500 }}>
+                      Comprobante de pago
+                    </Typography>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      hidden
+                      ref={(el) => { fileInputRefs.current[index] = el; }}
+                      onChange={(e) => handleReceiptFileChange(index, e.target.files?.[0] ?? null)}
                     />
-                    <Button
-                      size="small"
-                      variant="text"
-                      startIcon={<AttachFileIcon />}
-                      onClick={() => fileInputRefs.current[index]?.click()}
-                      sx={{ textTransform: 'none' }}
-                    >
-                      Cambiar imagen
-                    </Button>
-                  </Stack>
-                )}
+                    {!receiptFiles[index] && !item.receiptFileId && (
+                      <Stack spacing={1}>
+                        <Button
+                          variant="outlined"
+                          startIcon={<AttachFileIcon />}
+                          size="small"
+                          onClick={() => fileInputRefs.current[index]?.click()}
+                          sx={{ textTransform: 'none', alignSelf: 'flex-start' }}
+                        >
+                          Adjuntar imagen
+                        </Button>
+                        <Box
+                          onPaste={(e) => handlePasteForItem(index, e)}
+                          tabIndex={0}
+                          sx={{
+                            border: '2px dashed',
+                            borderColor: 'grey.300',
+                            borderRadius: 1,
+                            p: 2,
+                            textAlign: 'center',
+                            cursor: 'pointer',
+                            transition: 'border-color 0.2s, background-color 0.2s',
+                            '&:hover, &:focus': { borderColor: 'primary.main', bgcolor: 'action.hover' },
+                          }}
+                        >
+                          <ImageIcon sx={{ fontSize: 28, color: 'grey.400', mb: 0.5 }} />
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            O pega una imagen aquí (Ctrl+V / ⌘+V)
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    )}
+                    {receiptFiles[index] && (
+                      <Stack spacing={1.5}>
+                        <Box sx={{ width: 'fit-content', border: '1px solid', borderColor: 'grey.300', borderRadius: 1, overflow: 'hidden', bgcolor: 'grey.50' }}>
+                          <Box
+                            component="img"
+                            src={URL.createObjectURL(receiptFiles[index]!)}
+                            alt="Vista previa comprobante"
+                            sx={{ display: 'block', maxWidth: 200, maxHeight: 140, objectFit: 'contain' }}
+                            onLoad={(e) => URL.revokeObjectURL((e.target as HTMLImageElement).src)}
+                          />
+                        </Box>
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <Chip
+                            icon={<ImageIcon />}
+                            label={`${receiptFiles[index]!.name} (${(receiptFiles[index]!.size / 1024).toFixed(1)} KB)`}
+                            color="primary"
+                            variant="outlined"
+                            size="small"
+                            onDelete={() => clearReceiptForItem(index)}
+                            deleteIcon={<CloseIcon />}
+                            sx={{ maxWidth: 240 }}
+                          />
+                          <Typography variant="caption" color="text.secondary">Se subirá al guardar</Typography>
+                        </Stack>
+                      </Stack>
+                    )}
+                    {!receiptFiles[index] && item.receiptFileId && (
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <Chip
+                          icon={<ImageIcon />}
+                          label="Comprobante adjunto"
+                          color="success"
+                          variant="outlined"
+                          size="small"
+                          onDelete={() => clearReceiptForItem(index)}
+                          deleteIcon={<CloseIcon />}
+                        />
+                        <Button size="small" variant="text" startIcon={<AttachFileIcon />} onClick={() => fileInputRefs.current[index]?.click()} sx={{ textTransform: 'none' }}>
+                          Cambiar imagen
+                        </Button>
+                      </Stack>
+                    )}
+                  </Grid>
+
+                  {/* Imagen de referencia */}
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 500 }}>
+                      Imagen de referencia
+                    </Typography>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      hidden
+                      ref={(el) => { referenceFileInputRefs.current[index] = el; }}
+                      onChange={(e) => handleReferenceFileChange(index, e.target.files?.[0] ?? null)}
+                    />
+                    {!referenceFiles[index] && !item.referenceFileId && (
+                      <Stack spacing={1}>
+                        <Button
+                          variant="outlined"
+                          startIcon={<AttachFileIcon />}
+                          size="small"
+                          onClick={() => referenceFileInputRefs.current[index]?.click()}
+                          sx={{ textTransform: 'none', alignSelf: 'flex-start' }}
+                        >
+                          Adjuntar imagen
+                        </Button>
+                        <Box
+                          onPaste={(e) => handlePasteReferenceForItem(index, e)}
+                          tabIndex={0}
+                          sx={{
+                            border: '2px dashed',
+                            borderColor: 'grey.300',
+                            borderRadius: 1,
+                            p: 2,
+                            textAlign: 'center',
+                            cursor: 'pointer',
+                            transition: 'border-color 0.2s, background-color 0.2s',
+                            '&:hover, &:focus': { borderColor: 'primary.main', bgcolor: 'action.hover' },
+                          }}
+                        >
+                          <ImageIcon sx={{ fontSize: 28, color: 'grey.400', mb: 0.5 }} />
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            O pega una imagen aquí (Ctrl+V / ⌘+V)
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    )}
+                    {referenceFiles[index] && (
+                      <Stack spacing={1.5}>
+                        <Box sx={{ width: 'fit-content', border: '1px solid', borderColor: 'grey.300', borderRadius: 1, overflow: 'hidden', bgcolor: 'grey.50' }}>
+                          <Box
+                            component="img"
+                            src={URL.createObjectURL(referenceFiles[index]!)}
+                            alt="Vista previa referencia"
+                            sx={{ display: 'block', maxWidth: 200, maxHeight: 140, objectFit: 'contain' }}
+                            onLoad={(e) => URL.revokeObjectURL((e.target as HTMLImageElement).src)}
+                          />
+                        </Box>
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <Chip
+                            icon={<ImageIcon />}
+                            label={`${referenceFiles[index]!.name} (${(referenceFiles[index]!.size / 1024).toFixed(1)} KB)`}
+                            color="secondary"
+                            variant="outlined"
+                            size="small"
+                            onDelete={() => clearReferenceForItem(index)}
+                            deleteIcon={<CloseIcon />}
+                            sx={{ maxWidth: 240 }}
+                          />
+                          <Typography variant="caption" color="text.secondary">Se subirá al guardar</Typography>
+                        </Stack>
+                      </Stack>
+                    )}
+                    {!referenceFiles[index] && item.referenceFileId && (
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <Chip
+                          icon={<ImageIcon />}
+                          label="Referencia adjunta"
+                          color="secondary"
+                          variant="outlined"
+                          size="small"
+                          onDelete={() => clearReferenceForItem(index)}
+                          deleteIcon={<CloseIcon />}
+                        />
+                        <Button size="small" variant="text" startIcon={<AttachFileIcon />} onClick={() => referenceFileInputRefs.current[index]?.click()} sx={{ textTransform: 'none' }}>
+                          Cambiar imagen
+                        </Button>
+                      </Stack>
+                    )}
+                  </Grid>
+                </Grid>
               </Box>
             </Stack>
           </CardContent>

@@ -58,6 +58,7 @@ import {
 import { generateQuotePdf } from '../utils/generateQuotePdf';
 import { useSnackbar } from 'notistack';
 import axiosInstance from '../../../api/axios';
+import { CommentSection } from '../../comments';
 
 const formatCurrency = (value: string | number): string => {
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
@@ -622,6 +623,9 @@ export const QuoteDetailPage: React.FC = () => {
           </Stack>
         </Grid>
       </Grid>
+
+      {/* Comentarios */}
+      <CommentSection entityType="QUOTE" entityId={quote.id} />
 
       <Menu
         anchorEl={anchorEl}

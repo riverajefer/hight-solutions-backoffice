@@ -9,7 +9,6 @@ import { RolesModule } from './modules/roles/roles.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { SessionLogsModule } from './modules/session-logs/session-logs.module';
-import { AreasModule } from './modules/areas/areas.module';
 import { CargosModule } from './modules/cargos/cargos.module';
 import { LocationsModule } from './modules/locations/locations.module';
 import { ClientsModule } from './modules/clients/clients.module';
@@ -28,8 +27,10 @@ import { OrderEditRequestsModule } from './modules/order-edit-requests/order-edi
 import { OrderStatusChangeRequestsModule } from './modules/order-status-change-requests/order-status-change-requests.module';
 import { ExpenseOrderAuthRequestsModule } from './modules/expense-order-auth-requests/expense-order-auth-requests.module';
 import { AdvancePaymentApprovalsModule } from './modules/advance-payment-approvals/advance-payment-approvals.module';
+import { DiscountApprovalsModule } from './modules/discount-approvals/discount-approvals.module';
 import { ClientOwnershipAuthRequestsModule } from './modules/client-ownership-auth-requests/client-ownership-auth-requests.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
+import { QuoteKanbanColumnsModule } from './modules/quote-kanban-columns/quote-kanban-columns.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { CompanyModule } from './modules/company/company.module';
 import { WorkOrdersModule } from './modules/work-orders/work-orders.module';
@@ -45,6 +46,7 @@ import { PayrollModule } from './modules/payroll/payroll.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { ProductionModule } from './modules/production/production.module';
+import { CommentsModule } from './modules/comments/comments.module';
 
 @Module({
   imports: [
@@ -63,7 +65,6 @@ import { ProductionModule } from './modules/production/production.module';
     PermissionsModule,
     AuditLogsModule,
     SessionLogsModule,
-    AreasModule,
     CargosModule,
     // Módulos de ubicaciones, clientes y proveedores
     LocationsModule,
@@ -79,6 +80,8 @@ import { ProductionModule } from './modules/production/production.module';
     ConsecutivesModule,
     // Módulo de Cotizaciones
     QuotesModule,
+    // Módulo de Columnas del Tablero Kanban de Cotizaciones
+    QuoteKanbanColumnsModule,
     // Módulo de Órdenes de Pedido
     OrdersModule,
     // Módulo de Áreas de Producción
@@ -107,6 +110,8 @@ import { ProductionModule } from './modules/production/production.module';
     ExpenseOrderAuthRequestsModule,
     // Módulo de Aprobación de Anticipos
     AdvancePaymentApprovalsModule,
+    // Módulo de Aprobación de Descuentos
+    DiscountApprovalsModule,
     // Módulo de Autorización de Propiedad de Cliente
     ClientOwnershipAuthRequestsModule,
     // Módulo de Trazabilidad de Órdenes
@@ -119,6 +124,8 @@ import { ProductionModule } from './modules/production/production.module';
     InventoryModule,
     // Módulo de Producción — Plantillas y Órdenes de Producción
     ProductionModule,
+    // Módulo de Comentarios Polimórficos (COT / OP / OT)
+    CommentsModule,
   ],
   providers: [
     {

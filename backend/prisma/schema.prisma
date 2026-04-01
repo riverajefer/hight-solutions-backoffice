@@ -9,70 +9,60 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  username     String?  @unique
-  email        String?  @unique
-  password     String
-  refreshToken String?
-  roleId       String
-  cargoId      String?
-  profilePhoto String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  firstName    String?
-  lastName     String?
-  phone        String?
+  id                 String   @id @default(uuid())
+  username           String?  @unique
+  email              String?  @unique
+  password           String
+  refreshToken       String?
+  roleId             String
+  cargoId            String?
+  profilePhoto       String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  firstName          String?
+  lastName           String?
+  phone              String?
   isActive           Boolean  @default(true)
   mustChangePassword Boolean  @default(false)
 
-  role                         Role                       @relation(fields: [roleId], references: [id])
-  cargo                        Cargo?                     @relation(fields: [cargoId], references: [id])
-  sessionLogs                  SessionLog[]
-  createdOrders                Order[]
-  receivedPayments             Payment[]                  @relation("ReceivedPayments")
-  requestedEditRequests        OrderEditRequest[]         @relation("RequestedEditRequests")
-  reviewedEditRequests         OrderEditRequest[]         @relation("ReviewedEditRequests")
-  requestedStatusChangeRequests OrderStatusChangeRequest[] @relation("RequestedStatusChangeRequests")
-  reviewedStatusChangeRequests  OrderStatusChangeRequest[] @relation("ReviewedStatusChangeRequests")
-  notifications                Notification[]
-  createdQuotes                Quote[]
-  appliedDiscounts             OrderDiscount[]            @relation("AppliedDiscounts")
-  advisedWorkOrders            WorkOrder[]                @relation("WorkOrderAdvisor")
-  designedWorkOrders           WorkOrder[]                @relation("WorkOrderDesigner")
-  workOrderTimeEntries         WorkOrderTimeEntry[]       @relation("WorkOrderTimeEntryUser")
-  authorizedExpenseOrders      ExpenseOrder[]             @relation("AuthorizedExpenseOrders")
-  responsibleExpenseOrders     ExpenseOrder[]             @relation("ResponsibleExpenseOrders")
-  createdExpenseOrders         ExpenseOrder[]             @relation("CreatedExpenseOrders")
-  approvedExpenseOrders        ExpenseOrder[]             @relation("ApprovedExpenseOrders")
-  requestedExpenseOrderAuthRequests  ExpenseOrderAuthRequest[]  @relation("RequestedExpenseOrderAuthRequests")
-  reviewedExpenseOrderAuthRequests   ExpenseOrderAuthRequest[]  @relation("ReviewedExpenseOrderAuthRequests")
+  role                                 Role                         @relation(fields: [roleId], references: [id])
+  cargo                                Cargo?                       @relation(fields: [cargoId], references: [id])
+  sessionLogs                          SessionLog[]
+  createdOrders                        Order[]
+  receivedPayments                     Payment[]                    @relation("ReceivedPayments")
+  requestedEditRequests                OrderEditRequest[]           @relation("RequestedEditRequests")
+  reviewedEditRequests                 OrderEditRequest[]           @relation("ReviewedEditRequests")
+  requestedStatusChangeRequests        OrderStatusChangeRequest[]   @relation("RequestedStatusChangeRequests")
+  reviewedStatusChangeRequests         OrderStatusChangeRequest[]   @relation("ReviewedStatusChangeRequests")
+  notifications                        Notification[]
+  createdQuotes                        Quote[]
+  appliedDiscounts                     OrderDiscount[]              @relation("AppliedDiscounts")
+  advisedWorkOrders                    WorkOrder[]                  @relation("WorkOrderAdvisor")
+  designedWorkOrders                   WorkOrder[]                  @relation("WorkOrderDesigner")
+  workOrderTimeEntries                 WorkOrderTimeEntry[]         @relation("WorkOrderTimeEntryUser")
+  authorizedExpenseOrders              ExpenseOrder[]               @relation("AuthorizedExpenseOrders")
+  responsibleExpenseOrders             ExpenseOrder[]               @relation("ResponsibleExpenseOrders")
+  createdExpenseOrders                 ExpenseOrder[]               @relation("CreatedExpenseOrders")
+  approvedExpenseOrders                ExpenseOrder[]               @relation("ApprovedExpenseOrders")
+  requestedExpenseOrderAuthRequests    ExpenseOrderAuthRequest[]    @relation("RequestedExpenseOrderAuthRequests")
+  reviewedExpenseOrderAuthRequests     ExpenseOrderAuthRequest[]    @relation("ReviewedExpenseOrderAuthRequests")
   requestedAdvancePaymentApprovals     AdvancePaymentApproval[]     @relation("RequestedAdvancePaymentApprovals")
   reviewedAdvancePaymentApprovals      AdvancePaymentApproval[]     @relation("ReviewedAdvancePaymentApprovals")
+  discountApprovalRequests             DiscountApproval[]           @relation("DiscountApprovalRequests")
+  discountApprovalReviews              DiscountApproval[]           @relation("DiscountApprovalReviews")
   advisedClients                       Client[]                     @relation("ClientAdvisor")
   requestedClientOwnershipAuthRequests ClientOwnershipAuthRequest[] @relation("RequestedClientOwnershipAuthRequests")
   advisedClientOwnershipAuthRequests   ClientOwnershipAuthRequest[] @relation("AdvisedClientOwnershipAuthRequests")
   reviewedClientOwnershipAuthRequests  ClientOwnershipAuthRequest[] @relation("ReviewedClientOwnershipAuthRequests")
-  payrollEmployee                    Employee?
-  attendanceRecords                  AttendanceRecord[]
-  activityHeartbeats                 ActivityHeartbeat[]
-  inventoryMovements                 InventoryMovement[]
-  productionOrdersCreated            ProductionOrder[]    @relation("ProductionOrderCreatedBy")
-  productionStepsCompleted           ProductionOrderStep[] @relation("ProductionStepCompletedBy")
+  payrollEmployee                      Employee?
+  attendanceRecords                    AttendanceRecord[]
+  activityHeartbeats                   ActivityHeartbeat[]
+  inventoryMovements                   InventoryMovement[]
+  productionOrdersCreated              ProductionOrder[]            @relation("ProductionOrderCreatedBy")
+  productionStepsCompleted             ProductionOrderStep[]        @relation("ProductionStepCompletedBy")
+  authoredComments                     Comment[]                    @relation("CommentAuthor")
 
   @@map("users")
-}
-
-model Area {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  cargos Cargo[]
-
-  @@map("areas")
 }
 
 model Cargo {
@@ -83,13 +73,13 @@ model Cargo {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  areaId String
-  area   Area   @relation(fields: [areaId], references: [id])
+  productionAreaId String
+  productionArea   ProductionArea @relation(fields: [productionAreaId], references: [id])
 
   users     User[]
   employees Employee[]
 
-  @@unique([name, areaId])
+  @@unique([name, productionAreaId])
   @@map("cargos")
 }
 
@@ -187,24 +177,24 @@ enum PersonType {
 }
 
 model Client {
-  id            String     @id @default(uuid())
-  name          String
-  manager       String?
-  encargado     String?
-  phone         String?
-  landlinePhone String?    @map("landline_phone")
-  address       String?
-  email         String     @unique
-  departmentId  String     @map("department_id")
-  cityId        String     @map("city_id")
-  personType    PersonType @map("person_type")
+  id               String     @id @default(uuid())
+  name             String
+  manager          String?
+  encargado        String?
+  phone            String?
+  landlinePhone    String?    @map("landline_phone")
+  address          String?
+  email            String?    @unique
+  departmentId     String     @map("department_id")
+  cityId           String     @map("city_id")
+  personType       PersonType @map("person_type")
   nit              String?
   cedula           String?
-  specialCondition String?  @map("special_condition")
-  isActive         Boolean  @default(true) @map("is_active")
-  advisorId        String?  @map("advisor_id")
-  createdAt     DateTime   @default(now()) @map("created_at")
-  updatedAt     DateTime   @updatedAt @map("updated_at")
+  specialCondition String?    @map("special_condition")
+  isActive         Boolean    @default(true) @map("is_active")
+  advisorId        String?    @map("advisor_id")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
 
   department Department @relation(fields: [departmentId], references: [id])
   city       City       @relation(fields: [cityId], references: [id])
@@ -348,26 +338,26 @@ model SupplyCategory {
 // =============================================================================
 
 model Supply {
-  id                   String   @id @default(uuid())
-  name                 String
-  sku                  String?  @unique
-  description          String?
-  categoryId           String   @map("category_id")
-  purchasePrice        Decimal? @map("purchase_price")
-  purchaseUnitId       String   @map("purchase_unit_id")
-  consumptionUnitId    String   @map("consumption_unit_id")
-  conversionFactor     Decimal  @default(1) @map("conversion_factor")
-  currentStock         Decimal  @default(0) @map("current_stock")
-  minimumStock         Decimal  @default(0) @map("minimum_stock")
-  isActive             Boolean  @default(true) @map("is_active")
-  createdAt            DateTime @default(now()) @map("created_at")
-  updatedAt            DateTime @updatedAt @map("updated_at")
+  id                String   @id @default(uuid())
+  name              String
+  sku               String?  @unique
+  description       String?
+  categoryId        String   @map("category_id")
+  purchasePrice     Decimal? @map("purchase_price")
+  purchaseUnitId    String   @map("purchase_unit_id")
+  consumptionUnitId String   @map("consumption_unit_id")
+  conversionFactor  Decimal  @default(1) @map("conversion_factor")
+  currentStock      Decimal  @default(0) @map("current_stock")
+  minimumStock      Decimal  @default(0) @map("minimum_stock")
+  isActive          Boolean  @default(true) @map("is_active")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
-  category          SupplyCategory       @relation(fields: [categoryId], references: [id])
-  purchaseUnit      UnitOfMeasure        @relation("PurchaseUnit", fields: [purchaseUnitId], references: [id])
-  consumptionUnit   UnitOfMeasure        @relation("ConsumptionUnit", fields: [consumptionUnitId], references: [id])
-  workOrderItems    WorkOrderItemSupply[]
-  movements         InventoryMovement[]
+  category        SupplyCategory        @relation(fields: [categoryId], references: [id])
+  purchaseUnit    UnitOfMeasure         @relation("PurchaseUnit", fields: [purchaseUnitId], references: [id])
+  consumptionUnit UnitOfMeasure         @relation("ConsumptionUnit", fields: [consumptionUnitId], references: [id])
+  workOrderItems  WorkOrderItemSupply[]
+  movements       InventoryMovement[]
 
   @@unique([name, categoryId])
   @@map("supplies")
@@ -378,30 +368,30 @@ model Supply {
 // =============================================================================
 
 enum OrderStatus {
-  DRAFT              // Borrador (editable)
-  CONFIRMED          // Confirmada (bloqueada para edición)
-  IN_PRODUCTION      // En producción
-  READY              // Lista para entrega
-  DELIVERED          // Entregada
+  DRAFT // Borrador (editable)
+  CONFIRMED // Confirmada (bloqueada para edición)
+  IN_PRODUCTION // En producción
+  READY // Lista para entrega
+  DELIVERED // Entregada
   DELIVERED_ON_CREDIT // Entregado a crédito
-  WARRANTY           // Garantía
-  PAID               // Pagada
-  RETURNED           // Devuelta
+  WARRANTY // Garantía
+  PAID // Pagada
+  RETURNED // Devuelta
 }
 
 enum QuoteStatus {
   DRAFT
   SENT
   ACCEPTED
-  NO_RESPONSE   // Sin respuesta
+  NO_RESPONSE // Sin respuesta
   CONVERTED
 }
 
 model Consecutive {
   id         String   @id @default(uuid())
   type       String   @unique // "ORDER", "PRODUCTION", "EXPENSE", "QUOTE"
-  prefix     String   // "OP", "PROD", "GAS", "COT"
-  year       Int      // 2025, 2026, etc.
+  prefix     String // "OP", "PROD", "GAS", "COT"
+  year       Int // 2025, 2026, etc.
   lastNumber Int      @default(0) @map("last_number") // Último número generado
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
@@ -410,62 +400,66 @@ model Consecutive {
 }
 
 model Order {
-  id           String      @id @default(uuid())
-  orderNumber  String      @unique @map("order_number") // "OP-2025-0001"
-  clientId     String      @map("client_id")
-  orderDate    DateTime    @default(now()) @map("order_date")
-  deliveryDate DateTime?   @map("delivery_date") // Fecha estimada de entrega
+  id           String    @id @default(uuid())
+  orderNumber  String    @unique @map("order_number") // "OP-2025-0001"
+  clientId     String    @map("client_id")
+  orderDate    DateTime  @default(now()) @map("order_date")
+  deliveryDate DateTime? @map("delivery_date") // Fecha estimada de entrega
 
   // Auditoría de cambios de fecha de entrega
-  previousDeliveryDate DateTime? @map("previous_delivery_date") // Última fecha de entrega anterior
-  deliveryDateReason   String?   @map("delivery_date_reason") // Razón del cambio de fecha
+  previousDeliveryDate  DateTime? @map("previous_delivery_date") // Última fecha de entrega anterior
+  deliveryDateReason    String?   @map("delivery_date_reason") // Razón del cambio de fecha
   deliveryDateChangedAt DateTime? @map("delivery_date_changed_at") // Fecha del último cambio
   deliveryDateChangedBy String?   @map("delivery_date_changed_by") // Usuario que cambió la fecha
 
   // Cálculos financieros
-  subtotal       Decimal     // Suma de todos los items
-  taxRate        Decimal     @default(0.19) @map("tax_rate") // IVA 19%
-  tax            Decimal     // subtotal * taxRate
-  discountAmount Decimal     @default(0) @map("discount_amount") // Total de descuentos aplicados
+  subtotal           Decimal // Suma de todos los items
+  taxRate            Decimal @default(0.19) @map("tax_rate") // IVA 19%
+  tax                Decimal // subtotal * taxRate
+  discountAmount     Decimal @default(0) @map("discount_amount") // Total de descuentos aplicados
   requiresColorProof Boolean @default(false) @map("requires_color_proof") // ¿Requiere prueba de color?
-  colorProofPrice Decimal    @default(0) @map("color_proof_price") // Precio de la prueba de color
-  total          Decimal     // subtotal + tax - discountAmount + colorProofPrice
-  paidAmount     Decimal     @default(0) @map("paid_amount") // Abonos realizados
-  balance        Decimal     // total - paidAmount (saldo pendiente)
+  colorProofPrice    Decimal @default(0) @map("color_proof_price") // Precio de la prueba de color
+  total              Decimal // subtotal + tax - discountAmount + colorProofPrice
+  paidAmount         Decimal @default(0) @map("paid_amount") // Abonos realizados
+  balance            Decimal // total - paidAmount (saldo pendiente)
 
   // Estado de aprobación del anticipo (null = sin anticipo o auto-aprobado por admin/caja)
-  advancePaymentStatus  EditRequestStatus?  @map("advance_payment_status")
+  advancePaymentStatus EditRequestStatus? @map("advance_payment_status")
+
+  // Estado de aprobación de descuento (null = sin descuento pendiente o auto-aprobado)
+  discountApprovalStatus EditRequestStatus? @map("discount_approval_status")
 
   // Estado de autorización de propiedad de cliente (null = no aplica o autorizado automáticamente)
   clientOwnershipAuthStatus EditRequestStatus? @map("client_ownership_auth_status")
 
-  status       OrderStatus @default(DRAFT)
-  notes        String?     // Observaciones generales
+  status OrderStatus @default(DRAFT)
+  notes  String? // Observaciones generales
 
   // Facturación electrónica (solo aplica cuando tax > 0)
   electronicInvoiceNumber String? @map("electronic_invoice_number") // Número de factura electrónica (máx 30 chars)
 
   // Auditoría
-  createdById  String      @map("created_by_id")
-  createdAt    DateTime    @default(now()) @map("created_at")
-  updatedAt    DateTime    @updatedAt @map("updated_at")
+  createdById String   @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relaciones
-  client                  Client                       @relation(fields: [clientId], references: [id])
-  createdBy               User                         @relation(fields: [createdById], references: [id])
-  commercialChannelId     String?                      @map("commercial_channel_id")
-  commercialChannel       CommercialChannel?           @relation(fields: [commercialChannelId], references: [id])
-  items                   OrderItem[]
-  payments                Payment[]
-  discounts               OrderDiscount[]
-  editRequests            OrderEditRequest[]
-  statusChangeRequests    OrderStatusChangeRequest[]
-  advancePaymentApprovals AdvancePaymentApproval[]
+  client                      Client                       @relation(fields: [clientId], references: [id])
+  createdBy                   User                         @relation(fields: [createdById], references: [id])
+  commercialChannelId         String?                      @map("commercial_channel_id")
+  commercialChannel           CommercialChannel?           @relation(fields: [commercialChannelId], references: [id])
+  items                       OrderItem[]
+  payments                    Payment[]
+  discounts                   OrderDiscount[]
+  editRequests                OrderEditRequest[]
+  statusChangeRequests        OrderStatusChangeRequest[]
+  advancePaymentApprovals     AdvancePaymentApproval[]
+  discountApprovals           DiscountApproval[]
   clientOwnershipAuthRequests ClientOwnershipAuthRequest[]
 
   // Referencia a la cotización de origen
-  quoteId            String?            @unique @map("quote_id")
-  quote              Quote?             @relation("QuoteToOrder")
+  quoteId String? @unique @map("quote_id")
+  quote   Quote?  @relation("QuoteToOrder")
 
   workOrders WorkOrder[]
 
@@ -477,36 +471,36 @@ model Order {
 }
 
 model Quote {
-  id           String      @id @default(uuid())
-  quoteNumber  String      @unique @map("quote_number") // "COT-2025-0001"
-  clientId     String      @map("client_id")
-  quoteDate    DateTime    @default(now()) @map("quote_date")
-  validUntil   DateTime?   @map("valid_until") // Validez de la cotización
+  id          String    @id @default(uuid())
+  quoteNumber String    @unique @map("quote_number") // "COT-2025-0001"
+  clientId    String    @map("client_id")
+  quoteDate   DateTime  @default(now()) @map("quote_date")
+  validUntil  DateTime? @map("valid_until") // Validez de la cotización
 
   // Cálculos financieros
-  subtotal     Decimal
-  taxRate      Decimal     @default(0.19) @map("tax_rate")
-  tax          Decimal
-  total        Decimal
+  subtotal Decimal
+  taxRate  Decimal @default(0.19) @map("tax_rate")
+  tax      Decimal
+  total    Decimal
 
-  status       QuoteStatus @default(DRAFT)
-  notes        String?
+  status QuoteStatus @default(DRAFT)
+  notes  String?
 
   // Auditoría
-  createdById  String      @map("created_by_id")
-  createdAt    DateTime    @default(now()) @map("created_at")
-  updatedAt    DateTime    @updatedAt @map("updated_at")
+  createdById String   @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relaciones
-  client             Client             @relation(fields: [clientId], references: [id])
-  createdBy          User               @relation(fields: [createdById], references: [id])
-  commercialChannelId String?           @map("commercial_channel_id")
+  client              Client             @relation(fields: [clientId], references: [id])
+  createdBy           User               @relation(fields: [createdById], references: [id])
+  commercialChannelId String?            @map("commercial_channel_id")
   commercialChannel   CommercialChannel? @relation(fields: [commercialChannelId], references: [id])
-  items              QuoteItem[]
-  
+  items               QuoteItem[]
+
   // Referencia a la orden si se convirtió
-  orderId            String?            @unique @map("order_id")
-  order              Order?             @relation("QuoteToOrder", fields: [orderId], references: [id])
+  orderId String? @unique @map("order_id")
+  order   Order?  @relation("QuoteToOrder", fields: [orderId], references: [id])
 
   @@index([clientId])
   @@index([createdById])
@@ -516,24 +510,24 @@ model Quote {
 }
 
 model QuoteItem {
-  id             String  @id @default(uuid())
-  quoteId        String  @map("quote_id")
-  productId      String? @map("product_id")
+  id        String  @id @default(uuid())
+  quoteId   String  @map("quote_id")
+  productId String? @map("product_id")
 
-  description    String
-  quantity       Decimal
-  unitPrice      Decimal @map("unit_price")
-  total          Decimal
+  description String
+  quantity    Decimal
+  unitPrice   Decimal @map("unit_price")
+  total       Decimal
 
   specifications Json?
   sampleImageId  String? @map("sample_image_id") // ID de la imagen de muestra
 
-  sortOrder      Int      @default(0) @map("sort_order")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  quote           Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  product         Product? @relation(fields: [productId], references: [id])
+  quote           Quote                     @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  product         Product?                  @relation(fields: [productId], references: [id])
   productionAreas QuoteItemProductionArea[]
 
   @@index([quoteId])
@@ -553,27 +547,40 @@ model QuoteItemProductionArea {
   @@map("quote_item_production_areas")
 }
 
+model QuoteKanbanColumn {
+  id           String      @id @default(uuid())
+  name         String
+  color        String      @default("#1976d2")
+  displayOrder Int         @default(0) @map("display_order")
+  isActive     Boolean     @default(true) @map("is_active")
+  mappedStatus QuoteStatus @map("mapped_status")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  @@map("quote_kanban_columns")
+}
+
 model OrderItem {
-  id             String  @id @default(uuid())
-  orderId        String  @map("order_id")
-  productId      String? @map("product_id") // Opcional: producto del catálogo
+  id        String  @id @default(uuid())
+  orderId   String  @map("order_id")
+  productId String? @map("product_id") // Opcional: producto del catálogo
 
   // Datos del item
-  description    String  // Descripción del servicio/producto
-  quantity       Decimal // Cantidad
-  unitPrice      Decimal @map("unit_price") // Precio unitario
-  total          Decimal // quantity * unitPrice
+  description String // Descripción del servicio/producto
+  quantity    Decimal // Cantidad
+  unitPrice   Decimal @map("unit_price") // Precio unitario
+  total       Decimal // quantity * unitPrice
 
   // Especificaciones técnicas (JSON flexible)
-  specifications Json?   // { color: "rojo", material: "acero", dimensiones: "10x20" }
+  specifications Json? // { color: "rojo", material: "acero", dimensiones: "10x20" }
 
-  sortOrder      Int      @default(0) @map("sort_order") // Orden de visualización
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  sortOrder Int      @default(0) @map("sort_order") // Orden de visualización
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relaciones
-  order           Order                        @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product         Product?                     @relation(fields: [productId], references: [id])
+  order           Order                     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product         Product?                  @relation(fields: [productId], references: [id])
   productionAreas OrderItemProductionArea[]
   workOrderItems  WorkOrderItem[]
 
@@ -594,33 +601,33 @@ model OrderItemProductionArea {
 }
 
 enum PaymentMethod {
-  CASH      // Efectivo
-  TRANSFER  // Transferencia bancaria
-  CARD      // Tarjeta de crédito/débito
-  CHECK     // Cheque
-  CREDIT    // Crédito
-  OTHER     // Otro método
+  CASH // Efectivo
+  TRANSFER // Transferencia bancaria
+  CARD // Tarjeta de crédito/débito
+  CHECK // Cheque
+  CREDIT // Crédito
+  OTHER // Otro método
 }
 
 model Payment {
   id            String        @id @default(uuid())
   orderId       String        @map("order_id")
-  amount        Decimal       // Monto del pago
+  amount        Decimal // Monto del pago
   paymentMethod PaymentMethod @default(CASH) @map("payment_method")
   paymentDate   DateTime      @default(now()) @map("payment_date")
-  reference     String?       // Número de referencia/comprobante
-  notes         String?       // Observaciones del pago
+  reference     String? // Número de referencia/comprobante
+  notes         String? // Observaciones del pago
   receiptFileId String?       @map("receipt_file_id") // ID del archivo de comprobante (relación con UploadedFile)
 
   // Auditoría
-  receivedById  String        @map("received_by_id")
-  createdAt     DateTime      @default(now()) @map("created_at")
-  updatedAt     DateTime      @updatedAt @map("updated_at")
+  receivedById String   @map("received_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   // Relaciones
-  order       Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  receivedBy  User  @relation("ReceivedPayments", fields: [receivedById], references: [id])
-  advancePaymentApproval  AdvancePaymentApproval?
+  order                  Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  receivedBy             User                    @relation("ReceivedPayments", fields: [receivedById], references: [id])
+  advancePaymentApproval AdvancePaymentApproval?
 
   @@index([orderId])
   @@index([receivedById])
@@ -630,10 +637,10 @@ model Payment {
 }
 
 model OrderDiscount {
-  id          String   @id @default(uuid())
-  orderId     String   @map("order_id")
-  amount      Decimal  // Monto del descuento
-  reason      String   // Motivo/razón del descuento (obligatorio)
+  id      String  @id @default(uuid())
+  orderId String  @map("order_id")
+  amount  Decimal // Monto del descuento
+  reason  String // Motivo/razón del descuento (obligatorio)
 
   // Auditoría
   appliedById String   @map("applied_by_id")
@@ -642,8 +649,9 @@ model OrderDiscount {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relaciones
-  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  appliedBy   User     @relation("AppliedDiscounts", fields: [appliedById], references: [id])
+  order     Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  appliedBy User             @relation("AppliedDiscounts", fields: [appliedById], references: [id])
+  approvals DiscountApproval[]
 
   @@index([orderId])
   @@index([appliedById])
@@ -656,10 +664,10 @@ model OrderDiscount {
 // =============================================================================
 
 enum EditRequestStatus {
-  PENDING   // Pendiente de aprobación
-  APPROVED  // Aprobada
-  REJECTED  // Rechazada
-  EXPIRED   // Expirada (permiso venció)
+  PENDING // Pendiente de aprobación
+  APPROVED // Aprobada
+  REJECTED // Rechazada
+  EXPIRED // Expirada (permiso venció)
 }
 
 enum ApprovalRequestType {
@@ -668,62 +676,66 @@ enum ApprovalRequestType {
   EXPENSE_ORDER_AUTH
   CLIENT_OWNERSHIP_AUTH
   ADVANCE_PAYMENT
+  DISCOUNT_APPROVAL
 }
 
 enum NotificationType {
-  EDIT_REQUEST_PENDING              // Nueva solicitud de edición
-  EDIT_REQUEST_APPROVED             // Solicitud aprobada
-  EDIT_REQUEST_REJECTED             // Solicitud rechazada
-  EDIT_PERMISSION_EXPIRING          // Permiso por expirar (1 min antes)
-  EDIT_PERMISSION_EXPIRED           // Permiso expirado
-  STATUS_CHANGE_REQUEST_PENDING     // Nueva solicitud de cambio de estado
-  STATUS_CHANGE_REQUEST_APPROVED    // Solicitud de cambio de estado aprobada
-  STATUS_CHANGE_REQUEST_REJECTED    // Solicitud de cambio de estado rechazada
-  EXPENSE_ORDER_AUTH_REQUEST_PENDING   // Nueva solicitud de autorización de OG
-  EXPENSE_ORDER_AUTH_REQUEST_APPROVED  // Solicitud de autorización de OG aprobada
-  EXPENSE_ORDER_AUTH_REQUEST_REJECTED  // Solicitud de autorización de OG rechazada
-  ADVANCE_PAYMENT_APPROVAL_PENDING    // Nueva solicitud de aprobación de anticipo
-  ADVANCE_PAYMENT_APPROVAL_APPROVED   // Anticipo aprobado
-  ADVANCE_PAYMENT_APPROVAL_REJECTED   // Anticipo rechazado
-  LOW_STOCK_ALERT                     // Alerta de stock bajo en insumo
-  CLIENT_OWNERSHIP_AUTH_PENDING       // Nueva solicitud de autorización de propiedad de cliente
-  CLIENT_OWNERSHIP_AUTH_APPROVED      // Solicitud de autorización aprobada
-  CLIENT_OWNERSHIP_AUTH_REJECTED      // Solicitud de autorización rechazada
+  EDIT_REQUEST_PENDING // Nueva solicitud de edición
+  EDIT_REQUEST_APPROVED // Solicitud aprobada
+  EDIT_REQUEST_REJECTED // Solicitud rechazada
+  EDIT_PERMISSION_EXPIRING // Permiso por expirar (1 min antes)
+  EDIT_PERMISSION_EXPIRED // Permiso expirado
+  STATUS_CHANGE_REQUEST_PENDING // Nueva solicitud de cambio de estado
+  STATUS_CHANGE_REQUEST_APPROVED // Solicitud de cambio de estado aprobada
+  STATUS_CHANGE_REQUEST_REJECTED // Solicitud de cambio de estado rechazada
+  EXPENSE_ORDER_AUTH_REQUEST_PENDING // Nueva solicitud de autorización de OG
+  EXPENSE_ORDER_AUTH_REQUEST_APPROVED // Solicitud de autorización de OG aprobada
+  EXPENSE_ORDER_AUTH_REQUEST_REJECTED // Solicitud de autorización de OG rechazada
+  ADVANCE_PAYMENT_APPROVAL_PENDING // Nueva solicitud de aprobación de anticipo
+  ADVANCE_PAYMENT_APPROVAL_APPROVED // Anticipo aprobado
+  ADVANCE_PAYMENT_APPROVAL_REJECTED // Anticipo rechazado
+  LOW_STOCK_ALERT // Alerta de stock bajo en insumo
+  CLIENT_OWNERSHIP_AUTH_PENDING // Nueva solicitud de autorización de propiedad de cliente
+  CLIENT_OWNERSHIP_AUTH_APPROVED // Solicitud de autorización aprobada
+  CLIENT_OWNERSHIP_AUTH_REJECTED // Solicitud de autorización rechazada
+  DISCOUNT_APPROVAL_PENDING // Nueva solicitud de aprobación de descuento
+  DISCOUNT_APPROVAL_APPROVED // Descuento aprobado
+  DISCOUNT_APPROVAL_REJECTED // Descuento rechazado
 }
 
 model EditableOrderStatus {
-  id                  String      @id @default(uuid())
-  orderStatus         OrderStatus @unique @map("order_status")
-  allowEditRequests   Boolean     @default(true) @map("allow_edit_requests")
-  description         String?
-  createdAt           DateTime    @default(now()) @map("created_at")
-  updatedAt           DateTime    @updatedAt @map("updated_at")
+  id                String      @id @default(uuid())
+  orderStatus       OrderStatus @unique @map("order_status")
+  allowEditRequests Boolean     @default(true) @map("allow_edit_requests")
+  description       String?
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
 
   @@map("editable_order_statuses")
 }
 
 model OrderEditRequest {
-  id                String            @id @default(uuid())
-  orderId           String            @map("order_id")
-  requestedById     String            @map("requested_by_id")
-  observations      String?
-  status            EditRequestStatus @default(PENDING)
+  id            String            @id @default(uuid())
+  orderId       String            @map("order_id")
+  requestedById String            @map("requested_by_id")
+  observations  String?
+  status        EditRequestStatus @default(PENDING)
 
   // Aprobación/rechazo
-  reviewedById      String?           @map("reviewed_by_id")
-  reviewedAt        DateTime?         @map("reviewed_at")
-  reviewNotes       String?           @map("review_notes")
+  reviewedById String?   @map("reviewed_by_id")
+  reviewedAt   DateTime? @map("reviewed_at")
+  reviewNotes  String?   @map("review_notes")
 
   // Permiso temporal (5 minutos)
-  expiresAt         DateTime?         @map("expires_at")
+  expiresAt DateTime? @map("expires_at")
 
-  createdAt         DateTime          @default(now()) @map("created_at")
-  updatedAt         DateTime          @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relaciones
-  order             Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  requestedBy       User              @relation("RequestedEditRequests", fields: [requestedById], references: [id])
-  reviewedBy        User?             @relation("ReviewedEditRequests", fields: [reviewedById], references: [id])
+  order       Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  requestedBy User  @relation("RequestedEditRequests", fields: [requestedById], references: [id])
+  reviewedBy  User? @relation("ReviewedEditRequests", fields: [reviewedById], references: [id])
 
   @@index([orderId])
   @@index([requestedById])
@@ -737,11 +749,11 @@ model OrderEditRequest {
 // Se usa para resolver qué requestId aprobar/rechazar cuando el admin toca un botón.
 model WhatsappActionContext {
   id          String              @id @default(uuid())
-  messageId   String              @unique  @map("message_id")  // wamid.XXX devuelto por Meta
-  requestId   String              @map("request_id")           // ID de la solicitud (polimórfico)
+  messageId   String              @unique @map("message_id") // wamid.XXX devuelto por Meta
+  requestId   String              @map("request_id") // ID de la solicitud (polimórfico)
   requestType ApprovalRequestType @default(ORDER_EDIT) @map("request_type") // tipo de solicitud
-  adminPhone  String              @map("admin_phone")          // teléfono normalizado E.164 sin "+"
-  expiresAt   DateTime            @map("expires_at")           // now + 48h
+  adminPhone  String              @map("admin_phone") // teléfono normalizado E.164 sin "+"
+  expiresAt   DateTime            @map("expires_at") // now + 48h
   createdAt   DateTime            @default(now()) @map("created_at")
 
   @@index([messageId])
@@ -750,26 +762,26 @@ model WhatsappActionContext {
 }
 
 model OrderStatusChangeRequest {
-  id                String            @id @default(uuid())
-  orderId           String            @map("order_id")
-  requestedById     String            @map("requested_by_id")
-  currentStatus     OrderStatus       @map("current_status")
-  requestedStatus   OrderStatus       @map("requested_status")
-  reason            String?
-  status            EditRequestStatus @default(PENDING)
+  id              String            @id @default(uuid())
+  orderId         String            @map("order_id")
+  requestedById   String            @map("requested_by_id")
+  currentStatus   OrderStatus       @map("current_status")
+  requestedStatus OrderStatus       @map("requested_status")
+  reason          String?
+  status          EditRequestStatus @default(PENDING)
 
   // Aprobación/rechazo
-  reviewedById      String?           @map("reviewed_by_id")
-  reviewedAt        DateTime?         @map("reviewed_at")
-  reviewNotes       String?           @map("review_notes")
+  reviewedById String?   @map("reviewed_by_id")
+  reviewedAt   DateTime? @map("reviewed_at")
+  reviewNotes  String?   @map("review_notes")
 
-  createdAt         DateTime          @default(now()) @map("created_at")
-  updatedAt         DateTime          @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relaciones
-  order             Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  requestedBy       User              @relation("RequestedStatusChangeRequests", fields: [requestedById], references: [id])
-  reviewedBy        User?             @relation("ReviewedStatusChangeRequests", fields: [reviewedById], references: [id])
+  order       Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  requestedBy User  @relation("RequestedStatusChangeRequests", fields: [requestedById], references: [id])
+  reviewedBy  User? @relation("ReviewedStatusChangeRequests", fields: [reviewedById], references: [id])
 
   @@index([orderId])
   @@index([requestedById])
@@ -778,20 +790,20 @@ model OrderStatusChangeRequest {
 }
 
 model Notification {
-  id            String           @id @default(uuid())
-  userId        String           @map("user_id")
-  type          NotificationType
-  title         String
-  message       String
-  relatedId     String?          @map("related_id")
-  relatedType   String?          @map("related_type")
-  isRead        Boolean          @default(false) @map("is_read")
-  readAt        DateTime?        @map("read_at")
-  createdAt     DateTime         @default(now()) @map("created_at")
-  updatedAt     DateTime         @updatedAt @map("updated_at")
+  id          String           @id @default(uuid())
+  userId      String           @map("user_id")
+  type        NotificationType
+  title       String
+  message     String
+  relatedId   String?          @map("related_id")
+  relatedType String?          @map("related_type")
+  isRead      Boolean          @default(false) @map("is_read")
+  readAt      DateTime?        @map("read_at")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
 
   // Relación
-  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isRead])
   @@index([createdAt])
@@ -810,10 +822,11 @@ model ProductionArea {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  orderItems          OrderItemProductionArea[]
-  quoteItems          QuoteItemProductionArea[]
-  workOrderItems      WorkOrderItemProductionArea[]
-  expenseOrderItems   ExpenseOrderItemProductionArea[]
+  cargos            Cargo[]
+  orderItems        OrderItemProductionArea[]
+  quoteItems        QuoteItemProductionArea[]
+  workOrderItems    WorkOrderItemProductionArea[]
+  expenseOrderItems ExpenseOrderItemProductionArea[]
 
   @@map("production_areas")
 }
@@ -829,8 +842,8 @@ model CommercialChannel {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  orders      Order[]
-  quotes      Quote[]
+  orders Order[]
+  quotes Quote[]
 
   @@map("commercial_channels")
 }
@@ -888,12 +901,12 @@ model WorkOrder {
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
 
-  order           Order          @relation(fields: [orderId], references: [id])
-  advisor         User           @relation("WorkOrderAdvisor", fields: [advisorId], references: [id])
-  designer        User?          @relation("WorkOrderDesigner", fields: [designerId], references: [id])
-  items           WorkOrderItem[]
-  timeEntries     WorkOrderTimeEntry[]
-  expenseOrders   ExpenseOrder[]
+  order            Order                @relation(fields: [orderId], references: [id])
+  advisor          User                 @relation("WorkOrderAdvisor", fields: [advisorId], references: [id])
+  designer         User?                @relation("WorkOrderDesigner", fields: [designerId], references: [id])
+  items            WorkOrderItem[]
+  timeEntries      WorkOrderTimeEntry[]
+  expenseOrders    ExpenseOrder[]
   productionOrders ProductionOrder[]
 
   @@index([orderId])
@@ -911,8 +924,8 @@ model WorkOrderItem {
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
-  workOrder       WorkOrder                    @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
-  orderItem       OrderItem                    @relation(fields: [orderItemId], references: [id])
+  workOrder       WorkOrder                     @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  orderItem       OrderItem                     @relation(fields: [orderItemId], references: [id])
   productionAreas WorkOrderItemProductionArea[]
   supplies        WorkOrderItemSupply[]
   timeEntries     WorkOrderTimeEntry[]
@@ -981,10 +994,10 @@ model WorkOrderTimeEntry {
 // =============================================================================
 
 enum ExpenseOrderStatus {
-  DRAFT      // Borrador (editable)
-  CREATED    // Creada
+  DRAFT // Borrador (editable)
+  CREATED // Creada
   AUTHORIZED // Autorizada
-  PAID       // Pagada
+  PAID // Pagada
 }
 
 model ExpenseType {
@@ -995,8 +1008,8 @@ model ExpenseType {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  subcategories  ExpenseSubcategory[]
-  expenseOrders  ExpenseOrder[]
+  subcategories ExpenseSubcategory[]
+  expenseOrders ExpenseOrder[]
 
   @@map("expense_types")
 }
@@ -1018,34 +1031,34 @@ model ExpenseSubcategory {
 }
 
 model ExpenseOrder {
-  id                   String              @id @default(uuid())
-  ogNumber             String              @unique @map("og_number") // "OG-2026-001"
-  expenseTypeId        String              @map("expense_type_id")
-  expenseSubcategoryId String              @map("expense_subcategory_id")
-  workOrderId          String?             @map("work_order_id") // Opcional: OT asociada
-  authorizedToId       String              @map("authorized_to_id") // Usuario autorizado
-  responsibleId        String?             @map("responsible_id") // Responsable (opcional)
+  id                   String             @id @default(uuid())
+  ogNumber             String             @unique @map("og_number") // "OG-2026-001"
+  expenseTypeId        String             @map("expense_type_id")
+  expenseSubcategoryId String             @map("expense_subcategory_id")
+  workOrderId          String?            @map("work_order_id") // Opcional: OT asociada
+  authorizedToId       String             @map("authorized_to_id") // Usuario autorizado
+  responsibleId        String?            @map("responsible_id") // Responsable (opcional)
   observations         String?
-  areaOrMachine        String?             @map("area_or_machine")
-  status               ExpenseOrderStatus  @default(DRAFT)
+  areaOrMachine        String?            @map("area_or_machine")
+  status               ExpenseOrderStatus @default(DRAFT)
 
   // Auditoría
-  createdById    String    @map("created_by_id")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  createdById String   @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Autorización (quién aprobó el cambio a AUTHORIZED)
   authorizedById String?   @map("authorized_by_id")
   authorizedAt   DateTime? @map("authorized_at")
 
   // Relaciones
-  expenseType        ExpenseType        @relation(fields: [expenseTypeId], references: [id])
-  expenseSubcategory ExpenseSubcategory @relation(fields: [expenseSubcategoryId], references: [id])
-  workOrder          WorkOrder?         @relation(fields: [workOrderId], references: [id])
-  authorizedTo       User               @relation("AuthorizedExpenseOrders", fields: [authorizedToId], references: [id])
-  responsible        User?              @relation("ResponsibleExpenseOrders", fields: [responsibleId], references: [id])
-  createdBy          User               @relation("CreatedExpenseOrders", fields: [createdById], references: [id])
-  authorizedBy       User?              @relation("ApprovedExpenseOrders", fields: [authorizedById], references: [id])
+  expenseType        ExpenseType               @relation(fields: [expenseTypeId], references: [id])
+  expenseSubcategory ExpenseSubcategory        @relation(fields: [expenseSubcategoryId], references: [id])
+  workOrder          WorkOrder?                @relation(fields: [workOrderId], references: [id])
+  authorizedTo       User                      @relation("AuthorizedExpenseOrders", fields: [authorizedToId], references: [id])
+  responsible        User?                     @relation("ResponsibleExpenseOrders", fields: [responsibleId], references: [id])
+  createdBy          User                      @relation("CreatedExpenseOrders", fields: [createdById], references: [id])
+  authorizedBy       User?                     @relation("ApprovedExpenseOrders", fields: [authorizedById], references: [id])
   items              ExpenseOrderItem[]
   authRequests       ExpenseOrderAuthRequest[]
 
@@ -1060,20 +1073,21 @@ model ExpenseOrderItem {
   id              String        @id @default(uuid())
   expenseOrderId  String        @map("expense_order_id")
   quantity        Decimal
-  name            String        // Nombre del gasto
+  name            String // Nombre del gasto
   description     String?
   supplierId      String?       @map("supplier_id") // Proveedor (opcional)
   unitPrice       Decimal       @map("unit_price")
-  total           Decimal       // quantity * unitPrice
+  total           Decimal // quantity * unitPrice
   paymentMethod   PaymentMethod @default(CASH) @map("payment_method")
   receiptFileId   String?       @map("receipt_file_id") // Comprobante de pago
+  referenceFileId String?       @map("reference_file_id") // Imagen de referencia
 
   sortOrder Int      @default(0) @map("sort_order")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  expenseOrder    ExpenseOrder                       @relation(fields: [expenseOrderId], references: [id], onDelete: Cascade)
-  supplier        Supplier?                          @relation(fields: [supplierId], references: [id])
+  expenseOrder    ExpenseOrder                     @relation(fields: [expenseOrderId], references: [id], onDelete: Cascade)
+  supplier        Supplier?                        @relation(fields: [supplierId], references: [id])
   productionAreas ExpenseOrderItemProductionArea[]
 
   @@index([expenseOrderId])
@@ -1093,16 +1107,16 @@ model ExpenseOrderItemProductionArea {
 }
 
 model ExpenseOrderAuthRequest {
-  id              String            @id @default(uuid())
-  expenseOrderId  String            @map("expense_order_id")
-  requestedById   String            @map("requested_by_id")
-  reason          String?
-  status          EditRequestStatus @default(PENDING)
-  reviewedById    String?           @map("reviewed_by_id")
-  reviewedAt      DateTime?         @map("reviewed_at")
-  reviewNotes     String?           @map("review_notes")
-  createdAt       DateTime          @default(now()) @map("created_at")
-  updatedAt       DateTime          @updatedAt @map("updated_at")
+  id             String            @id @default(uuid())
+  expenseOrderId String            @map("expense_order_id")
+  requestedById  String            @map("requested_by_id")
+  reason         String?
+  status         EditRequestStatus @default(PENDING)
+  reviewedById   String?           @map("reviewed_by_id")
+  reviewedAt     DateTime?         @map("reviewed_at")
+  reviewNotes    String?           @map("review_notes")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
 
   expenseOrder ExpenseOrder @relation(fields: [expenseOrderId], references: [id], onDelete: Cascade)
   requestedBy  User         @relation("RequestedExpenseOrderAuthRequests", fields: [requestedById], references: [id])
@@ -1119,27 +1133,55 @@ model ExpenseOrderAuthRequest {
 // =============================================================================
 
 model AdvancePaymentApproval {
-  id              String            @id @default(uuid())
-  orderId         String            @map("order_id")
-  paymentId       String            @unique @map("payment_id")
-  requestedById   String            @map("requested_by_id")
-  reason          String?
-  status          EditRequestStatus @default(PENDING)
-  reviewedById    String?           @map("reviewed_by_id")
-  reviewedAt      DateTime?         @map("reviewed_at")
-  reviewNotes     String?           @map("review_notes")
-  createdAt       DateTime          @default(now()) @map("created_at")
-  updatedAt       DateTime          @updatedAt @map("updated_at")
+  id            String            @id @default(uuid())
+  orderId       String            @map("order_id")
+  paymentId     String            @unique @map("payment_id")
+  requestedById String            @map("requested_by_id")
+  reason        String?
+  status        EditRequestStatus @default(PENDING)
+  reviewedById  String?           @map("reviewed_by_id")
+  reviewedAt    DateTime?         @map("reviewed_at")
+  reviewNotes   String?           @map("review_notes")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
 
-  order        Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  payment      Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  requestedBy  User    @relation("RequestedAdvancePaymentApprovals", fields: [requestedById], references: [id])
-  reviewedBy   User?   @relation("ReviewedAdvancePaymentApprovals", fields: [reviewedById], references: [id])
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  payment     Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  requestedBy User    @relation("RequestedAdvancePaymentApprovals", fields: [requestedById], references: [id])
+  reviewedBy  User?   @relation("ReviewedAdvancePaymentApprovals", fields: [reviewedById], references: [id])
 
   @@index([orderId])
   @@index([requestedById])
   @@index([status])
   @@map("advance_payment_approvals")
+}
+
+// =============================================================================
+// MÓDULO DE APROBACIÓN DE DESCUENTOS
+// =============================================================================
+
+model DiscountApproval {
+  id             String            @id @default(uuid())
+  orderId        String            @map("order_id")
+  discountId     String            @map("discount_id")
+  requestedById  String            @map("requested_by_id")
+  status         EditRequestStatus @default(PENDING)
+  reviewedById   String?           @map("reviewed_by_id")
+  reviewedAt     DateTime?         @map("reviewed_at")
+  reviewNotes    String?           @map("review_notes")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  order       Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  discount    OrderDiscount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  requestedBy User          @relation("DiscountApprovalRequests", fields: [requestedById], references: [id])
+  reviewedBy  User?         @relation("DiscountApprovalReviews", fields: [reviewedById], references: [id])
+
+  @@index([orderId])
+  @@index([discountId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("discount_approvals")
 }
 
 // =============================================================================
@@ -1159,10 +1201,10 @@ model ClientOwnershipAuthRequest {
   createdAt     DateTime          @default(now()) @map("created_at")
   updatedAt     DateTime          @updatedAt @map("updated_at")
 
-  order       Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  requestedBy User   @relation("RequestedClientOwnershipAuthRequests", fields: [requestedById], references: [id])
-  advisor     User   @relation("AdvisedClientOwnershipAuthRequests", fields: [advisorId], references: [id])
-  reviewedBy  User?  @relation("ReviewedClientOwnershipAuthRequests", fields: [reviewedById], references: [id])
+  order       Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  requestedBy User  @relation("RequestedClientOwnershipAuthRequests", fields: [requestedById], references: [id])
+  advisor     User  @relation("AdvisedClientOwnershipAuthRequests", fields: [advisorId], references: [id])
+  reviewedBy  User? @relation("ReviewedClientOwnershipAuthRequests", fields: [reviewedById], references: [id])
 
   @@index([orderId])
   @@index([requestedById])
@@ -1203,7 +1245,7 @@ model Company {
 // ============================================================
 
 enum EmployeeType {
-  REGULAR   // Monthly salary
+  REGULAR // Monthly salary
   TEMPORARY // Daily rate
 }
 
@@ -1270,27 +1312,27 @@ model PayrollPeriod {
 }
 
 model PayrollItem {
-  id                     String        @id @default(uuid())
+  id                     String   @id @default(uuid())
   periodId               String
   employeeId             String
-  daysWorked             Decimal?      @db.Decimal(5, 2)
-  baseSalary             Decimal       @db.Decimal(12, 2)
-  overtimeDaytimeHours   Decimal?      @db.Decimal(7, 2)
-  overtimeNighttimeHours Decimal?      @db.Decimal(7, 2)
-  overtimeDaytimeValue   Decimal?      @db.Decimal(12, 2)
-  overtimeNighttimeValue Decimal?      @db.Decimal(12, 2)
-  commissions            Decimal?      @db.Decimal(12, 2)
-  restDayValue           Decimal?      @db.Decimal(12, 2)
-  transportAllowance     Decimal?      @db.Decimal(12, 2)
-  workdayDiscount        Decimal?      @db.Decimal(12, 2)
-  loans                  Decimal?      @db.Decimal(12, 2)
-  advances               Decimal?      @db.Decimal(12, 2)
-  nonPaidDays            Decimal?      @db.Decimal(12, 2)
-  epsAndPensionDiscount  Decimal?      @db.Decimal(12, 2)
-  totalPayment           Decimal       @db.Decimal(12, 2)
+  daysWorked             Decimal? @db.Decimal(5, 2)
+  baseSalary             Decimal  @db.Decimal(12, 2)
+  overtimeDaytimeHours   Decimal? @db.Decimal(7, 2)
+  overtimeNighttimeHours Decimal? @db.Decimal(7, 2)
+  overtimeDaytimeValue   Decimal? @db.Decimal(12, 2)
+  overtimeNighttimeValue Decimal? @db.Decimal(12, 2)
+  commissions            Decimal? @db.Decimal(12, 2)
+  restDayValue           Decimal? @db.Decimal(12, 2)
+  transportAllowance     Decimal? @db.Decimal(12, 2)
+  workdayDiscount        Decimal? @db.Decimal(12, 2)
+  loans                  Decimal? @db.Decimal(12, 2)
+  advances               Decimal? @db.Decimal(12, 2)
+  nonPaidDays            Decimal? @db.Decimal(12, 2)
+  epsAndPensionDiscount  Decimal? @db.Decimal(12, 2)
+  totalPayment           Decimal  @db.Decimal(12, 2)
   observations           String?
-  createdAt              DateTime      @default(now())
-  updatedAt              DateTime      @updatedAt
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
   period   PayrollPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
   employee Employee      @relation(fields: [employeeId], references: [id])
@@ -1325,6 +1367,7 @@ model AttendanceRecord {
   source       AttendanceSource @default(BUTTON)
   notes        String?
   totalMinutes Int?             @map("total_minutes")
+  metadata     Json?
   createdAt    DateTime         @default(now()) @map("created_at")
   updatedAt    DateTime         @updatedAt @map("updated_at")
 
@@ -1351,30 +1394,30 @@ model ActivityHeartbeat {
 // =============================================================================
 
 enum InventoryMovementType {
-  ENTRY       // Entrada de stock (compra, recepción)
-  EXIT        // Salida de stock (consumo en OT - automático)
-  ADJUSTMENT  // Ajuste manual (conteo físico, corrección)
-  RETURN      // Devolución al stock desde producción
-  INITIAL     // Carga inicial de stock
+  ENTRY // Entrada de stock (compra, recepción)
+  EXIT // Salida de stock (consumo en OT - automático)
+  ADJUSTMENT // Ajuste manual (conteo físico, corrección)
+  RETURN // Devolución al stock desde producción
+  INITIAL // Carga inicial de stock
 }
 
 model InventoryMovement {
   id            String                @id @default(uuid())
   supplyId      String                @map("supply_id")
   type          InventoryMovementType
-  quantity      Decimal               // Siempre positivo; la dirección la determina el tipo
-  unitCost      Decimal?              @map("unit_cost")   // Costo unitario en el momento del movimiento
+  quantity      Decimal // Siempre positivo; la dirección la determina el tipo
+  unitCost      Decimal?              @map("unit_cost") // Costo unitario en el momento del movimiento
   previousStock Decimal               @map("previous_stock")
   newStock      Decimal               @map("new_stock")
-  referenceType String?               @map("reference_type")  // "WORK_ORDER", "MANUAL", "INITIAL"
+  referenceType String?               @map("reference_type") // "WORK_ORDER", "MANUAL", "INITIAL"
   referenceId   String?               @map("reference_id")
-  reason        String?               // Motivo del ajuste
+  reason        String? // Motivo del ajuste
   notes         String?
   performedById String                @map("performed_by_id")
   createdAt     DateTime              @default(now()) @map("created_at")
 
-  supply        Supply                @relation(fields: [supplyId], references: [id])
-  performedBy   User                  @relation(fields: [performedById], references: [id])
+  supply      Supply @relation(fields: [supplyId], references: [id])
+  performedBy User   @relation(fields: [performedById], references: [id])
 
   @@index([supplyId])
   @@index([type])
@@ -1452,7 +1495,7 @@ model TemplateComponent {
   createdAt  DateTime       @default(now()) @map("created_at")
   updatedAt  DateTime       @updatedAt @map("updated_at")
 
-  template ProductTemplate        @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  template ProductTemplate         @relation(fields: [templateId], references: [id], onDelete: Cascade)
   steps    TemplateComponentStep[]
 
   @@index([templateId])
@@ -1489,9 +1532,9 @@ model ProductionOrder {
   createdAt   DateTime              @default(now()) @map("created_at")
   updatedAt   DateTime              @updatedAt @map("updated_at")
 
-  template   ProductTemplate           @relation(fields: [templateId], references: [id])
-  workOrder  WorkOrder                 @relation(fields: [workOrderId], references: [id])
-  createdBy  User                      @relation("ProductionOrderCreatedBy", fields: [createdById], references: [id])
+  template   ProductTemplate            @relation(fields: [templateId], references: [id])
+  workOrder  WorkOrder                  @relation(fields: [workOrderId], references: [id])
+  createdBy  User                       @relation("ProductionOrderCreatedBy", fields: [createdById], references: [id])
   components ProductionOrderComponent[]
 
   @@index([workOrderId])
@@ -1532,10 +1575,40 @@ model ProductionOrderStep {
   updatedAt        DateTime             @updatedAt @map("updated_at")
 
   component      ProductionOrderComponent @relation(fields: [componentId], references: [id], onDelete: Cascade)
-  stepDefinition StepDefinition          @relation(fields: [stepDefinitionId], references: [id])
-  completedBy    User?                   @relation("ProductionStepCompletedBy", fields: [completedById], references: [id])
+  stepDefinition StepDefinition           @relation(fields: [stepDefinitionId], references: [id])
+  completedBy    User?                    @relation("ProductionStepCompletedBy", fields: [completedById], references: [id])
 
   @@index([componentId])
   @@index([status])
   @@map("production_order_steps")
+}
+
+// =============================================================================
+// MÓDULO DE COMENTARIOS — Comentarios Polimórficos
+// =============================================================================
+
+enum CommentEntityType {
+  QUOTE
+  ORDER
+  WORK_ORDER
+}
+
+model Comment {
+  id         String            @id @default(uuid())
+  content    String
+  entityType CommentEntityType @map("entity_type")
+  entityId   String            @map("entity_id")
+  authorId   String            @map("author_id")
+  parentId   String?           @map("parent_id")
+  deletedAt  DateTime?         @map("deleted_at")
+  createdAt  DateTime          @default(now()) @map("created_at")
+  updatedAt  DateTime          @updatedAt @map("updated_at")
+
+  author  User      @relation("CommentAuthor", fields: [authorId], references: [id])
+  parent  Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies Comment[] @relation("CommentReplies")
+
+  @@index([entityType, entityId])
+  @@index([parentId])
+  @@map("comments")
 }

@@ -96,6 +96,7 @@ export interface CreateQuoteDto {
   clientId: string;
   validUntil?: string;
   notes?: string;
+  taxRate?: number;
   items: CreateQuoteItemDto[];
   commercialChannelId?: string;
 }
@@ -111,4 +112,6 @@ export interface FilterQuotesDto {
   dateTo?: string;
   page?: number;
   limit?: number;
+  createdById?: string;
+  search?: string;
 }

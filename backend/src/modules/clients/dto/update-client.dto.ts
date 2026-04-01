@@ -115,7 +115,7 @@ export class UpdateClientDto {
     description: 'NIT (para empresas)',
     example: '900.123.456-7',
     minLength: 5,
-    maxLength: 20,
+    maxLength: 12,
   })
   @IsString()
   @IsOptional()
@@ -127,12 +127,12 @@ export class UpdateClientDto {
     description: 'Cédula de ciudadanía (para personas naturales)',
     example: '1234567890',
     minLength: 6,
-    maxLength: 15,
+    maxLength: 12,
   })
   @IsString()
   @IsOptional()
   @MinLength(6, { message: 'La cédula debe tener al menos 6 caracteres' })
-  @MaxLength(10, { message: 'La cédula no puede exceder 10 dígitos' })
+  @MaxLength(12, { message: 'La cédula no puede exceder 12 dígitos' })
   cedula?: string;
 
   @ApiPropertyOptional({

@@ -44,6 +44,7 @@ import {
   WorkOrderTimeEntryType,
 } from '../../../types/work-order.types';
 import { EXPENSE_ORDER_STATUS_CONFIG } from '../../../types/expense-order.types';
+import { CommentSection } from '../../comments';
 
 const formatDate = (date?: string | null): string => {
   if (!date) return '-';
@@ -643,6 +644,9 @@ export const WorkOrderDetailPage = () => {
           </Stack>
         </Grid>
       </Grid>
+
+      {/* Comentarios */}
+      <CommentSection entityType="WORK_ORDER" entityId={workOrder.id} />
 
       {/* Dialog: Registrar/Editar Horas */}
       <Dialog

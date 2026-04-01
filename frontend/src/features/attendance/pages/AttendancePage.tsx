@@ -14,12 +14,24 @@ import {
   alpha,
   useTheme,
   CircularProgress,
+  IconButton,
+  Tooltip,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
 import { GridRenderCellParams } from '@mui/x-data-grid';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import EditIcon from '@mui/icons-material/Edit';
-import LoginIcon from '@mui/icons-material/Login';
-import LogoutIcon from '@mui/icons-material/Logout';
+import InfoIcon from '@mui/icons-material/Info';
+import PublicIcon from '@mui/icons-material/Public';
+import ComputerIcon from '@mui/icons-material/Computer';
+import RouterIcon from '@mui/icons-material/Router';
+import WebIcon from '@mui/icons-material/Web';
+import LanguageIcon from '@mui/icons-material/Language';
+import DesktopWindowsIcon from '@mui/icons-material/DesktopWindows';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { DataTable } from '../../../components/common/DataTable';
 import { useAttendance } from '../hooks/useAttendance';
@@ -33,13 +45,20 @@ import {
 import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../hooks';
 
 /**
- * Formatea una fecha ISO a localización colombiana
+ * Formatea una fecha ISO (Solo Fecha)
  */
-const formatDate = (iso: string) =>
-  new Date(iso).toLocaleString('es-CO', {
+const formatJustDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('es-CO', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
+  });
+
+/**
+ * Formatea una fecha ISO (Solo Hora)
+ */
+const formatJustTime = (iso: string) =>
+  new Date(iso).toLocaleTimeString('es-CO', {
     hour: '2-digit',
     minute: '2-digit',
   });
@@ -116,6 +135,15 @@ const AttendancePage: React.FC = () => {
     );
   };
 
+  // ── Estado para el diálogo de metadata ──
+  const [metadataOpen, setMetadataOpen] = useState(false);
+  const [selectedMetadata, setSelectedMetadata] = useState<any>(null);
+
+  const handleOpenMetadata = (metadata: any) => {
+    setSelectedMetadata(metadata);
+    setMetadataOpen(true);
+  };
+
   // ── Resumen: total horas del día y semana ──
   const summary = useMemo(() => {
     const today = new Date();
@@ -155,19 +183,19 @@ const AttendancePage: React.FC = () => {
       },
     },
     {
-      field: 'email',
-      headerName: 'Email',
+      field: 'phone',
+      headerName: 'Celular',
       flex: 1,
-      minWidth: 180,
+      minWidth: 150,
       responsive: 'md',
-      valueGetter: (_v: any, row: AttendanceRecord) => row.user?.email || '—',
+      valueGetter: (_v: any, row: AttendanceRecord) => row.user?.phone || '—',
     },
     {
-      field: 'area',
-      headerName: 'Área',
-      width: 130,
+      field: 'productionArea',
+      headerName: 'Área de Producción',
+      width: 160,
       responsive: 'md',
-      valueGetter: (_v: any, row: AttendanceRecord) => row.user?.cargo?.area?.name || '—',
+      valueGetter: (_v: any, row: AttendanceRecord) => row.user?.cargo?.productionArea?.name || '—',
     },
     {
       field: 'cargo',
@@ -179,35 +207,37 @@ const AttendancePage: React.FC = () => {
     {
       field: 'clockIn',
       headerName: 'Entrada',
-      width: 175,
+      width: 140,
       responsive: 'sm',
       renderCell: (params: GridRenderCellParams<AttendanceRecord>) => (
-        <Chip
-          icon={<LoginIcon />}
-          label={formatDate(params.row.clockIn)}
-          color="success"
-          variant="outlined"
-          size="small"
-        />
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', height: '100%' }}>
+          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+            {formatJustTime(params.row.clockIn)}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ mt: -0.5 }}>
+            {formatJustDate(params.row.clockIn)}
+          </Typography>
+        </Box>
       ),
     },
     {
       field: 'clockOut',
       headerName: 'Salida',
-      width: 175,
+      width: 140,
       responsive: 'sm',
       renderCell: (params: GridRenderCellParams<AttendanceRecord>) => {
         if (!params.row.clockOut) {
-          return <Chip label="Activo" color="success" size="small" />;
+          return <Typography variant="body2" color="warning.main" sx={{ fontWeight: 500 }}>En curso</Typography>;
         }
         return (
-          <Chip
-            icon={<LogoutIcon />}
-            label={formatDate(params.row.clockOut)}
-            color="error"
-            variant="outlined"
-            size="small"
-          />
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', height: '100%' }}>
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+              {formatJustTime(params.row.clockOut)}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: -0.5 }}>
+              {formatJustDate(params.row.clockOut)}
+            </Typography>
+          </Box>
         );
       },
     },
@@ -245,21 +275,39 @@ const AttendancePage: React.FC = () => {
     ...(canManage
       ? [{
           field: 'actions',
-          headerName: 'Ajustar',
-          width: 90,
+          headerName: 'Acciones',
+          width: 130,
           align: 'center' as const,
           headerAlign: 'center' as const,
           sortable: false,
-          renderCell: (params: GridRenderCellParams<AttendanceRecord>) => (
-            <Button
-              size="small"
-              startIcon={<EditIcon sx={{ fontSize: 14 }} />}
-              onClick={() => handleOpenAdjust(params.row)}
-              sx={{ fontSize: '0.7rem', minWidth: 0, px: 1 }}
-            >
-              Ajustar
-            </Button>
-          ),
+          renderCell: (params: GridRenderCellParams<AttendanceRecord>) => {
+            const hasMetadata = params.row.metadata && Object.keys(params.row.metadata).length > 0;
+            if (params.row.metadata) console.log('Row Metadata:', params.row.metadata);
+            return (
+            <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center', width: '100%' }}>
+              <Tooltip title={hasMetadata ? "Ver detalles de conexión" : "Sin detalles de conexión"}>
+                <span>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleOpenMetadata(params.row.metadata)}
+                    disabled={!hasMetadata}
+                  >
+                    <InfoIcon sx={{ fontSize: 18 }} color={hasMetadata ? "info" : "disabled"} />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title="Ajustar registro">
+                <Button
+                  size="small"
+                  startIcon={<EditIcon sx={{ fontSize: 14 }} />}
+                  onClick={() => handleOpenAdjust(params.row)}
+                  sx={{ fontSize: '0.7rem', minWidth: 0, px: 1 }}
+                >
+                  Ajustar
+                </Button>
+              </Tooltip>
+            </Box>
+          )},
         }]
       : []),
   ], [canManage]);
@@ -412,6 +460,147 @@ const AttendancePage: React.FC = () => {
             }
           >
             Guardar Ajuste
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog de metadata */}
+      <Dialog
+        open={metadataOpen}
+        onClose={() => setMetadataOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '16px',
+            background: isDark
+              ? 'linear-gradient(135deg, #0d1b2a 0%, #1a1040 100%)'
+              : undefined,
+          },
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 600 }}>Detalles de Conexión</DialogTitle>
+        <DialogContent>
+          {selectedMetadata && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 1 }}>
+              <Box>
+                <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, ml: 1 }}>
+                  Ubicación y Red
+                </Typography>
+                <Paper variant="outlined" sx={{ borderRadius: 2, mt: 1, overflow: 'hidden', borderColor: isDark ? alpha('#fff', 0.1) : alpha('#000', 0.1) }}>
+                  <List disablePadding>
+                    <ListItem divider>
+                      <ListItemIcon sx={{ minWidth: 40 }}><RouterIcon color="primary" /></ListItemIcon>
+                      <ListItemText 
+                        primary="Dirección IP" 
+                        secondary={selectedMetadata.ipAddress || 'Desconocida'} 
+                        primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
+                        secondaryTypographyProps={{ variant: 'body2' }}
+                      />
+                    </ListItem>
+                    <ListItem divider={!!selectedMetadata.location}>
+                      <ListItemIcon sx={{ minWidth: 40 }}><PublicIcon color="primary" /></ListItemIcon>
+                      <ListItemText 
+                        primary="Ubicación por IP (Aproximada)" 
+                        secondary={selectedMetadata.geoIp ? `${selectedMetadata.geoIp.city}, ${selectedMetadata.geoIp.country}` : 'Desconocida'} 
+                        primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
+                        secondaryTypographyProps={{ variant: 'body2' }}
+                      />
+                    </ListItem>
+                    {selectedMetadata.location && (
+                      <ListItem sx={{ flexDirection: 'column', alignItems: 'stretch', py: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5, width: '100%' }}>
+                          <ListItemIcon sx={{ minWidth: 40 }}><LocationOnIcon color="error" /></ListItemIcon>
+                          <ListItemText 
+                            primary="Ubicación GPS (Precisa)" 
+                            secondary={`Lat: ${selectedMetadata.location.latitude.toFixed(5)} | Lng: ${selectedMetadata.location.longitude.toFixed(5)} (±${Math.round(selectedMetadata.location.accuracy)}m)`} 
+                            primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
+                            secondaryTypographyProps={{ variant: 'body2' }}
+                            sx={{ m: 0 }}
+                          />
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            color="primary"
+                            component="a"
+                            href={`https://maps.google.com/?q=${selectedMetadata.location.latitude},${selectedMetadata.location.longitude}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            sx={{ ml: 1, whiteSpace: 'nowrap', textTransform: 'none', borderRadius: 2 }}
+                          >
+                            Abrir Mapa
+                          </Button>
+                        </Box>
+                        <Box 
+                          component="iframe"
+                          src={`https://maps.google.com/maps?q=${selectedMetadata.location.latitude},${selectedMetadata.location.longitude}&z=15&output=embed`}
+                          width="100%"
+                          height="220"
+                          sx={{ 
+                            border: `1px solid ${isDark ? alpha('#fff', 0.1) : alpha('#000', 0.1)}`, 
+                            borderRadius: 2,
+                            backgroundColor: isDark ? alpha('#000', 0.2) : alpha('#000', 0.05) 
+                          }}
+                          title="Ubicación GPS"
+                          loading="lazy"
+                        />
+                      </ListItem>
+                    )}
+                  </List>
+                </Paper>
+              </Box>
+
+              <Box>
+                <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, ml: 1 }}>
+                  Dispositivo y Navegador
+                </Typography>
+                <Paper variant="outlined" sx={{ borderRadius: 2, mt: 1, overflow: 'hidden', borderColor: isDark ? alpha('#fff', 0.1) : alpha('#000', 0.1) }}>
+                  <List disablePadding>
+                    <ListItem divider>
+                      <ListItemIcon sx={{ minWidth: 40 }}><ComputerIcon color="info" /></ListItemIcon>
+                      <ListItemText 
+                        primary="Plataforma / Sistema" 
+                        secondary={selectedMetadata.device?.platform || 'Desconocida'} 
+                        primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
+                        secondaryTypographyProps={{ variant: 'body2' }}
+                      />
+                    </ListItem>
+                    <ListItem divider>
+                      <ListItemIcon sx={{ minWidth: 40 }}><WebIcon color="info" /></ListItemIcon>
+                      <ListItemText 
+                        primary="Navegador (User Agent)" 
+                        secondary={selectedMetadata.device?.userAgent || 'Desconocido'} 
+                        primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
+                        secondaryTypographyProps={{ variant: 'caption', sx: { wordBreak: 'break-word', display: 'block', mt: 0.5 } }}
+                      />
+                    </ListItem>
+                    <ListItem divider>
+                      <ListItemIcon sx={{ minWidth: 40 }}><DesktopWindowsIcon color="info" /></ListItemIcon>
+                      <ListItemText 
+                        primary="Resolución de pantalla" 
+                        secondary={selectedMetadata.device?.screenResolution || 'Desconocida'} 
+                        primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
+                        secondaryTypographyProps={{ variant: 'body2' }}
+                      />
+                    </ListItem>
+                    <ListItem>
+                      <ListItemIcon sx={{ minWidth: 40 }}><LanguageIcon color="info" /></ListItemIcon>
+                      <ListItemText 
+                        primary="Idioma y Región" 
+                        secondary={`${selectedMetadata.device?.language || 'N/A'} • ${selectedMetadata.device?.timezone || 'N/A'}`} 
+                        primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
+                        secondaryTypographyProps={{ variant: 'body2' }}
+                      />
+                    </ListItem>
+                  </List>
+                </Paper>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setMetadataOpen(false)} variant="outlined">
+            Cerrar
           </Button>
         </DialogActions>
       </Dialog>

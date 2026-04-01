@@ -20,7 +20,8 @@ export class AttendanceRepository {
             firstName: true,
             lastName: true,
             email: true,
-            cargo: { select: { id: true, name: true, area: { select: { id: true, name: true } } } },
+              phone: true,
+            cargo: { select: { id: true, name: true, productionArea: { select: { id: true, name: true } } } },
           },
         },
       },
@@ -30,7 +31,7 @@ export class AttendanceRepository {
   /**
    * Crea un registro de clock-in
    */
-  async createClockIn(userId: string, now: Date) {
+  async createClockIn(userId: string, now: Date, notes?: string, metadata?: any) {
     const date = new Date(now);
     date.setUTCHours(0, 0, 0, 0);
 
@@ -41,6 +42,8 @@ export class AttendanceRepository {
         clockIn: now,
         type: AttendanceType.MANUAL,
         source: AttendanceSource.BUTTON,
+        notes,
+        metadata: metadata ?? undefined,
       },
       include: {
         user: {
@@ -49,7 +52,8 @@ export class AttendanceRepository {
             firstName: true,
             lastName: true,
             email: true,
-            cargo: { select: { id: true, name: true, area: { select: { id: true, name: true } } } },
+              phone: true,
+            cargo: { select: { id: true, name: true, productionArea: { select: { id: true, name: true } } } },
           },
         },
       },
@@ -86,7 +90,8 @@ export class AttendanceRepository {
             firstName: true,
             lastName: true,
             email: true,
-            cargo: { select: { id: true, name: true, area: { select: { id: true, name: true } } } },
+              phone: true,
+            cargo: { select: { id: true, name: true, productionArea: { select: { id: true, name: true } } } },
           },
         },
       },
@@ -97,7 +102,7 @@ export class AttendanceRepository {
    * Lista todos los registros con filtros y paginación (admin)
    */
   async findAll(filters: AttendanceFilterDto) {
-    const { startDate, endDate, userId, areaId, cargoId, type, source, page = 1, limit = 20 } = filters;
+    const { startDate, endDate, userId, productionAreaId, cargoId, type, source, page = 1, limit = 20 } = filters;
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -108,10 +113,10 @@ export class AttendanceRepository {
     if (type) where.type = type;
     if (source) where.source = source;
 
-    if (areaId || cargoId) {
+    if (productionAreaId || cargoId) {
       where.user = { cargo: {} };
       if (cargoId) where.user.cargo.id = cargoId;
-      if (areaId) where.user.cargo.area = { id: areaId };
+      if (productionAreaId) where.user.cargo.productionArea = { id: productionAreaId };
     }
 
     const [data, total] = await Promise.all([
@@ -127,7 +132,8 @@ export class AttendanceRepository {
               firstName: true,
               lastName: true,
               email: true,
-              cargo: { select: { id: true, name: true, area: { select: { id: true, name: true } } } },
+              phone: true,
+              cargo: { select: { id: true, name: true, productionArea: { select: { id: true, name: true } } } },
             },
           },
         },
@@ -178,7 +184,8 @@ export class AttendanceRepository {
             firstName: true,
             lastName: true,
             email: true,
-            cargo: { select: { id: true, name: true, area: { select: { id: true, name: true } } } },
+              phone: true,
+            cargo: { select: { id: true, name: true, productionArea: { select: { id: true, name: true } } } },
           },
         },
       },
@@ -244,6 +251,62 @@ export class AttendanceRepository {
     return this.prisma.activityHeartbeat.create({
       data: { userId, endpoint },
     });
+  }
+
+  /**
+   * Obtiene el resumen de asistencia de un usuario para un rango de fechas
+   */
+  async getSummary(userId: string, weekStart: Date, weekEnd: Date, todayStart: Date, todayEnd: Date) {
+    const [todayRecords, weekRecords] = await Promise.all([
+      this.prisma.attendanceRecord.findMany({
+        where: {
+          userId,
+          clockIn: { gte: todayStart, lte: todayEnd },
+        },
+        select: { totalMinutes: true, clockIn: true, clockOut: true },
+      }),
+      this.prisma.attendanceRecord.findMany({
+        where: {
+          userId,
+          clockIn: { gte: weekStart, lte: weekEnd },
+        },
+        select: { totalMinutes: true, clockIn: true, clockOut: true, date: true },
+      }),
+    ]);
+
+    // Hours today: sum totalMinutes of completed + elapsed of active
+    const now = new Date();
+    let todayMinutes = 0;
+    for (const r of todayRecords) {
+      if (r.totalMinutes != null) {
+        todayMinutes += r.totalMinutes;
+      } else if (r.clockIn && !r.clockOut) {
+        todayMinutes += Math.floor((now.getTime() - new Date(r.clockIn).getTime()) / 60000);
+      }
+    }
+
+    // Hours this week
+    let weekMinutes = 0;
+    const uniqueDays = new Set<string>();
+    for (const r of weekRecords) {
+      if (r.totalMinutes != null) {
+        weekMinutes += r.totalMinutes;
+      } else if (r.clockIn && !r.clockOut) {
+        weekMinutes += Math.floor((now.getTime() - new Date(r.clockIn).getTime()) / 60000);
+      }
+      const dayKey = new Date(r.clockIn).toISOString().slice(0, 10);
+      uniqueDays.add(dayKey);
+    }
+
+    const daysWorked = uniqueDays.size;
+    const dailyAverage = daysWorked > 0 ? weekMinutes / daysWorked : 0;
+
+    return {
+      hoursToday: Number((todayMinutes / 60).toFixed(2)),
+      hoursThisWeek: Number((weekMinutes / 60).toFixed(2)),
+      daysWorkedThisWeek: daysWorked,
+      dailyAverage: Number((dailyAverage / 60).toFixed(2)),
+    };
   }
 
   /**

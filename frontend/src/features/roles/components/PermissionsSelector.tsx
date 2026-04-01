@@ -11,7 +11,10 @@ import {
   Tab,
   useTheme,
   alpha,
+  TextField,
+  InputAdornment,
 } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
 import { useQuery } from '@tanstack/react-query';
 import { permissionsApi } from '../../../api';
 import { Permission } from '../../../types';
@@ -39,8 +42,8 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
 
   // Comercial
   Clientes: ['browse_clients', 'create_clients', 'read_clients', 'update_clients', 'delete_clients', 'update_client_special_condition', 'approve_client_ownership_auth'],
-  Cotizaciones: ['create_quotes', 'read_quotes', 'update_quotes', 'delete_quotes', 'convert_quotes'],
-  Órdenes: ['create_orders', 'read_orders', 'update_orders', 'delete_orders', 'approve_orders', 'change_order_status', 'apply_discounts', 'delete_discounts', 'read_pending_orders'],
+  Cotizaciones: ['create_quotes', 'read_quotes', 'update_quotes', 'delete_quotes', 'convert_quotes', 'manage_quote_columns', 'read_all_quotes'],
+  Órdenes: ['create_orders', 'read_orders', 'update_orders', 'delete_orders', 'approve_orders', 'change_order_status', 'register_order_payments', 'approve_discounts', 'apply_discounts', 'delete_discounts', 'read_pending_orders'],
   'Canales Comerciales': ['create_commercial_channels', 'read_commercial_channels', 'update_commercial_channels', 'delete_commercial_channels'],
   Archivos: ['upload_files', 'read_files', 'delete_files', 'manage_storage'],
 
@@ -56,7 +59,8 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   // Producción 
   'Áreas de Producción': ['create_production_areas', 'read_production_areas', 'update_production_areas', 'delete_production_areas'],
   'Órdenes de Trabajo': ['create_work_orders', 'read_work_orders', 'update_work_orders', 'delete_work_orders'],
-  'Plantillas de Producto': ['read_product_templates', 'create_product_templates', 'update_product_templates', 'delete_product_templates', 'read_step_definitions'],
+  'Plantillas de Producto': ['read_product_templates', 'create_product_templates', 'update_product_templates', 'delete_product_templates'],
+  'Etapas de Producción': ['read_step_definitions', 'create_step_definitions', 'update_step_definitions'],
   'Órdenes de Producción': ['read_production_orders', 'create_production_orders', 'update_production_orders'],
 
   // Gastos y Pagos
@@ -70,6 +74,9 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
 
   // Compañía
   Compañía: ['read_company', 'update_company'],
+
+  // Comentarios
+  Comentarios: ['create_comments', 'read_comments', 'delete_comments'],
 
   // Nómina
   'Empleados de Nómina': [
@@ -112,7 +119,7 @@ const TABS = [
   },
   {
     label: 'Producción',
-    groups: ['Áreas de Producción', 'Órdenes de Trabajo', 'Plantillas de Producto', 'Órdenes de Producción'],
+    groups: ['Áreas de Producción', 'Órdenes de Trabajo', 'Plantillas de Producto', 'Etapas de Producción', 'Órdenes de Producción'],
   },
   {
     label: 'Gastos y Pagos',
@@ -128,6 +135,7 @@ const TABS = [
       'Auditoría',
       'Asistencia',
       'Compañía',
+      'Comentarios',
       'Otros',
     ],
   },
@@ -140,6 +148,7 @@ export const PermissionsSelector: React.FC<PermissionsSelectorProps> = ({
 }) => {
   const theme = useTheme();
   const [currentTab, setCurrentTab] = useState(0);
+  const [searchTerm, setSearchTerm] = useState('');
   
   const { data: permissions = [] } = useQuery({
     queryKey: ['permissions'],
@@ -228,53 +237,90 @@ export const PermissionsSelector: React.FC<PermissionsSelectorProps> = ({
 
   return (
     <Box sx={{ mt: 2 }}>
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs 
-          value={currentTab} 
-          onChange={handleTabChange}
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{
-            '& .MuiTab-root': {
-              fontWeight: 600,
-              textTransform: 'none',
-              minHeight: 48,
-            }
+      <Box sx={{ mb: 3 }}>
+        <TextField
+          fullWidth
+          size="small"
+          placeholder="Buscar un permiso (ej. Crear Usuarios, Órdenes...)"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon color="action" />
+              </InputAdornment>
+            ),
           }}
-        >
-          {TABS.map((tab, index) => (
-            <Tab key={index} label={tab.label} />
-          ))}
-        </Tabs>
-      </Box>
-
-      {/* Select All Checkbox for current Tab */}
-      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
-        <FormControlLabel
-          control={
-            <Checkbox
-              onChange={(e) => handleSelectAllInTab(e.target.checked)}
-              disabled={disabled}
-              size="small"
-            />
-          }
-          label={<Typography variant="body2" color="text.secondary">Seleccionar todo en esta pestaña</Typography>}
         />
       </Box>
 
+      {!searchTerm && (
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+          <Tabs 
+            value={currentTab} 
+            onChange={handleTabChange}
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{
+              '& .MuiTab-root': {
+                fontWeight: 600,
+                textTransform: 'none',
+                minHeight: 48,
+              }
+            }}
+          >
+            {TABS.map((tab, index) => (
+              <Tab key={index} label={tab.label} />
+            ))}
+          </Tabs>
+        </Box>
+      )}
+
+      {/* Select All Checkbox for current Tab (only visible when not searching) */}
+      {!searchTerm && (
+        <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                onChange={(e) => handleSelectAllInTab(e.target.checked)}
+                disabled={disabled}
+                size="small"
+              />
+            }
+            label={<Typography variant="body2" color="text.secondary">Seleccionar todo en esta pestaña</Typography>}
+          />
+        </Box>
+      )}
+
       <Box role="tabpanel">
         <Grid container spacing={3}>
-          {TABS[currentTab].groups.filter(shouldShowGroup).map((groupName) => {
+          {(searchTerm 
+            ? Object.keys(PERMISSION_GROUPS).filter(shouldShowGroup)
+            : TABS[currentTab].groups.filter(shouldShowGroup)
+          ).map((groupName) => {
             const permissionNames = getPermissionNamesForGroup(groupName);
             if (!permissionNames) return null;
 
-            const availablePermissions = permissionNames
+            const allPermissions = permissionNames
               .map((permName) => permissionMap[permName])
               .filter((permission): permission is Permission => Boolean(permission));
+
+            // Filtering by search term
+            const availablePermissions = allPermissions.filter((permission) => {
+              if (!searchTerm) return true;
+              const label = getPermissionLabel(permission.name).toLowerCase();
+              const term = searchTerm.toLowerCase();
+              return label.includes(term) || permission.name.toLowerCase().includes(term);
+            });
 
             const missingPermissionNames = permissionNames.filter(
               (permName) => !permissionMap[permName],
             );
+
+            // Hide the group if there are no matching permissions during search
+            if (searchTerm && availablePermissions.length === 0) {
+              return null;
+            }
 
             return (
               <Grid item xs={12} sm={6} md={4} key={groupName}>

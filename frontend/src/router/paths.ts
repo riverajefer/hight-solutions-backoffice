@@ -13,10 +13,6 @@ export const PATHS = {
   PERMISSIONS: '/permissions',
   PERMISSIONS_CREATE: '/permissions/create',
   PERMISSIONS_EDIT: '/permissions/:id/edit',
-  AREAS: '/areas',
-  AREAS_CREATE: '/areas/new',
-  AREAS_EDIT: '/areas/:id/edit',
-  AREAS_VIEW: '/areas/:id',
   PRODUCTION_AREAS: '/production-areas',
   PRODUCTION_AREAS_CREATE: '/production-areas/new',
   PRODUCTION_AREAS_EDIT: '/production-areas/:id/edit',
@@ -101,6 +97,7 @@ export const PATHS = {
   PAYROLL_ITEM_EDIT: '/payroll/periods/:periodId/items/:itemId/edit',
   CHANGE_PASSWORD: '/change-password',
   // Attendance - Control de Asistencia
+  MY_ATTENDANCE: '/my-attendance',
   ATTENDANCE: '/attendance',
   // Inventory - Movimientos de Inventario
   INVENTORY_MOVEMENTS: '/inventory/movements',

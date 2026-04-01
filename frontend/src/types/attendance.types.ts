@@ -6,10 +6,11 @@ export interface AttendanceUser {
   firstName?: string;
   lastName?: string;
   email?: string;
+  phone?: string;
   cargo?: {
     id: string;
     name: string;
-    area: {
+    productionArea: {
       id: string;
       name: string;
     };
@@ -25,6 +26,7 @@ export interface AttendanceRecord {
   type: AttendanceType;
   source: AttendanceSource;
   notes?: string;
+  metadata?: Record<string, any>;
   totalMinutes?: number;
   createdAt: string;
   updatedAt: string;
@@ -52,12 +54,17 @@ export interface AttendanceFilter {
   startDate?: string;
   endDate?: string;
   userId?: string;
-  areaId?: string;
+  productionAreaId?: string;
   cargoId?: string;
   type?: AttendanceType;
   source?: AttendanceSource;
   page?: number;
   limit?: number;
+}
+
+export interface ClockInDto {
+  notes?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface ClockOutDto {
@@ -69,4 +76,28 @@ export interface AdjustAttendanceDto {
   clockOut?: string;
   notes?: string;
   reason: string;
+}
+
+export interface AttendanceSummary {
+  hoursToday: number;
+  hoursThisWeek: number;
+  daysWorkedThisWeek: number;
+  dailyAverage: number;
+}
+
+export interface AttendanceBreak {
+  start: string;
+  end: string;
+  minutes: number;
+}
+
+export type DayStatus = 'complete' | 'in_progress' | 'incomplete';
+
+export interface DayGroup {
+  date: string;
+  records: AttendanceRecord[];
+  totalMinutes: number;
+  breakMinutes: number;
+  breaks: AttendanceBreak[];
+  status: DayStatus;
 }

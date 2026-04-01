@@ -20,7 +20,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useForm, Controller, type SubmitHandler, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { DatePicker } from '@mui/x-date-pickers';
+import { DateTimePicker } from '@mui/x-date-pickers';
 import {
   ArrowBack as ArrowBackIcon,
   Save as SaveIcon,
@@ -411,8 +411,9 @@ export const OrderFormPage: React.FC = () => {
             : [],
         }))
       );
-      setValue('applyTax', parseFloat(order.taxRate) > 0);
-      setValue('taxRate', parseFloat(order.taxRate) * 100);
+      const currentTaxRate = parseFloat(order.taxRate);
+      setValue('applyTax', currentTaxRate > 0);
+      setValue('taxRate', currentTaxRate > 0 ? currentTaxRate * 100 : 19);
 
       const firstPayment = order.payments && order.payments.length > 0 ? order.payments[0] : null;
       setValue('payment', {
@@ -470,6 +471,7 @@ export const OrderFormPage: React.FC = () => {
         notes: data.notes,
         requiresColorProof: data.requiresColorProof,
         colorProofPrice: data.requiresColorProof ? data.colorProofPrice : 0,
+        taxRate: data.applyTax ? data.taxRate / 100 : 0,
         items: data.items.map((item) => ({
           ...(isEdit && item.id && { id: item.id }),
           description: item.description,
@@ -561,16 +563,16 @@ export const OrderFormPage: React.FC = () => {
                 name="deliveryDate"
                 control={control}
                 render={({ field }) => (
-                  <DatePicker
-                    label="Fecha de Entrega (Opcional)"
+                  <DateTimePicker
+                    label="Fecha y Hora de Entrega (Opcional)"
                     value={field.value}
                     onChange={field.onChange}
                     disabled={!isClientSelected}
-                    minDate={new Date()}
+                    minDateTime={new Date()}
                     slotProps={{
                       textField: {
                         fullWidth: true,
-                        helperText: isClientSelected ? 'Fecha estimada' : 'Seleccione cliente',
+                        helperText: isClientSelected ? 'Fecha y hora estimada' : 'Seleccione cliente',
                       },
                     }}
                   />

@@ -56,6 +56,11 @@ export class CreateExpenseItemDto {
   @IsUUID()
   @IsOptional()
   receiptFileId?: string;
+
+  @ApiPropertyOptional({ description: 'ID del archivo imagen de referencia (UploadedFile)' })
+  @IsUUID()
+  @IsOptional()
+  referenceFileId?: string;
 }
 
 export class CreateExpenseOrderDto {

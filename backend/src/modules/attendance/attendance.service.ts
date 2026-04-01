@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { AttendanceRepository } from './attendance.repository';
 import { AttendanceSource } from '../../generated/prisma';
-import { ClockOutDto, AttendanceFilterDto, AdjustAttendanceDto } from './dto';
+import { ClockInDto, ClockOutDto, AttendanceFilterDto, AdjustAttendanceDto, AttendanceSummaryFilterDto } from './dto';
 
 @Injectable()
 export class AttendanceService {
@@ -15,14 +15,30 @@ export class AttendanceService {
    * Marca entrada para un usuario.
    * Lanza ConflictException si ya tiene un registro activo.
    */
-  async clockIn(userId: string) {
+  async clockIn(userId: string, dto?: ClockInDto, ip?: string) {
     const existing = await this.repository.findActiveRecord(userId);
     if (existing) {
       throw new ConflictException(
         'Ya tienes una entrada activa. Debes marcar salida antes de marcar una nueva entrada.',
       );
     }
-    return this.repository.createClockIn(userId, new Date());
+
+    // Preparar metadatos incluyendo el mock de geolocalización por IP
+    let finalMetadata = dto?.metadata ? { ...dto.metadata } : {};
+    
+    if (ip) {
+      finalMetadata.ipAddress = ip;
+      // Mock de geolocalización por IP (backend enrichment)
+      // En un entorno real se usaría un servicio externo como ipapi, maxmind, etc.
+      finalMetadata.geoIp = {
+        country: 'Colombia', // Mock
+        city: 'Bogotá',      // Mock
+        lat: 4.6097,
+        lng: -74.0817,
+      };
+    }
+
+    return this.repository.createClockIn(userId, new Date(), dto?.notes, Object.keys(finalMetadata).length > 0 ? finalMetadata : undefined);
   }
 
   /**
@@ -50,6 +66,39 @@ export class AttendanceService {
    */
   async getMyRecords(userId: string, filters: AttendanceFilterDto) {
     return this.repository.findMyRecords(userId, filters);
+  }
+
+  /**
+   * Devuelve el resumen de asistencia del usuario (horas hoy, semana, etc.)
+   */
+  async getMySummary(userId: string, filters: AttendanceSummaryFilterDto) {
+    const now = new Date();
+
+    // Today range
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(now);
+    todayEnd.setHours(23, 59, 59, 999);
+
+    // Week range (Monday to Sunday) or custom range
+    let weekStart: Date;
+    let weekEnd: Date;
+
+    if (filters.startDate && filters.endDate) {
+      weekStart = new Date(filters.startDate);
+      weekEnd = new Date(filters.endDate);
+    } else {
+      const dayOfWeek = now.getDay();
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      weekStart = new Date(now);
+      weekStart.setDate(now.getDate() + mondayOffset);
+      weekStart.setHours(0, 0, 0, 0);
+      weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      weekEnd.setHours(23, 59, 59, 999);
+    }
+
+    return this.repository.getSummary(userId, weekStart, weekEnd, todayStart, todayEnd);
   }
 
   /**

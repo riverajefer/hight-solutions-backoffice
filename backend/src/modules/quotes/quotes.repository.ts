@@ -41,6 +41,7 @@ export class QuotesRepository {
         email: true,
         firstName: true,
         lastName: true,
+        profilePhoto: true,
       },
     },
     items: {
@@ -90,13 +91,19 @@ export class QuotesRepository {
     dateTo?: Date;
     page?: number;
     limit?: number;
+    createdById?: string;
+    search?: string;
   }) {
-    const { status, clientId, dateFrom, dateTo, page = 1, limit = 20 } = filters;
+    const { status, clientId, dateFrom, dateTo, page = 1, limit = 20, createdById, search } = filters;
 
     const where: Prisma.QuoteWhereInput = {};
 
     if (status) {
       where.status = status;
+    }
+
+    if (createdById) {
+      where.createdById = createdById;
     }
 
     if (clientId) {
@@ -111,6 +118,13 @@ export class QuotesRepository {
       if (dateTo) {
         where.quoteDate.lte = dateTo;
       }
+    }
+
+    if (search) {
+      where.OR = [
+        { quoteNumber: { contains: search, mode: 'insensitive' } },
+        { client: { name: { contains: search, mode: 'insensitive' } } },
+      ];
     }
 
     const skip = (page - 1) * limit;

@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsUUID, IsDateString, IsNumber, Min } from 'class-validator';
+import { IsEnum, IsOptional, IsUUID, IsDateString, IsNumber, IsString, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { QuoteStatus } from '../../../generated/prisma';
 
@@ -37,4 +37,14 @@ export class FilterQuotesDto {
   @Min(1)
   @Type(() => Number)
   limit?: number;
+
+  @ApiPropertyOptional({ description: 'Filtrar por Asesor / Creador (id)' })
+  @IsOptional()
+  @IsUUID()
+  createdById?: string;
+
+  @ApiPropertyOptional({ description: 'Búsqueda por número de cotización o nombre de cliente' })
+  @IsOptional()
+  @IsString()
+  search?: string;
 }
