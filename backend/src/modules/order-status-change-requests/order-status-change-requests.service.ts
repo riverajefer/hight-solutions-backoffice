@@ -36,6 +36,7 @@ const ORDER_STATUS_LABELS: Record<string, string> = {
   WARRANTY: 'Garantía',
   PAID: 'Pagada',
   RETURNED: 'Devuelta',
+  ANULADO: 'Anulada',
 };
 
 @Injectable()
@@ -412,6 +413,14 @@ export class OrderStatusChangeRequestsService implements OnModuleInit, ApprovalR
       return {
         required: true,
         reason: 'Entregar a crédito requiere aprobación administrativa',
+      };
+    }
+
+    // 3. Si el cambio es a ANULADO → SÍ requiere autorización
+    if (newStatus === OrderStatus.ANULADO) {
+      return {
+        required: true,
+        reason: 'Anular una orden requiere aprobación administrativa',
       };
     }
 
