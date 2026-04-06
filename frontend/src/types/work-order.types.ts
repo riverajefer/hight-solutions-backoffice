@@ -88,6 +88,7 @@ export interface WorkOrder {
   order: {
     id: string;
     orderNumber: string;
+    status: string;
     deliveryDate?: string | null;
     total: string;
     client: {

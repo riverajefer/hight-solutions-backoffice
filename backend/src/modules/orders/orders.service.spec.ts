@@ -935,6 +935,126 @@ describe('OrdersService', () => {
       expect(mockOrdersRepository.updateStatus).not.toHaveBeenCalled();
       expect(result).toMatchObject({ status: OrderStatus.CONFIRMED });
     });
+
+    it('should transition to ANULADO from DRAFT skipping approval checks', async () => {
+      const draftOrder = buildOrder({ status: OrderStatus.DRAFT });
+      const anuladoOrder = buildOrder({ status: OrderStatus.ANULADO });
+      mockOrdersRepository.findById
+        .mockResolvedValueOnce(draftOrder)
+        .mockResolvedValueOnce(anuladoOrder);
+      mockOrdersRepository.updateStatus.mockResolvedValue(anuladoOrder);
+
+      const result = await service.updateStatus('order-1', OrderStatus.ANULADO, 'user-1');
+
+      expect(result.status).toBe(OrderStatus.ANULADO);
+      expect(mockOrdersRepository.updateStatus).toHaveBeenCalledWith('order-1', OrderStatus.ANULADO);
+      // No debe invocar checks de autorización de DELIVERED_ON_CREDIT
+      expect(mockStatusChangeRequestsService.requiresAuthorization).not.toHaveBeenCalled();
+    });
+
+    it('should transition to ANULADO from CONFIRMED skipping approval checks', async () => {
+      const confirmedOrder = buildOrder({ status: OrderStatus.CONFIRMED });
+      const anuladoOrder = buildOrder({ status: OrderStatus.ANULADO });
+      mockOrdersRepository.findById
+        .mockResolvedValueOnce(confirmedOrder)
+        .mockResolvedValueOnce(anuladoOrder);
+      mockOrdersRepository.updateStatus.mockResolvedValue(anuladoOrder);
+
+      const result = await service.updateStatus('order-1', OrderStatus.ANULADO, 'user-1');
+
+      expect(result.status).toBe(OrderStatus.ANULADO);
+    });
+
+    it('should throw BadRequestException when trying to ANULAR from DELIVERED', async () => {
+      const deliveredOrder = buildOrder({ status: OrderStatus.DELIVERED });
+      mockOrdersRepository.findById.mockResolvedValue(deliveredOrder);
+
+      await expect(
+        service.updateStatus('order-1', OrderStatus.ANULADO, 'user-1'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException when trying to ANULAR from PAID', async () => {
+      const paidOrder = buildOrder({ status: OrderStatus.PAID });
+      mockOrdersRepository.findById.mockResolvedValue(paidOrder);
+
+      await expect(
+        service.updateStatus('order-1', OrderStatus.ANULADO, 'user-1'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw ForbiddenException when trying to change status of ANULADO order', async () => {
+      const anuladoOrder = buildOrder({ status: OrderStatus.ANULADO });
+      mockOrdersRepository.findById.mockResolvedValue(anuladoOrder);
+
+      await expect(
+        service.updateStatus('order-1', OrderStatus.CONFIRMED, 'user-1'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // mutaciones en orden ANULADA
+  // ─────────────────────────────────────────────
+  describe('mutaciones bloqueadas en orden ANULADA', () => {
+    const anuladoOrder = buildOrder({ status: OrderStatus.ANULADO });
+
+    beforeEach(() => {
+      mockOrdersRepository.findById.mockResolvedValue(anuladoOrder);
+    });
+
+    it('update should throw ForbiddenException', async () => {
+      await expect(
+        service.update('order-1', { notes: 'cambio' }, 'user-1'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('addItem should throw ForbiddenException', async () => {
+      await expect(
+        service.addItem('order-1', {
+          productId: 'p-1',
+          description: 'ítem',
+          quantity: 1,
+          unitPrice: new Prisma.Decimal('100'),
+        } as any),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('addPayment should throw ForbiddenException', async () => {
+      await expect(
+        service.addPayment(
+          'order-1',
+          { amount: new Prisma.Decimal('50'), paymentMethod: PaymentMethod.CASH } as any,
+          'user-1',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('applyDiscount should throw ForbiddenException', async () => {
+      await expect(
+        service.applyDiscount(
+          'order-1',
+          { amount: new Prisma.Decimal('10'), reason: 'test' } as any,
+          'user-1',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('removeDiscount should throw ForbiddenException', async () => {
+      await expect(
+        service.removeDiscount('order-1', 'discount-1'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('registerElectronicInvoice should throw ForbiddenException', async () => {
+      // Override with an order that has tax > 0 to reach the ANULADO check
+      mockOrdersRepository.findById.mockResolvedValue(
+        buildOrder({ status: OrderStatus.ANULADO, tax: new Prisma.Decimal('19') }),
+      );
+      await expect(
+        service.registerElectronicInvoice('order-1', 'FE-001', 'user-1'),
+      ).rejects.toThrow(ForbiddenException);
+    });
   });
 
   // ─────────────────────────────────────────────

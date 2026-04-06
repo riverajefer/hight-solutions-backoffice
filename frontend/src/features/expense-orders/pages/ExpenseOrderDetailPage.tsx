@@ -390,16 +390,20 @@ export const ExpenseOrderDetailPage = () => {
     );
   }
 
+  const isParentOrderAnulado = og.workOrder?.order?.status === 'ANULADO';
   const statusConfig = EXPENSE_ORDER_STATUS_CONFIG[og.status];
   const allowedTransitions = STATUS_TRANSITIONS[og.status] ?? [];
   const totalAmount = og.items.reduce((acc, item) => acc + parseFloat(item.total), 0);
   const isEditable =
-    og.status === ExpenseOrderStatus.DRAFT || og.status === ExpenseOrderStatus.CREATED;
+    !isParentOrderAnulado &&
+    (og.status === ExpenseOrderStatus.DRAFT || og.status === ExpenseOrderStatus.CREATED);
 
-  const availableTransitions = allowedTransitions.filter((s) => {
-    if (s === ExpenseOrderStatus.PAID) return canApprove;
-    return canUpdate;
-  });
+  const availableTransitions = isParentOrderAnulado
+    ? []
+    : allowedTransitions.filter((s) => {
+        if (s === ExpenseOrderStatus.PAID) return canApprove;
+        return canUpdate;
+      });
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
@@ -412,6 +416,13 @@ export const ExpenseOrderDetailPage = () => {
           { label: og.ogNumber },
         ]}
       />
+
+      {/* Banner orden de pedido ANULADA */}
+      {isParentOrderAnulado && (
+        <Alert severity="error" sx={{ mt: 2, mb: 1 }}>
+          <strong>Esta orden de gasto proviene de una OP ANULADA.</strong> La Orden de Pedido relacionada ha sido anulada. Este registro es de solo lectura.
+        </Alert>
+      )}
 
       {/* Toolbar de Acciones */}
       <Paper

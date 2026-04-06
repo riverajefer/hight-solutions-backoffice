@@ -174,6 +174,17 @@ export const dataGridStyles: SxProps<Theme> = {
     },
   },
 
+  // Fila ANULADA — orden cancelada definitivamente
+  '& .MuiDataGrid-row.row-anulado': {
+    opacity: 0.55,
+    borderLeft: (theme) => `4px solid ${theme.palette.error.main}`,
+    textDecoration: 'none',
+    '&:hover': {
+      opacity: 0.75,
+      transform: 'translateX(2px)',
+    },
+  },
+
   // Footer
   '& .MuiDataGrid-footerContainer': {
     borderTop: '1px solid',
@@ -325,6 +336,13 @@ export const dataGridStyles: SxProps<Theme> = {
       theme.palette.mode === 'light'
         ? '#fce4ec'
         : '#3d1c1c',
+  },
+
+  '& .MuiDataGrid-row.row-anulado .sticky-column-row-number, & .MuiDataGrid-row.row-anulado .sticky-column-order-number': {
+    backgroundColor: (theme) =>
+      theme.palette.mode === 'light'
+        ? '#f5f5f5'
+        : '#2a1c1c',
   },
 
   // Hover en sticky columns: fondo opaco consistente

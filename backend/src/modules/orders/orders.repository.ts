@@ -522,6 +522,9 @@ export class OrdersRepository {
 
     if (status) {
       where.status = status as OrderStatus;
+    } else {
+      // Por defecto excluir órdenes ANULADAS del análisis de rentabilidad
+      where.status = { not: OrderStatus.ANULADO };
     }
 
     if (search) {
