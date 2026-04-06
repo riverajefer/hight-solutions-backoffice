@@ -16,6 +16,7 @@ describe('AdvancePaymentApprovalsService', () => {
     prisma = {
       user: {
         findUnique: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
       },
       order: {
         findUnique: jest.fn(),
@@ -30,6 +31,7 @@ describe('AdvancePaymentApprovalsService', () => {
       },
       payment: {
         delete: jest.fn(),
+        findUnique: jest.fn(),
       },
     } as any;
 

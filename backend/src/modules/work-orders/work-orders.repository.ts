@@ -19,6 +19,7 @@ export class WorkOrdersRepository {
       select: {
         id: true,
         orderNumber: true,
+        status: true,
         deliveryDate: true,
         total: true,
         client: {

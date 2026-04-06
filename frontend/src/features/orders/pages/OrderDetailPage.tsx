@@ -231,26 +231,29 @@ export const OrderDetailPage: React.FC = () => {
     );
   }
 
-  const canEdit = ['DRAFT', 'CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'WARRANTY', 'CANCELLED', 'COMPLETED'].includes(
+  const isAnulado = order.status === 'ANULADO';
+  const canEdit = !isAnulado && ['DRAFT', 'CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'WARRANTY'].includes(
     order.status
   );
-  const canAddPayment = 
-    permissions.includes('register_order_payments') && 
+  const canAddPayment =
+    !isAnulado &&
+    permissions.includes('register_order_payments') &&
     ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'DELIVERED_ON_CREDIT', 'PAID'].includes(
       order.status
     );
   const isAdmin = user?.role?.name === 'admin';
   const canApplyDiscount =
+    !isAnulado &&
     permissions.includes('apply_discounts') &&
     ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'DELIVERED_ON_CREDIT', 'PAID', 'WARRANTY'].includes(
       order.status
     );
   const canDeleteDiscount =
-    permissions.includes('delete_discounts');
+    !isAnulado && permissions.includes('delete_discounts');
   const hasIva = parseFloat(order.tax) > 0;
   const canRegisterInvoice =
-    hasIva && order.status !== 'DRAFT' && permissions.includes('update_orders');
-  const canChangeStatus = isAdmin || permissions.includes('change_order_status');
+    !isAnulado && hasIva && order.status !== 'DRAFT' && permissions.includes('update_orders');
+  const canChangeStatus = !isAnulado && (isAdmin || permissions.includes('change_order_status'));
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -487,6 +490,13 @@ export const OrderDetailPage: React.FC = () => {
 
       {/* Banner de permiso activo */}
       <ActivePermissionBanner orderId={id!} />
+
+      {/* Banner de orden ANULADA */}
+      {isAnulado && (
+        <Alert severity="error" icon={<WarningIcon />} sx={{ mt: 2, mb: 1 }}>
+          <strong>Orden Anulada.</strong> Esta orden ha sido anulada definitivamente. No se pueden realizar modificaciones, pagos ni cambios de estado.
+        </Alert>
+      )}
 
       {/* Alertas de anticipo */}
       {order.advancePaymentStatus === 'PENDING' && (

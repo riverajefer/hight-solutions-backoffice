@@ -42,6 +42,7 @@ const CLOSED_STATUSES: OrderStatus[] = [
   'DELIVERED_ON_CREDIT',
   'WARRANTY',
   'PAID',
+  'ANULADO',
 ];
 
 type DeliveryAlert = 'overdue' | 'due-today' | null;
@@ -105,6 +106,7 @@ const ORDER_STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
   { value: 'DELIVERED_ON_CREDIT', label: 'Entregado a Crédito' },
   { value: 'WARRANTY', label: 'Garantía' },
   { value: 'PAID', label: 'Pagada' },
+  { value: 'ANULADO', label: 'Anulada' },
 ];
 
 export const OrdersListPage: React.FC = () => {
@@ -674,6 +676,7 @@ export const OrdersListPage: React.FC = () => {
         searchPlaceholder='Buscar por número, cliente, notas...'
         emptyMessage='No se encontraron órdenes'
         getRowClassName={(params) => {
+          if (params.row.status === 'ANULADO') return 'row-anulado';
           // Anticipo pendiente/rechazado tiene prioridad visual
           if (params.row.advancePaymentStatus === 'PENDING') return 'row-advance-pending';
           if (params.row.advancePaymentStatus === 'REJECTED') return 'row-advance-rejected';

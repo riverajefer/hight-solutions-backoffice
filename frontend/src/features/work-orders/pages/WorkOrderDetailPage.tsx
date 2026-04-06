@@ -216,6 +216,7 @@ export const WorkOrderDetailPage = () => {
     );
   }
 
+  const isParentOrderAnulado = workOrder.order?.status === 'ANULADO';
   const currentStatus = workOrder.status as WorkOrderStatus;
   const allowedTransitions = STATUS_TRANSITIONS[currentStatus] ?? [];
   const advisorName = `${workOrder.advisor.firstName ?? ''} ${workOrder.advisor.lastName ?? ''}`.trim() || workOrder.advisor.email;
@@ -238,6 +239,13 @@ export const WorkOrderDetailPage = () => {
           { label: workOrder.workOrderNumber },
         ]}
       />
+
+      {/* Banner orden de pedido ANULADA */}
+      {isParentOrderAnulado && (
+        <Alert severity="error" sx={{ mt: 2, mb: 1 }}>
+          <strong>Esta orden proviene de una OP ANULADA.</strong> La Orden de Pedido relacionada ha sido anulada. Esta Orden de Trabajo es de solo lectura.
+        </Alert>
+      )}
 
       {/* Toolbar de Acciones */}
       <Paper
@@ -275,7 +283,7 @@ export const WorkOrderDetailPage = () => {
             />
           }
         >
-          {canUpdate && ['DRAFT', 'CONFIRMED', 'IN_PRODUCTION'].includes(currentStatus) && (
+          {!isParentOrderAnulado && canUpdate && ['DRAFT', 'CONFIRMED', 'IN_PRODUCTION'].includes(currentStatus) && (
             <ToolbarButton
               icon={<EditIcon />}
               label="Editar"
@@ -284,7 +292,7 @@ export const WorkOrderDetailPage = () => {
             />
           )}
 
-          {canUpdate && allowedTransitions.length > 0 && (
+          {!isParentOrderAnulado && canUpdate && allowedTransitions.length > 0 && (
             <ToolbarButton
               icon={<SwapHorizIcon />}
               label="Estado"
@@ -302,16 +310,18 @@ export const WorkOrderDetailPage = () => {
             tooltip="Ver Trazabilidad"
           />
 
-          <ToolbarButton
-            icon={<AccessTimeIcon />}
-            label="Horas"
-            secondaryLabel="Registrar"
-            onClick={() => openCreateTimeDialog()}
-            color={theme.palette.success.main}
-            tooltip="Registrar Horas Trabajadas"
-          />
+          {!isParentOrderAnulado && (
+            <ToolbarButton
+              icon={<AccessTimeIcon />}
+              label="Horas"
+              secondaryLabel="Registrar"
+              onClick={() => openCreateTimeDialog()}
+              color={theme.palette.success.main}
+              tooltip="Registrar Horas Trabajadas"
+            />
+          )}
 
-          {canCreateExpenseOrder && (
+          {!isParentOrderAnulado && canCreateExpenseOrder && (
             <ToolbarButton
               icon={<ReceiptLongIcon />}
               label="Gasto"
@@ -324,7 +334,7 @@ export const WorkOrderDetailPage = () => {
             />
           )}
 
-          {canCreateProductionOrder && (
+          {!isParentOrderAnulado && canCreateProductionOrder && (
             <ToolbarButton
               icon={<PrecisionManufacturingIcon />}
               label="Producción"

@@ -377,6 +377,7 @@ enum OrderStatus {
   WARRANTY // Garantía
   PAID // Pagada
   RETURNED // Devuelta
+  ANULADO // Anulada (terminal, sin posibilidad de cambio de estado)
 }
 
 enum QuoteStatus {

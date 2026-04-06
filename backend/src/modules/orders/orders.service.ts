@@ -269,6 +269,7 @@ export class OrdersService {
 
   async update(id: string, updateOrderDto: UpdateOrderDto, userId: string) {
     const oldOrder = await this.findOne(id);
+    this.assertNotAnulado(oldOrder, 'editar orden');
 
     // Validar cambio de fecha de entrega
     if (updateOrderDto.deliveryDate) {
@@ -603,6 +604,26 @@ export class OrdersService {
       return order;
     }
 
+    // Fast-path: ANULADO es acción administrativa directa, omite flujo de aprobaciones
+    if (status === OrderStatus.ANULADO) {
+      if (!isValidTransition(order.status as OrderStatus, status)) {
+        throw new BadRequestException(
+          `No se puede anular una orden en estado ${order.status}.`,
+        );
+      }
+      await this.ordersRepository.updateStatus(id, status);
+      const updatedOrder = await this.findOne(id);
+      this.auditLogsService.logOrderChange('UPDATE', id, order, updatedOrder, userId);
+      return updatedOrder;
+    }
+
+    // Bloquear cualquier cambio de estado desde ANULADO
+    if (order.status === OrderStatus.ANULADO) {
+      throw new ForbiddenException(
+        'Esta orden está ANULADA. No se pueden realizar cambios de estado.',
+      );
+    }
+
     // Bloquear cambio de estado si el anticipo está pendiente de aprobación
     if (order.advancePaymentStatus === 'PENDING') {
       throw new BadRequestException(
@@ -729,6 +750,7 @@ export class OrdersService {
 
   async registerElectronicInvoice(id: string, electronicInvoiceNumber: string, userId: string) {
     const order = await this.findOne(id);
+    this.assertNotAnulado(order, 'registrar factura electrónica');
 
     // Solo aplicable si la orden tiene IVA (tax > 0)
     if (parseFloat(order.tax.toString()) === 0) {
@@ -765,6 +787,7 @@ export class OrdersService {
 
   async addItem(orderId: string, addItemDto: AddOrderItemDto) {
     const order = await this.findOne(orderId);
+    this.assertNotAnulado(order, 'agregar ítem');
 
     // Solo se pueden agregar items a órdenes en DRAFT
     if (order.status !== OrderStatus.DRAFT) {
@@ -821,6 +844,7 @@ export class OrdersService {
     updateItemDto: UpdateOrderItemDto,
   ) {
     const order = await this.findOne(orderId);
+    this.assertNotAnulado(order, 'modificar ítem');
 
     // Solo se pueden modificar items en órdenes DRAFT
     if (order.status !== OrderStatus.DRAFT) {
@@ -897,6 +921,7 @@ export class OrdersService {
 
   async removeItem(orderId: string, itemId: string) {
     const order = await this.findOne(orderId);
+    this.assertNotAnulado(order, 'eliminar ítem');
 
     // Solo se pueden eliminar items de órdenes DRAFT
     if (order.status !== OrderStatus.DRAFT) {
@@ -934,6 +959,7 @@ export class OrdersService {
     receivedById: string,
   ) {
     const order = await this.findOne(orderId);
+    this.assertNotAnulado(order, 'registrar pago');
 
     // Solo se pueden agregar pagos a órdenes CONFIRMED en adelante
     const allowedStatuses: OrderStatus[] = [
@@ -1233,6 +1259,7 @@ export class OrdersService {
     appliedById: string,
   ) {
     const order = await this.findOne(orderId);
+    this.assertNotAnulado(order, 'aplicar descuento');
 
     // Solo se pueden aplicar descuentos a órdenes CONFIRMED en adelante
     const allowedStatuses: OrderStatus[] = [
@@ -1327,6 +1354,7 @@ export class OrdersService {
 
   async removeDiscount(orderId: string, discountId: string) {
     const order = await this.findOne(orderId);
+    this.assertNotAnulado(order, 'eliminar descuento');
 
     // Solo se pueden eliminar descuentos de órdenes CONFIRMED en adelante
     const allowedStatuses: OrderStatus[] = [
@@ -1470,5 +1498,13 @@ export class OrdersService {
     });
 
     return { data, total, page, limit };
+  }
+
+  private assertNotAnulado(order: { status: string }, operation: string): void {
+    if (order.status === OrderStatus.ANULADO) {
+      throw new ForbiddenException(
+        `No se puede realizar "${operation}" porque la orden está ANULADA.`,
+      );
+    }
   }
 }
