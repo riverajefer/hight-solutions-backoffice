@@ -936,29 +936,72 @@ describe('OrdersService', () => {
       expect(result).toMatchObject({ status: OrderStatus.CONFIRMED });
     });
 
-    it('should transition to ANULADO from DRAFT skipping approval checks', async () => {
+    it('should allow admin to ANULAR directly (no approval needed)', async () => {
       const draftOrder = buildOrder({ status: OrderStatus.DRAFT });
       const anuladoOrder = buildOrder({ status: OrderStatus.ANULADO });
       mockOrdersRepository.findById
         .mockResolvedValueOnce(draftOrder)
         .mockResolvedValueOnce(anuladoOrder);
       mockOrdersRepository.updateStatus.mockResolvedValue(anuladoOrder);
+      // Admin → requiresAuthorization retorna { required: false }
+      mockStatusChangeRequestsService.requiresAuthorization.mockResolvedValue({ required: false });
 
       const result = await service.updateStatus('order-1', OrderStatus.ANULADO, 'user-1');
 
       expect(result.status).toBe(OrderStatus.ANULADO);
       expect(mockOrdersRepository.updateStatus).toHaveBeenCalledWith('order-1', OrderStatus.ANULADO);
-      // No debe invocar checks de autorización de DELIVERED_ON_CREDIT
-      expect(mockStatusChangeRequestsService.requiresAuthorization).not.toHaveBeenCalled();
+      expect(mockStatusChangeRequestsService.requiresAuthorization).toHaveBeenCalledWith(
+        'order-1', OrderStatus.ANULADO, 'user-1',
+      );
+      // No debe consumir ninguna solicitud si no es requerida
+      expect(mockStatusChangeRequestsService.consumeApprovedRequest).not.toHaveBeenCalled();
     });
 
-    it('should transition to ANULADO from CONFIRMED skipping approval checks', async () => {
+    it('should throw ForbiddenException for non-admin ANULADO without approved request', async () => {
+      const draftOrder = buildOrder({ status: OrderStatus.DRAFT });
+      mockOrdersRepository.findById.mockResolvedValue(draftOrder);
+      mockStatusChangeRequestsService.requiresAuthorization.mockResolvedValue({
+        required: true,
+        reason: 'Anular una orden requiere aprobación administrativa',
+      });
+      mockStatusChangeRequestsService.hasApprovedRequest.mockResolvedValue(false);
+
+      await expect(
+        service.updateStatus('order-1', OrderStatus.ANULADO, 'user-1'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockOrdersRepository.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('should allow non-admin ANULADO when approved request exists', async () => {
+      const draftOrder = buildOrder({ status: OrderStatus.DRAFT });
+      const anuladoOrder = buildOrder({ status: OrderStatus.ANULADO });
+      mockOrdersRepository.findById
+        .mockResolvedValueOnce(draftOrder)
+        .mockResolvedValueOnce(anuladoOrder);
+      mockOrdersRepository.updateStatus.mockResolvedValue(anuladoOrder);
+      mockStatusChangeRequestsService.requiresAuthorization.mockResolvedValue({
+        required: true,
+        reason: 'Anular una orden requiere aprobación administrativa',
+      });
+      mockStatusChangeRequestsService.hasApprovedRequest.mockResolvedValue(true);
+      mockStatusChangeRequestsService.consumeApprovedRequest.mockResolvedValue(undefined);
+
+      const result = await service.updateStatus('order-1', OrderStatus.ANULADO, 'user-1');
+
+      expect(result.status).toBe(OrderStatus.ANULADO);
+      expect(mockStatusChangeRequestsService.consumeApprovedRequest).toHaveBeenCalledWith(
+        'order-1', 'user-1', OrderStatus.ANULADO,
+      );
+    });
+
+    it('should allow ANULADO from CONFIRMED when admin', async () => {
       const confirmedOrder = buildOrder({ status: OrderStatus.CONFIRMED });
       const anuladoOrder = buildOrder({ status: OrderStatus.ANULADO });
       mockOrdersRepository.findById
         .mockResolvedValueOnce(confirmedOrder)
         .mockResolvedValueOnce(anuladoOrder);
       mockOrdersRepository.updateStatus.mockResolvedValue(anuladoOrder);
+      mockStatusChangeRequestsService.requiresAuthorization.mockResolvedValue({ required: false });
 
       const result = await service.updateStatus('order-1', OrderStatus.ANULADO, 'user-1');
 

@@ -604,13 +604,39 @@ export class OrdersService {
       return order;
     }
 
-    // Fast-path: ANULADO es acción administrativa directa, omite flujo de aprobaciones
+    // Fast-path: ANULADO omite checks de anticipo/descuento/propiedad
+    // pero requiere autorización administrativa para usuarios no-admin
     if (status === OrderStatus.ANULADO) {
       if (!isValidTransition(order.status as OrderStatus, status)) {
         throw new BadRequestException(
           `No se puede anular una orden en estado ${order.status}.`,
         );
       }
+
+      const authCheck = await this.statusChangeRequestsService.requiresAuthorization(
+        id,
+        status,
+        userId,
+      );
+
+      if (authCheck.required) {
+        const hasApproval = await this.statusChangeRequestsService.hasApprovedRequest(
+          id,
+          userId,
+          status,
+        );
+
+        if (!hasApproval) {
+          throw new ForbiddenException(
+            `Este cambio de estado requiere autorización de un administrador. ` +
+            `Razón: ${authCheck.reason}. ` +
+            `Por favor, cree una solicitud de cambio de estado.`,
+          );
+        }
+
+        await this.statusChangeRequestsService.consumeApprovedRequest(id, userId, status);
+      }
+
       await this.ordersRepository.updateStatus(id, status);
       const updatedOrder = await this.findOne(id);
       this.auditLogsService.logOrderChange('UPDATE', id, order, updatedOrder, userId);
