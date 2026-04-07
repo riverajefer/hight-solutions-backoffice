@@ -160,11 +160,22 @@ export const WorkOrdersListPage = () => {
     },
     {
       field: 'advisor',
-      headerName: 'Asesor',
+      headerName: 'Creado Por',
       width: 180,
       responsive: 'md',
       valueGetter: (_: any, row: WorkOrder) => {
         const a = row.advisor;
+        if (!a) return '-';
+        return `${a.firstName ?? ''} ${a.lastName ?? ''}`.trim() || a.email;
+      },
+    },
+    {
+      field: 'orderAdvisor',
+      headerName: 'Asesor',
+      width: 180,
+      responsive: 'md',
+      valueGetter: (_: any, row: WorkOrder) => {
+        const a = row.order?.createdBy;
         if (!a) return '-';
         return `${a.firstName ?? ''} ${a.lastName ?? ''}`.trim() || a.email;
       },
