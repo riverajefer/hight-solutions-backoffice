@@ -2455,6 +2455,8 @@ async function main() {
         'Compra de materiales para cliente',
         'Servicios subcontratados',
         'Costos directos de orden de trabajo',
+        'Tintas para máquinas',
+        'Insumos para máquinas',
       ],
     },
     {
