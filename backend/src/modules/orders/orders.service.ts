@@ -26,6 +26,7 @@ import {
   PaginatedProfitabilityDto,
   ExpenseOrderSummaryDto,
 } from './dto';
+import { InitialPaymentDto } from './dto/create-order.dto';
 import { EditRequestStatus, OrderStatus, Prisma } from '../../generated/prisma';
 import { isValidTransition, getValidNextStatuses } from './order-status-transitions';
 import { PrismaService } from '../../database/prisma.service';
@@ -119,29 +120,35 @@ export class OrdersService {
       
     const total = subtotal.add(tax).sub(discountAmount).add(colorProofPrice);
 
-    // Manejar pago inicial
+    // Manejar pagos iniciales (uno o múltiples)
     let paidAmount = new Prisma.Decimal(0);
     let payments = undefined;
 
-    if (createOrderDto.initialPayment) {
-      paidAmount = new Prisma.Decimal(createOrderDto.initialPayment.amount);
+    const allInitialPayments: InitialPaymentDto[] = [
+      ...(createOrderDto.initialPayment ? [createOrderDto.initialPayment] : []),
+      ...(createOrderDto.initialPayments ?? []),
+    ];
 
-      // Validar que el pago inicial no exceda el total
+    if (allInitialPayments.length > 0) {
+      paidAmount = allInitialPayments.reduce(
+        (sum, p) => sum.add(new Prisma.Decimal(p.amount)),
+        new Prisma.Decimal(0),
+      );
+
+      // Validar que la suma de pagos iniciales no exceda el total
       if (paidAmount.greaterThan(total)) {
-        throw new BadRequestException('Initial payment cannot exceed order total');
+        throw new BadRequestException('Initial payments cannot exceed order total');
       }
 
       payments = {
-        create: [
-          {
-            amount: paidAmount,
-            paymentMethod: createOrderDto.initialPayment.paymentMethod,
-            paymentDate: new Date(),
-            reference: createOrderDto.initialPayment.reference,
-            notes: createOrderDto.initialPayment.notes,
-            receivedBy: { connect: { id: createdById } },
-          },
-        ],
+        create: allInitialPayments.map((p) => ({
+          amount: new Prisma.Decimal(p.amount),
+          paymentMethod: p.paymentMethod,
+          paymentDate: new Date(),
+          reference: p.reference,
+          notes: p.notes,
+          receivedBy: { connect: { id: createdById } },
+        })),
       };
     }
 
@@ -221,21 +228,26 @@ export class OrdersService {
     let needsRefetch = false;
 
     // Verificar si el anticipo requiere aprobación (usuario no-admin/no-caja)
-    if (newOrder && createOrderDto.initialPayment && paidAmount.greaterThan(0)) {
+    if (newOrder && allInitialPayments.length > 0 && paidAmount.greaterThan(0)) {
       const approvalCheck = await this.advancePaymentApprovalsService.requiresApproval(createdById);
 
       if (approvalCheck.required) {
-        // Buscar el payment recién creado
-        const payment = await this.prisma.payment.findFirst({
+        // Buscar todos los pagos creados (en orden de creación)
+        const createdPayments = await this.prisma.payment.findMany({
           where: { orderId: newOrder.id },
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: 'asc' },
         });
 
-        if (payment) {
+        // Crear una solicitud de aprobación + notificación WA por cada anticipo
+        for (let idx = 0; idx < createdPayments.length; idx++) {
+          const paymentLabel =
+            createdPayments.length > 1 ? `anticipo ${idx + 1}` : 'anticipo';
+
           await this.advancePaymentApprovalsService.createFromOrderCreation(
             createdById,
             newOrder.id,
-            payment.id,
+            createdPayments[idx].id,
+            paymentLabel,
           );
           needsRefetch = true;
         }

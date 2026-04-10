@@ -95,7 +95,7 @@ const orderFormSchema = z
     items: z.array(orderItemSchema).min(1, 'Debe agregar al menos un item'),
     applyTax: z.boolean(),
     taxRate: z.number().min(0).max(100),
-    payment: initialPaymentSchema,
+    payments: z.array(initialPaymentSchema).min(1),
     commercialChannelId: z.string().min(1, 'El canal de ventas es requerido'),
   })
   .refine(
@@ -117,11 +117,22 @@ const orderFormSchema = z
       const tax = data.applyTax ? subtotal * (data.taxRate / 100) : 0;
       const colorProofPrice = data.requiresColorProof ? (data.colorProofPrice || 0) : 0;
       const total = subtotal + tax + colorProofPrice;
-      return data.payment.amount <= total;
+      const totalPaid = data.payments.reduce((sum, p) => sum + p.amount, 0);
+      return totalPaid <= total;
     },
     {
-      message: 'El monto del abono no puede ser mayor al total de la orden',
-      path: ['payment', 'amount'],
+      message: 'La suma de los anticipos no puede ser mayor al total de la orden',
+      path: ['payments'],
+    }
+  )
+  .refine(
+    (data) => {
+      const cashCount = data.payments.filter((p) => p.paymentMethod === 'CASH').length;
+      return cashCount <= 1;
+    },
+    {
+      message: 'Solo puede registrarse un anticipo en Efectivo',
+      path: ['payments'],
     }
   )
   .refine(
@@ -329,12 +340,14 @@ export const OrderFormPage: React.FC = () => {
       ],
       applyTax: false,
       taxRate: 19,
-      payment: {
-        amount: 0,
-        paymentMethod: 'CASH',
-        reference: '',
-        notes: '',
-      },
+      payments: [
+        {
+          amount: 0,
+          paymentMethod: 'CASH',
+          reference: '',
+          notes: '',
+        },
+      ],
       commercialChannelId: '',
     },
   });
@@ -416,12 +429,12 @@ export const OrderFormPage: React.FC = () => {
       setValue('taxRate', currentTaxRate > 0 ? currentTaxRate * 100 : 19);
 
       const firstPayment = order.payments && order.payments.length > 0 ? order.payments[0] : null;
-      setValue('payment', {
+      setValue('payments', [{
         amount: firstPayment ? parseFloat(firstPayment.amount) : 0,
         paymentMethod: firstPayment?.paymentMethod || 'CASH',
         reference: firstPayment?.reference || '',
         notes: firstPayment?.notes || '',
-      });
+      }]);
       setValue('commercialChannelId', order.commercialChannelId || '');
       // En edición todos los pasos fueron completados
       setVisitedSteps(new Set([0, 1, 2, 3]));
@@ -481,12 +494,20 @@ export const OrderFormPage: React.FC = () => {
           specifications: item.specifications,
           productionAreaIds: item.productionAreaIds,
         })),
-        initialPayment: {
-          amount: data.payment.amount,
-          paymentMethod: data.payment.paymentMethod,
-          reference: data.payment.reference,
-          notes: data.payment.notes,
-        },
+        // En edición solo se actualiza el primer pago como initialPayment (comportamiento existente)
+        // En creación enviamos todos como initialPayments para que el backend los cree en una sola transacción
+        initialPayment: isEdit ? {
+          amount: data.payments[0].amount,
+          paymentMethod: data.payments[0].paymentMethod,
+          reference: data.payments[0].reference,
+          notes: data.payments[0].notes,
+        } : undefined,
+        initialPayments: !isEdit ? data.payments.map((p) => ({
+          amount: p.amount,
+          paymentMethod: p.paymentMethod,
+          reference: p.reference,
+          notes: p.notes,
+        })) : undefined,
         commercialChannelId: data.commercialChannelId,
       };
 
@@ -495,17 +516,26 @@ export const OrderFormPage: React.FC = () => {
         navigate(`/orders/${id}`);
       } else {
         const newOrder = await createOrderMutation.mutateAsync(orderDto);
-        
-        if (data.payment.receiptFile && newOrder.payments && newOrder.payments.length > 0) {
-          try {
-            await ordersApi.uploadPaymentReceipt(newOrder.id, newOrder.payments[0].id, data.payment.receiptFile);
-            enqueueSnackbar('Orden y comprobante guardados exitosamente', { variant: 'success' });
-          } catch (e: any) {
-            console.error('Error al subir el comprobante:', e);
-            enqueueSnackbar('Orden creada, pero hubo un error subiendo el comprobante', { variant: 'warning' });
+
+        // Subir comprobantes de cada anticipo asociando por método+monto
+        if (newOrder.payments && newOrder.payments.length > 0) {
+          for (const dp of data.payments) {
+            if (!dp.receiptFile) continue;
+            const match = newOrder.payments.find(
+              (p) => p.paymentMethod === dp.paymentMethod && Math.abs(parseFloat(p.amount as any) - dp.amount) < 1,
+            );
+            if (match) {
+              try {
+                await ordersApi.uploadPaymentReceipt(newOrder.id, match.id, dp.receiptFile);
+              } catch (e: any) {
+                console.error('Error al subir comprobante:', e);
+                enqueueSnackbar('Orden creada, pero hubo un error subiendo un comprobante', { variant: 'warning' });
+              }
+            }
           }
         }
-        
+
+        enqueueSnackbar('Orden creada exitosamente', { variant: 'success' });
         navigate(`/orders/${newOrder.id}`);
       }
     } catch (error: any) {
@@ -768,15 +798,15 @@ export const OrderFormPage: React.FC = () => {
       />
 
       <Controller
-        name="payment"
+        name="payments"
         control={control}
-        render={({ field: paymentField }) => (
+        render={({ field: paymentsField }) => (
           <InitialPayment
             total={total}
             enabled={true}
-            value={paymentField.value}
+            values={paymentsField.value}
             onEnabledChange={() => {}}
-            onChange={paymentField.onChange}
+            onChange={paymentsField.onChange}
             errors={errors as any}
             disabled={!isClientSelected}
             required={true}
@@ -854,24 +884,21 @@ export const OrderFormPage: React.FC = () => {
               <strong>Total:</strong> {formatCurrency(total)}
             </Typography>
             <Divider sx={{ my: 0.5 }} />
-            <Typography variant="body2" color="primary.main" fontWeight={600}>
-              <strong>Anticipo:</strong> {formatCurrency(watch('payment.amount') || 0)}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              <strong>Método de pago:</strong> {
-                {
-                  CASH: 'Efectivo',
-                  TRANSFER: 'Transferencia',
-                  CARD: 'Tarjeta',
-                  CHECK: 'Cheque',
-                  CREDIT: 'Crédito',
-                  OTHER: 'Otro'
-                }[watch('payment.paymentMethod')] || watch('payment.paymentMethod')
-              }
-            </Typography>
+            {watch('payments').map((p, i) => (
+              <Typography key={i} variant="body2" color="primary.main" fontWeight={600}>
+                <strong>Anticipo {watch('payments').length > 1 ? i + 1 : ''}:</strong>{' '}
+                {formatCurrency(p.amount || 0)}{' '}
+                <Typography component="span" variant="body2" color="text.secondary" fontWeight={400}>
+                  ({
+                    { CASH: 'Efectivo', TRANSFER: 'Transferencia', CARD: 'Tarjeta', CHECK: 'Cheque', CREDIT: 'Crédito', OTHER: 'Otro' }[p.paymentMethod] || p.paymentMethod
+                  })
+                </Typography>
+              </Typography>
+            ))}
             <Divider sx={{ my: 0.5 }} />
             <Typography variant="body2" color="error.main" fontWeight={700}>
-              <strong>Saldo por pagar:</strong> {formatCurrency(total - (watch('payment.amount') || 0))}
+              <strong>Saldo por pagar:</strong>{' '}
+              {formatCurrency(total - watch('payments').reduce((sum, p) => sum + (p.amount || 0), 0))}
             </Typography>
           </Stack>
         </CardContent>

@@ -151,6 +151,16 @@ export class CreateOrderDto {
   initialPayment?: InitialPaymentDto;
 
   @ApiPropertyOptional({
+    description: 'Múltiples pagos iniciales al crear la orden (máximo 3). Si se usa junto con initialPayment, se combinan.',
+    type: [InitialPaymentDto],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => InitialPaymentDto)
+  initialPayments?: InitialPaymentDto[];
+
+  @ApiPropertyOptional({
     description: 'ID del canal comercial',
     example: 'uuid-channel',
   })

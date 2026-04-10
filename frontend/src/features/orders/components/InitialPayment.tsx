@@ -20,6 +20,8 @@ import {
   AttachFile as AttachFileIcon,
   Image as ImageIcon,
   Close as CloseIcon,
+  Add as AddIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import type {
   InitialPaymentData,
@@ -28,12 +30,14 @@ import type {
 import { PAYMENT_METHOD_LABELS } from '../../../types/order.types';
 import { useAuthStore } from '../../../store/authStore';
 
+const MAX_PAYMENTS = 3;
+
 interface InitialPaymentProps {
   total: number;
   enabled: boolean;
-  value: InitialPaymentData | null;
+  values: InitialPaymentData[];
   onEnabledChange: (value: boolean) => void;
-  onChange: (data: InitialPaymentData | null) => void;
+  onChange: (data: InitialPaymentData[]) => void;
   errors?: Record<string, string>;
   disabled?: boolean;
   required?: boolean;
@@ -48,47 +52,72 @@ const formatCurrency = (value: number): string => {
   }).format(value);
 };
 
-// Formatear moneda mientras se escribe (con separadores de miles)
 const formatCurrencyInput = (value: string | number): string => {
-  // Convertir a string y remover todo excepto números
   const numericValue = value.toString().replace(/\D/g, '');
-
   if (!numericValue) return '';
-
-  // Convertir a número y formatear con separadores de miles
   const number = parseInt(numericValue, 10);
   return new Intl.NumberFormat('es-CO').format(number);
 };
 
+const EMPTY_PAYMENT = (): InitialPaymentData => ({
+  amount: 0,
+  paymentMethod: 'TRANSFER',
+  reference: '',
+  notes: '',
+  receiptFile: null,
+});
+
 export const InitialPayment: React.FC<InitialPaymentProps> = ({
   total,
   enabled,
-  value,
+  values = [],
   onChange,
   errors = {},
   disabled = false,
   required = false,
 }) => {
-  const receiptFileInputRef = useRef<HTMLInputElement>(null);
+  // One ref per possible payment block (max 3)
+  const fileInputRefs = useRef<(HTMLInputElement | null)[]>([null, null, null]);
 
-  const handleFieldChange = (field: keyof InitialPaymentData, newValue: any) => {
-    const updatedData: InitialPaymentData = {
-      amount: value?.amount ?? 0,
-      paymentMethod: value?.paymentMethod || 'CASH',
-      reference: value?.reference,
-      notes: value?.notes,
-      receiptFile: value?.receiptFile,
-      [field]: newValue,
-    };
-
-    if (field === 'paymentMethod' && newValue === 'CREDIT') {
-      updatedData.amount = value?.amount || 0;
-    }
-
-    onChange(updatedData);
+  const handleFieldChange = (
+    index: number,
+    field: keyof InitialPaymentData,
+    newValue: any,
+  ) => {
+    const updated = values.map((p, i) => {
+      if (i !== index) return p;
+      const updatedPayment = { ...p, [field]: newValue };
+      if (field === 'paymentMethod' && newValue === 'CREDIT') {
+        updatedPayment.amount = p.amount || 0;
+      }
+      return updatedPayment;
+    });
+    onChange(updated);
   };
 
-  const balance = total - (value?.amount || 0);
+  const handleAddPayment = () => {
+    if (values.length >= MAX_PAYMENTS || disabled) return;
+    onChange([...values, EMPTY_PAYMENT()]);
+  };
+
+  const handleRemovePayment = (index: number) => {
+    if (values.length <= 1) return;
+    onChange(values.filter((_, i) => i !== index));
+  };
+
+  // Computed values
+  const totalPaid = values.reduce((sum, p) => sum + (p.amount || 0), 0);
+  const balance = total - totalPaid;
+  const cashUsedIndices = values
+    .map((p, i) => (p.paymentMethod === 'CASH' ? i : -1))
+    .filter((i) => i !== -1);
+  const cashAlreadyUsed = cashUsedIndices.length > 0;
+
+  const isMethodDisabled = (index: number, method: PaymentMethod): boolean => {
+    if (method !== 'CASH') return false;
+    // CASH is disabled if another block already uses it
+    return cashAlreadyUsed && !cashUsedIndices.includes(index);
+  };
 
   return (
     <Card variant="outlined" sx={{ borderRadius: 2 }}>
@@ -106,223 +135,276 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
         )}
 
         <Collapse in={enabled || required}>
-          <Grid container spacing={2} sx={{ mt: 0.5 }}>
-            {/* Fila 1: Método de Pago y Monto */}
-            <Grid item xs={12} sm={6}>
-              <TextField
-                select
-                fullWidth
-                label="Método de Pago"
-                value={value?.paymentMethod || 'CASH'}
-                onChange={(e) =>
-                  handleFieldChange(
-                    'paymentMethod',
-                    e.target.value as PaymentMethod
-                  )
-                }
-                disabled={disabled}
+          <Stack spacing={2}>
+            {values.map((payment, index) => (
+              <Box
+                key={index}
+                sx={{
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 2,
+                  p: 2,
+                  position: 'relative',
+                  bgcolor: (theme) =>
+                    theme.palette.mode === 'dark'
+                      ? 'rgba(255,255,255,0.03)'
+                      : 'rgba(0,0,0,0.01)',
+                }}
               >
-                {(
-                  Object.entries(PAYMENT_METHOD_LABELS) as [
-                    PaymentMethod,
-                    string
-                  ][]
-                ).map(([method, label]) => (
-                  <MenuItem key={method} value={method}>
-                    {label}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                required
-                label="Monto del Abono"
-                value={
-                  value?.amount === 0 && (value?.paymentMethod || 'CASH') !== 'CREDIT'
-                    ? ''
-                    : value?.amount !== undefined && value?.amount !== null
-                      ? formatCurrencyInput(value.amount)
-                      : ''
-                }
-                onChange={(e) => {
-                  const rawValue = e.target.value.replace(/\D/g, '');
-                  const amount = rawValue ? parseInt(rawValue, 10) : 0;
-                  handleFieldChange('amount', amount);
-                }}
-                error={!!errors['payment.amount'] || (value?.amount || 0) > total}
-                helperText={
-                  !!errors['payment.amount'] 
-                    ? errors['payment.amount']
-                    : (value?.amount || 0) > total
-                      ? `El abono no puede superar el total (${formatCurrency(total)})`
-                      : disabled 
-                        ? 'Primero seleccione un cliente' 
-                        : `Máximo: ${formatCurrency(total)}`
-                }
-                disabled={disabled}
-                InputProps={{
-                  startAdornment: <Typography sx={{ mr: 1, color: 'text.secondary', fontWeight: 500 }}>$</Typography>,
-                }}
-                inputProps={{
-                  style: { textAlign: 'right', fontWeight: 600 },
-                }}
-              />
-            </Grid>
-
-            {/* Fila 2: Notas */}
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Notas del Pago"
-                placeholder="Ej: Anticipo"
-                value={value?.notes || ''}
-                onChange={(e) => handleFieldChange('notes', e.target.value)}
-                disabled={disabled}
-              />
-            </Grid>
-
-            {/* Fila 3: Comprobante */}
-            <Grid item xs={12}>
-              <Box>
-                <FormLabel sx={{ mb: 1, display: 'block' }}>
-                  Comprobante de Pago (Opcional)
-                </FormLabel>
-                <input
-                  type="file"
-                  hidden
-                  accept="image/jpeg,image/png,image/gif,image/webp,.pdf"
-                  ref={receiptFileInputRef}
-                  disabled={disabled}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleFieldChange('receiptFile', file);
-                    if (e.target) e.target.value = '';
-                  }}
-                />
-
-                {!value?.receiptFile ? (
-                  <Stack spacing={1}>
-                    <Button
-                      variant="outlined"
-                      startIcon={<AttachFileIcon />}
-                      size="small"
-                      disabled={disabled}
-                      onClick={() => receiptFileInputRef.current?.click()}
-                      sx={{ textTransform: 'none', alignSelf: 'flex-start' }}
-                    >
-                      Adjuntar imagen o PDF
-                    </Button>
-                    <Box
-                      onPaste={(e) => {
-                        if (disabled) return;
-                        const items = e.clipboardData.items;
-                        for (let i = 0; i < items.length; i++) {
-                          if (items[i].type.indexOf('image') !== -1) {
-                            const file = items[i].getAsFile();
-                            if (file) handleFieldChange('receiptFile', file);
-                            break;
-                          }
-                        }
-                      }}
-                      tabIndex={disabled ? -1 : 0}
-                      sx={{
-                        border: '2px dashed',
-                        borderColor: 'grey.300',
-                        borderRadius: 1,
-                        p: 2,
-                        textAlign: 'center',
-                        cursor: disabled ? 'not-allowed' : 'pointer',
-                        opacity: disabled ? 0.6 : 1,
-                        transition: 'border-color 0.2s, background-color 0.2s',
-                        '&:hover, &:focus': !disabled ? {
-                          borderColor: 'primary.main',
-                          bgcolor: 'action.hover',
-                        } : {},
-                      }}
-                      onClick={() => {
-                        if (!disabled) receiptFileInputRef.current?.click();
-                      }}
-                    >
-                      <ImageIcon sx={{ fontSize: 28, color: 'grey.400', mb: 0.5 }} />
-                      <Typography variant="caption" color="text.secondary" display="block">
-                        O pega una imagen aquí (Ctrl+V / ⌘+V)
-                      </Typography>
-                    </Box>
-                  </Stack>
-                ) : (
-                  <Stack spacing={1.5} direction="row" alignItems="center">
-                    {value.receiptFile.type.startsWith('image/') ? (
-                      <Box
-                        sx={{
-                          position: 'relative',
-                          width: 80,
-                          height: 80,
-                          border: '1px solid',
-                          borderColor: 'grey.300',
-                          borderRadius: 1,
-                          overflow: 'hidden',
-                          bgcolor: 'grey.50',
-                        }}
-                      >
-                        <Box
-                          component="img"
-                          src={URL.createObjectURL(value.receiptFile)}
-                          alt="Vista previa"
-                          sx={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                          }}
-                        />
-                      </Box>
-                    ) : (
-                      <Chip
-                        icon={<AttachFileIcon />}
-                        label={value.receiptFile.name}
-                        variant="outlined"
-                      />
-                    )}
+                {/* Block header */}
+                <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1.5}>
+                  <Typography variant="subtitle2" fontWeight={700} color="text.secondary">
+                    Anticipo {index + 1}
+                  </Typography>
+                  {values.length > 1 && (
                     <IconButton
                       size="small"
                       color="error"
-                      onClick={() => handleFieldChange('receiptFile', null)}
+                      onClick={() => handleRemovePayment(index)}
+                      disabled={disabled}
+                      title="Eliminar anticipo"
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  )}
+                </Stack>
+
+                <Grid container spacing={2}>
+                  {/* Método de Pago */}
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      select
+                      fullWidth
+                      label="Método de Pago"
+                      value={payment.paymentMethod || 'CASH'}
+                      onChange={(e) =>
+                        handleFieldChange(index, 'paymentMethod', e.target.value as PaymentMethod)
+                      }
                       disabled={disabled}
                     >
-                      <CloseIcon />
-                    </IconButton>
-                  </Stack>
-                )}
-              </Box>
-            </Grid>
+                      {(Object.entries(PAYMENT_METHOD_LABELS) as [PaymentMethod, string][]).map(
+                        ([method, label]) => (
+                          <MenuItem
+                            key={method}
+                            value={method}
+                            disabled={isMethodDisabled(index, method)}
+                          >
+                            {label}
+                            {isMethodDisabled(index, method) ? ' (ya usado)' : ''}
+                          </MenuItem>
+                        ),
+                      )}
+                    </TextField>
+                  </Grid>
 
-            {/* Fila 4: Saldo Calculado */}
-            <Grid item xs={12}>
-              <Box
-                sx={{
-                  mt: 2,
-                  p: 2,
-                  borderRadius: 2,
-                  bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)',
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
+                  {/* Monto */}
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      required
+                      label="Monto del Abono"
+                      value={
+                        (payment.amount === 0 && payment.paymentMethod !== 'CREDIT')
+                          ? ''
+                          : payment.amount !== undefined && payment.amount !== null
+                          ? formatCurrencyInput(payment.amount)
+                          : ''
+                      }
+                      onChange={(e) => {
+                        const rawValue = e.target.value.replace(/\D/g, '');
+                        const amount = rawValue ? parseInt(rawValue, 10) : 0;
+                        handleFieldChange(index, 'amount', amount);
+                      }}
+                      error={totalPaid > total}
+                      helperText={
+                        totalPaid > total
+                          ? `La suma supera el total (${formatCurrency(total)})`
+                          : disabled
+                          ? 'Primero seleccione un cliente'
+                          : `Máximo disponible: ${formatCurrency(total)}`
+                      }
+                      disabled={disabled}
+                      InputProps={{
+                        startAdornment: (
+                          <Typography sx={{ mr: 1, color: 'text.secondary', fontWeight: 500 }}>
+                            $
+                          </Typography>
+                        ),
+                      }}
+                      inputProps={{
+                        style: { textAlign: 'right', fontWeight: 600 },
+                      }}
+                    />
+                  </Grid>
+
+                  {/* Notas */}
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Notas del Pago"
+                      placeholder="Ej: Anticipo"
+                      value={payment.notes || ''}
+                      onChange={(e) => handleFieldChange(index, 'notes', e.target.value)}
+                      disabled={disabled}
+                    />
+                  </Grid>
+
+                  {/* Comprobante */}
+                  <Grid item xs={12}>
+                    <Box>
+                      <FormLabel sx={{ mb: 1, display: 'block' }}>
+                        Comprobante de Pago (Opcional)
+                      </FormLabel>
+                      <input
+                        type="file"
+                        hidden
+                        accept="image/jpeg,image/png,image/gif,image/webp,.pdf"
+                        ref={(el) => { fileInputRefs.current[index] = el; }}
+                        disabled={disabled}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleFieldChange(index, 'receiptFile', file);
+                          if (e.target) e.target.value = '';
+                        }}
+                      />
+
+                      {!payment.receiptFile ? (
+                        <Stack spacing={1}>
+                          <Button
+                            variant="outlined"
+                            startIcon={<AttachFileIcon />}
+                            size="small"
+                            disabled={disabled}
+                            onClick={() => fileInputRefs.current[index]?.click()}
+                            sx={{ textTransform: 'none', alignSelf: 'flex-start' }}
+                          >
+                            Adjuntar imagen o PDF
+                          </Button>
+                          <Box
+                            onPaste={(e) => {
+                              if (disabled) return;
+                              const items = e.clipboardData.items;
+                              for (let i = 0; i < items.length; i++) {
+                                if (items[i].type.indexOf('image') !== -1) {
+                                  const file = items[i].getAsFile();
+                                  if (file) handleFieldChange(index, 'receiptFile', file);
+                                  break;
+                                }
+                              }
+                            }}
+                            tabIndex={disabled ? -1 : 0}
+                            sx={{
+                              border: '2px dashed',
+                              borderColor: 'grey.300',
+                              borderRadius: 1,
+                              p: 2,
+                              textAlign: 'center',
+                              cursor: disabled ? 'not-allowed' : 'pointer',
+                              opacity: disabled ? 0.6 : 1,
+                              transition: 'border-color 0.2s, background-color 0.2s',
+                              '&:hover, &:focus': !disabled
+                                ? { borderColor: 'primary.main', bgcolor: 'action.hover' }
+                                : {},
+                            }}
+                            onClick={() => {
+                              if (!disabled) fileInputRefs.current[index]?.click();
+                            }}
+                          >
+                            <ImageIcon sx={{ fontSize: 28, color: 'grey.400', mb: 0.5 }} />
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              O pega una imagen aquí (Ctrl+V / ⌘+V)
+                            </Typography>
+                          </Box>
+                        </Stack>
+                      ) : (
+                        <Stack spacing={1.5} direction="row" alignItems="center">
+                          {payment.receiptFile.type.startsWith('image/') ? (
+                            <Box
+                              sx={{
+                                position: 'relative',
+                                width: 80,
+                                height: 80,
+                                border: '1px solid',
+                                borderColor: 'grey.300',
+                                borderRadius: 1,
+                                overflow: 'hidden',
+                                bgcolor: 'grey.50',
+                              }}
+                            >
+                              <Box
+                                component="img"
+                                src={URL.createObjectURL(payment.receiptFile)}
+                                alt="Vista previa"
+                                sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              />
+                            </Box>
+                          ) : (
+                            <Chip
+                              icon={<AttachFileIcon />}
+                              label={payment.receiptFile.name}
+                              variant="outlined"
+                            />
+                          )}
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleFieldChange(index, 'receiptFile', null)}
+                            disabled={disabled}
+                          >
+                            <CloseIcon />
+                          </IconButton>
+                        </Stack>
+                      )}
+                    </Box>
+                  </Grid>
+                </Grid>
+              </Box>
+            ))}
+
+            {/* Botón agregar anticipo */}
+            {values.length < MAX_PAYMENTS && (
+              <Button
+                variant="outlined"
+                startIcon={<AddIcon />}
+                onClick={handleAddPayment}
+                disabled={disabled}
+                size="small"
+                sx={{ alignSelf: 'flex-start', textTransform: 'none' }}
               >
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                  El saldo pendiente se calculará automáticamente restando el abono del total.
-                </Typography>
-                <Box sx={{ textAlign: 'right' }}>
-                  <Typography variant="caption" sx={{
-                    fontSize: '0.9rem',
-                    color: 'text.secondary',
-                    display: 'block',
-                    mb: 0.5
-                  }}>
+                Agregar otro anticipo
+              </Button>
+            )}
+
+            {/* Resumen de totales */}
+            <Box
+              sx={{
+                mt: 1,
+                p: 2,
+                borderRadius: 2,
+                bgcolor: (theme) =>
+                  theme.palette.mode === 'dark'
+                    ? 'rgba(255, 255, 255, 0.05)'
+                    : 'rgba(0, 0, 0, 0.02)',
+                border: '1px solid',
+                borderColor: 'divider',
+              }}
+            >
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                justifyContent="space-between"
+                alignItems={{ xs: 'flex-start', sm: 'center' }}
+                spacing={1}
+              >
+                <Box>
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    Total abonado
+                  </Typography>
+                  <Typography variant="h6" fontWeight={700} color="primary.main">
+                    {formatCurrency(totalPaid)}
+                  </Typography>
+                </Box>
+                <Box sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
+                  <Typography variant="caption" color="text.secondary" display="block">
                     Saldo Pendiente
                   </Typography>
                   <Typography
@@ -332,12 +414,12 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
                       color: balance > 0 ? 'warning.main' : 'success.main',
                     }}
                   >
-                    {formatCurrency(balance)}
+                    {formatCurrency(Math.max(0, balance))}
                   </Typography>
                 </Box>
-              </Box>
-            </Grid>
-          </Grid>
+              </Stack>
+            </Box>
+          </Stack>
         </Collapse>
       </CardContent>
     </Card>
