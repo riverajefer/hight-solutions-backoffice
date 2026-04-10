@@ -367,8 +367,8 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
                 startIcon={<AddIcon />}
                 onClick={handleAddPayment}
                 disabled={disabled}
-                size="small"
-                sx={{ alignSelf: 'flex-start', textTransform: 'none' }}
+                size="verySmall"
+                sx={{ alignSelf: 'flex-end', textTransform: 'none' }}
               >
                 Agregar otro anticipo
               </Button>
