@@ -141,6 +141,17 @@ export const PERMISSIONS = {
   CREATE_COMMENTS: 'create_comments',
   READ_COMMENTS: 'read_comments',
   DELETE_COMMENTS: 'delete_comments',
+  // Cash Register — Caja Registradora (POS)
+  CREATE_CASH_REGISTERS: 'create_cash_registers',
+  READ_CASH_REGISTERS: 'read_cash_registers',
+  UPDATE_CASH_REGISTERS: 'update_cash_registers',
+  DELETE_CASH_REGISTERS: 'delete_cash_registers',
+  OPEN_CASH_SESSION: 'open_cash_session',
+  CLOSE_CASH_SESSION: 'close_cash_session',
+  READ_CASH_SESSIONS: 'read_cash_sessions',
+  CREATE_CASH_MOVEMENTS: 'create_cash_movements',
+  VOID_CASH_MOVEMENTS: 'void_cash_movements',
+  READ_CASH_MOVEMENTS: 'read_cash_movements',
 };
 
 export const ROUTES = {
@@ -252,6 +263,14 @@ export const ROUTES = {
   PRODUCTION_ORDERS_DETAIL: '/production/orders/:id',
   STEP_DEFINITIONS: '/production/step-definitions',
   STEP_DEFINITIONS_BUILDER: '/production/step-definitions/:id/builder',
+  // Cash Register (POS)
+  CASH_REGISTERS: '/cash-register/admin',
+  CASH_SESSION_OPEN: '/cash-register/open',
+  CASH_SESSION_ACTIVE_BASE: '/cash-register/session',
+  CASH_SESSION_ACTIVE: '/cash-register/session/:id',
+  CASH_SESSION_CLOSE: '/cash-register/session/:id/close',
+  CASH_SESSION_HISTORY: '/cash-register/history',
+  CASH_SESSION_HISTORY_DETAIL: '/cash-register/history/:id',
 };
 
 export const DEFAULT_PAGINATION = {

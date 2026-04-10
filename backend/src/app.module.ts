@@ -47,6 +47,9 @@ import { AttendanceModule } from './modules/attendance/attendance.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { ProductionModule } from './modules/production/production.module';
 import { CommentsModule } from './modules/comments/comments.module';
+import { CashRegisterModule } from './modules/cash-register/cash-register.module';
+import { CashSessionModule } from './modules/cash-session/cash-session.module';
+import { CashMovementModule } from './modules/cash-movement/cash-movement.module';
 
 @Module({
   imports: [
@@ -126,6 +129,10 @@ import { CommentsModule } from './modules/comments/comments.module';
     ProductionModule,
     // Módulo de Comentarios Polimórficos (COT / OP / OT)
     CommentsModule,
+    // Módulo de Caja Registradora (POS)
+    CashRegisterModule,
+    CashSessionModule,
+    CashMovementModule,
   ],
   providers: [
     {
