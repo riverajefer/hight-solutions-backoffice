@@ -72,7 +72,6 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
   enabled,
   values = [],
   onChange,
-  errors = {},
   disabled = false,
   required = false,
 }) => {

@@ -65,7 +65,7 @@ const orderItemSchema = z.object({
 const initialPaymentSchema = z
   .object({
     amount: z.number().min(0, 'El monto del abono inicial no puede ser negativo'),
-    paymentMethod: z.enum(['CASH', 'TRANSFER', 'CARD', 'CHECK', 'CREDIT', 'OTHER']),
+    paymentMethod: z.enum(['CASH', 'TRANSFER', 'CARD', 'CREDIT']),
     reference: z.string().optional(),
     notes: z.string().optional(),
     receiptFile: z.any().optional(),
@@ -807,7 +807,6 @@ export const OrderFormPage: React.FC = () => {
             values={paymentsField.value}
             onEnabledChange={() => {}}
             onChange={paymentsField.onChange}
-            errors={errors as any}
             disabled={!isClientSelected}
             required={true}
           />
