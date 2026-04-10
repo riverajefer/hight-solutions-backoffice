@@ -200,18 +200,6 @@ export const CreateSupplyModal: React.FC<CreateSupplyModalProps> = ({
             </TextField>
           </Grid>
 
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              multiline
-              rows={2}
-              label="Descripción"
-              value={formData.description}
-              onChange={(e) => handleChange('description', e.target.value)}
-              placeholder="Descripción opcional del insumo"
-              helperText="Opcional"
-            />
-          </Grid>
         </Grid>
       </DialogContent>
       <DialogActions>
