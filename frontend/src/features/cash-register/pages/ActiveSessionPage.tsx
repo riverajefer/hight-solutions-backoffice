@@ -459,9 +459,46 @@ const ActiveSessionPage: React.FC = () => {
                   </TableCell>
                 </TableRow>
                 <TableRow>
+                  <TableCell colSpan={2}>
+                    <Divider />
+                  </TableCell>
+                </TableRow>
+                <TableRow>
                   <TableCell><strong>Saldo Actual</strong></TableCell>
                   <TableCell align="right">
                     <strong>{formatCurrency(runningBalance)}</strong>
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>
+                    <strong>Descuadre</strong>
+                    <Typography variant="caption" display="block" color="text.secondary">
+                      Diferencia entre saldo actual y fondo inicial
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    {(() => {
+                      const discrepancy = runningBalance - Number(session.openingAmount);
+                      const isPositive = discrepancy > 0;
+                      const isNegative = discrepancy < 0;
+                      return (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                          <Typography
+                            variant="h6"
+                            fontWeight={700}
+                            color={isNegative ? 'error.main' : isPositive ? 'success.main' : 'text.primary'}
+                          >
+                            {isPositive ? '+' : ''}{formatCurrency(discrepancy)}
+                          </Typography>
+                          <Chip
+                            label={isNegative ? 'Déficit' : isPositive ? 'Superávit' : 'Sin descuadre'}
+                            color={isNegative ? 'error' : isPositive ? 'success' : 'default'}
+                            size="small"
+                            sx={{ mt: 0.5 }}
+                          />
+                        </Box>
+                      );
+                    })()}
                   </TableCell>
                 </TableRow>
               </TableBody>
