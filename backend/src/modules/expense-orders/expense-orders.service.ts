@@ -313,6 +313,32 @@ export class ExpenseOrdersService {
           'Solo usuarios con permiso "approve_expense_orders" pueden marcar una OG como PAID',
         );
       }
+
+      const activeSession = await this.prisma.cashSession.findFirst({
+        where: { status: 'OPEN' }
+      });
+
+      if (!activeSession) {
+        throw new BadRequestException('No hay una sesión de caja abierta activa.');
+      }
+
+      // Create a Cash Movement for each Item in the Expense Order
+      for (const item of expenseOrder.items) {
+        const receiptNumber = await this.consecutivesService.generateNumber('CASH_RECEIPT');
+        await this.prisma.cashMovement.create({
+          data: {
+            amount: item.total,
+            movementType: 'EXPENSE',
+            paymentMethod: item.paymentMethod || 'CASH',
+            description: `Pago de ítem de Orden de Gasto ${expenseOrder.ogNumber}`,
+            receiptNumber,
+            cashSessionId: activeSession.id,
+            performedById: currentUser.id,
+            referenceType: 'EXPENSE_ORDER',
+            referenceId: expenseOrder.id,
+          }
+        });
+      }
     }
 
     return this.repository.updateStatus(id, dto.status);

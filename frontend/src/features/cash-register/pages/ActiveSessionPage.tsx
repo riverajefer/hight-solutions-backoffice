@@ -14,6 +14,16 @@ import {
   Tooltip,
   Typography,
   Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from '@mui/material';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
@@ -74,9 +84,25 @@ const ActiveSessionPage: React.FC = () => {
 
   const [dialogType, setDialogType] = useState<CashMovementType | null>(null);
   const [voidTarget, setVoidTarget] = useState<CashMovement | null>(null);
+  const [isBalanceDialogOpen, setIsBalanceDialogOpen] = useState(false);
 
   const session = sessionQuery.data;
   const movements = movementsQuery.data?.data || [];
+
+  const balanceBreakdown = useMemo(() => {
+    const summary: Record<string, number> = {
+      INCOME: 0,
+      EXPENSE: 0,
+      WITHDRAWAL: 0,
+      DEPOSIT: 0,
+    };
+    movements
+      .filter((m) => !m.isVoided)
+      .forEach((m) => {
+        summary[m.movementType] += Number(m.amount);
+      });
+    return summary;
+  }, [movements]);
 
   // Redirect if session is closed
   React.useEffect(() => {
@@ -184,6 +210,15 @@ const ActiveSessionPage: React.FC = () => {
                   >
                     {formatCurrency(runningBalance)}
                   </Typography>
+                  <Button
+                    variant="text"
+                    size="small"
+                    fullWidth
+                    sx={{ mt: 1 }}
+                    onClick={() => setIsBalanceDialogOpen(true)}
+                  >
+                    Ver balance detallado
+                  </Button>
                 </Box>
               </Stack>
             </CardContent>
@@ -381,6 +416,62 @@ const ActiveSessionPage: React.FC = () => {
         onSubmit={handleVoidMovement}
         isLoading={voidMovement.isPending}
       />
+
+      {/* ── Balance Detail Dialog ────────────────────────────────────── */}
+      <Dialog open={isBalanceDialogOpen} onClose={() => setIsBalanceDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Balance Detallado</DialogTitle>
+        <DialogContent>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Concepto</TableCell>
+                  <TableCell align="right">Monto</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                <TableRow>
+                  <TableCell>Fondo Inicial</TableCell>
+                  <TableCell align="right">{formatCurrency(session.openingAmount)}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Ingresos (+)</TableCell>
+                  <TableCell align="right" sx={{ color: 'success.main' }}>
+                    {formatCurrency(balanceBreakdown.INCOME)}
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Depósitos (+)</TableCell>
+                  <TableCell align="right" sx={{ color: 'success.main' }}>
+                    {formatCurrency(balanceBreakdown.DEPOSIT)}
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Egresos (-)</TableCell>
+                  <TableCell align="right" sx={{ color: 'error.main' }}>
+                    {formatCurrency(balanceBreakdown.EXPENSE)}
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Retiros (-)</TableCell>
+                  <TableCell align="right" sx={{ color: 'error.main' }}>
+                    {formatCurrency(balanceBreakdown.WITHDRAWAL)}
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell><strong>Saldo Actual</strong></TableCell>
+                  <TableCell align="right">
+                    <strong>{formatCurrency(runningBalance)}</strong>
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsBalanceDialogOpen(false)}>Cerrar</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
