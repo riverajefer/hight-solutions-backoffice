@@ -12,11 +12,6 @@ import {
   Stack,
   Typography,
   Alert,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -37,6 +32,14 @@ const MOVEMENT_TYPE_COLORS: Record<CashMovementType, 'success' | 'error' | 'warn
   EXPENSE: 'error',
   WITHDRAWAL: 'warning',
   DEPOSIT: 'info',
+};
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  CASH: 'Efectivo',
+  TRANSFER: 'Transferencia',
+  CARD: 'Tarjeta',
+  CHECK: 'Cheque',
+  OTHER: 'Otro',
 };
 
 const formatCurrency = (value: string | number) =>
@@ -218,67 +221,65 @@ const SessionDetailPage: React.FC = () => {
                   No hay movimientos en esta sesión.
                 </Typography>
               ) : (
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Recibo</TableCell>
-                      <TableCell>Tipo</TableCell>
-                      <TableCell>Descripción</TableCell>
-                      <TableCell align="right">Monto</TableCell>
-                      <TableCell>Fecha</TableCell>
-                      <TableCell>Estado</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {movements.map((mov) => (
-                      <TableRow
-                        key={mov.id}
-                        sx={{ opacity: mov.isVoided ? 0.5 : 1 }}
+                <Stack spacing={1}>
+                  {movements.map((mov) => (
+                    <Box
+                      key={mov.id}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: { xs: 1, sm: 1.5 },
+                        px: { xs: 1, sm: 2 },
+                        py: 1.5,
+                        borderRadius: 2,
+                        bgcolor: mov.isVoided ? 'action.disabledBackground' : 'action.hover',
+                        opacity: mov.isVoided ? 0.55 : 1,
+                        transition: 'background-color 0.15s',
+                      }}
+                    >
+                      {/* Type chip */}
+                      <Chip
+                        label={MOVEMENT_TYPE_LABELS[mov.movementType]}
+                        color={MOVEMENT_TYPE_COLORS[mov.movementType]}
+                        size="small"
+                        variant="outlined"
+                        sx={{ minWidth: 76, fontWeight: 600 }}
+                      />
+
+                      {/* Description & metadata */}
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="body1" fontWeight={500} noWrap>
+                          {mov.description}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {mov.receiptNumber} · {PAYMENT_METHOD_LABELS[mov.paymentMethod] || mov.paymentMethod} · {formatDate(mov.createdAt)}
+                        </Typography>
+                      </Box>
+
+                      {/* Amount */}
+                      <Typography
+                        variant="h6"
+                        fontWeight={700}
+                        color={
+                          mov.isVoided
+                            ? 'text.disabled'
+                            : mov.movementType === 'INCOME' || mov.movementType === 'DEPOSIT'
+                            ? 'success.main'
+                            : 'error.main'
+                        }
+                        sx={{ whiteSpace: 'nowrap' }}
                       >
-                        <TableCell>
-                          <Typography variant="caption">{mov.receiptNumber}</Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={MOVEMENT_TYPE_LABELS[mov.movementType]}
-                            color={MOVEMENT_TYPE_COLORS[mov.movementType]}
-                            size="small"
-                            variant="outlined"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
-                            {mov.description}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="right">
-                          <Typography
-                            variant="body2"
-                            fontWeight={600}
-                            color={
-                              mov.isVoided
-                                ? 'text.disabled'
-                                : mov.movementType === 'INCOME' || mov.movementType === 'DEPOSIT'
-                                ? 'success.main'
-                                : 'error.main'
-                            }
-                          >
-                            {mov.movementType === 'INCOME' || mov.movementType === 'DEPOSIT' ? '+' : '-'}
-                            {formatCurrency(mov.amount)}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="caption">{formatDate(mov.createdAt)}</Typography>
-                        </TableCell>
-                        <TableCell>
-                          {mov.isVoided && (
-                            <Chip label="Anulado" size="small" color="default" />
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                        {mov.movementType === 'INCOME' || mov.movementType === 'DEPOSIT' ? '+' : '-'}
+                        {formatCurrency(mov.amount)}
+                      </Typography>
+
+                      {/* Voided badge */}
+                      {mov.isVoided && (
+                        <Chip label="Anulado" size="small" color="default" />
+                      )}
+                    </Box>
+                  ))}
+                </Stack>
               )}
             </CardContent>
           </Card>

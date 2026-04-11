@@ -36,6 +36,10 @@ import SearchIcon from '@mui/icons-material/Search';
 import PersonIcon from '@mui/icons-material/Person';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import CreditCardIcon from '@mui/icons-material/CreditCard';
+import LocalAtmIcon from '@mui/icons-material/LocalAtm';
+import SyncAltIcon from '@mui/icons-material/SyncAlt';
+import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
@@ -52,6 +56,13 @@ const MOVEMENT_TYPE_LABELS: Record<CashMovementType, string> = {
   DEPOSIT: 'Depósito',
 };
 
+const MOVEMENT_TYPE_ICONS: Record<CashMovementType, React.ReactNode> = {
+  INCOME: <AddCircleOutlineIcon fontSize="small" />,
+  EXPENSE: <RemoveCircleOutlineIcon fontSize="small" />,
+  WITHDRAWAL: <MoneyOffIcon fontSize="small" />,
+  DEPOSIT: <AccountBalanceIcon fontSize="small" />,
+};
+
 const MOVEMENT_TYPE_COLORS: Record<CashMovementType, 'success' | 'error' | 'warning' | 'info'> = {
   INCOME: 'success',
   EXPENSE: 'error',
@@ -65,6 +76,14 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   CARD: 'Tarjeta',
   CHECK: 'Cheque',
   OTHER: 'Otro',
+};
+
+const PAYMENT_METHOD_INFO: Record<string, { icon: React.ReactNode, color: string, bgcolor: string }> = {
+  CASH: { icon: <LocalAtmIcon fontSize="inherit" />, color: '#2e7d32', bgcolor: 'rgba(46, 125, 50, 0.08)' },
+  TRANSFER: { icon: <SyncAltIcon fontSize="inherit" />, color: '#0288d1', bgcolor: 'rgba(2, 136, 209, 0.08)' },
+  CARD: { icon: <CreditCardIcon fontSize="inherit" />, color: '#7b1fa2', bgcolor: 'rgba(123, 31, 162, 0.08)' },
+  CHECK: { icon: <ReceiptLongIcon fontSize="inherit" />, color: '#ed6c02', bgcolor: 'rgba(237, 108, 2, 0.08)' },
+  OTHER: { icon: <MoreHorizIcon fontSize="inherit" />, color: '#424242', bgcolor: 'rgba(66, 66, 66, 0.08)' },
 };
 
 const formatCurrency = (value: string | number) =>
@@ -370,69 +389,116 @@ const ActiveSessionPage: React.FC = () => {
               No se encontraron movimientos para "{movementSearch}".
             </Typography>
           ) : (
-            <Stack spacing={0.5}>
+            <Stack spacing={1}>
               {[...filteredMovements].reverse().map((mov) => (
                 <Box
                   key={mov.id}
                   sx={{
                     display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    px: 1.5,
-                    py: 1,
-                    borderRadius: 1,
-                    bgcolor: mov.isVoided ? 'action.disabledBackground' : 'action.hover',
+                    flexDirection: { xs: 'column', sm: 'row' },
+                    alignItems: { xs: 'flex-start', sm: 'center' },
+                    gap: { xs: 1, sm: 2 },
+                    px: { xs: 2, sm: 2.5 },
+                    py: 2,
+                    borderRadius: 2,
+                    bgcolor: mov.isVoided ? 'action.disabledBackground' : 'background.paper',
                     opacity: mov.isVoided ? 0.6 : 1,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      bgcolor: mov.isVoided ? 'action.disabledBackground' : 'action.hover',
+                      transform: 'translateY(-1px)',
+                      boxShadow: '0 4px 8px rgba(0,0,0,0.05)',
+                    },
                   }}
                 >
-                  <Chip
-                    label={MOVEMENT_TYPE_LABELS[mov.movementType]}
-                    color={MOVEMENT_TYPE_COLORS[mov.movementType]}
-                    size="small"
-                    variant="outlined"
-                    sx={{ minWidth: 72 }}
-                  />
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, flex: 1, minWidth: 0, width: '100%' }}>
+                    <Chip
+                      icon={MOVEMENT_TYPE_ICONS[mov.movementType]}
+                      label={MOVEMENT_TYPE_LABELS[mov.movementType]}
+                      color={MOVEMENT_TYPE_COLORS[mov.movementType]}
+                      size="small"
+                      sx={{ 
+                        minWidth: 95, 
+                        fontWeight: 600,
+                        justifyContent: 'flex-start',
+                        '.MuiChip-icon': { ml: 0.5, opacity: 0.8 }
+                      }}
+                    />
 
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography variant="body2" noWrap>
-                      {mov.description}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {mov.receiptNumber} · {PAYMENT_METHOD_LABELS[mov.paymentMethod] || mov.paymentMethod} · {formatDate(mov.createdAt)}
-                    </Typography>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="subtitle1" fontWeight={600} noWrap sx={{ mb: 0.25, color: 'text.primary' }}>
+                        {mov.description}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {mov.receiptNumber} &middot; {formatDate(mov.createdAt)}
+                      </Typography>
+                    </Box>
                   </Box>
 
-                  <Typography
-                    variant="body2"
-                    fontWeight={700}
-                    color={
-                      mov.isVoided
-                        ? 'text.disabled'
-                        : mov.movementType === 'INCOME' || mov.movementType === 'DEPOSIT'
-                        ? 'success.main'
-                        : 'error.main'
-                    }
-                    sx={{ whiteSpace: 'nowrap' }}
-                  >
-                    {mov.movementType === 'INCOME' || mov.movementType === 'DEPOSIT' ? '+' : '-'}
-                    {formatCurrency(mov.amount)}
-                  </Typography>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: { xs: 'flex-start', sm: 'flex-end' }, 
+                    gap: 0.5, 
+                    pl: { xs: '107px', sm: 0 },
+                    width: { xs: '100%', sm: 'auto' } 
+                  }}>
+                    <Typography
+                      variant="h5"
+                      fontWeight={800}
+                      color={
+                        mov.isVoided
+                          ? 'text.disabled'
+                          : mov.movementType === 'INCOME' || mov.movementType === 'DEPOSIT'
+                          ? 'success.main'
+                          : 'error.main'
+                      }
+                      sx={{ whiteSpace: 'nowrap', letterSpacing: '-0.5px' }}
+                    >
+                      {mov.movementType === 'INCOME' || mov.movementType === 'DEPOSIT' ? '+' : '-'}
+                      {formatCurrency(mov.amount)}
+                    </Typography>
 
-                  {mov.isVoided && (
-                    <Chip label="Anulado" size="small" color="default" />
-                  )}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {mov.isVoided && (
+                        <Chip label="Anulado" size="small" color="default" variant="outlined" />
+                      )}
 
-                  {!mov.isVoided && canVoidMovement && (
-                    <Tooltip title="Anular movimiento">
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => setVoidTarget(mov)}
-                      >
-                        <BlockIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  )}
+                      {!mov.isVoided && PAYMENT_METHOD_INFO[mov.paymentMethod || 'OTHER'] && (
+                        <Box sx={{ 
+                          display: 'inline-flex', 
+                          alignItems: 'center', 
+                          gap: 0.5, 
+                          px: 1, 
+                          py: 0.25, 
+                          borderRadius: 1,
+                          bgcolor: PAYMENT_METHOD_INFO[mov.paymentMethod || 'OTHER'].bgcolor,
+                          color: PAYMENT_METHOD_INFO[mov.paymentMethod || 'OTHER'].color,
+                          fontWeight: 600,
+                          fontSize: '0.75rem',
+                        }}>
+                          {PAYMENT_METHOD_INFO[mov.paymentMethod || 'OTHER'].icon}
+                          {PAYMENT_METHOD_LABELS[mov.paymentMethod] || mov.paymentMethod}
+                        </Box>
+                      )}
+
+                      {!mov.isVoided && canVoidMovement && (
+                        <Tooltip title="Anular movimiento">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => setVoidTarget(mov)}
+                            sx={{ ml: 0.5, padding: 0.25 }}
+                          >
+                            <BlockIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Box>
+                  </Box>
                 </Box>
               ))}
             </Stack>
