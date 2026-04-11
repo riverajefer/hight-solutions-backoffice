@@ -145,4 +145,27 @@ export class CashSessionRepository {
       where: { cashSessionId, isVoided: false },
     });
   }
+
+  async findLastClosedByRegisterId(cashRegisterId: string) {
+    return this.prisma.cashSession.findFirst({
+      where: {
+        cashRegisterId,
+        status: CashSessionStatus.CLOSED,
+      },
+      orderBy: { closedAt: 'desc' },
+      select: {
+        id: true,
+        closedAt: true,
+        denominations: {
+          where: { countType: 'CLOSING' },
+          orderBy: { denomination: 'desc' },
+          select: {
+            denomination: true,
+            quantity: true,
+            denomType: true,
+          },
+        },
+      },
+    });
+  }
 }

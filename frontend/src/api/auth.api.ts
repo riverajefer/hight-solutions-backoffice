@@ -67,4 +67,12 @@ export const authApi = {
     const response = await axiosInstance.patch('/auth/profile/photo', data);
     return response.data;
   },
+
+  /**
+   * Verificar contraseña del usuario autenticado
+   */
+  verifyPassword: async (password: string): Promise<{ valid: boolean }> => {
+    const response = await axiosInstance.post<{ valid: boolean }>('/auth/verify-password', { password });
+    return response.data;
+  },
 };

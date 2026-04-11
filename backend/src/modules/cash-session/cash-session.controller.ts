@@ -52,6 +52,15 @@ export class CashSessionController {
     return this.service.getBalancePreview(id);
   }
 
+  @Get('last-closing/:cashRegisterId')
+  @RequirePermissions('open_cash_session')
+  @ApiOperation({ summary: 'Obtener denominaciones de cierre de la última sesión de una caja' })
+  getLastClosingDenominations(
+    @Param('cashRegisterId') cashRegisterId: string,
+  ) {
+    return this.service.getLastClosingDenominations(cashRegisterId);
+  }
+
   @Post('open')
   @RequirePermissions('open_cash_session')
   @ApiOperation({ summary: 'Abrir una nueva sesión de caja' })

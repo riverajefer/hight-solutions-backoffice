@@ -13,7 +13,7 @@ import { Request } from 'express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard, JwtAuthGuard } from './guards';
-import { LoginDto, RefreshTokenDto, RegisterDto, UpdateProfilePhotoDto, ChangePasswordDto } from './dto';
+import { LoginDto, RefreshTokenDto, RegisterDto, UpdateProfilePhotoDto, ChangePasswordDto, VerifyPasswordDto } from './dto';
 import { CurrentUser, Public } from '../../common/decorators';
 import { AuthenticatedUser, TokenPair } from '../../common/interfaces';
 
@@ -137,6 +137,25 @@ export class AuthController {
       changePasswordDto.newPassword,
     );
     return { message: 'Contraseña actualizada correctamente' };
+  }
+
+  /**
+   * POST /api/v1/auth/verify-password
+   * Verifica la contraseña del usuario autenticado
+   */
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard)
+  @Post('verify-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verificar contraseña del usuario autenticado' })
+  @ApiResponse({ status: 200, description: 'Contraseña verificada correctamente' })
+  @ApiResponse({ status: 401, description: 'Contraseña incorrecta' })
+  async verifyPassword(
+    @CurrentUser('id') userId: string,
+    @Body() dto: VerifyPasswordDto,
+  ): Promise<{ valid: boolean }> {
+    await this.authService.verifyPassword(userId, dto.password);
+    return { valid: true };
   }
 
   /**

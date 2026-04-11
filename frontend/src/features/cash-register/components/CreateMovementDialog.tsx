@@ -161,22 +161,30 @@ const CreateMovementDialog: React.FC<Props> = ({
             <Controller
               name="amount"
               control={control}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  onChange={(e) => field.onChange(parseFloat(e.target.value) || '')}
-                  label="Monto"
-                  type="number"
-                  fullWidth
-                  required
-                  error={!!errors.amount}
-                  helperText={errors.amount?.message}
-                  InputProps={{
-                    startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                  }}
-                  inputProps={{ min: 0, step: '0.01' }}
-                />
-              )}
+              render={({ field }) => {
+                const displayValue =
+                  field.value != null && field.value !== ('' as any)
+                    ? new Intl.NumberFormat('es-CO').format(Number(field.value))
+                    : '';
+                return (
+                  <TextField
+                    label="Monto"
+                    fullWidth
+                    required
+                    value={displayValue}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, '');
+                      field.onChange(raw ? parseInt(raw, 10) : '');
+                    }}
+                    error={!!errors.amount}
+                    helperText={errors.amount?.message}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                    }}
+                    inputProps={{ inputMode: 'numeric' }}
+                  />
+                );
+              }}
             />
 
             {/* Description */}

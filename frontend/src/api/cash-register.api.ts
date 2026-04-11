@@ -71,6 +71,19 @@ export const cashRegisterApi = {
     return data;
   },
 
+  getLastClosingDenominations: async (
+    cashRegisterId: string,
+  ): Promise<{
+    sessionId?: string;
+    closedAt?: string;
+    denominations: { denomination: number; quantity: number; denomType: string }[];
+  }> => {
+    const { data } = await axiosInstance.get(
+      `/cash-sessions/last-closing/${cashRegisterId}`,
+    );
+    return data;
+  },
+
   // ── Cash Movements ────────────────────────────────────────────────────────
 
   createMovement: async (dto: CreateCashMovementDto): Promise<CashMovement> => {

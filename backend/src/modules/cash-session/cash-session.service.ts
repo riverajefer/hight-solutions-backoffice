@@ -39,6 +39,17 @@ export class CashSessionService {
     return session;
   }
 
+  async getLastClosingDenominations(cashRegisterId: string) {
+    const lastSession =
+      await this.repository.findLastClosedByRegisterId(cashRegisterId);
+    if (!lastSession) return { denominations: [] };
+    return {
+      sessionId: lastSession.id,
+      closedAt: lastSession.closedAt,
+      denominations: lastSession.denominations,
+    };
+  }
+
   async openSession(dto: OpenCashSessionDto, userId: string) {
     // Check for existing open session
     const existing = await this.repository.findOpenByRegisterId(

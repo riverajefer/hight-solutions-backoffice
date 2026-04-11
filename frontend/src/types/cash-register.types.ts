@@ -69,6 +69,7 @@ export interface CashMovement {
   cashSessionId: string;
   receiptNumber: string;
   movementType: CashMovementType;
+  paymentMethod: string;
   amount: string;
   description: string;
   referenceType?: string;

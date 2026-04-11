@@ -8,9 +8,10 @@ import {
   Chip,
   CircularProgress,
   Divider,
-  Grid,
   IconButton,
+  InputAdornment,
   Stack,
+  TextField,
   Tooltip,
   Typography,
   Alert,
@@ -31,6 +32,7 @@ import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import MoneyOffIcon from '@mui/icons-material/MoneyOff';
 import LockIcon from '@mui/icons-material/Lock';
 import BlockIcon from '@mui/icons-material/Block';
+import SearchIcon from '@mui/icons-material/Search';
 import PersonIcon from '@mui/icons-material/Person';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
@@ -55,6 +57,14 @@ const MOVEMENT_TYPE_COLORS: Record<CashMovementType, 'success' | 'error' | 'warn
   EXPENSE: 'error',
   WITHDRAWAL: 'warning',
   DEPOSIT: 'info',
+};
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  CASH: 'Efectivo',
+  TRANSFER: 'Transferencia',
+  CARD: 'Tarjeta',
+  CHECK: 'Cheque',
+  OTHER: 'Otro',
 };
 
 const formatCurrency = (value: string | number) =>
@@ -85,9 +95,26 @@ const ActiveSessionPage: React.FC = () => {
   const [dialogType, setDialogType] = useState<CashMovementType | null>(null);
   const [voidTarget, setVoidTarget] = useState<CashMovement | null>(null);
   const [isBalanceDialogOpen, setIsBalanceDialogOpen] = useState(false);
+  const [movementSearch, setMovementSearch] = useState('');
 
   const session = sessionQuery.data;
   const movements = movementsQuery.data?.data || [];
+
+  const filteredMovements = useMemo(() => {
+    if (!movementSearch.trim()) return movements;
+    const q = movementSearch.toLowerCase();
+    return movements.filter((m) => {
+      const label = MOVEMENT_TYPE_LABELS[m.movementType]?.toLowerCase() || '';
+      const method = (PAYMENT_METHOD_LABELS[m.paymentMethod] || m.paymentMethod || '').toLowerCase();
+      return (
+        m.description.toLowerCase().includes(q) ||
+        m.receiptNumber.toLowerCase().includes(q) ||
+        label.includes(q) ||
+        method.includes(q) ||
+        String(m.amount).includes(q)
+      );
+    });
+  }, [movements, movementSearch]);
 
   const balanceBreakdown = useMemo(() => {
     const summary: Record<string, number> = {
@@ -100,6 +127,24 @@ const ActiveSessionPage: React.FC = () => {
       .filter((m) => !m.isVoided)
       .forEach((m) => {
         summary[m.movementType] += Number(m.amount);
+      });
+    return summary;
+  }, [movements]);
+
+  // Compute breakdown by payment method
+  const paymentMethodBreakdown = useMemo(() => {
+    const summary: Record<string, { income: number; expense: number }> = {};
+    movements
+      .filter((m) => !m.isVoided)
+      .forEach((m) => {
+        const method = m.paymentMethod || 'CASH';
+        if (!summary[method]) summary[method] = { income: 0, expense: 0 };
+        const amt = Number(m.amount);
+        if (m.movementType === 'INCOME' || m.movementType === 'DEPOSIT') {
+          summary[method].income += amt;
+        } else {
+          summary[method].expense += amt;
+        }
       });
     return summary;
   }, [movements]);
@@ -162,240 +207,238 @@ const ActiveSessionPage: React.FC = () => {
         subtitle={`Abierta el ${formatDate(session.openedAt)}`}
       />
 
-      <Grid container spacing={2} alignItems="flex-start">
-        {/* ── Left: Session Info ────────────────────────────────────── */}
-        <Grid item xs={12} md={3}>
-          <Card>
-            <CardContent>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Información de Sesión
-              </Typography>
-              <Divider sx={{ mb: 1.5 }} />
+      {/* ── Info Bar ─────────────────────────────────────────────────── */}
+      <Card sx={{ mb: 2 }}>
+        <CardContent sx={{ py: { xs: 1.5, sm: 2 }, '&:last-child': { pb: { xs: 1.5, sm: 2 } } }}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: { xs: 1.5, sm: 3 },
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <PersonIcon fontSize="small" color="action" />
+              <Box>
+                <Typography variant="caption" color="text.secondary" lineHeight={1}>Cajero</Typography>
+                <Typography variant="body2" fontWeight={500}>
+                  {session.openedBy.firstName} {session.openedBy.lastName}
+                </Typography>
+              </Box>
+            </Box>
 
-              <Stack spacing={1.5}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <PersonIcon fontSize="small" color="action" />
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">Cajero</Typography>
-                    <Typography variant="body2">
-                      {session.openedBy.firstName} {session.openedBy.lastName}
+            <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', sm: 'block' } }} />
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <CalendarTodayIcon fontSize="small" color="action" />
+              <Box>
+                <Typography variant="caption" color="text.secondary" lineHeight={1}>Apertura</Typography>
+                <Typography variant="body2" fontWeight={500}>{formatDate(session.openedAt)}</Typography>
+              </Box>
+            </Box>
+
+            <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', sm: 'block' } }} />
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <AccountBalanceIcon fontSize="small" color="action" />
+              <Box>
+                <Typography variant="caption" color="text.secondary" lineHeight={1}>Fondo Inicial</Typography>
+                <Typography variant="body2" fontWeight={500}>{formatCurrency(session.openingAmount)}</Typography>
+              </Box>
+            </Box>
+
+            <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', sm: 'block' } }} />
+
+            <Box>
+              <Typography variant="caption" color="text.secondary" lineHeight={1}>Saldo en Caja</Typography>
+              <Typography
+                variant="h6"
+                fontWeight={700}
+                lineHeight={1.2}
+                color={runningBalance >= 0 ? 'success.main' : 'error.main'}
+              >
+                {formatCurrency(runningBalance)}
+              </Typography>
+            </Box>
+
+            <Box sx={{ ml: { sm: 'auto' }, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => setIsBalanceDialogOpen(true)}
+              >
+                Ver balance
+              </Button>
+              {canCloseSession && (
+                <Button
+                  variant="outlined"
+                  color="warning"
+                  size="small"
+                  startIcon={<LockIcon />}
+                  onClick={() => navigate(PATHS.CASH_SESSION_CLOSE.replace(':id', id))}
+                >
+                  Cerrar Caja
+                </Button>
+              )}
+            </Box>
+          </Box>
+        </CardContent>
+      </Card>
+
+      {/* ── Action Toolbar ───────────────────────────────────────────── */}
+      {canCreateMovement && (
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 1,
+            mb: 2,
+          }}
+        >
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<AddCircleOutlineIcon />}
+            onClick={() => setDialogType('INCOME')}
+          >
+            Ingreso
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            startIcon={<RemoveCircleOutlineIcon />}
+            onClick={() => setDialogType('EXPENSE')}
+          >
+            Egreso
+          </Button>
+          <Button
+            variant="contained"
+            color="warning"
+            startIcon={<MoneyOffIcon />}
+            onClick={() => setDialogType('WITHDRAWAL')}
+          >
+            Retiro
+          </Button>
+          <Button
+            variant="contained"
+            color="info"
+            startIcon={<AccountBalanceIcon />}
+            onClick={() => setDialogType('DEPOSIT')}
+          >
+            Depósito
+          </Button>
+        </Box>
+      )}
+
+      {/* ── Movements List ───────────────────────────────────────────── */}
+      <Card>
+        <CardContent>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+            <Typography variant="subtitle2" color="text.secondary">
+              Movimientos ({movements.filter((m) => !m.isVoided).length} activos)
+            </Typography>
+            <ReceiptLongIcon color="action" fontSize="small" />
+          </Box>
+          <TextField
+            size="small"
+            fullWidth
+            placeholder="Buscar por descripción, recibo, tipo, método de pago..."
+            value={movementSearch}
+            onChange={(e) => setMovementSearch(e.target.value)}
+            sx={{ mb: 1.5 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" color="action" />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <Divider sx={{ mb: 1.5 }} />
+
+          {movementsQuery.isLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress size={28} />
+            </Box>
+          ) : movements.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
+              No hay movimientos registrados aún.
+            </Typography>
+          ) : filteredMovements.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
+              No se encontraron movimientos para "{movementSearch}".
+            </Typography>
+          ) : (
+            <Stack spacing={0.5}>
+              {[...filteredMovements].reverse().map((mov) => (
+                <Box
+                  key={mov.id}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    px: 1.5,
+                    py: 1,
+                    borderRadius: 1,
+                    bgcolor: mov.isVoided ? 'action.disabledBackground' : 'action.hover',
+                    opacity: mov.isVoided ? 0.6 : 1,
+                  }}
+                >
+                  <Chip
+                    label={MOVEMENT_TYPE_LABELS[mov.movementType]}
+                    color={MOVEMENT_TYPE_COLORS[mov.movementType]}
+                    size="small"
+                    variant="outlined"
+                    sx={{ minWidth: 72 }}
+                  />
+
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="body2" noWrap>
+                      {mov.description}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {mov.receiptNumber} · {PAYMENT_METHOD_LABELS[mov.paymentMethod] || mov.paymentMethod} · {formatDate(mov.createdAt)}
                     </Typography>
                   </Box>
-                </Box>
 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CalendarTodayIcon fontSize="small" color="action" />
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">Apertura</Typography>
-                    <Typography variant="body2">{formatDate(session.openedAt)}</Typography>
-                  </Box>
-                </Box>
-
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <AccountBalanceIcon fontSize="small" color="action" />
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">Fondo Inicial</Typography>
-                    <Typography variant="body2">{formatCurrency(session.openingAmount)}</Typography>
-                  </Box>
-                </Box>
-
-                <Divider />
-
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Saldo en Caja</Typography>
                   <Typography
-                    variant="h5"
+                    variant="body2"
                     fontWeight={700}
-                    color={runningBalance >= 0 ? 'success.main' : 'error.main'}
+                    color={
+                      mov.isVoided
+                        ? 'text.disabled'
+                        : mov.movementType === 'INCOME' || mov.movementType === 'DEPOSIT'
+                        ? 'success.main'
+                        : 'error.main'
+                    }
+                    sx={{ whiteSpace: 'nowrap' }}
                   >
-                    {formatCurrency(runningBalance)}
+                    {mov.movementType === 'INCOME' || mov.movementType === 'DEPOSIT' ? '+' : '-'}
+                    {formatCurrency(mov.amount)}
                   </Typography>
-                  <Button
-                    variant="text"
-                    size="small"
-                    fullWidth
-                    sx={{ mt: 1 }}
-                    onClick={() => setIsBalanceDialogOpen(true)}
-                  >
-                    Ver balance detallado
-                  </Button>
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
 
-          {/* Close Session */}
-          {canCloseSession && (
-            <Button
-              variant="outlined"
-              color="warning"
-              fullWidth
-              startIcon={<LockIcon />}
-              sx={{ mt: 2 }}
-              onClick={() => navigate(PATHS.CASH_SESSION_CLOSE.replace(':id', id))}
-            >
-              Cerrar Sesión
-            </Button>
-          )}
-        </Grid>
+                  {mov.isVoided && (
+                    <Chip label="Anulado" size="small" color="default" />
+                  )}
 
-        {/* ── Center: Movements List ────────────────────────────────── */}
-        <Grid item xs={12} md={6}>
-          <Card sx={{ minHeight: 400 }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                <Typography variant="subtitle2" color="text.secondary">
-                  Movimientos ({movements.filter((m) => !m.isVoided).length} activos)
-                </Typography>
-                <ReceiptLongIcon color="action" fontSize="small" />
-              </Box>
-              <Divider sx={{ mb: 1.5 }} />
-
-              {movementsQuery.isLoading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                  <CircularProgress size={28} />
-                </Box>
-              ) : movements.length === 0 ? (
-                <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
-                  No hay movimientos registrados aún.
-                </Typography>
-              ) : (
-                <Stack spacing={0.5}>
-                  {[...movements].reverse().map((mov) => (
-                    <Box
-                      key={mov.id}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1,
-                        px: 1.5,
-                        py: 1,
-                        borderRadius: 1,
-                        bgcolor: mov.isVoided ? 'action.disabledBackground' : 'action.hover',
-                        opacity: mov.isVoided ? 0.6 : 1,
-                      }}
-                    >
-                      {/* Type chip */}
-                      <Chip
-                        label={MOVEMENT_TYPE_LABELS[mov.movementType]}
-                        color={MOVEMENT_TYPE_COLORS[mov.movementType]}
+                  {!mov.isVoided && canVoidMovement && (
+                    <Tooltip title="Anular movimiento">
+                      <IconButton
                         size="small"
-                        variant="outlined"
-                        sx={{ minWidth: 72 }}
-                      />
-
-                      {/* Description */}
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography variant="body2" noWrap>
-                          {mov.description}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {mov.receiptNumber} · {formatDate(mov.createdAt)}
-                        </Typography>
-                      </Box>
-
-                      {/* Amount */}
-                      <Typography
-                        variant="body2"
-                        fontWeight={700}
-                        color={
-                          mov.isVoided
-                            ? 'text.disabled'
-                            : mov.movementType === 'INCOME' || mov.movementType === 'DEPOSIT'
-                            ? 'success.main'
-                            : 'error.main'
-                        }
-                        sx={{ whiteSpace: 'nowrap' }}
+                        color="error"
+                        onClick={() => setVoidTarget(mov)}
                       >
-                        {mov.movementType === 'INCOME' || mov.movementType === 'DEPOSIT' ? '+' : '-'}
-                        {formatCurrency(mov.amount)}
-                      </Typography>
-
-                      {/* Voided badge */}
-                      {mov.isVoided && (
-                        <Chip label="Anulado" size="small" color="default" />
-                      )}
-
-                      {/* Void action */}
-                      {!mov.isVoided && canVoidMovement && (
-                        <Tooltip title="Anular movimiento">
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => setVoidTarget(mov)}
-                          >
-                            <BlockIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </Box>
-                  ))}
-                </Stack>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* ── Right: Action Buttons ─────────────────────────────────── */}
-        {canCreateMovement && (
-          <Grid item xs={12} md={3}>
-            <Card>
-              <CardContent>
-                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                  Registrar Movimiento
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-
-                <Stack spacing={1.5}>
-                  <Button
-                    variant="contained"
-                    color="success"
-                    size="large"
-                    fullWidth
-                    startIcon={<AddCircleOutlineIcon />}
-                    onClick={() => setDialogType('INCOME')}
-                  >
-                    Ingreso
-                  </Button>
-
-                  <Button
-                    variant="contained"
-                    color="error"
-                    size="large"
-                    fullWidth
-                    startIcon={<RemoveCircleOutlineIcon />}
-                    onClick={() => setDialogType('EXPENSE')}
-                  >
-                    Egreso
-                  </Button>
-
-                  <Button
-                    variant="contained"
-                    color="warning"
-                    size="large"
-                    fullWidth
-                    startIcon={<MoneyOffIcon />}
-                    onClick={() => setDialogType('WITHDRAWAL')}
-                  >
-                    Retiro de Efectivo
-                  </Button>
-
-                  <Button
-                    variant="contained"
-                    color="info"
-                    size="large"
-                    fullWidth
-                    startIcon={<AccountBalanceIcon />}
-                    onClick={() => setDialogType('DEPOSIT')}
-                  >
-                    Depósito a Caja
-                  </Button>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-        )}
-      </Grid>
+                        <BlockIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </Box>
+              ))}
+            </Stack>
+          )}
+        </CardContent>
+      </Card>
 
       {/* ── Dialogs ──────────────────────────────────────────────────── */}
       {dialogType && (
@@ -501,6 +544,47 @@ const ActiveSessionPage: React.FC = () => {
                     })()}
                   </TableCell>
                 </TableRow>
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 3, mb: 1 }}>
+            Desglose por Método de Pago
+          </Typography>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Método</TableCell>
+                  <TableCell align="right">Ingresos</TableCell>
+                  <TableCell align="right">Egresos</TableCell>
+                  <TableCell align="right">Neto</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {Object.entries(paymentMethodBreakdown).map(([method, values]) => (
+                  <TableRow key={method}>
+                    <TableCell>{PAYMENT_METHOD_LABELS[method] || method}</TableCell>
+                    <TableCell align="right" sx={{ color: 'success.main' }}>
+                      {formatCurrency(values.income)}
+                    </TableCell>
+                    <TableCell align="right" sx={{ color: 'error.main' }}>
+                      {formatCurrency(values.expense)}
+                    </TableCell>
+                    <TableCell
+                      align="right"
+                      sx={{ fontWeight: 700, color: values.income - values.expense >= 0 ? 'success.main' : 'error.main' }}
+                    >
+                      {formatCurrency(values.income - values.expense)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {Object.keys(paymentMethodBreakdown).length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} align="center">
+                      <Typography variant="body2" color="text.secondary">Sin movimientos</Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </TableContainer>
