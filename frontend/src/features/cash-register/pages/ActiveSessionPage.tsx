@@ -47,6 +47,8 @@ import { PATHS } from '../../../router/paths';
 import { useCashSession, useCashMovements, useCashMutations } from '../hooks/useCashRegister';
 import CreateMovementDialog from '../components/CreateMovementDialog';
 import VoidMovementDialog from '../components/VoidMovementDialog';
+import PendingApprovalsPanel from '../components/PendingApprovalsPanel';
+import { useApprovalSocket } from '../hooks/useApprovalSocket';
 import type { CashMovementType, CashMovement } from '../../../types/cash-register.types';
 
 const MOVEMENT_TYPE_LABELS: Record<CashMovementType, string> = {
@@ -110,6 +112,9 @@ const ActiveSessionPage: React.FC = () => {
   const sessionQuery = useCashSession(id);
   const movementsQuery = useCashMovements({ cashSessionId: id, includeVoided: true });
   const { createMovement, voidMovement } = useCashMutations();
+
+  // Real-time WebSocket for advance payment approvals
+  useApprovalSocket();
 
   const [dialogType, setDialogType] = useState<CashMovementType | null>(null);
   const [voidTarget, setVoidTarget] = useState<CashMovement | null>(null);
@@ -348,6 +353,11 @@ const ActiveSessionPage: React.FC = () => {
             Depósito
           </Button>
         </Box>
+      )}
+
+      {/* ── Pending Advance Payment Approvals ────────────────────────── */}
+      {hasPermission(PERMISSIONS.APPROVE_ADVANCE_PAYMENTS) && (
+        <PendingApprovalsPanel />
       )}
 
       {/* ── Movements List ───────────────────────────────────────────── */}

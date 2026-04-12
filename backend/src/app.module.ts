@@ -50,6 +50,7 @@ import { CommentsModule } from './modules/comments/comments.module';
 import { CashRegisterModule } from './modules/cash-register/cash-register.module';
 import { CashSessionModule } from './modules/cash-session/cash-session.module';
 import { CashMovementModule } from './modules/cash-movement/cash-movement.module';
+import { WsEventsModule } from './modules/ws-events/ws-events.module';
 
 @Module({
   imports: [
@@ -133,6 +134,8 @@ import { CashMovementModule } from './modules/cash-movement/cash-movement.module
     CashRegisterModule,
     CashSessionModule,
     CashMovementModule,
+    // Módulo de WebSocket Events (tiempo real)
+    WsEventsModule,
   ],
   providers: [
     {

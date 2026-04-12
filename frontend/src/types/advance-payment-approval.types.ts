@@ -27,6 +27,10 @@ export interface AdvancePaymentApproval {
     status: string;
     total?: string;
     paidAmount?: string;
+    client?: {
+      id: string;
+      name: string;
+    };
   };
   payment: {
     id: string;
