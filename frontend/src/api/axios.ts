@@ -62,7 +62,8 @@ axiosInstance.interceptors.response.use(
     // Manejo de Refresh Token - No reintentar para endpoints de auth
     const isAuthEndpoint = originalRequest.url?.includes('/auth/login') || 
                           originalRequest.url?.includes('/auth/register') || 
-                          originalRequest.url?.includes('/auth/refresh');
+                          originalRequest.url?.includes('/auth/refresh') ||
+                          originalRequest.url?.includes('/auth/logout');
 
     if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
