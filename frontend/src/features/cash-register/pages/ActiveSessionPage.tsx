@@ -58,7 +58,7 @@ const MOVEMENT_TYPE_LABELS: Record<CashMovementType, string> = {
   DEPOSIT: 'Depósito',
 };
 
-const MOVEMENT_TYPE_ICONS: Record<CashMovementType, React.ReactNode> = {
+const MOVEMENT_TYPE_ICONS: Record<CashMovementType, React.ReactElement> = {
   INCOME: <AddCircleOutlineIcon fontSize="small" />,
   EXPENSE: <RemoveCircleOutlineIcon fontSize="small" />,
   WITHDRAWAL: <MoneyOffIcon fontSize="small" />,
