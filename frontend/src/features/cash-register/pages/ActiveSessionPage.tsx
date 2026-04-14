@@ -57,8 +57,10 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import TableChartIcon from '@mui/icons-material/TableChart';
+import PrintIcon from '@mui/icons-material/Print';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { exportMovementsPdf, exportMovementsCsv } from '../utils/exportMovements';
+import { generateMovementReceipt } from '../utils/generateMovementReceipt';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
 import { PATHS } from '../../../router/paths';
@@ -795,6 +797,17 @@ const ActiveSessionPage: React.FC = () => {
                       >
                         {isPositive ? '+' : '-'}{formatCurrency(mov.amount)}
                       </Typography>
+
+                      {/* Print receipt */}
+                      <Tooltip title="Imprimir comprobante">
+                        <IconButton
+                          size="small"
+                          onClick={() => generateMovementReceipt(mov, session.cashRegister.name)}
+                          sx={{ p: 0.5, color: 'text.secondary' }}
+                        >
+                          <PrintIcon sx={{ fontSize: '1rem' }} />
+                        </IconButton>
+                      </Tooltip>
 
                       {/* Void button */}
                       {!mov.isVoided && canVoidMovement && mov.referenceType !== 'EXPENSE_ORDER' ? (
