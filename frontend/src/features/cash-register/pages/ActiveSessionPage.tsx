@@ -61,6 +61,7 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import PrintIcon from '@mui/icons-material/Print';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { ToolbarButton } from '../../orders/components/ToolbarButton';
 import { exportMovementsPdf, exportMovementsCsv } from '../utils/exportMovements';
@@ -735,6 +736,16 @@ const ActiveSessionPage: React.FC = () => {
                                 variant="outlined"
                                 sx={{ height: 20, fontSize: '0.68rem', fontWeight: 600, maxWidth: 240, '.MuiChip-label': { px: 0.75 }}}
                               />
+                              {mov.linkedPayment?.advancePaymentApproval?.status === 'PENDING' && (
+                                <Chip
+                                  icon={<HourglassEmptyIcon sx={{ fontSize: '0.7rem !important' }} />}
+                                  label="Pendiente por autorizar"
+                                  size="small"
+                                  color="warning"
+                                  variant="filled"
+                                  sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700, '.MuiChip-label': { px: 0.75 } }}
+                                />
+                              )}
                             </>
                           )}
                           {mov.referenceType === 'EXPENSE_ORDER' && mov.expenseOrderRef && (

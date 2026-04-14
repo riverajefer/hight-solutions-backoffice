@@ -103,6 +103,10 @@ export interface CashMovement {
     orderId: string;
     amount: string;
     paymentMethod: string;
+    advancePaymentApproval?: {
+      id: string;
+      status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    } | null;
   };
   expenseOrderRef?: ExpenseOrderRef | null;
   orderRef?: OrderRef | null;

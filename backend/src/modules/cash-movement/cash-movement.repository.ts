@@ -28,7 +28,15 @@ const MOVEMENT_SELECT = {
     select: { id: true, firstName: true, lastName: true, username: true },
   },
   linkedPayment: {
-    select: { id: true, orderId: true, amount: true, paymentMethod: true },
+    select: {
+      id: true,
+      orderId: true,
+      amount: true,
+      paymentMethod: true,
+      advancePaymentApproval: {
+        select: { id: true, status: true },
+      },
+    },
   },
 } satisfies Prisma.CashMovementSelect;
 
