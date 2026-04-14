@@ -9,12 +9,15 @@ import {
   Chip,
   CircularProgress,
   Divider,
+  IconButton,
   Stack,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import AssignmentIcon from '@mui/icons-material/Assignment';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import PersonIcon from '@mui/icons-material/Person';
 import LocalAtmIcon from '@mui/icons-material/LocalAtm';
 import SyncAltIcon from '@mui/icons-material/SyncAlt';
@@ -58,7 +61,7 @@ const formatDate = (iso: string) =>
   });
 
 const PendingApprovalsPanel: React.FC = () => {
-  const { data: approvals = [], isLoading } = useQuery({
+  const { data: approvals = [], isLoading, isFetching, refetch } = useQuery({
     queryKey: ['advancePaymentApprovals', 'pending'],
     queryFn: () => advancePaymentApprovalsApi.findPending(),
     refetchInterval: 30_000,
@@ -100,10 +103,26 @@ const PendingApprovalsPanel: React.FC = () => {
                 <Badge badgeContent={approvals.length} color="warning" sx={{ ml: 1 }} />
               )}
             </Box>
+            <Tooltip title="Actualizar solicitudes" arrow>
+              <IconButton
+                size="small"
+                onClick={() => refetch()}
+                disabled={isFetching}
+                sx={{ color: 'text.secondary' }}
+              >
+                <RefreshIcon
+                  fontSize="small"
+                  sx={{
+                    animation: isFetching ? 'spin 1s linear infinite' : 'none',
+                    '@keyframes spin': { '0%': { transform: 'rotate(0deg)' }, '100%': { transform: 'rotate(360deg)' } },
+                  }}
+                />
+              </IconButton>
+            </Tooltip>
           </Box>
 
           {approvals.length === 0 && (
-            <Typography variant="body2" color="text.disabled" sx={{ mt: 0.5 }}>
+            <Typography variant="subtitle2" color="text.disabled" sx={{ mt: 0.2 }}>
               No hay solicitudes pendientes
             </Typography>
           )}

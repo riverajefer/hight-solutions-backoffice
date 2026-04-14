@@ -14,6 +14,7 @@ import {
   MenuItem,
   ListItemIcon,
   ListItemText,
+  Paper,
   Stack,
   TextField,
   ToggleButton,
@@ -31,6 +32,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  useTheme,
 } from '@mui/material';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
@@ -58,7 +60,9 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import PrintIcon from '@mui/icons-material/Print';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { ToolbarButton } from '../../orders/components/ToolbarButton';
 import { exportMovementsPdf, exportMovementsCsv } from '../utils/exportMovements';
 import { generateMovementReceipt } from '../utils/generateMovementReceipt';
 import { useAuthStore } from '../../../store/authStore';
@@ -128,6 +132,7 @@ const formatDate = (iso: string) =>
 const ActiveSessionPage: React.FC = () => {
   const { id = '' } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const theme = useTheme();
   const { hasPermission } = useAuthStore();
 
   const sessionQuery = useCashSession(id);
@@ -377,72 +382,72 @@ const ActiveSessionPage: React.FC = () => {
             </Box>
           </Box>
 
-          <Divider />
-
-          {/* ── Actions ─────────────────── */}
-          <Box sx={{
-            display: 'flex',
-            flexDirection: { xs: 'column', sm: 'row' },
-            justifyContent: 'space-between',
-            alignItems: { xs: 'stretch', sm: 'center' },
-            gap: 1,
-            mt: 2,
-          }}>
-            {canCreateMovement && (
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                <Button variant="contained" color="success" size="small" startIcon={<TrendingUpIcon />} onClick={() => setDialogType('INCOME')}>Ingreso</Button>
-                <Button variant="contained" color="error" size="small" startIcon={<TrendingDownIcon />} onClick={() => setDialogType('EXPENSE')}>Egreso</Button>
-                <Button variant="contained" color="warning" size="small" startIcon={<LogoutIcon />} onClick={() => setDialogType('WITHDRAWAL')}>Retiro</Button>
-                <Button variant="contained" color="info" size="small" startIcon={<MoveToInboxIcon />} onClick={() => setDialogType('DEPOSIT')}>Depósito</Button>
-              </Box>
-            )}
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', ml: { sm: 'auto' } }}>
-              <Button variant="outlined" size="small" startIcon={<CalculateIcon />} onClick={() => setIsCalculatorOpen(true)}>
-                Calculadora
-              </Button>
-              <Button variant="outlined" size="small" onClick={() => setIsBalanceDialogOpen(true)}>
-                Ver balance
-              </Button>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<FileDownloadIcon />}
-                onClick={(e) => setExportAnchorEl(e.currentTarget)}
-              >
-                Exportar
-              </Button>
-              <Menu
-                anchorEl={exportAnchorEl}
-                open={Boolean(exportAnchorEl)}
-                onClose={() => setExportAnchorEl(null)}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                slotProps={{ paper: { sx: { minWidth: 180, mt: 0.5 } } }}
-              >
-                <MenuItem onClick={() => { setExportAnchorEl(null); exportMovementsPdf(session, filteredMovements, runningBalance); }}>
-                  <ListItemIcon><PictureAsPdfIcon fontSize="small" color="error" /></ListItemIcon>
-                  <ListItemText>Exportar PDF</ListItemText>
-                </MenuItem>
-                <MenuItem onClick={() => { setExportAnchorEl(null); exportMovementsCsv(session, filteredMovements); }}>
-                  <ListItemIcon><TableChartIcon fontSize="small" color="success" /></ListItemIcon>
-                  <ListItemText>Exportar CSV</ListItemText>
-                </MenuItem>
-              </Menu>
-              {canCloseSession && (
-                <Button
-                  variant="outlined"
-                  color="warning"
-                  size="small"
-                  startIcon={<LockIcon />}
-                  onClick={() => navigate(PATHS.CASH_SESSION_CLOSE.replace(':id', id))}
-                >
-                  Cerrar Caja
-                </Button>
-              )}
-            </Box>
-          </Box>
         </CardContent>
       </Card>
+
+      {/* ── Toolbar de Acciones ───────────────────────────── */}
+      <Paper
+        elevation={0}
+        sx={{
+          mb: 2,
+          p: 0,
+          borderRadius: 2,
+          display: 'flex',
+          alignItems: 'stretch',
+          justifyContent: 'center',
+          background: (t) => t.palette.mode === 'dark'
+            ? 'rgba(255, 255, 255, 0.04)'
+            : 'rgba(255, 255, 255, 0.8)',
+          backdropFilter: 'blur(8px)',
+          border: (t) => `1px solid ${t.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
+          overflowX: 'auto',
+          '&::-webkit-scrollbar': { display: 'none' },
+        }}
+      >
+        <Stack
+          direction="row"
+          spacing={0}
+          alignItems="stretch"
+          sx={{ flexWrap: 'wrap', gap: { xs: 0.5, sm: 0 } }}
+          divider={<Divider orientation="vertical" flexItem sx={{ my: 1.5, opacity: 0.5, display: { xs: 'none', sm: 'block' } }} />}
+        >
+          {canCreateMovement && (
+            <ToolbarButton icon={<TrendingUpIcon />} label="Ingreso" onClick={() => setDialogType('INCOME')} color={theme.palette.success.main} tooltip="Registrar Ingreso" />
+          )}
+          {canCreateMovement && (
+            <ToolbarButton icon={<TrendingDownIcon />} label="Egreso" onClick={() => setDialogType('EXPENSE')} color={theme.palette.error.main} tooltip="Registrar Egreso" />
+          )}
+          {canCreateMovement && (
+            <ToolbarButton icon={<LogoutIcon />} label="Retiro" onClick={() => setDialogType('WITHDRAWAL')} color={theme.palette.warning.main} tooltip="Registrar Retiro" />
+          )}
+          {canCreateMovement && (
+            <ToolbarButton icon={<MoveToInboxIcon />} label="Depósito" onClick={() => setDialogType('DEPOSIT')} color={theme.palette.info.main} tooltip="Registrar Depósito" />
+          )}
+          <ToolbarButton icon={<CalculateIcon />} label="Calculadora" onClick={() => setIsCalculatorOpen(true)} tooltip="Abrir Calculadora" />
+          <ToolbarButton icon={<VisibilityIcon />} label="Balance" onClick={() => setIsBalanceDialogOpen(true)} tooltip="Ver Balance" />
+          <ToolbarButton icon={<FileDownloadIcon />} label="Exportar" onClick={(e) => setExportAnchorEl(e.currentTarget)} tooltip="Exportar Movimientos" />
+          {canCloseSession && (
+            <ToolbarButton icon={<LockIcon />} label="Cerrar Caja" onClick={() => navigate(PATHS.CASH_SESSION_CLOSE.replace(':id', id))} color={theme.palette.warning.main} tooltip="Cerrar Sesión de Caja" />
+          )}
+        </Stack>
+      </Paper>
+      <Menu
+        anchorEl={exportAnchorEl}
+        open={Boolean(exportAnchorEl)}
+        onClose={() => setExportAnchorEl(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        slotProps={{ paper: { sx: { minWidth: 180, mt: 0.5 } } }}
+      >
+        <MenuItem onClick={() => { setExportAnchorEl(null); exportMovementsPdf(session, filteredMovements, runningBalance); }}>
+          <ListItemIcon><PictureAsPdfIcon fontSize="small" color="error" /></ListItemIcon>
+          <ListItemText>Exportar PDF</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => { setExportAnchorEl(null); exportMovementsCsv(session, filteredMovements); }}>
+          <ListItemIcon><TableChartIcon fontSize="small" color="success" /></ListItemIcon>
+          <ListItemText>Exportar CSV</ListItemText>
+        </MenuItem>
+      </Menu>
 
       {/* ── Pending Advance Payment Approvals ────────────────────────── */}
       {hasPermission(PERMISSIONS.APPROVE_ADVANCE_PAYMENTS) && (
