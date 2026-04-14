@@ -16,6 +16,8 @@ import {
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import RemoveIcon from '@mui/icons-material/Remove';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 import type { DenominationCountItemDto, BalancePreview } from '../../../types/cash-register.types';
 import { COLOMBIAN_BILLS, COLOMBIAN_COINS } from '../../../types/cash-register.types';
 
@@ -60,30 +62,84 @@ const ConciliationSummary: React.FC<Props> = ({ denominations, preview, readonly
         <Typography variant="subtitle2" gutterBottom>
           Conteo de Denominaciones
         </Typography>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Denominación</TableCell>
-              <TableCell align="center">Cantidad</TableCell>
-              <TableCell align="right">Subtotal</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {[...COLOMBIAN_BILLS, ...COLOMBIAN_COINS].map((denom) => {
-              const row = denominations.find((d) => d.denomination === denom);
-              if (!row || row.quantity === 0) return null;
-              return (
-                <TableRow key={denom}>
-                  <TableCell>{formatCurrency(denom)}</TableCell>
-                  <TableCell align="center">{row.quantity}</TableCell>
-                  <TableCell align="right">
-                    {formatCurrency(denom * row.quantity)}
+
+        {/* Bills section */}
+        {(() => {
+          const billRows = COLOMBIAN_BILLS.map((denom) => {
+            const row = denominations.find((d) => d.denomination === denom);
+            return row && row.quantity > 0 ? { denom, qty: row.quantity } : null;
+          }).filter(Boolean) as { denom: number; qty: number }[];
+
+          const coinRows = COLOMBIAN_COINS.map((denom) => {
+            const row = denominations.find((d) => d.denomination === denom);
+            return row && row.quantity > 0 ? { denom, qty: row.quantity } : null;
+          }).filter(Boolean) as { denom: number; qty: number }[];
+
+          return (
+            <Table size="small" sx={{ '& .MuiTableCell-root': { py: 0.5, px: 1.5 } }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontSize: '0.7rem', fontWeight: 700 }}>Denominación</TableCell>
+                  <TableCell align="center" sx={{ fontSize: '0.7rem', fontWeight: 700 }}>Cant.</TableCell>
+                  <TableCell align="right" sx={{ fontSize: '0.7rem', fontWeight: 700 }}>Subtotal</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {/* Bill group header */}
+                {billRows.length > 0 && (
+                  <TableRow>
+                    <TableCell colSpan={3} sx={{ py: 0.3, px: 1, bgcolor: 'action.hover', borderBottom: 'none' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <AccountBalanceWalletIcon sx={{ fontSize: 14, color: 'success.main' }} />
+                        <Typography variant="caption" fontWeight={700} color="success.main" sx={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                          Billetes
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                )}
+                {billRows.map(({ denom, qty }) => (
+                  <TableRow key={denom} sx={{ '&:last-of-type td': { borderBottom: billRows[billRows.length - 1].denom === denom && coinRows.length > 0 ? undefined : 'none' } }}>
+                    <TableCell sx={{ fontSize: '0.8rem', pl: 3 }}>{formatCurrency(denom)}</TableCell>
+                    <TableCell align="center" sx={{ fontSize: '0.8rem' }}>{qty}</TableCell>
+                    <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>{formatCurrency(denom * qty)}</TableCell>
+                  </TableRow>
+                ))}
+
+                {/* Coin group header */}
+                {coinRows.length > 0 && (
+                  <TableRow>
+                    <TableCell colSpan={3} sx={{ py: 0.3, px: 1, bgcolor: 'action.hover', borderBottom: 'none' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <MonetizationOnIcon sx={{ fontSize: 14, color: 'warning.main' }} />
+                        <Typography variant="caption" fontWeight={700} color="warning.main" sx={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                          Monedas
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                )}
+                {coinRows.map(({ denom, qty }) => (
+                  <TableRow key={denom}>
+                    <TableCell sx={{ fontSize: '0.8rem', pl: 3 }}>{formatCurrency(denom)}</TableCell>
+                    <TableCell align="center" sx={{ fontSize: '0.8rem' }}>{qty}</TableCell>
+                    <TableCell align="right" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>{formatCurrency(denom * qty)}</TableCell>
+                  </TableRow>
+                ))}
+
+                {/* Total row */}
+                <TableRow>
+                  <TableCell colSpan={2} sx={{ fontWeight: 700, fontSize: '0.85rem', borderBottom: 'none', pt: 1 }}>
+                    Total Conteo
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 800, fontSize: '0.95rem', borderBottom: 'none', pt: 1 }}>
+                    {formatCurrency(closingAmount)}
                   </TableCell>
                 </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+              </TableBody>
+            </Table>
+          );
+        })()}
       </Paper>
 
       {/* Comparison table */}
