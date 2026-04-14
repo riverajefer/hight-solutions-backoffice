@@ -32,16 +32,16 @@ import {
   TableHead,
   TableRow,
 } from '@mui/material';
-import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
-import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
-import MoneyOffIcon from '@mui/icons-material/MoneyOff';
+import LogoutIcon from '@mui/icons-material/Logout';
+import MoveToInboxIcon from '@mui/icons-material/MoveToInbox';
 import LockIcon from '@mui/icons-material/Lock';
 import BlockIcon from '@mui/icons-material/Block';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import SearchIcon from '@mui/icons-material/Search';
 import PersonIcon from '@mui/icons-material/Person';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import LocalAtmIcon from '@mui/icons-material/LocalAtm';
@@ -74,10 +74,10 @@ const MOVEMENT_TYPE_LABELS: Record<CashMovementType, string> = {
 };
 
 const MOVEMENT_TYPE_ICONS: Record<CashMovementType, React.ReactElement> = {
-  INCOME: <AddCircleOutlineIcon fontSize="small" />,
-  EXPENSE: <RemoveCircleOutlineIcon fontSize="small" />,
-  WITHDRAWAL: <MoneyOffIcon fontSize="small" />,
-  DEPOSIT: <AccountBalanceIcon fontSize="small" />,
+  INCOME: <TrendingUpIcon fontSize="small" />,
+  EXPENSE: <TrendingDownIcon fontSize="small" />,
+  WITHDRAWAL: <LogoutIcon fontSize="small" />,
+  DEPOSIT: <MoveToInboxIcon fontSize="small" />,
 };
 
 const MOVEMENT_TYPE_COLORS: Record<CashMovementType, 'success' | 'error' | 'warning' | 'info'> = {
@@ -207,6 +207,18 @@ const ActiveSessionPage: React.FC = () => {
     return summary;
   }, [movements]);
 
+  const movementSummary = useMemo(() => {
+    const types: CashMovementType[] = ['INCOME', 'DEPOSIT', 'EXPENSE', 'WITHDRAWAL'];
+    const active = movements.filter((m) => !m.isVoided);
+    const byType = types.map((t) => {
+      const items = active.filter((m) => m.movementType === t);
+      return { type: t, count: items.length, total: items.reduce((s, m) => s + Number(m.amount), 0) };
+    });
+    const totalIncome = byType.filter((b) => b.type === 'INCOME' || b.type === 'DEPOSIT').reduce((s, b) => s + b.total, 0);
+    const totalExpense = byType.filter((b) => b.type === 'EXPENSE' || b.type === 'WITHDRAWAL').reduce((s, b) => s + b.total, 0);
+    return { byType, totalIncome, totalExpense, net: totalIncome - totalExpense, activeCount: active.length, voidedCount: movements.length - active.length };
+  }, [movements]);
+
   // Compute breakdown by payment method
   const paymentMethodBreakdown = useMemo(() => {
     const summary: Record<string, { income: number; expense: number }> = {};
@@ -283,75 +295,105 @@ const ActiveSessionPage: React.FC = () => {
         subtitle={`Abierta el ${formatDate(session.openedAt)}`}
       />
 
-      {/* ── Info Bar ─────────────────────────────────────────────────── */}
+      {/* ── Session Overview ─────────────────────────────────────── */}
       <Card sx={{ mb: 2 }}>
-        <CardContent sx={{ py: { xs: 1.5, sm: 2 }, '&:last-child': { pb: { xs: 1.5, sm: 2 } } }}>
-          <Box
-            sx={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              alignItems: 'center',
-              gap: { xs: 1.5, sm: 3 },
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <PersonIcon fontSize="small" color="action" />
-              <Box>
-                <Typography variant="caption" color="text.secondary" lineHeight={1}>Cajero</Typography>
-                <Typography variant="body2" fontWeight={500}>
-                  {session.openedBy.firstName} {session.openedBy.lastName}
-                </Typography>
-              </Box>
-            </Box>
-
-            <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', sm: 'block' } }} />
-
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <CalendarTodayIcon fontSize="small" color="action" />
-              <Box>
-                <Typography variant="caption" color="text.secondary" lineHeight={1}>Apertura</Typography>
-                <Typography variant="body2" fontWeight={500}>{formatDate(session.openedAt)}</Typography>
-              </Box>
-            </Box>
-
-            <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', sm: 'block' } }} />
-
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <AccountBalanceIcon fontSize="small" color="action" />
-              <Box>
-                <Typography variant="caption" color="text.secondary" lineHeight={1}>Fondo Inicial</Typography>
-                <Typography variant="body2" fontWeight={500}>{formatCurrency(session.openingAmount)}</Typography>
-              </Box>
-            </Box>
-
-            <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', sm: 'block' } }} />
-
+        <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
+          {/* ── Stats ────────────────────── */}
+          <Box sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'flex-start', sm: 'center' },
+            justifyContent: 'space-between',
+            gap: 2,
+            mb: 2,
+          }}>
             <Box>
-              <Typography variant="caption" color="text.secondary" lineHeight={1}>Saldo en Caja</Typography>
+              <Typography variant="overline" color="text.secondary" sx={{ lineHeight: 1.2, letterSpacing: 1 }}>
+                Saldo en Caja
+              </Typography>
               <Typography
-                variant="h6"
-                fontWeight={700}
-                lineHeight={1.2}
+                variant="h4"
+                fontWeight={800}
+                lineHeight={1.1}
                 color={runningBalance >= 0 ? 'success.main' : 'error.main'}
               >
                 {formatCurrency(runningBalance)}
               </Typography>
             </Box>
+            <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+              {[
+                {
+                  icon: <PersonIcon sx={{ fontSize: '1rem' }} />,
+                  label: 'Cajero',
+                  value: `${session.openedBy.firstName} ${session.openedBy.lastName}`,
+                },
+                {
+                  icon: <AccountBalanceIcon sx={{ fontSize: '1rem' }} />,
+                  label: 'Fondo Inicial',
+                  value: formatCurrency(session.openingAmount),
+                },
+              ].map((item) => (
+                <Box
+                  key={item.label}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    px: 1.5,
+                    py: 0.75,
+                    borderRadius: 2,
+                    bgcolor: 'action.hover',
+                  }}
+                >
+                  <Box sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 30,
+                    height: 30,
+                    borderRadius: '50%',
+                    bgcolor: 'background.paper',
+                    color: 'text.secondary',
+                  }}>
+                    {item.icon}
+                  </Box>
+                  <Box sx={{ lineHeight: 1 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', lineHeight: 1 }}>
+                      {item.label}
+                    </Typography>
+                    <Typography variant="body2" fontWeight={600} sx={{ lineHeight: 1.3 }}>
+                      {item.value}
+                    </Typography>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          </Box>
 
-            <Box sx={{ ml: { sm: 'auto' }, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<CalculateIcon />}
-                onClick={() => setIsCalculatorOpen(true)}
-              >
+          <Divider />
+
+          {/* ── Actions ─────────────────── */}
+          <Box sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            justifyContent: 'space-between',
+            alignItems: { xs: 'stretch', sm: 'center' },
+            gap: 1,
+            mt: 2,
+          }}>
+            {canCreateMovement && (
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Button variant="contained" color="success" size="small" startIcon={<TrendingUpIcon />} onClick={() => setDialogType('INCOME')}>Ingreso</Button>
+                <Button variant="contained" color="error" size="small" startIcon={<TrendingDownIcon />} onClick={() => setDialogType('EXPENSE')}>Egreso</Button>
+                <Button variant="contained" color="warning" size="small" startIcon={<LogoutIcon />} onClick={() => setDialogType('WITHDRAWAL')}>Retiro</Button>
+                <Button variant="contained" color="info" size="small" startIcon={<MoveToInboxIcon />} onClick={() => setDialogType('DEPOSIT')}>Depósito</Button>
+              </Box>
+            )}
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', ml: { sm: 'auto' } }}>
+              <Button variant="outlined" size="small" startIcon={<CalculateIcon />} onClick={() => setIsCalculatorOpen(true)}>
                 Calculadora
               </Button>
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={() => setIsBalanceDialogOpen(true)}
-              >
+              <Button variant="outlined" size="small" onClick={() => setIsBalanceDialogOpen(true)}>
                 Ver balance
               </Button>
               {canCloseSession && (
@@ -370,51 +412,6 @@ const ActiveSessionPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* ── Action Toolbar ───────────────────────────────────────────── */}
-      {canCreateMovement && (
-        <Box
-          sx={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 1,
-            mb: 2,
-          }}
-        >
-          <Button
-            variant="contained"
-            color="success"
-            startIcon={<AddCircleOutlineIcon />}
-            onClick={() => setDialogType('INCOME')}
-          >
-            Ingreso
-          </Button>
-          <Button
-            variant="contained"
-            color="error"
-            startIcon={<RemoveCircleOutlineIcon />}
-            onClick={() => setDialogType('EXPENSE')}
-          >
-            Egreso
-          </Button>
-          <Button
-            variant="contained"
-            color="warning"
-            startIcon={<MoneyOffIcon />}
-            onClick={() => setDialogType('WITHDRAWAL')}
-          >
-            Retiro
-          </Button>
-          <Button
-            variant="contained"
-            color="info"
-            startIcon={<AccountBalanceIcon />}
-            onClick={() => setDialogType('DEPOSIT')}
-          >
-            Depósito
-          </Button>
-        </Box>
-      )}
-
       {/* ── Pending Advance Payment Approvals ────────────────────────── */}
       {hasPermission(PERMISSIONS.APPROVE_ADVANCE_PAYMENTS) && (
         <PendingApprovalsPanel />
@@ -428,7 +425,7 @@ const ActiveSessionPage: React.FC = () => {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <ReceiptLongIcon color="action" fontSize="small" />
               <Typography variant="subtitle2" color="text.secondary">
-                Movimientos
+                Lista de movimientos
               </Typography>
               <Chip
                 label={`${movements.filter((m) => !m.isVoided).length} activos`}
@@ -627,32 +624,44 @@ const ActiveSessionPage: React.FC = () => {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, minWidth: 0 }}>
                       <Box sx={{
                         display: 'flex',
+                        flexDirection: 'column',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 36,
-                        height: 36,
-                        borderRadius: '50%',
                         flexShrink: 0,
-                        bgcolor: mov.isVoided ? 'action.disabledBackground' : `${typeColor}.main`,
-                        color: '#fff',
-                        '& .MuiSvgIcon-root': { fontSize: '1.1rem' },
+                        width: 48,
+                        gap: 0.25,
                       }}>
-                        {MOVEMENT_TYPE_ICONS[mov.movementType]}
+                        <Box sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 36,
+                          height: 36,
+                          borderRadius: '50%',
+                          bgcolor: mov.isVoided ? 'action.disabledBackground' : `${typeColor}.main`,
+                          color: '#fff',
+                          '& .MuiSvgIcon-root': { fontSize: '1.1rem' },
+                        }}>
+                          {MOVEMENT_TYPE_ICONS[mov.movementType]}
+                        </Box>
+                        <Typography
+                          variant="caption"
+                          fontWeight={700}
+                          sx={{
+                            color: mov.isVoided ? 'text.disabled' : `${typeColor}.main`,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.3px',
+                            fontSize: '0.6rem',
+                            lineHeight: 1.2,
+                            textAlign: 'center',
+                          }}
+                        >
+                          {MOVEMENT_TYPE_LABELS[mov.movementType]}
+                        </Typography>
                       </Box>
 
                       <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>                          <Typography
-                            variant="caption"
-                            fontWeight={700}
-                            sx={{
-                              color: mov.isVoided ? 'text.disabled' : `${typeColor}.main`,
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.5px',
-                              fontSize: '0.65rem',
-                            }}
-                          >
-                            {MOVEMENT_TYPE_LABELS[mov.movementType]}
-                          </Typography>                          <Typography variant="body1" fontWeight={600} noWrap sx={{ color: 'text.primary' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
+                          <Typography variant="body2" fontWeight={600} noWrap sx={{ color: 'text.primary' }}>
                             {mov.description}
                           </Typography>
                           {mov.isVoided && (
@@ -660,9 +669,6 @@ const ActiveSessionPage: React.FC = () => {
                               sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700 }} />
                           )}
                         </Box>
-                        <Typography variant="body2" fontWeight={600} noWrap sx={{ color: 'text.primary', mb: 0.25 }}>
-                          {mov.description}
-                        </Typography>
 
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
                           <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>
@@ -784,6 +790,120 @@ const ActiveSessionPage: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* ── Movements Summary ────────────────────────────────────────── */}
+      {movements.length > 0 && (
+        <Card sx={{ mt: 2 }}>
+          <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
+              Resumen de movimientos
+            </Typography>
+
+            <Box sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(4, 1fr)' },
+              gap: 1.5,
+              mb: 2,
+            }}>
+              {movementSummary.byType.map((item) => {
+                const color = MOVEMENT_TYPE_COLORS[item.type];
+                const isPos = item.type === 'INCOME' || item.type === 'DEPOSIT';
+                return (
+                  <Box
+                    key={item.type}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1.5,
+                      px: 1.5,
+                      py: 1,
+                      borderRadius: 2,
+                      bgcolor: 'action.hover',
+                      border: '1px solid',
+                      borderColor: 'divider',
+                    }}
+                  >
+                    <Box sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 34,
+                      height: 34,
+                      borderRadius: '50%',
+                      bgcolor: `${color}.main`,
+                      color: '#fff',
+                      flexShrink: 0,
+                      '& .MuiSvgIcon-root': { fontSize: '1rem' },
+                    }}>
+                      {MOVEMENT_TYPE_ICONS[item.type]}
+                    </Box>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', lineHeight: 1, display: 'block' }}>
+                        {MOVEMENT_TYPE_LABELS[item.type]} ({item.count})
+                      </Typography>
+                      <Typography variant="body2" fontWeight={700} color={`${color}.main`} noWrap>
+                        {isPos ? '+' : '-'}{formatCurrency(item.total)}
+                      </Typography>
+                    </Box>
+                  </Box>
+                );
+              })}
+            </Box>
+
+            <Divider sx={{ mb: 1.5 }} />
+
+            <Box sx={{
+              display: 'flex',
+              flexDirection: { xs: 'column', sm: 'row' },
+              justifyContent: 'space-between',
+              gap: 1.5,
+            }}>
+              <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>Total Ingresos</Typography>
+                  <Typography variant="h6" fontWeight={700} color="success.main">
+                    +{formatCurrency(movementSummary.totalIncome)}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>Total Egresos</Typography>
+                  <Typography variant="h6" fontWeight={700} color="error.main">
+                    -{formatCurrency(movementSummary.totalExpense)}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>Neto</Typography>
+                  <Typography
+                    variant="h6"
+                    fontWeight={700}
+                    color={movementSummary.net >= 0 ? 'success.main' : 'error.main'}
+                  >
+                    {movementSummary.net >= 0 ? '+' : ''}{formatCurrency(movementSummary.net)}
+                  </Typography>
+                </Box>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1 }}>
+                <Chip
+                  label={`${movementSummary.activeCount} activos`}
+                  size="small"
+                  color="success"
+                  variant="outlined"
+                  sx={{ fontWeight: 600, fontSize: '0.7rem' }}
+                />
+                {movementSummary.voidedCount > 0 && (
+                  <Chip
+                    label={`${movementSummary.voidedCount} anulados`}
+                    size="small"
+                    color="default"
+                    variant="outlined"
+                    sx={{ fontWeight: 600, fontSize: '0.7rem' }}
+                  />
+                )}
+              </Box>
+            </Box>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Dialogs ──────────────────────────────────────────────────── */}
       {dialogType && (
