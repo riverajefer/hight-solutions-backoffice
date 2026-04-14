@@ -32,12 +32,83 @@ const MOVEMENT_SELECT = {
   },
 } satisfies Prisma.CashMovementSelect;
 
+type ExpenseOrderRef = {
+  id: string;
+  ogNumber: string;
+  status: string;
+  expenseType: { name: string };
+} | null;
+
+type OrderRef = {
+  id: string;
+  orderNumber: string;
+  status: string;
+  client: { name: string };
+} | null;
+
+type MovementBase = { referenceType: string | null; referenceId: string | null };
+type EnrichedMovement<T extends MovementBase> = T & { expenseOrderRef: ExpenseOrderRef; orderRef: OrderRef };
+
 @Injectable()
 export class CashMovementRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  private async enrichWithReferences<T extends MovementBase>(
+    movements: T[],
+  ): Promise<EnrichedMovement<T>[]> {
+    // Enrich EXPENSE_ORDER references
+    const ogIds = movements
+      .filter((m) => m.referenceType === 'EXPENSE_ORDER' && m.referenceId)
+      .map((m) => m.referenceId as string);
+
+    const ogMap = new Map<string, NonNullable<ExpenseOrderRef>>();
+    if (ogIds.length > 0) {
+      const expenseOrders = await this.prisma.expenseOrder.findMany({
+        where: { id: { in: ogIds } },
+        select: {
+          id: true,
+          ogNumber: true,
+          status: true,
+          expenseType: { select: { name: true } },
+        },
+      });
+      expenseOrders.forEach((og) => ogMap.set(og.id, og));
+    }
+
+    // Enrich ORDER references
+    const orderIds = movements
+      .filter((m) => m.referenceType === 'ORDER' && m.referenceId)
+      .map((m) => m.referenceId as string);
+
+    const orderMap = new Map<string, NonNullable<OrderRef>>();
+    if (orderIds.length > 0) {
+      const orders = await this.prisma.order.findMany({
+        where: { id: { in: orderIds } },
+        select: {
+          id: true,
+          orderNumber: true,
+          status: true,
+          client: { select: { name: true } },
+        },
+      });
+      orders.forEach((o) => orderMap.set(o.id, o));
+    }
+
+    return movements.map((m) => ({
+      ...m,
+      expenseOrderRef:
+        m.referenceType === 'EXPENSE_ORDER' && m.referenceId
+          ? (ogMap.get(m.referenceId) ?? null)
+          : null,
+      orderRef:
+        m.referenceType === 'ORDER' && m.referenceId
+          ? (orderMap.get(m.referenceId) ?? null)
+          : null,
+    }));
+  }
+
   async findById(id: string) {
-    return this.prisma.cashMovement.findUnique({
+    const movement = await this.prisma.cashMovement.findUnique({
       where: { id },
       select: {
         ...MOVEMENT_SELECT,
@@ -46,6 +117,11 @@ export class CashMovementRepository {
         },
       },
     });
+
+    if (!movement) return null;
+
+    const [enriched] = await this.enrichWithReferences([movement]);
+    return enriched;
   }
 
   async findAll(filters: FilterCashMovementsDto) {
@@ -75,7 +151,7 @@ export class CashMovementRepository {
 
     const skip = (page - 1) * limit;
 
-    const [data, total] = await Promise.all([
+    const [raw, total] = await Promise.all([
       this.prisma.cashMovement.findMany({
         where,
         select: MOVEMENT_SELECT,
@@ -85,6 +161,8 @@ export class CashMovementRepository {
       }),
       this.prisma.cashMovement.count({ where }),
     ]);
+
+    const data = await this.enrichWithReferences(raw);
 
     return { data, total, page, limit };
   }

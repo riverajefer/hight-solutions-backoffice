@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -10,8 +10,14 @@ import {
   Divider,
   IconButton,
   InputAdornment,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
   Stack,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Tooltip,
   Typography,
   Alert,
@@ -41,6 +47,13 @@ import CreditCardIcon from '@mui/icons-material/CreditCard';
 import LocalAtmIcon from '@mui/icons-material/LocalAtm';
 import SyncAltIcon from '@mui/icons-material/SyncAlt';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import SortIcon from '@mui/icons-material/Sort';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
@@ -123,25 +136,61 @@ const ActiveSessionPage: React.FC = () => {
   const [isBalanceDialogOpen, setIsBalanceDialogOpen] = useState(false);
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [movementSearch, setMovementSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState<CashMovementType | 'ALL'>('ALL');
+  const [sortBy, setSortBy] = useState<'date' | 'amount' | 'type'>('date');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [sortAnchorEl, setSortAnchorEl] = useState<null | HTMLElement>(null);
 
   const session = sessionQuery.data;
   const movements = movementsQuery.data?.data || [];
 
   const filteredMovements = useMemo(() => {
-    if (!movementSearch.trim()) return movements;
-    const q = movementSearch.toLowerCase();
-    return movements.filter((m) => {
-      const label = MOVEMENT_TYPE_LABELS[m.movementType]?.toLowerCase() || '';
-      const method = (PAYMENT_METHOD_LABELS[m.paymentMethod] || m.paymentMethod || '').toLowerCase();
-      return (
-        m.description.toLowerCase().includes(q) ||
-        m.receiptNumber.toLowerCase().includes(q) ||
-        label.includes(q) ||
-        method.includes(q) ||
-        String(m.amount).includes(q)
-      );
+    let result = movements;
+
+    // Type filter
+    if (typeFilter !== 'ALL') {
+      result = result.filter((m) => m.movementType === typeFilter);
+    }
+
+    // Text search
+    if (movementSearch.trim()) {
+      const q = movementSearch.toLowerCase();
+      result = result.filter((m) => {
+        const label = MOVEMENT_TYPE_LABELS[m.movementType]?.toLowerCase() || '';
+        const method = (PAYMENT_METHOD_LABELS[m.paymentMethod] || m.paymentMethod || '').toLowerCase();
+        return (
+          m.description.toLowerCase().includes(q) ||
+          m.receiptNumber.toLowerCase().includes(q) ||
+          label.includes(q) ||
+          method.includes(q) ||
+          String(m.amount).includes(q)
+        );
+      });
+    }
+
+    // Sort
+    const sorted = [...result].sort((a, b) => {
+      let cmp = 0;
+      switch (sortBy) {
+        case 'date':
+          cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          break;
+        case 'amount':
+          cmp = Number(a.amount) - Number(b.amount);
+          break;
+        case 'type': {
+          const typeOrder: Record<CashMovementType, number> = { INCOME: 0, DEPOSIT: 1, EXPENSE: 2, WITHDRAWAL: 3 };
+          cmp = typeOrder[a.movementType] - typeOrder[b.movementType];
+          break;
+        }
+      }
+      return sortDir === 'desc' ? -cmp : cmp;
     });
-  }, [movements, movementSearch]);
+
+    return sorted;
+  }, [movements, movementSearch, typeFilter, sortBy, sortDir]);
+
+  const activeFilterCount = (typeFilter !== 'ALL' ? 1 : 0) + (movementSearch.trim() ? 1 : 0);
 
   const balanceBreakdown = useMemo(() => {
     const summary: Record<string, number> = {
@@ -374,27 +423,149 @@ const ActiveSessionPage: React.FC = () => {
       {/* ── Movements List ───────────────────────────────────────────── */}
       <Card>
         <CardContent>
+          {/* ── Header + Counts ─────────────────────────── */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-            <Typography variant="subtitle2" color="text.secondary">
-              Movimientos ({movements.filter((m) => !m.isVoided).length} activos)
-            </Typography>
-            <ReceiptLongIcon color="action" fontSize="small" />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <ReceiptLongIcon color="action" fontSize="small" />
+              <Typography variant="subtitle2" color="text.secondary">
+                Movimientos
+              </Typography>
+              <Chip
+                label={`${movements.filter((m) => !m.isVoided).length} activos`}
+                size="small"
+                sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }}
+              />
+              {activeFilterCount > 0 && (
+                <Chip
+                  icon={<FilterListIcon sx={{ fontSize: '0.8rem !important' }} />}
+                  label={`${filteredMovements.length} resultado${filteredMovements.length !== 1 ? 's' : ''}`}
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                  onDelete={() => { setTypeFilter('ALL'); setMovementSearch(''); }}
+                  sx={{ height: 20, fontSize: '0.7rem' }}
+                />
+              )}
+            </Box>
           </Box>
-          <TextField
+
+          {/* ── Search + Sort row ─────────────────────── */}
+          <Box sx={{ display: 'flex', gap: 1, mb: 1.5, alignItems: 'center' }}>
+            <TextField
+              size="small"
+              fullWidth
+              placeholder="Buscar movimientos..."
+              value={movementSearch}
+              onChange={(e) => setMovementSearch(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" color="action" />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ flex: 1 }}
+            />
+            <Tooltip title="Ordenar">
+              <Button
+                size="small"
+                variant="outlined"
+                color="inherit"
+                onClick={(e) => setSortAnchorEl(e.currentTarget)}
+                startIcon={<SortIcon fontSize="small" />}
+                sx={{
+                  minWidth: 'auto',
+                  px: 1.5,
+                  textTransform: 'none',
+                  color: 'text.secondary',
+                  borderColor: 'divider',
+                  whiteSpace: 'nowrap',
+                  fontSize: '0.8rem',
+                }}
+              >
+                {sortBy === 'date' ? 'Fecha' : sortBy === 'amount' ? 'Monto' : 'Tipo'}
+                {sortDir === 'desc'
+                  ? <ArrowDownwardIcon sx={{ fontSize: '0.85rem', ml: 0.25 }} />
+                  : <ArrowUpwardIcon sx={{ fontSize: '0.85rem', ml: 0.25 }} />}
+              </Button>
+            </Tooltip>
+            <Menu
+              anchorEl={sortAnchorEl}
+              open={Boolean(sortAnchorEl)}
+              onClose={() => setSortAnchorEl(null)}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+              slotProps={{ paper: { sx: { minWidth: 180, mt: 0.5 } } }}
+            >
+              {[
+                { key: 'date' as const, label: 'Fecha', icon: <AccessTimeIcon fontSize="small" /> },
+                { key: 'amount' as const, label: 'Monto', icon: <LocalAtmIcon fontSize="small" /> },
+                { key: 'type' as const, label: 'Tipo', icon: <ReceiptLongIcon fontSize="small" /> },
+              ].map((opt) => (
+                <MenuItem
+                  key={opt.key}
+                  selected={sortBy === opt.key}
+                  onClick={() => {
+                    if (sortBy === opt.key) {
+                      setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'));
+                    } else {
+                      setSortBy(opt.key);
+                      setSortDir('desc');
+                    }
+                    setSortAnchorEl(null);
+                  }}
+                >
+                  <ListItemIcon>{opt.icon}</ListItemIcon>
+                  <ListItemText>{opt.label}</ListItemText>
+                  {sortBy === opt.key && (
+                    sortDir === 'desc'
+                      ? <ArrowDownwardIcon sx={{ fontSize: '1rem', ml: 1, color: 'primary.main' }} />
+                      : <ArrowUpwardIcon sx={{ fontSize: '1rem', ml: 1, color: 'primary.main' }} />
+                  )}
+                </MenuItem>
+              ))}
+            </Menu>
+          </Box>
+
+          {/* ── Type filter chips ─────────────────────── */}
+          <ToggleButtonGroup
+            value={typeFilter}
+            exclusive
+            onChange={(_e, val) => val !== null && setTypeFilter(val)}
             size="small"
-            fullWidth
-            placeholder="Buscar por descripción, recibo, tipo, método de pago..."
-            value={movementSearch}
-            onChange={(e) => setMovementSearch(e.target.value)}
-            sx={{ mb: 1.5 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" color="action" />
-                </InputAdornment>
-              ),
+            sx={{
+              mb: 1.5,
+              flexWrap: 'wrap',
+              gap: 0.5,
+              '& .MuiToggleButton-root': {
+                borderRadius: '20px !important',
+                border: '1px solid',
+                borderColor: 'divider',
+                px: 1.5,
+                py: 0.25,
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                textTransform: 'none',
+                '&.Mui-selected': {
+                  borderColor: 'primary.main',
+                  bgcolor: 'primary.main',
+                  color: '#fff',
+                  '&:hover': { bgcolor: 'primary.dark' },
+                },
+              },
             }}
-          />
+          >
+            <ToggleButton value="ALL">Todos</ToggleButton>
+            {(['INCOME', 'EXPENSE', 'WITHDRAWAL', 'DEPOSIT'] as CashMovementType[]).map((t) => (
+              <ToggleButton key={t} value={t}>
+                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                  {React.cloneElement(MOVEMENT_TYPE_ICONS[t], { sx: { fontSize: '0.9rem' } })}
+                  {MOVEMENT_TYPE_LABELS[t]}
+                </Box>
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+
           <Divider sx={{ mb: 1.5 }} />
 
           {movementsQuery.isLoading ? (
@@ -411,117 +582,204 @@ const ActiveSessionPage: React.FC = () => {
             </Typography>
           ) : (
             <Stack spacing={1}>
-              {[...filteredMovements].reverse().map((mov) => (
+              {filteredMovements.map((mov) => {
+                const isPositive = mov.movementType === 'INCOME' || mov.movementType === 'DEPOSIT';
+                const typeColor = MOVEMENT_TYPE_COLORS[mov.movementType];
+                const pmInfo = PAYMENT_METHOD_INFO[mov.paymentMethod || 'OTHER'];
+                return (
                 <Box
                   key={mov.id}
                   sx={{
                     display: 'flex',
-                    flexDirection: { xs: 'column', sm: 'row' },
-                    alignItems: { xs: 'flex-start', sm: 'center' },
-                    gap: { xs: 1, sm: 2 },
-                    px: { xs: 2, sm: 2.5 },
-                    py: 2,
                     borderRadius: 2,
                     bgcolor: mov.isVoided ? 'action.disabledBackground' : 'background.paper',
-                    opacity: mov.isVoided ? 0.6 : 1,
+                    opacity: mov.isVoided ? 0.55 : 1,
                     border: '1px solid',
                     borderColor: 'divider',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                    overflow: 'hidden',
                     transition: 'all 0.2s ease',
                     '&:hover': {
                       bgcolor: mov.isVoided ? 'action.disabledBackground' : 'action.hover',
                       transform: 'translateY(-1px)',
-                      boxShadow: '0 4px 8px rgba(0,0,0,0.05)',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
                     },
                   }}
                 >
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, flex: 1, minWidth: 0, width: '100%' }}>
-                    <Chip
-                      icon={MOVEMENT_TYPE_ICONS[mov.movementType]}
-                      label={MOVEMENT_TYPE_LABELS[mov.movementType]}
-                      color={MOVEMENT_TYPE_COLORS[mov.movementType]}
-                      size="small"
-                      sx={{ 
-                        minWidth: 95, 
-                        fontWeight: 600,
-                        justifyContent: 'flex-start',
-                        '.MuiChip-icon': { ml: 0.5, opacity: 0.8 }
-                      }}
-                    />
+                  {/* ── Color accent stripe ──────────────── */}
+                  <Box sx={{
+                    width: 4,
+                    flexShrink: 0,
+                    bgcolor: mov.isVoided ? 'action.disabled' : `${typeColor}.main`,
+                  }} />
 
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography variant="subtitle1" fontWeight={600} noWrap sx={{ mb: 0.25, color: 'text.primary' }}>
-                        {mov.description}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {mov.receiptNumber} &middot; {formatDate(mov.createdAt)}
-                      </Typography>
-                    </Box>
-                  </Box>
-
-                  <Box sx={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    alignItems: { xs: 'flex-start', sm: 'flex-end' }, 
-                    gap: 0.5, 
-                    pl: { xs: '107px', sm: 0 },
-                    width: { xs: '100%', sm: 'auto' } 
+                  {/* ── Content ──────────────────────────── */}
+                  <Box sx={{
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: { xs: 'column', sm: 'row' },
+                    alignItems: { xs: 'stretch', sm: 'center' },
+                    gap: { xs: 1, sm: 0 },
+                    px: { xs: 1.5, sm: 2 },
+                    py: 1.5,
+                    minWidth: 0,
                   }}>
-                    <Typography
-                      variant="h5"
-                      fontWeight={800}
-                      color={
-                        mov.isVoided
-                          ? 'text.disabled'
-                          : mov.movementType === 'INCOME' || mov.movementType === 'DEPOSIT'
-                          ? 'success.main'
-                          : 'error.main'
-                      }
-                      sx={{ whiteSpace: 'nowrap', letterSpacing: '-0.5px' }}
-                    >
-                      {mov.movementType === 'INCOME' || mov.movementType === 'DEPOSIT' ? '+' : '-'}
-                      {formatCurrency(mov.amount)}
-                    </Typography>
+                    {/* ── Left: Icon + Description ────────── */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, minWidth: 0 }}>
+                      <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 36,
+                        height: 36,
+                        borderRadius: '50%',
+                        flexShrink: 0,
+                        bgcolor: mov.isVoided ? 'action.disabledBackground' : `${typeColor}.main`,
+                        color: '#fff',
+                        '& .MuiSvgIcon-root': { fontSize: '1.1rem' },
+                      }}>
+                        {MOVEMENT_TYPE_ICONS[mov.movementType]}
+                      </Box>
 
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {mov.isVoided && (
-                        <Chip label="Anulado" size="small" color="default" variant="outlined" />
-                      )}
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>                          <Typography
+                            variant="caption"
+                            fontWeight={700}
+                            sx={{
+                              color: mov.isVoided ? 'text.disabled' : `${typeColor}.main`,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px',
+                              fontSize: '0.65rem',
+                            }}
+                          >
+                            {MOVEMENT_TYPE_LABELS[mov.movementType]}
+                          </Typography>                          <Typography variant="body1" fontWeight={600} noWrap sx={{ color: 'text.primary' }}>
+                            {mov.description}
+                          </Typography>
+                          {mov.isVoided && (
+                            <Chip label="Anulado" size="small" color="default" variant="outlined"
+                              sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700 }} />
+                          )}
+                        </Box>
+                        <Typography variant="body2" fontWeight={600} noWrap sx={{ color: 'text.primary', mb: 0.25 }}>
+                          {mov.description}
+                        </Typography>
 
-                      {!mov.isVoided && PAYMENT_METHOD_INFO[mov.paymentMethod || 'OTHER'] && (
-                        <Box sx={{ 
-                          display: 'inline-flex', 
-                          alignItems: 'center', 
-                          gap: 0.5, 
-                          px: 1, 
-                          py: 0.25, 
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>
+                            {mov.receiptNumber}
+                          </Typography>
+                          <Typography variant="caption" color="text.disabled">&middot;</Typography>
+                          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
+                            <AccessTimeIcon sx={{ fontSize: '0.7rem', color: 'text.disabled' }} />
+                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                              {formatDate(mov.createdAt)}
+                            </Typography>
+                          </Box>
+
+                          {/* Reference links inline */}
+                          {mov.referenceType === 'ORDER' && mov.orderRef && (
+                            <>
+                              <Typography variant="caption" color="text.disabled">&middot;</Typography>
+                              <Chip
+                                component={Link}
+                                to={PATHS.ORDERS_DETAIL.replace(':id', mov.referenceId!)}
+                                target="_blank"
+                                clickable
+                                icon={<OpenInNewIcon sx={{ fontSize: '0.7rem !important' }} />}
+                                label={`${mov.orderRef.orderNumber} — ${mov.orderRef.client.name}`}
+                                size="small"
+                                color="primary"
+                                variant="outlined"
+                                sx={{ height: 20, fontSize: '0.68rem', fontWeight: 600, maxWidth: 240, '.MuiChip-label': { px: 0.75 }}}
+                              />
+                            </>
+                          )}
+                          {mov.referenceType === 'EXPENSE_ORDER' && mov.expenseOrderRef && (
+                            <>
+                              <Typography variant="caption" color="text.disabled">&middot;</Typography>
+                              <Chip
+                                icon={<AutoAwesomeIcon sx={{ fontSize: '0.65rem !important' }} />}
+                                label="Auto"
+                                size="small"
+                                variant="outlined"
+                                color="secondary"
+                                sx={{ height: 18, fontSize: '0.65rem', '.MuiChip-label': { px: 0.5 } }}
+                              />
+                              <Chip
+                                component={Link}
+                                to={PATHS.EXPENSE_ORDERS_DETAIL.replace(':id', mov.referenceId!)}
+                                clickable
+                                icon={<OpenInNewIcon sx={{ fontSize: '0.7rem !important' }} />}
+                                label={mov.expenseOrderRef.ogNumber}
+                                size="small"
+                                color="warning"
+                                variant="outlined"
+                                sx={{ height: 20, fontSize: '0.68rem', fontWeight: 600, '.MuiChip-label': { px: 0.75 } }}
+                              />
+                            </>
+                          )}
+                        </Box>
+                      </Box>
+                    </Box>
+
+                    {/* ── Right: Amount + Payment method + Void ── */}
+                    <Box sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1.5,
+                      pl: { xs: '52px', sm: 2 },
+                      flexShrink: 0,
+                    }}>
+                      {/* Payment method badge */}
+                      {!mov.isVoided && pmInfo && (
+                        <Box sx={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 0.5,
+                          px: 1,
+                          py: 0.25,
                           borderRadius: 1,
-                          bgcolor: PAYMENT_METHOD_INFO[mov.paymentMethod || 'OTHER'].bgcolor,
-                          color: PAYMENT_METHOD_INFO[mov.paymentMethod || 'OTHER'].color,
+                          bgcolor: pmInfo.bgcolor,
+                          color: pmInfo.color,
                           fontWeight: 600,
-                          fontSize: '0.75rem',
+                          fontSize: '0.72rem',
+                          whiteSpace: 'nowrap',
                         }}>
-                          {PAYMENT_METHOD_INFO[mov.paymentMethod || 'OTHER'].icon}
+                          {pmInfo.icon}
                           {PAYMENT_METHOD_LABELS[mov.paymentMethod] || mov.paymentMethod}
                         </Box>
                       )}
 
-                      {!mov.isVoided && canVoidMovement && (
+                      {/* Amount */}
+                      <Typography
+                        variant="h6"
+                        fontWeight={800}
+                        color={mov.isVoided ? 'text.disabled' : isPositive ? 'success.main' : 'error.main'}
+                        sx={{ whiteSpace: 'nowrap', letterSpacing: '-0.5px', minWidth: 110, textAlign: 'right' }}
+                      >
+                        {isPositive ? '+' : '-'}{formatCurrency(mov.amount)}
+                      </Typography>
+
+                      {/* Void button */}
+                      {!mov.isVoided && canVoidMovement && mov.referenceType !== 'EXPENSE_ORDER' ? (
                         <Tooltip title="Anular movimiento">
                           <IconButton
                             size="small"
                             color="error"
                             onClick={() => setVoidTarget(mov)}
-                            sx={{ ml: 0.5, padding: 0.25 }}
+                            sx={{ p: 0.5 }}
                           >
-                            <BlockIcon fontSize="small" />
+                            <BlockIcon sx={{ fontSize: '1rem' }} />
                           </IconButton>
                         </Tooltip>
+                      ) : (
+                        <Box sx={{ width: 28 }} />
                       )}
                     </Box>
                   </Box>
                 </Box>
-              ))}
+                );
+              })}
             </Stack>
           )}
         </CardContent>

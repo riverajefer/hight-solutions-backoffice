@@ -87,6 +87,7 @@ export const useCashMovements = (filters?: FilterCashMovementsDto) => {
     queryKey: cashKeys.movements.list(filters),
     queryFn: () => cashRegisterApi.getMovements(filters),
     enabled: !!filters?.cashSessionId,
+    refetchInterval: 15_000, // refresca cada 15s para capturar pagos de OG desde otras pestañas/usuarios
   });
 };
 

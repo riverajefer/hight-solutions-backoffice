@@ -241,7 +241,7 @@ const CalculatorDialog: React.FC<CalculatorDialogProps> = ({ open, onClose }) =>
               Montos rápidos
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              {[10000, 20000, 50000, 100000, 200000].map((amt) => (
+              {[20000, 50000, 100000, 150000, 200000, 250000].map((amt) => (
                 <Button
                   key={amt}
                   size="small"

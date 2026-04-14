@@ -64,6 +64,20 @@ export interface CashSession {
   movements?: CashMovement[];
 }
 
+export interface ExpenseOrderRef {
+  id: string;
+  ogNumber: string;
+  status: string;
+  expenseType: { name: string };
+}
+
+export interface OrderRef {
+  id: string;
+  orderNumber: string;
+  status: string;
+  client: { name: string };
+}
+
 export interface CashMovement {
   id: string;
   cashSessionId: string;
@@ -90,6 +104,8 @@ export interface CashMovement {
     amount: string;
     paymentMethod: string;
   };
+  expenseOrderRef?: ExpenseOrderRef | null;
+  orderRef?: OrderRef | null;
 }
 
 export interface BalancePreview {
