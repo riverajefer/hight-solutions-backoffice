@@ -32,6 +32,7 @@ import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import MoneyOffIcon from '@mui/icons-material/MoneyOff';
 import LockIcon from '@mui/icons-material/Lock';
 import BlockIcon from '@mui/icons-material/Block';
+import CalculateIcon from '@mui/icons-material/Calculate';
 import SearchIcon from '@mui/icons-material/Search';
 import PersonIcon from '@mui/icons-material/Person';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
@@ -47,6 +48,7 @@ import { PATHS } from '../../../router/paths';
 import { useCashSession, useCashMovements, useCashMutations } from '../hooks/useCashRegister';
 import CreateMovementDialog from '../components/CreateMovementDialog';
 import VoidMovementDialog from '../components/VoidMovementDialog';
+import CalculatorDialog from '../components/CalculatorDialog';
 import PendingApprovalsPanel from '../components/PendingApprovalsPanel';
 import { useApprovalSocket } from '../hooks/useApprovalSocket';
 import type { CashMovementType, CashMovement } from '../../../types/cash-register.types';
@@ -119,6 +121,7 @@ const ActiveSessionPage: React.FC = () => {
   const [dialogType, setDialogType] = useState<CashMovementType | null>(null);
   const [voidTarget, setVoidTarget] = useState<CashMovement | null>(null);
   const [isBalanceDialogOpen, setIsBalanceDialogOpen] = useState(false);
+  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [movementSearch, setMovementSearch] = useState('');
 
   const session = sessionQuery.data;
@@ -287,6 +290,14 @@ const ActiveSessionPage: React.FC = () => {
             </Box>
 
             <Box sx={{ ml: { sm: 'auto' }, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<CalculateIcon />}
+                onClick={() => setIsCalculatorOpen(true)}
+              >
+                Calculadora
+              </Button>
               <Button
                 variant="outlined"
                 size="small"
@@ -534,6 +545,11 @@ const ActiveSessionPage: React.FC = () => {
         onClose={() => setVoidTarget(null)}
         onSubmit={handleVoidMovement}
         isLoading={voidMovement.isPending}
+      />
+
+      <CalculatorDialog
+        open={isCalculatorOpen}
+        onClose={() => setIsCalculatorOpen(false)}
       />
 
       {/* ── Balance Detail Dialog ────────────────────────────────────── */}
