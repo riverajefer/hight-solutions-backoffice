@@ -54,7 +54,11 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import TableChartIcon from '@mui/icons-material/TableChart';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { exportMovementsPdf, exportMovementsCsv } from '../utils/exportMovements';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
 import { PATHS } from '../../../router/paths';
@@ -140,6 +144,7 @@ const ActiveSessionPage: React.FC = () => {
   const [sortBy, setSortBy] = useState<'date' | 'amount' | 'type'>('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [sortAnchorEl, setSortAnchorEl] = useState<null | HTMLElement>(null);
+  const [exportAnchorEl, setExportAnchorEl] = useState<null | HTMLElement>(null);
 
   const session = sessionQuery.data;
   const movements = movementsQuery.data?.data || [];
@@ -396,6 +401,31 @@ const ActiveSessionPage: React.FC = () => {
               <Button variant="outlined" size="small" onClick={() => setIsBalanceDialogOpen(true)}>
                 Ver balance
               </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<FileDownloadIcon />}
+                onClick={(e) => setExportAnchorEl(e.currentTarget)}
+              >
+                Exportar
+              </Button>
+              <Menu
+                anchorEl={exportAnchorEl}
+                open={Boolean(exportAnchorEl)}
+                onClose={() => setExportAnchorEl(null)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                slotProps={{ paper: { sx: { minWidth: 180, mt: 0.5 } } }}
+              >
+                <MenuItem onClick={() => { setExportAnchorEl(null); exportMovementsPdf(session, filteredMovements, runningBalance); }}>
+                  <ListItemIcon><PictureAsPdfIcon fontSize="small" color="error" /></ListItemIcon>
+                  <ListItemText>Exportar PDF</ListItemText>
+                </MenuItem>
+                <MenuItem onClick={() => { setExportAnchorEl(null); exportMovementsCsv(session, filteredMovements); }}>
+                  <ListItemIcon><TableChartIcon fontSize="small" color="success" /></ListItemIcon>
+                  <ListItemText>Exportar CSV</ListItemText>
+                </MenuItem>
+              </Menu>
               {canCloseSession && (
                 <Button
                   variant="outlined"
