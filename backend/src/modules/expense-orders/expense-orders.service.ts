@@ -1,8 +1,10 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import { ExpenseOrderStatus } from '../../generated/prisma';
 import { PrismaService } from '../../database/prisma.service';
@@ -21,7 +23,7 @@ import { ExpenseOrderAuthRequestsService } from '../expense-order-auth-requests/
 const ALLOWED_TRANSITIONS: Record<ExpenseOrderStatus, ExpenseOrderStatus[]> = {
   [ExpenseOrderStatus.DRAFT]: [ExpenseOrderStatus.CREATED, ExpenseOrderStatus.AUTHORIZED],
   [ExpenseOrderStatus.CREATED]: [ExpenseOrderStatus.AUTHORIZED, ExpenseOrderStatus.DRAFT],
-  [ExpenseOrderStatus.AUTHORIZED]: [ExpenseOrderStatus.PAID],
+  [ExpenseOrderStatus.AUTHORIZED]: [],
   [ExpenseOrderStatus.PAID]: [],
 };
 
@@ -36,6 +38,7 @@ export class ExpenseOrdersService {
     private readonly repository: ExpenseOrdersRepository,
     private readonly consecutivesService: ConsecutivesService,
     private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => ExpenseOrderAuthRequestsService))
     private readonly authRequestsService: ExpenseOrderAuthRequestsService,
   ) {}
 
@@ -280,23 +283,52 @@ export class ExpenseOrdersService {
 
       const isAdmin = user?.role?.name === 'admin';
 
-      if (isAdmin) {
+      if (!isAdmin) {
+        // No-admin: verificar si tiene solicitud aprobada
+        const hasApproval = await this.authRequestsService.hasApprovedRequest(id, currentUser.id);
+        if (!hasApproval) {
+          throw new ForbiddenException(
+            'Autorizar una OG requiere aprobación de un administrador. Por favor, cree una solicitud de autorización.',
+          );
+        }
+
+        const approvedRequest = await this.authRequestsService.getApprovedRequest(id, currentUser.id);
+        await this.authRequestsService.consumeApprovedRequest(id, currentUser.id);
+        await this.repository.updateStatus(id, dto.status, approvedRequest!.reviewedById!, new Date());
+      } else {
         // Admin autoriza directo — registrar quién autorizó
-        return this.repository.updateStatus(id, dto.status, currentUser.id, new Date());
+        await this.repository.updateStatus(id, dto.status, currentUser.id, new Date());
       }
 
-      // No-admin: verificar si tiene solicitud aprobada
-      const hasApproval = await this.authRequestsService.hasApprovedRequest(id, currentUser.id);
-      if (!hasApproval) {
-        throw new ForbiddenException(
-          'Autorizar una OG requiere aprobación de un administrador. Por favor, cree una solicitud de autorización.',
+      // Auto-transición a PAID: crear movimientos de caja y marcar como pagada
+      const activeSession = await this.prisma.cashSession.findFirst({
+        where: { status: 'OPEN' },
+      });
+
+      if (!activeSession) {
+        throw new BadRequestException(
+          'No hay una sesión de caja abierta activa. La OG fue autorizada pero no se pudo registrar el pago.',
         );
       }
 
-      // Obtener el admin que aprobó y registrarlo como autorizador
-      const approvedRequest = await this.authRequestsService.getApprovedRequest(id, currentUser.id);
-      await this.authRequestsService.consumeApprovedRequest(id, currentUser.id);
-      return this.repository.updateStatus(id, dto.status, approvedRequest!.reviewedById!, new Date());
+      for (const item of expenseOrder.items) {
+        const receiptNumber = await this.consecutivesService.generateNumber('CASH_RECEIPT');
+        await this.prisma.cashMovement.create({
+          data: {
+            amount: item.total,
+            movementType: 'EXPENSE',
+            paymentMethod: item.paymentMethod || 'CASH',
+            description: `Pago de ítem de Orden de Gasto ${expenseOrder.ogNumber}`,
+            receiptNumber,
+            cashSessionId: activeSession.id,
+            performedById: currentUser.id,
+            referenceType: 'EXPENSE_ORDER',
+            referenceId: expenseOrder.id,
+          },
+        });
+      }
+
+      return this.repository.updateStatus(id, ExpenseOrderStatus.PAID);
     }
 
     // Only users with 'approve_expense_orders' permission can mark as PAID
