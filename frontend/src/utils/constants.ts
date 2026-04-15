@@ -151,6 +151,7 @@ export const PERMISSIONS = {
   READ_CASH_SESSIONS: 'read_cash_sessions',
   CREATE_CASH_MOVEMENTS: 'create_cash_movements',
   VOID_CASH_MOVEMENTS: 'void_cash_movements',
+  APPROVE_CASH_MOVEMENTS: 'approve_cash_movements',
   READ_CASH_MOVEMENTS: 'read_cash_movements',
 };
 

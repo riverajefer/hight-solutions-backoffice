@@ -74,7 +74,9 @@ import CreateMovementDialog from '../components/CreateMovementDialog';
 import VoidMovementDialog from '../components/VoidMovementDialog';
 import CalculatorDialog from '../components/CalculatorDialog';
 import PendingApprovalsPanel from '../components/PendingApprovalsPanel';
+import PendingVoidRequestsPanel from '../components/PendingVoidRequestsPanel';
 import { useApprovalSocket } from '../hooks/useApprovalSocket';
+import { useCreateVoidRequest } from '../../../hooks/useVoidRequests';
 import type { CashMovementType, CashMovement } from '../../../types/cash-register.types';
 
 const MOVEMENT_TYPE_LABELS: Record<CashMovementType, string> = {
@@ -135,10 +137,13 @@ const ActiveSessionPage: React.FC = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   const { hasPermission } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
+  const isAdmin = user?.role?.name === 'admin';
 
   const sessionQuery = useCashSession(id);
   const movementsQuery = useCashMovements({ cashSessionId: id, includeVoided: true });
   const { createMovement, voidMovement } = useCashMutations();
+  const createVoidRequest = useCreateVoidRequest();
 
   // Real-time WebSocket for advance payment approvals
   useApprovalSocket();
@@ -277,7 +282,11 @@ const ActiveSessionPage: React.FC = () => {
   };
 
   const handleVoidMovement = async (movId: string, voidReason: string) => {
-    await voidMovement.mutateAsync({ id: movId, dto: { voidReason } });
+    if (isAdmin) {
+      await voidMovement.mutateAsync({ id: movId, dto: { voidReason } });
+    } else {
+      await createVoidRequest.mutateAsync({ movementId: movId, dto: { voidReason } });
+    }
     setVoidTarget(null);
   };
 
@@ -453,6 +462,11 @@ const ActiveSessionPage: React.FC = () => {
       {/* ── Pending Advance Payment Approvals ────────────────────────── */}
       {hasPermission(PERMISSIONS.APPROVE_ADVANCE_PAYMENTS) && (
         <PendingApprovalsPanel />
+      )}
+
+      {/* ── Pending Void Request Approvals ───────────────────────────── */}
+      {hasPermission(PERMISSIONS.APPROVE_CASH_MOVEMENTS) && (
+        <PendingVoidRequestsPanel />
       )}
 
       {/* ── Movements List ───────────────────────────────────────────── */}
@@ -981,7 +995,8 @@ const ActiveSessionPage: React.FC = () => {
         movement={voidTarget}
         onClose={() => setVoidTarget(null)}
         onSubmit={handleVoidMovement}
-        isLoading={voidMovement.isPending}
+        isLoading={voidMovement.isPending || createVoidRequest.isPending}
+        isRequestMode={!isAdmin}
       />
 
       <CalculatorDialog

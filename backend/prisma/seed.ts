@@ -307,6 +307,7 @@ async function main() {
     { name: 'read_cash_sessions', description: 'Ver sesiones de caja e historial' },
     { name: 'create_cash_movements', description: 'Registrar movimientos de caja (ingresos/egresos)' },
     { name: 'void_cash_movements', description: 'Anular movimientos de caja' },
+    { name: 'approve_cash_movements', description: 'Aprobar/rechazar solicitudes de anulación de movimientos de caja' },
     { name: 'read_cash_movements', description: 'Ver movimientos de caja' },
   ];
 
@@ -490,6 +491,7 @@ async function main() {
     'read_cash_sessions',
     'create_cash_movements',
     'void_cash_movements',
+    'approve_cash_movements',
     'read_cash_movements',
   ]);
 

@@ -66,6 +66,8 @@ model User {
   closedCashSessions                   CashSession[]                @relation("ClosedCashSessions")
   performedCashMovements               CashMovement[]               @relation("PerformedCashMovements")
   voidedCashMovements                  CashMovement[]               @relation("VoidedCashMovements")
+  requestedVoidRequests                CashMovementVoidRequest[]    @relation("RequestedVoidRequests")
+  reviewedVoidRequests                 CashMovementVoidRequest[]    @relation("ReviewedVoidRequests")
 
   @@map("users")
 }
@@ -710,6 +712,7 @@ enum ApprovalRequestType {
   CLIENT_OWNERSHIP_AUTH
   ADVANCE_PAYMENT
   DISCOUNT_APPROVAL
+  CASH_MOVEMENT_VOID
 }
 
 enum NotificationType {
@@ -736,6 +739,9 @@ enum NotificationType {
   DISCOUNT_APPROVAL_REJECTED // Descuento rechazado
   CASH_SESSION_CLOSED_WITH_DISCREPANCY // Sesión de caja cerrada con descuadre
   CASH_LARGE_WITHDRAWAL // Retiro grande de efectivo de caja
+  CASH_VOID_REQUEST_PENDING // Nueva solicitud de anulación de movimiento de caja
+  CASH_VOID_REQUEST_APPROVED // Solicitud de anulación de movimiento aprobada
+  CASH_VOID_REQUEST_REJECTED // Solicitud de anulación de movimiento rechazada
 }
 
 model EditableOrderStatus {
@@ -1734,10 +1740,37 @@ model CashMovement {
   counterMovement  CashMovement? @relation("CounterMovement", fields: [counterMovementId], references: [id])
   originalMovement CashMovement? @relation("CounterMovement")
   linkedPayment    Payment?
+  voidRequests     CashMovementVoidRequest[]
 
   @@index([cashSessionId])
   @@index([performedById])
   @@index([referenceType, referenceId])
   @@index([createdAt])
   @@map("cash_movements")
+}
+
+model CashMovementVoidRequest {
+  id              String            @id @default(uuid())
+  cashMovementId  String            @map("cash_movement_id")
+  requestedById   String            @map("requested_by_id")
+  voidReason      String            @map("void_reason")
+  status          EditRequestStatus @default(PENDING)
+
+  // Aprobación/rechazo
+  reviewedById String?   @map("reviewed_by_id")
+  reviewedAt   DateTime? @map("reviewed_at")
+  reviewNotes  String?   @map("review_notes")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  cashMovement CashMovement @relation(fields: [cashMovementId], references: [id], onDelete: Cascade)
+  requestedBy  User         @relation("RequestedVoidRequests", fields: [requestedById], references: [id])
+  reviewedBy   User?        @relation("ReviewedVoidRequests", fields: [reviewedById], references: [id])
+
+  @@index([cashMovementId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("cash_movement_void_requests")
 }
