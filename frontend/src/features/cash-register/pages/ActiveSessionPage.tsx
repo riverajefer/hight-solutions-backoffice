@@ -412,7 +412,7 @@ const ActiveSessionPage: React.FC = () => {
           sx={{ flexWrap: 'wrap', gap: { xs: 0.5, sm: 0 } }}
           divider={<Divider orientation="vertical" flexItem sx={{ my: 1.5, opacity: 0.5, display: { xs: 'none', sm: 'block' } }} />}
         >
-          {canCreateMovement && (
+        {/* {canCreateMovement && (
             <ToolbarButton icon={<TrendingUpIcon />} label="Ingreso" onClick={() => setDialogType('INCOME')} color={theme.palette.success.main} tooltip="Registrar Ingreso" />
           )}
           {canCreateMovement && (
@@ -420,7 +420,7 @@ const ActiveSessionPage: React.FC = () => {
           )}
           {canCreateMovement && (
             <ToolbarButton icon={<LogoutIcon />} label="Retiro" onClick={() => setDialogType('WITHDRAWAL')} color={theme.palette.warning.main} tooltip="Registrar Retiro" />
-          )}
+          )} */}
           {canCreateMovement && (
             <ToolbarButton icon={<MoveToInboxIcon />} label="Depósito" onClick={() => setDialogType('DEPOSIT')} color={theme.palette.info.main} tooltip="Registrar Depósito" />
           )}
