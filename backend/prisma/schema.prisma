@@ -61,6 +61,11 @@ model User {
   productionOrdersCreated              ProductionOrder[]            @relation("ProductionOrderCreatedBy")
   productionStepsCompleted             ProductionOrderStep[]        @relation("ProductionStepCompletedBy")
   authoredComments                     Comment[]                    @relation("CommentAuthor")
+  // Caja Registradora
+  openedCashSessions                   CashSession[]                @relation("OpenedCashSessions")
+  closedCashSessions                   CashSession[]                @relation("ClosedCashSessions")
+  performedCashMovements               CashMovement[]               @relation("PerformedCashMovements")
+  voidedCashMovements                  CashMovement[]               @relation("VoidedCashMovements")
 
   @@map("users")
 }
@@ -610,6 +615,29 @@ enum PaymentMethod {
   OTHER // Otro método
 }
 
+// Enums del módulo de Caja Registradora
+enum CashSessionStatus {
+  OPEN // Sesión abierta (en curso)
+  CLOSED // Sesión cerrada
+}
+
+enum DenominationCountType {
+  OPENING // Conteo de apertura
+  CLOSING // Conteo de cierre
+}
+
+enum DenominationType {
+  BILL // Billete
+  COIN // Moneda
+}
+
+enum CashMovementType {
+  INCOME // Ingreso (ej. pago de cliente, abono a OP)
+  EXPENSE // Egreso (ej. gasto operativo, pago a proveedor)
+  WITHDRAWAL // Retiro de efectivo (a caja fuerte / banco) — movimiento interno
+  DEPOSIT // Depósito de efectivo adicional a la caja
+}
+
 model Payment {
   id            String        @id @default(uuid())
   orderId       String        @map("order_id")
@@ -625,10 +653,14 @@ model Payment {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
+  // Vínculo opcional con movimiento de caja
+  cashMovementId String? @unique @map("cash_movement_id")
+
   // Relaciones
   order                  Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   receivedBy             User                    @relation("ReceivedPayments", fields: [receivedById], references: [id])
   advancePaymentApproval AdvancePaymentApproval?
+  cashMovement           CashMovement?           @relation(fields: [cashMovementId], references: [id])
 
   @@index([orderId])
   @@index([receivedById])
@@ -702,6 +734,8 @@ enum NotificationType {
   DISCOUNT_APPROVAL_PENDING // Nueva solicitud de aprobación de descuento
   DISCOUNT_APPROVAL_APPROVED // Descuento aprobado
   DISCOUNT_APPROVAL_REJECTED // Descuento rechazado
+  CASH_SESSION_CLOSED_WITH_DISCREPANCY // Sesión de caja cerrada con descuadre
+  CASH_LARGE_WITHDRAWAL // Retiro grande de efectivo de caja
 }
 
 model EditableOrderStatus {
@@ -1612,4 +1646,98 @@ model Comment {
   @@index([entityType, entityId])
   @@index([parentId])
   @@map("comments")
+}
+
+// =============================================================================
+// MÓDULO DE CAJA REGISTRADORA (POS)
+// =============================================================================
+
+model CashRegister {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  sessions CashSession[]
+
+  @@map("cash_registers")
+}
+
+model CashSession {
+  id             String            @id @default(uuid())
+  cashRegisterId String            @map("cash_register_id")
+  openedById     String            @map("opened_by_id")
+  closedById     String?           @map("closed_by_id")
+  status         CashSessionStatus @default(OPEN)
+  openingAmount  Decimal           @map("opening_amount")
+  closingAmount  Decimal?          @map("closing_amount")
+  systemBalance  Decimal?          @map("system_balance")
+  discrepancy    Decimal?
+  notes          String?
+  openedAt       DateTime          @default(now()) @map("opened_at")
+  closedAt       DateTime?         @map("closed_at")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  cashRegister  CashRegister           @relation(fields: [cashRegisterId], references: [id])
+  openedBy      User                   @relation("OpenedCashSessions", fields: [openedById], references: [id])
+  closedBy      User?                  @relation("ClosedCashSessions", fields: [closedById], references: [id])
+  denominations CashDenominationCount[]
+  movements     CashMovement[]
+
+  @@index([cashRegisterId, status])
+  @@index([openedById])
+  @@index([openedAt])
+  @@map("cash_sessions")
+}
+
+model CashDenominationCount {
+  id            String                @id @default(uuid())
+  cashSessionId String                @map("cash_session_id")
+  countType     DenominationCountType @map("count_type")
+  denomType     DenominationType      @map("denom_type")
+  denomination  Int
+  quantity      Int
+  subtotal      Decimal
+
+  cashSession CashSession @relation(fields: [cashSessionId], references: [id], onDelete: Cascade)
+
+  @@unique([cashSessionId, countType, denomination])
+  @@index([cashSessionId, countType])
+  @@map("cash_denomination_counts")
+}
+
+model CashMovement {
+  id                String           @id @default(uuid())
+  cashSessionId     String           @map("cash_session_id")
+  receiptNumber     String           @unique @map("receipt_number")
+  movementType      CashMovementType @map("movement_type")
+  paymentMethod     PaymentMethod    @default(CASH) @map("payment_method")
+  amount            Decimal
+  description       String
+  referenceType     String?          @map("reference_type")
+  referenceId       String?          @map("reference_id")
+  isVoided          Boolean          @default(false) @map("is_voided")
+  voidedById        String?          @map("voided_by_id")
+  voidedAt          DateTime?        @map("voided_at")
+  voidReason        String?          @map("void_reason")
+  counterMovementId String?          @unique @map("counter_movement_id")
+  performedById     String           @map("performed_by_id")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  cashSession      CashSession   @relation(fields: [cashSessionId], references: [id])
+  performedBy      User          @relation("PerformedCashMovements", fields: [performedById], references: [id])
+  voidedBy         User?         @relation("VoidedCashMovements", fields: [voidedById], references: [id])
+  counterMovement  CashMovement? @relation("CounterMovement", fields: [counterMovementId], references: [id])
+  originalMovement CashMovement? @relation("CounterMovement")
+  linkedPayment    Payment?
+
+  @@index([cashSessionId])
+  @@index([performedById])
+  @@index([referenceType, referenceId])
+  @@index([createdAt])
+  @@map("cash_movements")
 }

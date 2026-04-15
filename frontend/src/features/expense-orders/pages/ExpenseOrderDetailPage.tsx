@@ -92,7 +92,7 @@ const formatCurrency = (value?: string | number | null): string => {
 const STATUS_TRANSITIONS: Record<ExpenseOrderStatus, ExpenseOrderStatus[]> = {
   [ExpenseOrderStatus.DRAFT]: [ExpenseOrderStatus.CREATED, ExpenseOrderStatus.AUTHORIZED],
   [ExpenseOrderStatus.CREATED]: [ExpenseOrderStatus.AUTHORIZED, ExpenseOrderStatus.DRAFT],
-  [ExpenseOrderStatus.AUTHORIZED]: [ExpenseOrderStatus.PAID],
+  [ExpenseOrderStatus.AUTHORIZED]: [],
   [ExpenseOrderStatus.PAID]: [],
 };
 
@@ -842,7 +842,7 @@ export const ExpenseOrderDetailPage = () => {
             {availableTransitions.map((s) => (
               <MenuItem key={s} value={s}>
                 {EXPENSE_ORDER_STATUS_CONFIG[s].label}
-                {s === ExpenseOrderStatus.PAID && ' (requiere permiso de aprobación)'}
+                {s === ExpenseOrderStatus.AUTHORIZED && ' (autoriza y registra pago en caja)'}
               </MenuItem>
             ))}
           </TextField>

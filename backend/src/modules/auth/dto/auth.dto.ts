@@ -87,6 +87,16 @@ export class ChangePasswordDto {
   newPassword: string;
 }
 
+export class VerifyPasswordDto {
+  @ApiProperty({
+    example: 'myPassword123',
+    description: 'Password to verify',
+  })
+  @IsString()
+  @IsNotEmpty({ message: 'Password is required' })
+  password: string;
+}
+
 export class UpdateProfilePhotoDto {
   @ApiProperty({
     example: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',

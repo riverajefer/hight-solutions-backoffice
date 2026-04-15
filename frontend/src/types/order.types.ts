@@ -13,7 +13,7 @@ export type OrderStatus =
   | 'PAID'
   | 'ANULADO';
 
-export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'CHECK' | 'CREDIT' | 'OTHER';
+export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'CREDIT';
 
 // ============================================================
 // ENTITIES
@@ -206,6 +206,7 @@ export interface CreateOrderDto {
   taxRate?: number;
   items: CreateOrderItemDto[];
   initialPayment?: InitialPaymentDto;
+  initialPayments?: InitialPaymentDto[];
   commercialChannelId?: string;
 }
 
@@ -367,9 +368,8 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   CASH: 'Efectivo',
   TRANSFER: 'Transferencia',
   CARD: 'Tarjeta',
-  CHECK: 'Cheque',
   CREDIT: 'Crédito',
-  OTHER: 'Otro',
+
 };
 
 // ============================================================

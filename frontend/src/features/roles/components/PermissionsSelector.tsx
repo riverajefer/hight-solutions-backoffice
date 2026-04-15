@@ -78,6 +78,11 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   // Comentarios
   Comentarios: ['create_comments', 'read_comments', 'delete_comments'],
 
+  // Caja Registradora (POS)
+  'Cajas Registradoras': ['create_cash_registers', 'read_cash_registers', 'update_cash_registers', 'delete_cash_registers'],
+  'Sesiones de Caja': ['open_cash_session', 'close_cash_session', 'read_cash_sessions'],
+  'Movimientos de Caja': ['create_cash_movements', 'void_cash_movements', 'read_cash_movements'],
+
   // Nómina
   'Empleados de Nómina': [
     'create_payroll_employees',
@@ -120,6 +125,10 @@ const TABS = [
   {
     label: 'Producción',
     groups: ['Áreas de Producción', 'Órdenes de Trabajo', 'Plantillas de Producto', 'Etapas de Producción', 'Órdenes de Producción'],
+  },
+  {
+    label: 'Caja',
+    groups: ['Cajas Registradoras', 'Sesiones de Caja', 'Movimientos de Caja'],
   },
   {
     label: 'Gastos y Pagos',

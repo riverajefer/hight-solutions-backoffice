@@ -296,6 +296,18 @@ async function main() {
     { name: 'create_comments', description: 'Crear comentarios en cotizaciones, órdenes y órdenes de trabajo' },
     { name: 'read_comments', description: 'Ver comentarios en cotizaciones, órdenes y órdenes de trabajo' },
     { name: 'delete_comments', description: 'Eliminar cualquier comentario (independiente del autor)' },
+
+    // Cash Register — Caja Registradora (POS)
+    { name: 'create_cash_registers', description: 'Crear cajas registradoras' },
+    { name: 'read_cash_registers', description: 'Ver cajas registradoras' },
+    { name: 'update_cash_registers', description: 'Editar cajas registradoras' },
+    { name: 'delete_cash_registers', description: 'Eliminar cajas registradoras' },
+    { name: 'open_cash_session', description: 'Abrir una sesión de caja' },
+    { name: 'close_cash_session', description: 'Cerrar una sesión de caja' },
+    { name: 'read_cash_sessions', description: 'Ver sesiones de caja e historial' },
+    { name: 'create_cash_movements', description: 'Registrar movimientos de caja (ingresos/egresos)' },
+    { name: 'void_cash_movements', description: 'Anular movimientos de caja' },
+    { name: 'read_cash_movements', description: 'Ver movimientos de caja' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
@@ -471,6 +483,14 @@ async function main() {
     // Comments (Caja)
     'create_comments',
     'read_comments',
+    // Cash Register (Caja)
+    'read_cash_registers',
+    'open_cash_session',
+    'close_cash_session',
+    'read_cash_sessions',
+    'create_cash_movements',
+    'void_cash_movements',
+    'read_cash_movements',
   ]);
 
   // ============================================
@@ -2223,6 +2243,12 @@ async function main() {
       year: new Date().getFullYear(),
       lastNumber: 0,
     },
+    {
+      type: 'CASH_RECEIPT',
+      prefix: 'RC',
+      year: new Date().getFullYear(),
+      lastNumber: 0,
+    },
   ];
 
   for (const consecutive of consecutivesData) {
@@ -2455,6 +2481,8 @@ async function main() {
         'Compra de materiales para cliente',
         'Servicios subcontratados',
         'Costos directos de orden de trabajo',
+        'Tintas para máquinas',
+        'Insumos para máquinas',
       ],
     },
     {

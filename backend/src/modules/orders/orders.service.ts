@@ -26,6 +26,7 @@ import {
   PaginatedProfitabilityDto,
   ExpenseOrderSummaryDto,
 } from './dto';
+import { InitialPaymentDto } from './dto/create-order.dto';
 import { EditRequestStatus, OrderStatus, Prisma } from '../../generated/prisma';
 import { isValidTransition, getValidNextStatuses } from './order-status-transitions';
 import { PrismaService } from '../../database/prisma.service';
@@ -119,29 +120,66 @@ export class OrdersService {
       
     const total = subtotal.add(tax).sub(discountAmount).add(colorProofPrice);
 
-    // Manejar pago inicial
+    // Manejar pagos iniciales (uno o múltiples)
     let paidAmount = new Prisma.Decimal(0);
     let payments = undefined;
 
-    if (createOrderDto.initialPayment) {
-      paidAmount = new Prisma.Decimal(createOrderDto.initialPayment.amount);
+    const allInitialPayments: InitialPaymentDto[] = [
+      ...(createOrderDto.initialPayment ? [createOrderDto.initialPayment] : []),
+      ...(createOrderDto.initialPayments ?? []),
+    ];
 
-      // Validar que el pago inicial no exceda el total
+    if (allInitialPayments.length > 0) {
+      paidAmount = allInitialPayments.reduce(
+        (sum, p) => sum.add(new Prisma.Decimal(p.amount)),
+        new Prisma.Decimal(0),
+      );
+
+      // Validar que la suma de pagos iniciales no exceda el total
       if (paidAmount.greaterThan(total)) {
-        throw new BadRequestException('Initial payment cannot exceed order total');
+        throw new BadRequestException('Initial payments cannot exceed order total');
+      }
+
+      // 1. Buscar sesión activa
+      const activeSession = await this.prisma.cashSession.findFirst({
+        where: { status: 'OPEN' },
+        select: { id: true },
+      });
+
+      // 2. Generar datos del pago y movimientos de caja si hay sesión activa
+      const paymentsToCreate = [];
+      for (const p of allInitialPayments) {
+        const paymentData: any = {
+          amount: new Prisma.Decimal(p.amount),
+          paymentMethod: p.paymentMethod,
+          paymentDate: new Date(),
+          reference: p.reference,
+          notes: p.notes,
+          receivedBy: { connect: { id: createdById } },
+        };
+
+        if (activeSession) {
+          const receiptNumber = await this.consecutivesService.generateNumber('CASH_RECEIPT');
+          paymentData.cashMovement = {
+            create: {
+              cashSessionId: activeSession.id,
+              receiptNumber,
+              movementType: 'INCOME',
+              paymentMethod: p.paymentMethod || 'CASH',
+              amount: new Prisma.Decimal(p.amount),
+              description: `Abono a nueva orden (pendiente de número)`,
+              referenceType: 'ORDER',
+              // referenceId will be linked later or omitted here since order is not created yet!
+              // WAIT! We can't set referenceId here because the orderId is not known until the order is created!
+              performedById: createdById,
+            }
+          };
+        }
+        paymentsToCreate.push(paymentData);
       }
 
       payments = {
-        create: [
-          {
-            amount: paidAmount,
-            paymentMethod: createOrderDto.initialPayment.paymentMethod,
-            paymentDate: new Date(),
-            reference: createOrderDto.initialPayment.reference,
-            notes: createOrderDto.initialPayment.notes,
-            receivedBy: { connect: { id: createdById } },
-          },
-        ],
+        create: paymentsToCreate,
       };
     }
 
@@ -205,6 +243,25 @@ export class OrdersService {
       }
     }
 
+    // Actualizar CashMovements creados en pagos iniciales para enlazarlos con la orden recién creada
+    if (newOrder && payments) {
+      const createdPayments = await this.prisma.payment.findMany({
+        where: { orderId: newOrder.id, cashMovementId: { not: null } },
+        select: { cashMovementId: true }
+      });
+      const movementIds = createdPayments.map(p => p.cashMovementId);
+      if (movementIds.length > 0) {
+        await this.prisma.cashMovement.updateMany({
+          where: { id: { in: movementIds as string[] } },
+          data: {
+            referenceType: 'ORDER',
+            referenceId: newOrder.id,
+            description: `Abono a orden ${newOrder.orderNumber}`,
+          }
+        });
+      }
+    }
+
     // Registrar en audit log (fuera de la transacción, sin esperar para no afectar performance)
     if (newOrder) {
       this.auditLogsService.logOrderChange(
@@ -221,21 +278,26 @@ export class OrdersService {
     let needsRefetch = false;
 
     // Verificar si el anticipo requiere aprobación (usuario no-admin/no-caja)
-    if (newOrder && createOrderDto.initialPayment && paidAmount.greaterThan(0)) {
+    if (newOrder && allInitialPayments.length > 0 && paidAmount.greaterThan(0)) {
       const approvalCheck = await this.advancePaymentApprovalsService.requiresApproval(createdById);
 
       if (approvalCheck.required) {
-        // Buscar el payment recién creado
-        const payment = await this.prisma.payment.findFirst({
+        // Buscar todos los pagos creados (en orden de creación)
+        const createdPayments = await this.prisma.payment.findMany({
           where: { orderId: newOrder.id },
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: 'asc' },
         });
 
-        if (payment) {
+        // Crear una solicitud de aprobación + notificación WA por cada anticipo
+        for (let idx = 0; idx < createdPayments.length; idx++) {
+          const paymentLabel =
+            createdPayments.length > 1 ? `anticipo ${idx + 1}` : 'anticipo';
+
           await this.advancePaymentApprovalsService.createFromOrderCreation(
             createdById,
             newOrder.id,
-            payment.id,
+            createdPayments[idx].id,
+            paymentLabel,
           );
           needsRefetch = true;
         }
@@ -1006,6 +1068,12 @@ export class OrdersService {
 
     const paymentAmount = new Prisma.Decimal(createPaymentDto.amount);
 
+    // Buscar sesión de caja abierta activa
+    const activeSession = await this.prisma.cashSession.findFirst({
+      where: { status: 'OPEN' },
+      select: { id: true },
+    });
+
     // Validar que el pago no exceda el saldo pendiente
     if (paymentAmount.greaterThan(order.balance)) {
       throw new BadRequestException(
@@ -1015,6 +1083,27 @@ export class OrdersService {
 
     // Usar transacción simple y luego obtener el pago completo
     const paymentId = await this.prisma.$transaction(async (tx) => {
+      // Si hay sesión de caja, generar un número de recibo e insertar el movimiento de caja
+      let cashMovementId: string | undefined = undefined;
+      if (activeSession) {
+        const receiptNumber = await this.consecutivesService.generateNumber('CASH_RECEIPT');
+        const movement = await tx.cashMovement.create({
+          data: {
+            cashSessionId: activeSession.id,
+            receiptNumber,
+            movementType: 'INCOME',
+            paymentMethod: createPaymentDto.paymentMethod || 'CASH',
+            amount: paymentAmount,
+            description: `Abono a Orden ${order.orderNumber}`,
+            referenceType: 'ORDER',
+            referenceId: orderId,
+            performedById: receivedById,
+          },
+          select: { id: true },
+        });
+        cashMovementId = movement.id;
+      }
+
       // Crear el pago - solo retornar el ID
       const payment = await tx.payment.create({
         data: {
@@ -1028,6 +1117,7 @@ export class OrdersService {
           notes: createPaymentDto.notes,
           receiptFileId: createPaymentDto.receiptFileId,
           receivedById,
+          cashMovementId, // Vincular movimiento de caja si se creó
         },
         select: {
           id: true,

@@ -193,6 +193,16 @@ export const darkTheme = createTheme({
     // Botones - Con gradientes y efectos neón
     // =========================================================================
     MuiButton: {
+      variants: [
+        {
+          props: { size: 'verySmall' },
+          style: {
+            padding: '2px 8px',
+            fontSize: '0.75rem',
+            lineHeight: 1.5,
+          },
+        },
+      ],
       styleOverrides: {
         root: {
           textTransform: 'none',

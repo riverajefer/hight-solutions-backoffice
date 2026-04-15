@@ -9,6 +9,7 @@ import {
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
+import { WsEventsGateway } from '../ws-events/ws-events.gateway';
 import {
   ApprovalRequestHandler,
   ApprovalRequestInfo,
@@ -36,6 +37,7 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
     private readonly notificationsService: NotificationsService,
     private readonly approvalRegistry: ApprovalRequestRegistry,
     private readonly whatsappService: WhatsappService,
+    private readonly wsEventsGateway: WsEventsGateway,
   ) {}
 
   onModuleInit() {
@@ -83,6 +85,8 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       relatedId: request.orderId,
       relatedType: 'Order',
     });
+
+    this.wsEventsGateway.emitApprovalUpdated(request);
   }
 
   async rejectViaWhatsApp(requestId: string, reviewerId: string): Promise<void> {
@@ -129,6 +133,8 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       relatedId: request.orderId,
       relatedType: 'Order',
     });
+
+    this.wsEventsGateway.emitApprovalUpdated({ id: requestId, status: 'REJECTED', orderId: request.orderId });
   }
 
   /**
@@ -273,6 +279,30 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       `El ${paymentLabel} requiere aprobación de Caja`,
     );
 
+    // Emitir evento WebSocket en tiempo real
+    const fullRequest = await this.prisma.advancePaymentApproval.findUnique({
+      where: { id: request.id },
+      include: {
+        requestedBy: { select: USER_SELECT },
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true,
+            total: true,
+            paidAmount: true,
+            client: {
+              select: { id: true, name: true },
+            },
+          },
+        },
+        payment: { select: { id: true, amount: true, paymentMethod: true, reference: true, notes: true } },
+      },
+    });
+    if (fullRequest) {
+      this.wsEventsGateway.emitApprovalCreated(fullRequest);
+    }
+
     return request;
   }
 
@@ -344,6 +374,9 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       relatedType: 'Order',
     });
 
+    // 6. Emitir evento WebSocket
+    this.wsEventsGateway.emitApprovalUpdated(updatedRequest);
+
     return updatedRequest;
   }
 
@@ -409,6 +442,9 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       relatedType: 'Order',
     });
 
+    // 6. Emitir evento WebSocket
+    this.wsEventsGateway.emitApprovalUpdated({ id: requestId, status: 'REJECTED', orderId: request.orderId });
+
     // Re-fetch para retornar datos actualizados
     return this.prisma.advancePaymentApproval.findUnique({
       where: { id: requestId },
@@ -428,7 +464,18 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       where: { status: EditRequestStatus.PENDING },
       include: {
         requestedBy: { select: USER_SELECT },
-        order: { select: { id: true, orderNumber: true, status: true, total: true, paidAmount: true } },
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true,
+            total: true,
+            paidAmount: true,
+            client: {
+              select: { id: true, name: true },
+            },
+          },
+        },
         payment: { select: { id: true, amount: true, paymentMethod: true, reference: true, notes: true } },
       },
       orderBy: { createdAt: 'desc' },

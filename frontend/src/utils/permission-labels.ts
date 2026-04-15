@@ -184,6 +184,18 @@ export const PERMISSION_LABELS: Record<string, string> = {
   create_comments: 'Crear Comentarios',
   read_comments: 'Ver Comentarios',
   delete_comments: 'Eliminar Comentarios',
+
+  // Caja Registradora (POS)
+  create_cash_registers: 'Crear Cajas Registradoras',
+  read_cash_registers: 'Ver Cajas Registradoras',
+  update_cash_registers: 'Editar Cajas Registradoras',
+  delete_cash_registers: 'Eliminar Cajas Registradoras',
+  open_cash_session: 'Abrir Sesión de Caja',
+  close_cash_session: 'Cerrar Sesión de Caja',
+  read_cash_sessions: 'Ver Sesiones de Caja',
+  create_cash_movements: 'Registrar Movimientos de Caja',
+  void_cash_movements: 'Anular Movimientos de Caja',
+  read_cash_movements: 'Ver Movimientos de Caja',
 };
 
 /**

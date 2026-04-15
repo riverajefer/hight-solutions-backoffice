@@ -1,10 +1,12 @@
 import {
   Injectable,
+  Inject,
   Logger,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
   OnModuleInit,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -19,7 +21,9 @@ import {
   CreateExpenseOrderAuthRequestDto,
   RejectExpenseOrderAuthRequestDto,
 } from './dto';
-import { ApprovalRequestType, EditRequestStatus, NotificationType } from '../../generated/prisma';
+import { ApprovalRequestType, EditRequestStatus, ExpenseOrderStatus, NotificationType } from '../../generated/prisma';
+import { ExpenseOrdersService } from '../expense-orders/expense-orders.service';
+import { AuthenticatedUser } from '../../common/interfaces/auth.interface';
 
 const USER_SELECT = {
   id: true,
@@ -37,6 +41,8 @@ export class ExpenseOrderAuthRequestsService implements OnModuleInit, ApprovalRe
     private readonly notificationsService: NotificationsService,
     private readonly approvalRegistry: ApprovalRequestRegistry,
     private readonly whatsappService: WhatsappService,
+    @Inject(forwardRef(() => ExpenseOrdersService))
+    private readonly expenseOrdersService: ExpenseOrdersService,
   ) {}
 
   onModuleInit() {
@@ -71,11 +77,38 @@ export class ExpenseOrderAuthRequestsService implements OnModuleInit, ApprovalRe
       include: { expenseOrder: { select: { ogNumber: true } } },
     });
 
+    // Auto-transición: cambiar estado de la OG a AUTHORIZED (que auto-paga)
+    try {
+      const admin = await this.prisma.user.findUnique({
+        where: { id: reviewerId },
+        include: { role: true },
+      });
+      if (admin) {
+        const adminUser: AuthenticatedUser = {
+          id: reviewerId,
+          username: admin.username ?? admin.email ?? '',
+          email: admin.email,
+          roleId: admin.roleId,
+          firstName: admin.firstName,
+          lastName: admin.lastName,
+        };
+        await this.expenseOrdersService.updateStatus(
+          request.expenseOrderId,
+          { status: ExpenseOrderStatus.AUTHORIZED },
+          adminUser,
+        );
+      }
+    } catch (error: any) {
+      this.logger.warn(
+        `OG ${request.expenseOrder.ogNumber} aprobada vía WhatsApp pero no se pudo auto-transicionar: ${error.message}`,
+      );
+    }
+
     await this.notificationsService.create({
       userId: request.requestedById,
       type: NotificationType.EXPENSE_ORDER_AUTH_REQUEST_APPROVED,
       title: 'Solicitud de autorización de OG aprobada',
-      message: `Tu solicitud para autorizar la OG ${request.expenseOrder.ogNumber} ha sido aprobada.`,
+      message: `Tu solicitud para autorizar la OG ${request.expenseOrder.ogNumber} ha sido aprobada y pagada automáticamente.`,
       relatedId: request.expenseOrderId,
       relatedType: 'ExpenseOrder',
     });
@@ -213,7 +246,7 @@ export class ExpenseOrderAuthRequestsService implements OnModuleInit, ApprovalRe
       include: { role: true },
     });
 
-    if (admin?.role?.name !== 'admin') {
+    if (!admin || admin.role?.name !== 'admin') {
       throw new ForbiddenException('Solo los administradores pueden aprobar solicitudes');
     }
 
@@ -232,12 +265,34 @@ export class ExpenseOrderAuthRequestsService implements OnModuleInit, ApprovalRe
       },
     });
 
-    // 4. Notificar al solicitante
+    // 4. Auto-transición: cambiar estado de la OG a AUTHORIZED (que auto-paga)
+    try {
+      const adminUser: AuthenticatedUser = {
+        id: adminId,
+        username: admin.username ?? admin.email ?? '',
+        email: admin.email,
+        roleId: admin.roleId ?? admin.role?.id ?? '',
+        firstName: admin.firstName,
+        lastName: admin.lastName,
+      };
+
+      await this.expenseOrdersService.updateStatus(
+        request.expenseOrderId,
+        { status: ExpenseOrderStatus.AUTHORIZED },
+        adminUser,
+      );
+    } catch (error: any) {
+      this.logger.warn(
+        `OG ${request.expenseOrder.ogNumber} aprobada pero no se pudo auto-transicionar: ${error.message}`,
+      );
+    }
+
+    // 5. Notificar al solicitante
     await this.notificationsService.create({
       userId: request.requestedById,
       type: NotificationType.EXPENSE_ORDER_AUTH_REQUEST_APPROVED,
       title: 'Solicitud de autorización de OG aprobada',
-      message: `Tu solicitud para autorizar la OG ${request.expenseOrder.ogNumber} ha sido aprobada. Ya puedes cambiar el estado.`,
+      message: `Tu solicitud para autorizar la OG ${request.expenseOrder.ogNumber} ha sido aprobada y pagada automáticamente.`,
       relatedId: request.expenseOrderId,
       relatedType: 'ExpenseOrder',
     });

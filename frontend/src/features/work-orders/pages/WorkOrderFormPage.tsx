@@ -15,6 +15,8 @@ import {
   Alert,
   alpha,
   useTheme,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -25,6 +27,7 @@ import {
   AssignmentTurnedIn as AssignmentTurnedInIcon,
   Inventory2 as Inventory2Icon,
   Notes as NotesIcon,
+  Add as AddIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { useWorkOrders, useWorkOrder } from '../hooks';
@@ -33,7 +36,8 @@ import { useProductionAreas } from '../../production-areas/hooks/useProductionAr
 import { useSupplies } from '../../portfolio/supplies/hooks/useSupplies';
 import { useUsers } from '../../users/hooks/useUsers';
 import { useAuthStore } from '../../../store/authStore';
-import { ROUTES } from '../../../utils/constants';
+import { ROUTES, PERMISSIONS } from '../../../utils/constants';
+import { CreateSupplyModal } from '../components/CreateSupplyModal';
 import type { Order } from '../../../types/order.types';
 import type {
   CreateWorkOrderDto,
@@ -190,7 +194,7 @@ export const WorkOrderFormPage = () => {
   const isEdit = !!id;
   const prefillAppliedRef = useRef(false);
 
-  const { user } = useAuthStore();
+  const { user, hasPermission } = useAuthStore();
   const { createWorkOrderMutation } = useWorkOrders();
   const { workOrderQuery, updateWorkOrderMutation } = useWorkOrder(id);
 
@@ -208,6 +212,7 @@ export const WorkOrderFormPage = () => {
 
   // Step 3: Items form
   const [itemsForms, setItemsForms] = useState<WorkOrderItemForm[]>([]);
+  const [supplyModalOpenIdx, setSupplyModalOpenIdx] = useState<number | null>(null);
 
   // Step 4: Observations
   const [observations, setObservations] = useState('');
@@ -546,6 +551,20 @@ export const WorkOrderFormPage = () => {
         </Alert>
       )}
 
+      {supplyModalOpenIdx !== null && (
+        <CreateSupplyModal
+          open
+          onClose={() => setSupplyModalOpenIdx(null)}
+          onSuccess={(newSupply) => {
+            updateItemForm(supplyModalOpenIdx, 'supplies', [
+              ...itemsForms[supplyModalOpenIdx].supplies,
+              { supplyId: newSupply.id },
+            ]);
+            setSupplyModalOpenIdx(null);
+          }}
+        />
+      )}
+
       {itemsForms.map((itemForm, i) => {
         const sourceItem = isEdit
           ? workOrderQuery.data?.items[i]?.orderItem
@@ -601,28 +620,43 @@ export const WorkOrderFormPage = () => {
                   )}
                 />
 
-                <Autocomplete
-                  multiple
-                  options={supplies}
-                  getOptionLabel={(s) => s.sku ? `${s.name} (${s.sku})` : s.name}
-                  value={supplies.filter((s) => itemForm.supplies.some((si) => si.supplyId === s.id))}
-                  onChange={(_, value) =>
-                    updateItemForm(i, 'supplies', value.map((v) => ({ supplyId: v.id })))
-                  }
-                  renderTags={(value, getTagProps) =>
-                    value.map((option, ti) => (
-                      <Chip label={option.name} {...getTagProps({ index: ti })} key={option.id} size="small" />
-                    ))
-                  }
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Insumos (opcional)"
-                      placeholder="Selecciona insumos necesarios"
-                      size="small"
-                    />
+                <Stack direction="row" spacing={1} alignItems="flex-start">
+                  <Autocomplete
+                    multiple
+                    options={supplies}
+                    getOptionLabel={(s) => s.sku ? `${s.name} (${s.sku})` : s.name}
+                    value={supplies.filter((s) => itemForm.supplies.some((si) => si.supplyId === s.id))}
+                    onChange={(_, value) =>
+                      updateItemForm(i, 'supplies', value.map((v) => ({ supplyId: v.id })))
+                    }
+                    renderTags={(value, getTagProps) =>
+                      value.map((option, ti) => (
+                        <Chip label={option.name} {...getTagProps({ index: ti })} key={option.id} size="small" />
+                      ))
+                    }
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Insumos (opcional)"
+                        placeholder="Selecciona insumos necesarios"
+                        size="small"
+                      />
+                    )}
+                    sx={{ flex: 1 }}
+                  />
+                  {hasPermission(PERMISSIONS.CREATE_SUPPLIES) && (
+                    <Tooltip title="Crear nuevo insumo">
+                      <IconButton
+                        onClick={() => setSupplyModalOpenIdx(i)}
+                        size="small"
+                        color="primary"
+                        sx={{ mt: 0.5 }}
+                      >
+                        <AddIcon />
+                      </IconButton>
+                    </Tooltip>
                   )}
-                />
+                </Stack>
 
                 <TextField
                   label="Observaciones del ítem"

@@ -98,6 +98,11 @@ export const useExpenseOrder = (id?: string) => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: expenseOrdersKeys.lists() });
       queryClient.invalidateQueries({ queryKey: expenseOrdersKeys.detail(variables.id) });
+      // Al pagar una OG se generan movimientos de caja automáticamente — invalidar cache
+      if (variables.dto.status === 'PAID') {
+        queryClient.invalidateQueries({ queryKey: ['cash-movements'] });
+        queryClient.invalidateQueries({ queryKey: ['cash-sessions'] });
+      }
       enqueueSnackbar('Estado actualizado correctamente', { variant: 'success' });
     },
     onError: (error: any) => {
