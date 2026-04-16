@@ -155,6 +155,7 @@ const ActiveSessionPage: React.FC = () => {
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [movementSearch, setMovementSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<CashMovementType | 'ALL'>('ALL');
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState<string | 'ALL'>('ALL');
   const [sortBy, setSortBy] = useState<'date' | 'amount' | 'type'>('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [sortAnchorEl, setSortAnchorEl] = useState<null | HTMLElement>(null);
@@ -169,6 +170,11 @@ const ActiveSessionPage: React.FC = () => {
     // Type filter
     if (typeFilter !== 'ALL') {
       result = result.filter((m) => m.movementType === typeFilter);
+    }
+
+    // Payment method filter
+    if (paymentMethodFilter !== 'ALL') {
+      result = result.filter((m) => (m.paymentMethod || 'OTHER') === paymentMethodFilter);
     }
 
     // Text search
@@ -207,9 +213,9 @@ const ActiveSessionPage: React.FC = () => {
     });
 
     return sorted;
-  }, [movements, movementSearch, typeFilter, sortBy, sortDir]);
+  }, [movements, movementSearch, typeFilter, paymentMethodFilter, sortBy, sortDir]);
 
-  const activeFilterCount = (typeFilter !== 'ALL' ? 1 : 0) + (movementSearch.trim() ? 1 : 0);
+  const activeFilterCount = (typeFilter !== 'ALL' ? 1 : 0) + (paymentMethodFilter !== 'ALL' ? 1 : 0) + (movementSearch.trim() ? 1 : 0);
 
   const balanceBreakdown = useMemo(() => {
     const summary: Record<string, number> = {
@@ -497,7 +503,7 @@ const ActiveSessionPage: React.FC = () => {
                   size="small"
                   color="primary"
                   variant="outlined"
-                  onDelete={() => { setTypeFilter('ALL'); setMovementSearch(''); }}
+                  onDelete={() => { setTypeFilter('ALL'); setPaymentMethodFilter('ALL'); setMovementSearch(''); }}
                   sx={{ height: 20, fontSize: '0.7rem' }}
                 />
               )}
@@ -538,7 +544,7 @@ const ActiveSessionPage: React.FC = () => {
                   fontSize: '0.8rem',
                 }}
               >
-                {sortBy === 'date' ? 'Fecha' : sortBy === 'amount' ? 'Monto' : 'Tipo'}
+                {sortBy === 'date' ? 'Fecha' : sortBy === 'amount' ? 'Monto' : 'Tipo'} {sortDir === 'desc' ? '(Desc.)' : '(Asc.)'}
                 {sortDir === 'desc'
                   ? <ArrowDownwardIcon sx={{ fontSize: '0.85rem', ml: 0.25 }} />
                   : <ArrowUpwardIcon sx={{ fontSize: '0.85rem', ml: 0.25 }} />}
@@ -583,43 +589,84 @@ const ActiveSessionPage: React.FC = () => {
           </Box>
 
           {/* ── Type filter chips ─────────────────────── */}
-          <ToggleButtonGroup
-            value={typeFilter}
-            exclusive
-            onChange={(_e, val) => val !== null && setTypeFilter(val)}
-            size="small"
-            sx={{
-              mb: 1.5,
-              flexWrap: 'wrap',
-              gap: 0.5,
-              '& .MuiToggleButton-root': {
-                borderRadius: '20px !important',
-                border: '1px solid',
-                borderColor: 'divider',
-                px: 1.5,
-                py: 0.25,
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                textTransform: 'none',
-                '&.Mui-selected': {
-                  borderColor: 'primary.main',
-                  bgcolor: 'primary.main',
-                  color: '#fff',
-                  '&:hover': { bgcolor: 'primary.dark' },
+          <Box sx={{ display: 'flex', flexDirection: 'row', gap: 2, flexWrap: 'wrap', mb: 1.5 }}>
+            <ToggleButtonGroup
+              value={typeFilter}
+              exclusive
+              onChange={(_e, val) => val !== null && setTypeFilter(val)}
+              size="small"
+              sx={{
+                flexWrap: 'wrap',
+                gap: 0.5,
+                '& .MuiToggleButton-root': {
+                  borderRadius: '20px !important',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  px: 1.5,
+                  py: 0.25,
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  '&.Mui-selected': {
+                    borderColor: 'primary.main',
+                    bgcolor: 'primary.main',
+                    color: '#fff',
+                    '&:hover': { bgcolor: 'primary.dark' },
+                  },
                 },
-              },
-            }}
-          >
-            <ToggleButton value="ALL">Todos</ToggleButton>
-            {(['INCOME', 'EXPENSE', 'WITHDRAWAL', 'DEPOSIT'] as CashMovementType[]).map((t) => (
-              <ToggleButton key={t} value={t}>
-                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-                  {React.cloneElement(MOVEMENT_TYPE_ICONS[t], { sx: { fontSize: '0.9rem' } })}
-                  {MOVEMENT_TYPE_LABELS[t]}
-                </Box>
-              </ToggleButton>
-            ))}
-          </ToggleButtonGroup>
+              }}
+            >
+              <ToggleButton value="ALL">Tipos: Todos</ToggleButton>
+              {(['INCOME', 'EXPENSE', 'WITHDRAWAL', 'DEPOSIT'] as CashMovementType[]).map((t) => (
+                <ToggleButton key={t} value={t}>
+                  <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                    {React.cloneElement(MOVEMENT_TYPE_ICONS[t], { sx: { fontSize: '0.9rem' } })}
+                    {MOVEMENT_TYPE_LABELS[t]}
+                  </Box>
+                </ToggleButton>
+              ))}
+            </ToggleButtonGroup>
+
+            <ToggleButtonGroup
+              value={paymentMethodFilter}
+              exclusive
+              onChange={(_e, val) => val !== null && setPaymentMethodFilter(val)}
+              size="small"
+              sx={{
+                flexWrap: 'wrap',
+                gap: 0.5,
+                '& .MuiToggleButton-root': {
+                  borderRadius: '20px !important',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  px: 1.5,
+                  py: 0.25,
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  '&.Mui-selected': {
+                    borderColor: 'secondary.main',
+                    bgcolor: 'secondary.main',
+                    color: '#fff',
+                    '&:hover': { bgcolor: 'secondary.dark' },
+                  },
+                },
+              }}
+            >
+              <ToggleButton value="ALL">Métodos: Todos</ToggleButton>
+              {(['CASH', 'TRANSFER', 'CARD'] as const).map((t) => {
+                const info = PAYMENT_METHOD_INFO[t];
+                return (
+                  <ToggleButton key={t} value={t}>
+                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                      {info && React.cloneElement(info.icon as React.ReactElement, { sx: { fontSize: '0.9rem' } })}
+                      {PAYMENT_METHOD_LABELS[t] || t}
+                    </Box>
+                  </ToggleButton>
+                );
+              })}
+            </ToggleButtonGroup>
+          </Box>
 
           <Divider sx={{ mb: 1.5 }} />
 
@@ -633,7 +680,7 @@ const ActiveSessionPage: React.FC = () => {
             </Typography>
           ) : filteredMovements.length === 0 ? (
             <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
-              No se encontraron movimientos para "{movementSearch}".
+              {movementSearch ? `No se encontraron movimientos para "${movementSearch}".` : 'No se encontraron movimientos con los filtros seleccionados.'}
             </Typography>
           ) : (
             <Stack spacing={1}>
