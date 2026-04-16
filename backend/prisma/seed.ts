@@ -254,6 +254,7 @@ async function main() {
     { name: 'update_expense_orders', description: 'Actualizar órdenes de gasto' },
     { name: 'delete_expense_orders', description: 'Eliminar órdenes de gasto' },
     { name: 'approve_expense_orders', description: 'Autorización Caja: segunda firma y registro de pago de OG' },
+    { name: 'caja_authorize_expense_orders', description: 'Segunda firma Caja: autorizar OG y registrar pago (permiso dedicado)' },
 
     // Advance Payment Approvals
     { name: 'approve_advance_payments', description: 'Aprobar/rechazar anticipos de órdenes' },
@@ -496,6 +497,7 @@ async function main() {
     // Expense Orders (Caja — segunda firma financiera)
     'read_expense_orders',
     'approve_expense_orders',
+    'caja_authorize_expense_orders',
   ]);
 
   // ============================================

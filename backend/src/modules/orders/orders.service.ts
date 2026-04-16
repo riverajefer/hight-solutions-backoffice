@@ -94,6 +94,7 @@ export class OrdersService {
         unitPrice: item.unitPrice,
         total: itemTotal,
         specifications: item.specifications || undefined,
+        sampleImageId: item.sampleImageId || undefined,
         sortOrder: index + 1,
         ...(item.productId && {
           product: { connect: { id: item.productId } },
@@ -446,6 +447,7 @@ export class OrdersService {
                 unitPrice: item.unitPrice,
                 total: itemTotal,
                 specifications: item.specifications || undefined,
+                sampleImageId: item.sampleImageId || undefined,
                 ...(item.productId && { productId: item.productId }),
               },
             });
@@ -482,6 +484,7 @@ export class OrdersService {
                   unitPrice: item.unitPrice,
                   total: itemTotal,
                   specifications: item.specifications || undefined,
+                  sampleImageId: item.sampleImageId || undefined,
                   sortOrder: remainingCount + i + 1,
                   ...(item.productId && { productId: item.productId }),
                 },
@@ -1280,6 +1283,94 @@ export class OrdersService {
         payments: true,
       },
     });
+  }
+
+
+  // ========== ITEM SAMPLE IMAGE MANAGEMENT ==========
+
+  async uploadItemSampleImage(
+    orderId: string,
+    itemId: string,
+    file: Express.Multer.File,
+    userId: string,
+  ) {
+    // Verify order exists
+    await this.findOne(orderId);
+
+    // Verify item belongs to this order
+    const item = await this.prisma.orderItem.findFirst({
+      where: {
+        id: itemId,
+        orderId: orderId,
+      },
+    });
+
+    if (!item) {
+      throw new NotFoundException(
+        `Order item with ID ${itemId} not found in order ${orderId}`,
+      );
+    }
+
+    // If item already has a sample image, delete it first
+    if (item.sampleImageId) {
+      try {
+        await this.storageService.deleteFile(item.sampleImageId);
+      } catch (error) {
+        this.logger.error(
+          `Failed to delete existing sample image ${item.sampleImageId}:`,
+          error,
+        );
+      }
+    }
+
+    // Upload new image
+    const uploadedFile = await this.storageService.uploadFile(file, {
+      entityType: 'order-item',
+      entityId: itemId,
+      userId,
+    });
+
+    // Update order item with new image ID
+    await this.prisma.orderItem.update({
+      where: { id: itemId },
+      data: { sampleImageId: uploadedFile.id },
+    });
+
+    return uploadedFile;
+  }
+
+  async deleteItemSampleImage(orderId: string, itemId: string) {
+    // Verify order exists
+    await this.findOne(orderId);
+
+    // Verify item belongs to this order
+    const item = await this.prisma.orderItem.findFirst({
+      where: {
+        id: itemId,
+        orderId: orderId,
+      },
+    });
+
+    if (!item) {
+      throw new NotFoundException(
+        `Order item with ID ${itemId} not found in order ${orderId}`,
+      );
+    }
+
+    if (!item.sampleImageId) {
+      throw new BadRequestException('Order item does not have a sample image');
+    }
+
+    // Delete file from storage
+    await this.storageService.deleteFile(item.sampleImageId);
+
+    // Remove image reference from quote item
+    await this.prisma.orderItem.update({
+      where: { id: itemId },
+      data: { sampleImageId: null },
+    });
+
+    return { message: 'Sample image deleted successfully' };
   }
 
   // ========== PAYMENT RECEIPT MANAGEMENT ==========

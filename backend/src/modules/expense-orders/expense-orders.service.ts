@@ -23,7 +23,7 @@ import { ExpenseOrderAuthRequestsService } from '../expense-order-auth-requests/
 const ALLOWED_TRANSITIONS: Record<ExpenseOrderStatus, ExpenseOrderStatus[]> = {
   [ExpenseOrderStatus.DRAFT]: [ExpenseOrderStatus.CREATED, ExpenseOrderStatus.ADMIN_AUTHORIZED],
   [ExpenseOrderStatus.CREATED]: [ExpenseOrderStatus.ADMIN_AUTHORIZED, ExpenseOrderStatus.DRAFT],
-  [ExpenseOrderStatus.ADMIN_AUTHORIZED]: [ExpenseOrderStatus.AUTHORIZED],
+  [ExpenseOrderStatus.ADMIN_AUTHORIZED]: [], // La segunda firma usa el endpoint dedicado /caja-authorize
   [ExpenseOrderStatus.AUTHORIZED]: [],
   [ExpenseOrderStatus.PAID]: [],
 };
@@ -310,61 +310,59 @@ export class ExpenseOrdersService {
       return this.repository.findById(id);
     }
 
-    // ─── Rama B: segunda autorización (Caja → AUTHORIZED) ────────────────────────
-    // Solo usuarios con 'approve_expense_orders' (rol Caja).
-    // Registra los movimientos de caja y auto-transiciona a PAID.
-    if (dto.status === ExpenseOrderStatus.AUTHORIZED) {
-      const role = await this.prisma.role.findUnique({
-        where: { id: currentUser.roleId },
-        include: {
-          permissions: { include: { permission: { select: { name: true } } } },
-        },
-      });
-      const userPermissions = role?.permissions.map((rp) => rp.permission.name) ?? [];
-      if (!userPermissions.includes('approve_expense_orders')) {
-        throw new ForbiddenException(
-          'Solo usuarios con permiso "approve_expense_orders" (Caja) pueden autorizar el movimiento de efectivo.',
-        );
-      }
+    return this.repository.updateStatus(id, dto.status);
+  }
 
-      // Registrar quién autorizó como Caja
-      await this.repository.updateStatus(id, dto.status, {
-        cajaAuthorizedById: currentUser.id,
-        cajaAuthorizedAt: new Date(),
-      });
-
-      // Auto-transición a PAID: crear movimientos de caja y marcar como pagada
-      const activeSession = await this.prisma.cashSession.findFirst({
-        where: { status: 'OPEN' },
-      });
-
-      if (!activeSession) {
-        throw new BadRequestException(
-          'No hay una sesión de caja abierta activa. La OG fue autorizada por Caja pero no se pudo registrar el pago.',
-        );
-      }
-
-      for (const item of expenseOrder.items) {
-        const receiptNumber = await this.consecutivesService.generateNumber('CASH_RECEIPT');
-        await this.prisma.cashMovement.create({
-          data: {
-            amount: item.total,
-            movementType: 'EXPENSE',
-            paymentMethod: item.paymentMethod || 'CASH',
-            description: `Pago de ítem de Orden de Gasto ${expenseOrder.ogNumber}`,
-            receiptNumber,
-            cashSessionId: activeSession.id,
-            performedById: currentUser.id,
-            referenceType: 'EXPENSE_ORDER',
-            referenceId: expenseOrder.id,
-          },
-        });
-      }
-
-      return this.repository.updateStatus(id, ExpenseOrderStatus.PAID);
+  // ─── Segunda firma Caja (endpoint dedicado /caja-authorize) ───────────────────
+  // Requiere permiso 'caja_authorize_expense_orders' (verificado en el Controller).
+  // La OG debe estar en ADMIN_AUTHORIZED. Crea movimientos de caja y auto-paga.
+  async cajaAuthorize(id: string, currentUser: AuthenticatedUser) {
+    const expenseOrder = await this.repository.findById(id);
+    if (!expenseOrder) {
+      throw new NotFoundException(`OG con id ${id} no encontrada`);
     }
 
-    return this.repository.updateStatus(id, dto.status);
+    if (expenseOrder.status !== ExpenseOrderStatus.ADMIN_AUTHORIZED) {
+      throw new BadRequestException(
+        `La OG debe estar en estado ADMIN_AUTHORIZED para ser autorizada por Caja. Estado actual: ${expenseOrder.status}`,
+      );
+    }
+
+    // Registrar autorización de Caja
+    await this.repository.updateStatus(id, ExpenseOrderStatus.AUTHORIZED, {
+      cajaAuthorizedById: currentUser.id,
+      cajaAuthorizedAt: new Date(),
+    });
+
+    // Crear movimientos de caja + auto-transición a PAID
+    const activeSession = await this.prisma.cashSession.findFirst({
+      where: { status: 'OPEN' },
+    });
+
+    if (!activeSession) {
+      throw new BadRequestException(
+        'No hay una sesión de caja abierta activa. La OG fue autorizada por Caja pero no se pudo registrar el pago.',
+      );
+    }
+
+    for (const item of expenseOrder.items) {
+      const receiptNumber = await this.consecutivesService.generateNumber('CASH_RECEIPT');
+      await this.prisma.cashMovement.create({
+        data: {
+          amount: item.total,
+          movementType: 'EXPENSE',
+          paymentMethod: item.paymentMethod || 'CASH',
+          description: `Pago de ítem de Orden de Gasto ${expenseOrder.ogNumber}`,
+          receiptNumber,
+          cashSessionId: activeSession.id,
+          performedById: currentUser.id,
+          referenceType: 'EXPENSE_ORDER',
+          referenceId: expenseOrder.id,
+        },
+      });
+    }
+
+    return this.repository.updateStatus(id, ExpenseOrderStatus.PAID);
   }
 
   async remove(id: string) {

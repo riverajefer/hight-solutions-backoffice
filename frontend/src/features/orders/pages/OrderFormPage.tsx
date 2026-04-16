@@ -46,6 +46,8 @@ import {
 import type { Client } from '../../../types/client.types';
 import { useAuthStore } from '../../../store/authStore';
 import { enqueueSnackbar } from 'notistack';
+import { storageApi } from '../../../api/storage.api';
+import { useQueryClient } from '@tanstack/react-query';
 
 // ============================================================
 // VALIDATION SCHEMA
@@ -59,6 +61,7 @@ const orderItemSchema = z.object({
   total: z.number().min(0),
   productId: z.string().optional(),
   specifications: z.record(z.any()).optional(),
+  sampleImageId: z.string().nullable().optional(),
   productionAreaIds: z.array(z.string()),
 });
 
@@ -301,6 +304,7 @@ export const OrderFormPage: React.FC = () => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
+  const queryClient = useQueryClient();
   const [visitedSteps, setVisitedSteps] = useState<Set<number>>(new Set([0]));
 
   const { data: channels = [], isLoading: channelsLoading } = useQuery({
@@ -317,6 +321,7 @@ export const OrderFormPage: React.FC = () => {
     handleSubmit,
     watch,
     setValue,
+    getValues,
     formState: { errors, isValid },
   } = useForm<OrderFormData>({
     resolver: zodResolver(orderFormSchema) as Resolver<OrderFormData>,
@@ -419,6 +424,7 @@ export const OrderFormPage: React.FC = () => {
           total: parseFloat(item.total),
           productId: item.product?.id,
           specifications: item.specifications || undefined,
+          sampleImageId: item.sampleImageId,
           productionAreaIds: item.productionAreas
             ? item.productionAreas.map((pa) => pa.productionArea.id)
             : [],
@@ -492,6 +498,7 @@ export const OrderFormPage: React.FC = () => {
           unitPrice: parseFloat(item.unitPrice),
           productId: item.productId,
           specifications: item.specifications,
+          sampleImageId: item.sampleImageId ?? undefined,
           productionAreaIds: item.productionAreaIds,
         })),
         // En edición solo se actualiza el primer pago como initialPayment (comportamiento existente)
@@ -675,6 +682,69 @@ export const OrderFormPage: React.FC = () => {
     </Stack>
   );
 
+  // ── Image handlers ──────────────────────────────────────────────────────────
+
+  const handleImageUpload = async (itemId: string, file: File) => {
+    if (!isEdit) {
+      const currentItems = getValues('items');
+      const existingItem = currentItems.find(i => i.id === itemId);
+      if (existingItem?.sampleImageId) {
+        try { await storageApi.deleteFile(existingItem.sampleImageId); } catch { /* ignore */ }
+      }
+      try {
+        const uploadedFile = await storageApi.uploadFile(file, { entityType: 'order' });
+        setValue('items', currentItems.map((item) =>
+          item.id === itemId ? { ...item, sampleImageId: uploadedFile.id } : item
+        ));
+        enqueueSnackbar('Imagen subida exitosamente', { variant: 'success' });
+      } catch (error: any) {
+        enqueueSnackbar(error.response?.data?.message || 'Error al subir la imagen', { variant: 'error' });
+      }
+      return;
+    }
+
+    const currentItem = orderQuery.data?.items?.find((item: any) => item.id === itemId);
+    if (!currentItem) {
+      enqueueSnackbar('Guarda los cambios antes de subir imágenes a ítems nuevos', { variant: 'warning' });
+      return;
+    }
+    try {
+      const uploadedFile = await ordersApi.uploadItemSampleImage(id!, itemId, file);
+      const currentItems = getValues('items');
+      setValue('items', currentItems.map((item) =>
+        item.id === itemId ? { ...item, sampleImageId: uploadedFile.id } : item
+      ));
+      enqueueSnackbar('Imagen subida exitosamente', { variant: 'success' });
+      queryClient.invalidateQueries({ queryKey: ['order', id] });
+    } catch (error: any) {
+      enqueueSnackbar(error.response?.data?.message || 'Error al subir la imagen', { variant: 'error' });
+    }
+  };
+
+  const handleImageDelete = async (itemId: string) => {
+    if (!isEdit) {
+      const currentItems = getValues('items');
+      const item = currentItems.find(i => i.id === itemId);
+      if (item?.sampleImageId) {
+        try { await storageApi.deleteFile(item.sampleImageId); } catch { /* ignore */ }
+      }
+      setValue('items', currentItems.map((i) => i.id === itemId ? { ...i, sampleImageId: undefined } : i));
+      enqueueSnackbar('Imagen eliminada', { variant: 'success' });
+      return;
+    }
+    try {
+      await ordersApi.deleteItemSampleImage(id!, itemId);
+      const currentItems = getValues('items');
+      setValue('items', currentItems.map((item) =>
+        item.id === itemId ? { ...item, sampleImageId: undefined } : item
+      ));
+      enqueueSnackbar('Imagen eliminada exitosamente', { variant: 'success' });
+      queryClient.invalidateQueries({ queryKey: ['order', id] });
+    } catch {
+      enqueueSnackbar('Error al eliminar la imagen', { variant: 'error' });
+    }
+  };
+
   const renderStep1 = () => (
     <Stack spacing={3}>
       <Card variant="outlined" sx={{ borderRadius: 2 }}>
@@ -700,6 +770,9 @@ export const OrderFormPage: React.FC = () => {
                   onChange={field.onChange}
                   errors={errors}
                   disabled={!isClientSelected}
+                  orderId={isEdit ? id : undefined}
+                  onImageUpload={handleImageUpload}
+                  onImageDelete={handleImageDelete}
                 />
               )}
             />

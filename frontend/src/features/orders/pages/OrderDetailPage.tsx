@@ -207,6 +207,10 @@ export const OrderDetailPage: React.FC = () => {
     url: string;
     mimeType: string;
   }>({ open: false, url: '', mimeType: '' });
+  const [viewSampleImageDialog, setViewSampleImageDialog] = useState<{
+    open: boolean;
+    url: string;
+  }>({ open: false, url: '' });
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceLoading, setInvoiceLoading] = useState(false);
@@ -351,6 +355,16 @@ export const OrderDetailPage: React.FC = () => {
 
   const handleCloseViewReceipt = () => {
     setViewReceiptDialog({ open: false, url: '', mimeType: '' });
+  };
+
+  const handleViewSampleImage = async (sampleImageId: string) => {
+    try {
+      const { data } = await axiosInstance.get(`/storage/${sampleImageId}/url`);
+      setViewSampleImageDialog({ open: true, url: data.url });
+    } catch (error) {
+      console.error('Error loading image:', error);
+      enqueueSnackbar('Error al cargar la imagen', { variant: 'error' });
+    }
   };
 
   const handleOpenInvoiceDialog = () => {
@@ -836,6 +850,9 @@ export const OrderDetailPage: React.FC = () => {
                   <Table size="small" sx={{ minWidth: { xs: 600, sm: 'auto' } }}>
                     <TableHead>
                       <TableRow>
+                        {order.items?.some((i) => i.sampleImageId) && (
+                          <TableCell width="60px" align="center">Imagen</TableCell>
+                        )}
                         <TableCell>Descripción</TableCell>
                         <TableCell>Áreas de Producción</TableCell>
                         <TableCell align="right">Cantidad</TableCell>
@@ -846,6 +863,19 @@ export const OrderDetailPage: React.FC = () => {
                     <TableBody>
                       {order.items.map((item) => (
                         <TableRow key={item.id}>
+                          {order.items?.some((i) => i.sampleImageId) && (
+                            <TableCell align="center">
+                              {item.sampleImageId && (
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleViewSampleImage(item.sampleImageId!)}
+                                  color="primary"
+                                >
+                                  <VisibilityIcon fontSize="small" />
+                                </IconButton>
+                              )}
+                            </TableCell>
+                          )}
                           <TableCell>
                             {item.product && (
                               <Chip
@@ -1748,6 +1778,31 @@ export const OrderDetailPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      {/* Dialog: Ver Imagen de Muestra de Item */}
+      <Dialog
+        open={viewSampleImageDialog.open}
+        onClose={() => setViewSampleImageDialog({ open: false, url: '' })}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Imagen de Muestra
+          <IconButton onClick={() => setViewSampleImageDialog({ open: false, url: '' })} sx={{ position: 'absolute', right: 8, top: 8 }}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          {viewSampleImageDialog.url && (
+            <Box
+              component="img"
+              src={viewSampleImageDialog.url}
+              alt="Imagen de muestra"
+              sx={{ width: '100%', height: 'auto', maxHeight: '70vh', objectFit: 'contain' }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Dialog: Solicitar Autorización de Cambio de Estado */}
       {statusAuthDialogOpen && pendingStatus && order && (
         <StatusChangeAuthRequestDialog

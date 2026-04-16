@@ -208,4 +208,28 @@ export const ordersApi = {
     );
     return data;
   },
+
+  /**
+   * Subir imagen de muestra para un item de la orden
+   */
+  uploadItemSampleImage: async (orderId: string, itemId: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const { data } = await axiosInstance.post(
+      `${BASE_URL}/${orderId}/items/${itemId}/sample-image`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+    return data;
+  },
+
+  /**
+   * Eliminar imagen de muestra de un item de la orden
+   */
+  deleteItemSampleImage: async (orderId: string, itemId: string) => {
+    const { data } = await axiosInstance.delete(
+      `${BASE_URL}/${orderId}/items/${itemId}/sample-image`
+    );
+    return data;
+  },
 };

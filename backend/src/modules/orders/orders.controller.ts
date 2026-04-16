@@ -1,4 +1,7 @@
 import {
+  ParseFilePipe,
+  MaxFileSizeValidator,
+  FileTypeValidator,
   Controller,
   Get,
   Post,

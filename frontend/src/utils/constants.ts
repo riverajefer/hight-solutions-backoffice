@@ -107,6 +107,7 @@ export const PERMISSIONS = {
   UPDATE_EXPENSE_ORDERS: 'update_expense_orders',
   DELETE_EXPENSE_ORDERS: 'delete_expense_orders',
   APPROVE_EXPENSE_ORDERS: 'approve_expense_orders',
+  CAJA_AUTHORIZE_EXPENSE_ORDERS: 'caja_authorize_expense_orders',
   // Payroll - Empleados de nómina
   CREATE_PAYROLL_EMPLOYEES: 'create_payroll_employees',
   READ_PAYROLL_EMPLOYEES: 'read_payroll_employees',

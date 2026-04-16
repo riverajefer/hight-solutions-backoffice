@@ -32,6 +32,7 @@ import {
 import {
   Edit as EditIcon,
   SwapHoriz as SwapHorizIcon,
+  CheckCircle as CheckCircleIcon,
   Add as AddIcon,
   AttachFile as AttachFileIcon,
   Close as CloseIcon,
@@ -92,7 +93,7 @@ const formatCurrency = (value?: string | number | null): string => {
 const STATUS_TRANSITIONS: Record<ExpenseOrderStatus, ExpenseOrderStatus[]> = {
   [ExpenseOrderStatus.DRAFT]: [ExpenseOrderStatus.CREATED, ExpenseOrderStatus.ADMIN_AUTHORIZED],
   [ExpenseOrderStatus.CREATED]: [ExpenseOrderStatus.ADMIN_AUTHORIZED, ExpenseOrderStatus.DRAFT],
-  [ExpenseOrderStatus.ADMIN_AUTHORIZED]: [ExpenseOrderStatus.AUTHORIZED],
+  [ExpenseOrderStatus.ADMIN_AUTHORIZED]: [], // La segunda firma usa el botón dedicado
   [ExpenseOrderStatus.AUTHORIZED]: [],
   [ExpenseOrderStatus.PAID]: [],
 };
@@ -152,7 +153,7 @@ export const ExpenseOrderDetailPage = () => {
   const theme = useTheme();
   const { hasPermission } = useAuthStore();
 
-  const { expenseOrderQuery, updateStatusMutation, addExpenseItemMutation } = useExpenseOrder(id);
+  const { expenseOrderQuery, updateStatusMutation, addExpenseItemMutation, cajaAuthorizeMutation } = useExpenseOrder(id);
   const { suppliersQuery } = useSuppliers();
   const { productionAreasQuery } = useProductionAreas();
 
@@ -194,8 +195,15 @@ export const ExpenseOrderDetailPage = () => {
 
   const canUpdate = hasPermission(PERMISSIONS.UPDATE_EXPENSE_ORDERS);
   const canApprove = hasPermission(PERMISSIONS.APPROVE_EXPENSE_ORDERS);
+  const canCajaAuthorize = hasPermission(PERMISSIONS.CAJA_AUTHORIZE_EXPENSE_ORDERS);
 
   const og = expenseOrderQuery.data;
+
+  // ── Caja authorize ───────────────────────────────────────────────────────────
+  const handleCajaAuthorize = async () => {
+    if (!id) return;
+    await cajaAuthorizeMutation.mutateAsync(id);
+  };
 
   // ── Status change ────────────────────────────────────────────────────────────
   const handleStatusChange = async () => {
@@ -478,6 +486,18 @@ export const ExpenseOrderDetailPage = () => {
               onClick={() => setStatusDialogOpen(true)}
               color={theme.palette.info.main}
               tooltip="Cambiar Estado"
+            />
+          )}
+
+          {og.status === ExpenseOrderStatus.ADMIN_AUTHORIZED && canCajaAuthorize && !isParentOrderAnulado && (
+            <ToolbarButton
+              icon={<CheckCircleIcon />}
+              label="Autorizar"
+              secondaryLabel="Firma Caja"
+              onClick={handleCajaAuthorize}
+              color={theme.palette.success.main}
+              tooltip="Segunda firma Caja — registra el pago"
+              disabled={cajaAuthorizeMutation.isPending}
             />
           )}
 

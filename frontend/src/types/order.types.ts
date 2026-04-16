@@ -306,6 +306,7 @@ export interface OrderItemRow {
   total: number; // Calculado
   productId?: string;
   specifications?: Record<string, any>;
+  sampleImageId?: string | null;
   productionAreaIds: string[];
 }
 

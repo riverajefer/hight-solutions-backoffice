@@ -582,6 +582,7 @@ model OrderItem {
 
   // Especificaciones técnicas (JSON flexible)
   specifications Json? // { color: "rojo", material: "acero", dimensiones: "10x20" }
+  sampleImageId  String? @map("sample_image_id") // ID de la imagen de muestra
 
   sortOrder Int      @default(0) @map("sort_order") // Orden de visualización
   createdAt DateTime @default(now()) @map("created_at")

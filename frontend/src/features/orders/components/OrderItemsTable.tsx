@@ -17,8 +17,20 @@ import {
   Tooltip,
   useMediaQuery,
   useTheme,
+  CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogTitle,
 } from '@mui/material';
-import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
+import {
+  Delete as DeleteIcon,
+  Add as AddIcon,
+  CloudUpload as UploadIcon,
+  Visibility as VisibilityIcon,
+  Close as CloseIcon,
+  Image as ImageIcon,
+} from '@mui/icons-material';
+import axiosInstance from '../../../api/axios';
 import { v4 as uuidv4 } from 'uuid';
 import type { OrderItemRow } from '../../../types/order.types';
 import { useProductionAreas } from '../../../features/production-areas/hooks/useProductionAreas';
@@ -34,6 +46,9 @@ interface OrderItemsTableProps {
   onChange: (items: OrderItemRow[]) => void;
   errors?: Record<string, any>;
   disabled?: boolean;
+  orderId?: string;
+  onImageUpload?: (itemId: string, file: File) => Promise<void>;
+  onImageDelete?: (itemId: string) => Promise<void>;
 }
 
 const formatCurrency = (value: number): string => {
@@ -63,6 +78,9 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
   onChange,
   errors = {},
   disabled = false,
+  // orderId is passed but used by parent for API calls
+  onImageUpload,
+  onImageDelete,
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -74,6 +92,86 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
 
   const { hasPermission } = useAuthStore();
   const [productModalOpenItemId, setProductModalOpenItemId] = useState<string | null>(null);
+  const [viewImageDialog, setViewImageDialog] = React.useState<{ open: boolean; url: string }>({ open: false, url: '' });
+  const [uploadingItemId, setUploadingItemId] = React.useState<string | null>(null);
+  const [thumbnailUrls, setThumbnailUrls] = React.useState<Record<string, string>>({});
+
+  // Fetch thumbnail URLs for items that have sampleImageId
+  React.useEffect(() => {
+    const fetchThumbnails = async () => {
+      const itemsWithImages = items.filter(
+        (item) => item.sampleImageId && !thumbnailUrls[item.sampleImageId]
+      );
+      if (itemsWithImages.length === 0) return;
+
+      const newUrls: Record<string, string> = {};
+      await Promise.all(
+        itemsWithImages.map(async (item) => {
+          try {
+            const { data } = await axiosInstance.get(`/storage/${item.sampleImageId}/url`);
+            newUrls[item.sampleImageId!] = data.url;
+          } catch {
+            // ignore
+          }
+        })
+      );
+      if (Object.keys(newUrls).length > 0) {
+        setThumbnailUrls((prev) => ({ ...prev, ...newUrls }));
+      }
+    };
+    fetchThumbnails();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.map((i) => i.sampleImageId).join(',')]);
+
+  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+  const handlePasteForItem = (itemId: string, e: React.ClipboardEvent) => {
+    const clipItems = e.clipboardData?.items;
+    if (!clipItems || !onImageUpload) return;
+    for (let i = 0; i < clipItems.length; i++) {
+      if (clipItems[i].type.indexOf('image') !== -1) {
+        const file = clipItems[i].getAsFile();
+        if (file && ALLOWED_IMAGE_TYPES.includes(file.type)) {
+          const extension = file.type.split('/')[1] || 'png';
+          const newFile = new File([file], `pasted-image-${Date.now()}.${extension}`, { type: file.type });
+          handleImageUploadInternal(itemId, newFile);
+          e.preventDefault();
+          break;
+        }
+      }
+    }
+  };
+
+  const handleImageUploadInternal = async (itemId: string, file: File) => {
+    if (!onImageUpload) return;
+    setUploadingItemId(itemId);
+    try {
+      await onImageUpload(itemId, file);
+    } finally {
+      setUploadingItemId(null);
+    }
+  };
+
+  const handleImageDeleteInternal = async (itemId: string) => {
+    if (!onImageDelete) return;
+    setUploadingItemId(itemId);
+    try {
+      await onImageDelete(itemId);
+    } finally {
+      setUploadingItemId(null);
+    }
+  };
+
+  const handleViewImage = async (sampleImageId: string) => {
+    try {
+      const { data } = await axiosInstance.get(`/storage/${sampleImageId}/url`);
+      setViewImageDialog({ open: true, url: data.url });
+    } catch (error) {
+      console.error('Error loading image:', error);
+    }
+  };
+
+  const showImageColumn = !!onImageUpload || !!onImageDelete || items.some(item => !!item.sampleImageId);
 
   const handleAddRow = () => {
     const newItem: OrderItemRow = {
@@ -202,8 +300,9 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                 },
               }}
             >
+              {showImageColumn && <TableCell width="8%" align="center" sx={{ minWidth: 80 }}>Imagen</TableCell>}
               <TableCell
-                width="8%"
+                width={showImageColumn ? "7%" : "8%"}
                 align="center"
                 sx={{ minWidth: 60 }}
               >
@@ -274,6 +373,121 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                     },
                   }}
                 >
+                  {/* Imagen */}
+                  {showImageColumn && (
+                    <TableCell
+                      align="center"
+                      onPaste={(e) => !item.sampleImageId && handlePasteForItem(item.id, e)}
+                    >
+                      {uploadingItemId === item.id ? (
+                        <CircularProgress size={20} />
+                      ) : item.sampleImageId ? (
+                        <Stack spacing={0.5} alignItems="center">
+                          {thumbnailUrls[item.sampleImageId] ? (
+                            <Box
+                              component="img"
+                              src={thumbnailUrls[item.sampleImageId]}
+                              alt="Muestra"
+                              onClick={() => handleViewImage(item.sampleImageId!)}
+                              sx={{
+                                width: 48,
+                                height: 48,
+                                objectFit: 'cover',
+                                borderRadius: 0.5,
+                                border: '1px solid',
+                                borderColor: 'grey.300',
+                                cursor: 'pointer',
+                                transition: 'opacity 0.2s',
+                                '&:hover': { opacity: 0.8 },
+                              }}
+                            />
+                          ) : (
+                            <Box
+                              onClick={() => handleViewImage(item.sampleImageId!)}
+                              sx={{
+                                width: 48,
+                                height: 48,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                borderRadius: 0.5,
+                                border: '1px solid',
+                                borderColor: 'grey.300',
+                                bgcolor: 'grey.50',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <ImageIcon fontSize="small" color="disabled" />
+                            </Box>
+                          )}
+                          <Stack direction="row" spacing={0} justifyContent="center">
+                            <Tooltip title="Ver imagen">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleViewImage(item.sampleImageId!)}
+                              >
+                                <VisibilityIcon sx={{ fontSize: 16 }} />
+                              </IconButton>
+                            </Tooltip>
+                            {onImageDelete && (
+                              <Tooltip title="Eliminar imagen">
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => handleImageDeleteInternal(item.id)}
+                                  disabled={disabled}
+                                >
+                                  <DeleteIcon sx={{ fontSize: 16 }} />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Stack>
+                        </Stack>
+                      ) : (
+                        onImageUpload && (
+                          <Box
+                            tabIndex={0}
+                            onPaste={(e) => handlePasteForItem(item.id, e)}
+                            sx={{
+                              border: '2px dashed',
+                              borderColor: 'grey.300',
+                              borderRadius: 1,
+                              p: 0.75,
+                              textAlign: 'center',
+                              cursor: 'pointer',
+                              transition: 'border-color 0.2s, background-color 0.2s',
+                              minWidth: 64,
+                              '&:hover, &:focus': {
+                                borderColor: 'primary.main',
+                                bgcolor: 'action.hover',
+                              },
+                            }}
+                            onClick={() => {
+                              const input = document.getElementById(`order-img-input-${item.id}`);
+                              input?.click();
+                            }}
+                          >
+                            <UploadIcon sx={{ fontSize: 20, color: 'grey.400' }} />
+                            <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.65rem', lineHeight: 1.2, mt: 0.25 }}>
+                              Subir o pegar
+                            </Typography>
+                            <input
+                              id={`order-img-input-${item.id}`}
+                              type="file"
+                              hidden
+                              accept="image/jpeg,image/png,image/gif,image/webp"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleImageUploadInternal(item.id, file);
+                                e.target.value = '';
+                              }}
+                            />
+                          </Box>
+                        )
+                      )}
+                    </TableCell>
+                  )}
+
                   {/* Cantidad */}
                   <TableCell>
                     <TextField
@@ -511,7 +725,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                 },
               }}
             >
-              <TableCell colSpan={5} align="right">
+              <TableCell colSpan={showImageColumn ? 6 : 5} align="right">
                 <Typography variant="body2" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Subtotal:
                 </Typography>
@@ -556,6 +770,31 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
           {errors.items.message as string}
         </Typography>
       )}
+
+      {/* Image Preview Dialog */}
+      <Dialog
+        open={viewImageDialog.open}
+        onClose={() => setViewImageDialog({ open: false, url: '' })}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Imagen de Muestra
+          <IconButton onClick={() => setViewImageDialog({ open: false, url: '' })}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          {viewImageDialog.url && (
+            <Box
+              component="img"
+              src={viewImageDialog.url}
+              alt="Imagen de muestra"
+              sx={{ width: '100%', maxHeight: '70vh', objectFit: 'contain' }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };

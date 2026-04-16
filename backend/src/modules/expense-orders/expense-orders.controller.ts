@@ -126,6 +126,20 @@ export class ExpenseOrdersController {
     return this.service.updateStatus(id, dto, user);
   }
 
+  @Patch(':id/caja-authorize')
+  @RequirePermissions('caja_authorize_expense_orders')
+  @ApiOperation({ summary: 'Segunda firma Caja: autorizar OG y registrar pago (requiere ADMIN_AUTHORIZED)' })
+  @ApiParam({ name: 'id', description: 'ID de la OG' })
+  @ApiResponse({ status: 200, description: 'OG autorizada por Caja y pagada automáticamente' })
+  @ApiResponse({ status: 400, description: 'OG no está en estado ADMIN_AUTHORIZED o no hay sesión de caja activa' })
+  @ApiResponse({ status: 404, description: 'OG no encontrada' })
+  cajaAuthorize(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.cajaAuthorize(id, user);
+  }
+
   @Delete(':id')
   @RequirePermissions('delete_expense_orders')
   @HttpCode(HttpStatus.NO_CONTENT)
