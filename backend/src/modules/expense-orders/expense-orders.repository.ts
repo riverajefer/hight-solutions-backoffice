@@ -62,6 +62,11 @@ export class ExpenseOrdersRepository {
     authorizedBy: {
       select: { id: true, firstName: true, lastName: true, email: true },
     },
+    cajaAuthorizedById: true,
+    cajaAuthorizedAt: true,
+    cajaAuthorizedBy: {
+      select: { id: true, firstName: true, lastName: true, email: true },
+    },
     items: {
       select: {
         id: true,
@@ -312,15 +317,21 @@ export class ExpenseOrdersRepository {
   async updateStatus(
     id: string,
     status: ExpenseOrderStatus,
-    authorizedById?: string,
-    authorizedAt?: Date,
+    fields?: {
+      authorizedById?: string;
+      authorizedAt?: Date;
+      cajaAuthorizedById?: string;
+      cajaAuthorizedAt?: Date;
+    },
   ) {
     return this.prisma.expenseOrder.update({
       where: { id },
       data: {
         status,
-        ...(authorizedById !== undefined && { authorizedById }),
-        ...(authorizedAt !== undefined && { authorizedAt }),
+        ...(fields?.authorizedById     !== undefined && { authorizedById:     fields.authorizedById }),
+        ...(fields?.authorizedAt       !== undefined && { authorizedAt:       fields.authorizedAt }),
+        ...(fields?.cajaAuthorizedById !== undefined && { cajaAuthorizedById: fields.cajaAuthorizedById }),
+        ...(fields?.cajaAuthorizedAt   !== undefined && { cajaAuthorizedAt:   fields.cajaAuthorizedAt }),
       },
       select: this.selectFields,
     });

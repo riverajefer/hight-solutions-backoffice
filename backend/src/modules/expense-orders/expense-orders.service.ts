@@ -21,8 +21,9 @@ import { AuthenticatedUser } from '../../common/interfaces/auth.interface';
 import { ExpenseOrderAuthRequestsService } from '../expense-order-auth-requests/expense-order-auth-requests.service';
 
 const ALLOWED_TRANSITIONS: Record<ExpenseOrderStatus, ExpenseOrderStatus[]> = {
-  [ExpenseOrderStatus.DRAFT]: [ExpenseOrderStatus.CREATED, ExpenseOrderStatus.AUTHORIZED],
-  [ExpenseOrderStatus.CREATED]: [ExpenseOrderStatus.AUTHORIZED, ExpenseOrderStatus.DRAFT],
+  [ExpenseOrderStatus.DRAFT]: [ExpenseOrderStatus.CREATED, ExpenseOrderStatus.ADMIN_AUTHORIZED],
+  [ExpenseOrderStatus.CREATED]: [ExpenseOrderStatus.ADMIN_AUTHORIZED, ExpenseOrderStatus.DRAFT],
+  [ExpenseOrderStatus.ADMIN_AUTHORIZED]: [ExpenseOrderStatus.AUTHORIZED],
   [ExpenseOrderStatus.AUTHORIZED]: [],
   [ExpenseOrderStatus.PAID]: [],
 };
@@ -274,8 +275,10 @@ export class ExpenseOrdersService {
       );
     }
 
-    // Solo admin puede cambiar a AUTHORIZED directamente; no-admins necesitan solicitud aprobada
-    if (dto.status === ExpenseOrderStatus.AUTHORIZED) {
+    // ─── Rama A: primera autorización (Admin → ADMIN_AUTHORIZED) ────────────────
+    // Solo Admin puede hacerlo directamente; no-admins necesitan solicitud aprobada.
+    // No crea movimientos de caja.
+    if (dto.status === ExpenseOrderStatus.ADMIN_AUTHORIZED) {
       const user = await this.prisma.user.findUnique({
         where: { id: currentUser.id },
         include: { role: true },
@@ -284,7 +287,6 @@ export class ExpenseOrdersService {
       const isAdmin = user?.role?.name === 'admin';
 
       if (!isAdmin) {
-        // No-admin: verificar si tiene solicitud aprobada
         const hasApproval = await this.authRequestsService.hasApprovedRequest(id, currentUser.id);
         if (!hasApproval) {
           throw new ForbiddenException(
@@ -294,11 +296,42 @@ export class ExpenseOrdersService {
 
         const approvedRequest = await this.authRequestsService.getApprovedRequest(id, currentUser.id);
         await this.authRequestsService.consumeApprovedRequest(id, currentUser.id);
-        await this.repository.updateStatus(id, dto.status, approvedRequest!.reviewedById!, new Date());
+        await this.repository.updateStatus(id, dto.status, {
+          authorizedById: approvedRequest!.reviewedById!,
+          authorizedAt: new Date(),
+        });
       } else {
-        // Admin autoriza directo — registrar quién autorizó
-        await this.repository.updateStatus(id, dto.status, currentUser.id, new Date());
+        await this.repository.updateStatus(id, dto.status, {
+          authorizedById: currentUser.id,
+          authorizedAt: new Date(),
+        });
       }
+
+      return this.repository.findById(id);
+    }
+
+    // ─── Rama B: segunda autorización (Caja → AUTHORIZED) ────────────────────────
+    // Solo usuarios con 'approve_expense_orders' (rol Caja).
+    // Registra los movimientos de caja y auto-transiciona a PAID.
+    if (dto.status === ExpenseOrderStatus.AUTHORIZED) {
+      const role = await this.prisma.role.findUnique({
+        where: { id: currentUser.roleId },
+        include: {
+          permissions: { include: { permission: { select: { name: true } } } },
+        },
+      });
+      const userPermissions = role?.permissions.map((rp) => rp.permission.name) ?? [];
+      if (!userPermissions.includes('approve_expense_orders')) {
+        throw new ForbiddenException(
+          'Solo usuarios con permiso "approve_expense_orders" (Caja) pueden autorizar el movimiento de efectivo.',
+        );
+      }
+
+      // Registrar quién autorizó como Caja
+      await this.repository.updateStatus(id, dto.status, {
+        cajaAuthorizedById: currentUser.id,
+        cajaAuthorizedAt: new Date(),
+      });
 
       // Auto-transición a PAID: crear movimientos de caja y marcar como pagada
       const activeSession = await this.prisma.cashSession.findFirst({
@@ -307,7 +340,7 @@ export class ExpenseOrdersService {
 
       if (!activeSession) {
         throw new BadRequestException(
-          'No hay una sesión de caja abierta activa. La OG fue autorizada pero no se pudo registrar el pago.',
+          'No hay una sesión de caja abierta activa. La OG fue autorizada por Caja pero no se pudo registrar el pago.',
         );
       }
 
@@ -329,48 +362,6 @@ export class ExpenseOrdersService {
       }
 
       return this.repository.updateStatus(id, ExpenseOrderStatus.PAID);
-    }
-
-    // Only users with 'approve_expense_orders' permission can mark as PAID
-    if (dto.status === ExpenseOrderStatus.PAID) {
-      const role = await this.prisma.role.findUnique({
-        where: { id: currentUser.roleId },
-        include: {
-          permissions: { include: { permission: { select: { name: true } } } },
-        },
-      });
-      const userPermissions = role?.permissions.map((rp) => rp.permission.name) ?? [];
-      if (!userPermissions.includes('approve_expense_orders')) {
-        throw new ForbiddenException(
-          'Solo usuarios con permiso "approve_expense_orders" pueden marcar una OG como PAID',
-        );
-      }
-
-      const activeSession = await this.prisma.cashSession.findFirst({
-        where: { status: 'OPEN' }
-      });
-
-      if (!activeSession) {
-        throw new BadRequestException('No hay una sesión de caja abierta activa.');
-      }
-
-      // Create a Cash Movement for each Item in the Expense Order
-      for (const item of expenseOrder.items) {
-        const receiptNumber = await this.consecutivesService.generateNumber('CASH_RECEIPT');
-        await this.prisma.cashMovement.create({
-          data: {
-            amount: item.total,
-            movementType: 'EXPENSE',
-            paymentMethod: item.paymentMethod || 'CASH',
-            description: `Pago de ítem de Orden de Gasto ${expenseOrder.ogNumber}`,
-            receiptNumber,
-            cashSessionId: activeSession.id,
-            performedById: currentUser.id,
-            referenceType: 'EXPENSE_ORDER',
-            referenceId: expenseOrder.id,
-          }
-        });
-      }
     }
 
     return this.repository.updateStatus(id, dto.status);

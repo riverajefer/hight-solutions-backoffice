@@ -90,8 +90,9 @@ const formatCurrency = (value?: string | number | null): string => {
 };
 
 const STATUS_TRANSITIONS: Record<ExpenseOrderStatus, ExpenseOrderStatus[]> = {
-  [ExpenseOrderStatus.DRAFT]: [ExpenseOrderStatus.CREATED, ExpenseOrderStatus.AUTHORIZED],
-  [ExpenseOrderStatus.CREATED]: [ExpenseOrderStatus.AUTHORIZED, ExpenseOrderStatus.DRAFT],
+  [ExpenseOrderStatus.DRAFT]: [ExpenseOrderStatus.CREATED, ExpenseOrderStatus.ADMIN_AUTHORIZED],
+  [ExpenseOrderStatus.CREATED]: [ExpenseOrderStatus.ADMIN_AUTHORIZED, ExpenseOrderStatus.DRAFT],
+  [ExpenseOrderStatus.ADMIN_AUTHORIZED]: [ExpenseOrderStatus.AUTHORIZED],
   [ExpenseOrderStatus.AUTHORIZED]: [],
   [ExpenseOrderStatus.PAID]: [],
 };
@@ -401,7 +402,7 @@ export const ExpenseOrderDetailPage = () => {
   const availableTransitions = isParentOrderAnulado
     ? []
     : allowedTransitions.filter((s) => {
-        if (s === ExpenseOrderStatus.PAID) return canApprove;
+        if (s === ExpenseOrderStatus.AUTHORIZED) return canApprove; // Solo Caja
         return canUpdate;
       });
 
@@ -539,8 +540,14 @@ export const ExpenseOrderDetailPage = () => {
                 </Grid>
                 {og.authorizedBy && (
                   <Grid item xs={6} sm={3}>
-                    <Typography variant="caption" color="text.secondary">Autorizado por</Typography>
+                    <Typography variant="caption" color="text.secondary">Autorizado por (Admin)</Typography>
                     <Typography variant="body2">{userName(og.authorizedBy)}</Typography>
+                  </Grid>
+                )}
+                {og.cajaAuthorizedBy && (
+                  <Grid item xs={6} sm={3}>
+                    <Typography variant="caption" color="text.secondary">Autorizado por (Caja)</Typography>
+                    <Typography variant="body2">{userName(og.cajaAuthorizedBy)}</Typography>
                   </Grid>
                 )}
               </Grid>
@@ -842,7 +849,8 @@ export const ExpenseOrderDetailPage = () => {
             {availableTransitions.map((s) => (
               <MenuItem key={s} value={s}>
                 {EXPENSE_ORDER_STATUS_CONFIG[s].label}
-                {s === ExpenseOrderStatus.AUTHORIZED && ' (autoriza y registra pago en caja)'}
+                {s === ExpenseOrderStatus.ADMIN_AUTHORIZED && ' (Pre-autorizar — validación administrativa)'}
+                {s === ExpenseOrderStatus.AUTHORIZED && ' (Autorización Caja — registra pago)'}
               </MenuItem>
             ))}
           </TextField>

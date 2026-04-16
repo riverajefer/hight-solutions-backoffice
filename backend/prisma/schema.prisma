@@ -41,6 +41,7 @@ model User {
   designedWorkOrders                   WorkOrder[]                  @relation("WorkOrderDesigner")
   workOrderTimeEntries                 WorkOrderTimeEntry[]         @relation("WorkOrderTimeEntryUser")
   authorizedExpenseOrders              ExpenseOrder[]               @relation("AuthorizedExpenseOrders")
+  cajaAuthorizedExpenseOrders          ExpenseOrder[]               @relation("CajaAuthorizedExpenseOrders")
   responsibleExpenseOrders             ExpenseOrder[]               @relation("ResponsibleExpenseOrders")
   createdExpenseOrders                 ExpenseOrder[]               @relation("CreatedExpenseOrders")
   approvedExpenseOrders                ExpenseOrder[]               @relation("ApprovedExpenseOrders")
@@ -1037,7 +1038,8 @@ model WorkOrderTimeEntry {
 enum ExpenseOrderStatus {
   DRAFT // Borrador (editable)
   CREATED // Creada
-  AUTHORIZED // Autorizada
+  ADMIN_AUTHORIZED // Pre-autorizada por Admin (pendiente de Caja)
+  AUTHORIZED // Autorizada por Caja (registra pago)
   PAID // Pagada
 }
 
@@ -1088,9 +1090,13 @@ model ExpenseOrder {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  // Autorización (quién aprobó el cambio a AUTHORIZED)
+  // Primera autorización Admin (quién aprobó el cambio a ADMIN_AUTHORIZED)
   authorizedById String?   @map("authorized_by_id")
   authorizedAt   DateTime? @map("authorized_at")
+
+  // Segunda autorización Caja (quién aprobó el cambio a AUTHORIZED y registró el pago)
+  cajaAuthorizedById String?   @map("caja_authorized_by_id")
+  cajaAuthorizedAt   DateTime? @map("caja_authorized_at")
 
   // Relaciones
   expenseType        ExpenseType               @relation(fields: [expenseTypeId], references: [id])
@@ -1100,6 +1106,7 @@ model ExpenseOrder {
   responsible        User?                     @relation("ResponsibleExpenseOrders", fields: [responsibleId], references: [id])
   createdBy          User                      @relation("CreatedExpenseOrders", fields: [createdById], references: [id])
   authorizedBy       User?                     @relation("ApprovedExpenseOrders", fields: [authorizedById], references: [id])
+  cajaAuthorizedBy   User?                     @relation("CajaAuthorizedExpenseOrders", fields: [cajaAuthorizedById], references: [id])
   items              ExpenseOrderItem[]
   authRequests       ExpenseOrderAuthRequest[]
 

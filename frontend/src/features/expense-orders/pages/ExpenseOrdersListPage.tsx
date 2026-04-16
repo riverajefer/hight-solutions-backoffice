@@ -41,7 +41,8 @@ const STATUS_OPTIONS: { value: ExpenseOrderStatus | ''; label: string }[] = [
   { value: '', label: 'Todos' },
   { value: ExpenseOrderStatus.DRAFT, label: 'Borrador' },
   { value: ExpenseOrderStatus.CREATED, label: 'Creada' },
-  { value: ExpenseOrderStatus.AUTHORIZED, label: 'Autorizada' },
+  { value: ExpenseOrderStatus.ADMIN_AUTHORIZED, label: 'Autorizada (Admin)' },
+  { value: ExpenseOrderStatus.AUTHORIZED, label: 'Autorizada (Caja)' },
   { value: ExpenseOrderStatus.PAID, label: 'Pagada' },
 ];
 

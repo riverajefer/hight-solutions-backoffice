@@ -253,7 +253,7 @@ async function main() {
     { name: 'read_expense_orders', description: 'Ver órdenes de gasto' },
     { name: 'update_expense_orders', description: 'Actualizar órdenes de gasto' },
     { name: 'delete_expense_orders', description: 'Eliminar órdenes de gasto' },
-    { name: 'approve_expense_orders', description: 'Aprobar/marcar como pagada una OG' },
+    { name: 'approve_expense_orders', description: 'Autorización Caja: segunda firma y registro de pago de OG' },
 
     // Advance Payment Approvals
     { name: 'approve_advance_payments', description: 'Aprobar/rechazar anticipos de órdenes' },
@@ -493,6 +493,9 @@ async function main() {
     'void_cash_movements',
     'approve_cash_movements',
     'read_cash_movements',
+    // Expense Orders (Caja — segunda firma financiera)
+    'read_expense_orders',
+    'approve_expense_orders',
   ]);
 
   // ============================================

@@ -77,7 +77,7 @@ export class ExpenseOrderAuthRequestsService implements OnModuleInit, ApprovalRe
       include: { expenseOrder: { select: { ogNumber: true } } },
     });
 
-    // Auto-transición: cambiar estado de la OG a AUTHORIZED (que auto-paga)
+    // Auto-transición: cambiar estado de la OG a ADMIN_AUTHORIZED (pendiente de firma de Caja)
     try {
       const admin = await this.prisma.user.findUnique({
         where: { id: reviewerId },
@@ -94,7 +94,7 @@ export class ExpenseOrderAuthRequestsService implements OnModuleInit, ApprovalRe
         };
         await this.expenseOrdersService.updateStatus(
           request.expenseOrderId,
-          { status: ExpenseOrderStatus.AUTHORIZED },
+          { status: ExpenseOrderStatus.ADMIN_AUTHORIZED },
           adminUser,
         );
       }
@@ -108,7 +108,7 @@ export class ExpenseOrderAuthRequestsService implements OnModuleInit, ApprovalRe
       userId: request.requestedById,
       type: NotificationType.EXPENSE_ORDER_AUTH_REQUEST_APPROVED,
       title: 'Solicitud de autorización de OG aprobada',
-      message: `Tu solicitud para autorizar la OG ${request.expenseOrder.ogNumber} ha sido aprobada y pagada automáticamente.`,
+      message: `Tu solicitud para la OG ${request.expenseOrder.ogNumber} fue aprobada administrativamente. Pendiente de autorización de Caja para el pago.`,
       relatedId: request.expenseOrderId,
       relatedType: 'ExpenseOrder',
     });
@@ -265,7 +265,7 @@ export class ExpenseOrderAuthRequestsService implements OnModuleInit, ApprovalRe
       },
     });
 
-    // 4. Auto-transición: cambiar estado de la OG a AUTHORIZED (que auto-paga)
+    // 4. Auto-transición: cambiar estado de la OG a ADMIN_AUTHORIZED (pendiente de firma de Caja)
     try {
       const adminUser: AuthenticatedUser = {
         id: adminId,
@@ -278,7 +278,7 @@ export class ExpenseOrderAuthRequestsService implements OnModuleInit, ApprovalRe
 
       await this.expenseOrdersService.updateStatus(
         request.expenseOrderId,
-        { status: ExpenseOrderStatus.AUTHORIZED },
+        { status: ExpenseOrderStatus.ADMIN_AUTHORIZED },
         adminUser,
       );
     } catch (error: any) {
@@ -292,7 +292,7 @@ export class ExpenseOrderAuthRequestsService implements OnModuleInit, ApprovalRe
       userId: request.requestedById,
       type: NotificationType.EXPENSE_ORDER_AUTH_REQUEST_APPROVED,
       title: 'Solicitud de autorización de OG aprobada',
-      message: `Tu solicitud para autorizar la OG ${request.expenseOrder.ogNumber} ha sido aprobada y pagada automáticamente.`,
+      message: `Tu solicitud para la OG ${request.expenseOrder.ogNumber} fue aprobada administrativamente. Pendiente de autorización de Caja para el pago.`,
       relatedId: request.expenseOrderId,
       relatedType: 'ExpenseOrder',
     });
