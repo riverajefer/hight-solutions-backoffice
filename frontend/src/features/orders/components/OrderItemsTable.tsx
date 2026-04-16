@@ -565,7 +565,17 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                             size="small"
                             color="primary"
                             onClick={() => setProductModalOpenItemId(item.id)}
-                            sx={{ mt: 0.25, flexShrink: 0 }}
+                            sx={{
+                              mt: 0.25,
+                              flexShrink: 0,
+                              border: '1px dashed',
+                              borderColor: 'primary.main',
+                              borderRadius: 1,
+                              '&:hover': {
+                                bgcolor: 'primary.main',
+                                color: 'primary.contrastText',
+                              },
+                            }}
                           >
                             <AddIcon fontSize="small" />
                           </IconButton>
