@@ -64,7 +64,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { ToolbarButton } from '../../orders/components/ToolbarButton';
-import { exportMovementsPdf, exportMovementsCsv } from '../utils/exportMovements';
+import { exportMovementsPdf, exportMovementsExcel } from '../utils/exportMovements';
 import { generateMovementReceipt } from '../utils/generateMovementReceipt';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
@@ -454,9 +454,9 @@ const ActiveSessionPage: React.FC = () => {
           <ListItemIcon><PictureAsPdfIcon fontSize="small" color="error" /></ListItemIcon>
           <ListItemText>Exportar PDF</ListItemText>
         </MenuItem>
-        <MenuItem onClick={() => { setExportAnchorEl(null); exportMovementsCsv(session, filteredMovements); }}>
+        <MenuItem onClick={() => { setExportAnchorEl(null); exportMovementsExcel(session, filteredMovements); }}>
           <ListItemIcon><TableChartIcon fontSize="small" color="success" /></ListItemIcon>
-          <ListItemText>Exportar CSV</ListItemText>
+          <ListItemText>Exportar Excel</ListItemText>
         </MenuItem>
       </Menu>
 

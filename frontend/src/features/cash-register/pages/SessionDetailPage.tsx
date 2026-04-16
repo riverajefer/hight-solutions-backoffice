@@ -49,7 +49,7 @@ import { PageHeader } from '../../../components/common/PageHeader';
 import { useCashSession } from '../hooks/useCashRegister';
 import ConciliationSummary from '../components/ConciliationSummary';
 import { PATHS } from '../../../router/paths';
-import { exportMovementsPdf, exportMovementsCsv } from '../utils/exportMovements';
+import { exportMovementsPdf, exportMovementsExcel } from '../utils/exportMovements';
 import { exportSessionPdf, exportSessionExcel } from '../utils/exportSession';
 import { generateMovementReceipt } from '../utils/generateMovementReceipt';
 import type { CashMovementType } from '../../../types/cash-register.types';
@@ -461,9 +461,9 @@ const SessionDetailPage: React.FC = () => {
                       <ListItemIcon><PictureAsPdfIcon fontSize="small" color="error" /></ListItemIcon>
                       <ListItemText>Exportar PDF</ListItemText>
                     </MenuItem>
-                    <MenuItem onClick={() => { setExportAnchorEl(null); exportMovementsCsv(session, filteredMovements); }}>
+                    <MenuItem onClick={() => { setExportAnchorEl(null); exportMovementsExcel(session, filteredMovements); }}>
                       <ListItemIcon><TableChartIcon fontSize="small" color="success" /></ListItemIcon>
-                      <ListItemText>Exportar CSV</ListItemText>
+                      <ListItemText>Exportar Excel</ListItemText>
                     </MenuItem>
                   </Menu>
                 </Box>
