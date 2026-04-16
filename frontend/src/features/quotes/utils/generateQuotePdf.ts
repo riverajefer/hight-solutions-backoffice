@@ -284,16 +284,16 @@ async function drawItemsTable(doc: jsPDF, y: number, quote: Quote): Promise<numb
   const hasImages = quote.items?.some(item => item.sampleImageId);
 
   const colWidths = hasImages
-    ? [25, 15, 70, 32.5, 37.5] // Imagen | Cant | Descripción | Val. Unitario | Val. Total
-    : [20, 85, 37.5, 37.5]; // Cant | Descripción | Val. Unitario | Val. Total
+    ? [20, 12, 35, 45, 30, 38] // Imagen | Cant | Producto | Descripción | Val. Unitario | Val. Total
+    : [15, 40, 55, 35, 35]; // Cant | Producto | Descripción | Val. Unitario | Val. Total
 
   const colLabels = hasImages
-    ? ['Imagen', 'Cant.', 'Descripción', 'Val. Unitario', 'Val. Total']
-    : ['Cant.', 'Descripción', 'Val. Unitario', 'Val. Total'];
+    ? ['Imagen', 'Cant.', 'Producto', 'Descripción', 'Val. Unitario', 'Val. Total']
+    : ['Cant.', 'Producto', 'Descripción', 'Val. Unitario', 'Val. Total'];
 
   const colAligns: ('center' | 'left' | 'right')[] = hasImages
-    ? ['center', 'center', 'left', 'right', 'right']
-    : ['center', 'left', 'right', 'right'];
+    ? ['center', 'center', 'left', 'left', 'right', 'right']
+    : ['center', 'left', 'left', 'right', 'right'];
 
   const rowHeight = 6;
   const headerHeight = 7;
@@ -340,11 +340,17 @@ async function drawItemsTable(doc: jsPDF, y: number, quote: Quote): Promise<numb
   for (let idx = 0; idx < (quote.items?.length || 0); idx++) {
     const item = quote.items![idx];
 
-    // Calculate required row height based on description wrapping
-    const descColIndex = hasImages ? 2 : 1;
+    // Calculate required row height based on description and product wrapping
+    const prodColIndex = hasImages ? 2 : 1;
+    const descColIndex = hasImages ? 3 : 2;
+
+    const prodName = item.product?.name || 'N/A';
+    const prodLines = calcLineCount(doc, prodName, colWidths[prodColIndex] - 4);
     const descLines = calcLineCount(doc, item.description, colWidths[descColIndex] - 4);
+
+    const maxTextLines = Math.max(prodLines, descLines);
     const imageHeight = item.sampleImageId && imageCache[item.sampleImageId] ? 20 : 0;
-    const dynamicRowHeight = Math.max(rowHeight, descLines * 4 + 2, imageHeight + 4);
+    const dynamicRowHeight = Math.max(rowHeight, maxTextLines * 4 + 2, imageHeight + 4);
 
     // Page break check
     if (y + dynamicRowHeight > PDF_LAYOUT.pageHeight - PDF_LAYOUT.marginBottom - 5) {
@@ -372,12 +378,14 @@ async function drawItemsTable(doc: jsPDF, y: number, quote: Quote): Promise<numb
       ? [
           '', // Image placeholder
           String(item.quantity),
+          prodName,
           item.description,
           formatCurrency(item.unitPrice),
           formatCurrency(item.total),
         ]
       : [
           String(item.quantity),
+          prodName,
           item.description,
           formatCurrency(item.unitPrice),
           formatCurrency(item.total),
@@ -395,8 +403,8 @@ async function drawItemsTable(doc: jsPDF, y: number, quote: Quote): Promise<numb
           const imgY = y + (dynamicRowHeight - imgHeight) / 2;
           doc.addImage(imgData, 'PNG', imgX, imgY, imgWidth, imgHeight);
         }
-      } else if ((hasImages && i === 2) || (!hasImages && i === 1)) {
-        // Description: left-aligned with padding, support multi-line
+      } else if ((hasImages && (i === 2 || i === 3)) || (!hasImages && (i === 1 || i === 2))) {
+        // Product / Description: left-aligned with padding, support multi-line
         const lines = doc.splitTextToSize(val, colWidths[i] - 4);
         const lineH = 4;
         const blockH = lines.length * lineH;

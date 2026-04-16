@@ -10,9 +10,10 @@ export type OrderStatus =
   | 'DELIVERED'
   | 'DELIVERED_ON_CREDIT'
   | 'WARRANTY'
-  | 'PAID';
+  | 'PAID'
+  | 'ANULADO';
 
-export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'CHECK' | 'CREDIT' | 'OTHER';
+export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'CREDIT';
 
 // ============================================================
 // ENTITIES
@@ -205,6 +206,7 @@ export interface CreateOrderDto {
   taxRate?: number;
   items: CreateOrderItemDto[];
   initialPayment?: InitialPaymentDto;
+  initialPayments?: InitialPaymentDto[];
   commercialChannelId?: string;
 }
 
@@ -341,6 +343,7 @@ export const ORDER_STATUS_CONFIG: Record<OrderStatus, OrderStatusConfig> = {
   DELIVERED_ON_CREDIT: { label: 'Entregado a Crédito', color: 'warning' },
   WARRANTY: { label: 'Garantía', color: 'secondary' },
   PAID: { label: 'Pagada', color: 'success' },
+  ANULADO: { label: 'Anulada', color: 'error' },
 };
 
 /**
@@ -350,23 +353,23 @@ export const ORDER_STATUS_CONFIG: Record<OrderStatus, OrderStatusConfig> = {
  * "Entregada a Crédito" es la excepción: se entrega sin pago completo.
  */
 export const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  DRAFT: ['CONFIRMED'],
-  CONFIRMED: ['IN_PRODUCTION'],
-  IN_PRODUCTION: ['READY'],
-  READY: ['PAID', 'DELIVERED_ON_CREDIT'],
+  DRAFT: ['CONFIRMED', 'ANULADO'],
+  CONFIRMED: ['IN_PRODUCTION', 'ANULADO'],
+  IN_PRODUCTION: ['READY', 'ANULADO'],
+  READY: ['PAID', 'DELIVERED_ON_CREDIT', 'ANULADO'],
   PAID: ['DELIVERED'],
   DELIVERED: ['WARRANTY'],
-  DELIVERED_ON_CREDIT: ['WARRANTY'],
+  DELIVERED_ON_CREDIT: ['WARRANTY', 'ANULADO'],
   WARRANTY: ['DELIVERED'],
+  ANULADO: [],
 };
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   CASH: 'Efectivo',
   TRANSFER: 'Transferencia',
   CARD: 'Tarjeta',
-  CHECK: 'Cheque',
   CREDIT: 'Crédito',
-  OTHER: 'Otro',
+
 };
 
 // ============================================================

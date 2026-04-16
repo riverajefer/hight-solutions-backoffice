@@ -35,11 +35,11 @@ export const ALLOWED_QUOTE_TRANSITIONS: Record<QuoteStatus, QuoteStatus[]> = {
   [QuoteStatus.CONVERTED]:   [],
 };
 
-
 export interface QuoteItem {
   id: string;
   quoteId: string;
   productId?: string;
+  product?: Product;
   description: string;
   quantity: number | string;
   unitPrice: number | string;
@@ -47,7 +47,6 @@ export interface QuoteItem {
   specifications?: any;
   sampleImageId?: string;
   sortOrder: number;
-  product?: Product;
   createdAt: string;
   updatedAt: string;
 }

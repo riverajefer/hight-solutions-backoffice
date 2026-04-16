@@ -113,5 +113,13 @@ export const PATHS = {
   PRODUCTION_ORDERS_DETAIL: '/production/orders/:id',
   STEP_DEFINITIONS: '/production/step-definitions',
   STEP_DEFINITIONS_BUILDER: '/production/step-definitions/:id/builder',
+  // Cash Register (POS)
+  CASH_REGISTERS: '/cash-register/admin',
+  CASH_SESSION_OPEN: '/cash-register/open',
+  CASH_SESSION_ACTIVE_BASE: '/cash-register/session',
+  CASH_SESSION_ACTIVE: '/cash-register/session/:id',
+  CASH_SESSION_CLOSE: '/cash-register/session/:id/close',
+  CASH_SESSION_HISTORY: '/cash-register/history',
+  CASH_SESSION_HISTORY_DETAIL: '/cash-register/history/:id',
 };
 

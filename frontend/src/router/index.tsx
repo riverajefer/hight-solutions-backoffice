@@ -99,6 +99,14 @@ const ProductionOrderDetailPage = lazy(() => import('../features/production/page
 const ProductionOrderFormPage = lazy(() => import('../features/production/pages/ProductionOrderFormPage'));
 const StepDefinitionsListPage = lazy(() => import('../features/production/pages/StepDefinitionsListPage'));
 const FormBuilderPage = lazy(() => import('../features/production/pages/FormBuilderPage'));
+// Cash Register (POS)
+const CashRegistersListPage = lazy(() => import('../features/cash-register/pages/CashRegistersListPage'));
+const OpenSessionPage = lazy(() => import('../features/cash-register/pages/OpenSessionPage'));
+const ActiveSessionRedirectPage = lazy(() => import('../features/cash-register/pages/ActiveSessionRedirectPage'));
+const ActiveSessionPage = lazy(() => import('../features/cash-register/pages/ActiveSessionPage'));
+const CloseSessionPage = lazy(() => import('../features/cash-register/pages/CloseSessionPage'));
+const SessionHistoryPage = lazy(() => import('../features/cash-register/pages/SessionHistoryPage'));
+const SessionDetailPage = lazy(() => import('../features/cash-register/pages/SessionDetailPage'));
 
 
 const RoutesConfig: FC = () => {
@@ -1331,6 +1339,92 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.UPDATE_STEP_DEFINITIONS}>
                   <FormBuilderPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Cash Register (POS) Routes */}
+        <Route
+          path={PATHS.CASH_REGISTERS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_CASH_REGISTERS}>
+                  <CashRegistersListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.CASH_SESSION_OPEN}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.OPEN_CASH_SESSION}>
+                  <OpenSessionPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.CASH_SESSION_ACTIVE_BASE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_CASH_SESSIONS}>
+                  <ActiveSessionRedirectPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.CASH_SESSION_ACTIVE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_CASH_SESSIONS}>
+                  <ActiveSessionPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.CASH_SESSION_CLOSE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CLOSE_CASH_SESSION}>
+                  <CloseSessionPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.CASH_SESSION_HISTORY}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_CASH_SESSIONS}>
+                  <SessionHistoryPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.CASH_SESSION_HISTORY_DETAIL}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_CASH_SESSIONS}>
+                  <SessionDetailPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

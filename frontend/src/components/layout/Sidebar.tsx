@@ -54,6 +54,10 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import TuneIcon from '@mui/icons-material/Tune';
+import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
+import LockOpenIcon from '@mui/icons-material/LockOpen';
+import HistoryEduIcon from '@mui/icons-material/HistoryEdu';
+import StorefrontIcon from '@mui/icons-material/Storefront';
 import { useAuthStore } from '../../store/authStore';
 import { ROUTES, PERMISSIONS } from '../../utils/constants';
 import { neonColors } from '../../theme';
@@ -101,6 +105,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
     produccion: false,
     organizacion: false,
     nomina: false,
+    caja: false,
     configuracion: false,
   });
 
@@ -367,6 +372,42 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
       permissions: [
         PERMISSIONS.READ_PAYROLL_EMPLOYEES,
         PERMISSIONS.READ_PAYROLL_PERIODS,
+      ],
+    },
+    {
+      label: 'Caja (POS)',
+      icon: <PointOfSaleIcon />,
+      menuKey: 'caja',
+      submenu: [
+        {
+          label: 'Abrir Sesión',
+          icon: <LockOpenIcon />,
+          path: ROUTES.CASH_SESSION_OPEN,
+          permission: PERMISSIONS.OPEN_CASH_SESSION,
+        },
+        {
+          label: 'Sesión Activa',
+          icon: <StorefrontIcon />,
+          path: ROUTES.CASH_SESSION_ACTIVE_BASE,
+          permission: PERMISSIONS.READ_CASH_SESSIONS,
+        },
+        {
+          label: 'Historial de Sesiones',
+          icon: <HistoryEduIcon />,
+          path: ROUTES.CASH_SESSION_HISTORY,
+          permission: PERMISSIONS.READ_CASH_SESSIONS,
+        },
+        {
+          label: 'Cajas Registradoras',
+          icon: <StorefrontIcon />,
+          path: ROUTES.CASH_REGISTERS,
+          permission: PERMISSIONS.READ_CASH_REGISTERS,
+        },
+      ],
+      permissions: [
+        PERMISSIONS.OPEN_CASH_SESSION,
+        PERMISSIONS.READ_CASH_SESSIONS,
+        PERMISSIONS.READ_CASH_REGISTERS,
       ],
     },
     {

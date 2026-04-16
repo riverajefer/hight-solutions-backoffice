@@ -61,14 +61,9 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: async () => {
-        try {
-          // Call backend logout to update session log
-          await authApi.logout();
-        } catch (error) {
-          console.error('Error logging out from backend:', error);
-          // Continue with local logout even if backend call fails
-        }
+        const { accessToken } = get();
 
+        // Limpiar estado local PRIMERO para evitar loops de 401
         set({
           user: null,
           accessToken: null,
@@ -79,6 +74,15 @@ export const useAuthStore = create<AuthState>()(
           error: null,
         });
         localStorage.removeItem('auth-storage');
+
+        // Intentar logout en backend con el token guardado explícitamente
+        if (accessToken) {
+          try {
+            await authApi.logout(accessToken);
+          } catch (error) {
+            console.error('Error logging out from backend:', error);
+          }
+        }
       },
 
       refreshAccessToken: async () => {

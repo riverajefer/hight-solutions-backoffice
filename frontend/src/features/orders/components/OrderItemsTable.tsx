@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -14,6 +14,7 @@ import {
   Stack,
   Autocomplete,
   Chip,
+  Tooltip,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
@@ -24,6 +25,9 @@ import { useProductionAreas } from '../../../features/production-areas/hooks/use
 import type { ProductionArea } from '../../../types/production-area.types';
 import { useProducts } from '../../portfolio/products/hooks/useProducts';
 import type { Product } from '../../../types/product.types';
+import { useAuthStore } from '../../../store/authStore';
+import { PERMISSIONS } from '../../../utils/constants';
+import { CreateProductModal } from '../../portfolio/products/components/CreateProductModal';
 
 interface OrderItemsTableProps {
   items: OrderItemRow[];
@@ -67,6 +71,9 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
 
   const { productsQuery } = useProducts();
   const products: Product[] = productsQuery.data || [];
+
+  const { hasPermission } = useAuthStore();
+  const [productModalOpenItemId, setProductModalOpenItemId] = useState<string | null>(null);
 
   const handleAddRow = () => {
     const newItem: OrderItemRow = {
@@ -122,6 +129,30 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
 
   return (
     <Box>
+      {productModalOpenItemId !== null && (
+        <CreateProductModal
+          open
+          onClose={() => setProductModalOpenItemId(null)}
+          onSuccess={(newProduct) => {
+            const updatedItems = items.map((i) => {
+              if (i.id !== productModalOpenItemId) return i;
+              const quantity = parseFloat(i.quantity);
+              const hasBasePrice = newProduct.basePrice !== undefined && newProduct.basePrice !== null;
+              const basePriceValue = hasBasePrice ? newProduct.basePrice! : parseFloat(i.unitPrice);
+              return {
+                ...i,
+                productId: newProduct.id,
+                description: newProduct.name,
+                unitPrice: i.unitPrice || (hasBasePrice ? newProduct.basePrice!.toString() : ''),
+                total: !isNaN(quantity) && !isNaN(basePriceValue) ? quantity * basePriceValue : i.total,
+              };
+            });
+            onChange(updatedItems);
+            setProductModalOpenItemId(null);
+          }}
+        />
+      )}
+
       {isMobile && (
         <Typography
           variant="caption"
@@ -266,52 +297,67 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
 
                   {/* Producto */}
                   <TableCell>
-                    <Autocomplete<Product>
-                      size="small"
-                      options={products}
-                      getOptionLabel={(option) => option.name}
-                      value={products.find((s) => s.id === item.productId) || null}
-                      onChange={(_event, newValue) => {
-                        const updatedItems = items.map((i) => {
-                          if (i.id !== item.id) return i;
+                    <Stack direction="row" spacing={0.5} alignItems="flex-start">
+                      <Autocomplete<Product>
+                        size="small"
+                        options={products}
+                        getOptionLabel={(option) => option.name}
+                        value={products.find((s) => s.id === item.productId) || null}
+                        onChange={(_event, newValue) => {
+                          const updatedItems = items.map((i) => {
+                            if (i.id !== item.id) return i;
 
-                          const quantity = parseFloat(i.quantity);
-                          const hasBasePrice = newValue?.basePrice !== undefined && newValue?.basePrice !== null;
-                          const basePriceValue = hasBasePrice ? newValue!.basePrice! : parseFloat(i.unitPrice);
+                            const quantity = parseFloat(i.quantity);
+                            const hasBasePrice = newValue?.basePrice !== undefined && newValue?.basePrice !== null;
+                            const basePriceValue = hasBasePrice ? newValue!.basePrice! : parseFloat(i.unitPrice);
 
-                          return {
-                            ...i,
-                            productId: newValue?.id || undefined,
-                            description: newValue?.name || '',
-                            unitPrice: i.unitPrice || (hasBasePrice ? newValue!.basePrice!.toString() : ''),
-                            total: !isNaN(quantity) && !isNaN(basePriceValue) ? quantity * basePriceValue : i.total
-                          };
-                        });
-                        onChange(updatedItems);
-                      }}
-                      disabled={disabled}
-                      slotProps={{
-                        paper: {
-                          sx: {
-                            width: 'max-content',
-                            minWidth: '100%',
-                            maxWidth: '90vw'
+                            return {
+                              ...i,
+                              productId: newValue?.id || undefined,
+                              description: newValue?.name || '',
+                              unitPrice: i.unitPrice || (hasBasePrice ? newValue!.basePrice!.toString() : ''),
+                              total: !isNaN(quantity) && !isNaN(basePriceValue) ? quantity * basePriceValue : i.total
+                            };
+                          });
+                          onChange(updatedItems);
+                        }}
+                        disabled={disabled}
+                        slotProps={{
+                          paper: {
+                            sx: {
+                              width: 'max-content',
+                              minWidth: '100%',
+                              maxWidth: '90vw'
+                            }
                           }
-                        }
-                      }}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          size="small"
-                          placeholder="Buscar servicio..."
-                          InputProps={{
-                            ...params.InputProps,
-                            style: { fontSize: '0.8125rem' }
-                          }}
-                        />
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            size="small"
+                            placeholder="Buscar servicio..."
+                            InputProps={{
+                              ...params.InputProps,
+                              style: { fontSize: '0.8125rem' }
+                            }}
+                          />
+                        )}
+                        noOptionsText="Sin servicios"
+                        sx={{ flex: 1, minWidth: 0 }}
+                      />
+                      {!disabled && hasPermission(PERMISSIONS.CREATE_PRODUCTS) && (
+                        <Tooltip title="Crear nuevo producto">
+                          <IconButton
+                            size="small"
+                            color="primary"
+                            onClick={() => setProductModalOpenItemId(item.id)}
+                            sx={{ mt: 0.25, flexShrink: 0 }}
+                          >
+                            <AddIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
                       )}
-                      noOptionsText="Sin servicios"
-                    />
+                    </Stack>
                   </TableCell>
 
                   {/* Descripción */}

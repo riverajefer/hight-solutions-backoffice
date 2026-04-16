@@ -31,9 +31,13 @@ export const authApi = {
 
   /**
    * Logout del usuario actual
+   * @param token Token explícito a usar (para cuando el store ya fue limpiado)
    */
-  logout: async (): Promise<void> => {
-    await axiosInstance.post('/auth/logout');
+  logout: async (token?: string): Promise<void> => {
+    const config = token
+      ? { headers: { Authorization: `Bearer ${token}` } }
+      : {};
+    await axiosInstance.post('/auth/logout', {}, config);
   },
 
   /**
@@ -65,6 +69,14 @@ export const authApi = {
    */
   updateProfilePhoto: async (data: UpdateProfilePhotoDto): Promise<{ id: string; profilePhoto: string | null }> => {
     const response = await axiosInstance.patch('/auth/profile/photo', data);
+    return response.data;
+  },
+
+  /**
+   * Verificar contraseña del usuario autenticado
+   */
+  verifyPassword: async (password: string): Promise<{ valid: boolean }> => {
+    const response = await axiosInstance.post<{ valid: boolean }>('/auth/verify-password', { password });
     return response.data;
   },
 };

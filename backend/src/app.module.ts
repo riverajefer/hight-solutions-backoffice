@@ -47,6 +47,10 @@ import { AttendanceModule } from './modules/attendance/attendance.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { ProductionModule } from './modules/production/production.module';
 import { CommentsModule } from './modules/comments/comments.module';
+import { CashRegisterModule } from './modules/cash-register/cash-register.module';
+import { CashSessionModule } from './modules/cash-session/cash-session.module';
+import { CashMovementModule } from './modules/cash-movement/cash-movement.module';
+import { WsEventsModule } from './modules/ws-events/ws-events.module';
 
 @Module({
   imports: [
@@ -126,6 +130,12 @@ import { CommentsModule } from './modules/comments/comments.module';
     ProductionModule,
     // Módulo de Comentarios Polimórficos (COT / OP / OT)
     CommentsModule,
+    // Módulo de Caja Registradora (POS)
+    CashRegisterModule,
+    CashSessionModule,
+    CashMovementModule,
+    // Módulo de WebSocket Events (tiempo real)
+    WsEventsModule,
   ],
   providers: [
     {

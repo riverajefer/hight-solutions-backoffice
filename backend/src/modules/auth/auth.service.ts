@@ -388,6 +388,27 @@ export class AuthService {
   }
 
   /**
+   * Verifica la contraseña del usuario autenticado
+   */
+  async verifyPassword(userId: string, password: string): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { password: true, isActive: true },
+    });
+
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('Usuario no encontrado o inactivo');
+    }
+
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid) {
+      throw new UnauthorizedException('Contraseña incorrecta');
+    }
+
+    return true;
+  }
+
+  /**
    * Cambia la contraseña del usuario autenticado
    * Limpia el flag mustChangePassword al completar el cambio
    */

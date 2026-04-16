@@ -4,3 +4,4 @@ frontend/.env.staging
 backend/.env.staging
 backend/.env.production
 frontend/.env.production
+backend/src/coverage-phase1

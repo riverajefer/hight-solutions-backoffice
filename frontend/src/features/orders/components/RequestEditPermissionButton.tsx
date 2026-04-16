@@ -50,7 +50,7 @@ export const RequestEditPermissionButton: React.FC<
   const isDraft = orderStatus === 'DRAFT';
   const hasActivePermission = !!activePermissionQuery.data;
 
-  if (isAdmin || isDraft || hasActivePermission) {
+  if (isAdmin || isDraft || hasActivePermission || orderStatus === 'ANULADO') {
     return null;
   }
 

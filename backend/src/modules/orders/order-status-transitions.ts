@@ -7,15 +7,16 @@ import { OrderStatus } from '../../generated/prisma';
  * "Entregada a Crédito" es la excepción: se entrega sin pago completo.
  */
 export const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  [OrderStatus.DRAFT]: [OrderStatus.CONFIRMED],
-  [OrderStatus.CONFIRMED]: [OrderStatus.IN_PRODUCTION],
-  [OrderStatus.IN_PRODUCTION]: [OrderStatus.READY],
-  [OrderStatus.READY]: [OrderStatus.PAID, OrderStatus.DELIVERED_ON_CREDIT],
+  [OrderStatus.DRAFT]: [OrderStatus.CONFIRMED, OrderStatus.ANULADO],
+  [OrderStatus.CONFIRMED]: [OrderStatus.IN_PRODUCTION, OrderStatus.ANULADO],
+  [OrderStatus.IN_PRODUCTION]: [OrderStatus.READY, OrderStatus.ANULADO],
+  [OrderStatus.READY]: [OrderStatus.PAID, OrderStatus.DELIVERED_ON_CREDIT, OrderStatus.ANULADO],
   [OrderStatus.PAID]: [OrderStatus.DELIVERED],
   [OrderStatus.DELIVERED]: [OrderStatus.WARRANTY],
-  [OrderStatus.DELIVERED_ON_CREDIT]: [OrderStatus.WARRANTY],
+  [OrderStatus.DELIVERED_ON_CREDIT]: [OrderStatus.WARRANTY, OrderStatus.ANULADO],
   [OrderStatus.WARRANTY]: [OrderStatus.DELIVERED],
   [OrderStatus.RETURNED]: [],
+  [OrderStatus.ANULADO]: [],
 };
 
 export function getValidNextStatuses(currentStatus: OrderStatus): OrderStatus[] {
