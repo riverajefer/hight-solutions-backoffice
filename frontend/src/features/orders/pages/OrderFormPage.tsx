@@ -550,6 +550,17 @@ export const OrderFormPage: React.FC = () => {
 
       if (isEdit) {
         await updateOrderMutation.mutateAsync(orderDto);
+        
+        // Subir comprobante editado si existe
+        if (data.payments[0] && data.payments[0].receiptFile && orderQuery.data?.payments?.[0]) {
+          try {
+            await ordersApi.uploadPaymentReceipt(id!, orderQuery.data.payments[0].id, data.payments[0].receiptFile);
+          } catch (e: any) {
+            console.error('Error al subir comprobante en edición:', e);
+            enqueueSnackbar('Orden actualizada, pero hubo un error subiendo el comprobante', { variant: 'warning' });
+          }
+        }
+        
         navigate(`/orders/${id}`);
       } else {
         const newOrder = await createOrderMutation.mutateAsync(orderDto);
