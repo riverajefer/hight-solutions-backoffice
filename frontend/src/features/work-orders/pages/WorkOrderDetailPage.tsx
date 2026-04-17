@@ -28,6 +28,7 @@ import {
   ReceiptLong as ReceiptLongIcon,
   AccessTime as AccessTimeIcon,
   PrecisionManufacturing as PrecisionManufacturingIcon,
+  Download as DownloadIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 
@@ -45,6 +46,7 @@ import {
 } from '../../../types/work-order.types';
 import { EXPENSE_ORDER_STATUS_CONFIG } from '../../../types/expense-order.types';
 import { CommentSection } from '../../comments';
+import { storageApi } from '../../../api/storage.api';
 
 const formatDate = (date?: string | null): string => {
   if (!date) return '-';
@@ -380,6 +382,21 @@ export const WorkOrderDetailPage = () => {
                     <Typography variant="caption" color="text.secondary">Nombre de archivo</Typography>
                     <Typography variant="body1">{workOrder.fileName || '-'}</Typography>
                   </Box>
+                  {workOrder.attachment && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Archivo Adjunto</Typography>
+                      <Box mt={0.5}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<DownloadIcon />}
+                          onClick={() => window.open(storageApi.getDownloadUrl(workOrder.attachment!.id), '_blank')}
+                        >
+                          Descargar ({workOrder.attachment.originalName})
+                        </Button>
+                      </Box>
+                    </Box>
+                  )}
                   <Box>
                     <Typography variant="caption" color="text.secondary">Creada</Typography>
                     <Typography variant="body1">{formatDate(workOrder.createdAt)}</Typography>

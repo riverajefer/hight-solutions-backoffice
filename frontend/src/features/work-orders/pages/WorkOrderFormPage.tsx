@@ -15,6 +15,7 @@ import {
   Alert,
   alpha,
   useTheme,
+  IconButton,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -26,6 +27,8 @@ import {
   Inventory2 as Inventory2Icon,
   Notes as NotesIcon,
   Add as AddIcon,
+  CloudUpload as CloudUploadIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { useWorkOrders, useWorkOrder } from '../hooks';
@@ -35,6 +38,7 @@ import { useSupplies } from '../../portfolio/supplies/hooks/useSupplies';
 import { useUsers } from '../../users/hooks/useUsers';
 import { useAuthStore } from '../../../store/authStore';
 import { ROUTES, PERMISSIONS } from '../../../utils/constants';
+import { storageApi } from '../../../api/storage.api';
 import { CreateSupplyModal } from '../components/CreateSupplyModal';
 import type { Order } from '../../../types/order.types';
 import type {
@@ -207,6 +211,10 @@ export const WorkOrderFormPage = () => {
   const [designerId, setDesignerId] = useState<string | null>(null);
   const [fileName, setFileName] = useState('');
   const [fileNameError, setFileNameError] = useState('');
+  const [attachment, setAttachment] = useState<{ id: string; originalName: string; size: number } | null>(null);
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
 
   // Step 3: Items form
   const [itemsForms, setItemsForms] = useState<WorkOrderItemForm[]>([]);
@@ -239,6 +247,13 @@ export const WorkOrderFormPage = () => {
       const wo = workOrderQuery.data;
       setDesignerId(wo.designer?.id ?? null);
       setFileName(wo.fileName ?? '');
+      if (wo.attachment) {
+        setAttachment({
+          id: wo.attachment.id,
+          originalName: wo.attachment.originalName,
+          size: wo.attachment.size,
+        });
+      }
       setObservations(wo.observations ?? '');
       setItemsForms(
         wo.items.map((item) => ({
@@ -319,6 +334,34 @@ export const WorkOrderFormPage = () => {
     setFileNameError(value.length > 30 ? 'Máximo 30 caracteres' : '');
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError('El archivo excede el tamaño máximo permitido (10MB)');
+      return;
+    }
+
+    setUploadError('');
+    setIsUploading(true);
+    try {
+      const uploaded = await storageApi.uploadFile(file, { entityType: 'WorkOrder' });
+      setAttachment({
+        id: uploaded.id,
+        originalName: file.name,
+        size: file.size,
+      });
+      setAttachmentFile(file);
+    } catch (error) {
+      setUploadError('Error al subir el archivo');
+    } finally {
+      setIsUploading(false);
+    }
+    // reset input
+    e.target.value = '';
+  };
+
   const updateItemForm = (index: number, field: keyof WorkOrderItemForm, value: unknown) => {
     setItemsForms((prev) => {
       const updated = [...prev];
@@ -347,6 +390,7 @@ export const WorkOrderFormPage = () => {
       orderId: selectedOrder!.id,
       designerId: designerId ?? undefined,
       fileName: fileName || undefined,
+      attachmentId: attachment?.id || undefined,
       observations: observations || undefined,
       items,
     };
@@ -363,6 +407,9 @@ export const WorkOrderFormPage = () => {
     return {
       designerId: designerId ?? undefined,
       fileName: fileName || undefined,
+      attachmentId: attachment?.id === undefined && attachmentFile === null && !attachment
+          ? null 
+          : attachment?.id || undefined,
       observations: observations || undefined,
       items,
     };
@@ -534,6 +581,75 @@ export const WorkOrderFormPage = () => {
         fullWidth
         size="small"
       />
+
+      <Box>
+        <Typography variant="body2" fontWeight={600} gutterBottom>
+          Archivo adjunto de la OT
+        </Typography>
+        {attachment ? (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              p: 2,
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 2,
+              bgcolor: 'background.paper',
+            }}
+          >
+            <Box>
+              <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
+                {attachment.originalName}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {(attachment.size / 1024 / 1024).toFixed(2)} MB
+              </Typography>
+            </Box>
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => {
+                setAttachment(null);
+                setAttachmentFile(null);
+              }}
+            >
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        ) : (
+          <Button
+            component="label"
+            variant="outlined"
+            size="small"
+            startIcon={isUploading ? <CircularProgress size={16} /> : <CloudUploadIcon />}
+            disabled={isUploading}
+            fullWidth
+            sx={{
+              justifyContent: 'flex-start',
+              p: 1.5,
+              borderStyle: 'dashed',
+              textAlign: 'left',
+              color: 'text.secondary',
+            }}
+          >
+            <Typography variant="body2" sx={{ ml: 1 }}>
+              {isUploading ? 'Subiendo...' : 'Seleccionar archivo (Max 10MB)'}
+            </Typography>
+            <input
+              type="file"
+              hidden
+              onChange={handleFileUpload}
+            />
+          </Button>
+        )}
+        {uploadError && (
+          <Typography color="error" variant="caption" display="block" sx={{ mt: 1 }}>
+            {uploadError}
+          </Typography>
+        )}
+      </Box>
     </Stack>
   );
 

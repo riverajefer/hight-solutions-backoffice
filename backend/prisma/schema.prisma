@@ -900,19 +900,20 @@ model CommercialChannel {
 }
 
 model UploadedFile {
-  id           String   @id @default(uuid())
-  originalName String   @map("original_name")
-  fileName     String   @unique @map("file_name")
-  mimeType     String   @map("mime_type")
+  id           String      @id @default(uuid())
+  originalName String      @map("original_name")
+  fileName     String      @unique @map("file_name")
+  mimeType     String      @map("mime_type")
   size         Int
-  s3Key        String   @unique @map("s3_key")
-  s3Bucket     String   @map("s3_bucket")
-  entityType   String?  @map("entity_type")
-  entityId     String?  @map("entity_id")
-  uploadedBy   String?  @map("uploaded_by")
-  isDeleted    Boolean  @default(false) @map("is_deleted")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  s3Key        String      @unique @map("s3_key")
+  s3Bucket     String      @map("s3_bucket")
+  entityType   String?     @map("entity_type")
+  entityId     String?     @map("entity_id")
+  uploadedBy   String?     @map("uploaded_by")
+  isDeleted    Boolean     @default(false) @map("is_deleted")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+  workOrders   WorkOrder[]
 
   @@index([entityType, entityId])
   @@index([uploadedBy])
@@ -947,6 +948,7 @@ model WorkOrder {
   advisorId       String          @map("advisor_id")
   designerId      String?         @map("designer_id")
   fileName        String?         @map("file_name") // max 30 chars
+  attachmentId    String?         @map("attachment_id")
   observations    String?
   status          WorkOrderStatus @default(DRAFT)
   createdAt       DateTime        @default(now()) @map("created_at")
@@ -955,6 +957,7 @@ model WorkOrder {
   order            Order                @relation(fields: [orderId], references: [id])
   advisor          User                 @relation("WorkOrderAdvisor", fields: [advisorId], references: [id])
   designer         User?                @relation("WorkOrderDesigner", fields: [designerId], references: [id])
+  attachment       UploadedFile?        @relation(fields: [attachmentId], references: [id])
   items            WorkOrderItem[]
   timeEntries      WorkOrderTimeEntry[]
   expenseOrders    ExpenseOrder[]

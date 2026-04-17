@@ -12,6 +12,15 @@ export class WorkOrdersRepository {
     workOrderNumber: true,
     status: true,
     fileName: true,
+    attachment: {
+      select: {
+        id: true,
+        fileName: true,
+        originalName: true,
+        mimeType: true,
+        size: true,
+      },
+    },
     observations: true,
     createdAt: true,
     updatedAt: true,
@@ -215,6 +224,7 @@ export class WorkOrdersRepository {
     advisorId: string;
     designerId?: string;
     fileName?: string;
+    attachmentId?: string;
     observations?: string;
     status: WorkOrderStatus;
     items: Array<{
@@ -267,6 +277,7 @@ export class WorkOrdersRepository {
     data: {
       designerId?: string | null;
       fileName?: string | null;
+      attachmentId?: string | null;
       observations?: string | null;
     },
   ) {
