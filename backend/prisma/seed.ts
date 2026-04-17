@@ -262,6 +262,10 @@ async function main() {
     // Discount Approvals
     { name: 'approve_discounts', description: 'Aprobar o rechazar descuentos en órdenes' },
 
+    // Refund Requests (Devoluciones de dinero al cliente en OP)
+    { name: 'create_refund_requests', description: 'Solicitar devolución de saldo a favor en órdenes de pedido' },
+    { name: 'approve_refunds', description: 'Aprobar o rechazar devoluciones de dinero al cliente' },
+
     // Client Ownership Authorization
     { name: 'approve_client_ownership_auth', description: 'Aprobar solicitudes de autorización de propiedad de cliente en órdenes' },
 
@@ -423,6 +427,7 @@ async function main() {
     'approve_orders',
     'change_order_status',
     'apply_discounts',
+    'create_refund_requests',
     // Quotes (Manager)
     'create_quotes',
     'read_quotes',
@@ -472,6 +477,7 @@ async function main() {
   // Caja - gestión de pagos y anticipos
   await assignPermissionsToRole(cajaRole.id, 'caja', [
     'approve_advance_payments',
+    'approve_refunds',
     'read_orders',
     'read_clients',
     'read_users',

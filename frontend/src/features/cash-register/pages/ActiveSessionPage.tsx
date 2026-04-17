@@ -76,6 +76,7 @@ import CalculatorDialog from '../components/CalculatorDialog';
 import PendingApprovalsPanel from '../components/PendingApprovalsPanel';
 import PendingVoidRequestsPanel from '../components/PendingVoidRequestsPanel';
 import PendingOgAuthorizationsPanel from '../components/PendingOgAuthorizationsPanel';
+import PendingRefundRequestsPanel from '../components/PendingRefundRequestsPanel';
 import { useApprovalSocket } from '../hooks/useApprovalSocket';
 import { useCreateVoidRequest } from '../../../hooks/useVoidRequests';
 import type { CashMovementType, CashMovement } from '../../../types/cash-register.types';
@@ -479,6 +480,11 @@ const ActiveSessionPage: React.FC = () => {
       {/* ── Pending OG Authorizations (Firma Caja) ───────────────────── */}
       {hasPermission(PERMISSIONS.CAJA_AUTHORIZE_EXPENSE_ORDERS) && (
         <PendingOgAuthorizationsPanel />
+      )}
+
+      {/* ── Pending Refund Request Approvals ──────────────────────────── */}
+      {hasPermission(PERMISSIONS.APPROVE_REFUNDS) && (
+        <PendingRefundRequestsPanel />
       )}
 
       {/* ── Movements List ───────────────────────────────────────────── */}

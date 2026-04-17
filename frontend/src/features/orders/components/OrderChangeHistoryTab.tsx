@@ -60,6 +60,7 @@ const VISIBLE_FIELDS: Record<string, string[]> = {
   OrderItem: ['description', 'quantity', 'unitPrice'],
   Order:     ['status', 'notes', 'subtotal', 'tax', 'total', 'paidAmount', 'balance'],
   Payment:   ['amount', 'paymentMethod', 'reference'],
+  RefundRequest: ['status', 'refundAmount', 'paymentMethod', 'observation', 'reviewNotes'],
 };
 
 /** Etiquetas legibles para cada campo */
@@ -77,11 +78,14 @@ const FIELD_LABELS: Record<string, string> = {
   amount:       'Monto',
   paymentMethod:'Método de pago',
   reference:    'Referencia',
+  refundAmount: 'Monto devolución',
+  observation:  'Observación',
+  reviewNotes:  'Notas de revisión',
 };
 
 /** Campos que se formatean como moneda COP */
 const CURRENCY_FIELDS = new Set([
-  'subtotal', 'tax', 'total', 'paidAmount', 'balance', 'unitPrice', 'amount',
+  'subtotal', 'tax', 'total', 'paidAmount', 'balance', 'unitPrice', 'amount', 'refundAmount',
 ]);
 
 /**

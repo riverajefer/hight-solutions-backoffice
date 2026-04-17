@@ -136,10 +136,9 @@ export class OrdersService {
         new Prisma.Decimal(0),
       );
 
-      // Validar que la suma de pagos iniciales no exceda el total
-      if (paidAmount.greaterThan(total)) {
-        throw new BadRequestException('Initial payments cannot exceed order total');
-      }
+      // Nota: se permite que los pagos iniciales excedan el total.
+      // El excedente queda como saldo a favor del cliente y podrá reembolsarse
+      // mediante el flujo de RefundRequest.
 
       // 1. Buscar sesión activa
       const activeSession = await this.prisma.cashSession.findFirst({
@@ -1077,12 +1076,9 @@ export class OrdersService {
       select: { id: true },
     });
 
-    // Validar que el pago no exceda el saldo pendiente
-    if (paymentAmount.greaterThan(order.balance)) {
-      throw new BadRequestException(
-        `Payment amount (${paymentAmount}) cannot exceed order balance (${order.balance})`,
-      );
-    }
+    // Nota: se permite que el pago exceda el saldo pendiente.
+    // El excedente queda como "saldo a favor" (paidAmount > total → balance negativo)
+    // y puede devolverse al cliente mediante el flujo de RefundRequest.
 
     // Usar transacción simple y luego obtener el pago completo
     const paymentId = await this.prisma.$transaction(async (tx) => {

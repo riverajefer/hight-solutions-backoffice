@@ -76,6 +76,20 @@ export interface Order {
   advancePaymentStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   discountApprovalStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   advancePaymentApprovals?: AdvancePaymentApproval[];
+  refundRequests?: Array<{
+    id: string;
+    refundAmount: string;
+    paymentMethod: 'CASH' | 'TRANSFER' | 'CARD';
+    observation: string;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    requestedAt: string;
+    requestedBy?: {
+      id: string;
+      email?: string;
+      firstName?: string;
+      lastName?: string;
+    };
+  }>;
   clientOwnershipAuthStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   status: OrderStatus;
   notes: string | null;

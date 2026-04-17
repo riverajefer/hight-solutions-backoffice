@@ -69,6 +69,8 @@ model User {
   voidedCashMovements                  CashMovement[]               @relation("VoidedCashMovements")
   requestedVoidRequests                CashMovementVoidRequest[]    @relation("RequestedVoidRequests")
   reviewedVoidRequests                 CashMovementVoidRequest[]    @relation("ReviewedVoidRequests")
+  requestedRefundRequests              RefundRequest[]              @relation("RequestedRefundRequests")
+  reviewedRefundRequests               RefundRequest[]              @relation("ReviewedRefundRequests")
 
   @@map("users")
 }
@@ -465,6 +467,7 @@ model Order {
   advancePaymentApprovals     AdvancePaymentApproval[]
   discountApprovals           DiscountApproval[]
   clientOwnershipAuthRequests ClientOwnershipAuthRequest[]
+  refundRequests              RefundRequest[]
 
   // Referencia a la cotización de origen
   quoteId String? @unique @map("quote_id")
@@ -686,8 +689,8 @@ model OrderDiscount {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relaciones
-  order     Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  appliedBy User             @relation("AppliedDiscounts", fields: [appliedById], references: [id])
+  order     Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  appliedBy User               @relation("AppliedDiscounts", fields: [appliedById], references: [id])
   approvals DiscountApproval[]
 
   @@index([orderId])
@@ -715,6 +718,7 @@ enum ApprovalRequestType {
   ADVANCE_PAYMENT
   DISCOUNT_APPROVAL
   CASH_MOVEMENT_VOID
+  REFUND_REQUEST
 }
 
 enum NotificationType {
@@ -744,6 +748,9 @@ enum NotificationType {
   CASH_VOID_REQUEST_PENDING // Nueva solicitud de anulación de movimiento de caja
   CASH_VOID_REQUEST_APPROVED // Solicitud de anulación de movimiento aprobada
   CASH_VOID_REQUEST_REJECTED // Solicitud de anulación de movimiento rechazada
+  REFUND_REQUEST_PENDING // Nueva solicitud de devolución de dinero al cliente
+  REFUND_REQUEST_APPROVED // Devolución aprobada
+  REFUND_REQUEST_REJECTED // Devolución rechazada
 }
 
 model EditableOrderStatus {
@@ -1210,16 +1217,16 @@ model AdvancePaymentApproval {
 // =============================================================================
 
 model DiscountApproval {
-  id             String            @id @default(uuid())
-  orderId        String            @map("order_id")
-  discountId     String            @map("discount_id")
-  requestedById  String            @map("requested_by_id")
-  status         EditRequestStatus @default(PENDING)
-  reviewedById   String?           @map("reviewed_by_id")
-  reviewedAt     DateTime?         @map("reviewed_at")
-  reviewNotes    String?           @map("review_notes")
-  createdAt      DateTime          @default(now()) @map("created_at")
-  updatedAt      DateTime          @updatedAt @map("updated_at")
+  id            String            @id @default(uuid())
+  orderId       String            @map("order_id")
+  discountId    String            @map("discount_id")
+  requestedById String            @map("requested_by_id")
+  status        EditRequestStatus @default(PENDING)
+  reviewedById  String?           @map("reviewed_by_id")
+  reviewedAt    DateTime?         @map("reviewed_at")
+  reviewNotes   String?           @map("review_notes")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
 
   order       Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
   discount    OrderDiscount @relation(fields: [discountId], references: [id], onDelete: Cascade)
@@ -1695,9 +1702,9 @@ model CashSession {
   createdAt      DateTime          @default(now()) @map("created_at")
   updatedAt      DateTime          @updatedAt @map("updated_at")
 
-  cashRegister  CashRegister           @relation(fields: [cashRegisterId], references: [id])
-  openedBy      User                   @relation("OpenedCashSessions", fields: [openedById], references: [id])
-  closedBy      User?                  @relation("ClosedCashSessions", fields: [closedById], references: [id])
+  cashRegister  CashRegister            @relation(fields: [cashRegisterId], references: [id])
+  openedBy      User                    @relation("OpenedCashSessions", fields: [openedById], references: [id])
+  closedBy      User?                   @relation("ClosedCashSessions", fields: [closedById], references: [id])
   denominations CashDenominationCount[]
   movements     CashMovement[]
 
@@ -1742,13 +1749,14 @@ model CashMovement {
   createdAt         DateTime         @default(now()) @map("created_at")
   updatedAt         DateTime         @updatedAt @map("updated_at")
 
-  cashSession      CashSession   @relation(fields: [cashSessionId], references: [id])
-  performedBy      User          @relation("PerformedCashMovements", fields: [performedById], references: [id])
-  voidedBy         User?         @relation("VoidedCashMovements", fields: [voidedById], references: [id])
-  counterMovement  CashMovement? @relation("CounterMovement", fields: [counterMovementId], references: [id])
-  originalMovement CashMovement? @relation("CounterMovement")
+  cashSession      CashSession               @relation(fields: [cashSessionId], references: [id])
+  performedBy      User                      @relation("PerformedCashMovements", fields: [performedById], references: [id])
+  voidedBy         User?                     @relation("VoidedCashMovements", fields: [voidedById], references: [id])
+  counterMovement  CashMovement?             @relation("CounterMovement", fields: [counterMovementId], references: [id])
+  originalMovement CashMovement?             @relation("CounterMovement")
   linkedPayment    Payment?
   voidRequests     CashMovementVoidRequest[]
+  refundRequest    RefundRequest?
 
   @@index([cashSessionId])
   @@index([performedById])
@@ -1758,11 +1766,11 @@ model CashMovement {
 }
 
 model CashMovementVoidRequest {
-  id              String            @id @default(uuid())
-  cashMovementId  String            @map("cash_movement_id")
-  requestedById   String            @map("requested_by_id")
-  voidReason      String            @map("void_reason")
-  status          EditRequestStatus @default(PENDING)
+  id             String            @id @default(uuid())
+  cashMovementId String            @map("cash_movement_id")
+  requestedById  String            @map("requested_by_id")
+  voidReason     String            @map("void_reason")
+  status         EditRequestStatus @default(PENDING)
 
   // Aprobación/rechazo
   reviewedById String?   @map("reviewed_by_id")
@@ -1781,4 +1789,44 @@ model CashMovementVoidRequest {
   @@index([requestedById])
   @@index([status])
   @@map("cash_movement_void_requests")
+}
+
+// =============================================================================
+// MÓDULO DE SOLICITUDES DE DEVOLUCIÓN DE DINERO AL CLIENTE
+// =============================================================================
+
+model RefundRequest {
+  id            String            @id @default(uuid())
+  orderId       String            @map("order_id")
+  refundAmount  Decimal           @map("refund_amount")
+  paymentMethod PaymentMethod     @map("payment_method")
+  observation   String
+  status        EditRequestStatus @default(PENDING)
+
+  // Solicitante
+  requestedById String   @map("requested_by_id")
+  requestedAt   DateTime @default(now()) @map("requested_at")
+
+  // Revisión
+  reviewedById String?   @map("reviewed_by_id")
+  reviewedAt   DateTime? @map("reviewed_at")
+  reviewNotes  String?   @map("review_notes")
+
+  // Ejecución (al aprobar)
+  executedAt     DateTime? @map("executed_at")
+  cashMovementId String?   @unique @map("cash_movement_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  order        Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  requestedBy  User          @relation("RequestedRefundRequests", fields: [requestedById], references: [id])
+  reviewedBy   User?         @relation("ReviewedRefundRequests", fields: [reviewedById], references: [id])
+  cashMovement CashMovement? @relation(fields: [cashMovementId], references: [id])
+
+  @@index([orderId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("refund_requests")
 }

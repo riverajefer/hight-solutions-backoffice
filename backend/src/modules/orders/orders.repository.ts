@@ -37,6 +37,21 @@ export class OrdersRepository {
         },
       }
     },
+    refundRequests: {
+      where: { status: 'PENDING' as const },
+      select: {
+        id: true,
+        refundAmount: true,
+        paymentMethod: true,
+        observation: true,
+        status: true,
+        requestedAt: true,
+        requestedBy: {
+          select: { id: true, email: true, firstName: true, lastName: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' as const },
+    },
     clientOwnershipAuthStatus: true,
     requiresColorProof: true,
     colorProofPrice: true,

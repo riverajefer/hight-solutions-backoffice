@@ -59,6 +59,8 @@ import {
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
   ExpandMore as ExpandMoreIcon,
+  CurrencyExchange as CurrencyExchangeIcon,
+  HourglassEmpty as HourglassEmptyIcon,
 } from '@mui/icons-material';
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
@@ -76,6 +78,7 @@ import {
   ApplyDiscountDialog,
   DiscountsSection,
   ToolbarButton,
+  RefundRequestDialog,
 } from '../components';
 import { ActivePermissionBanner } from '../components/ActivePermissionBanner';
 import { RequestEditPermissionButton } from '../components/RequestEditPermissionButton';
@@ -175,6 +178,7 @@ export const OrderDetailPage: React.FC = () => {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [discountDialogOpen, setDiscountDialogOpen] = useState(false);
+  const [refundDialogOpen, setRefundDialogOpen] = useState(false);
   const [tabValue, setTabValue] = useState(0);
   const [paymentData, setPaymentData] = useState<CreatePaymentDto>({
     amount: 0,
@@ -490,6 +494,22 @@ export const OrderDetailPage: React.FC = () => {
 
   const balance = parseFloat(order.balance);
 
+  // Saldo a favor (overpayment) = paidAmount - total
+  const overpayment = Math.max(
+    0,
+    parseFloat(order.paidAmount) - parseFloat(order.total),
+  );
+  const hasOverpayment = overpayment > 0;
+  const pendingRefund = order.refundRequests?.find(
+    (r) => r.status === 'PENDING',
+  );
+  const hasPendingRefund = !!pendingRefund;
+  const canCreateRefund =
+    !isAnulado &&
+    hasOverpayment &&
+    !hasPendingRefund &&
+    permissions.includes('create_refund_requests');
+
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <DocumentTypeBanner type="OP" documentNumber={order.orderNumber} />
@@ -533,6 +553,23 @@ export const OrderDetailPage: React.FC = () => {
       {order.discountApprovalStatus === 'REJECTED' && (
         <Alert severity="error" sx={{ mt: 2 }}>
           <strong>Descuento rechazado.</strong> El descuento aplicado en esta orden fue rechazado. Verifique con administración.
+        </Alert>
+      )}
+
+      {/* Alertas de devolución (saldo a favor) */}
+      {hasPendingRefund && pendingRefund && (
+        <Alert severity="warning" icon={<HourglassEmptyIcon />} sx={{ mt: 2 }}>
+          <strong>Devolución pendiente de aprobación.</strong> Monto:{' '}
+          {formatCurrency(pendingRefund.refundAmount)} ·{' '}
+          {PAYMENT_METHOD_LABELS[
+            pendingRefund.paymentMethod as PaymentMethod
+          ] ?? pendingRefund.paymentMethod}
+        </Alert>
+      )}
+      {hasOverpayment && !hasPendingRefund && (
+        <Alert severity="info" sx={{ mt: 2 }}>
+          <strong>Saldo a favor:</strong> {formatCurrency(overpayment.toString())}.
+          Puede registrar una devolución al cliente.
         </Alert>
       )}
 
@@ -625,6 +662,17 @@ export const OrderDetailPage: React.FC = () => {
               onClick={() => setDiscountDialogOpen(true)}
               color={theme.palette.warning.main}
               tooltip="Aplicar Descuento"
+            />
+          )}
+
+          {canCreateRefund && (
+            <ToolbarButton
+              icon={<CurrencyExchangeIcon />}
+              label="Devolución"
+              secondaryLabel="Registrar"
+              onClick={() => setRefundDialogOpen(true)}
+              color={theme.palette.warning.main}
+              tooltip={`Registrar devolución al cliente (saldo a favor: ${formatCurrency(overpayment.toString())})`}
             />
           )}
 
@@ -1656,6 +1704,15 @@ export const OrderDetailPage: React.FC = () => {
         onClose={() => setDiscountDialogOpen(false)}
         onApply={handleApplyDiscount}
         maxAmount={parseFloat(order.subtotal) + parseFloat(order.tax)}
+      />
+
+      {/* Dialog: Registrar Devolución */}
+      <RefundRequestDialog
+        open={refundDialogOpen}
+        onClose={() => setRefundDialogOpen(false)}
+        orderId={id!}
+        orderNumber={order.orderNumber}
+        maxAmount={overpayment}
       />
 
       {/* Dialog: Ver Comprobante */}

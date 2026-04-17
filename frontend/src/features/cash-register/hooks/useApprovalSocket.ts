@@ -28,15 +28,17 @@ export function useApprovalSocket() {
 
     socket.on('approval_request_created', (data: { order?: { orderNumber?: string } }) => {
       queryClient.invalidateQueries({ queryKey: ['advancePaymentApprovals'] });
+      queryClient.invalidateQueries({ queryKey: ['refund-requests'] });
       const orderNum = data?.order?.orderNumber || '';
       enqueueSnackbar(
-        `Nueva solicitud de anticipo${orderNum ? ` — Orden ${orderNum}` : ''}`,
+        `Nueva solicitud de aprobación${orderNum ? ` — Orden ${orderNum}` : ''}`,
         { variant: 'info' },
       );
     });
 
     socket.on('approval_request_updated', () => {
       queryClient.invalidateQueries({ queryKey: ['advancePaymentApprovals'] });
+      queryClient.invalidateQueries({ queryKey: ['refund-requests'] });
     });
 
     socket.on('connect_error', (err: Error) => {
