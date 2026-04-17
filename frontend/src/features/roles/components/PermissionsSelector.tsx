@@ -38,7 +38,6 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
     'manage_permissions',
   ],
   Cargos: ['create_cargos', 'read_cargos', 'update_cargos', 'delete_cargos'],
-  Áreas: ['create_areas', 'read_areas', 'update_areas', 'delete_areas'],
 
   // Comercial
   Clientes: ['browse_clients', 'create_clients', 'read_clients', 'update_clients', 'delete_clients', 'update_client_special_condition', 'approve_client_ownership_auth'],
@@ -65,7 +64,7 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
 
   // Gastos y Pagos
   'Tipos de Gasto': ['create_expense_types', 'read_expense_types', 'update_expense_types', 'delete_expense_types'],
-  'Órdenes de Gasto': ['create_expense_orders', 'read_expense_orders', 'update_expense_orders', 'delete_expense_orders', 'approve_expense_orders'],
+  'Órdenes de Gasto': ['create_expense_orders', 'read_expense_orders', 'update_expense_orders', 'delete_expense_orders', 'approve_expense_orders', 'caja_authorize_expense_orders'],
   Anticipos: ['approve_advance_payments'],
   
   // Auditoría y Control
@@ -81,7 +80,8 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   // Caja Registradora (POS)
   'Cajas Registradoras': ['create_cash_registers', 'read_cash_registers', 'update_cash_registers', 'delete_cash_registers'],
   'Sesiones de Caja': ['open_cash_session', 'close_cash_session', 'read_cash_sessions'],
-  'Movimientos de Caja': ['create_cash_movements', 'void_cash_movements', 'read_cash_movements'],
+  'Movimientos de Caja': ['create_cash_movements', 'void_cash_movements', 'read_cash_movements', 'approve_cash_movements'],
+  Devoluciones: ['approve_refunds', 'create_refund_requests'],
 
   // Nómina
   'Empleados de Nómina': [
@@ -104,7 +104,7 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
 const TABS = [
   {
     label: 'Administración',
-    groups: ['Usuarios', 'Roles', 'Permisos', 'Cargos', 'Áreas'],
+    groups: ['Usuarios', 'Roles', 'Permisos', 'Cargos'],
   },
   {
     label: 'Comercial',
@@ -128,7 +128,7 @@ const TABS = [
   },
   {
     label: 'Caja',
-    groups: ['Cajas Registradoras', 'Sesiones de Caja', 'Movimientos de Caja'],
+    groups: ['Cajas Registradoras', 'Sesiones de Caja', 'Movimientos de Caja', 'Devoluciones'],
   },
   {
     label: 'Gastos y Pagos',

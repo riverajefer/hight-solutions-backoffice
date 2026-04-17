@@ -196,6 +196,12 @@ export const PERMISSION_LABELS: Record<string, string> = {
   create_cash_movements: 'Registrar Movimientos de Caja',
   void_cash_movements: 'Anular Movimientos de Caja',
   read_cash_movements: 'Ver Movimientos de Caja',
+  approve_cash_movements: 'Aprobar Movimientos de Caja',
+  caja_authorize_expense_orders: 'Autorizar Órdenes de Gasto en Caja',
+
+  // Devoluciones
+  approve_refunds: 'Aprobar Devoluciones',
+  create_refund_requests: 'Crear Solicitudes de Devolución',
 };
 
 /**
