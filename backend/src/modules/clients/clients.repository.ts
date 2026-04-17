@@ -61,7 +61,7 @@ export class ClientsRepository {
     });
 
     return clients.map(client => {
-      const saldoAFavor = client.orders.reduce((sum, order) => sum + Math.abs(Number(order.balance)), 0);
+      const saldoAFavor = client.orders?.reduce((sum, order) => sum + Math.abs(Number(order.balance)), 0) || 0;
       const { orders, ...rest } = client;
       return {
         ...rest,
@@ -74,7 +74,7 @@ export class ClientsRepository {
    * Find client by ID
    */
   async findById(id: string) {
-    return this.prisma.client.findUnique({
+    const client = await this.prisma.client.findUnique({
       where: { id },
       select: {
         id: true,
@@ -116,8 +116,22 @@ export class ClientsRepository {
             name: true,
           },
         },
+        orders: {
+          where: { balance: { lt: 0 } },
+          select: { balance: true }
+        }
       },
     });
+
+    if (!client) return null;
+
+    const saldoAFavor = client.orders?.reduce((sum, order) => sum + Math.abs(Number(order.balance)), 0) || 0;
+    const { orders, ...rest } = client;
+
+    return {
+      ...rest,
+      saldoAFavor
+    };
   }
 
   /**

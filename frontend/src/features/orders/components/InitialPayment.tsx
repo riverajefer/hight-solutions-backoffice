@@ -41,6 +41,7 @@ interface InitialPaymentProps {
   errors?: Record<string, string>;
   disabled?: boolean;
   required?: boolean;
+  creditBalance?: number;
 }
 
 const formatCurrency = (value: number): string => {
@@ -74,6 +75,7 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
   onChange,
   disabled = false,
   required = false,
+  creditBalance,
 }) => {
   // One ref per possible payment block (max 3)
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([null, null, null]);
@@ -182,16 +184,22 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
                       disabled={disabled}
                     >
                       {(Object.entries(PAYMENT_METHOD_LABELS) as [PaymentMethod, string][]).map(
-                        ([method, label]) => (
-                          <MenuItem
-                            key={method}
-                            value={method}
-                            disabled={isMethodDisabled(index, method)}
-                          >
-                            {label}
-                            {isMethodDisabled(index, method) ? ' (ya usado)' : ''}
-                          </MenuItem>
-                        ),
+                        ([method, label]) => {
+                          if (method === 'CREDIT_BALANCE' && (!creditBalance || creditBalance <= 0)) {
+                            return null;
+                          }
+                          const displayLabel = method === 'CREDIT_BALANCE' ? `${label} (${formatCurrency(creditBalance || 0)})` : label;
+                          return (
+                            <MenuItem
+                              key={method}
+                              value={method}
+                              disabled={isMethodDisabled(index, method)}
+                            >
+                              {displayLabel}
+                              {isMethodDisabled(index, method) ? ' (ya usado)' : ''}
+                            </MenuItem>
+                          );
+                        },
                       )}
                     </TextField>
                   </Grid>

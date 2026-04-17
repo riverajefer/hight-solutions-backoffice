@@ -68,7 +68,7 @@ const orderItemSchema = z.object({
 const initialPaymentSchema = z
   .object({
     amount: z.number().min(0, 'El monto del abono inicial no puede ser negativo'),
-    paymentMethod: z.enum(['CASH', 'TRANSFER', 'CARD', 'CREDIT']),
+    paymentMethod: z.enum(['CASH', 'TRANSFER', 'CARD', 'CREDIT', 'CREDIT_BALANCE']),
     reference: z.string().optional(),
     notes: z.string().optional(),
     receiptFile: z.any().optional(),
@@ -882,6 +882,7 @@ export const OrderFormPage: React.FC = () => {
             onChange={paymentsField.onChange}
             disabled={!isClientSelected}
             required={true}
+            creditBalance={selectedClient?.saldoAFavor}
           />
         )}
       />
@@ -962,7 +963,7 @@ export const OrderFormPage: React.FC = () => {
                 {formatCurrency(p.amount || 0)}{' '}
                 <Typography component="span" variant="body2" color="text.secondary" fontWeight={400}>
                   ({
-                    { CASH: 'Efectivo', TRANSFER: 'Transferencia', CARD: 'Tarjeta', CHECK: 'Cheque', CREDIT: 'Crédito', OTHER: 'Otro' }[p.paymentMethod] || p.paymentMethod
+                    { CASH: 'Efectivo', TRANSFER: 'Transferencia', CARD: 'Tarjeta', CHECK: 'Cheque', CREDIT: 'Crédito', OTHER: 'Otro', CREDIT_BALANCE: 'Saldo a favor' }[p.paymentMethod] || p.paymentMethod
                   })
                 </Typography>
               </Typography>

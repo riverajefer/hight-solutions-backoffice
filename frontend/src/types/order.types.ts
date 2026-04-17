@@ -13,7 +13,7 @@ export type OrderStatus =
   | 'PAID'
   | 'ANULADO';
 
-export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'CREDIT';
+export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'CREDIT' | 'CREDIT_BALANCE';
 
 // ============================================================
 // ENTITIES
@@ -384,7 +384,7 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   TRANSFER: 'Transferencia',
   CARD: 'Tarjeta',
   CREDIT: 'Crédito',
-
+  CREDIT_BALANCE: 'Saldo a favor (Cliente)',
 };
 
 // ============================================================

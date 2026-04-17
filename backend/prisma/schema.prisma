@@ -620,6 +620,7 @@ enum PaymentMethod {
   CHECK // Cheque
   CREDIT // Crédito
   OTHER // Otro método
+  CREDIT_BALANCE // Saldo a favor
 }
 
 // Enums del módulo de Caja Registradora
