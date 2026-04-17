@@ -38,6 +38,7 @@ export interface Client {
     id: string;
     name: string;
   };
+  saldoAFavor?: number;
 }
 
 export interface CreateClientDto {
