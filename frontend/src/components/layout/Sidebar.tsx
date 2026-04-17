@@ -178,7 +178,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           permission: PERMISSIONS.READ_EXPENSE_ORDERS,
         },
         {
-          label: 'Órdenes Pendientes de Pago',
+          label: 'Órdenes Pendientes por cobrar',
           icon: <PaymentsIcon />,
           path: ROUTES.PENDING_PAYMENT_ORDERS,
           permission: PERMISSIONS.READ_ORDERS,

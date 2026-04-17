@@ -107,7 +107,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
    approve_orders: 'Aprobar Órdenes',
    change_order_status: 'Cambiar Estado de Órdenes',
    register_order_payments: 'Agrega pago en OP',
-   read_pending_orders: 'Ver Órdenes Pendientes de Pago',
+   read_pending_orders: 'Ver Órdenes Pendientes por Cobrar',
    approve_discounts: 'Aprobar Descuentos',
    apply_discounts: 'Aplicar Descuentos',
    delete_discounts: 'Eliminar Descuentos',

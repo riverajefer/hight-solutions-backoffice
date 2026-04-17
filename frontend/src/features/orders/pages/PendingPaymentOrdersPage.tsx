@@ -189,10 +189,10 @@ export const PendingPaymentOrdersPage: React.FC = () => {
     <Box sx={{ p: 3 }}>
       {/* Header sin botón de acción — vista de solo lectura */}
       <PageHeader
-        title="Órdenes Pendientes de Pago"
+        title="Órdenes Pendientes por cobrar"
         breadcrumbs={[
           { label: 'Órdenes', path: '/orders' },
-          { label: 'Pendientes de Pago' },
+          { label: 'Pendientes por cobrar' },
         ]}
       />
 
@@ -309,7 +309,7 @@ export const PendingPaymentOrdersPage: React.FC = () => {
         loading={ordersQuery.isLoading}
         getRowId={(row) => row.id}
         onRowClick={handleRowClick}
-        emptyMessage="No hay órdenes pendientes de pago"
+        emptyMessage="No hay órdenes pendientes por cobrar"
       />
     </Box>
   );
