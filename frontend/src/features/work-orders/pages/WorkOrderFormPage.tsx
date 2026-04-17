@@ -15,8 +15,6 @@ import {
   Alert,
   alpha,
   useTheme,
-  IconButton,
-  Tooltip,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -645,16 +643,16 @@ export const WorkOrderFormPage = () => {
                     sx={{ flex: 1 }}
                   />
                   {hasPermission(PERMISSIONS.CREATE_SUPPLIES) && (
-                    <Tooltip title="Crear nuevo insumo">
-                      <IconButton
-                        onClick={() => setSupplyModalOpenIdx(i)}
-                        size="small"
-                        color="primary"
-                        sx={{ mt: 0.5 }}
-                      >
-                        <AddIcon />
-                      </IconButton>
-                    </Tooltip>
+                    <Button
+                      onClick={() => setSupplyModalOpenIdx(i)}
+                      size="verySmall"
+                      color="primary"
+                      variant="outlined"
+                      startIcon={<AddIcon />}
+                      sx={{ mt: 0.5, whiteSpace: 'nowrap' }}
+                    >
+                      Nuevo insumo
+                    </Button>
                   )}
                 </Stack>
 
