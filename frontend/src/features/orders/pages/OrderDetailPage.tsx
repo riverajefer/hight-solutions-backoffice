@@ -61,6 +61,7 @@ import {
   ExpandMore as ExpandMoreIcon,
   CurrencyExchange as CurrencyExchangeIcon,
   HourglassEmpty as HourglassEmptyIcon,
+  WhatsApp as WhatsAppIcon,
 } from '@mui/icons-material';
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
@@ -81,6 +82,7 @@ import {
   ToolbarButton,
   RefundRequestDialog,
 } from '../components';
+import { generateOrderPdf } from '../utils/generateOrderPdf';
 import { ActivePermissionBanner } from '../components/ActivePermissionBanner';
 import { RequestEditPermissionButton } from '../components/RequestEditPermissionButton';
 import { EditRequestsList } from '../components/EditRequestsList';
@@ -134,6 +136,14 @@ const formatDateTime = (date: string): string => {
   }).format(new Date(date));
 };
 
+const formatPhoneForWhatsApp = (phone: string): string => {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) return `57${digits}`;
+  if (digits.length === 12 && digits.startsWith('57')) return digits;
+  if (digits.length === 13 && digits.startsWith('057')) return digits.slice(1);
+  return digits;
+};
+
 interface TabPanelProps {
   children?: React.ReactNode;
   index: number;
@@ -176,6 +186,7 @@ export const OrderDetailPage: React.FC = () => {
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [discountDialogOpen, setDiscountDialogOpen] = useState(false);
@@ -294,6 +305,59 @@ export const OrderDetailPage: React.FC = () => {
   const handleDelete = async () => {
     await deleteOrderMutation.mutateAsync();
     navigate('/orders');
+  };
+
+  const handleShareWhatsApp = async () => {
+    if (!order) return;
+
+    if (!order.client?.phone) {
+      enqueueSnackbar('El cliente no tiene número de teléfono registrado', {
+        variant: 'info',
+      });
+      return;
+    }
+
+    setIsGeneratingPdf(true);
+    try {
+      const pdfDoc = await generateOrderPdf(order);
+      pdfDoc.save(`Orden_${order.orderNumber}.pdf`);
+
+      const whatsappPhone = formatPhoneForWhatsApp(order.client.phone);
+
+      const totalFormatted = formatCurrency(order.total);
+      const balanceFormatted = formatCurrency(order.balance);
+
+      const message = [
+        `Hola ${order.client.name},`,
+        ``,
+        `Adjunto encontrará la Orden de Pedido *${order.orderNumber}* de High Solutions.`,
+        ``,
+        `*Resumen:*`,
+        `• Total: ${totalFormatted}`,
+        `• Saldo Pendiente: ${balanceFormatted}`,
+        ``,
+        `Quedamos atentos a cualquier pregunta. ¡Gracias por preferirnos!`,
+      ].join('\\n');
+
+      const encodedMessage = encodeURIComponent(message);
+      window.open(
+        `https://wa.me/${whatsappPhone}?text=${encodedMessage}`,
+        '_blank',
+        'noopener,noreferrer',
+      );
+
+      enqueueSnackbar(
+        'PDF descargado. Adjúntalo en la conversación de WhatsApp que se abrió.',
+        { variant: 'success' },
+      );
+    } catch (error) {
+      console.error('Error al compartir por WhatsApp:', error);
+      enqueueSnackbar('Error al generar el PDF para compartir', {
+        variant: 'error',
+      });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   const handleAddPayment = async () => {
@@ -715,6 +779,16 @@ export const OrderDetailPage: React.FC = () => {
           )}
 
           <OrderPdfButton order={order} />
+
+          <ToolbarButton
+            icon={<WhatsAppIcon />}
+            label="WhatsApp"
+            secondaryLabel="Compartir"
+            onClick={handleShareWhatsApp}
+            disabled={isGeneratingPdf}
+            color={theme.palette.success.main}
+            tooltip="Compartir por WhatsApp"
+          />
 
           {!order.workOrders?.[0] &&
             ['CONFIRMED', 'IN_PRODUCTION', 'READY'].includes(order.status) &&
