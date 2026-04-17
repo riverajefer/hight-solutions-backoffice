@@ -214,6 +214,7 @@ export const WorkOrderFormPage = () => {
   const [attachment, setAttachment] = useState<{ id: string; originalName: string; size: number } | null>(null);
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [uploadError, setUploadError] = useState('');
 
   // Step 3: Items form
@@ -334,10 +335,7 @@ export const WorkOrderFormPage = () => {
     setFileNameError(value.length > 30 ? 'Máximo 30 caracteres' : '');
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processFile = async (file: File) => {
     if (file.size > 10 * 1024 * 1024) {
       setUploadError('El archivo excede el tamaño máximo permitido (10MB)');
       return;
@@ -346,7 +344,7 @@ export const WorkOrderFormPage = () => {
     setUploadError('');
     setIsUploading(true);
     try {
-      const uploaded = await storageApi.uploadFile(file, { entityType: 'WorkOrder' });
+      const uploaded = await storageApi.uploadFile(file, { entityType: 'work_order' });
       setAttachment({
         id: uploaded.id,
         originalName: file.name,
@@ -358,8 +356,40 @@ export const WorkOrderFormPage = () => {
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await processFile(file);
+    }
     // reset input
     e.target.value = '';
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement | HTMLButtonElement | HTMLLabelElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isUploading) setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement | HTMLButtonElement | HTMLLabelElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement | HTMLButtonElement | HTMLLabelElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    
+    if (isUploading) return;
+    
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      await processFile(file);
+    }
   };
 
   const updateItemForm = (index: number, field: keyof WorkOrderItemForm, value: unknown) => {
@@ -626,16 +656,27 @@ export const WorkOrderFormPage = () => {
             startIcon={isUploading ? <CircularProgress size={16} /> : <CloudUploadIcon />}
             disabled={isUploading}
             fullWidth
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
             sx={{
               justifyContent: 'flex-start',
-              p: 1.5,
+              p: 2,
               borderStyle: 'dashed',
+              borderWidth: 2,
               textAlign: 'left',
-              color: 'text.secondary',
+              borderColor: isDragging ? 'primary.main' : 'divider',
+              bgcolor: isDragging ? alpha('#1976d2', 0.04) : 'transparent',
+              color: isDragging ? 'primary.main' : 'text.secondary',
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                borderColor: 'primary.main',
+                bgcolor: alpha('#1976d2', 0.04),
+              },
             }}
           >
             <Typography variant="body2" sx={{ ml: 1 }}>
-              {isUploading ? 'Subiendo...' : 'Seleccionar archivo (Max 10MB)'}
+              {isUploading ? 'Subiendo...' : 'Haz clic o arrastra un archivo aquí (Max 10MB)'}
             </Typography>
             <input
               type="file"

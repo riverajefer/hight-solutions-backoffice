@@ -390,7 +390,16 @@ export const WorkOrderDetailPage = () => {
                           size="small"
                           variant="outlined"
                           startIcon={<DownloadIcon />}
-                          onClick={() => window.open(storageApi.getDownloadUrl(workOrder.attachment!.id), '_blank')}
+                          onClick={async () => {
+                            try {
+                              await storageApi.downloadFile(
+                                workOrder.attachment!.id,
+                                workOrder.attachment!.originalName
+                              );
+                            } catch (error) {
+                              console.error('Error al descargar el archivo', error);
+                            }
+                          }}
                         >
                           Descargar ({workOrder.attachment.originalName})
                         </Button>
