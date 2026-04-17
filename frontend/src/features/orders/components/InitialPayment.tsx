@@ -185,7 +185,7 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
                     >
                       {(Object.entries(PAYMENT_METHOD_LABELS) as [PaymentMethod, string][]).map(
                         ([method, label]) => {
-                          if (method === 'CREDIT_BALANCE' && (!creditBalance || creditBalance <= 0)) {
+                          if (method === 'CREDIT_BALANCE' && payment.paymentMethod !== 'CREDIT_BALANCE') {
                             return null;
                           }
                           const displayLabel = method === 'CREDIT_BALANCE' ? `${label} (${formatCurrency(creditBalance || 0)})` : label;

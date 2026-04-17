@@ -3,6 +3,8 @@ import {
   Box,
   Card,
   CardContent,
+  FormControlLabel,
+  Checkbox,
   TextField,
   Button,
   Stack,
@@ -98,6 +100,7 @@ const orderFormSchema = z
     items: z.array(orderItemSchema).min(1, 'Debe agregar al menos un item'),
     applyTax: z.boolean(),
     taxRate: z.number().min(0).max(100),
+    useCreditBalance: z.boolean().optional(),
     payments: z.array(initialPaymentSchema).min(1),
     commercialChannelId: z.string().min(1, 'El canal de ventas es requerido'),
   })
@@ -120,8 +123,9 @@ const orderFormSchema = z
       const tax = data.applyTax ? subtotal * (data.taxRate / 100) : 0;
       const colorProofPrice = data.requiresColorProof ? (data.colorProofPrice || 0) : 0;
       const total = subtotal + tax + colorProofPrice;
+      const creditBalanceUsed = data.useCreditBalance && data.client ? Math.min(data.client.saldoAFavor || 0, total) : 0;
       const totalPaid = data.payments.reduce((sum, p) => sum + p.amount, 0);
-      return totalPaid <= total;
+      return totalPaid <= (total - creditBalanceUsed);
     },
     {
       message: 'La suma de los anticipos no puede ser mayor al total de la orden',
@@ -345,6 +349,7 @@ export const OrderFormPage: React.FC = () => {
       ],
       applyTax: false,
       taxRate: 19,
+      useCreditBalance: false,
       payments: [
         {
           amount: 0,
@@ -369,6 +374,11 @@ export const OrderFormPage: React.FC = () => {
   const subtotal = items.reduce((sum, item) => sum + item.total, 0);
   const tax = applyTax ? subtotal * (taxRate / 100) : 0;
   const total = subtotal + tax + colorProofPrice;
+
+  const saldoAFavor = selectedClient?.saldoAFavor || 0;
+  const useCreditBalance = watch('useCreditBalance');
+  const creditBalanceUsed = useCreditBalance ? Math.min(saldoAFavor, total) : 0;
+  const remainingTotalAfterCredit = Math.max(0, total - creditBalanceUsed);
 
   const isClientSelected = !!selectedClient;
 
@@ -481,6 +491,31 @@ export const OrderFormPage: React.FC = () => {
   const onSubmit: SubmitHandler<OrderFormData> = async (data) => {
     setIsSubmitting(true);
     try {
+      const orderSubtotal = data.items.reduce((sum, i) => sum + i.total, 0);
+      const orderTax = data.applyTax ? orderSubtotal * (data.taxRate / 100) : 0;
+      const cpPrice = data.requiresColorProof ? (data.colorProofPrice || 0) : 0;
+      const orderTotal = orderSubtotal + orderTax + cpPrice;
+      const creditBalUsed = data.useCreditBalance ? Math.min(data.client!.saldoAFavor || 0, orderTotal) : 0;
+
+      let initialPaymentsPayload = !isEdit ? data.payments.map((p) => ({
+        amount: p.amount,
+        paymentMethod: p.paymentMethod,
+        reference: p.reference,
+        notes: p.notes,
+      })) as any[] : undefined;
+
+      if (!isEdit && creditBalUsed > 0) {
+        initialPaymentsPayload = [
+          {
+            amount: creditBalUsed,
+            paymentMethod: 'CREDIT_BALANCE',
+            reference: 'Uso automático de saldo a favor',
+            notes: '',
+          },
+          ...(initialPaymentsPayload || []),
+        ];
+      }
+
       const orderDto = {
         clientId: data.client!.id,
         deliveryDate: data.deliveryDate?.toISOString(),
@@ -509,12 +544,7 @@ export const OrderFormPage: React.FC = () => {
           reference: data.payments[0].reference,
           notes: data.payments[0].notes,
         } : undefined,
-        initialPayments: !isEdit ? data.payments.map((p) => ({
-          amount: p.amount,
-          paymentMethod: p.paymentMethod,
-          reference: p.reference,
-          notes: p.notes,
-        })) : undefined,
+        initialPayments: initialPaymentsPayload,
         commercialChannelId: data.commercialChannelId,
       };
 
@@ -797,19 +827,21 @@ export const OrderFormPage: React.FC = () => {
                 name="requiresColorProof"
                 control={control}
                 render={({ field }) => (
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <input
-                      type="checkbox"
-                      id="requiresColorProof"
-                      checked={field.value}
-                      onChange={(e) => field.onChange(e.target.checked)}
-                      disabled={!isClientSelected}
-                      style={{ marginRight: '8px', width: '18px', height: '18px' }}
-                    />
-                    <label htmlFor="requiresColorProof" style={{ cursor: 'pointer', userSelect: 'none' }}>
-                      ¿Requiere prueba de color?
-                    </label>
-                  </Box>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={field.value}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                        disabled={!isClientSelected}
+                        id="requiresColorProof"
+                      />
+                    }
+                    label={
+                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                        ¿Requiere prueba de color?
+                      </Typography>
+                    }
+                  />
                 )}
               />
             </Grid>
@@ -870,19 +902,52 @@ export const OrderFormPage: React.FC = () => {
         )}
       />
 
+      {saldoAFavor > 0 && total > 0 && (
+        <Card variant="outlined" sx={{ borderRadius: 2, mb: 3 }}>
+          <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
+            <FormControlLabel
+              control={
+                <Controller
+                  name="useCreditBalance"
+                  control={control}
+                  render={({ field }) => (
+                    <Checkbox
+                      {...field}
+                      checked={field.value || false}
+                      // Comentamos disabled={isEdit} para que en editar se pueda ver, o mejor, si isEdit, no dejar cambiar
+                      disabled={isEdit}
+                    />
+                  )}
+                />
+              }
+              label={
+                <Typography variant="body1" fontWeight={600}>
+                  Usar saldo a favor del cliente ({formatCurrency(saldoAFavor)})
+                </Typography>
+              }
+            />
+            {useCreditBalance && (
+              <Typography variant="body2" color="text.secondary" sx={{ ml: 4 }}>
+                Se descontará automáticamente del total a pagar (aplica hasta {formatCurrency(Math.min(saldoAFavor, total))}).
+              </Typography>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <Controller
         name="payments"
         control={control}
         render={({ field: paymentsField }) => (
           <InitialPayment
-            total={total}
+            total={remainingTotalAfterCredit}
             enabled={true}
             values={paymentsField.value}
             onEnabledChange={() => {}}
             onChange={paymentsField.onChange}
             disabled={!isClientSelected}
             required={true}
-            creditBalance={selectedClient?.saldoAFavor}
+            creditBalance={saldoAFavor}
           />
         )}
       />
@@ -957,6 +1022,11 @@ export const OrderFormPage: React.FC = () => {
               <strong>Total:</strong> {formatCurrency(total)}
             </Typography>
             <Divider sx={{ my: 0.5 }} />
+            {useCreditBalance && creditBalanceUsed > 0 && (
+              <Typography variant="body2" color="success.main" fontWeight={600}>
+                <strong>Saldo a favor utilizado:</strong> - {formatCurrency(creditBalanceUsed)}
+              </Typography>
+            )}
             {watch('payments').map((p, i) => (
               <Typography key={i} variant="body2" color="primary.main" fontWeight={600}>
                 <strong>Anticipo {watch('payments').length > 1 ? i + 1 : ''}:</strong>{' '}
@@ -971,7 +1041,7 @@ export const OrderFormPage: React.FC = () => {
             <Divider sx={{ my: 0.5 }} />
             <Typography variant="body2" color="error.main" fontWeight={700}>
               <strong>Saldo por pagar:</strong>{' '}
-              {formatCurrency(total - watch('payments').reduce((sum, p) => sum + (p.amount || 0), 0))}
+              {formatCurrency(total - creditBalanceUsed - watch('payments').reduce((sum, p) => sum + (p.amount || 0), 0))}
             </Typography>
           </Stack>
         </CardContent>
