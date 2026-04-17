@@ -67,6 +67,7 @@ import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { StatusHighlight } from '../../../components/common/StatusHighlight';
 
 import { DocumentTypeBanner } from '../../../components/common/DocumentTypeBanner';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
@@ -593,6 +594,12 @@ export const OrderDetailPage: React.FC = () => {
         </Alert>
       )}
 
+      <StatusHighlight
+        label={ORDER_STATUS_CONFIG[order.status].label}
+        color={ORDER_STATUS_CONFIG[order.status].color}
+        sx={{ mt: 2 }}
+      />
+
       {/* Toolbar de Acciones */}
       <Paper
         elevation={0}
@@ -752,7 +759,7 @@ export const OrderDetailPage: React.FC = () => {
                       Estado
                     </Typography>
                     <Box sx={{ mt: 1 }}>
-                      <OrderStatusChip status={order.status} size="medium" />
+                      <OrderStatusChip status={order.status} size="medium" variant="outlined" />
                     </Box>
                   </Grid>
 

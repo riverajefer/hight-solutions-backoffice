@@ -46,6 +46,7 @@ import {
   AccountTree as AccountTreeIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { StatusHighlight } from '../../../components/common/StatusHighlight';
 
 import { DocumentTypeBanner } from '../../../components/common/DocumentTypeBanner';
 import { ToolbarButton } from '../../orders/components/ToolbarButton';
@@ -432,6 +433,12 @@ export const ExpenseOrderDetailPage = () => {
           <strong>Esta orden de gasto proviene de una OP ANULADA.</strong> La Orden de Pedido relacionada ha sido anulada. Este registro es de solo lectura.
         </Alert>
       )}
+
+      <StatusHighlight
+        label={statusConfig.label}
+        color={statusConfig.color}
+        sx={{ mt: 2 }}
+      />
 
       {/* Toolbar de Acciones */}
       <Paper

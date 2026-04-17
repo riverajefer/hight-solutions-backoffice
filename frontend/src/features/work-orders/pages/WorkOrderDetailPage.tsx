@@ -31,6 +31,7 @@ import {
   Download as DownloadIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { StatusHighlight } from '../../../components/common/StatusHighlight';
 
 import { DocumentTypeBanner } from '../../../components/common/DocumentTypeBanner';
 import { ToolbarButton } from '../../orders/components/ToolbarButton';
@@ -248,6 +249,12 @@ export const WorkOrderDetailPage = () => {
           <strong>Esta orden proviene de una OP ANULADA.</strong> La Orden de Pedido relacionada ha sido anulada. Esta Orden de Trabajo es de solo lectura.
         </Alert>
       )}
+
+      <StatusHighlight
+        label={WORK_ORDER_STATUS_CONFIG[workOrder.status].label}
+        color={WORK_ORDER_STATUS_CONFIG[workOrder.status].color}
+        sx={{ mt: 2 }}
+      />
 
       {/* Toolbar de Acciones */}
       <Paper
