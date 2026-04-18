@@ -48,6 +48,7 @@ import { useUsers } from '../../users/hooks/useUsers';
 import { useWorkOrders } from '../../work-orders/hooks';
 import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
 import { useSuppliers } from '../../suppliers/hooks/useSuppliers';
+import { CreateSupplierModal } from '../../suppliers/components/CreateSupplierModal';
 import { storageApi } from '../../../api/storage.api';
 import { ROUTES } from '../../../utils/constants';
 import {
@@ -220,6 +221,19 @@ export const ExpenseOrderFormPage = () => {
 
   // ─── Post-creation info dialog ──────────────────────────────────────────────
   const [createdOg, setCreatedOg] = useState<{ id: string; ogNumber: string } | null>(null);
+
+  // ─── Create Supplier Modal ──────────────────────────────────────────────────
+  const [supplierModalOpen, setSupplierModalOpen] = useState(false);
+  const [supplierModalTargetIndex, setSupplierModalTargetIndex] = useState<number | null>(null);
+
+  const handleCreateSupplierSuccess = (newSupplier: { id: string; name: string }) => {
+    if (supplierModalTargetIndex !== null) {
+      updateItem(supplierModalTargetIndex, 'supplierId', newSupplier.id);
+      updateItem(supplierModalTargetIndex, 'supplierLabel', newSupplier.name);
+    }
+    setSupplierModalOpen(false);
+    setSupplierModalTargetIndex(null);
+  };
 
   // ─── Step 1: Type & OT ──────────────────────────────────────────────────────
   const [expenseTypeId, setExpenseTypeId] = useState('');
@@ -793,24 +807,37 @@ export const ExpenseOrderFormPage = () => {
                   ))}
                 </TextField>
 
-                <Autocomplete
-                  options={suppliers.filter((s) => s.isActive !== false)}
-                  getOptionLabel={(s) => s.name}
-                  value={suppliers.find((s) => s.id === item.supplierId) ?? null}
-                  onChange={(_, val) => {
-                    updateItem(index, 'supplierId', val?.id ?? '');
-                    updateItem(index, 'supplierLabel', val?.name ?? '');
-                  }}
-                  loading={suppliersQuery.isLoading}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Proveedor"
-                      placeholder="Buscar proveedor..."
-                    />
-                  )}
-                  sx={{ flex: 2 }}
-                />
+                <Box sx={{ flex: 2, display: 'flex', gap: 1 }}>
+                  <Autocomplete
+                    options={suppliers.filter((s) => s.isActive !== false)}
+                    getOptionLabel={(s) => s.name}
+                    value={suppliers.find((s) => s.id === item.supplierId) ?? null}
+                    onChange={(_, val) => {
+                      updateItem(index, 'supplierId', val?.id ?? '');
+                      updateItem(index, 'supplierLabel', val?.name ?? '');
+                    }}
+                    loading={suppliersQuery.isLoading}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Proveedor"
+                        placeholder="Buscar proveedor..."
+                      />
+                    )}
+                    sx={{ flexGrow: 1 }}
+                  />
+                  <Button
+                    variant="outlined"
+                    sx={{ minWidth: "120px" }}
+                    onClick={() => {
+                      setSupplierModalTargetIndex(index);
+                      setSupplierModalOpen(true);
+                    }}
+                    startIcon={<AddIcon />}
+                  >
+                    Nuevo
+                  </Button>
+                </Box>
               </Stack>
 
               {hasWorkOrder && (
@@ -1231,6 +1258,16 @@ export const ExpenseOrderFormPage = () => {
           </Stack>
         </Box>
       </Box>
+
+      {/* ── Create Supplier modal ────────────────────────────────────────────── */}
+      <CreateSupplierModal
+        open={supplierModalOpen}
+        onClose={() => {
+          setSupplierModalOpen(false);
+          setSupplierModalTargetIndex(null);
+        }}
+        onSuccess={handleCreateSupplierSuccess}
+      />
 
       {/* ── Post-creation informational dialog ───────────────────────────────── */}
       <Dialog
