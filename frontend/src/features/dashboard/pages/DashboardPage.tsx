@@ -479,16 +479,16 @@ const DashboardPage: React.FC = () => {
     queryKey: ['cash-registers'],
     queryFn: async () => {
       if (!hasPermission(PERMISSIONS.READ_CASH_REGISTERS)) return [];
-      // we only care for length
-      return [];
+      // Usar la api de cashRegisters
+      return cashRegisterApi.getAllRegisters();
     },
   });
 
-  const { data: inventoryMovementsData = { total: 0 }, isLoading: inventoryLoading } = useQuery({
+  const { data: inventoryMovementsData = { meta: { total: 0 } }, isLoading: inventoryLoading } = useQuery({
     queryKey: ['inventory'],
     queryFn: async () => {
-      if (!hasPermission(PERMISSIONS.READ_INVENTORY_MOVEMENTS)) return { total: 0 };
-      return { total: 0 };
+      if (!hasPermission(PERMISSIONS.READ_INVENTORY_MOVEMENTS)) return { meta: { total: 0 } };
+      return inventoryApi.getAll({ limit: 1 });
     },
   });
 
@@ -555,7 +555,7 @@ const DashboardPage: React.FC = () => {
     : ('total' in payrollPeriodsData ? (payrollPeriodsData as any).total : 0);
 
   const cashRegistersCount = Array.isArray(cashRegistersData) ? cashRegistersData.length : 0;
-  const inventoryMovementsCount = inventoryMovementsData?.total || 0;
+  const inventoryMovementsCount = (inventoryMovementsData as any)?.meta?.total || 0;
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setCurrentTab(newValue);
