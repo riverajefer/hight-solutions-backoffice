@@ -41,6 +41,7 @@ model User {
   designedWorkOrders                   WorkOrder[]                  @relation("WorkOrderDesigner")
   workOrderTimeEntries                 WorkOrderTimeEntry[]         @relation("WorkOrderTimeEntryUser")
   authorizedExpenseOrders              ExpenseOrder[]               @relation("AuthorizedExpenseOrders")
+  cajaAuthorizedExpenseOrders          ExpenseOrder[]               @relation("CajaAuthorizedExpenseOrders")
   responsibleExpenseOrders             ExpenseOrder[]               @relation("ResponsibleExpenseOrders")
   createdExpenseOrders                 ExpenseOrder[]               @relation("CreatedExpenseOrders")
   approvedExpenseOrders                ExpenseOrder[]               @relation("ApprovedExpenseOrders")
@@ -66,6 +67,10 @@ model User {
   closedCashSessions                   CashSession[]                @relation("ClosedCashSessions")
   performedCashMovements               CashMovement[]               @relation("PerformedCashMovements")
   voidedCashMovements                  CashMovement[]               @relation("VoidedCashMovements")
+  requestedVoidRequests                CashMovementVoidRequest[]    @relation("RequestedVoidRequests")
+  reviewedVoidRequests                 CashMovementVoidRequest[]    @relation("ReviewedVoidRequests")
+  requestedRefundRequests              RefundRequest[]              @relation("RequestedRefundRequests")
+  reviewedRefundRequests               RefundRequest[]              @relation("ReviewedRefundRequests")
 
   @@map("users")
 }
@@ -462,6 +467,7 @@ model Order {
   advancePaymentApprovals     AdvancePaymentApproval[]
   discountApprovals           DiscountApproval[]
   clientOwnershipAuthRequests ClientOwnershipAuthRequest[]
+  refundRequests              RefundRequest[]
 
   // Referencia a la cotización de origen
   quoteId String? @unique @map("quote_id")
@@ -579,6 +585,7 @@ model OrderItem {
 
   // Especificaciones técnicas (JSON flexible)
   specifications Json? // { color: "rojo", material: "acero", dimensiones: "10x20" }
+  sampleImageId  String? @map("sample_image_id") // ID de la imagen de muestra
 
   sortOrder Int      @default(0) @map("sort_order") // Orden de visualización
   createdAt DateTime @default(now()) @map("created_at")
@@ -613,6 +620,7 @@ enum PaymentMethod {
   CHECK // Cheque
   CREDIT // Crédito
   OTHER // Otro método
+  CREDIT_BALANCE // Saldo a favor
 }
 
 // Enums del módulo de Caja Registradora
@@ -682,8 +690,8 @@ model OrderDiscount {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relaciones
-  order     Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  appliedBy User             @relation("AppliedDiscounts", fields: [appliedById], references: [id])
+  order     Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  appliedBy User               @relation("AppliedDiscounts", fields: [appliedById], references: [id])
   approvals DiscountApproval[]
 
   @@index([orderId])
@@ -710,6 +718,8 @@ enum ApprovalRequestType {
   CLIENT_OWNERSHIP_AUTH
   ADVANCE_PAYMENT
   DISCOUNT_APPROVAL
+  CASH_MOVEMENT_VOID
+  REFUND_REQUEST
 }
 
 enum NotificationType {
@@ -736,6 +746,12 @@ enum NotificationType {
   DISCOUNT_APPROVAL_REJECTED // Descuento rechazado
   CASH_SESSION_CLOSED_WITH_DISCREPANCY // Sesión de caja cerrada con descuadre
   CASH_LARGE_WITHDRAWAL // Retiro grande de efectivo de caja
+  CASH_VOID_REQUEST_PENDING // Nueva solicitud de anulación de movimiento de caja
+  CASH_VOID_REQUEST_APPROVED // Solicitud de anulación de movimiento aprobada
+  CASH_VOID_REQUEST_REJECTED // Solicitud de anulación de movimiento rechazada
+  REFUND_REQUEST_PENDING // Nueva solicitud de devolución de dinero al cliente
+  REFUND_REQUEST_APPROVED // Devolución aprobada
+  REFUND_REQUEST_REJECTED // Devolución rechazada
 }
 
 model EditableOrderStatus {
@@ -884,19 +900,20 @@ model CommercialChannel {
 }
 
 model UploadedFile {
-  id           String   @id @default(uuid())
-  originalName String   @map("original_name")
-  fileName     String   @unique @map("file_name")
-  mimeType     String   @map("mime_type")
+  id           String      @id @default(uuid())
+  originalName String      @map("original_name")
+  fileName     String      @unique @map("file_name")
+  mimeType     String      @map("mime_type")
   size         Int
-  s3Key        String   @unique @map("s3_key")
-  s3Bucket     String   @map("s3_bucket")
-  entityType   String?  @map("entity_type")
-  entityId     String?  @map("entity_id")
-  uploadedBy   String?  @map("uploaded_by")
-  isDeleted    Boolean  @default(false) @map("is_deleted")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  s3Key        String      @unique @map("s3_key")
+  s3Bucket     String      @map("s3_bucket")
+  entityType   String?     @map("entity_type")
+  entityId     String?     @map("entity_id")
+  uploadedBy   String?     @map("uploaded_by")
+  isDeleted    Boolean     @default(false) @map("is_deleted")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+  workOrders   WorkOrder[]
 
   @@index([entityType, entityId])
   @@index([uploadedBy])
@@ -931,6 +948,7 @@ model WorkOrder {
   advisorId       String          @map("advisor_id")
   designerId      String?         @map("designer_id")
   fileName        String?         @map("file_name") // max 30 chars
+  attachmentId    String?         @map("attachment_id")
   observations    String?
   status          WorkOrderStatus @default(DRAFT)
   createdAt       DateTime        @default(now()) @map("created_at")
@@ -939,6 +957,7 @@ model WorkOrder {
   order            Order                @relation(fields: [orderId], references: [id])
   advisor          User                 @relation("WorkOrderAdvisor", fields: [advisorId], references: [id])
   designer         User?                @relation("WorkOrderDesigner", fields: [designerId], references: [id])
+  attachment       UploadedFile?        @relation(fields: [attachmentId], references: [id])
   items            WorkOrderItem[]
   timeEntries      WorkOrderTimeEntry[]
   expenseOrders    ExpenseOrder[]
@@ -1031,7 +1050,8 @@ model WorkOrderTimeEntry {
 enum ExpenseOrderStatus {
   DRAFT // Borrador (editable)
   CREATED // Creada
-  AUTHORIZED // Autorizada
+  ADMIN_AUTHORIZED // Pre-autorizada por Admin (pendiente de Caja)
+  AUTHORIZED // Autorizada por Caja (registra pago)
   PAID // Pagada
 }
 
@@ -1082,9 +1102,13 @@ model ExpenseOrder {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  // Autorización (quién aprobó el cambio a AUTHORIZED)
+  // Primera autorización Admin (quién aprobó el cambio a ADMIN_AUTHORIZED)
   authorizedById String?   @map("authorized_by_id")
   authorizedAt   DateTime? @map("authorized_at")
+
+  // Segunda autorización Caja (quién aprobó el cambio a AUTHORIZED y registró el pago)
+  cajaAuthorizedById String?   @map("caja_authorized_by_id")
+  cajaAuthorizedAt   DateTime? @map("caja_authorized_at")
 
   // Relaciones
   expenseType        ExpenseType               @relation(fields: [expenseTypeId], references: [id])
@@ -1094,6 +1118,7 @@ model ExpenseOrder {
   responsible        User?                     @relation("ResponsibleExpenseOrders", fields: [responsibleId], references: [id])
   createdBy          User                      @relation("CreatedExpenseOrders", fields: [createdById], references: [id])
   authorizedBy       User?                     @relation("ApprovedExpenseOrders", fields: [authorizedById], references: [id])
+  cajaAuthorizedBy   User?                     @relation("CajaAuthorizedExpenseOrders", fields: [cajaAuthorizedById], references: [id])
   items              ExpenseOrderItem[]
   authRequests       ExpenseOrderAuthRequest[]
 
@@ -1196,16 +1221,16 @@ model AdvancePaymentApproval {
 // =============================================================================
 
 model DiscountApproval {
-  id             String            @id @default(uuid())
-  orderId        String            @map("order_id")
-  discountId     String            @map("discount_id")
-  requestedById  String            @map("requested_by_id")
-  status         EditRequestStatus @default(PENDING)
-  reviewedById   String?           @map("reviewed_by_id")
-  reviewedAt     DateTime?         @map("reviewed_at")
-  reviewNotes    String?           @map("review_notes")
-  createdAt      DateTime          @default(now()) @map("created_at")
-  updatedAt      DateTime          @updatedAt @map("updated_at")
+  id            String            @id @default(uuid())
+  orderId       String            @map("order_id")
+  discountId    String            @map("discount_id")
+  requestedById String            @map("requested_by_id")
+  status        EditRequestStatus @default(PENDING)
+  reviewedById  String?           @map("reviewed_by_id")
+  reviewedAt    DateTime?         @map("reviewed_at")
+  reviewNotes   String?           @map("review_notes")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
 
   order       Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
   discount    OrderDiscount @relation(fields: [discountId], references: [id], onDelete: Cascade)
@@ -1681,9 +1706,9 @@ model CashSession {
   createdAt      DateTime          @default(now()) @map("created_at")
   updatedAt      DateTime          @updatedAt @map("updated_at")
 
-  cashRegister  CashRegister           @relation(fields: [cashRegisterId], references: [id])
-  openedBy      User                   @relation("OpenedCashSessions", fields: [openedById], references: [id])
-  closedBy      User?                  @relation("ClosedCashSessions", fields: [closedById], references: [id])
+  cashRegister  CashRegister            @relation(fields: [cashRegisterId], references: [id])
+  openedBy      User                    @relation("OpenedCashSessions", fields: [openedById], references: [id])
+  closedBy      User?                   @relation("ClosedCashSessions", fields: [closedById], references: [id])
   denominations CashDenominationCount[]
   movements     CashMovement[]
 
@@ -1728,16 +1753,84 @@ model CashMovement {
   createdAt         DateTime         @default(now()) @map("created_at")
   updatedAt         DateTime         @updatedAt @map("updated_at")
 
-  cashSession      CashSession   @relation(fields: [cashSessionId], references: [id])
-  performedBy      User          @relation("PerformedCashMovements", fields: [performedById], references: [id])
-  voidedBy         User?         @relation("VoidedCashMovements", fields: [voidedById], references: [id])
-  counterMovement  CashMovement? @relation("CounterMovement", fields: [counterMovementId], references: [id])
-  originalMovement CashMovement? @relation("CounterMovement")
+  cashSession      CashSession               @relation(fields: [cashSessionId], references: [id])
+  performedBy      User                      @relation("PerformedCashMovements", fields: [performedById], references: [id])
+  voidedBy         User?                     @relation("VoidedCashMovements", fields: [voidedById], references: [id])
+  counterMovement  CashMovement?             @relation("CounterMovement", fields: [counterMovementId], references: [id])
+  originalMovement CashMovement?             @relation("CounterMovement")
   linkedPayment    Payment?
+  voidRequests     CashMovementVoidRequest[]
+  refundRequest    RefundRequest?
 
   @@index([cashSessionId])
   @@index([performedById])
   @@index([referenceType, referenceId])
   @@index([createdAt])
   @@map("cash_movements")
+}
+
+model CashMovementVoidRequest {
+  id             String            @id @default(uuid())
+  cashMovementId String            @map("cash_movement_id")
+  requestedById  String            @map("requested_by_id")
+  voidReason     String            @map("void_reason")
+  status         EditRequestStatus @default(PENDING)
+
+  // Aprobación/rechazo
+  reviewedById String?   @map("reviewed_by_id")
+  reviewedAt   DateTime? @map("reviewed_at")
+  reviewNotes  String?   @map("review_notes")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  cashMovement CashMovement @relation(fields: [cashMovementId], references: [id], onDelete: Cascade)
+  requestedBy  User         @relation("RequestedVoidRequests", fields: [requestedById], references: [id])
+  reviewedBy   User?        @relation("ReviewedVoidRequests", fields: [reviewedById], references: [id])
+
+  @@index([cashMovementId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("cash_movement_void_requests")
+}
+
+// =============================================================================
+// MÓDULO DE SOLICITUDES DE DEVOLUCIÓN DE DINERO AL CLIENTE
+// =============================================================================
+
+model RefundRequest {
+  id            String            @id @default(uuid())
+  orderId       String            @map("order_id")
+  refundAmount  Decimal           @map("refund_amount")
+  paymentMethod PaymentMethod     @map("payment_method")
+  observation   String
+  status        EditRequestStatus @default(PENDING)
+
+  // Solicitante
+  requestedById String   @map("requested_by_id")
+  requestedAt   DateTime @default(now()) @map("requested_at")
+
+  // Revisión
+  reviewedById String?   @map("reviewed_by_id")
+  reviewedAt   DateTime? @map("reviewed_at")
+  reviewNotes  String?   @map("review_notes")
+
+  // Ejecución (al aprobar)
+  executedAt     DateTime? @map("executed_at")
+  cashMovementId String?   @unique @map("cash_movement_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  order        Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  requestedBy  User          @relation("RequestedRefundRequests", fields: [requestedById], references: [id])
+  reviewedBy   User?         @relation("ReviewedRefundRequests", fields: [reviewedById], references: [id])
+  cashMovement CashMovement? @relation(fields: [cashMovementId], references: [id])
+
+  @@index([orderId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("refund_requests")
 }

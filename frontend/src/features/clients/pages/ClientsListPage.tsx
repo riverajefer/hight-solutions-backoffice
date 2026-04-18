@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Box, Button, Chip } from '@mui/material';
+import { Box, Button, Chip, TextField, MenuItem } from '@mui/material';
 /* import UploadFileIcon from '@mui/icons-material/UploadFile';
  */import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
@@ -12,6 +12,7 @@ import { UploadCsvModal } from '../components/UploadCsvModal';
 import { Client } from '../../../types';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
+import { formatCurrency } from '../../../utils/formatters';
 import { useResponsiveColumns } from '../../../hooks';
 import type { ResponsiveGridColDef } from '../../../hooks';
 
@@ -21,10 +22,18 @@ const ClientsListPage: React.FC = () => {
   const { hasPermission } = useAuthStore();
   const [confirmDelete, setConfirmDelete] = useState<Client | null>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [filterSaldoAFavor, setFilterSaldoAFavor] = useState<string>('');
 
   const { clientsQuery, deleteClientMutation, uploadCsvMutation } =
     useClients();
   const clients = clientsQuery.data || [];
+
+  const filteredClients = useMemo(() => {
+    if (filterSaldoAFavor === 'con_saldo') {
+      return clients.filter((client) => (client.saldoAFavor || 0) > 0);
+    }
+    return clients;
+  }, [clients, filterSaldoAFavor]);
 
   const handleDeleteConfirm = async () => {
     if (!confirmDelete) return;
@@ -123,6 +132,26 @@ const ClientsListPage: React.FC = () => {
         ),
       },
       {
+        field: 'saldoAFavor',
+        headerName: 'Saldo a favor',
+        width: 140,
+        align: 'right',
+        headerAlign: 'right',
+        responsive: 'md',
+        renderCell: (params: GridRenderCellParams) => {
+          if (!params.value) return '-';
+          return (
+            <Chip
+              label={formatCurrency(params.value)}
+              size='small'
+              color='success'
+              variant='outlined'
+              sx={{ fontWeight: 'bold' }}
+            />
+          );
+        },
+      },
+      {
         field: 'actions',
         headerName: 'Acciones',
         width: 120,
@@ -175,9 +204,37 @@ const ClientsListPage: React.FC = () => {
         }
       />
 
+      {hasPermission(PERMISSIONS.BROWSE_CLIENTS) && (
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: '1fr',
+              sm: '1fr 1fr',
+              md: 'repeat(4, 1fr)',
+            },
+            gap: 2,
+            mb: 3,
+            mt: 2,
+          }}
+        >
+          <TextField
+            select
+            label='Saldo a favor'
+            value={filterSaldoAFavor}
+            onChange={(e) => setFilterSaldoAFavor(e.target.value)}
+            fullWidth
+            size='small'
+          >
+            <MenuItem value=''>Todos</MenuItem>
+            <MenuItem value='con_saldo'>Con saldo a favor</MenuItem>
+          </TextField>
+        </Box>
+      )}
+
       {hasPermission(PERMISSIONS.BROWSE_CLIENTS) ? (
         <DataTable
-          rows={clients}
+          rows={filteredClients}
           columns={columns}
           loading={clientsQuery.isLoading}
           onAdd={

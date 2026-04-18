@@ -84,6 +84,13 @@ export interface WorkOrder {
   workOrderNumber: string;
   status: WorkOrderStatus;
   fileName?: string | null;
+  attachment?: {
+    id: string;
+    fileName: string;
+    originalName: string;
+    mimeType: string;
+    size: number;
+  } | null;
   observations?: string | null;
   order: {
     id: string;
@@ -152,6 +159,7 @@ export interface CreateWorkOrderDto {
   orderId: string;
   designerId?: string;
   fileName?: string;
+  attachmentId?: string;
   observations?: string;
   items: CreateWorkOrderItemDto[];
 }
@@ -167,6 +175,7 @@ export interface UpdateWorkOrderItemDto {
 export interface UpdateWorkOrderDto {
   designerId?: string | null;
   fileName?: string | null;
+  attachmentId?: string | null;
   observations?: string | null;
   items?: UpdateWorkOrderItemDto[];
 }

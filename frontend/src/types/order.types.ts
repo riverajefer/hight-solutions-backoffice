@@ -13,7 +13,7 @@ export type OrderStatus =
   | 'PAID'
   | 'ANULADO';
 
-export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'CREDIT';
+export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'CREDIT' | 'CREDIT_BALANCE';
 
 // ============================================================
 // ENTITIES
@@ -76,6 +76,20 @@ export interface Order {
   advancePaymentStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   discountApprovalStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   advancePaymentApprovals?: AdvancePaymentApproval[];
+  refundRequests?: Array<{
+    id: string;
+    refundAmount: string;
+    paymentMethod: 'CASH' | 'TRANSFER' | 'CARD';
+    observation: string;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    requestedAt: string;
+    requestedBy?: {
+      id: string;
+      email?: string;
+      firstName?: string;
+      lastName?: string;
+    };
+  }>;
   clientOwnershipAuthStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   status: OrderStatus;
   notes: string | null;
@@ -306,6 +320,7 @@ export interface OrderItemRow {
   total: number; // Calculado
   productId?: string;
   specifications?: Record<string, any>;
+  sampleImageId?: string | null;
   productionAreaIds: string[];
 }
 
@@ -369,7 +384,7 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   TRANSFER: 'Transferencia',
   CARD: 'Tarjeta',
   CREDIT: 'Crédito',
-
+  CREDIT_BALANCE: 'Saldo a favor (Cliente)',
 };
 
 // ============================================================

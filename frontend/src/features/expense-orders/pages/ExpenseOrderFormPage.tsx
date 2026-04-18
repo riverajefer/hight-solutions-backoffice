@@ -19,6 +19,9 @@ import {
   Grid,
   alpha,
   useTheme,
+  Dialog,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -33,6 +36,11 @@ import {
   AttachFile as AttachFileIcon,
   Close as CloseIcon,
   Image as ImageIcon,
+  TaskAlt as TaskAltIcon,
+  ManageAccounts as ManageAccountsIcon,
+  AccountBalance as AccountBalanceIcon,
+  EastRounded as EastRoundedIcon,
+  OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { useExpenseOrders, useExpenseOrder, useExpenseTypes } from '../hooks';
@@ -209,6 +217,9 @@ export const ExpenseOrderFormPage = () => {
 
   const [activeStep, setActiveStep] = useState(0);
   const [visitedSteps, setVisitedSteps] = useState<Set<number>>(new Set([0]));
+
+  // ─── Post-creation info dialog ──────────────────────────────────────────────
+  const [createdOg, setCreatedOg] = useState<{ id: string; ogNumber: string } | null>(null);
 
   // ─── Step 1: Type & OT ──────────────────────────────────────────────────────
   const [expenseTypeId, setExpenseTypeId] = useState('');
@@ -539,7 +550,14 @@ export const ExpenseOrderFormPage = () => {
         dto: payload,
         confirmed: true,
       });
-      navigate(ROUTES.EXPENSE_ORDERS_DETAIL.replace(':id', og.id));
+      // Show informational dialog before navigating
+      setCreatedOg({ id: og.id, ogNumber: og.ogNumber });
+    }
+  };
+
+  const handleCreatedDialogClose = () => {
+    if (createdOg) {
+      navigate(ROUTES.EXPENSE_ORDERS_DETAIL.replace(':id', createdOg.id));
     }
   };
 
@@ -1213,6 +1231,203 @@ export const ExpenseOrderFormPage = () => {
           </Stack>
         </Box>
       </Box>
+
+      {/* ── Post-creation informational dialog ───────────────────────────────── */}
+      <Dialog
+        open={!!createdOg}
+        onClose={handleCreatedDialogClose}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            overflow: 'hidden',
+          },
+        }}
+      >
+        {/* Header con fondo de color */}
+        <Box
+          sx={{
+            background: (t) =>
+              `linear-gradient(135deg, ${t.palette.success.dark} 0%, ${t.palette.success.main} 100%)`,
+            px: 3,
+            pt: 3,
+            pb: 2.5,
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 2,
+          }}
+        >
+          <Box
+            sx={{
+              width: 48,
+              height: 48,
+              borderRadius: '50%',
+              bgcolor: 'rgba(255,255,255,0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              mt: 0.25,
+            }}
+          >
+            <TaskAltIcon sx={{ color: '#fff', fontSize: 28 }} />
+          </Box>
+          <Box>
+            <Typography variant="h6" fontWeight={700} color="#fff" lineHeight={1.2}>
+              ¡Orden de Gasto creada exitosamente!
+            </Typography>
+            <Chip
+              label={createdOg?.ogNumber ?? ''}
+              size="small"
+              sx={{
+                mt: 0.75,
+                bgcolor: 'rgba(255,255,255,0.25)',
+                color: '#fff',
+                fontWeight: 700,
+                fontSize: '0.8rem',
+                letterSpacing: 0.5,
+              }}
+            />
+          </Box>
+        </Box>
+
+        <DialogContent sx={{ px: 3, pt: 2.5, pb: 1 }}>
+          {/* Explicación del estado inicial */}
+          <Alert
+            severity="info"
+            icon={false}
+            sx={{
+              mb: 2.5,
+              borderRadius: 2,
+              bgcolor: (t) => alpha(t.palette.info.main, 0.08),
+              border: (t) => `1px solid ${alpha(t.palette.info.main, 0.2)}`,
+            }}
+          >
+            <Typography variant="body2" fontWeight={600} color="info.dark" sx={{ mb: 0.5 }}>
+              Estado inicial: <strong>Creada</strong>
+            </Typography>
+            <Typography variant="body2" color="text.secondary" lineHeight={1.6}>
+              La OG ha sido registrada en el sistema. Para que el pago se efectúe,
+              debe pasar por <strong>dos aprobaciones obligatorias</strong> en el siguiente orden:
+            </Typography>
+          </Alert>
+
+          {/* Flujo visual de aprobaciones */}
+          <Stack spacing={0}>
+            {/* Paso 1: Gerencia */}
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 2,
+                p: 2,
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'background.paper',
+              }}
+            >
+              <Box
+                sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: '50%',
+                  bgcolor: (t) => alpha(t.palette.warning.main, 0.12),
+                  border: (t) => `2px solid ${t.palette.warning.main}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <ManageAccountsIcon sx={{ color: 'warning.dark', fontSize: 20 }} />
+              </Box>
+              <Box flex={1}>
+                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.25 }}>
+                  <Typography variant="caption" fontWeight={700} color="warning.dark"
+                    sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    1ª Firma — Gerencia / Admin
+                  </Typography>
+                  <Chip label="Autorizada (Admin)" size="small" color="warning" variant="outlined"
+                    sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700 }} />
+                </Stack>
+                <Typography variant="body2" color="text.secondary" lineHeight={1.55}>
+                  Un administrador revisa que el gasto sea pertinente y lo aprueba.
+                  La OG cambia a estado <strong>"Autorizada (Admin)"</strong> pero
+                  <strong> el dinero aún no se desembolsa.</strong>
+                </Typography>
+              </Box>
+            </Box>
+
+            {/* Conector */}
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 0.5 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.25 }}>
+                <EastRoundedIcon sx={{ transform: 'rotate(90deg)', color: 'text.disabled', fontSize: 20 }} />
+              </Box>
+            </Box>
+
+            {/* Paso 2: Caja */}
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 2,
+                p: 2,
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'background.paper',
+              }}
+            >
+              <Box
+                sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: '50%',
+                  bgcolor: (t) => alpha(t.palette.success.main, 0.12),
+                  border: (t) => `2px solid ${t.palette.success.main}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <AccountBalanceIcon sx={{ color: 'success.dark', fontSize: 20 }} />
+              </Box>
+              <Box flex={1}>
+                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.25 }}>
+                  <Typography variant="caption" fontWeight={700} color="success.dark"
+                    sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    2ª Firma — Caja
+                  </Typography>
+                  <Chip label="Pagada automáticamente" size="small" color="success" variant="outlined"
+                    sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700 }} />
+                </Stack>
+                <Typography variant="body2" color="text.secondary" lineHeight={1.55}>
+                  Caja realiza la aprobación financiera, registra el movimiento de efectivo
+                  y la OG pasa <strong>automáticamente a estado "Pagada".</strong>
+                </Typography>
+              </Box>
+            </Box>
+          </Stack>
+
+          <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 2, textAlign: 'center' }}>
+            Puedes consultar el estado de la OG en cualquier momento desde el detalle.
+          </Typography>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 2.5, pt: 1, gap: 1 }}>
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<OpenInNewIcon />}
+            onClick={handleCreatedDialogClose}
+            fullWidth
+            sx={{ borderRadius: 2, py: 1.25, fontWeight: 700 }}
+          >
+            Entendido — Ver Orden de Gasto
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

@@ -50,6 +50,8 @@ import { CommentsModule } from './modules/comments/comments.module';
 import { CashRegisterModule } from './modules/cash-register/cash-register.module';
 import { CashSessionModule } from './modules/cash-session/cash-session.module';
 import { CashMovementModule } from './modules/cash-movement/cash-movement.module';
+import { CashMovementVoidRequestsModule } from './modules/cash-movement-void-requests/cash-movement-void-requests.module';
+import { RefundRequestsModule } from './modules/refund-requests/refund-requests.module';
 import { WsEventsModule } from './modules/ws-events/ws-events.module';
 
 @Module({
@@ -116,6 +118,8 @@ import { WsEventsModule } from './modules/ws-events/ws-events.module';
     AdvancePaymentApprovalsModule,
     // Módulo de Aprobación de Descuentos
     DiscountApprovalsModule,
+    // Módulo de Solicitudes de Devolución de Dinero al Cliente
+    RefundRequestsModule,
     // Módulo de Autorización de Propiedad de Cliente
     ClientOwnershipAuthRequestsModule,
     // Módulo de Trazabilidad de Órdenes
@@ -134,6 +138,7 @@ import { WsEventsModule } from './modules/ws-events/ws-events.module';
     CashRegisterModule,
     CashSessionModule,
     CashMovementModule,
+    CashMovementVoidRequestsModule,
     // Módulo de WebSocket Events (tiempo real)
     WsEventsModule,
   ],

@@ -32,6 +32,7 @@ import {
 import {
   Edit as EditIcon,
   SwapHoriz as SwapHorizIcon,
+  CheckCircle as CheckCircleIcon,
   Add as AddIcon,
   AttachFile as AttachFileIcon,
   Close as CloseIcon,
@@ -45,6 +46,7 @@ import {
   AccountTree as AccountTreeIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { StatusHighlight } from '../../../components/common/StatusHighlight';
 
 import { DocumentTypeBanner } from '../../../components/common/DocumentTypeBanner';
 import { ToolbarButton } from '../../orders/components/ToolbarButton';
@@ -90,8 +92,9 @@ const formatCurrency = (value?: string | number | null): string => {
 };
 
 const STATUS_TRANSITIONS: Record<ExpenseOrderStatus, ExpenseOrderStatus[]> = {
-  [ExpenseOrderStatus.DRAFT]: [ExpenseOrderStatus.CREATED, ExpenseOrderStatus.AUTHORIZED],
-  [ExpenseOrderStatus.CREATED]: [ExpenseOrderStatus.AUTHORIZED, ExpenseOrderStatus.DRAFT],
+  [ExpenseOrderStatus.DRAFT]: [ExpenseOrderStatus.CREATED, ExpenseOrderStatus.ADMIN_AUTHORIZED],
+  [ExpenseOrderStatus.CREATED]: [ExpenseOrderStatus.ADMIN_AUTHORIZED, ExpenseOrderStatus.DRAFT],
+  [ExpenseOrderStatus.ADMIN_AUTHORIZED]: [], // La segunda firma usa el botón dedicado
   [ExpenseOrderStatus.AUTHORIZED]: [],
   [ExpenseOrderStatus.PAID]: [],
 };
@@ -151,7 +154,7 @@ export const ExpenseOrderDetailPage = () => {
   const theme = useTheme();
   const { hasPermission } = useAuthStore();
 
-  const { expenseOrderQuery, updateStatusMutation, addExpenseItemMutation } = useExpenseOrder(id);
+  const { expenseOrderQuery, updateStatusMutation, addExpenseItemMutation, cajaAuthorizeMutation } = useExpenseOrder(id);
   const { suppliersQuery } = useSuppliers();
   const { productionAreasQuery } = useProductionAreas();
 
@@ -193,8 +196,15 @@ export const ExpenseOrderDetailPage = () => {
 
   const canUpdate = hasPermission(PERMISSIONS.UPDATE_EXPENSE_ORDERS);
   const canApprove = hasPermission(PERMISSIONS.APPROVE_EXPENSE_ORDERS);
+  const canCajaAuthorize = hasPermission(PERMISSIONS.CAJA_AUTHORIZE_EXPENSE_ORDERS);
 
   const og = expenseOrderQuery.data;
+
+  // ── Caja authorize ───────────────────────────────────────────────────────────
+  const handleCajaAuthorize = async () => {
+    if (!id) return;
+    await cajaAuthorizeMutation.mutateAsync(id);
+  };
 
   // ── Status change ────────────────────────────────────────────────────────────
   const handleStatusChange = async () => {
@@ -401,7 +411,7 @@ export const ExpenseOrderDetailPage = () => {
   const availableTransitions = isParentOrderAnulado
     ? []
     : allowedTransitions.filter((s) => {
-        if (s === ExpenseOrderStatus.PAID) return canApprove;
+        if (s === ExpenseOrderStatus.AUTHORIZED) return canApprove; // Solo Caja
         return canUpdate;
       });
 
@@ -423,6 +433,12 @@ export const ExpenseOrderDetailPage = () => {
           <strong>Esta orden de gasto proviene de una OP ANULADA.</strong> La Orden de Pedido relacionada ha sido anulada. Este registro es de solo lectura.
         </Alert>
       )}
+
+      <StatusHighlight
+        label={statusConfig.label}
+        color={statusConfig.color}
+        sx={{ mt: 2 }}
+      />
 
       {/* Toolbar de Acciones */}
       <Paper
@@ -477,6 +493,18 @@ export const ExpenseOrderDetailPage = () => {
               onClick={() => setStatusDialogOpen(true)}
               color={theme.palette.info.main}
               tooltip="Cambiar Estado"
+            />
+          )}
+
+          {og.status === ExpenseOrderStatus.ADMIN_AUTHORIZED && canCajaAuthorize && !isParentOrderAnulado && (
+            <ToolbarButton
+              icon={<CheckCircleIcon />}
+              label="Autorizar"
+              secondaryLabel="Firma Caja"
+              onClick={handleCajaAuthorize}
+              color={theme.palette.success.main}
+              tooltip="Segunda firma Caja — registra el pago"
+              disabled={cajaAuthorizeMutation.isPending}
             />
           )}
 
@@ -539,8 +567,14 @@ export const ExpenseOrderDetailPage = () => {
                 </Grid>
                 {og.authorizedBy && (
                   <Grid item xs={6} sm={3}>
-                    <Typography variant="caption" color="text.secondary">Autorizado por</Typography>
+                    <Typography variant="caption" color="text.secondary">Autorizado por (Admin)</Typography>
                     <Typography variant="body2">{userName(og.authorizedBy)}</Typography>
+                  </Grid>
+                )}
+                {og.cajaAuthorizedBy && (
+                  <Grid item xs={6} sm={3}>
+                    <Typography variant="caption" color="text.secondary">Autorizado por (Caja)</Typography>
+                    <Typography variant="body2">{userName(og.cajaAuthorizedBy)}</Typography>
                   </Grid>
                 )}
               </Grid>
@@ -842,7 +876,8 @@ export const ExpenseOrderDetailPage = () => {
             {availableTransitions.map((s) => (
               <MenuItem key={s} value={s}>
                 {EXPENSE_ORDER_STATUS_CONFIG[s].label}
-                {s === ExpenseOrderStatus.AUTHORIZED && ' (autoriza y registra pago en caja)'}
+                {s === ExpenseOrderStatus.ADMIN_AUTHORIZED && ' (Pre-autorizar — validación administrativa)'}
+                {s === ExpenseOrderStatus.AUTHORIZED && ' (Autorización Caja — registra pago)'}
               </MenuItem>
             ))}
           </TextField>

@@ -89,18 +89,31 @@ export const ChangeQuoteStatusDialog: React.FC<ChangeQuoteStatusDialogProps> = (
           disabled={isLoading}
           size="small"
         >
-          {availableStatuses.map((option) => (
-            <MenuItem key={option.value} value={option.value}>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Chip 
-                  label={option.label} 
-                  size="small" 
-                  color={QUOTE_STATUS_CONFIG[option.value as QuoteStatus].color}
-                  sx={{ mr: 1, height: 20 }}
-                />
-              </Box>
-            </MenuItem>
-          ))}
+          {availableStatuses.map((option) => {
+            const statusConfig = QUOTE_STATUS_CONFIG[option.value as QuoteStatus];
+            const isGradient = statusConfig.color === 'gradient';
+            
+            return (
+              <MenuItem key={option.value} value={option.value}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Chip 
+                    label={option.label} 
+                    size="small" 
+                    color={isGradient ? undefined : (statusConfig.color as any)}
+                    sx={{ 
+                      mr: 1, 
+                      height: 20,
+                      ...(isGradient && {
+                        background: 'linear-gradient(135deg, #2EB0C4 0%, #8B5CF6 50%, #FF2D95 100%)',
+                        color: 'white',
+                        border: 'none'
+                      })
+                    }}
+                  />
+                </Box>
+              </MenuItem>
+            );
+          })}
           {availableStatuses.length === 0 && (
             <MenuItem disabled value="">
               No hay transiciones disponibles

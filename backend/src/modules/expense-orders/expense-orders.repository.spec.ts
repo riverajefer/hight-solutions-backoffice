@@ -144,7 +144,7 @@ describe('ExpenseOrdersRepository', () => {
 
   describe('updateStatus', () => {
     it('should update status and optional auth fields', async () => {
-      await repository.updateStatus('eo1', 'AUTHORIZED' as any, 'auth1');
+      await repository.updateStatus('eo1', 'AUTHORIZED' as any, { authorizedById: 'auth1' });
       expect(prisma.expenseOrder.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'eo1' },

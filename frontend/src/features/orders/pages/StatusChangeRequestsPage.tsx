@@ -26,6 +26,8 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import PaymentIcon from '@mui/icons-material/Payment';
 import BadgeIcon from '@mui/icons-material/Badge';
+import BlockIcon from '@mui/icons-material/Block';
+import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -43,6 +45,10 @@ import type { ExpenseOrderAuthRequest } from '../../../types/expense-order-auth-
 import type { AdvancePaymentApproval } from '../../../types/advance-payment-approval.types';
 import { clientOwnershipAuthRequestsApi } from '../../../api/client-ownership-auth-requests.api';
 import type { ClientOwnershipAuthRequest } from '../../../types/client-ownership-auth-request.types';
+import { voidRequestsApi } from '../../../api/void-requests.api';
+import type { CashMovementVoidRequest } from '../../../types/void-request.types';
+import { refundRequestsApi } from '../../../api/refund-requests.api';
+import type { RefundRequest } from '../../../types/refund-request.types';
 
 // ============================================================
 // CONSTANTES
@@ -85,9 +91,11 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const canApproveAdvancePayments = hasPermission('approve_advance_payments') || isAdmin;
   const canApproveClientOwnership = hasPermission('approve_client_ownership_auth') || isAdmin;
   const canApproveExpenseOrders = hasPermission('approve_expense_orders') || isAdmin;
+  const canApproveVoidRequests = hasPermission('approve_cash_movements') || isAdmin;
+  const canApproveRefunds = hasPermission('approve_refunds') || isAdmin;
 
   const [tabValue, setTabValue] = useState<string>(
-    canApproveOrders ? 'status' : canApproveAdvancePayments ? 'advance' : canApproveClientOwnership ? 'ownership' : canApproveExpenseOrders ? 'og' : 'status',
+    canApproveOrders ? 'status' : canApproveAdvancePayments ? 'advance' : canApproveClientOwnership ? 'ownership' : canApproveExpenseOrders ? 'og' : canApproveVoidRequests ? 'void' : canApproveRefunds ? 'refund' : 'status',
   );
   
   const [viewMode, setViewMode] = useState<'pending' | 'history'>('pending');
@@ -132,6 +140,22 @@ export const StatusChangeRequestsPage: React.FC = () => {
   }>({ open: false, request: null, action: null });
   const [ownershipReviewNotes, setOwnershipReviewNotes] = useState('');
 
+  // --- Cash Movement Void Requests ---
+  const [voidReviewDialog, setVoidReviewDialog] = useState<{
+    open: boolean;
+    request: CashMovementVoidRequest | null;
+    action: 'approve' | 'reject' | null;
+  }>({ open: false, request: null, action: null });
+  const [voidReviewNotes, setVoidReviewNotes] = useState('');
+
+  // --- Refund Requests ---
+  const [refundReviewDialog, setRefundReviewDialog] = useState<{
+    open: boolean;
+    request: RefundRequest | null;
+    action: 'approve' | 'reject' | null;
+  }>({ open: false, request: null, action: null });
+  const [refundReviewNotes, setRefundReviewNotes] = useState('');
+
   // ============================================================
   // QUERIES
   // ============================================================
@@ -175,6 +199,22 @@ export const StatusChangeRequestsPage: React.FC = () => {
       : clientOwnershipAuthRequestsApi.findAll(),
     enabled: canApproveClientOwnership,
   });
+
+  const { data: voidRequestsData, isLoading: voidLoading } = useQuery({
+    queryKey: ['voidRequests', viewMode],
+    queryFn: () => viewMode === 'pending'
+      ? voidRequestsApi.getPending()
+      : voidRequestsApi.getAll(),
+    enabled: canApproveVoidRequests,
+  });
+
+  const { data: refundRequestsData, isLoading: refundLoading } = useQuery({
+    queryKey: ['refund-requests', viewMode],
+    queryFn: () => viewMode === 'pending'
+      ? refundRequestsApi.findPending()
+      : refundRequestsApi.findAll(),
+    enabled: canApproveRefunds,
+  });
   
   // En historial, no necesitamos mostrar los que ya están pendientes si queremos separarlos, o sí?
   // Normalmente "Historial" implica todo o solo lo ya resuelto. Para este caso, mostraremos todo o filtraremos.
@@ -184,6 +224,8 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const ogAuthRequests = viewMode === 'history' ? ogAuthRequestsData?.filter(r => r.status !== 'PENDING') : ogAuthRequestsData;
   const advancePaymentRequests = viewMode === 'history' ? advancePaymentRequestsData?.filter(r => r.status !== 'PENDING') : advancePaymentRequestsData;
   const ownershipRequests = viewMode === 'history' ? ownershipRequestsData?.filter(r => r.status !== 'PENDING') : ownershipRequestsData;
+  const voidRequests = viewMode === 'history' ? voidRequestsData?.filter(r => r.status !== 'PENDING') : voidRequestsData;
+  const refundRequests = viewMode === 'history' ? refundRequestsData?.filter(r => r.status !== 'PENDING') : refundRequestsData;
 
   // ============================================================
   // STATUS CHANGE MUTATIONS
@@ -362,6 +404,83 @@ export const StatusChangeRequestsPage: React.FC = () => {
     onError: (error: any) => {
       enqueueSnackbar(
         error.response?.data?.message || 'Error al rechazar la solicitud',
+        { variant: 'error' }
+      );
+    },
+  });
+
+  // ============================================================
+  // VOID REQUEST MUTATIONS
+  // ============================================================
+
+  const approveVoidMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
+      voidRequestsApi.approve(id, { reviewNotes: notes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['voidRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['void-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['cash-movements'] });
+      enqueueSnackbar('Solicitud de anulación aprobada. Movimiento anulado.', { variant: 'success' });
+      handleCloseVoidReviewDialog();
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(
+        error.response?.data?.message || 'Error al aprobar solicitud de anulación',
+        { variant: 'error' }
+      );
+    },
+  });
+
+  const rejectVoidMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes: string }) =>
+      voidRequestsApi.reject(id, { reviewNotes: notes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['voidRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['void-requests'] });
+      enqueueSnackbar('Solicitud de anulación rechazada', { variant: 'info' });
+      handleCloseVoidReviewDialog();
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(
+        error.response?.data?.message || 'Error al rechazar solicitud de anulación',
+        { variant: 'error' }
+      );
+    },
+  });
+
+  // ============================================================
+  // REFUND REQUEST MUTATIONS
+  // ============================================================
+
+  const approveRefundMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
+      refundRequestsApi.approve(id, { reviewNotes: notes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['refund-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      enqueueSnackbar('Devolución aprobada exitosamente', { variant: 'success' });
+      handleCloseRefundReviewDialog();
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(
+        error.response?.data?.message || 'Error al aprobar la devolución',
+        { variant: 'error' }
+      );
+    },
+  });
+
+  const rejectRefundMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes: string }) =>
+      refundRequestsApi.reject(id, { reviewNotes: notes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['refund-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      enqueueSnackbar('Devolución rechazada', { variant: 'info' });
+      handleCloseRefundReviewDialog();
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(
+        error.response?.data?.message || 'Error al rechazar la devolución',
         { variant: 'error' }
       );
     },
@@ -568,6 +687,84 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const handleCloseOwnershipReviewDialog = () => {
     setOwnershipReviewDialog({ open: false, request: null, action: null });
     setOwnershipReviewNotes('');
+  };
+
+  // ============================================================
+  // HANDLERS - VOID REQUESTS
+  // ============================================================
+
+  const handleApproveVoid = (request: CashMovementVoidRequest) => {
+    setVoidReviewDialog({ open: true, request, action: 'approve' });
+    setVoidReviewNotes('');
+  };
+
+  const handleRejectVoid = (request: CashMovementVoidRequest) => {
+    setVoidReviewDialog({ open: true, request, action: 'reject' });
+    setVoidReviewNotes('');
+  };
+
+  const handleConfirmVoidReview = () => {
+    if (!voidReviewDialog.request) return;
+
+    if (voidReviewDialog.action === 'approve') {
+      approveVoidMutation.mutate({
+        id: voidReviewDialog.request.id,
+        notes: voidReviewNotes || undefined,
+      });
+    } else if (voidReviewDialog.action === 'reject') {
+      if (!voidReviewNotes.trim()) {
+        enqueueSnackbar('Debe proporcionar una razón para rechazar', { variant: 'warning' });
+        return;
+      }
+      rejectVoidMutation.mutate({
+        id: voidReviewDialog.request.id,
+        notes: voidReviewNotes,
+      });
+    }
+  };
+
+  const handleCloseVoidReviewDialog = () => {
+    setVoidReviewDialog({ open: false, request: null, action: null });
+    setVoidReviewNotes('');
+  };
+
+  // ============================================================
+  // HANDLERS - REFUND REQUESTS
+  // ============================================================
+
+  const handleApproveRefund = (request: RefundRequest) => {
+    setRefundReviewDialog({ open: true, request, action: 'approve' });
+    setRefundReviewNotes('');
+  };
+
+  const handleRejectRefund = (request: RefundRequest) => {
+    setRefundReviewDialog({ open: true, request, action: 'reject' });
+    setRefundReviewNotes('');
+  };
+
+  const handleConfirmRefundReview = () => {
+    if (!refundReviewDialog.request) return;
+
+    if (refundReviewDialog.action === 'approve') {
+      approveRefundMutation.mutate({
+        id: refundReviewDialog.request.id,
+        notes: refundReviewNotes || undefined,
+      });
+    } else if (refundReviewDialog.action === 'reject') {
+      if (!refundReviewNotes.trim()) {
+        enqueueSnackbar('Debe proporcionar una razón para rechazar', { variant: 'warning' });
+        return;
+      }
+      rejectRefundMutation.mutate({
+        id: refundReviewDialog.request.id,
+        notes: refundReviewNotes,
+      });
+    }
+  };
+
+  const handleCloseRefundReviewDialog = () => {
+    setRefundReviewDialog({ open: false, request: null, action: null });
+    setRefundReviewNotes('');
   };
 
   // ============================================================
@@ -1054,6 +1251,231 @@ export const StatusChangeRequestsPage: React.FC = () => {
   ];
 
   // ============================================================
+  // COLUMNAS - VOID REQUESTS
+  // ============================================================
+
+  const MOVEMENT_TYPE_LABELS: Record<string, string> = {
+    INCOME: 'Ingreso',
+    EXPENSE: 'Egreso',
+    WITHDRAWAL: 'Retiro',
+    DEPOSIT: 'Depósito',
+  };
+
+  const voidColumns: GridColDef<CashMovementVoidRequest>[] = [
+    {
+      field: 'receiptNumber',
+      headerName: 'Nº Recibo',
+      width: 150,
+      valueGetter: (_, row) => row.cashMovement?.receiptNumber || '-',
+      renderCell: (params) => (
+        <Typography variant="body2" fontWeight={600}>
+          {params.value}
+        </Typography>
+      ),
+    },
+    {
+      field: 'movementType',
+      headerName: 'Tipo',
+      width: 120,
+      valueGetter: (_, row) => row.cashMovement?.movementType || '-',
+      renderCell: (params) => (
+        <Chip
+          label={MOVEMENT_TYPE_LABELS[params.value] || params.value}
+          size="small"
+          color={params.value === 'INCOME' || params.value === 'DEPOSIT' ? 'success' : 'error'}
+          variant="outlined"
+        />
+      ),
+    },
+    {
+      field: 'amount',
+      headerName: 'Monto',
+      width: 150,
+      valueGetter: (_, row) => row.cashMovement?.amount || '0',
+      renderCell: (params) => {
+        const amount = parseFloat(params.value);
+        return (
+          <Typography variant="body2" fontWeight={600}>
+            {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(amount)}
+          </Typography>
+        );
+      },
+    },
+    {
+      field: 'requestedBy',
+      headerName: 'Solicitado por',
+      width: 200,
+      valueGetter: (_, row) => getUserName(row.requestedBy),
+    },
+    {
+      field: 'voidReason',
+      headerName: 'Razón de Anulación',
+      width: 250,
+      renderCell: (params) => (
+        <Typography variant="body2" noWrap title={params.value || ''}>
+          {params.value || '-'}
+        </Typography>
+      ),
+    },
+    {
+      field: 'status',
+      headerName: 'Estado',
+      width: 130,
+      renderCell: (params) => {
+        const statusConfig = STATUS_LABELS[params.value] || { label: params.value, color: 'default' as const };
+        return (
+          <Chip
+            label={statusConfig.label}
+            color={statusConfig.color}
+            size="small"
+          />
+        );
+      },
+    },
+    {
+      field: 'createdAt',
+      headerName: 'Fecha Solicitud',
+      width: 150,
+      valueFormatter: (value) => formatDateTime(value),
+    },
+    ...(canApproveVoidRequests ? [{
+      field: 'actions',
+      type: 'actions' as const,
+      headerName: 'Acciones',
+      width: 120,
+      getActions: (params: any) => {
+        if (params.row.status !== 'PENDING') return [];
+        return [
+          <GridActionsCellItem
+            icon={<CheckCircleIcon sx={{ color: 'success.main' }} />}
+            label="Aprobar"
+            onClick={() => handleApproveVoid(params.row)}
+            showInMenu={false}
+          />,
+          <GridActionsCellItem
+            icon={<CancelIcon sx={{ color: 'error.main' }} />}
+            label="Rechazar"
+            onClick={() => handleRejectVoid(params.row)}
+            showInMenu={false}
+          />,
+        ];
+      },
+    }] : []),
+  ];
+
+  // ============================================================
+  // COLUMNAS - REFUND REQUESTS
+  // ============================================================
+
+  const REFUND_METHOD_LABELS: Record<string, string> = {
+    CASH: 'Efectivo',
+    TRANSFER: 'Transferencia',
+    CARD: 'Tarjeta',
+  };
+
+  const refundColumns: GridColDef<RefundRequest>[] = [
+    {
+      field: 'orderNumber',
+      headerName: 'Nº Orden',
+      width: 150,
+      valueGetter: (_, row) => row.order?.orderNumber || '-',
+      renderCell: (params) => (
+        <Box
+          sx={{ fontWeight: 600, color: 'primary.main', cursor: 'pointer' }}
+          onClick={() => params.row.order && handleViewOrder(params.row.order.id)}
+        >
+          {params.value}
+        </Box>
+      ),
+    },
+    {
+      field: 'refundAmount',
+      headerName: 'Monto',
+      width: 150,
+      renderCell: (params) => {
+        const amount = parseFloat(params.value);
+        return (
+          <Typography variant="body2" fontWeight={600}>
+            {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(amount)}
+          </Typography>
+        );
+      },
+    },
+    {
+      field: 'paymentMethod',
+      headerName: 'Método',
+      width: 130,
+      renderCell: (params) => (
+        <Chip label={REFUND_METHOD_LABELS[params.value] || params.value} size="small" />
+      ),
+    },
+    {
+      field: 'requestedBy',
+      headerName: 'Solicitado por',
+      width: 200,
+      valueGetter: (_, row) => {
+        const u = row.requestedBy;
+        if (!u) return '-';
+        return u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.email || '-';
+      },
+    },
+    {
+      field: 'observation',
+      headerName: 'Motivo',
+      width: 250,
+      renderCell: (params) => (
+        <Typography variant="body2" noWrap title={params.value || ''}>
+          {params.value || '-'}
+        </Typography>
+      ),
+    },
+    {
+      field: 'status',
+      headerName: 'Estado',
+      width: 130,
+      renderCell: (params) => {
+        const statusConfig = STATUS_LABELS[params.value] || { label: params.value, color: 'default' as const };
+        return (
+          <Chip
+            label={statusConfig.label}
+            color={statusConfig.color}
+            size="small"
+          />
+        );
+      },
+    },
+    {
+      field: 'requestedAt',
+      headerName: 'Fecha Solicitud',
+      width: 150,
+      valueFormatter: (value) => formatDateTime(value),
+    },
+    ...(canApproveRefunds ? [{
+      field: 'actions',
+      type: 'actions' as const,
+      headerName: 'Acciones',
+      width: 120,
+      getActions: (params: any) => {
+        if (params.row.status !== 'PENDING') return [];
+        return [
+          <GridActionsCellItem
+            icon={<CheckCircleIcon sx={{ color: 'success.main' }} />}
+            label="Aprobar"
+            onClick={() => handleApproveRefund(params.row)}
+            showInMenu={false}
+          />,
+          <GridActionsCellItem
+            icon={<CancelIcon sx={{ color: 'error.main' }} />}
+            label="Rechazar"
+            onClick={() => handleRejectRefund(params.row)}
+            showInMenu={false}
+          />,
+        ];
+      },
+    }] : []),
+  ];
+
+  // ============================================================
   // RENDER
   // ============================================================
 
@@ -1062,6 +1484,8 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const ogAuthCount = ogAuthRequests?.length || 0;
   const advanceCount = advancePaymentRequests?.length || 0;
   const ownershipCount = ownershipRequests?.length || 0;
+  const voidCount = voidRequests?.length || 0;
+  const refundCount = refundRequests?.length || 0;
 
   return (
     <Box>
@@ -1158,6 +1582,30 @@ export const StatusChangeRequestsPage: React.FC = () => {
               }
             />
           )}
+          {canApproveVoidRequests && (
+            <Tab
+              value="void"
+              icon={<BlockIcon />}
+              iconPosition="start"
+              label={
+                <Badge badgeContent={voidCount} color="warning" sx={{ pr: 1.5, '& .MuiBadge-badge': { right: 0, top: 2 } }}>
+                  Anulación de Caja
+                </Badge>
+              }
+            />
+          )}
+          {canApproveRefunds && (
+            <Tab
+              value="refund"
+              icon={<CurrencyExchangeIcon />}
+              iconPosition="start"
+              label={
+                <Badge badgeContent={refundCount} color="warning" sx={{ pr: 1.5, '& .MuiBadge-badge': { right: 0, top: 2 } }}>
+                  Devoluciones
+                </Badge>
+              }
+            />
+          )}
         </Tabs>
 
         {/* Tab: Cambio de Estado */}
@@ -1210,6 +1658,28 @@ export const StatusChangeRequestsPage: React.FC = () => {
             rows={ownershipRequests || []}
             columns={ownershipColumns}
             loading={ownershipLoading}
+            getRowId={(row) => row.id}
+            pageSize={25}
+          />
+        )}
+
+        {/* Tab: Anulación de Caja */}
+        {tabValue === 'void' && canApproveVoidRequests && (
+          <DataTable
+            rows={voidRequests || []}
+            columns={voidColumns}
+            loading={voidLoading}
+            getRowId={(row) => row.id}
+            pageSize={25}
+          />
+        )}
+
+        {/* Tab: Devoluciones */}
+        {tabValue === 'refund' && canApproveRefunds && (
+          <DataTable
+            rows={refundRequests || []}
+            columns={refundColumns}
+            loading={refundLoading}
             getRowId={(row) => row.id}
             pageSize={25}
           />
@@ -1508,6 +1978,151 @@ export const StatusChangeRequestsPage: React.FC = () => {
             }
           >
             {ownershipReviewDialog.action === 'approve' ? 'Aprobar' : 'Rechazar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog: Revisión de Anulación de Movimiento de Caja */}
+      <Dialog open={voidReviewDialog.open} onClose={handleCloseVoidReviewDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {voidReviewDialog.action === 'approve'
+            ? 'Aprobar Anulación de Movimiento'
+            : 'Rechazar Anulación de Movimiento'}
+        </DialogTitle>
+        <DialogContent>
+          {voidReviewDialog.request && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                <strong>Recibo:</strong> {voidReviewDialog.request.cashMovement?.receiptNumber || '-'}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Tipo:</strong>{' '}
+                {MOVEMENT_TYPE_LABELS[voidReviewDialog.request.cashMovement?.movementType || ''] || voidReviewDialog.request.cashMovement?.movementType}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Monto:</strong>{' '}
+                {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(
+                  parseFloat(voidReviewDialog.request.cashMovement?.amount || '0')
+                )}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Solicitado por:</strong> {getUserName(voidReviewDialog.request.requestedBy)}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Razón de anulación:</strong> {voidReviewDialog.request.voidReason}
+              </Typography>
+              {voidReviewDialog.action === 'approve' && (
+                <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
+                  Al aprobar, el movimiento será anulado y los saldos de la sesión serán actualizados.
+                </Typography>
+              )}
+            </Box>
+          )}
+
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            label={voidReviewDialog.action === 'approve' ? 'Notas (opcional)' : 'Razón del rechazo *'}
+            value={voidReviewNotes}
+            onChange={(e) => setVoidReviewNotes(e.target.value)}
+            placeholder={
+              voidReviewDialog.action === 'approve'
+                ? 'Agregue notas adicionales...'
+                : 'Explique por qué se rechaza la anulación...'
+            }
+            required={voidReviewDialog.action === 'reject'}
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseVoidReviewDialog}>Cancelar</Button>
+          <Button
+            onClick={handleConfirmVoidReview}
+            variant="contained"
+            color={voidReviewDialog.action === 'approve' ? 'success' : 'error'}
+            disabled={
+              approveVoidMutation.isPending ||
+              rejectVoidMutation.isPending ||
+              (voidReviewDialog.action === 'reject' && !voidReviewNotes.trim())
+            }
+          >
+            {voidReviewDialog.action === 'approve' ? 'Aprobar' : 'Rechazar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog: Revisión de Devolución */}
+      <Dialog open={refundReviewDialog.open} onClose={handleCloseRefundReviewDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {refundReviewDialog.action === 'approve'
+            ? 'Aprobar Devolución'
+            : 'Rechazar Devolución'}
+        </DialogTitle>
+        <DialogContent>
+          {refundReviewDialog.request && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                <strong>Orden:</strong> {refundReviewDialog.request.order?.orderNumber || '-'}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Monto a devolver:</strong>{' '}
+                {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(
+                  parseFloat(refundReviewDialog.request.refundAmount || '0')
+                )}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Método:</strong>{' '}
+                {({ CASH: 'Efectivo', TRANSFER: 'Transferencia', CARD: 'Tarjeta' } as Record<string, string>)[refundReviewDialog.request.paymentMethod] || refundReviewDialog.request.paymentMethod}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Solicitado por:</strong>{' '}
+                {refundReviewDialog.request.requestedBy
+                  ? (refundReviewDialog.request.requestedBy.firstName && refundReviewDialog.request.requestedBy.lastName
+                    ? `${refundReviewDialog.request.requestedBy.firstName} ${refundReviewDialog.request.requestedBy.lastName}`
+                    : refundReviewDialog.request.requestedBy.email || '-')
+                  : '-'}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Motivo:</strong> {refundReviewDialog.request.observation}
+              </Typography>
+              {refundReviewDialog.action === 'approve' && (
+                <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
+                  Al aprobar, se creará un egreso en la caja y se ajustará el saldo de la orden.
+                </Typography>
+              )}
+            </Box>
+          )}
+
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            label={refundReviewDialog.action === 'approve' ? 'Notas (opcional)' : 'Razón del rechazo *'}
+            value={refundReviewNotes}
+            onChange={(e) => setRefundReviewNotes(e.target.value)}
+            placeholder={
+              refundReviewDialog.action === 'approve'
+                ? 'Agregue notas adicionales...'
+                : 'Explique por qué se rechaza la devolución...'
+            }
+            required={refundReviewDialog.action === 'reject'}
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseRefundReviewDialog}>Cancelar</Button>
+          <Button
+            onClick={handleConfirmRefundReview}
+            variant="contained"
+            color={refundReviewDialog.action === 'approve' ? 'success' : 'error'}
+            disabled={
+              approveRefundMutation.isPending ||
+              rejectRefundMutation.isPending ||
+              (refundReviewDialog.action === 'reject' && !refundReviewNotes.trim())
+            }
+          >
+            {refundReviewDialog.action === 'approve' ? 'Aprobar' : 'Rechazar'}
           </Button>
         </DialogActions>
       </Dialog>

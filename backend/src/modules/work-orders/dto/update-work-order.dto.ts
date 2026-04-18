@@ -69,6 +69,11 @@ export class UpdateWorkOrderDto {
   @MaxLength(30)
   fileName?: string;
 
+  @ApiPropertyOptional({ description: 'ID del archivo adjunto subido al storage' })
+  @IsOptional()
+  @IsUUID()
+  attachmentId?: string;
+
   @ApiPropertyOptional({ description: 'Observaciones generales' })
   @IsOptional()
   @IsString()

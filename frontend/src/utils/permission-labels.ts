@@ -107,7 +107,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
    approve_orders: 'Aprobar Órdenes',
    change_order_status: 'Cambiar Estado de Órdenes',
    register_order_payments: 'Agrega pago en OP',
-   read_pending_orders: 'Ver Órdenes Pendientes de Pago',
+   read_pending_orders: 'Ver Órdenes Pendientes por Cobrar',
    approve_discounts: 'Aprobar Descuentos',
    apply_discounts: 'Aplicar Descuentos',
    delete_discounts: 'Eliminar Descuentos',
@@ -196,6 +196,12 @@ export const PERMISSION_LABELS: Record<string, string> = {
   create_cash_movements: 'Registrar Movimientos de Caja',
   void_cash_movements: 'Anular Movimientos de Caja',
   read_cash_movements: 'Ver Movimientos de Caja',
+  approve_cash_movements: 'Aprobar Movimientos de Caja',
+  caja_authorize_expense_orders: 'Autorizar Órdenes de Gasto en Caja',
+
+  // Devoluciones
+  approve_refunds: 'Aprobar Devoluciones',
+  create_refund_requests: 'Crear Solicitudes de Devolución',
 };
 
 /**

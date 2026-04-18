@@ -1,13 +1,15 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Paper, Typography, useTheme, alpha } from '@mui/material';
+import { Box, Paper, Typography, useTheme, alpha, Autocomplete, TextField } from '@mui/material';
 import { GridColDef } from '@mui/x-data-grid';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { DataTable } from '../../../components/common/DataTable';
 import { useOrders } from '../hooks';
+import { useClients } from '../../clients/hooks/useClients';
 import { OrderStatusChip } from '../components';
 import type { Order } from '../../../types/order.types';
+import type { Client } from '../../../types/client.types';
 import { neonColors } from '../../../theme';
 
 // ============================================================
@@ -50,9 +52,17 @@ export const PendingPaymentOrdersPage: React.FC = () => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
+  const [clientId, setClientId] = useState<string | undefined>(undefined);
+
+  const { clientsQuery } = useClients({ includeInactive: false });
+  const clients = clientsQuery.data || [];
+  const selectedClient = clientId
+    ? clients.find((c) => c.id === clientId) || null
+    : null;
+
   // Obtener todas las órdenes sin filtro de status (limit alto para cubrir
   // todas las pendientes). El filtro se aplica client-side.
-  const { ordersQuery } = useOrders({ limit: 200 });
+  const { ordersQuery } = useOrders({ limit: 500, clientId });
 
   // Filtro client-side: status activo + balance > 0
   const pendingOrders: Order[] = useMemo(() => {
@@ -179,10 +189,10 @@ export const PendingPaymentOrdersPage: React.FC = () => {
     <Box sx={{ p: 3 }}>
       {/* Header sin botón de acción — vista de solo lectura */}
       <PageHeader
-        title="Órdenes Pendientes de Pago"
+        title="Órdenes Pendientes por cobrar"
         breadcrumbs={[
           { label: 'Órdenes', path: '/orders' },
-          { label: 'Pendientes de Pago' },
+          { label: 'Pendientes por cobrar' },
         ]}
       />
 
@@ -272,6 +282,26 @@ export const PendingPaymentOrdersPage: React.FC = () => {
         </Box>
       </Paper>
 
+      {/* ── Filtros ── */}
+      <Box sx={{ mb: 2, width: { xs: '100%', sm: '280px' } }}>
+        <Autocomplete
+          fullWidth
+          size='small'
+          options={clients}
+          value={selectedClient}
+          onChange={(_, newValue) => setClientId(newValue?.id)}
+          getOptionLabel={(option: Client) => option.name}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label='Cliente'
+              placeholder='Todos los clientes'
+            />
+          )}
+          loading={clientsQuery.isLoading}
+        />
+      </Box>
+
       {/* ── Tabla de datos — solo lectura, sin columna de acciones ── */}
       <DataTable
         rows={pendingOrders}
@@ -279,7 +309,7 @@ export const PendingPaymentOrdersPage: React.FC = () => {
         loading={ordersQuery.isLoading}
         getRowId={(row) => row.id}
         onRowClick={handleRowClick}
-        emptyMessage="No hay órdenes pendientes de pago"
+        emptyMessage="No hay órdenes pendientes por cobrar"
       />
     </Box>
   );

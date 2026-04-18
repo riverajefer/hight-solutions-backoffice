@@ -246,23 +246,25 @@ describe('ExpenseOrdersService', () => {
       );
 
       expect(repository.updateStatus).toHaveBeenCalledWith('order-1', 'CREATED');
-      expect(result.status).toBe('CREATED');
+      expect(result!.status).toBe('CREATED');
     });
 
-    it('should update status to AUTHORIZED directly if admin', async () => {
+    it('should update status to ADMIN_AUTHORIZED directly if admin (first auth)', async () => {
       (repository.findById as jest.Mock).mockResolvedValue({
         id: 'order-1',
         status: ExpenseOrderStatus.CREATED,
       } as any);
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({ role: { name: 'admin' } } as any);
-      (repository.updateStatus as jest.Mock).mockResolvedValue({ id: 'order-1', status: ExpenseOrderStatus.AUTHORIZED } as any);
+      (repository.updateStatus as jest.Mock).mockResolvedValue({ id: 'order-1', status: ExpenseOrderStatus.ADMIN_AUTHORIZED } as any);
+      (repository.findById as jest.Mock).mockResolvedValueOnce({ id: 'order-1', status: ExpenseOrderStatus.CREATED } as any)
+        .mockResolvedValueOnce({ id: 'order-1', status: ExpenseOrderStatus.ADMIN_AUTHORIZED } as any);
 
-      await service.updateStatus('order-1', { status: ExpenseOrderStatus.AUTHORIZED } as any, { id: 'admin1' } as any);
-      
-      expect(repository.updateStatus).toHaveBeenCalledWith('order-1', 'AUTHORIZED', 'admin1', expect.any(Date));
+      await service.updateStatus('order-1', { status: ExpenseOrderStatus.ADMIN_AUTHORIZED } as any, { id: 'admin1', roleId: 'r1' } as any);
+
+      expect(repository.updateStatus).toHaveBeenCalledWith('order-1', 'ADMIN_AUTHORIZED', { authorizedById: 'admin1', authorizedAt: expect.any(Date) });
     });
 
-    it('should throw ForbiddenException if trying to authorize without approval (non-admin)', async () => {
+    it('should throw ForbiddenException if non-admin tries to pre-authorize without approved request', async () => {
       (repository.findById as jest.Mock).mockResolvedValue({
         id: 'order-1',
         status: ExpenseOrderStatus.CREATED,
@@ -271,7 +273,7 @@ describe('ExpenseOrdersService', () => {
       (authRequestsService.hasApprovedRequest as jest.Mock).mockResolvedValue(false);
 
       await expect(
-        service.updateStatus('order-1', { status: ExpenseOrderStatus.AUTHORIZED } as any, { id: 'u1' } as any)
+        service.updateStatus('order-1', { status: ExpenseOrderStatus.ADMIN_AUTHORIZED } as any, { id: 'u1', roleId: 'r1' } as any)
       ).rejects.toThrow(ForbiddenException);
     });
   });

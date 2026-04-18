@@ -75,6 +75,8 @@ export const PERMISSIONS = {
   READ_PENDING_ORDERS: 'read_pending_orders',
   APPROVE_ADVANCE_PAYMENTS: 'approve_advance_payments',
   APPROVE_CLIENT_OWNERSHIP_AUTH: 'approve_client_ownership_auth',
+  CREATE_REFUND_REQUESTS: 'create_refund_requests',
+  APPROVE_REFUNDS: 'approve_refunds',
   //READ_COMMERCIAL_CHANNELS
   READ_COMMERCIAL_CHANNELS: 'read_commercial_channels',
   CREATE_COMMERCIAL_CHANNELS: 'create_commercial_channels',
@@ -107,6 +109,7 @@ export const PERMISSIONS = {
   UPDATE_EXPENSE_ORDERS: 'update_expense_orders',
   DELETE_EXPENSE_ORDERS: 'delete_expense_orders',
   APPROVE_EXPENSE_ORDERS: 'approve_expense_orders',
+  CAJA_AUTHORIZE_EXPENSE_ORDERS: 'caja_authorize_expense_orders',
   // Payroll - Empleados de nómina
   CREATE_PAYROLL_EMPLOYEES: 'create_payroll_employees',
   READ_PAYROLL_EMPLOYEES: 'read_payroll_employees',
@@ -151,6 +154,7 @@ export const PERMISSIONS = {
   READ_CASH_SESSIONS: 'read_cash_sessions',
   CREATE_CASH_MOVEMENTS: 'create_cash_movements',
   VOID_CASH_MOVEMENTS: 'void_cash_movements',
+  APPROVE_CASH_MOVEMENTS: 'approve_cash_movements',
   READ_CASH_MOVEMENTS: 'read_cash_movements',
 };
 

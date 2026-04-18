@@ -113,6 +113,7 @@ export class WorkOrdersService {
           advisorId,
           designerId: dto.designerId,
           fileName: dto.fileName,
+          attachmentId: dto.attachmentId,
           observations: dto.observations,
           status,
           items: itemsData,

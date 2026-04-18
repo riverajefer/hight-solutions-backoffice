@@ -897,7 +897,7 @@ const DashboardPage: React.FC = () => {
           {hasPermission(PERMISSIONS.READ_ORDERS) && (
             <Grid item xs={12} sm={6} md={4}>
               <StatCard
-                title="Órdenes Pendientes de Pago"
+                title="Órdenes Pendientes por Cobrar"
                 value={pendingOrdersCount}
                 icon={<PaymentsIcon />}
                 color="#F97316"

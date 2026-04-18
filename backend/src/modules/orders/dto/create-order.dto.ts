@@ -99,6 +99,14 @@ export class CreateOrderItemDto {
   specifications?: Record<string, any>;
 
   @ApiPropertyOptional({
+    description: 'ID de la imagen de muestra',
+    example: 'uuid-imagen',
+  })
+  @IsOptional()
+  @IsString()
+  sampleImageId?: string;
+
+  @ApiPropertyOptional({
     description: 'IDs de las áreas de producción asociadas',
     example: ['uuid-area-1', 'uuid-area-2'],
   })

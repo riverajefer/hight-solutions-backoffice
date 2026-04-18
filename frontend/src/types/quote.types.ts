@@ -13,13 +13,13 @@ export enum QuoteStatus {
 
 export const QUOTE_STATUS_CONFIG: Record<
   QuoteStatus,
-  { label: string; color: 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' }
+  { label: string; color: 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' | 'gradient' }
 > = {
   [QuoteStatus.DRAFT]:       { label: 'Borrador',      color: 'default' },
   [QuoteStatus.SENT]:        { label: 'Enviada',        color: 'info' },
   [QuoteStatus.ACCEPTED]:    { label: 'Aceptada',       color: 'success' },
   [QuoteStatus.NO_RESPONSE]: { label: 'Sin respuesta',  color: 'warning' },
-  [QuoteStatus.CONVERTED]:   { label: 'Convertida',     color: 'secondary' },
+  [QuoteStatus.CONVERTED]:   { label: 'Convertida',     color: 'gradient' },
 };
 
 /**

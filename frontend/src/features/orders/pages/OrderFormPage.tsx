@@ -3,6 +3,8 @@ import {
   Box,
   Card,
   CardContent,
+  FormControlLabel,
+  Checkbox,
   TextField,
   Button,
   Stack,
@@ -46,6 +48,8 @@ import {
 import type { Client } from '../../../types/client.types';
 import { useAuthStore } from '../../../store/authStore';
 import { enqueueSnackbar } from 'notistack';
+import { storageApi } from '../../../api/storage.api';
+import { useQueryClient } from '@tanstack/react-query';
 
 // ============================================================
 // VALIDATION SCHEMA
@@ -59,13 +63,14 @@ const orderItemSchema = z.object({
   total: z.number().min(0),
   productId: z.string().optional(),
   specifications: z.record(z.any()).optional(),
+  sampleImageId: z.string().nullable().optional(),
   productionAreaIds: z.array(z.string()),
 });
 
 const initialPaymentSchema = z
   .object({
     amount: z.number().min(0, 'El monto del abono inicial no puede ser negativo'),
-    paymentMethod: z.enum(['CASH', 'TRANSFER', 'CARD', 'CREDIT']),
+    paymentMethod: z.enum(['CASH', 'TRANSFER', 'CARD', 'CREDIT', 'CREDIT_BALANCE']),
     reference: z.string().optional(),
     notes: z.string().optional(),
     receiptFile: z.any().optional(),
@@ -95,6 +100,7 @@ const orderFormSchema = z
     items: z.array(orderItemSchema).min(1, 'Debe agregar al menos un item'),
     applyTax: z.boolean(),
     taxRate: z.number().min(0).max(100),
+    useCreditBalance: z.boolean().optional(),
     payments: z.array(initialPaymentSchema).min(1),
     commercialChannelId: z.string().min(1, 'El canal de ventas es requerido'),
   })
@@ -117,8 +123,9 @@ const orderFormSchema = z
       const tax = data.applyTax ? subtotal * (data.taxRate / 100) : 0;
       const colorProofPrice = data.requiresColorProof ? (data.colorProofPrice || 0) : 0;
       const total = subtotal + tax + colorProofPrice;
+      const creditBalanceUsed = data.useCreditBalance && data.client ? Math.min(data.client.saldoAFavor || 0, total) : 0;
       const totalPaid = data.payments.reduce((sum, p) => sum + p.amount, 0);
-      return totalPaid <= total;
+      return totalPaid <= (total - creditBalanceUsed);
     },
     {
       message: 'La suma de los anticipos no puede ser mayor al total de la orden',
@@ -301,6 +308,7 @@ export const OrderFormPage: React.FC = () => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
+  const queryClient = useQueryClient();
   const [visitedSteps, setVisitedSteps] = useState<Set<number>>(new Set([0]));
 
   const { data: channels = [], isLoading: channelsLoading } = useQuery({
@@ -317,6 +325,7 @@ export const OrderFormPage: React.FC = () => {
     handleSubmit,
     watch,
     setValue,
+    getValues,
     formState: { errors, isValid },
   } = useForm<OrderFormData>({
     resolver: zodResolver(orderFormSchema) as Resolver<OrderFormData>,
@@ -340,6 +349,7 @@ export const OrderFormPage: React.FC = () => {
       ],
       applyTax: false,
       taxRate: 19,
+      useCreditBalance: false,
       payments: [
         {
           amount: 0,
@@ -364,6 +374,11 @@ export const OrderFormPage: React.FC = () => {
   const subtotal = items.reduce((sum, item) => sum + item.total, 0);
   const tax = applyTax ? subtotal * (taxRate / 100) : 0;
   const total = subtotal + tax + colorProofPrice;
+
+  const saldoAFavor = selectedClient?.saldoAFavor || 0;
+  const useCreditBalance = watch('useCreditBalance');
+  const creditBalanceUsed = useCreditBalance ? Math.min(saldoAFavor, total) : 0;
+  const remainingTotalAfterCredit = Math.max(0, total - creditBalanceUsed);
 
   const isClientSelected = !!selectedClient;
 
@@ -419,6 +434,7 @@ export const OrderFormPage: React.FC = () => {
           total: parseFloat(item.total),
           productId: item.product?.id,
           specifications: item.specifications || undefined,
+          sampleImageId: item.sampleImageId,
           productionAreaIds: item.productionAreas
             ? item.productionAreas.map((pa) => pa.productionArea.id)
             : [],
@@ -475,6 +491,31 @@ export const OrderFormPage: React.FC = () => {
   const onSubmit: SubmitHandler<OrderFormData> = async (data) => {
     setIsSubmitting(true);
     try {
+      const orderSubtotal = data.items.reduce((sum, i) => sum + i.total, 0);
+      const orderTax = data.applyTax ? orderSubtotal * (data.taxRate / 100) : 0;
+      const cpPrice = data.requiresColorProof ? (data.colorProofPrice || 0) : 0;
+      const orderTotal = orderSubtotal + orderTax + cpPrice;
+      const creditBalUsed = data.useCreditBalance ? Math.min(data.client!.saldoAFavor || 0, orderTotal) : 0;
+
+      let initialPaymentsPayload = !isEdit ? data.payments.map((p) => ({
+        amount: p.amount,
+        paymentMethod: p.paymentMethod,
+        reference: p.reference,
+        notes: p.notes,
+      })) as any[] : undefined;
+
+      if (!isEdit && creditBalUsed > 0) {
+        initialPaymentsPayload = [
+          {
+            amount: creditBalUsed,
+            paymentMethod: 'CREDIT_BALANCE',
+            reference: 'Uso automático de saldo a favor',
+            notes: '',
+          },
+          ...(initialPaymentsPayload || []),
+        ];
+      }
+
       const orderDto = {
         clientId: data.client!.id,
         deliveryDate: data.deliveryDate?.toISOString(),
@@ -492,6 +533,7 @@ export const OrderFormPage: React.FC = () => {
           unitPrice: parseFloat(item.unitPrice),
           productId: item.productId,
           specifications: item.specifications,
+          sampleImageId: item.sampleImageId ?? undefined,
           productionAreaIds: item.productionAreaIds,
         })),
         // En edición solo se actualiza el primer pago como initialPayment (comportamiento existente)
@@ -502,17 +544,23 @@ export const OrderFormPage: React.FC = () => {
           reference: data.payments[0].reference,
           notes: data.payments[0].notes,
         } : undefined,
-        initialPayments: !isEdit ? data.payments.map((p) => ({
-          amount: p.amount,
-          paymentMethod: p.paymentMethod,
-          reference: p.reference,
-          notes: p.notes,
-        })) : undefined,
+        initialPayments: initialPaymentsPayload,
         commercialChannelId: data.commercialChannelId,
       };
 
       if (isEdit) {
         await updateOrderMutation.mutateAsync(orderDto);
+        
+        // Subir comprobante editado si existe
+        if (data.payments[0] && data.payments[0].receiptFile && orderQuery.data?.payments?.[0]) {
+          try {
+            await ordersApi.uploadPaymentReceipt(id!, orderQuery.data.payments[0].id, data.payments[0].receiptFile);
+          } catch (e: any) {
+            console.error('Error al subir comprobante en edición:', e);
+            enqueueSnackbar('Orden actualizada, pero hubo un error subiendo el comprobante', { variant: 'warning' });
+          }
+        }
+        
         navigate(`/orders/${id}`);
       } else {
         const newOrder = await createOrderMutation.mutateAsync(orderDto);
@@ -675,6 +723,69 @@ export const OrderFormPage: React.FC = () => {
     </Stack>
   );
 
+  // ── Image handlers ──────────────────────────────────────────────────────────
+
+  const handleImageUpload = async (itemId: string, file: File) => {
+    if (!isEdit) {
+      const currentItems = getValues('items');
+      const existingItem = currentItems.find(i => i.id === itemId);
+      if (existingItem?.sampleImageId) {
+        try { await storageApi.deleteFile(existingItem.sampleImageId); } catch { /* ignore */ }
+      }
+      try {
+        const uploadedFile = await storageApi.uploadFile(file, { entityType: 'order' });
+        setValue('items', currentItems.map((item) =>
+          item.id === itemId ? { ...item, sampleImageId: uploadedFile.id } : item
+        ));
+        enqueueSnackbar('Imagen subida exitosamente', { variant: 'success' });
+      } catch (error: any) {
+        enqueueSnackbar(error.response?.data?.message || 'Error al subir la imagen', { variant: 'error' });
+      }
+      return;
+    }
+
+    const currentItem = orderQuery.data?.items?.find((item: any) => item.id === itemId);
+    if (!currentItem) {
+      enqueueSnackbar('Guarda los cambios antes de subir imágenes a ítems nuevos', { variant: 'warning' });
+      return;
+    }
+    try {
+      const uploadedFile = await ordersApi.uploadItemSampleImage(id!, itemId, file);
+      const currentItems = getValues('items');
+      setValue('items', currentItems.map((item) =>
+        item.id === itemId ? { ...item, sampleImageId: uploadedFile.id } : item
+      ));
+      enqueueSnackbar('Imagen subida exitosamente', { variant: 'success' });
+      queryClient.invalidateQueries({ queryKey: ['order', id] });
+    } catch (error: any) {
+      enqueueSnackbar(error.response?.data?.message || 'Error al subir la imagen', { variant: 'error' });
+    }
+  };
+
+  const handleImageDelete = async (itemId: string) => {
+    if (!isEdit) {
+      const currentItems = getValues('items');
+      const item = currentItems.find(i => i.id === itemId);
+      if (item?.sampleImageId) {
+        try { await storageApi.deleteFile(item.sampleImageId); } catch { /* ignore */ }
+      }
+      setValue('items', currentItems.map((i) => i.id === itemId ? { ...i, sampleImageId: undefined } : i));
+      enqueueSnackbar('Imagen eliminada', { variant: 'success' });
+      return;
+    }
+    try {
+      await ordersApi.deleteItemSampleImage(id!, itemId);
+      const currentItems = getValues('items');
+      setValue('items', currentItems.map((item) =>
+        item.id === itemId ? { ...item, sampleImageId: undefined } : item
+      ));
+      enqueueSnackbar('Imagen eliminada exitosamente', { variant: 'success' });
+      queryClient.invalidateQueries({ queryKey: ['order', id] });
+    } catch {
+      enqueueSnackbar('Error al eliminar la imagen', { variant: 'error' });
+    }
+  };
+
   const renderStep1 = () => (
     <Stack spacing={3}>
       <Card variant="outlined" sx={{ borderRadius: 2 }}>
@@ -700,6 +811,9 @@ export const OrderFormPage: React.FC = () => {
                   onChange={field.onChange}
                   errors={errors}
                   disabled={!isClientSelected}
+                  orderId={isEdit ? id : undefined}
+                  onImageUpload={handleImageUpload}
+                  onImageDelete={handleImageDelete}
                 />
               )}
             />
@@ -724,19 +838,21 @@ export const OrderFormPage: React.FC = () => {
                 name="requiresColorProof"
                 control={control}
                 render={({ field }) => (
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <input
-                      type="checkbox"
-                      id="requiresColorProof"
-                      checked={field.value}
-                      onChange={(e) => field.onChange(e.target.checked)}
-                      disabled={!isClientSelected}
-                      style={{ marginRight: '8px', width: '18px', height: '18px' }}
-                    />
-                    <label htmlFor="requiresColorProof" style={{ cursor: 'pointer', userSelect: 'none' }}>
-                      ¿Requiere prueba de color?
-                    </label>
-                  </Box>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={field.value}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                        disabled={!isClientSelected}
+                        id="requiresColorProof"
+                      />
+                    }
+                    label={
+                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                        ¿Requiere prueba de color?
+                      </Typography>
+                    }
+                  />
                 )}
               />
             </Grid>
@@ -797,18 +913,52 @@ export const OrderFormPage: React.FC = () => {
         )}
       />
 
+      {saldoAFavor > 0 && total > 0 && (
+        <Card variant="outlined" sx={{ borderRadius: 2, mb: 3 }}>
+          <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
+            <FormControlLabel
+              control={
+                <Controller
+                  name="useCreditBalance"
+                  control={control}
+                  render={({ field }) => (
+                    <Checkbox
+                      {...field}
+                      checked={field.value || false}
+                      // Comentamos disabled={isEdit} para que en editar se pueda ver, o mejor, si isEdit, no dejar cambiar
+                      disabled={isEdit}
+                    />
+                  )}
+                />
+              }
+              label={
+                <Typography variant="body1" fontWeight={600}>
+                  Usar saldo a favor del cliente ({formatCurrency(saldoAFavor)})
+                </Typography>
+              }
+            />
+            {useCreditBalance && (
+              <Typography variant="body2" color="text.secondary" sx={{ ml: 4 }}>
+                Se descontará automáticamente del total a pagar (aplica hasta {formatCurrency(Math.min(saldoAFavor, total))}).
+              </Typography>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <Controller
         name="payments"
         control={control}
         render={({ field: paymentsField }) => (
           <InitialPayment
-            total={total}
+            total={remainingTotalAfterCredit}
             enabled={true}
             values={paymentsField.value}
             onEnabledChange={() => {}}
             onChange={paymentsField.onChange}
             disabled={!isClientSelected}
             required={true}
+            creditBalance={saldoAFavor}
           />
         )}
       />
@@ -883,13 +1033,18 @@ export const OrderFormPage: React.FC = () => {
               <strong>Total:</strong> {formatCurrency(total)}
             </Typography>
             <Divider sx={{ my: 0.5 }} />
+            {useCreditBalance && creditBalanceUsed > 0 && (
+              <Typography variant="body2" color="success.main" fontWeight={600}>
+                <strong>Saldo a favor utilizado:</strong> - {formatCurrency(creditBalanceUsed)}
+              </Typography>
+            )}
             {watch('payments').map((p, i) => (
               <Typography key={i} variant="body2" color="primary.main" fontWeight={600}>
                 <strong>Anticipo {watch('payments').length > 1 ? i + 1 : ''}:</strong>{' '}
                 {formatCurrency(p.amount || 0)}{' '}
                 <Typography component="span" variant="body2" color="text.secondary" fontWeight={400}>
                   ({
-                    { CASH: 'Efectivo', TRANSFER: 'Transferencia', CARD: 'Tarjeta', CHECK: 'Cheque', CREDIT: 'Crédito', OTHER: 'Otro' }[p.paymentMethod] || p.paymentMethod
+                    { CASH: 'Efectivo', TRANSFER: 'Transferencia', CARD: 'Tarjeta', CHECK: 'Cheque', CREDIT: 'Crédito', OTHER: 'Otro', CREDIT_BALANCE: 'Saldo a favor' }[p.paymentMethod] || p.paymentMethod
                   })
                 </Typography>
               </Typography>
@@ -897,7 +1052,7 @@ export const OrderFormPage: React.FC = () => {
             <Divider sx={{ my: 0.5 }} />
             <Typography variant="body2" color="error.main" fontWeight={700}>
               <strong>Saldo por pagar:</strong>{' '}
-              {formatCurrency(total - watch('payments').reduce((sum, p) => sum + (p.amount || 0), 0))}
+              {formatCurrency(total - creditBalanceUsed - watch('payments').reduce((sum, p) => sum + (p.amount || 0), 0))}
             </Typography>
           </Stack>
         </CardContent>

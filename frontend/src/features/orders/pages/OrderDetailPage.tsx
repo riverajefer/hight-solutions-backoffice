@@ -59,12 +59,16 @@ import {
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
   ExpandMore as ExpandMoreIcon,
+  CurrencyExchange as CurrencyExchangeIcon,
+  HourglassEmpty as HourglassEmptyIcon,
+  WhatsApp as WhatsAppIcon,
 } from '@mui/icons-material';
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { StatusHighlight } from '../../../components/common/StatusHighlight';
 
 import { DocumentTypeBanner } from '../../../components/common/DocumentTypeBanner';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
@@ -76,7 +80,9 @@ import {
   ApplyDiscountDialog,
   DiscountsSection,
   ToolbarButton,
+  RefundRequestDialog,
 } from '../components';
+import { generateOrderPdf } from '../utils/generateOrderPdf';
 import { ActivePermissionBanner } from '../components/ActivePermissionBanner';
 import { RequestEditPermissionButton } from '../components/RequestEditPermissionButton';
 import { EditRequestsList } from '../components/EditRequestsList';
@@ -130,6 +136,14 @@ const formatDateTime = (date: string): string => {
   }).format(new Date(date));
 };
 
+const formatPhoneForWhatsApp = (phone: string): string => {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) return `57${digits}`;
+  if (digits.length === 12 && digits.startsWith('57')) return digits;
+  if (digits.length === 13 && digits.startsWith('057')) return digits.slice(1);
+  return digits;
+};
+
 interface TabPanelProps {
   children?: React.ReactNode;
   index: number;
@@ -172,9 +186,11 @@ export const OrderDetailPage: React.FC = () => {
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [discountDialogOpen, setDiscountDialogOpen] = useState(false);
+  const [refundDialogOpen, setRefundDialogOpen] = useState(false);
   const [tabValue, setTabValue] = useState(0);
   const [paymentData, setPaymentData] = useState<CreatePaymentDto>({
     amount: 0,
@@ -207,6 +223,10 @@ export const OrderDetailPage: React.FC = () => {
     url: string;
     mimeType: string;
   }>({ open: false, url: '', mimeType: '' });
+  const [viewSampleImageDialog, setViewSampleImageDialog] = useState<{
+    open: boolean;
+    url: string;
+  }>({ open: false, url: '' });
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceLoading, setInvoiceLoading] = useState(false);
@@ -287,6 +307,59 @@ export const OrderDetailPage: React.FC = () => {
     navigate('/orders');
   };
 
+  const handleShareWhatsApp = async () => {
+    if (!order) return;
+
+    if (!order.client?.phone) {
+      enqueueSnackbar('El cliente no tiene número de teléfono registrado', {
+        variant: 'info',
+      });
+      return;
+    }
+
+    setIsGeneratingPdf(true);
+    try {
+      const pdfDoc = await generateOrderPdf(order);
+      pdfDoc.save(`Orden_${order.orderNumber}.pdf`);
+
+      const whatsappPhone = formatPhoneForWhatsApp(order.client.phone);
+
+      const totalFormatted = formatCurrency(order.total);
+      const balanceFormatted = formatCurrency(order.balance);
+
+      const message = [
+        `Hola ${order.client.name},`,
+        ``,
+        `Adjunto encontrará la Orden de Pedido *${order.orderNumber}* de High Solutions.`,
+        ``,
+        `*Resumen:*`,
+        `• Total: ${totalFormatted}`,
+        `• Saldo Pendiente: ${balanceFormatted}`,
+        ``,
+        `Quedamos atentos a cualquier pregunta. ¡Gracias por preferirnos!`,
+      ].join('\\n');
+
+      const encodedMessage = encodeURIComponent(message);
+      window.open(
+        `https://wa.me/${whatsappPhone}?text=${encodedMessage}`,
+        '_blank',
+        'noopener,noreferrer',
+      );
+
+      enqueueSnackbar(
+        'PDF descargado. Adjúntalo en la conversación de WhatsApp que se abrió.',
+        { variant: 'success' },
+      );
+    } catch (error) {
+      console.error('Error al compartir por WhatsApp:', error);
+      enqueueSnackbar('Error al generar el PDF para compartir', {
+        variant: 'error',
+      });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
   const handleAddPayment = async () => {
     if (paymentSubmitting) return;
 
@@ -351,6 +424,16 @@ export const OrderDetailPage: React.FC = () => {
 
   const handleCloseViewReceipt = () => {
     setViewReceiptDialog({ open: false, url: '', mimeType: '' });
+  };
+
+  const handleViewSampleImage = async (sampleImageId: string) => {
+    try {
+      const { data } = await axiosInstance.get(`/storage/${sampleImageId}/url`);
+      setViewSampleImageDialog({ open: true, url: data.url });
+    } catch (error) {
+      console.error('Error loading image:', error);
+      enqueueSnackbar('Error al cargar la imagen', { variant: 'error' });
+    }
   };
 
   const handleOpenInvoiceDialog = () => {
@@ -476,6 +559,22 @@ export const OrderDetailPage: React.FC = () => {
 
   const balance = parseFloat(order.balance);
 
+  // Saldo a favor (overpayment) = paidAmount - total
+  const overpayment = Math.max(
+    0,
+    parseFloat(order.paidAmount) - parseFloat(order.total),
+  );
+  const hasOverpayment = overpayment > 0;
+  const pendingRefund = order.refundRequests?.find(
+    (r) => r.status === 'PENDING',
+  );
+  const hasPendingRefund = !!pendingRefund;
+  const canCreateRefund =
+    !isAnulado &&
+    hasOverpayment &&
+    !hasPendingRefund &&
+    permissions.includes('create_refund_requests');
+
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <DocumentTypeBanner type="OP" documentNumber={order.orderNumber} />
@@ -522,6 +621,23 @@ export const OrderDetailPage: React.FC = () => {
         </Alert>
       )}
 
+      {/* Alertas de devolución (saldo a favor) */}
+      {hasPendingRefund && pendingRefund && (
+        <Alert severity="warning" icon={<HourglassEmptyIcon />} sx={{ mt: 2 }}>
+          <strong>Devolución pendiente de aprobación.</strong> Monto:{' '}
+          {formatCurrency(pendingRefund.refundAmount)} ·{' '}
+          {PAYMENT_METHOD_LABELS[
+            pendingRefund.paymentMethod as PaymentMethod
+          ] ?? pendingRefund.paymentMethod}
+        </Alert>
+      )}
+      {hasOverpayment && !hasPendingRefund && (
+        <Alert severity="info" sx={{ mt: 2 }}>
+          <strong>Saldo a favor:</strong> {formatCurrency(overpayment.toString())}.
+          Puede registrar una devolución al cliente.
+        </Alert>
+      )}
+
       {/* Alertas de propiedad de cliente */}
       {order.clientOwnershipAuthStatus === 'PENDING' && (
         <Alert severity="warning" icon={<WarningIcon />} sx={{ mt: 2 }}>
@@ -541,6 +657,12 @@ export const OrderDetailPage: React.FC = () => {
             : order.client.advisor.email}
         </Alert>
       )}
+
+      <StatusHighlight
+        label={ORDER_STATUS_CONFIG[order.status].label}
+        color={ORDER_STATUS_CONFIG[order.status].color}
+        sx={{ mt: 2 }}
+      />
 
       {/* Toolbar de Acciones */}
       <Paper
@@ -614,6 +736,17 @@ export const OrderDetailPage: React.FC = () => {
             />
           )}
 
+          {canCreateRefund && (
+            <ToolbarButton
+              icon={<CurrencyExchangeIcon />}
+              label="Devolución"
+              secondaryLabel="Registrar"
+              onClick={() => setRefundDialogOpen(true)}
+              color={theme.palette.warning.main}
+              tooltip={`Registrar devolución al cliente (saldo a favor: ${formatCurrency(overpayment.toString())})`}
+            />
+          )}
+
           {canRegisterInvoice && (
             <ToolbarButton
               icon={<ReceiptIcon />}
@@ -646,6 +779,16 @@ export const OrderDetailPage: React.FC = () => {
           )}
 
           <OrderPdfButton order={order} />
+
+          <ToolbarButton
+            icon={<WhatsAppIcon />}
+            label="WhatsApp"
+            secondaryLabel="Compartir"
+            onClick={handleShareWhatsApp}
+            disabled={isGeneratingPdf}
+            color={theme.palette.success.main}
+            tooltip="Compartir por WhatsApp"
+          />
 
           {!order.workOrders?.[0] &&
             ['CONFIRMED', 'IN_PRODUCTION', 'READY'].includes(order.status) &&
@@ -690,7 +833,7 @@ export const OrderDetailPage: React.FC = () => {
                       Estado
                     </Typography>
                     <Box sx={{ mt: 1 }}>
-                      <OrderStatusChip status={order.status} size="medium" />
+                      <OrderStatusChip status={order.status} size="medium" variant="outlined" />
                     </Box>
                   </Grid>
 
@@ -836,6 +979,9 @@ export const OrderDetailPage: React.FC = () => {
                   <Table size="small" sx={{ minWidth: { xs: 600, sm: 'auto' } }}>
                     <TableHead>
                       <TableRow>
+                        {order.items?.some((i) => i.sampleImageId) && (
+                          <TableCell width="60px" align="center">Imagen</TableCell>
+                        )}
                         <TableCell>Descripción</TableCell>
                         <TableCell>Áreas de Producción</TableCell>
                         <TableCell align="right">Cantidad</TableCell>
@@ -846,6 +992,19 @@ export const OrderDetailPage: React.FC = () => {
                     <TableBody>
                       {order.items.map((item) => (
                         <TableRow key={item.id}>
+                          {order.items?.some((i) => i.sampleImageId) && (
+                            <TableCell align="center">
+                              {item.sampleImageId && (
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleViewSampleImage(item.sampleImageId!)}
+                                  color="primary"
+                                >
+                                  <VisibilityIcon fontSize="small" />
+                                </IconButton>
+                              )}
+                            </TableCell>
+                          )}
                           <TableCell>
                             {item.product && (
                               <Chip
@@ -1628,6 +1787,15 @@ export const OrderDetailPage: React.FC = () => {
         maxAmount={parseFloat(order.subtotal) + parseFloat(order.tax)}
       />
 
+      {/* Dialog: Registrar Devolución */}
+      <RefundRequestDialog
+        open={refundDialogOpen}
+        onClose={() => setRefundDialogOpen(false)}
+        orderId={id!}
+        orderNumber={order.orderNumber}
+        maxAmount={overpayment}
+      />
+
       {/* Dialog: Ver Comprobante */}
       <Dialog
         open={viewReceiptDialog.open}
@@ -1748,6 +1916,31 @@ export const OrderDetailPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      {/* Dialog: Ver Imagen de Muestra de Item */}
+      <Dialog
+        open={viewSampleImageDialog.open}
+        onClose={() => setViewSampleImageDialog({ open: false, url: '' })}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Imagen de Muestra
+          <IconButton onClick={() => setViewSampleImageDialog({ open: false, url: '' })} sx={{ position: 'absolute', right: 8, top: 8 }}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          {viewSampleImageDialog.url && (
+            <Box
+              component="img"
+              src={viewSampleImageDialog.url}
+              alt="Imagen de muestra"
+              sx={{ width: '100%', height: 'auto', maxHeight: '70vh', objectFit: 'contain' }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Dialog: Solicitar Autorización de Cambio de Estado */}
       {statusAuthDialogOpen && pendingStatus && order && (
         <StatusChangeAuthRequestDialog

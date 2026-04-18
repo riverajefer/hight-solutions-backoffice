@@ -37,6 +37,21 @@ export class OrdersRepository {
         },
       }
     },
+    refundRequests: {
+      where: { status: 'PENDING' as const },
+      select: {
+        id: true,
+        refundAmount: true,
+        paymentMethod: true,
+        observation: true,
+        status: true,
+        requestedAt: true,
+        requestedBy: {
+          select: { id: true, email: true, firstName: true, lastName: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' as const },
+    },
     clientOwnershipAuthStatus: true,
     requiresColorProof: true,
     colorProofPrice: true,
@@ -67,6 +82,10 @@ export class OrdersRepository {
             email: true,
           },
         },
+        orders: {
+          where: { balance: { lt: 0 } },
+          select: { balance: true }
+        }
       },
     },
     createdBy: {
@@ -85,6 +104,7 @@ export class OrdersRepository {
         unitPrice: true,
         total: true,
         specifications: true,
+        sampleImageId: true,
         sortOrder: true,
         productId: true,
         product: {
@@ -160,10 +180,20 @@ export class OrdersRepository {
   async findAll(status?: OrderStatus) {
     const where: Prisma.OrderWhereInput = status ? { status } : {};
 
-    return this.prisma.order.findMany({
+    const orders = await this.prisma.order.findMany({
       where,
       select: this.selectFields,
       orderBy: { orderDate: 'desc' },
+    });
+
+    return orders.map(order => {
+      let processedClient: any = order.client;
+      if (order.client) {
+        const { orders, ...clientRest } = order.client as any;
+        const saldoAFavor = orders?.reduce((sum: number, o: any) => sum + Math.abs(Number(o.balance)), 0) || 0;
+        processedClient = { ...clientRest, saldoAFavor };
+      }
+      return { ...order, client: processedClient };
     });
   }
 
@@ -250,7 +280,15 @@ export class OrdersRepository {
     ]);
 
     return {
-      data: orders,
+      data: orders.map(order => {
+        let processedClient: any = order.client;
+        if (order.client) {
+          const { orders, ...clientRest } = order.client as any;
+          const saldoAFavor = orders?.reduce((sum: number, o: any) => sum + Math.abs(Number(o.balance)), 0) || 0;
+          processedClient = { ...clientRest, saldoAFavor };
+        }
+        return { ...order, client: processedClient };
+      }),
       meta: {
         total,
         page,
@@ -266,8 +304,17 @@ export class OrdersRepository {
       select: this.selectFields,
     });
 
+    if (!order) return null;
+
+    let processedClient: any = order.client;
+    if (order.client) {
+      const { orders, ...clientRest } = order.client as any;
+      const saldoAFavor = orders?.reduce((sum: number, o: any) => sum + Math.abs(Number(o.balance)), 0) || 0;
+      processedClient = { ...clientRest, saldoAFavor };
+    }
+
     // Si hay información de cambio de fecha, buscar el usuario que lo hizo
-    if (order && order.deliveryDateChangedBy) {
+    if (order.deliveryDateChangedBy) {
       const changedByUser = await this.prisma.user.findUnique({
         where: { id: order.deliveryDateChangedBy },
         select: {
@@ -280,18 +327,30 @@ export class OrdersRepository {
 
       return {
         ...order,
+        client: processedClient,
         deliveryDateChangedByUser: changedByUser,
       };
     }
 
-    return order;
+    return { ...order, client: processedClient };
   }
 
   async findByOrderNumber(orderNumber: string) {
-    return this.prisma.order.findUnique({
+    const order = await this.prisma.order.findUnique({
       where: { orderNumber },
       select: this.selectFields,
     });
+
+    if (!order) return null;
+
+    let processedClient: any = order.client;
+    if (order.client) {
+      const { orders, ...clientRest } = order.client as any;
+      const saldoAFavor = orders?.reduce((sum: number, o: any) => sum + Math.abs(Number(o.balance)), 0) || 0;
+      processedClient = { ...clientRest, saldoAFavor };
+    }
+
+    return { ...order, client: processedClient };
   }
 
   async create(data: Prisma.OrderCreateInput) {

@@ -299,6 +299,7 @@ export class QuotesService {
               unitPrice: item.unitPrice,
               total: item.total,
               specifications: item.specifications || undefined,
+              sampleImageId: item.sampleImageId || undefined,
               sortOrder: item.sortOrder,
               productId: item.productId,
             })),

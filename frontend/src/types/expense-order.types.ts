@@ -3,6 +3,7 @@
 export enum ExpenseOrderStatus {
   DRAFT = 'DRAFT',
   CREATED = 'CREATED',
+  ADMIN_AUTHORIZED = 'ADMIN_AUTHORIZED',
   AUTHORIZED = 'AUTHORIZED',
   PAID = 'PAID',
 }
@@ -26,7 +27,8 @@ export interface ExpenseOrderStatusConfig {
 export const EXPENSE_ORDER_STATUS_CONFIG: Record<ExpenseOrderStatus, ExpenseOrderStatusConfig> = {
   [ExpenseOrderStatus.DRAFT]: { label: 'Borrador', color: 'default' },
   [ExpenseOrderStatus.CREATED]: { label: 'Creada', color: 'info' },
-  [ExpenseOrderStatus.AUTHORIZED]: { label: 'Autorizada', color: 'warning' },
+  [ExpenseOrderStatus.ADMIN_AUTHORIZED]: { label: 'Autorizada (Admin)', color: 'warning' },
+  [ExpenseOrderStatus.AUTHORIZED]: { label: 'Autorizada (Caja)', color: 'secondary' },
   [ExpenseOrderStatus.PAID]: { label: 'Pagada', color: 'success' },
 };
 
@@ -155,6 +157,14 @@ export interface ExpenseOrder {
   authorizedById?: string | null;
   authorizedAt?: string | null;
   authorizedBy?: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    email: string;
+  } | null;
+  cajaAuthorizedById?: string | null;
+  cajaAuthorizedAt?: string | null;
+  cajaAuthorizedBy?: {
     id: string;
     firstName?: string | null;
     lastName?: string | null;
