@@ -30,6 +30,10 @@ import BuildIcon from '@mui/icons-material/Build';
 import PostAddIcon from '@mui/icons-material/PostAdd';
 import PendingActionsIcon from '@mui/icons-material/PendingActions';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import SyncAltIcon from '@mui/icons-material/SyncAlt';
+import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
+import RequestPageIcon from '@mui/icons-material/RequestPage';
 
 import {
   usersApi,
@@ -53,7 +57,9 @@ import {
   expenseOrdersApi,
   orderStatusChangeRequestsApi,
   payrollEmployeesApi,
-  payrollPeriodsApi
+  payrollPeriodsApi,
+  cashRegisterApi,
+  inventoryApi
 } from '../../../api';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
@@ -81,6 +87,7 @@ const NEON_COLORS = {
   security: '#FF6B00',     // Naranja neón
   audit: '#BC13FE',        // Púrpura neón
   payroll: '#FF00FF',      // Magenta neón
+  caja: '#34d399',         // Esmeralda neón
 };
 
 const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, neonColor, action }) => {
@@ -468,6 +475,23 @@ const DashboardPage: React.FC = () => {
     },
   });
 
+  const { data: cashRegistersData = [], isLoading: cashRegistersLoading } = useQuery({
+    queryKey: ['cash-registers'],
+    queryFn: async () => {
+      if (!hasPermission(PERMISSIONS.READ_CASH_REGISTERS)) return [];
+      // we only care for length
+      return [];
+    },
+  });
+
+  const { data: inventoryMovementsData = { total: 0 }, isLoading: inventoryLoading } = useQuery({
+    queryKey: ['inventory'],
+    queryFn: async () => {
+      if (!hasPermission(PERMISSIONS.READ_INVENTORY_MOVEMENTS)) return { total: 0 };
+      return { total: 0 };
+    },
+  });
+
   const isLoading =
     usersLoading || rolesLoading || permissionsLoading || clientsLoading ||
     suppliersLoading || areasLoading || cargosLoading || auditLogsLoading ||
@@ -475,7 +499,7 @@ const DashboardPage: React.FC = () => {
     productionAreasLoading || channelsLoading || productCatsLoading ||
     supplyCatsLoading || unitsLoading || pendingOrdersLoading || quotesLoading ||
     workOrdersLoading || expenseOrdersLoading || statusChangeRequestsLoading || 
-    payrollEmployeesLoading || payrollPeriodsLoading;
+    payrollEmployeesLoading || payrollPeriodsLoading || cashRegistersLoading || inventoryLoading;
   
   // Logs de verificación de permisos específicos
   console.log('=== VERIFICACIÓN DE PERMISOS ESPECÍFICOS ===');
@@ -530,6 +554,9 @@ const DashboardPage: React.FC = () => {
     ? payrollPeriodsData.length 
     : ('total' in payrollPeriodsData ? (payrollPeriodsData as any).total : 0);
 
+  const cashRegistersCount = Array.isArray(cashRegistersData) ? cashRegistersData.length : 0;
+  const inventoryMovementsCount = inventoryMovementsData?.total || 0;
+
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setCurrentTab(newValue);
   };
@@ -559,7 +586,8 @@ const DashboardPage: React.FC = () => {
                 if (currentTab === 2) return isDark ? NEON_COLORS.logistics : '#15803d';
                 if (currentTab === 3) return isDark ? NEON_COLORS.organization : '#0369a1';
                 if (currentTab === 4) return isDark ? NEON_COLORS.security : '#c2410c';
-                return isDark ? NEON_COLORS.payroll : '#d946ef';
+                if (currentTab === 5) return isDark ? NEON_COLORS.payroll : '#d946ef';
+                return isDark ? NEON_COLORS.caja : '#047857';
               },
               boxShadow: (theme) =>
                 theme.palette.mode === 'dark'
@@ -569,7 +597,8 @@ const DashboardPage: React.FC = () => {
                       currentTab === 2 ? NEON_COLORS.logistics :
                       currentTab === 3 ? NEON_COLORS.organization :
                       currentTab === 4 ? NEON_COLORS.security :
-                      NEON_COLORS.payroll
+                      currentTab === 5 ? NEON_COLORS.payroll :
+                      NEON_COLORS.caja
                     }80`
                   : 'none',
             }
@@ -610,6 +639,9 @@ const DashboardPage: React.FC = () => {
             '& .MuiTab-root:nth-of-type(6).Mui-selected': {
               color: (theme) => theme.palette.mode === 'dark' ? NEON_COLORS.payroll : '#d946ef',
             },
+            '& .MuiTab-root:nth-of-type(7).Mui-selected': {
+              color: (theme) => theme.palette.mode === 'dark' ? NEON_COLORS.caja : '#047857',
+            },
           }}
         >
           <Tab
@@ -641,6 +673,11 @@ const DashboardPage: React.FC = () => {
             icon={<PaymentsIcon />}
             iconPosition="start"
             label="Nómina"
+          />
+          <Tab
+            icon={<AccountBalanceWalletIcon />}
+            iconPosition="start"
+            label="Caja y Gastos"
           />
         </Tabs>
       </Box>
@@ -1224,6 +1261,21 @@ const DashboardPage: React.FC = () => {
               />
             </Grid>
           )}
+          {hasPermission(PERMISSIONS.READ_INVENTORY_MOVEMENTS) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Mov. Inventario"
+                value={inventoryMovementsCount}
+                icon={<SyncAltIcon />}
+                color="#14B8A6"
+                neonColor={NEON_COLORS.logistics}
+                action={{
+                  label: 'Ver movimientos',
+                  onClick: () => navigate(ROUTES.INVENTORY_MOVEMENTS),
+                }}
+              />
+            </Grid>
+          )}
         </Grid>
       </TabPanel>
 
@@ -1409,6 +1461,87 @@ const DashboardPage: React.FC = () => {
                 action={{
                   label: 'Ver periodos',
                   onClick: () => navigate(ROUTES.PAYROLL_PERIODS),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_ATTENDANCE) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Asistencia"
+                value={0}
+                icon={<VerifiedUserIcon />}
+                color="#F59E0B"
+                neonColor={NEON_COLORS.payroll}
+                action={{
+                  label: 'Ver asistencia',
+                  onClick: () => navigate(ROUTES.ATTENDANCE),
+                }}
+              />
+            </Grid>
+          )}
+        </Grid>
+      </TabPanel>
+
+      {/* Tab 6: Caja y Gastos */}
+      <TabPanel value={currentTab} index={6}>
+        <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }}>
+          {hasPermission(PERMISSIONS.READ_CASH_REGISTERS) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Cajas Registradoras"
+                value={cashRegistersCount}
+                icon={<PointOfSaleIcon />}
+                color="#34D399"
+                neonColor={NEON_COLORS.caja}
+                action={{
+                  label: 'Ver cajas',
+                  onClick: () => navigate(ROUTES.CASH_REGISTERS),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_CASH_SESSIONS) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Historial Sesiones"
+                value={0}
+                icon={<HistoryIcon />}
+                color="#10B981"
+                neonColor={NEON_COLORS.caja}
+                action={{
+                  label: 'Historial',
+                  onClick: () => navigate(ROUTES.CASH_SESSION_HISTORY),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_EXPENSE_ORDERS) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Órdenes de Gastos"
+                value={expenseOrdersCount}
+                icon={<RequestPageIcon />}
+                color="#F43F5E"
+                neonColor={NEON_COLORS.caja}
+                action={{
+                  label: 'Gestión',
+                  onClick: () => navigate(ROUTES.EXPENSE_ORDERS),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.APPROVE_REFUNDS) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Devoluciones"
+                value={0}
+                icon={<SyncAltIcon />}
+                color="#3B82F6"
+                neonColor={NEON_COLORS.caja}
+                action={{
+                  label: 'Gestión',
+                  onClick: () => navigate(ROUTES.DASHBOARD),
                 }}
               />
             </Grid>

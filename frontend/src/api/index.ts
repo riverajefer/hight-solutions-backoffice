@@ -27,3 +27,5 @@ export { payrollEmployeesApi } from './payroll-employees.api';
 export { payrollPeriodsApi } from './payroll-periods.api';
 export { payrollItemsApi } from './payroll-items.api';
 export { commentsApi } from './comments.api';
+export { cashRegisterApi } from './cash-register.api';
+export { refundRequestsApi } from './refund-requests.api';
