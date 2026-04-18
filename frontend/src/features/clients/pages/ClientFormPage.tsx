@@ -90,7 +90,7 @@ const ClientFormPage: React.FC = () => {
   const { createClientMutation, updateClientMutation, updateSpecialConditionMutation } = useClients();
 
   // Users (for advisor selection — admin only)
-  const { usersQuery } = useUsers();
+  const { usersQuery } = useUsers({ enabled: canAssignAdvisor });
   const users = usersQuery.data || [];
 
   // Location data
