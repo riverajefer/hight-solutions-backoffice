@@ -108,8 +108,8 @@ import {
 } from '../../../types/order.types';
 import { CommentSection } from '../../comments';
 
-const formatCurrency = (value: string): string => {
-  const numValue = parseFloat(value);
+const formatCurrency = (value: string | number): string => {
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
   return new Intl.NumberFormat('es-CO', {
     style: 'currency',
     currency: 'COP',
@@ -1588,40 +1588,37 @@ export const OrderDetailPage: React.FC = () => {
                   amount,
                 });
               }}
-              color={(paymentData.amount || 0) > order.balance ? 'warning' : 'primary'}
-              InputProps={{
-                startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>,
-              }}
-              inputProps={{
-                style: { textAlign: 'right' },
-              }}
-              helperText={
-                (paymentData.amount || 0) > order.balance
-                  ? `Quedará un saldo a favor al cliente de ${formatCurrency((paymentData.amount || 0) - order.balance)}`
-                  : `Saldo pendiente: ${formatCurrency(order.balance)}`
-              }
-              FormHelperTextProps={{
-                sx: {
-                  color: (paymentData.amount || 0) > order.balance ? 'warning.main' : 'text.secondary',
-                  fontWeight: (paymentData.amount || 0) > order.balance ? 600 : 400
+                color={(paymentData.amount || 0) > parseFloat(order.balance) ? 'warning' : 'primary'}
+                InputProps={{
+                  startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>,
+                }}
+                inputProps={{
+                  style: { textAlign: 'right' },
+                }}
+                helperText={
+                  (paymentData.amount || 0) > parseFloat(order.balance)
+                    ? `Quedará un saldo a favor al cliente de ${formatCurrency((paymentData.amount || 0) - parseFloat(order.balance))}`
+                    : `Saldo pendiente: ${formatCurrency(order.balance)}`
                 }
-              }}
-            />
+                FormHelperTextProps={{
+                  sx: {
+                    color: (paymentData.amount || 0) > parseFloat(order.balance) ? 'warning.main' : 'text.secondary',
+                    fontWeight: (paymentData.amount || 0) > parseFloat(order.balance) ? 600 : 400
+                  }
+                }}
+              />
 
-            <FormControl fullWidth>
-              <InputLabel id="payment-method-label">Método de Pago</InputLabel>
-              <Select
-                labelId="payment-method-label"
-                id="payment-method-select"
-                value={paymentData.paymentMethod}
-                label="Método de Pago"
-                onChange={(e) =>
-                  setPaymentData({
-                    ...paymentData,
-                    paymentMethod: e.target.value as PaymentMethod,
-                  })
-                }
-              >
+              <FormControl fullWidth>
+                <InputLabel>Método de Pago</InputLabel>
+                <Select
+                  value={paymentData.paymentMethod}
+                  onChange={(e) =>
+                    setPaymentData({
+                      ...paymentData,
+                      paymentMethod: e.target.value as import('../../../types/order.types').PaymentMethod,
+                    })
+                  }
+                >
                 {(
                   Object.entries(PAYMENT_METHOD_LABELS) as [PaymentMethod, string][]
                 ).map(([method, label]) => (
