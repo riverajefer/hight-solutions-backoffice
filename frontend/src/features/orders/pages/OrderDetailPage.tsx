@@ -1103,7 +1103,7 @@ export const OrderDetailPage: React.FC = () => {
                     </Box>
                     <Box display="flex" justifyContent="space-between" mt={1}>
                       <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
-                        {parseFloat(order.balance) < 0 ? 'Saldo a favor:' : 'Saldo a cobrar:'}
+                        {parseFloat(order.balance) < 0 ? 'Saldo a favor del cliente:' : 'Saldo a cobrar:'}
                       </Typography>
                       <Typography
                         variant="h6"
