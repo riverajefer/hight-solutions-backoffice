@@ -108,8 +108,8 @@ import {
 } from '../../../types/order.types';
 import { CommentSection } from '../../comments';
 
-const formatCurrency = (value: string): string => {
-  const numValue = parseFloat(value);
+const formatCurrency = (value: string | number): string => {
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
   return new Intl.NumberFormat('es-CO', {
     style: 'currency',
     currency: 'COP',
@@ -1055,7 +1055,7 @@ export const OrderDetailPage: React.FC = () => {
                     <Box display="flex" justifyContent="space-between">
                       <Typography>Subtotal:</Typography>
                       <Typography fontWeight={500}>
-                        {formatCurrency(order.subtotal)}
+                        {formatCurrency(parseFloat(order.subtotal))}
                       </Typography>
                     </Box>
                     {parseFloat(order.tax) > 0 && (
@@ -1064,7 +1064,7 @@ export const OrderDetailPage: React.FC = () => {
                           IVA ({(parseFloat(order.taxRate) * 100).toFixed(1)}%):
                         </Typography>
                         <Typography fontWeight={500}>
-                          {formatCurrency(order.tax)}
+                          {formatCurrency(parseFloat(order.tax))}
                         </Typography>
                       </Box>
                     )}
@@ -1074,7 +1074,7 @@ export const OrderDetailPage: React.FC = () => {
                           Prueba de Color:
                         </Typography>
                         <Typography fontWeight={500}>
-                          {formatCurrency(order.colorProofPrice)}
+                          {formatCurrency(parseFloat(order.colorProofPrice as any || 0))}
                         </Typography>
                       </Box>
                     )}
@@ -1084,7 +1084,7 @@ export const OrderDetailPage: React.FC = () => {
                           Descuentos:
                         </Typography>
                         <Typography fontWeight={500} color="error.main">
-                          -{formatCurrency(order.discountAmount)}
+                          -{formatCurrency(parseFloat(order.discountAmount))}
                         </Typography>
                       </Box>
                     )}
@@ -1092,23 +1092,27 @@ export const OrderDetailPage: React.FC = () => {
                     <Box display="flex" justifyContent="space-between">
                       <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Total:</Typography>
                       <Typography variant="h6" color="primary.main" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
-                        {formatCurrency(order.total)}
+                        {formatCurrency(parseFloat(order.total))}
                       </Typography>
                     </Box>
                     <Box display="flex" justifyContent="space-between">
                       <Typography>Pagado:</Typography>
                       <Typography fontWeight={500} color="success.main">
-                        {formatCurrency(order.paidAmount)}
+                        {formatCurrency(parseFloat(order.paidAmount))}
                       </Typography>
                     </Box>
-                    <Box display="flex" justifyContent="space-between">
-                      <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Saldo:</Typography>
+                    <Box display="flex" justifyContent="space-between" mt={1}>
+                      <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+                        {parseFloat(order.balance) < 0 ? 'Saldo a favor:' : 'Saldo a cobrar:'}
+                      </Typography>
                       <Typography
                         variant="h6"
-                        color={balance > 0 ? 'warning.main' : 'success.main'}
+                        color={parseFloat(order.balance) < 0 ? 'warning.main' : parseFloat(order.balance) > 0 ? 'error.main' : 'success.main'}
                         sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
                       >
-                        {formatCurrency(order.balance)}
+                        {parseFloat(order.balance) < 0 
+                          ? formatCurrency(Math.abs(parseFloat(order.balance))) 
+                          : formatCurrency(parseFloat(order.balance))}
                       </Typography>
                     </Box>
                   </Stack>
@@ -1584,29 +1588,37 @@ export const OrderDetailPage: React.FC = () => {
                   amount,
                 });
               }}
-              InputProps={{
-                startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>,
-              }}
-              inputProps={{
-                style: { textAlign: 'right' },
-              }}
-              helperText={`Saldo pendiente: ${formatCurrency(order.balance)}`}
-            />
-
-            <FormControl fullWidth>
-              <InputLabel id="payment-method-label">Método de Pago</InputLabel>
-              <Select
-                labelId="payment-method-label"
-                id="payment-method-select"
-                value={paymentData.paymentMethod}
-                label="Método de Pago"
-                onChange={(e) =>
-                  setPaymentData({
-                    ...paymentData,
-                    paymentMethod: e.target.value as PaymentMethod,
-                  })
+                color={(paymentData.amount || 0) > parseFloat(order.balance) ? 'warning' : 'primary'}
+                InputProps={{
+                  startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>,
+                }}
+                inputProps={{
+                  style: { textAlign: 'right' },
+                }}
+                helperText={
+                  (paymentData.amount || 0) > parseFloat(order.balance)
+                    ? `Quedará un saldo a favor al cliente de ${formatCurrency((paymentData.amount || 0) - parseFloat(order.balance))}`
+                    : `Saldo pendiente: ${formatCurrency(order.balance)}`
                 }
-              >
+                FormHelperTextProps={{
+                  sx: {
+                    color: (paymentData.amount || 0) > parseFloat(order.balance) ? 'warning.main' : 'text.secondary',
+                    fontWeight: (paymentData.amount || 0) > parseFloat(order.balance) ? 600 : 400
+                  }
+                }}
+              />
+
+              <FormControl fullWidth>
+                <InputLabel>Método de Pago</InputLabel>
+                <Select
+                  value={paymentData.paymentMethod}
+                  onChange={(e) =>
+                    setPaymentData({
+                      ...paymentData,
+                      paymentMethod: e.target.value as import('../../../types/order.types').PaymentMethod,
+                    })
+                  }
+                >
                 {(
                   Object.entries(PAYMENT_METHOD_LABELS) as [PaymentMethod, string][]
                 ).map(([method, label]) => (
