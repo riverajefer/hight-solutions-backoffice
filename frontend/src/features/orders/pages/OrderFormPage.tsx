@@ -117,21 +117,7 @@ const orderFormSchema = z
       path: ['items'],
     }
   )
-  .refine(
-    (data) => {
-      const subtotal = data.items.reduce((sum, item) => sum + item.total, 0);
-      const tax = data.applyTax ? subtotal * (data.taxRate / 100) : 0;
-      const colorProofPrice = data.requiresColorProof ? (data.colorProofPrice || 0) : 0;
-      const total = subtotal + tax + colorProofPrice;
-      const creditBalanceUsed = data.useCreditBalance && data.client ? Math.min(data.client.saldoAFavor || 0, total) : 0;
-      const totalPaid = data.payments.reduce((sum, p) => sum + p.amount, 0);
-      return totalPaid <= (total - creditBalanceUsed);
-    },
-    {
-      message: 'La suma de los anticipos no puede ser mayor al total de la orden',
-      path: ['payments'],
-    }
-  )
+  // Se eliminó la validación que restringe que los pagos superen el total, dado que se permite saldo a favor
   .refine(
     (data) => {
       const cashCount = data.payments.filter((p) => p.paymentMethod === 'CASH').length;

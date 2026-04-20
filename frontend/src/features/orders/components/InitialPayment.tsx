@@ -222,14 +222,20 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
                         const amount = rawValue ? parseInt(rawValue, 10) : 0;
                         handleFieldChange(index, 'amount', amount);
                       }}
-                      error={totalPaid > total}
+                      color={totalPaid > total ? 'warning' : 'primary'}
                       helperText={
                         totalPaid > total
-                          ? `La suma supera el total (${formatCurrency(total)})`
+                          ? `Quedará un saldo a favor al cliente de ${formatCurrency(totalPaid - total)}`
                           : disabled
                           ? 'Primero seleccione un cliente'
-                          : `Máximo disponible: ${formatCurrency(total)}`
+                          : `Total de la orden: ${formatCurrency(total)}`
                       }
+                      FormHelperTextProps={{
+                        sx: {
+                          color: totalPaid > total ? 'warning.main' : 'text.secondary',
+                          fontWeight: totalPaid > total ? 600 : 400
+                        }
+                      }}
                       disabled={disabled}
                       InputProps={{
                         startAdornment: (
