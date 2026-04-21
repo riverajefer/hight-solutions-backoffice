@@ -81,7 +81,7 @@ export const storageApi = {
   uploadFile: async (
     file: File,
     options?: { entityType?: string; entityId?: string }
-  ): Promise<{ id: string }> => {
+  ): Promise<{ id: string; url: string; originalName: string; mimeType: string; size: number }> => {
     const formData = new FormData();
     formData.append('file', file);
     if (options?.entityType) formData.append('entityType', options.entityType);

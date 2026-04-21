@@ -47,6 +47,7 @@ import BuildIcon from '@mui/icons-material/Build';
 import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import GroupsIcon from '@mui/icons-material/Groups';
@@ -178,6 +179,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           permission: PERMISSIONS.READ_EXPENSE_ORDERS,
         },
         {
+          label: 'Cuentas por Pagar',
+          icon: <AccountBalanceIcon />,
+          path: ROUTES.ACCOUNTS_PAYABLE,
+          permission: PERMISSIONS.READ_ACCOUNTS_PAYABLE,
+        },
+        {
           label: 'Órdenes Pendientes por cobrar',
           icon: <PaymentsIcon />,
           path: ROUTES.PENDING_PAYMENT_ORDERS,
@@ -218,6 +225,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
         PERMISSIONS.READ_ORDERS,
         PERMISSIONS.READ_WORK_ORDERS,
         PERMISSIONS.READ_EXPENSE_ORDERS,
+        PERMISSIONS.READ_ACCOUNTS_PAYABLE,
         PERMISSIONS.BROWSE_CLIENTS,
         PERMISSIONS.CREATE_CLIENTS,
         PERMISSIONS.READ_COMMERCIAL_CHANNELS,
