@@ -399,7 +399,7 @@ export const WorkOrderDetailPage = () => {
                           startIcon={<DownloadIcon />}
                           onClick={async () => {
                             try {
-                              const url = await storageApi.getFileUrl(workOrder.attachment!.id);
+                              const { url } = await storageApi.getFileUrl(workOrder.attachment!.id);
                               window.open(url, '_blank', 'noopener,noreferrer');
                             } catch (error) {
                               console.error('Error opening file:', error);
@@ -421,7 +421,7 @@ export const WorkOrderDetailPage = () => {
                           startIcon={<DownloadIcon />}
                           onClick={async () => {
                             try {
-                              const url = await storageApi.getFileUrl(workOrder.attachment2!.id);
+                              const { url } = await storageApi.getFileUrl(workOrder.attachment2!.id);
                               window.open(url, '_blank', 'noopener,noreferrer');
                             } catch (error) {
                               console.error('Error opening file:', error);
