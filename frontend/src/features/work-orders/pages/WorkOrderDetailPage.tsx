@@ -392,23 +392,43 @@ export const WorkOrderDetailPage = () => {
                   {workOrder.attachment && (
                     <Box>
                       <Typography variant="caption" color="text.secondary">Archivo Adjunto</Typography>
-                      <Box mt={0.5}>
+                      <Box mt={0.5} display="flex" gap={2} flexWrap="wrap">
                         <Button
                           size="small"
                           variant="outlined"
                           startIcon={<DownloadIcon />}
                           onClick={async () => {
                             try {
-                              await storageApi.downloadFile(
-                                workOrder.attachment!.id,
-                                workOrder.attachment!.originalName
-                              );
+                              const url = await storageApi.getFileUrl(workOrder.attachment!.id);
+                              window.open(url, '_blank', 'noopener,noreferrer');
                             } catch (error) {
-                              console.error('Error al descargar el archivo', error);
+                              console.error('Error opening file:', error);
                             }
                           }}
                         >
-                          Descargar ({workOrder.attachment.originalName})
+                          {workOrder.attachment.originalName} ({(workOrder.attachment.size / 1024 / 1024).toFixed(2)} MB)
+                        </Button>
+                      </Box>
+                    </Box>
+                  )}
+                  {workOrder.attachment2 && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Archivo Adjunto Adicional</Typography>
+                      <Box mt={0.5} display="flex" gap={2} flexWrap="wrap">
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<DownloadIcon />}
+                          onClick={async () => {
+                            try {
+                              const url = await storageApi.getFileUrl(workOrder.attachment2!.id);
+                              window.open(url, '_blank', 'noopener,noreferrer');
+                            } catch (error) {
+                              console.error('Error opening file:', error);
+                            }
+                          }}
+                        >
+                          {workOrder.attachment2.originalName} ({(workOrder.attachment2.size / 1024 / 1024).toFixed(2)} MB)
                         </Button>
                       </Box>
                     </Box>

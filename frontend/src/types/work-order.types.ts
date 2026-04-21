@@ -91,6 +91,13 @@ export interface WorkOrder {
     mimeType: string;
     size: number;
   } | null;
+  attachment2?: {
+    id: string;
+    fileName: string;
+    originalName: string;
+    mimeType: string;
+    size: number;
+  } | null;
   observations?: string | null;
   order: {
     id: string;
@@ -160,6 +167,7 @@ export interface CreateWorkOrderDto {
   designerId?: string;
   fileName?: string;
   attachmentId?: string;
+  attachment2Id?: string;
   observations?: string;
   items: CreateWorkOrderItemDto[];
 }
@@ -176,6 +184,7 @@ export interface UpdateWorkOrderDto {
   designerId?: string | null;
   fileName?: string | null;
   attachmentId?: string | null;
+  attachment2Id?: string | null;
   observations?: string | null;
   items?: UpdateWorkOrderItemDto[];
 }

@@ -920,7 +920,8 @@ model UploadedFile {
   isDeleted    Boolean     @default(false) @map("is_deleted")
   createdAt    DateTime    @default(now()) @map("created_at")
   updatedAt    DateTime    @updatedAt @map("updated_at")
-  workOrders   WorkOrder[]
+  workOrders   WorkOrder[] @relation("WorkOrderAttachment1")
+  workOrders2  WorkOrder[] @relation("WorkOrderAttachment2")
 
   @@index([entityType, entityId])
   @@index([uploadedBy])
@@ -956,6 +957,7 @@ model WorkOrder {
   designerId      String?         @map("designer_id")
   fileName        String?         @map("file_name") // max 30 chars
   attachmentId    String?         @map("attachment_id")
+  attachment2Id   String?         @map("attachment2_id")
   observations    String?
   status          WorkOrderStatus @default(DRAFT)
   createdAt       DateTime        @default(now()) @map("created_at")
@@ -964,7 +966,8 @@ model WorkOrder {
   order            Order                @relation(fields: [orderId], references: [id])
   advisor          User                 @relation("WorkOrderAdvisor", fields: [advisorId], references: [id])
   designer         User?                @relation("WorkOrderDesigner", fields: [designerId], references: [id])
-  attachment       UploadedFile?        @relation(fields: [attachmentId], references: [id])
+  attachment       UploadedFile?        @relation("WorkOrderAttachment1", fields: [attachmentId], references: [id])
+  attachment2      UploadedFile?        @relation("WorkOrderAttachment2", fields: [attachment2Id], references: [id])
   items            WorkOrderItem[]
   timeEntries      WorkOrderTimeEntry[]
   expenseOrders    ExpenseOrder[]
@@ -1761,15 +1764,15 @@ model CashMovement {
   createdAt         DateTime         @default(now()) @map("created_at")
   updatedAt         DateTime         @updatedAt @map("updated_at")
 
-  cashSession      CashSession               @relation(fields: [cashSessionId], references: [id])
-  performedBy      User                      @relation("PerformedCashMovements", fields: [performedById], references: [id])
-  voidedBy         User?                     @relation("VoidedCashMovements", fields: [voidedById], references: [id])
-  counterMovement  CashMovement?             @relation("CounterMovement", fields: [counterMovementId], references: [id])
-  originalMovement CashMovement?             @relation("CounterMovement")
-  linkedPayment           Payment?
-  voidRequests            CashMovementVoidRequest[]
-  refundRequest           RefundRequest?
-  accountPayablePayment   AccountPayablePayment?
+  cashSession           CashSession               @relation(fields: [cashSessionId], references: [id])
+  performedBy           User                      @relation("PerformedCashMovements", fields: [performedById], references: [id])
+  voidedBy              User?                     @relation("VoidedCashMovements", fields: [voidedById], references: [id])
+  counterMovement       CashMovement?             @relation("CounterMovement", fields: [counterMovementId], references: [id])
+  originalMovement      CashMovement?             @relation("CounterMovement")
+  linkedPayment         Payment?
+  voidRequests          CashMovementVoidRequest[]
+  refundRequest         RefundRequest?
+  accountPayablePayment AccountPayablePayment?
 
   @@index([cashSessionId])
   @@index([performedById])
@@ -1871,36 +1874,36 @@ enum AccountPayableType {
 }
 
 model AccountPayable {
-  id             String               @id @default(uuid())
-  apNumber       String               @unique @map("ap_number")
-  type           AccountPayableType
-  status         AccountPayableStatus @default(PENDING)
-  description    String
-  observations   String?
-  totalAmount    Decimal              @map("total_amount") @db.Decimal(12, 2)
-  paidAmount     Decimal              @default(0) @map("paid_amount") @db.Decimal(12, 2)
-  balance        Decimal              @map("balance") @db.Decimal(12, 2)
-  dueDate        DateTime             @map("due_date")
-  isRecurring    Boolean              @default(false) @map("is_recurring")
-  recurringDay   Int?                 @map("recurring_day")
+  id           String               @id @default(uuid())
+  apNumber     String               @unique @map("ap_number")
+  type         AccountPayableType
+  status       AccountPayableStatus @default(PENDING)
+  description  String
+  observations String?
+  totalAmount  Decimal              @map("total_amount") @db.Decimal(12, 2)
+  paidAmount   Decimal              @default(0) @map("paid_amount") @db.Decimal(12, 2)
+  balance      Decimal              @map("balance") @db.Decimal(12, 2)
+  dueDate      DateTime             @map("due_date")
+  isRecurring  Boolean              @default(false) @map("is_recurring")
+  recurringDay Int?                 @map("recurring_day")
 
-  supplierId     String?              @map("supplier_id")
-  expenseOrderId String?              @unique @map("expense_order_id")
+  supplierId     String? @map("supplier_id")
+  expenseOrderId String? @unique @map("expense_order_id")
 
-  createdById    String               @map("created_by_id")
-  createdAt      DateTime             @default(now()) @map("created_at")
-  updatedAt      DateTime             @updatedAt @map("updated_at")
-  cancelledAt    DateTime?            @map("cancelled_at")
-  cancelledById  String?              @map("cancelled_by_id")
-  cancelReason   String?              @map("cancel_reason")
+  createdById   String    @map("created_by_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  cancelledAt   DateTime? @map("cancelled_at")
+  cancelledById String?   @map("cancelled_by_id")
+  cancelReason  String?   @map("cancel_reason")
 
-  supplier      Supplier?                  @relation(fields: [supplierId], references: [id])
-  expenseOrder  ExpenseOrder?              @relation(fields: [expenseOrderId], references: [id])
-  createdBy     User                       @relation("AccountPayableCreatedBy", fields: [createdById], references: [id])
-  cancelledBy   User?                      @relation("AccountPayableCancelledBy", fields: [cancelledById], references: [id])
-  payments      AccountPayablePayment[]
-  attachments   AccountPayableAttachment[]
-  installments  AccountPayableInstallment[]
+  supplier     Supplier?                   @relation(fields: [supplierId], references: [id])
+  expenseOrder ExpenseOrder?               @relation(fields: [expenseOrderId], references: [id])
+  createdBy    User                        @relation("AccountPayableCreatedBy", fields: [createdById], references: [id])
+  cancelledBy  User?                       @relation("AccountPayableCancelledBy", fields: [cancelledById], references: [id])
+  payments     AccountPayablePayment[]
+  attachments  AccountPayableAttachment[]
+  installments AccountPayableInstallment[]
 
   @@index([status])
   @@index([dueDate])
@@ -1951,17 +1954,17 @@ model AccountPayableAttachment {
 }
 
 model AccountPayableInstallment {
-  id               String    @id @default(uuid())
-  accountPayableId String    @map("account_payable_id")
-  installmentNumber Int      @map("installment_number")
-  amount           Decimal   @db.Decimal(12, 2)
-  dueDate          DateTime  @map("due_date")
-  isPaid           Boolean   @default(false) @map("is_paid")
-  paidAt           DateTime? @map("paid_at")
-  paidById         String?   @map("paid_by_id")
-  notes            String?
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
+  id                String    @id @default(uuid())
+  accountPayableId  String    @map("account_payable_id")
+  installmentNumber Int       @map("installment_number")
+  amount            Decimal   @db.Decimal(12, 2)
+  dueDate           DateTime  @map("due_date")
+  isPaid            Boolean   @default(false) @map("is_paid")
+  paidAt            DateTime? @map("paid_at")
+  paidById          String?   @map("paid_by_id")
+  notes             String?
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
 
   accountPayable AccountPayable @relation(fields: [accountPayableId], references: [id], onDelete: Cascade)
   paidBy         User?          @relation("InstallmentPaidBy", fields: [paidById], references: [id])

@@ -72,7 +72,12 @@ export class UpdateWorkOrderDto {
   @ApiPropertyOptional({ description: 'ID del archivo adjunto subido al storage' })
   @IsOptional()
   @IsUUID()
-  attachmentId?: string;
+  attachmentId?: string | null;
+
+  @ApiPropertyOptional({ description: 'ID of an additional uploaded file for the work order' })
+  @IsOptional()
+  @IsUUID()
+  attachment2Id?: string | null;
 
   @ApiPropertyOptional({ description: 'Observaciones generales' })
   @IsOptional()
