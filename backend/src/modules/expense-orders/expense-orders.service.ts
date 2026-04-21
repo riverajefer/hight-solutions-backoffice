@@ -19,6 +19,7 @@ import {
 } from './dto';
 import { AuthenticatedUser } from '../../common/interfaces/auth.interface';
 import { ExpenseOrderAuthRequestsService } from '../expense-order-auth-requests/expense-order-auth-requests.service';
+import { AccountsPayableService } from '../accounts-payable/accounts-payable.service';
 
 const ALLOWED_TRANSITIONS: Record<ExpenseOrderStatus, ExpenseOrderStatus[]> = {
   [ExpenseOrderStatus.DRAFT]: [ExpenseOrderStatus.CREATED, ExpenseOrderStatus.ADMIN_AUTHORIZED],
@@ -41,6 +42,7 @@ export class ExpenseOrdersService {
     private readonly prisma: PrismaService,
     @Inject(forwardRef(() => ExpenseOrderAuthRequestsService))
     private readonly authRequestsService: ExpenseOrderAuthRequestsService,
+    private readonly accountsPayableService: AccountsPayableService,
   ) {}
 
   async create(
@@ -362,7 +364,21 @@ export class ExpenseOrdersService {
       });
     }
 
-    return this.repository.updateStatus(id, ExpenseOrderStatus.PAID);
+    const paid = await this.repository.updateStatus(id, ExpenseOrderStatus.PAID);
+
+    // Crear Cuenta por Pagar automáticamente si no existe una asociada
+    const totalAmount = expenseOrder.items.reduce(
+      (sum: number, item: { total: unknown }) => sum + Number(item.total),
+      0,
+    );
+    await this.accountsPayableService.createFromExpenseOrder(
+      id,
+      `Orden de Gasto ${expenseOrder.ogNumber}`,
+      totalAmount,
+      currentUser.id,
+    );
+
+    return paid;
   }
 
   async remove(id: string) {

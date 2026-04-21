@@ -53,6 +53,7 @@ import { CashMovementModule } from './modules/cash-movement/cash-movement.module
 import { CashMovementVoidRequestsModule } from './modules/cash-movement-void-requests/cash-movement-void-requests.module';
 import { RefundRequestsModule } from './modules/refund-requests/refund-requests.module';
 import { WsEventsModule } from './modules/ws-events/ws-events.module';
+import { AccountsPayableModule } from './modules/accounts-payable/accounts-payable.module';
 
 @Module({
   imports: [
@@ -139,6 +140,8 @@ import { WsEventsModule } from './modules/ws-events/ws-events.module';
     CashSessionModule,
     CashMovementModule,
     CashMovementVoidRequestsModule,
+    // Módulo de Cuentas por Pagar
+    AccountsPayableModule,
     // Módulo de WebSocket Events (tiempo real)
     WsEventsModule,
   ],

@@ -21,4 +21,5 @@ export const ENTITY_TYPES = {
   SUPPLIER: 'supplier',
   EXPENSE_ORDER: 'expense_order',
   WORK_ORDER: 'work_order',
+  ACCOUNT_PAYABLE: 'account_payable',
 } as const;

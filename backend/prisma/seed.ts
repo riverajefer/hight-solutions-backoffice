@@ -314,6 +314,13 @@ async function main() {
     { name: 'void_cash_movements', description: 'Anular movimientos de caja' },
     { name: 'approve_cash_movements', description: 'Aprobar/rechazar solicitudes de anulación de movimientos de caja' },
     { name: 'read_cash_movements', description: 'Ver movimientos de caja' },
+
+    // Cuentas por Pagar
+    { name: 'create_accounts_payable', description: 'Crear cuentas por pagar' },
+    { name: 'read_accounts_payable', description: 'Ver cuentas por pagar' },
+    { name: 'update_accounts_payable', description: 'Editar cuentas por pagar' },
+    { name: 'delete_accounts_payable', description: 'Anular cuentas por pagar' },
+    { name: 'register_ap_payment', description: 'Registrar pagos en cuentas por pagar' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
@@ -460,6 +467,9 @@ async function main() {
     // Comments (Manager)
     'create_comments',
     'read_comments',
+    // Cuentas por Pagar (Manager)
+    'read_accounts_payable',
+    'register_ap_payment',
   ]);
 
   // User - solo lectura básica
