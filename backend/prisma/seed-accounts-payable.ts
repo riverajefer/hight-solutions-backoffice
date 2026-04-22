@@ -207,7 +207,7 @@ async function main() {
 
   // 1. Arriendo mensual — PAID — recurrente
   await createAP({
-    apNumber: 'AP-2026-0001',
+    apNumber: 'CP-2026-0001',
     expenseTypeId: etRecurrentes.id,
     expenseSubcategoryId: scArriendo!.id,
     status: 'PAID',
@@ -226,7 +226,7 @@ async function main() {
 
   // 2. Internet fibra óptica — PAID — recurrente
   await createAP({
-    apNumber: 'AP-2026-0002',
+    apNumber: 'CP-2026-0002',
     expenseTypeId: etRecurrentes.id,
     expenseSubcategoryId: scInternet!.id,
     status: 'PAID',
@@ -243,7 +243,7 @@ async function main() {
 
   // 3. Luz y agua — PARTIAL
   await createAP({
-    apNumber: 'AP-2026-0003',
+    apNumber: 'CP-2026-0003',
     expenseTypeId: etRecurrentes.id,
     expenseSubcategoryId: scLuzAgua!.id,
     status: 'PARTIAL',
@@ -261,7 +261,7 @@ async function main() {
 
   // 4. Hosting web — PENDING — recurrente
   await createAP({
-    apNumber: 'AP-2026-0004',
+    apNumber: 'CP-2026-0004',
     expenseTypeId: etRecurrentes.id,
     expenseSubcategoryId: scHosting!.id,
     status: 'PENDING',
@@ -275,7 +275,7 @@ async function main() {
 
   // 5. Licencias Adobe Creative Cloud — PENDING
   await createAP({
-    apNumber: 'AP-2026-0005',
+    apNumber: 'CP-2026-0005',
     expenseTypeId: etRecurrentes.id,
     expenseSubcategoryId: scLicencias!.id,
     status: 'PENDING',
@@ -287,7 +287,7 @@ async function main() {
 
   // 6. Honorarios contador — PAID — plan cuotas 3 cuotas todas pagadas
   await createAP({
-    apNumber: 'AP-2026-0006',
+    apNumber: 'CP-2026-0006',
     expenseTypeId: etAdministrativos.id,
     expenseSubcategoryId: scContador!.id,
     status: 'PAID',
@@ -310,7 +310,7 @@ async function main() {
 
   // 7. Asesoría legal — PARTIAL — plan cuotas 3 cuotas, 2 pagadas
   await createAP({
-    apNumber: 'AP-2026-0007',
+    apNumber: 'CP-2026-0007',
     expenseTypeId: etAdministrativos.id,
     expenseSubcategoryId: scAsesoriaLegal!.id,
     status: 'PARTIAL',
@@ -332,7 +332,7 @@ async function main() {
 
   // 8. Software CRM — PENDING
   await createAP({
-    apNumber: 'AP-2026-0008',
+    apNumber: 'CP-2026-0008',
     expenseTypeId: etAdministrativos.id,
     expenseSubcategoryId: scSoftware!.id,
     status: 'PENDING',
@@ -344,7 +344,7 @@ async function main() {
 
   // 9. Comisión bancaria préstamo — OVERDUE
   await createAP({
-    apNumber: 'AP-2026-0009',
+    apNumber: 'CP-2026-0009',
     expenseTypeId: etAdministrativos.id,
     expenseSubcategoryId: scBancos!.id,
     status: 'OVERDUE',
@@ -357,7 +357,7 @@ async function main() {
 
   // 10. Papelería y útiles — PAID — con proveedor
   await createAP({
-    apNumber: 'AP-2026-0010',
+    apNumber: 'CP-2026-0010',
     expenseTypeId: etOperativos.id,
     expenseSubcategoryId: scPapeleria!.id,
     status: 'PAID',
@@ -373,7 +373,7 @@ async function main() {
 
   // 11. Herramientas de corte — PARTIAL — con proveedor
   await createAP({
-    apNumber: 'AP-2026-0011',
+    apNumber: 'CP-2026-0011',
     expenseTypeId: etOperativos.id,
     expenseSubcategoryId: scHerramientas!.id,
     status: 'PARTIAL',
@@ -390,7 +390,7 @@ async function main() {
 
   // 12. Combustible vehículo — PENDING
   await createAP({
-    apNumber: 'AP-2026-0012',
+    apNumber: 'CP-2026-0012',
     expenseTypeId: etOperativos.id,
     expenseSubcategoryId: scCombustible!.id,
     status: 'PENDING',
@@ -402,7 +402,7 @@ async function main() {
 
   // 13. Mantenimiento equipos — OVERDUE — con proveedor
   await createAP({
-    apNumber: 'AP-2026-0013',
+    apNumber: 'CP-2026-0013',
     expenseTypeId: etOperativos.id,
     expenseSubcategoryId: scMantenimiento!.id,
     status: 'OVERDUE',
@@ -416,7 +416,7 @@ async function main() {
 
   // 14. Insumos limpieza — PAID
   await createAP({
-    apNumber: 'AP-2026-0014',
+    apNumber: 'CP-2026-0014',
     expenseTypeId: etOperativos.id,
     expenseSubcategoryId: scInsumosInternos!.id,
     status: 'PAID',
@@ -431,7 +431,7 @@ async function main() {
 
   // 15. Materiales proyecto impresión gran formato — PAID — plan cuotas 4 cuotas todas pagadas — con proveedor
   await createAP({
-    apNumber: 'AP-2026-0015',
+    apNumber: 'CP-2026-0015',
     expenseTypeId: etProduccion.id,
     expenseSubcategoryId: scMaterialesCliente!.id,
     status: 'PAID',
@@ -457,7 +457,7 @@ async function main() {
 
   // 16. Diseño subcontratado — PARTIAL — con proveedor
   await createAP({
-    apNumber: 'AP-2026-0016',
+    apNumber: 'CP-2026-0016',
     expenseTypeId: etProduccion.id,
     expenseSubcategoryId: scSubcontratados!.id,
     status: 'PARTIAL',
@@ -474,7 +474,7 @@ async function main() {
 
   // 17. Tintas Epson — PENDING — con proveedor
   await createAP({
-    apNumber: 'AP-2026-0017',
+    apNumber: 'CP-2026-0017',
     expenseTypeId: etProduccion.id,
     expenseSubcategoryId: scTintas!.id,
     status: 'PENDING',
@@ -487,7 +487,7 @@ async function main() {
 
   // 18. Insumos plóter — OVERDUE — con proveedor
   await createAP({
-    apNumber: 'AP-2026-0018',
+    apNumber: 'CP-2026-0018',
     expenseTypeId: etProduccion.id,
     expenseSubcategoryId: scInsumosProduccion!.id,
     status: 'OVERDUE',
@@ -501,7 +501,7 @@ async function main() {
 
   // 19. Anticipo empleado — PAID — efectivo
   await createAP({
-    apNumber: 'AP-2026-0019',
+    apNumber: 'CP-2026-0019',
     expenseTypeId: etPersonal.id,
     expenseSubcategoryId: scAnticipos!.id,
     status: 'PAID',
@@ -517,7 +517,7 @@ async function main() {
 
   // 20. Viáticos viaje Medellín — PENDING
   await createAP({
-    apNumber: 'AP-2026-0020',
+    apNumber: 'CP-2026-0020',
     expenseTypeId: etPersonal.id,
     expenseSubcategoryId: scViaticos!.id,
     status: 'PENDING',
@@ -530,7 +530,7 @@ async function main() {
 
   // 21. Capacitación diseño gráfico — PARTIAL — plan cuotas 2 cuotas, 1 pagada
   await createAP({
-    apNumber: 'AP-2026-0021',
+    apNumber: 'CP-2026-0021',
     expenseTypeId: etPersonal.id,
     expenseSubcategoryId: scCapacitacion!.id,
     status: 'PARTIAL',
@@ -550,7 +550,7 @@ async function main() {
 
   // 22. Gastos notaría — OVERDUE
   await createAP({
-    apNumber: 'AP-2026-0022',
+    apNumber: 'CP-2026-0022',
     expenseTypeId: etAdministrativos.id,
     expenseSubcategoryId: scNotaria!.id,
     status: 'OVERDUE',
@@ -563,7 +563,7 @@ async function main() {
 
   // 23. Mensajería y envíos — PENDING
   await createAP({
-    apNumber: 'AP-2026-0023',
+    apNumber: 'CP-2026-0023',
     expenseTypeId: etOperativos.id,
     expenseSubcategoryId: scMensajeria!.id,
     status: 'PENDING',
@@ -576,7 +576,7 @@ async function main() {
 
   // 24. Instalación subcontratada — CANCELLED
   await createAP({
-    apNumber: 'AP-2026-0024',
+    apNumber: 'CP-2026-0024',
     expenseTypeId: etProduccion.id,
     expenseSubcategoryId: scCostosDirectos!.id,
     status: 'CANCELLED',
@@ -591,7 +591,7 @@ async function main() {
 
   // 25. Arriendo mes anterior — OVERDUE — recurrente
   await createAP({
-    apNumber: 'AP-2026-0025',
+    apNumber: 'CP-2026-0025',
     expenseTypeId: etRecurrentes.id,
     expenseSubcategoryId: scArriendo!.id,
     status: 'OVERDUE',

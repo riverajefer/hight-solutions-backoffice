@@ -42,7 +42,7 @@ const schema = z
   .object({
     expenseTypeId: z.string().uuid('Selecciona el tipo de gasto'),
     expenseSubcategoryId: z.string().uuid('Selecciona la subcategoría'),
-    description: z.string().min(3, 'Mínimo 3 caracteres').max(500),
+    description: z.string().max(500).optional().or(z.literal('')),
     observations: z.string().optional(),
     totalAmount: z.string().min(1, 'Ingresa el monto total'),
     dueDate: z.date({ invalid_type_error: 'Fecha inválida' }).nullable(),
@@ -124,7 +124,7 @@ export default function AccountsPayableFormPage() {
     const dto = {
       expenseTypeId: values.expenseTypeId,
       expenseSubcategoryId: values.expenseSubcategoryId,
-      description: values.description,
+      description: values.description || '',
       observations: values.observations || undefined,
       totalAmount: Number(values.totalAmount.replace(/\D/g, '')),
       dueDate: values.dueDate!.toISOString(),
@@ -260,7 +260,7 @@ export default function AccountsPayableFormPage() {
               render={({ field }) => (
                 <TextField
                   {...field}
-                  label="Descripción *"
+                  label="Descripción"
                   multiline
                   rows={2}
                   fullWidth

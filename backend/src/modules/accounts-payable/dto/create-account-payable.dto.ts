@@ -28,12 +28,11 @@ export class CreateAccountPayableDto {
   @IsNotEmpty()
   expenseSubcategoryId: string;
 
-  @ApiProperty({ description: 'Descripción de la cuenta por pagar', minLength: 3 })
+  @ApiPropertyOptional({ description: 'Descripción de la cuenta por pagar' })
   @IsString()
-  @IsNotEmpty()
-  @MinLength(3)
+  @IsOptional()
   @MaxLength(500)
-  description: string;
+  description?: string;
 
   @ApiPropertyOptional({ description: 'Observaciones adicionales' })
   @IsString()
