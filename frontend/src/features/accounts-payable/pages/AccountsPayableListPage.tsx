@@ -86,7 +86,7 @@ export default function AccountsPayableListPage() {
       {
         field: 'apNumber',
         headerName: 'Nº CP',
-        width: 140,
+        width: 120,
         renderCell: ({ row }: GridRenderCellParams<AccountPayable>) => (
           <Box
             sx={{ color: 'primary.main', cursor: 'pointer', fontWeight: 600 }}
@@ -100,7 +100,7 @@ export default function AccountsPayableListPage() {
         field: 'description',
         headerName: 'Descripción',
         flex: 1,
-        minWidth: 200,
+        minWidth: 160,
         renderCell: ({ row }: GridRenderCellParams<AccountPayable>) => {
           const itemNames = row.expenseOrder?.items?.map((i) => i.name).join(', ');
           const display = itemNames ? `${row.description} — ${itemNames}` : row.description;
@@ -117,7 +117,7 @@ export default function AccountsPayableListPage() {
       {
         field: 'status',
         headerName: 'Estado',
-        width: 120,
+        width: 100,
         renderCell: ({ row }: GridRenderCellParams<AccountPayable>) => (
           <AccountPayableStatusChip status={row.status} />
         ),
@@ -125,14 +125,14 @@ export default function AccountsPayableListPage() {
       {
         field: 'supplier',
         headerName: 'Proveedor',
-        width: 160,
+        width: 130,
         responsive: 'md',
         renderCell: ({ row }: GridRenderCellParams<AccountPayable>) => row.supplier?.name ?? '—',
       },
       {
         field: 'expenseType',
         headerName: 'Tipo de Gasto',
-        width: 140,
+        width: 120,
         responsive: 'sm',
         renderCell: ({ row }: GridRenderCellParams<AccountPayable>) =>
           row.expenseType?.name ?? '—',
@@ -140,7 +140,7 @@ export default function AccountsPayableListPage() {
       {
         field: 'expenseSubcategory',
         headerName: 'Subcategoría',
-        width: 140,
+        width: 120,
         responsive: 'sm',
         renderCell: ({ row }: GridRenderCellParams<AccountPayable>) =>
           row.expenseSubcategory?.name ?? '—',
@@ -148,7 +148,7 @@ export default function AccountsPayableListPage() {
       {
         field: 'totalAmount',
         headerName: 'Total',
-        width: 130,
+        width: 110,
         responsive: 'sm',
         renderCell: ({ row }: GridRenderCellParams<AccountPayable>) =>
           formatCurrency(row.totalAmount),
@@ -156,7 +156,7 @@ export default function AccountsPayableListPage() {
       {
         field: 'paidAmount',
         headerName: 'Abonado',
-        width: 130,
+        width: 110,
         responsive: 'md',
         renderCell: ({ row }: GridRenderCellParams<AccountPayable>) =>
           formatCurrency(row.paidAmount),
@@ -164,7 +164,7 @@ export default function AccountsPayableListPage() {
       {
         field: 'balance',
         headerName: 'Saldo',
-        width: 130,
+        width: 110,
         responsive: 'sm',
         renderCell: ({ row }: GridRenderCellParams<AccountPayable>) =>
           formatCurrency(row.balance),
@@ -172,14 +172,29 @@ export default function AccountsPayableListPage() {
       {
         field: 'dueDate',
         headerName: 'Vencimiento',
-        width: 140,
+        width: 120,
         renderCell: ({ row }: GridRenderCellParams<AccountPayable>) => {
           const warning = isDueDateWarning(row.dueDate, row.status);
           return (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              {warning === 'overdue' && '🔴'}
-              {warning === 'upcoming' && '🟡'}
-              {formatDate(row.dueDate)}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              {warning && (
+                <Box
+                  sx={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    flexShrink: 0,
+                    bgcolor: warning === 'overdue' ? 'error.light' : 'warning.light',
+                    opacity: 0.8,
+                  }}
+                />
+              )}
+              <Box
+                component="span"
+                sx={{ color: warning === 'overdue' ? 'error.main' : warning === 'upcoming' ? 'warning.dark' : 'inherit' }}
+              >
+                {formatDate(row.dueDate)}
+              </Box>
             </Box>
           );
         },
@@ -187,7 +202,7 @@ export default function AccountsPayableListPage() {
       {
         field: 'createdAt',
         headerName: 'Creado',
-        width: 120,
+        width: 100,
         responsive: 'lg',
         renderCell: ({ row }: GridRenderCellParams<AccountPayable>) =>
           formatDate(row.createdAt),
@@ -195,7 +210,7 @@ export default function AccountsPayableListPage() {
       {
         field: 'createdBy',
         headerName: 'Creado por',
-        width: 150,
+        width: 120,
         responsive: 'lg',
         renderCell: ({ row }: GridRenderCellParams<AccountPayable>) => {
           const { firstName, lastName, email } = row.createdBy;
@@ -205,7 +220,7 @@ export default function AccountsPayableListPage() {
       {
         field: 'actions',
         headerName: '',
-        width: 120,
+        width: 90,
         sortable: false,
         renderCell: ({ row }: GridRenderCellParams<AccountPayable>) => (
           <ActionsCell
@@ -395,6 +410,7 @@ export default function AccountsPayableListPage() {
         pageSize={filters.limit ?? 20}
         emptyMessage="No hay cuentas por pagar registradas"
         onRowClick={(row) => handleView(row as AccountPayable)}
+        density="compact"
       />
 
       <Dialog
