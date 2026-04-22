@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
@@ -9,7 +10,7 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { AccountPayableStatus } from '../../../generated/prisma';
 
 export class FilterAccountPayableDto {
@@ -62,6 +63,16 @@ export class FilterAccountPayableDto {
   @Max(100)
   @IsOptional()
   limit?: number = 20;
+
+  @ApiPropertyOptional({ description: 'Filtrar por OG vinculada (true = solo con OG, false = solo sin OG)' })
+  @Transform(({ value }) => {
+    if (value === true || value === 'true') return true;
+    if (value === false || value === 'false') return false;
+    return undefined;
+  })
+  @IsBoolean()
+  @IsOptional()
+  hasExpenseOrder?: boolean;
 
   @ApiPropertyOptional({ description: 'Ordenar por campo', enum: ['dueDate', 'totalAmount', 'createdAt'], default: 'dueDate' })
   @IsEnum(['dueDate', 'totalAmount', 'createdAt'])

@@ -54,6 +54,7 @@ export class AccountsPayableRepository {
       search,
       dueDateFrom,
       dueDateTo,
+      hasExpenseOrder,
       orderBy = 'dueDate',
       orderDir = 'asc',
     } = filters;
@@ -76,6 +77,8 @@ export class AccountsPayableRepository {
             },
           }
         : {}),
+      ...(hasExpenseOrder === true && { expenseOrderId: { not: null } }),
+      ...(hasExpenseOrder === false && { expenseOrderId: null }),
     };
 
     const [data, total] = await Promise.all([

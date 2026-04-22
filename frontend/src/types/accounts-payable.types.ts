@@ -202,6 +202,7 @@ export interface FilterAccountPayableDto {
   search?: string;
   dueDateFrom?: string;
   dueDateTo?: string;
+  hasExpenseOrder?: boolean;
   page?: number;
   limit?: number;
   orderBy?: 'dueDate' | 'totalAmount' | 'createdAt';

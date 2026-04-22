@@ -314,6 +314,37 @@ export default function AccountsPayableListPage() {
             </FormControl>
           </Grid>
           <Grid item xs={12} sm={6} md={2}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Origen</InputLabel>
+              <Select
+                label="Origen"
+                value={
+                  filters.hasExpenseOrder === true
+                    ? 'true'
+                    : filters.hasExpenseOrder === false
+                      ? 'false'
+                      : ''
+                }
+                onChange={(e) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    hasExpenseOrder:
+                      e.target.value === 'true'
+                        ? true
+                        : e.target.value === 'false'
+                          ? false
+                          : undefined,
+                    page: 1,
+                  }))
+                }
+              >
+                <MenuItem value="">Todos</MenuItem>
+                <MenuItem value="true">Con OG vinculada</MenuItem>
+                <MenuItem value="false">Sin OG</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={6} md={2}>
             <DatePicker
               label="Vence desde"
               value={filters.dueDateFrom ? new Date(filters.dueDateFrom) : null}
