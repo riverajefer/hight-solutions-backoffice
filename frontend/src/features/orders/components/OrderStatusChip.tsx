@@ -25,6 +25,11 @@ export const OrderStatusChip: React.FC<OrderStatusChipProps> = ({
       sx={{
         fontWeight: 500,
         minWidth: size === 'small' ? 80 : 100,
+        fontSize: size === 'small' ? '0.75rem' : '0.875rem',
+        height: size === 'small' ? 22 : 32,
+        '& .MuiChip-label': {
+          px: size === 'small' ? 1 : 1.5,
+        },
       }}
     />
   );

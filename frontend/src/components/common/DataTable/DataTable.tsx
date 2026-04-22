@@ -31,6 +31,7 @@ interface DataTableProps<T extends GridValidRowModel> {
   showExport?: boolean;
   emptyMessage?: string;
   getRowClassName?: (params: GridRowClassNameParams<T>) => string;
+  density?: 'standard' | 'comfortable' | 'compact';
 }
 
 export function DataTable<T extends GridValidRowModel>({
@@ -52,6 +53,7 @@ export function DataTable<T extends GridValidRowModel>({
   showExport = false,
   emptyMessage = 'No se encontraron registros',
   getRowClassName,
+  density = 'standard',
 }: DataTableProps<T>) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -214,6 +216,7 @@ export function DataTable<T extends GridValidRowModel>({
       )}
 
       <DataGrid
+        density={density}
         rows={filteredRows}
         columns={columnsWithRowNumber}
         loading={loading}

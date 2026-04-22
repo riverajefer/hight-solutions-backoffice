@@ -215,6 +215,12 @@ export const OrdersListPage: React.FC = () => {
       ),
     },
     {
+      field: 'status',
+      headerName: 'Estado',
+      width: 140,
+      renderCell: (params: any) => <OrderStatusChip status={params.value} />,
+    },
+    {
       field: 'client',
       headerName: 'Cliente',
       flex: 1,
@@ -463,12 +469,6 @@ export const OrdersListPage: React.FC = () => {
       },
     },
     {
-      field: 'status',
-      headerName: 'Estado',
-      width: 140,
-      renderCell: (params: any) => <OrderStatusChip status={params.value} />,
-    },
-    {
       field: 'actions',
       headerName: 'Acciones',
       width: 160,
@@ -664,6 +664,7 @@ export const OrdersListPage: React.FC = () => {
 
       {/* Tabla */}
       <DataTable
+        density='compact'
         rows={orders}
         columns={columns}
         loading={ordersQuery.isLoading}
