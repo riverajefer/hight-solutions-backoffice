@@ -251,7 +251,9 @@ export default function AccountsPayableListPage() {
         }
       />
 
-      <AccountPayableSummaryCards />
+      <AccountPayableSummaryCards
+        onFilterClick={(params) => setFilters({ page: 1, limit: 20, ...params })}
+      />
 
       {/* Filtros */}
       <Box sx={{ mb: 2 }}>
