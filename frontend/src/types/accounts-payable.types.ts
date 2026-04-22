@@ -123,6 +123,22 @@ export interface AccountPayable {
   expenseOrder?: {
     id: string;
     ogNumber: string;
+    status?: string;
+    observations?: string | null;
+    areaOrMachine?: string | null;
+    createdAt?: string;
+    expenseType?: { id: string; name: string };
+    expenseSubcategory?: { id: string; name: string };
+    createdBy?: { id: string; firstName?: string | null; lastName?: string | null; email?: string | null };
+    items?: Array<{
+      id: string;
+      name: string;
+      description?: string | null;
+      quantity: string;
+      unitPrice: string;
+      total: string;
+      paymentMethod?: string | null;
+    }>;
   } | null;
   createdBy: {
     id: string;

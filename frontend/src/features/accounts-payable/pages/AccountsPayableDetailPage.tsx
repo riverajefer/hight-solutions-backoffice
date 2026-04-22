@@ -33,6 +33,7 @@ import {
 } from '../../../types/accounts-payable.types';
 import { AccountPayableStatusChip } from '../components/AccountPayableStatusChip';
 import { AttachmentsSection } from '../components/AttachmentsSection';
+import { ExpenseOrderInfoSection } from '../components/ExpenseOrderInfoSection';
 import { InstallmentScheduleSection } from '../components/InstallmentScheduleSection';
 import { PaymentHistoryTable } from '../components/PaymentHistoryTable';
 import { RegisterPaymentDialog } from '../components/RegisterPaymentDialog';
@@ -314,6 +315,15 @@ export default function AccountsPayableDetailPage() {
             </Stack>
           </Paper>
         </Grid>
+
+        {/* Orden de Gasto vinculada */}
+        {ap.expenseOrder && (
+          <Grid item xs={12}>
+            <Paper sx={{ p: 3, borderRadius: 3 }}>
+              <ExpenseOrderInfoSection expenseOrder={ap.expenseOrder} />
+            </Paper>
+          </Grid>
+        )}
 
         {/* Historial de pagos */}
         <Grid item xs={12}>

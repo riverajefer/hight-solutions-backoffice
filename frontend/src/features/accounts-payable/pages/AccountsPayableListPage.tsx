@@ -99,14 +99,19 @@ export default function AccountsPayableListPage() {
         field: 'description',
         headerName: 'Descripción',
         flex: 1,
-        minWidth: 180,
-        renderCell: ({ row }: GridRenderCellParams<AccountPayable>) => (
-          <Tooltip title={row.description}>
-            <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {row.description}
-            </Box>
-          </Tooltip>
-        ),
+        minWidth: 200,
+        renderCell: ({ row }: GridRenderCellParams<AccountPayable>) => {
+          const itemNames = row.expenseOrder?.items?.map((i) => i.name).join(', ');
+          const display = itemNames ? `${row.description} — ${itemNames}` : row.description;
+          const tooltip = itemNames ? `${row.description}\nÍtems: ${itemNames}` : row.description;
+          return (
+            <Tooltip title={<span style={{ whiteSpace: 'pre-line' }}>{tooltip}</span>}>
+              <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
+                {display}
+              </Box>
+            </Tooltip>
+          );
+        },
       },
       {
         field: 'supplier',
@@ -160,6 +165,24 @@ export default function AccountsPayableListPage() {
               {formatDate(row.dueDate)}
             </Box>
           );
+        },
+      },
+      {
+        field: 'createdAt',
+        headerName: 'Creado',
+        width: 120,
+        responsive: 'lg',
+        renderCell: ({ row }: GridRenderCellParams<AccountPayable>) =>
+          formatDate(row.createdAt),
+      },
+      {
+        field: 'createdBy',
+        headerName: 'Creado por',
+        width: 150,
+        responsive: 'lg',
+        renderCell: ({ row }: GridRenderCellParams<AccountPayable>) => {
+          const { firstName, lastName, email } = row.createdBy;
+          return [firstName, lastName].filter(Boolean).join(' ') || email || '—';
         },
       },
       {

@@ -28,7 +28,11 @@ export class AccountsPayableRepository {
       select: { id: true, name: true, email: true, nit: true },
     },
     expenseOrder: {
-      select: { id: true, ogNumber: true },
+      select: {
+        id: true,
+        ogNumber: true,
+        items: { select: { name: true }, orderBy: { sortOrder: 'asc' } },
+      },
     },
     createdBy: {
       select: { id: true, firstName: true, lastName: true, email: true },
@@ -98,6 +102,31 @@ export class AccountsPayableRepository {
       where: { id },
       select: {
         ...this.selectFields,
+        expenseOrder: {
+          select: {
+            id: true,
+            ogNumber: true,
+            status: true,
+            observations: true,
+            areaOrMachine: true,
+            createdAt: true,
+            expenseType: { select: { id: true, name: true } },
+            expenseSubcategory: { select: { id: true, name: true } },
+            createdBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+            items: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                quantity: true,
+                unitPrice: true,
+                total: true,
+                paymentMethod: true,
+              },
+              orderBy: { sortOrder: 'asc' },
+            },
+          },
+        },
         payments: {
           select: {
             id: true,

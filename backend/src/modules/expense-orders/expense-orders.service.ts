@@ -105,7 +105,7 @@ export class ExpenseOrdersService {
     while (attempts < maxAttempts) {
       attempts++;
       try {
-        return await this.repository.create({
+        const created = await this.repository.create({
           ogNumber: currentOgNumber,
           expenseTypeId: dto.expenseTypeId,
           expenseSubcategoryId: dto.expenseSubcategoryId,
@@ -118,6 +118,19 @@ export class ExpenseOrdersService {
           createdById,
           items: itemsData,
         });
+
+        const totalAmount = (created.items as Array<{ total: unknown }>).reduce(
+          (sum, item) => sum + Number(item.total),
+          0,
+        );
+        await this.accountsPayableService.createFromExpenseOrder(
+          created.id,
+          `Orden de Gasto ${created.ogNumber}`,
+          totalAmount,
+          createdById,
+        );
+
+        return created;
       } catch (error: any) {
         const isUniqueConstraintError = error.code === 'P2002';
         const target = JSON.stringify(error.meta?.target || '');
