@@ -677,6 +677,15 @@ export const OrdersListPage: React.FC = () => {
         getRowId={(row) => row.id}
         onRowClick={handleViewOrder}
         pageSize={filters.limit}
+        rowCount={ordersQuery.data?.meta.total ?? 0}
+        currentPage={(filters.page ?? 1) - 1}
+        onPaginationModelChange={(model) =>
+          setFilters((prev) => ({
+            ...prev,
+            page: model.page + 1,
+            limit: model.pageSize,
+          }))
+        }
         searchValue={filters.search || ''}
         onSearchChange={(value) => handleFilterChange('search', value)}
         serverSideSearch={true}

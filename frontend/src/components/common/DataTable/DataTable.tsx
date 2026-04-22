@@ -32,6 +32,10 @@ interface DataTableProps<T extends GridValidRowModel> {
   emptyMessage?: string;
   getRowClassName?: (params: GridRowClassNameParams<T>) => string;
   density?: 'standard' | 'comfortable' | 'compact';
+  // Server-side pagination
+  rowCount?: number;
+  currentPage?: number; // 0-indexed
+  onPaginationModelChange?: (model: { page: number; pageSize: number }) => void;
 }
 
 export function DataTable<T extends GridValidRowModel>({
@@ -54,14 +58,39 @@ export function DataTable<T extends GridValidRowModel>({
   emptyMessage = 'No se encontraron registros',
   getRowClassName,
   density = 'standard',
+  rowCount,
+  currentPage,
+  onPaginationModelChange: externalOnPaginationModelChange,
 }: DataTableProps<T>) {
+  const isServerPagination =
+    rowCount !== undefined && externalOnPaginationModelChange !== undefined;
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const [paginationModel, setPaginationModel] = useState({
     pageSize: initialPageSize,
-    page: 0,
+    page: currentPage ?? 0,
   });
+
+  // Sync controlled page/pageSize from parent (server-side pagination)
+  useEffect(() => {
+    if (isServerPagination) {
+      setPaginationModel((prev) => ({
+        pageSize: initialPageSize,
+        page: currentPage ?? prev.page,
+      }));
+    }
+  }, [currentPage, initialPageSize, isServerPagination]);
+
+  const handlePaginationModelChange = (newModel: {
+    page: number;
+    pageSize: number;
+  }) => {
+    setPaginationModel(newModel);
+    if (isServerPagination && externalOnPaginationModelChange) {
+      externalOnPaginationModelChange(newModel);
+    }
+  };
   const [internalSearchText, setInternalSearchText] = useState(searchValue || '');
   const [debouncedSearchText, setDebouncedSearchText] = useState('');
 
@@ -221,8 +250,10 @@ export function DataTable<T extends GridValidRowModel>({
         columns={columnsWithRowNumber}
         loading={loading}
         paginationModel={paginationModel}
-        onPaginationModelChange={setPaginationModel}
+        onPaginationModelChange={handlePaginationModelChange}
         pageSizeOptions={pageSizeOptions}
+        paginationMode={isServerPagination ? 'server' : 'client'}
+        rowCount={isServerPagination ? rowCount : undefined}
         checkboxSelection={checkboxSelection}
         getRowId={getRowId}
         onRowClick={onRowClick ? handleRowClick : undefined}
