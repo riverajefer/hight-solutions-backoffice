@@ -1075,6 +1075,7 @@ model ExpenseType {
 
   subcategories ExpenseSubcategory[]
   expenseOrders ExpenseOrder[]
+  accountsPayable AccountPayable[]
 
   @@map("expense_types")
 }
@@ -1090,6 +1091,7 @@ model ExpenseSubcategory {
 
   expenseType   ExpenseType    @relation(fields: [expenseTypeId], references: [id])
   expenseOrders ExpenseOrder[]
+  accountsPayable AccountPayable[]
 
   @@unique([name, expenseTypeId])
   @@map("expense_subcategories")
@@ -1859,24 +1861,11 @@ enum AccountPayableStatus {
   CANCELLED
 }
 
-enum AccountPayableType {
-  RENT
-  PUBLIC_SERVICES
-  BANK_CREDIT
-  SUPPLIER
-  THIRD_PARTY_SERVICE
-  PAYROLL
-  TAX
-  MAINTENANCE
-  SUBSCRIPTION
-  TRANSPORT
-  OTHER
-}
-
 model AccountPayable {
   id           String               @id @default(uuid())
   apNumber     String               @unique @map("ap_number")
-  type         AccountPayableType
+  expenseTypeId        String       @map("expense_type_id")
+  expenseSubcategoryId String       @map("expense_subcategory_id")
   status       AccountPayableStatus @default(PENDING)
   description  String
   observations String?
@@ -1897,6 +1886,8 @@ model AccountPayable {
   cancelledById String?   @map("cancelled_by_id")
   cancelReason  String?   @map("cancel_reason")
 
+  expenseType        ExpenseType        @relation(fields: [expenseTypeId], references: [id])
+  expenseSubcategory ExpenseSubcategory @relation(fields: [expenseSubcategoryId], references: [id])
   supplier     Supplier?                   @relation(fields: [supplierId], references: [id])
   expenseOrder ExpenseOrder?               @relation(fields: [expenseOrderId], references: [id])
   createdBy    User                        @relation("AccountPayableCreatedBy", fields: [createdById], references: [id])

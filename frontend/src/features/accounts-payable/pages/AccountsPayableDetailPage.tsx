@@ -29,7 +29,6 @@ import { PERMISSIONS, ROUTES } from '../../../utils/constants';
 import { formatCurrency, formatDate } from '../../../utils/formatters';
 import {
   AccountPayableStatus,
-  ACCOUNT_PAYABLE_TYPE_LABELS,
 } from '../../../types/accounts-payable.types';
 import { AccountPayableStatusChip } from '../components/AccountPayableStatusChip';
 import { AttachmentsSection } from '../components/AttachmentsSection';
@@ -177,7 +176,10 @@ export default function AccountsPayableDetailPage() {
                 />
               </Grid>
               <Grid item xs={6} sm={4}>
-                <InfoRow label="Tipo" value={ACCOUNT_PAYABLE_TYPE_LABELS[ap.type]} />
+                <InfoRow label="Tipo de Gasto" value={ap.expenseType?.name ?? 'N/A'} />
+              </Grid>
+              <Grid item xs={6} sm={4}>
+                <InfoRow label="Subcategoría" value={ap.expenseSubcategory?.name ?? 'N/A'} />
               </Grid>
               <Grid item xs={12} sm={8}>
                 <InfoRow label="Descripción" value={ap.description} />

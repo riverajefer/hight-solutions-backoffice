@@ -41,7 +41,7 @@ export class SuppliersService {
   async create(createSupplierDto: CreateSupplierDto) {
     // Validate email uniqueness
     const existingSupplier = await this.suppliersRepository.findByEmail(
-      createSupplierDto.email,
+      createSupplierDto.email || '',
     );
 
     if (existingSupplier) {

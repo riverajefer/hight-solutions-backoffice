@@ -10,7 +10,7 @@ import {
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { AccountPayableStatus, AccountPayableType } from '../../../generated/prisma';
+import { AccountPayableStatus } from '../../../generated/prisma';
 
 export class FilterAccountPayableDto {
   @ApiPropertyOptional({ enum: AccountPayableStatus, description: 'Filtrar por estado' })
@@ -18,10 +18,15 @@ export class FilterAccountPayableDto {
   @IsOptional()
   status?: AccountPayableStatus;
 
-  @ApiPropertyOptional({ enum: AccountPayableType, description: 'Filtrar por tipo' })
-  @IsEnum(AccountPayableType)
+  @ApiPropertyOptional({ description: 'Filtrar por ID de tipo de gasto' })
+  @IsUUID()
   @IsOptional()
-  type?: AccountPayableType;
+  expenseTypeId?: string;
+
+  @ApiPropertyOptional({ description: 'Filtrar por ID de subcategoría' })
+  @IsUUID()
+  @IsOptional()
+  expenseSubcategoryId?: string;
 
   @ApiPropertyOptional({ description: 'Filtrar por proveedor' })
   @IsUUID()

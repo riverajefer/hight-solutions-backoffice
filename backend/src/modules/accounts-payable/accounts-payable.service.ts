@@ -58,7 +58,8 @@ export class AccountsPayableService {
 
     return this.repository.create({
       apNumber,
-      type: dto.type,
+      expenseType: { connect: { id: dto.expenseTypeId } },
+      expenseSubcategory: { connect: { id: dto.expenseSubcategoryId } },
       description: dto.description,
       observations: dto.observations,
       totalAmount: dto.totalAmount,
@@ -264,13 +265,21 @@ export class AccountsPayableService {
     const existing = await this.repository.findByExpenseOrderId(expenseOrderId);
     if (existing) return existing;
 
+    const expenseOrder = await this.prisma.expenseOrder.findUnique({
+      where: { id: expenseOrderId },
+      select: { expenseTypeId: true, expenseSubcategoryId: true },
+    });
+
+    if (!expenseOrder) throw new BadRequestException(`No se encontró la Orden de Gasto ${expenseOrderId}`);
+
     const apNumber = await this.generateApNumber();
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 30);
 
     return this.repository.create({
       apNumber,
-      type: 'OTHER',
+      expenseType: { connect: { id: expenseOrder.expenseTypeId } },
+      expenseSubcategory: { connect: { id: expenseOrder.expenseSubcategoryId } },
       description,
       totalAmount,
       paidAmount: 0,

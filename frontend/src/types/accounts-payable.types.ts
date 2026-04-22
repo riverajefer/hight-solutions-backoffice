@@ -102,7 +102,8 @@ export interface AccountPayableAttachment {
 export interface AccountPayable {
   id: string;
   apNumber: string;
-  type: AccountPayableType;
+  expenseType?: { id: string; name: string };
+  expenseSubcategory?: { id: string; name: string };
   status: AccountPayableStatus;
   description: string;
   observations?: string | null;
@@ -171,7 +172,8 @@ export interface AccountPayableSummary {
 // ─── DTOs ─────────────────────────────────────────────────────────────────────
 
 export interface CreateAccountPayableDto {
-  type: AccountPayableType;
+  expenseTypeId: string;
+  expenseSubcategoryId: string;
   description: string;
   observations?: string;
   totalAmount: number;
@@ -194,7 +196,8 @@ export interface UpdateAccountPayableDto {
 
 export interface FilterAccountPayableDto {
   status?: AccountPayableStatus;
-  type?: AccountPayableType;
+  expenseTypeId?: string;
+  expenseSubcategoryId?: string;
   supplierId?: string;
   search?: string;
   dueDateFrom?: string;

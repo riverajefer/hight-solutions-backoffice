@@ -27,12 +27,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { ROUTES } from '../../../utils/constants';
-import {
-  AccountPayableType,
-  ACCOUNT_PAYABLE_TYPE_LABELS,
-} from '../../../types/accounts-payable.types';
 import { useAccountPayable, useAccountsPayable } from '../hooks/useAccountsPayable';
 import { useSuppliers } from '../../suppliers/hooks/useSuppliers';
+import { useExpenseTypes } from '../../expense-orders/hooks/useExpenseOrders';
 
 // ─── Currency helper ──────────────────────────────────────────────────────────
 const formatCurrencyInput = (value: string): string => {
@@ -43,7 +40,8 @@ const formatCurrencyInput = (value: string): string => {
 
 const schema = z
   .object({
-    type: z.nativeEnum(AccountPayableType, { required_error: 'Selecciona el tipo' }),
+    expenseTypeId: z.string().uuid('Selecciona el tipo de gasto'),
+    expenseSubcategoryId: z.string().uuid('Selecciona la subcategoría'),
     description: z.string().min(3, 'Mínimo 3 caracteres').max(500),
     observations: z.string().optional(),
     totalAmount: z.string().min(1, 'Ingresa el monto total'),
@@ -76,6 +74,11 @@ export default function AccountsPayableFormPage() {
   const { updateMutation } = useAccountPayable(id);
   const { suppliersQuery } = useSuppliers();
   const suppliers = suppliersQuery.data ?? [];
+  const { data: expenseTypes = [] } = useExpenseTypes();
+
+  const filteredExpenseTypes = expenseTypes.filter(
+    (t: any) => t.name.toLowerCase() !== 'producción',
+  );
 
   const {
     control,
@@ -86,7 +89,8 @@ export default function AccountsPayableFormPage() {
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      type: AccountPayableType.OTHER,
+      expenseTypeId: '',
+      expenseSubcategoryId: '',
       isRecurring: false,
       totalAmount: '',
       dueDate: null,
@@ -94,12 +98,17 @@ export default function AccountsPayableFormPage() {
   });
 
   const watchIsRecurring = watch('isRecurring');
+  const watchExpenseTypeId = watch('expenseTypeId');
+
+  const selectedExpenseType = filteredExpenseTypes.find((t: any) => t.id === watchExpenseTypeId);
+  const currentSubcategories = selectedExpenseType?.subcategories || [];
 
   useEffect(() => {
     if (isEditing && apQuery.data) {
       const ap = apQuery.data;
       reset({
-        type: ap.type,
+        expenseTypeId: ap.expenseType?.id ?? '',
+        expenseSubcategoryId: ap.expenseSubcategory?.id ?? '',
         description: ap.description,
         observations: ap.observations ?? '',
         totalAmount: String(Math.round(Number(ap.totalAmount))),
@@ -113,7 +122,8 @@ export default function AccountsPayableFormPage() {
 
   const onSubmit = async (values: FormValues) => {
     const dto = {
-      type: values.type,
+      expenseTypeId: values.expenseTypeId,
+      expenseSubcategoryId: values.expenseSubcategoryId,
       description: values.description,
       observations: values.observations || undefined,
       totalAmount: Number(values.totalAmount.replace(/\D/g, '')),
@@ -159,22 +169,61 @@ export default function AccountsPayableFormPage() {
         <Divider sx={{ mb: 3 }} />
 
         <Grid container spacing={2.5} component="form" onSubmit={handleSubmit(onSubmit)}>
-          {/* Tipo */}
+          {/* Tipo de Gasto */}
           <Grid item xs={12} sm={6}>
             <Controller
-              name="type"
+              name="expenseTypeId"
               control={control}
               render={({ field }) => (
-                <FormControl fullWidth error={!!errors.type}>
-                  <InputLabel>Tipo *</InputLabel>
-                  <Select {...field} label="Tipo *">
-                    {Object.values(AccountPayableType).map((t) => (
-                      <MenuItem key={t} value={t}>
-                        {ACCOUNT_PAYABLE_TYPE_LABELS[t]}
+                <FormControl fullWidth error={!!errors.expenseTypeId}>
+                  <InputLabel>Tipo de Gasto *</InputLabel>
+                  <Select
+                    {...field}
+                    label="Tipo de Gasto *"
+                    onChange={(e) => {
+                      field.onChange(e);
+                      reset((formValues) => ({
+                        ...formValues,
+                        expenseSubcategoryId: '',
+                      }));
+                    }}
+                  >
+                    {filteredExpenseTypes.map((t: any) => (
+                      <MenuItem key={t.id} value={t.id}>
+                        {t.name}
                       </MenuItem>
                     ))}
                   </Select>
-                  {errors.type && <FormHelperText>{errors.type.message}</FormHelperText>}
+                  {errors.expenseTypeId && (
+                    <FormHelperText>{errors.expenseTypeId.message}</FormHelperText>
+                  )}
+                </FormControl>
+              )}
+            />
+          </Grid>
+
+          {/* Subcategoría de Gasto */}
+          <Grid item xs={12} sm={6}>
+            <Controller
+              name="expenseSubcategoryId"
+              control={control}
+              render={({ field }) => (
+                <FormControl fullWidth error={!!errors.expenseSubcategoryId}>
+                  <InputLabel>Subcategoría *</InputLabel>
+                  <Select
+                    {...field}
+                    label="Subcategoría *"
+                    disabled={!watchExpenseTypeId}
+                  >
+                    {currentSubcategories.map((sub: any) => (
+                      <MenuItem key={sub.id} value={sub.id}>
+                        {sub.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  {errors.expenseSubcategoryId && (
+                    <FormHelperText>{errors.expenseSubcategoryId.message}</FormHelperText>
+                  )}
                 </FormControl>
               )}
             />

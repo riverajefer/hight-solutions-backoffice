@@ -30,10 +30,9 @@ import { formatCurrency, formatDate } from '../../../utils/formatters';
 import type { AccountPayable, FilterAccountPayableDto } from '../../../types/accounts-payable.types';
 import {
   AccountPayableStatus,
-  AccountPayableType,
   ACCOUNT_PAYABLE_STATUS_CONFIG,
-  ACCOUNT_PAYABLE_TYPE_LABELS,
 } from '../../../types/accounts-payable.types';
+import { useExpenseTypes } from '../../expense-orders/hooks/useExpenseOrders';
 import { AccountPayableStatusChip } from '../components/AccountPayableStatusChip';
 import { AccountPayableSummaryCards } from '../components/AccountPayableSummaryCards';
 import { useAccountsPayable } from '../hooks/useAccountsPayable';
@@ -58,6 +57,8 @@ export default function AccountsPayableListPage() {
   const [cancelReason, setCancelReason] = useState('');
 
   const { query, cancelMutation } = useAccountsPayable(filters);
+
+  const { data: expenseTypes = [] } = useExpenseTypes();
 
   const canCreate = hasPermission(PERMISSIONS.CREATE_ACCOUNTS_PAYABLE);
   const canUpdate = hasPermission(PERMISSIONS.UPDATE_ACCOUNTS_PAYABLE);
@@ -129,12 +130,20 @@ export default function AccountsPayableListPage() {
         renderCell: ({ row }: GridRenderCellParams<AccountPayable>) => row.supplier?.name ?? '—',
       },
       {
-        field: 'type',
-        headerName: 'Tipo',
+        field: 'expenseType',
+        headerName: 'Tipo de Gasto',
         width: 140,
         responsive: 'sm',
         renderCell: ({ row }: GridRenderCellParams<AccountPayable>) =>
-          ACCOUNT_PAYABLE_TYPE_LABELS[row.type],
+          row.expenseType?.name ?? '—',
+      },
+      {
+        field: 'expenseSubcategory',
+        headerName: 'Subcategoría',
+        width: 140,
+        responsive: 'sm',
+        renderCell: ({ row }: GridRenderCellParams<AccountPayable>) =>
+          row.expenseSubcategory?.name ?? '—',
       },
       {
         field: 'totalAmount',
@@ -283,22 +292,22 @@ export default function AccountsPayableListPage() {
           </Grid>
           <Grid item xs={12} sm={6} md={2}>
             <FormControl fullWidth size="small">
-              <InputLabel>Tipo</InputLabel>
+              <InputLabel>Tipo de Gasto</InputLabel>
               <Select
-                label="Tipo"
-                value={filters.type ?? ''}
+                label="Tipo de Gasto"
+                value={filters.expenseTypeId ?? ''}
                 onChange={(e) =>
                   setFilters((prev) => ({
                     ...prev,
-                    type: (e.target.value as AccountPayableType) || undefined,
+                    expenseTypeId: e.target.value || undefined,
                     page: 1,
                   }))
                 }
               >
                 <MenuItem value="">Todos</MenuItem>
-                {Object.values(AccountPayableType).map((t) => (
-                  <MenuItem key={t} value={t}>
-                    {ACCOUNT_PAYABLE_TYPE_LABELS[t]}
+                {expenseTypes.map((t) => (
+                  <MenuItem key={t.id} value={t.id}>
+                    {t.name}
                   </MenuItem>
                 ))}
               </Select>

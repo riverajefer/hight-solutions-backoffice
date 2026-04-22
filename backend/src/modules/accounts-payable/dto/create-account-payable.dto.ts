@@ -16,13 +16,17 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { AccountPayableType } from '../../../generated/prisma';
 
 export class CreateAccountPayableDto {
-  @ApiProperty({ enum: AccountPayableType, description: 'Tipo de cuenta por pagar' })
-  @IsEnum(AccountPayableType)
+  @ApiProperty({ description: 'ID del tipo de gasto asociado' })
+  @IsUUID()
   @IsNotEmpty()
-  type: AccountPayableType;
+  expenseTypeId: string;
+
+  @ApiProperty({ description: 'ID de la subcategoría de gasto asociada' })
+  @IsUUID()
+  @IsNotEmpty()
+  expenseSubcategoryId: string;
 
   @ApiProperty({ description: 'Descripción de la cuenta por pagar', minLength: 3 })
   @IsString()

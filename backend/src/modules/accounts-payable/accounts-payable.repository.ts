@@ -10,7 +10,8 @@ export class AccountsPayableRepository {
   private readonly selectFields = {
     id: true,
     apNumber: true,
-    type: true,
+    expenseType: { select: { id: true, name: true } },
+    expenseSubcategory: { select: { id: true, name: true } },
     status: true,
     description: true,
     observations: true,
@@ -47,7 +48,8 @@ export class AccountsPayableRepository {
       page = 1,
       limit = 20,
       status,
-      type,
+      expenseTypeId,
+      expenseSubcategoryId,
       supplierId,
       search,
       dueDateFrom,
@@ -60,7 +62,8 @@ export class AccountsPayableRepository {
 
     const where: Prisma.AccountPayableWhereInput = {
       ...(status && { status }),
-      ...(type && { type }),
+      ...(expenseTypeId && { expenseTypeId }),
+      ...(expenseSubcategoryId && { expenseSubcategoryId }),
       ...(supplierId && { supplierId }),
       ...(search && {
         description: { contains: search, mode: 'insensitive' },
