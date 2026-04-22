@@ -10,16 +10,24 @@ import {
   Max,
   MaxLength,
   Min,
-  MinLength,
   ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UpdateAccountPayableDto {
-  @ApiPropertyOptional({ description: 'Descripción de la cuenta por pagar', minLength: 3 })
+  @ApiPropertyOptional({ description: 'ID del tipo de gasto asociado' })
+  @IsUUID()
+  @IsOptional()
+  expenseTypeId?: string;
+
+  @ApiPropertyOptional({ description: 'ID de la subcategoría de gasto asociada' })
+  @IsUUID()
+  @IsOptional()
+  expenseSubcategoryId?: string;
+
+  @ApiPropertyOptional({ description: 'Descripción de la cuenta por pagar' })
   @IsString()
   @IsOptional()
-  @MinLength(3)
   @MaxLength(500)
   description?: string;
 

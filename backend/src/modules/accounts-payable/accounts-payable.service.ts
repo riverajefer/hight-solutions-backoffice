@@ -60,7 +60,7 @@ export class AccountsPayableService {
       apNumber,
       expenseType: { connect: { id: dto.expenseTypeId } },
       expenseSubcategory: { connect: { id: dto.expenseSubcategoryId } },
-      description: dto.description,
+      description: dto.description ?? '',
       observations: dto.observations,
       totalAmount: dto.totalAmount,
       paidAmount: 0,
@@ -92,6 +92,8 @@ export class AccountsPayableService {
     }
 
     const updateData: Record<string, unknown> = {};
+    if (dto.expenseTypeId !== undefined) updateData.expenseTypeId = dto.expenseTypeId;
+    if (dto.expenseSubcategoryId !== undefined) updateData.expenseSubcategoryId = dto.expenseSubcategoryId;
     if (dto.description !== undefined) updateData.description = dto.description;
     if (dto.observations !== undefined) updateData.observations = dto.observations;
     if (dto.dueDate !== undefined) updateData.dueDate = new Date(dto.dueDate);
