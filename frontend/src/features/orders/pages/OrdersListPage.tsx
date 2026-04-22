@@ -331,9 +331,15 @@ export const OrdersListPage: React.FC = () => {
       valueGetter: (_: any, row: any) => getDaysSince(row.createdAt),
       renderCell: (params: any) => {
         const days = params.value as number;
-        if (days === 0) return 'Hoy';
-        if (days === 1) return '1 día';
-        return `${days} días`;
+        let text = `${days} días`;
+        if (days === 0) text = 'Hoy';
+        else if (days === 1) text = '1 día';
+
+        return (
+          <Tooltip title={`Creado el ${formatDateTime(params.row.createdAt)}`}>
+            <span style={{ cursor: 'help', borderBottom: '1px dotted #888' }}>{text}</span>
+          </Tooltip>
+        );
       },
     },
     {
