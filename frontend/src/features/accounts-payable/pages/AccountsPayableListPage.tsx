@@ -114,6 +114,14 @@ export default function AccountsPayableListPage() {
         },
       },
       {
+        field: 'status',
+        headerName: 'Estado',
+        width: 120,
+        renderCell: ({ row }: GridRenderCellParams<AccountPayable>) => (
+          <AccountPayableStatusChip status={row.status} />
+        ),
+      },
+      {
         field: 'supplier',
         headerName: 'Proveedor',
         width: 160,
@@ -184,14 +192,6 @@ export default function AccountsPayableListPage() {
           const { firstName, lastName, email } = row.createdBy;
           return [firstName, lastName].filter(Boolean).join(' ') || email || '—';
         },
-      },
-      {
-        field: 'status',
-        headerName: 'Estado',
-        width: 120,
-        renderCell: ({ row }: GridRenderCellParams<AccountPayable>) => (
-          <AccountPayableStatusChip status={row.status} />
-        ),
       },
       {
         field: 'actions',

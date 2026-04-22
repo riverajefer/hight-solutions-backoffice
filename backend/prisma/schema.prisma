@@ -228,7 +228,7 @@ model Supplier {
   phone         String?
   landlinePhone String?    @map("landline_phone")
   address       String?
-  email         String     @unique
+  email         String?    @unique
   departmentId  String     @map("department_id")
   cityId        String     @map("city_id")
   personType    PersonType @map("person_type")
