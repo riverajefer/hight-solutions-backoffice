@@ -1096,7 +1096,7 @@ export const OrderDetailPage: React.FC = () => {
                       </Typography>
                     </Box>
                     <Box display="flex" justifyContent="space-between">
-                      <Typography>Pagado:</Typography>
+                      <Typography>Abono:</Typography>
                       <Typography fontWeight={500} color="success.main">
                         {formatCurrency(parseFloat(order.paidAmount))}
                       </Typography>

@@ -45,6 +45,7 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   Órdenes: ['create_orders', 'read_orders', 'update_orders', 'delete_orders', 'approve_orders', 'change_order_status', 'register_order_payments', 'approve_discounts', 'apply_discounts', 'delete_discounts', 'read_pending_orders'],
   'Canales Comerciales': ['create_commercial_channels', 'read_commercial_channels', 'update_commercial_channels', 'delete_commercial_channels'],
   Archivos: ['upload_files', 'read_files', 'delete_files', 'manage_storage'],
+  'Cuentas por Pagar': ['create_accounts_payable', 'read_accounts_payable', 'update_accounts_payable', 'delete_accounts_payable', 'register_ap_payment'],
 
   // Inventario y Catálogos
   Movimientos: ['create_inventory_movements', 'read_inventory_movements', 'manage_inventory'],
@@ -108,7 +109,7 @@ const TABS = [
   },
   {
     label: 'Comercial',
-    groups: ['Clientes', 'Cotizaciones', 'Órdenes', 'Canales Comerciales', 'Archivos'],
+    groups: ['Clientes', 'Cotizaciones', 'Órdenes', 'Canales Comerciales', 'Archivos', 'Cuentas por Pagar'],
   },
   {
     label: 'Inventario',
