@@ -113,6 +113,7 @@ export interface AccountPayable {
   dueDate: string;
   isRecurring: boolean;
   recurringDay?: number | null;
+  recurringFrequency?: 'BIWEEKLY' | 'MONTHLY' | 'SEMIANNUAL' | 'ANNUAL' | null;
   cancelledAt?: string | null;
   cancelReason?: string | null;
   supplier?: {
@@ -182,6 +183,7 @@ export interface CreateAccountPayableDto {
   expenseOrderId?: string;
   isRecurring?: boolean;
   recurringDay?: number;
+  recurringFrequency?: 'BIWEEKLY' | 'MONTHLY' | 'SEMIANNUAL' | 'ANNUAL';
 }
 
 export interface UpdateAccountPayableDto {
@@ -192,6 +194,7 @@ export interface UpdateAccountPayableDto {
   supplierId?: string;
   isRecurring?: boolean;
   recurringDay?: number;
+  recurringFrequency?: 'BIWEEKLY' | 'MONTHLY' | 'SEMIANNUAL' | 'ANNUAL';
 }
 
 export interface FilterAccountPayableDto {

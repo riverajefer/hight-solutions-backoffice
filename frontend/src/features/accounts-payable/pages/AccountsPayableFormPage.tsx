@@ -48,7 +48,7 @@ const schema = z
     dueDate: z.date({ invalid_type_error: 'Fecha inválida' }).nullable(),
     supplierId: z.string().uuid().optional().or(z.literal('')),
     isRecurring: z.boolean().optional(),
-    recurringDay: z.number().min(1).max(31).optional(),
+    recurringFrequency: z.enum(['BIWEEKLY', 'MONTHLY', 'SEMIANNUAL', 'ANNUAL']).optional(),
   })
   .refine((data) => !!data.dueDate, {
     message: 'La fecha de vencimiento es requerida',
@@ -56,10 +56,10 @@ const schema = z
   })
   .refine(
     (data) => {
-      if (data.isRecurring && !data.recurringDay) return false;
+      if (data.isRecurring && !data.recurringFrequency) return false;
       return true;
     },
-    { message: 'El día del mes es requerido cuando el pago es recurrente', path: ['recurringDay'] },
+    { message: 'La frecuencia es requerida cuando el pago es recurrente', path: ['recurringFrequency'] },
   );
 
 type FormValues = z.infer<typeof schema>;
@@ -115,7 +115,7 @@ export default function AccountsPayableFormPage() {
         dueDate: ap.dueDate ? new Date(ap.dueDate) : null,
         supplierId: ap.supplier?.id ?? '',
         isRecurring: ap.isRecurring,
-        recurringDay: ap.recurringDay ?? undefined,
+        recurringFrequency: (ap.recurringFrequency as FormValues['recurringFrequency']) ?? undefined,
       });
     }
   }, [isEditing, apQuery.data, reset]);
@@ -130,7 +130,7 @@ export default function AccountsPayableFormPage() {
       dueDate: values.dueDate!.toISOString(),
       supplierId: values.supplierId || undefined,
       isRecurring: values.isRecurring ?? false,
-      recurringDay: values.isRecurring ? values.recurringDay : undefined,
+      recurringFrequency: values.isRecurring ? values.recurringFrequency : undefined,
     };
 
     if (isEditing) {
@@ -331,7 +331,7 @@ export default function AccountsPayableFormPage() {
                       onChange={(e) => field.onChange(e.target.checked)}
                     />
                   }
-                  label="Pago recurrente (mensual)"
+                  label="Pago recurrente"
                 />
               )}
             />
@@ -340,20 +340,21 @@ export default function AccountsPayableFormPage() {
           {watchIsRecurring && (
             <Grid item xs={12} sm={4}>
               <Controller
-                name="recurringDay"
+                name="recurringFrequency"
                 control={control}
-                render={({ field: { onChange, value, ...field } }) => (
-                  <TextField
-                    {...field}
-                    label="Día del mes *"
-                    type="number"
-                    inputProps={{ min: 1, max: 31 }}
-                    value={value ?? ''}
-                    onChange={(e) => onChange(e.target.value ? Number(e.target.value) : undefined)}
-                    error={!!errors.recurringDay}
-                    helperText={errors.recurringDay?.message ?? 'Entre 1 y 31'}
-                    fullWidth
-                  />
+                render={({ field }) => (
+                  <FormControl fullWidth error={!!errors.recurringFrequency}>
+                    <InputLabel>Frecuencia *</InputLabel>
+                    <Select {...field} value={field.value ?? ''} label="Frecuencia *">
+                      <MenuItem value="BIWEEKLY">Quincenal</MenuItem>
+                      <MenuItem value="MONTHLY">Mensual</MenuItem>
+                      <MenuItem value="SEMIANNUAL">Semestral</MenuItem>
+                      <MenuItem value="ANNUAL">Anual</MenuItem>
+                    </Select>
+                    {errors.recurringFrequency && (
+                      <FormHelperText>{errors.recurringFrequency.message}</FormHelperText>
+                    )}
+                  </FormControl>
                 )}
               />
             </Grid>

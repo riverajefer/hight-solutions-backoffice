@@ -68,6 +68,7 @@ export class AccountsPayableService {
       dueDate: new Date(dto.dueDate),
       isRecurring: dto.isRecurring ?? false,
       recurringDay: dto.recurringDay,
+      recurringFrequency: dto.recurringFrequency,
       status: AccountPayableStatus.PENDING,
       createdBy: { connect: { id: createdById } },
       ...(dto.supplierId && { supplier: { connect: { id: dto.supplierId } } }),
@@ -99,6 +100,7 @@ export class AccountsPayableService {
     if (dto.dueDate !== undefined) updateData.dueDate = new Date(dto.dueDate);
     if (dto.isRecurring !== undefined) updateData.isRecurring = dto.isRecurring;
     if (dto.recurringDay !== undefined) updateData.recurringDay = dto.recurringDay;
+    if (dto.recurringFrequency !== undefined) updateData.recurringFrequency = dto.recurringFrequency;
     if (dto.supplierId !== undefined) {
       updateData.supplier = dto.supplierId
         ? { connect: { id: dto.supplierId } }

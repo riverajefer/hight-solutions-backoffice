@@ -226,7 +226,13 @@ export default function AccountsPayableDetailPage() {
                     label="Pago recurrente"
                     value={
                       <Chip
-                        label={`Día ${ap.recurringDay} de cada mes`}
+                        label={
+                          ap.recurringFrequency === 'BIWEEKLY' ? 'Quincenal'
+                          : ap.recurringFrequency === 'MONTHLY' ? 'Mensual'
+                          : ap.recurringFrequency === 'SEMIANNUAL' ? 'Semestral'
+                          : ap.recurringFrequency === 'ANNUAL' ? 'Anual'
+                          : 'Recurrente'
+                        }
                         size="small"
                         color="info"
                         variant="outlined"

@@ -1861,6 +1861,13 @@ enum AccountPayableStatus {
   CANCELLED
 }
 
+enum RecurringFrequency {
+  BIWEEKLY
+  MONTHLY
+  SEMIANNUAL
+  ANNUAL
+}
+
 model AccountPayable {
   id           String               @id @default(uuid())
   apNumber     String               @unique @map("ap_number")
@@ -1873,8 +1880,9 @@ model AccountPayable {
   paidAmount   Decimal              @default(0) @map("paid_amount") @db.Decimal(12, 2)
   balance      Decimal              @map("balance") @db.Decimal(12, 2)
   dueDate      DateTime             @map("due_date")
-  isRecurring  Boolean              @default(false) @map("is_recurring")
-  recurringDay Int?                 @map("recurring_day")
+  isRecurring        Boolean              @default(false) @map("is_recurring")
+  recurringDay       Int?                 @map("recurring_day")
+  recurringFrequency RecurringFrequency?  @map("recurring_frequency")
 
   supplierId     String? @map("supplier_id")
   expenseOrderId String? @unique @map("expense_order_id")

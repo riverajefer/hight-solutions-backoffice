@@ -16,6 +16,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { RecurringFrequency } from '../../../generated/prisma';
 
 export class CreateAccountPayableDto {
   @ApiProperty({ description: 'ID del tipo de gasto asociado' })
@@ -70,7 +71,12 @@ export class CreateAccountPayableDto {
   @IsNumber()
   @Min(1)
   @Max(31)
+  @IsOptional()
+  recurringDay?: number;
+
+  @ApiPropertyOptional({ description: 'Frecuencia del pago recurrente', enum: RecurringFrequency })
+  @IsEnum(RecurringFrequency)
   @ValidateIf((o) => o.isRecurring === true)
   @IsNotEmpty()
-  recurringDay?: number;
+  recurringFrequency?: RecurringFrequency;
 }

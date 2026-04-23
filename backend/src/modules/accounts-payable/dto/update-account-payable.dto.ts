@@ -2,6 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
   IsDateString,
+  IsEnum,
   IsNumber,
   IsOptional,
   IsPositive,
@@ -13,6 +14,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { RecurringFrequency } from '../../../generated/prisma';
 
 export class UpdateAccountPayableDto {
   @ApiPropertyOptional({ description: 'ID del tipo de gasto asociado' })
@@ -63,7 +65,11 @@ export class UpdateAccountPayableDto {
   @IsNumber()
   @Min(1)
   @Max(31)
-  @ValidateIf((o) => o.isRecurring === true)
   @IsOptional()
   recurringDay?: number;
+
+  @ApiPropertyOptional({ description: 'Frecuencia del pago recurrente', enum: RecurringFrequency })
+  @IsEnum(RecurringFrequency)
+  @IsOptional()
+  recurringFrequency?: RecurringFrequency;
 }

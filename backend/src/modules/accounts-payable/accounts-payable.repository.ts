@@ -21,6 +21,7 @@ export class AccountsPayableRepository {
     dueDate: true,
     isRecurring: true,
     recurringDay: true,
+    recurringFrequency: true,
     createdAt: true,
     updatedAt: true,
     cancelledAt: true,
