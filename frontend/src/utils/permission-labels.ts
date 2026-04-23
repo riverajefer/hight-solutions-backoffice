@@ -202,6 +202,13 @@ export const PERMISSION_LABELS: Record<string, string> = {
   // Devoluciones
   approve_refunds: 'Aprobar Devoluciones',
   create_refund_requests: 'Crear Solicitudes de Devolución',
+
+  // Cuentas por Pagar
+  create_accounts_payable: 'Crear Cuentas por Pagar',
+  read_accounts_payable: 'Ver Cuentas por Pagar',
+  update_accounts_payable: 'Actualizar Cuentas por Pagar',
+  delete_accounts_payable: 'Eliminar Cuentas por Pagar',
+  register_ap_payment: 'Registrar Pago de Cuenta por Pagar',
 };
 
 /**
