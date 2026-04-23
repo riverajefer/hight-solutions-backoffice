@@ -21,6 +21,15 @@ export class WorkOrdersRepository {
         size: true,
       },
     },
+    attachment2: {
+      select: {
+        id: true,
+        fileName: true,
+        originalName: true,
+        mimeType: true,
+        size: true,
+      },
+    },
     observations: true,
     createdAt: true,
     updatedAt: true,

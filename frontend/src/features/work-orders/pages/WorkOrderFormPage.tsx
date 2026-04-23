@@ -217,6 +217,12 @@ export const WorkOrderFormPage = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadError, setUploadError] = useState('');
 
+  const [attachment2, setAttachment2] = useState<{ id: string; originalName: string; size: number } | null>(null);
+  const [attachmentFile2, setAttachmentFile2] = useState<File | null>(null);
+  const [isUploading2, setIsUploading2] = useState(false);
+  const [isDragging2, setIsDragging2] = useState(false);
+  const [uploadError2, setUploadError2] = useState('');
+
   // Step 3: Items form
   const [itemsForms, setItemsForms] = useState<WorkOrderItemForm[]>([]);
   const [supplyModalOpenIdx, setSupplyModalOpenIdx] = useState<number | null>(null);
@@ -253,6 +259,13 @@ export const WorkOrderFormPage = () => {
           id: wo.attachment.id,
           originalName: wo.attachment.originalName,
           size: wo.attachment.size,
+        });
+      }
+      if (wo.attachment2) {
+        setAttachment2({
+          id: wo.attachment2.id,
+          originalName: wo.attachment2.originalName,
+          size: wo.attachment2.size,
         });
       }
       setObservations(wo.observations ?? '');
@@ -335,60 +348,73 @@ export const WorkOrderFormPage = () => {
     setFileNameError(value.length > 30 ? 'Máximo 30 caracteres' : '');
   };
 
-  const processFile = async (file: File) => {
+  const processFile = async (file: File, isSecond: boolean = false) => {
     if (file.size > 10 * 1024 * 1024) {
-      setUploadError('El archivo excede el tamaño máximo permitido (10MB)');
+      isSecond ? setUploadError2('El archivo excede el tamaño máximo permitido (10MB)') : setUploadError('El archivo excede el tamaño máximo permitido (10MB)');
       return;
     }
 
-    setUploadError('');
-    setIsUploading(true);
+    isSecond ? setUploadError2('') : setUploadError('');
+    isSecond ? setIsUploading2(true) : setIsUploading(true);
     try {
       const uploaded = await storageApi.uploadFile(file, { entityType: 'work_order' });
-      setAttachment({
-        id: uploaded.id,
-        originalName: file.name,
-        size: file.size,
-      });
-      setAttachmentFile(file);
+      if (isSecond) {
+        setAttachment2({
+          id: uploaded.id,
+          originalName: file.name,
+          size: file.size,
+        });
+        setAttachmentFile2(file);
+      } else {
+        setAttachment({
+          id: uploaded.id,
+          originalName: file.name,
+          size: file.size,
+        });
+        setAttachmentFile(file);
+      }
     } catch (error) {
-      setUploadError('Error al subir el archivo');
+      isSecond ? setUploadError2('Error al subir el archivo') : setUploadError('Error al subir el archivo');
     } finally {
-      setIsUploading(false);
+      isSecond ? setIsUploading2(false) : setIsUploading(false);
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, isSecond: boolean = false) => {
     const file = e.target.files?.[0];
     if (file) {
-      await processFile(file);
+      await processFile(file, isSecond);
     }
     // reset input
     e.target.value = '';
   };
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement | HTMLButtonElement | HTMLLabelElement>) => {
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement | HTMLButtonElement | HTMLLabelElement>, isSecond: boolean = false) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!isUploading) setIsDragging(true);
+    if (isSecond) {
+      if (!isUploading2) setIsDragging2(true);
+    } else {
+      if (!isUploading) setIsDragging(true);
+    }
   };
 
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement | HTMLButtonElement | HTMLLabelElement>) => {
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement | HTMLButtonElement | HTMLLabelElement>, isSecond: boolean = false) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(false);
+    isSecond ? setIsDragging2(false) : setIsDragging(false);
   };
 
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement | HTMLButtonElement | HTMLLabelElement>) => {
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement | HTMLButtonElement | HTMLLabelElement>, isSecond: boolean = false) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(false);
+    isSecond ? setIsDragging2(false) : setIsDragging(false);
     
-    if (isUploading) return;
+    if (isSecond ? isUploading2 : isUploading) return;
     
     const file = e.dataTransfer.files?.[0];
     if (file) {
-      await processFile(file);
+      await processFile(file, isSecond);
     }
   };
 
@@ -421,6 +447,7 @@ export const WorkOrderFormPage = () => {
       designerId: designerId ?? undefined,
       fileName: fileName || undefined,
       attachmentId: attachment?.id || undefined,
+      attachment2Id: attachment2?.id || undefined,
       observations: observations || undefined,
       items,
     };
@@ -440,6 +467,9 @@ export const WorkOrderFormPage = () => {
       attachmentId: attachment?.id === undefined && attachmentFile === null && !attachment
           ? null 
           : attachment?.id || undefined,
+      attachment2Id: attachment2?.id === undefined && attachmentFile2 === null && !attachment2
+          ? null 
+          : attachment2?.id || undefined,
       observations: observations || undefined,
       items,
     };
@@ -688,6 +718,86 @@ export const WorkOrderFormPage = () => {
         {uploadError && (
           <Typography color="error" variant="caption" display="block" sx={{ mt: 1 }}>
             {uploadError}
+          </Typography>
+        )}
+      </Box>
+
+      <Box>
+        <Typography variant="body2" fontWeight={600} gutterBottom>
+          Archivo adjunto de la OT (Adicional)
+        </Typography>
+        {attachment2 ? (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              p: 2,
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 2,
+              bgcolor: 'background.paper',
+            }}
+          >
+            <Box>
+              <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
+                {attachment2.originalName}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {(attachment2.size / 1024 / 1024).toFixed(2)} MB
+              </Typography>
+            </Box>
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => {
+                setAttachment2(null);
+                setAttachmentFile2(null);
+              }}
+            >
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        ) : (
+          <Button
+            component="label"
+            variant="outlined"
+            size="small"
+            startIcon={isUploading2 ? <CircularProgress size={16} /> : <CloudUploadIcon />}
+            disabled={isUploading2}
+            fullWidth
+            onDragOver={(e) => handleDragOver(e, true)}
+            onDragLeave={(e) => handleDragLeave(e, true)}
+            onDrop={(e) => handleDrop(e, true)}
+            sx={{
+              justifyContent: 'flex-start',
+              p: 2,
+              borderStyle: 'dashed',
+              borderWidth: 2,
+              textAlign: 'left',
+              borderColor: isDragging2 ? 'primary.main' : 'divider',
+              bgcolor: isDragging2 ? alpha('#1976d2', 0.04) : 'transparent',
+              color: isDragging2 ? 'primary.main' : 'text.secondary',
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                borderColor: 'primary.main',
+                bgcolor: alpha('#1976d2', 0.04),
+              },
+            }}
+          >
+            <Typography variant="body2" sx={{ ml: 1 }}>
+              {isUploading2 ? 'Subiendo...' : 'Haz clic o arrastra un archivo aquí (Max 10MB)'}
+            </Typography>
+            <input
+              type="file"
+              hidden
+              onChange={(e) => handleFileUpload(e, true)}
+            />
+          </Button>
+        )}
+        {uploadError2 && (
+          <Typography color="error" variant="caption" display="block" sx={{ mt: 1 }}>
+            {uploadError2}
           </Typography>
         )}
       </Box>

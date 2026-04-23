@@ -19,6 +19,7 @@ import {
 } from './dto';
 import { AuthenticatedUser } from '../../common/interfaces/auth.interface';
 import { ExpenseOrderAuthRequestsService } from '../expense-order-auth-requests/expense-order-auth-requests.service';
+import { AccountsPayableService } from '../accounts-payable/accounts-payable.service';
 
 const ALLOWED_TRANSITIONS: Record<ExpenseOrderStatus, ExpenseOrderStatus[]> = {
   [ExpenseOrderStatus.DRAFT]: [ExpenseOrderStatus.CREATED, ExpenseOrderStatus.ADMIN_AUTHORIZED],
@@ -41,6 +42,7 @@ export class ExpenseOrdersService {
     private readonly prisma: PrismaService,
     @Inject(forwardRef(() => ExpenseOrderAuthRequestsService))
     private readonly authRequestsService: ExpenseOrderAuthRequestsService,
+    private readonly accountsPayableService: AccountsPayableService,
   ) {}
 
   async create(
@@ -103,7 +105,7 @@ export class ExpenseOrdersService {
     while (attempts < maxAttempts) {
       attempts++;
       try {
-        return await this.repository.create({
+        const created = await this.repository.create({
           ogNumber: currentOgNumber,
           expenseTypeId: dto.expenseTypeId,
           expenseSubcategoryId: dto.expenseSubcategoryId,
@@ -116,6 +118,19 @@ export class ExpenseOrdersService {
           createdById,
           items: itemsData,
         });
+
+        const totalAmount = (created.items as Array<{ total: unknown }>).reduce(
+          (sum, item) => sum + Number(item.total),
+          0,
+        );
+        await this.accountsPayableService.createFromExpenseOrder(
+          created.id,
+          `Orden de Gasto ${created.ogNumber}`,
+          totalAmount,
+          createdById,
+        );
+
+        return created;
       } catch (error: any) {
         const isUniqueConstraintError = error.code === 'P2002';
         const target = JSON.stringify(error.meta?.target || '');
@@ -362,7 +377,21 @@ export class ExpenseOrdersService {
       });
     }
 
-    return this.repository.updateStatus(id, ExpenseOrderStatus.PAID);
+    const paid = await this.repository.updateStatus(id, ExpenseOrderStatus.PAID);
+
+    // Crear Cuenta por Pagar automáticamente si no existe una asociada
+    const totalAmount = expenseOrder.items.reduce(
+      (sum: number, item: { total: unknown }) => sum + Number(item.total),
+      0,
+    );
+    await this.accountsPayableService.createFromExpenseOrder(
+      id,
+      `Orden de Gasto ${expenseOrder.ogNumber}`,
+      totalAmount,
+      currentUser.id,
+    );
+
+    return paid;
   }
 
   async remove(id: string) {

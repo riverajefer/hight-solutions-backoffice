@@ -612,7 +612,7 @@ export const ExpenseOrderFormPage = () => {
       </Typography>
 
       <Autocomplete
-        options={expenseTypes}
+        options={expenseTypes.filter((t) => t.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') === 'produccion')}
         getOptionLabel={(opt) => opt.name}
         value={expenseTypes.find((t) => t.id === expenseTypeId) ?? null}
         onChange={(_, val) => {

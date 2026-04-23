@@ -20,6 +20,7 @@
     "prisma:migrate:resolve:rolledback": "sh -c 'prisma migrate resolve --rolled-back \"$MIGRATION_NAME\"'",
     "prisma:studio": "prisma studio",
     "prisma:seed": "ts-node prisma/seed.ts",
+    "prisma:seed:ap": "ts-node prisma/seed-accounts-payable.ts",
     "db:reset": "prisma migrate reset --force && npm run prisma:seed",
     "db:setup": "prisma migrate dev --name init && npm run prisma:seed",
     "test": "jest",

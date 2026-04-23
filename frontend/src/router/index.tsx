@@ -108,6 +108,9 @@ const CloseSessionPage = lazy(() => import('../features/cash-register/pages/Clos
 const SessionHistoryPage = lazy(() => import('../features/cash-register/pages/SessionHistoryPage'));
 const SessionDetailPage = lazy(() => import('../features/cash-register/pages/SessionDetailPage'));
 
+const AccountsPayableListPage = lazy(() => import('../features/accounts-payable/pages/AccountsPayableListPage'));
+const AccountsPayableDetailPage = lazy(() => import('../features/accounts-payable/pages/AccountsPayableDetailPage'));
+const AccountsPayableFormPage = lazy(() => import('../features/accounts-payable/pages/AccountsPayableFormPage'));
 
 const RoutesConfig: FC = () => {
   return (
@@ -1425,6 +1428,56 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.READ_CASH_SESSIONS}>
                   <SessionDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Accounts Payable Routes */}
+        <Route
+          path={PATHS.ACCOUNTS_PAYABLE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_ACCOUNTS_PAYABLE}>
+                  <AccountsPayableListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.ACCOUNTS_PAYABLE_NEW}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_ACCOUNTS_PAYABLE}>
+                  <AccountsPayableFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.ACCOUNTS_PAYABLE_DETAIL}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_ACCOUNTS_PAYABLE}>
+                  <AccountsPayableDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.ACCOUNTS_PAYABLE_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_ACCOUNTS_PAYABLE}>
+                  <AccountsPayableFormPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

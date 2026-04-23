@@ -215,6 +215,12 @@ export const OrdersListPage: React.FC = () => {
       ),
     },
     {
+      field: 'status',
+      headerName: 'Estado',
+      width: 140,
+      renderCell: (params: any) => <OrderStatusChip status={params.value} />,
+    },
+    {
       field: 'client',
       headerName: 'Cliente',
       flex: 1,
@@ -325,9 +331,15 @@ export const OrdersListPage: React.FC = () => {
       valueGetter: (_: any, row: any) => getDaysSince(row.createdAt),
       renderCell: (params: any) => {
         const days = params.value as number;
-        if (days === 0) return 'Hoy';
-        if (days === 1) return '1 día';
-        return `${days} días`;
+        let text = `${days} días`;
+        if (days === 0) text = 'Hoy';
+        else if (days === 1) text = '1 día';
+
+        return (
+          <Tooltip title={`Creado el ${formatDateTime(params.row.createdAt)}`}>
+            <span style={{ cursor: 'help', borderBottom: '1px dotted #888' }}>{text}</span>
+          </Tooltip>
+        );
       },
     },
     {
@@ -461,12 +473,6 @@ export const OrdersListPage: React.FC = () => {
         const c = config[status];
         return c ? <Chip label={c.label} color={c.color} size='small' /> : <>{status}</>;
       },
-    },
-    {
-      field: 'status',
-      headerName: 'Estado',
-      width: 140,
-      renderCell: (params: any) => <OrderStatusChip status={params.value} />,
     },
     {
       field: 'actions',
@@ -664,12 +670,22 @@ export const OrdersListPage: React.FC = () => {
 
       {/* Tabla */}
       <DataTable
+        density='compact'
         rows={orders}
         columns={columns}
         loading={ordersQuery.isLoading}
         getRowId={(row) => row.id}
         onRowClick={handleViewOrder}
         pageSize={filters.limit}
+        rowCount={ordersQuery.data?.meta.total ?? 0}
+        currentPage={(filters.page ?? 1) - 1}
+        onPaginationModelChange={(model) =>
+          setFilters((prev) => ({
+            ...prev,
+            page: model.page + 1,
+            limit: model.pageSize,
+          }))
+        }
         searchValue={filters.search || ''}
         onSearchChange={(value) => handleFilterChange('search', value)}
         serverSideSearch={true}

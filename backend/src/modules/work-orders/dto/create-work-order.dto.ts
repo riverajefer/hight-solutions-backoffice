@@ -87,6 +87,11 @@ export class CreateWorkOrderDto {
   @IsUUID()
   attachmentId?: string;
 
+  @ApiPropertyOptional({ description: 'ID of an additional uploaded file for the work order' })
+  @IsOptional()
+  @IsUUID()
+  attachment2Id?: string;
+
   @ApiPropertyOptional({ description: 'Observaciones generales de la OT' })
   @IsOptional()
   @IsString()

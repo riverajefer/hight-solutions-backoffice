@@ -121,5 +121,10 @@ export const PATHS = {
   CASH_SESSION_CLOSE: '/cash-register/session/:id/close',
   CASH_SESSION_HISTORY: '/cash-register/history',
   CASH_SESSION_HISTORY_DETAIL: '/cash-register/history/:id',
+  // Cuentas por Pagar
+  ACCOUNTS_PAYABLE: '/accounts-payable',
+  ACCOUNTS_PAYABLE_NEW: '/accounts-payable/new',
+  ACCOUNTS_PAYABLE_DETAIL: '/accounts-payable/:id',
+  ACCOUNTS_PAYABLE_EDIT: '/accounts-payable/:id/edit',
 };
 

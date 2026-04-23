@@ -71,6 +71,12 @@ model User {
   reviewedVoidRequests                 CashMovementVoidRequest[]    @relation("ReviewedVoidRequests")
   requestedRefundRequests              RefundRequest[]              @relation("RequestedRefundRequests")
   reviewedRefundRequests               RefundRequest[]              @relation("ReviewedRefundRequests")
+  // Cuentas por Pagar
+  createdAccountsPayable               AccountPayable[]             @relation("AccountPayableCreatedBy")
+  cancelledAccountsPayable             AccountPayable[]             @relation("AccountPayableCancelledBy")
+  registeredApPayments                 AccountPayablePayment[]      @relation("AccountPayablePaymentRegisteredBy")
+  uploadedApAttachments                AccountPayableAttachment[]   @relation("AccountPayableAttachmentUploadedBy")
+  paidInstallments                     AccountPayableInstallment[]  @relation("InstallmentPaidBy")
 
   @@map("users")
 }
@@ -222,7 +228,7 @@ model Supplier {
   phone         String?
   landlinePhone String?    @map("landline_phone")
   address       String?
-  email         String     @unique
+  email         String?    @unique
   departmentId  String     @map("department_id")
   cityId        String     @map("city_id")
   personType    PersonType @map("person_type")
@@ -234,6 +240,7 @@ model Supplier {
   department        Department         @relation(fields: [departmentId], references: [id])
   city              City               @relation(fields: [cityId], references: [id])
   expenseOrderItems ExpenseOrderItem[]
+  accountsPayable   AccountPayable[]
 
   @@map("suppliers")
 }
@@ -913,7 +920,8 @@ model UploadedFile {
   isDeleted    Boolean     @default(false) @map("is_deleted")
   createdAt    DateTime    @default(now()) @map("created_at")
   updatedAt    DateTime    @updatedAt @map("updated_at")
-  workOrders   WorkOrder[]
+  workOrders   WorkOrder[] @relation("WorkOrderAttachment1")
+  workOrders2  WorkOrder[] @relation("WorkOrderAttachment2")
 
   @@index([entityType, entityId])
   @@index([uploadedBy])
@@ -949,6 +957,7 @@ model WorkOrder {
   designerId      String?         @map("designer_id")
   fileName        String?         @map("file_name") // max 30 chars
   attachmentId    String?         @map("attachment_id")
+  attachment2Id   String?         @map("attachment2_id")
   observations    String?
   status          WorkOrderStatus @default(DRAFT)
   createdAt       DateTime        @default(now()) @map("created_at")
@@ -957,7 +966,8 @@ model WorkOrder {
   order            Order                @relation(fields: [orderId], references: [id])
   advisor          User                 @relation("WorkOrderAdvisor", fields: [advisorId], references: [id])
   designer         User?                @relation("WorkOrderDesigner", fields: [designerId], references: [id])
-  attachment       UploadedFile?        @relation(fields: [attachmentId], references: [id])
+  attachment       UploadedFile?        @relation("WorkOrderAttachment1", fields: [attachmentId], references: [id])
+  attachment2      UploadedFile?        @relation("WorkOrderAttachment2", fields: [attachment2Id], references: [id])
   items            WorkOrderItem[]
   timeEntries      WorkOrderTimeEntry[]
   expenseOrders    ExpenseOrder[]
@@ -1065,6 +1075,7 @@ model ExpenseType {
 
   subcategories ExpenseSubcategory[]
   expenseOrders ExpenseOrder[]
+  accountsPayable AccountPayable[]
 
   @@map("expense_types")
 }
@@ -1080,6 +1091,7 @@ model ExpenseSubcategory {
 
   expenseType   ExpenseType    @relation(fields: [expenseTypeId], references: [id])
   expenseOrders ExpenseOrder[]
+  accountsPayable AccountPayable[]
 
   @@unique([name, expenseTypeId])
   @@map("expense_subcategories")
@@ -1121,6 +1133,7 @@ model ExpenseOrder {
   cajaAuthorizedBy   User?                     @relation("CajaAuthorizedExpenseOrders", fields: [cajaAuthorizedById], references: [id])
   items              ExpenseOrderItem[]
   authRequests       ExpenseOrderAuthRequest[]
+  accountPayable     AccountPayable?
 
   @@index([status])
   @@index([workOrderId])
@@ -1753,14 +1766,15 @@ model CashMovement {
   createdAt         DateTime         @default(now()) @map("created_at")
   updatedAt         DateTime         @updatedAt @map("updated_at")
 
-  cashSession      CashSession               @relation(fields: [cashSessionId], references: [id])
-  performedBy      User                      @relation("PerformedCashMovements", fields: [performedById], references: [id])
-  voidedBy         User?                     @relation("VoidedCashMovements", fields: [voidedById], references: [id])
-  counterMovement  CashMovement?             @relation("CounterMovement", fields: [counterMovementId], references: [id])
-  originalMovement CashMovement?             @relation("CounterMovement")
-  linkedPayment    Payment?
-  voidRequests     CashMovementVoidRequest[]
-  refundRequest    RefundRequest?
+  cashSession           CashSession               @relation(fields: [cashSessionId], references: [id])
+  performedBy           User                      @relation("PerformedCashMovements", fields: [performedById], references: [id])
+  voidedBy              User?                     @relation("VoidedCashMovements", fields: [voidedById], references: [id])
+  counterMovement       CashMovement?             @relation("CounterMovement", fields: [counterMovementId], references: [id])
+  originalMovement      CashMovement?             @relation("CounterMovement")
+  linkedPayment         Payment?
+  voidRequests          CashMovementVoidRequest[]
+  refundRequest         RefundRequest?
+  accountPayablePayment AccountPayablePayment?
 
   @@index([cashSessionId])
   @@index([performedById])
@@ -1833,4 +1847,127 @@ model RefundRequest {
   @@index([requestedById])
   @@index([status])
   @@map("refund_requests")
+}
+
+// =============================================================================
+// MÓDULO DE CUENTAS POR PAGAR
+// =============================================================================
+
+enum AccountPayableStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum RecurringFrequency {
+  BIWEEKLY
+  MONTHLY
+  SEMIANNUAL
+  ANNUAL
+}
+
+model AccountPayable {
+  id           String               @id @default(uuid())
+  apNumber     String               @unique @map("ap_number")
+  expenseTypeId        String       @map("expense_type_id")
+  expenseSubcategoryId String       @map("expense_subcategory_id")
+  status       AccountPayableStatus @default(PENDING)
+  description  String
+  observations String?
+  totalAmount  Decimal              @map("total_amount") @db.Decimal(12, 2)
+  paidAmount   Decimal              @default(0) @map("paid_amount") @db.Decimal(12, 2)
+  balance      Decimal              @map("balance") @db.Decimal(12, 2)
+  dueDate      DateTime             @map("due_date")
+  isRecurring        Boolean              @default(false) @map("is_recurring")
+  recurringDay       Int?                 @map("recurring_day")
+  recurringFrequency RecurringFrequency?  @map("recurring_frequency")
+
+  supplierId     String? @map("supplier_id")
+  expenseOrderId String? @unique @map("expense_order_id")
+
+  createdById   String    @map("created_by_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  cancelledAt   DateTime? @map("cancelled_at")
+  cancelledById String?   @map("cancelled_by_id")
+  cancelReason  String?   @map("cancel_reason")
+
+  expenseType        ExpenseType        @relation(fields: [expenseTypeId], references: [id])
+  expenseSubcategory ExpenseSubcategory @relation(fields: [expenseSubcategoryId], references: [id])
+  supplier     Supplier?                   @relation(fields: [supplierId], references: [id])
+  expenseOrder ExpenseOrder?               @relation(fields: [expenseOrderId], references: [id])
+  createdBy    User                        @relation("AccountPayableCreatedBy", fields: [createdById], references: [id])
+  cancelledBy  User?                       @relation("AccountPayableCancelledBy", fields: [cancelledById], references: [id])
+  payments     AccountPayablePayment[]
+  attachments  AccountPayableAttachment[]
+  installments AccountPayableInstallment[]
+
+  @@index([status])
+  @@index([dueDate])
+  @@index([supplierId])
+  @@index([createdById])
+  @@index([createdAt])
+  @@map("accounts_payable")
+}
+
+model AccountPayablePayment {
+  id               String        @id @default(uuid())
+  accountPayableId String        @map("account_payable_id")
+  amount           Decimal       @db.Decimal(12, 2)
+  paymentMethod    PaymentMethod @default(CASH) @map("payment_method")
+  reference        String?
+  notes            String?
+  receiptFileId    String?       @map("receipt_file_id")
+  cashMovementId   String?       @unique @map("cash_movement_id")
+
+  registeredById String   @map("registered_by_id")
+  paymentDate    DateTime @map("payment_date")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  accountPayable AccountPayable @relation(fields: [accountPayableId], references: [id], onDelete: Cascade)
+  cashMovement   CashMovement?  @relation(fields: [cashMovementId], references: [id])
+  registeredBy   User           @relation("AccountPayablePaymentRegisteredBy", fields: [registeredById], references: [id])
+
+  @@index([accountPayableId])
+  @@index([paymentDate])
+  @@map("account_payable_payments")
+}
+
+model AccountPayableAttachment {
+  id               String   @id @default(uuid())
+  accountPayableId String   @map("account_payable_id")
+  fileUrl          String   @map("file_url")
+  fileName         String   @map("file_name")
+  fileType         String?  @map("file_type")
+  uploadedById     String   @map("uploaded_by_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  accountPayable AccountPayable @relation(fields: [accountPayableId], references: [id], onDelete: Cascade)
+  uploadedBy     User           @relation("AccountPayableAttachmentUploadedBy", fields: [uploadedById], references: [id])
+
+  @@index([accountPayableId])
+  @@map("account_payable_attachments")
+}
+
+model AccountPayableInstallment {
+  id                String    @id @default(uuid())
+  accountPayableId  String    @map("account_payable_id")
+  installmentNumber Int       @map("installment_number")
+  amount            Decimal   @db.Decimal(12, 2)
+  dueDate           DateTime  @map("due_date")
+  isPaid            Boolean   @default(false) @map("is_paid")
+  paidAt            DateTime? @map("paid_at")
+  paidById          String?   @map("paid_by_id")
+  notes             String?
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  accountPayable AccountPayable @relation(fields: [accountPayableId], references: [id], onDelete: Cascade)
+  paidBy         User?          @relation("InstallmentPaidBy", fields: [paidById], references: [id])
+
+  @@index([accountPayableId])
+  @@map("account_payable_installments")
 }

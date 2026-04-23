@@ -156,6 +156,12 @@ export const PERMISSIONS = {
   VOID_CASH_MOVEMENTS: 'void_cash_movements',
   APPROVE_CASH_MOVEMENTS: 'approve_cash_movements',
   READ_CASH_MOVEMENTS: 'read_cash_movements',
+  // Cuentas por Pagar
+  CREATE_ACCOUNTS_PAYABLE: 'create_accounts_payable',
+  READ_ACCOUNTS_PAYABLE: 'read_accounts_payable',
+  UPDATE_ACCOUNTS_PAYABLE: 'update_accounts_payable',
+  DELETE_ACCOUNTS_PAYABLE: 'delete_accounts_payable',
+  REGISTER_AP_PAYMENT: 'register_ap_payment',
 };
 
 export const ROUTES = {
@@ -275,6 +281,11 @@ export const ROUTES = {
   CASH_SESSION_CLOSE: '/cash-register/session/:id/close',
   CASH_SESSION_HISTORY: '/cash-register/history',
   CASH_SESSION_HISTORY_DETAIL: '/cash-register/history/:id',
+  // Cuentas por Pagar
+  ACCOUNTS_PAYABLE: '/accounts-payable',
+  ACCOUNTS_PAYABLE_NEW: '/accounts-payable/new',
+  ACCOUNTS_PAYABLE_DETAIL: '/accounts-payable/:id',
+  ACCOUNTS_PAYABLE_EDIT: '/accounts-payable/:id/edit',
 };
 
 export const DEFAULT_PAGINATION = {
