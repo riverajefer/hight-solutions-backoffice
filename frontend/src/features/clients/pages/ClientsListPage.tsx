@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { Box, Button, Chip, TextField, MenuItem } from '@mui/material';
+import { Box, Button, Chip, TextField, MenuItem, InputAdornment } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
 /* import UploadFileIcon from '@mui/icons-material/UploadFile';
  */import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
@@ -23,17 +24,34 @@ const ClientsListPage: React.FC = () => {
   const [confirmDelete, setConfirmDelete] = useState<Client | null>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [filterSaldoAFavor, setFilterSaldoAFavor] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   const { clientsQuery, deleteClientMutation, uploadCsvMutation } =
     useClients();
   const clients = clientsQuery.data || [];
 
   const filteredClients = useMemo(() => {
+    let result = clients;
+
     if (filterSaldoAFavor === 'con_saldo') {
-      return clients.filter((client) => (client.saldoAFavor || 0) > 0);
+      result = result.filter((client) => (client.saldoAFavor || 0) > 0);
     }
-    return clients;
-  }, [clients, filterSaldoAFavor]);
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter((client) => {
+        return (
+          client.name?.toLowerCase().includes(q) ||
+          client.phone?.toLowerCase().includes(q) ||
+          client.email?.toLowerCase().includes(q) ||
+          client.nit?.toLowerCase().includes(q) ||
+          client.cedula?.toLowerCase().includes(q)
+        );
+      });
+    }
+
+    return result;
+  }, [clients, filterSaldoAFavor, searchQuery]);
 
   const handleDeleteConfirm = async () => {
     if (!confirmDelete) return;
@@ -218,6 +236,24 @@ const ClientsListPage: React.FC = () => {
             mt: 2,
           }}
         >
+          {hasPermission(PERMISSIONS.SEARCH_CLIENTS) && (
+            <TextField
+              label='Buscar cliente'
+              placeholder='Nombre, celular, NIT/cédula, correo...'
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              fullWidth
+              size='small'
+              sx={{ gridColumn: { xs: '1', sm: '1 / -1', md: '1 / 3' } }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position='start'>
+                    <SearchIcon fontSize='small' />
+                  </InputAdornment>
+                ),
+              }}
+            />
+          )}
           <TextField
             select
             label='Saldo a favor'

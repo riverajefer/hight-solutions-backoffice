@@ -64,6 +64,7 @@ async function main() {
     { name: 'browse_clients', description: 'Acceder a la tabla completa de clientes (/clients)' },
     { name: 'update_clients', description: 'Update client information' },
     { name: 'delete_clients', description: 'Delete clients' },
+    { name: 'search_clients', description: 'Buscar clientes por nombre, celular, NIT/cédula o correo' },
     {
       name: 'update_client_special_condition',
       description: 'Editar condición especial del cliente',
@@ -422,6 +423,7 @@ async function main() {
     'read_cargos',
     'read_clients',
     'browse_clients',
+    'search_clients',
     'read_suppliers',
     'read_units_of_measure',
     'read_product_categories',
