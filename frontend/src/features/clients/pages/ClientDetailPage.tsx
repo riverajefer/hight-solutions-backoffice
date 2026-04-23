@@ -500,7 +500,7 @@ const ClientDetailPage: React.FC = () => {
             ) : (
               <KpiCard
                 icon={<AccountBalanceWalletIcon />}
-                label='Saldo a favor'
+                label='Saldo a favor del cliente'
                 value={formatCurrency(stats?.saldoAFavor ?? 0)}
                 subtext={
                   (stats?.saldoAFavor ?? 0) > 0
