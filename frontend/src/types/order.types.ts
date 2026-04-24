@@ -74,6 +74,7 @@ export interface Order {
   paidAmount: string;
   balance: string;
   advancePaymentStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+  advancePaymentRejectedReason: string | null;
   discountApprovalStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   advancePaymentApprovals?: AdvancePaymentApproval[];
   refundRequests?: Array<{

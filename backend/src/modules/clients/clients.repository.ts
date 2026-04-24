@@ -309,6 +309,76 @@ export class ClientsRepository {
   }
 
   /**
+   * Get consolidated financial stats + order history for a client
+   */
+  async findClientStats(id: string) {
+    const orders = await this.prisma.order.findMany({
+      where: { clientId: id },
+      select: {
+        id: true,
+        orderNumber: true,
+        orderDate: true,
+        total: true,
+        paidAmount: true,
+        balance: true,
+        status: true,
+        createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { orderDate: 'desc' },
+    });
+
+    let totalPurchased = 0;
+    let pendingBalance = 0;
+    let pendingOrdersCount = 0;
+    let saldoAFavor = 0;
+    let lastOrderDate: Date | null = null;
+
+    for (const order of orders) {
+      const total = Number(order.total);
+      const balance = Number(order.balance);
+
+      totalPurchased += total;
+
+      if (balance > 0) {
+        pendingBalance += balance;
+        pendingOrdersCount++;
+      } else if (balance < 0) {
+        saldoAFavor += Math.abs(balance);
+      }
+
+      const orderDate = new Date(order.orderDate);
+      if (!lastOrderDate || orderDate > lastOrderDate) {
+        lastOrderDate = orderDate;
+      }
+    }
+
+    return {
+      totalPurchased,
+      pendingBalance,
+      pendingOrdersCount,
+      saldoAFavor,
+      lastOrderDate,
+      orders: orders.map((o) => ({
+        id: o.id,
+        orderNumber: o.orderNumber,
+        orderDate: o.orderDate,
+        total: Number(o.total),
+        paidAmount: Number(o.paidAmount),
+        balance: Number(o.balance),
+        status: o.status,
+        advisor: o.createdBy,
+      })),
+    };
+  }
+
+  /**
    * Create multiple clients inside a transaction.
    * Uses individual create() calls to preserve audit log extensions.
    */

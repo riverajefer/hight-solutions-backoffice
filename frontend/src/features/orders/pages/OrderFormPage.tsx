@@ -535,12 +535,14 @@ export const OrderFormPage: React.FC = () => {
       };
 
       if (isEdit) {
-        await updateOrderMutation.mutateAsync(orderDto);
-        
-        // Subir comprobante editado si existe
-        if (data.payments[0] && data.payments[0].receiptFile && orderQuery.data?.payments?.[0]) {
+        const updatedOrder = await updateOrderMutation.mutateAsync(orderDto);
+
+        // Subir comprobante editado si existe — usar el payment del order actualizado (no el cacheado)
+        // porque el anticipo pudo haber sido rechazado (payment eliminado) y recreado con nuevo ID
+        const newPaymentId = updatedOrder?.payments?.[0]?.id;
+        if (data.payments[0] && data.payments[0].receiptFile && newPaymentId) {
           try {
-            await ordersApi.uploadPaymentReceipt(id!, orderQuery.data.payments[0].id, data.payments[0].receiptFile);
+            await ordersApi.uploadPaymentReceipt(id!, newPaymentId, data.payments[0].receiptFile);
           } catch (e: any) {
             console.error('Error al subir comprobante en edición:', e);
             enqueueSnackbar('Orden actualizada, pero hubo un error subiendo el comprobante', { variant: 'warning' });

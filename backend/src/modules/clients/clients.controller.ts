@@ -55,6 +55,16 @@ export class ClientsController {
     return this.clientsService.findAll(includeInactive === 'true');
   }
 
+  @Get(':id/stats')
+  @RequirePermissions('read_clients')
+  @ApiOperation({ summary: 'Obtener estadísticas financieras y historial de órdenes del cliente' })
+  @ApiParam({ name: 'id', description: 'ID del cliente' })
+  @ApiResponse({ status: 200, description: 'Estadísticas del cliente' })
+  @ApiResponse({ status: 404, description: 'Cliente no encontrado' })
+  getStats(@Param('id') id: string) {
+    return this.clientsService.getClientStats(id);
+  }
+
   @Get(':id')
   @RequirePermissions('read_clients')
   @ApiOperation({ summary: 'Obtener cliente por ID' })

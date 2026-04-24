@@ -120,6 +120,7 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       where: { id: request.orderId },
       data: {
         advancePaymentStatus: EditRequestStatus.REJECTED,
+        advancePaymentRejectedReason: 'Rechazado vía WhatsApp',
         paidAmount: new Prisma.Decimal(0),
         balance: orderTotal,
       },
@@ -238,10 +239,13 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       },
     });
 
-    // Actualizar estado de anticipo en la orden
+    // Actualizar estado de anticipo en la orden (limpia rechazo previo si lo había)
     await this.prisma.order.update({
       where: { id: orderId },
-      data: { advancePaymentStatus: EditRequestStatus.PENDING },
+      data: {
+        advancePaymentStatus: EditRequestStatus.PENDING,
+        advancePaymentRejectedReason: null,
+      },
     });
 
     // Formatear monto y método para los mensajes
@@ -426,6 +430,7 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       where: { id: request.orderId },
       data: {
         advancePaymentStatus: EditRequestStatus.REJECTED,
+        advancePaymentRejectedReason: dto.reviewNotes ?? null,
         paidAmount: new Prisma.Decimal(0),
         balance: orderTotal,
       },

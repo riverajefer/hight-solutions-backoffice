@@ -1,7 +1,21 @@
 import React, { useState, useMemo } from 'react';
-import { Box, Button, Chip, TextField, MenuItem } from '@mui/material';
+import {
+  Box,
+  Button,
+  Chip,
+  TextField,
+  MenuItem,
+  InputAdornment,
+  Autocomplete,
+  Paper,
+  Typography,
+  Stack,
+} from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
+import PersonSearchIcon from '@mui/icons-material/PersonSearch';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 /* import UploadFileIcon from '@mui/icons-material/UploadFile';
- */import { useNavigate } from 'react-router-dom';
+ */ import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import { GridRenderCellParams } from '@mui/x-data-grid';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -23,17 +37,34 @@ const ClientsListPage: React.FC = () => {
   const [confirmDelete, setConfirmDelete] = useState<Client | null>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [filterSaldoAFavor, setFilterSaldoAFavor] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   const { clientsQuery, deleteClientMutation, uploadCsvMutation } =
     useClients();
   const clients = clientsQuery.data || [];
 
+  const hasBrowse = hasPermission(PERMISSIONS.BROWSE_CLIENTS);
+  const hasSearch = hasPermission(PERMISSIONS.SEARCH_CLIENTS);
+
+  const matchesQuery = (client: Client, q: string) => {
+    const lq = q.toLowerCase();
+    return (
+      client.name?.toLowerCase().includes(lq) ||
+      client.phone?.toLowerCase().includes(lq) ||
+      client.email?.toLowerCase().includes(lq) ||
+      client.nit?.toLowerCase().includes(lq) ||
+      client.cedula?.toLowerCase().includes(lq)
+    );
+  };
+
   const filteredClients = useMemo(() => {
-    if (filterSaldoAFavor === 'con_saldo') {
-      return clients.filter((client) => (client.saldoAFavor || 0) > 0);
-    }
-    return clients;
-  }, [clients, filterSaldoAFavor]);
+    let result = clients;
+    if (filterSaldoAFavor === 'con_saldo')
+      result = result.filter((c) => (c.saldoAFavor || 0) > 0);
+    if (searchQuery.trim())
+      result = result.filter((c) => matchesQuery(c, searchQuery));
+    return result;
+  }, [clients, filterSaldoAFavor, searchQuery]);
 
   const handleDeleteConfirm = async () => {
     if (!confirmDelete) return;
@@ -191,7 +222,7 @@ const ClientsListPage: React.FC = () => {
         action={
           hasPermission(PERMISSIONS.CREATE_CLIENTS) ? (
             <>
-{/*               <Button
+              {/*               <Button
                 variant='outlined'
                 color='primary'
                 startIcon={<UploadFileIcon />}
@@ -204,67 +235,181 @@ const ClientsListPage: React.FC = () => {
         }
       />
 
-      {hasPermission(PERMISSIONS.BROWSE_CLIENTS) && (
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: {
-              xs: '1fr',
-              sm: '1fr 1fr',
-              md: 'repeat(4, 1fr)',
-            },
-            gap: 2,
-            mb: 3,
-            mt: 2,
-          }}
-        >
-          <TextField
-            select
-            label='Saldo a favor'
-            value={filterSaldoAFavor}
-            onChange={(e) => setFilterSaldoAFavor(e.target.value)}
-            fullWidth
-            size='small'
+      {/* ── Modo BROWSE: tabla completa + filtros ─────────────────────── */}
+      {hasBrowse && (
+        <>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: '1fr 1fr',
+                md: 'repeat(4, 1fr)',
+              },
+              gap: 2,
+              mb: 3,
+              mt: 2,
+            }}
           >
-            <MenuItem value=''>Todos</MenuItem>
-            <MenuItem value='con_saldo'>Con saldo a favor</MenuItem>
-          </TextField>
+            {hasSearch && (
+              <TextField
+                label='Buscar cliente'
+                placeholder='Nombre, celular, NIT/cédula, correo...'
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                fullWidth
+                size='small'
+                sx={{ gridColumn: { xs: '1', sm: '1 / -1', md: '1 / 3' } }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position='start'>
+                      <SearchIcon fontSize='small' />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            )}
+            <TextField
+              select
+              label='Saldo a favor'
+              value={filterSaldoAFavor}
+              onChange={(e) => setFilterSaldoAFavor(e.target.value)}
+              fullWidth
+              size='small'
+            >
+              <MenuItem value=''>Todos</MenuItem>
+              <MenuItem value='con_saldo'>Con saldo a favor</MenuItem>
+            </TextField>
+          </Box>
+
+          <DataTable
+            rows={filteredClients}
+            columns={columns}
+            loading={clientsQuery.isLoading}
+            onAdd={
+              hasPermission(PERMISSIONS.CREATE_CLIENTS)
+                ? () => navigate('/clients/new')
+                : undefined
+            }
+            addButtonText='Nuevo Cliente'
+            searchPlaceholder='Buscar clientes...'
+          />
+        </>
+      )}
+
+      {/* ── Modo SEARCH sin BROWSE: autocomplete que navega al detalle ── */}
+      {!hasBrowse && hasSearch && (
+        <Box sx={{ mt: 3, maxWidth: 560 }}>
+          <Autocomplete
+            options={clients}
+            inputValue={searchQuery}
+            onInputChange={(_e, value, reason) => {
+              if (reason !== 'reset') setSearchQuery(value);
+            }}
+            onChange={(_e, client) => {
+              if (client) navigate(`/clients/${client.id}`);
+            }}
+            getOptionLabel={(c) => c.name}
+            filterOptions={(options, { inputValue }) =>
+              inputValue.trim()
+                ? options.filter((c) => matchesQuery(c, inputValue))
+                : []
+            }
+            noOptionsText={
+              searchQuery.trim()
+                ? 'Sin resultados para esa búsqueda'
+                : 'Escribe para buscar un cliente'
+            }
+            loading={clientsQuery.isLoading}
+            PaperComponent={(props) => (
+              <Paper {...props} elevation={4} sx={{ borderRadius: 2, mt: 0.5 }} />
+            )}
+            renderOption={(props, client) => {
+              const { key, ...rest } = props as React.HTMLAttributes<HTMLLIElement> & { key: React.Key };
+              const secondary = [client.phone, client.email, client.nit || client.cedula]
+                .filter(Boolean)
+                .join(' · ');
+              return (
+                <Box
+                  key={key}
+                  component='li'
+                  {...rest}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 1,
+                    px: 2,
+                    py: 1.25,
+                    cursor: 'pointer',
+                    '&:hover .go-arrow': { opacity: 1, transform: 'translateX(0)' },
+                  }}
+                >
+                  <Stack spacing={0.25} sx={{ flexGrow: 1, minWidth: 0 }}>
+                    <Typography variant='body2' fontWeight={600} noWrap>
+                      {client.name}
+                    </Typography>
+                    {secondary && (
+                      <Typography variant='caption' color='text.secondary' noWrap>
+                        {secondary}
+                      </Typography>
+                    )}
+                  </Stack>
+                  <ArrowForwardIcon
+                    className='go-arrow'
+                    fontSize='small'
+                    sx={{
+                      color: 'primary.main',
+                      opacity: 0,
+                      transform: 'translateX(-4px)',
+                      transition: 'opacity 0.15s, transform 0.15s',
+                      flexShrink: 0,
+                    }}
+                  />
+                </Box>
+              );
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label='Buscar cliente'
+                placeholder='Nombre, celular, NIT/cédula, correo...'
+                size='small'
+                InputProps={{
+                  ...params.InputProps,
+                  startAdornment: (
+                    <InputAdornment position='start'>
+                      <PersonSearchIcon fontSize='small' color='action' />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            )}
+          />
         </Box>
       )}
 
-      {hasPermission(PERMISSIONS.BROWSE_CLIENTS) ? (
-        <DataTable
-          rows={filteredClients}
-          columns={columns}
-          loading={clientsQuery.isLoading}
-          onAdd={
-            hasPermission(PERMISSIONS.CREATE_CLIENTS)
-              ? () => navigate('/clients/new')
-              : undefined
-          }
-          addButtonText='Nuevo Cliente'
-          searchPlaceholder='Buscar clientes...'
-        />
-      ) : (
-        <Box
-          sx={{
-            mt: 4,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 2,
-          }}
-        >
-          <Button
-            variant='contained'
-            color='primary'
-            size='large'
-            onClick={() => navigate('/clients/new')}
+      {/* ── Solo CREATE: botón centrado si no tiene browse ni search ──── */}
+      {hasPermission(PERMISSIONS.CREATE_CLIENTS) && (
+          <Box
+            sx={{
+              mt: 4,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 2,
+            }}
           >
-            Crear Nuevo Cliente
-          </Button>
-        </Box>
-      )}
+            <Button
+              variant='contained'
+              color='primary'
+              size='large'
+              onClick={() => navigate('/clients/new')}
+            >
+              Crear Nuevo Cliente
+            </Button>
+          </Box>
+        )}
 
       <ConfirmDialog
         open={!!confirmDelete}

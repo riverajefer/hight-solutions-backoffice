@@ -85,6 +85,31 @@ export interface ClientQueryParams {
 
 export type ClientListResponse = Client[];
 
+export interface ClientOrderHistory {
+  id: string;
+  orderNumber: string;
+  orderDate: string;
+  total: number;
+  paidAmount: number;
+  balance: number;
+  status: string;
+  advisor: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
+  } | null;
+}
+
+export interface ClientStats {
+  totalPurchased: number;
+  pendingBalance: number;
+  pendingOrdersCount: number;
+  saldoAFavor: number;
+  lastOrderDate: string | null;
+  orders: ClientOrderHistory[];
+}
+
 export interface UploadClientRowError {
   row: number;
   error: string;

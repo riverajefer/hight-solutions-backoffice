@@ -40,7 +40,8 @@ export const PERMISSION_LABELS: Record<string, string> = {
   delete_cargos: 'Eliminar Cargos',
 
   // Clientes
-  browse_clients: 'Navegar Clientes',
+  search_clients: 'Buscador Global de Clientes',
+  browse_clients: 'Ver la lista completa de clientes',
   create_clients: 'Crear Clientes',
   read_clients: 'Ver Clientes',
   update_clients: 'Actualizar Clientes',
