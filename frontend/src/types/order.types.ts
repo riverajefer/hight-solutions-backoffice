@@ -69,6 +69,9 @@ export interface Order {
   subtotal: string; // Decimal viene como string del backend
   taxRate: string;
   tax: string;
+  retefuenteRate: string; // Tasa de Retefuente (e.g., "0.025" = 2.5%)
+  reteICARate: string;    // Tasa de ReteICA (e.g., "0.00414" = 0.414%)
+  reteIVARate: string;    // Tasa de ReteIVA sobre IVA (e.g., "0.15" = 15%)
   discountAmount: string; // Total de descuentos aplicados
   total: string;
   paidAmount: string;
@@ -219,6 +222,9 @@ export interface CreateOrderDto {
   requiresColorProof?: boolean;
   colorProofPrice?: number;
   taxRate?: number;
+  retefuenteRate?: number;
+  reteICARate?: number;
+  reteIVARate?: number;
   items: CreateOrderItemDto[];
   initialPayment?: InitialPaymentDto;
   initialPayments?: InitialPaymentDto[];
@@ -236,6 +242,9 @@ export interface UpdateOrderDto {
   requiresColorProof?: boolean;
   colorProofPrice?: number;
   taxRate?: number;
+  retefuenteRate?: number;
+  reteICARate?: number;
+  reteIVARate?: number;
   items?: CreateOrderItemDto[];
   initialPayment?: InitialPaymentDto;
   commercialChannelId?: string;

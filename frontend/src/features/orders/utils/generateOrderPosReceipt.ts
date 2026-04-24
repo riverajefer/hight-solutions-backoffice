@@ -215,10 +215,37 @@ export function generateOrderPosReceipt(order: Order): jsPDF {
   setTextColor(doc, PDF_COLORS.footerText);
   printRow('Subtotal:', formatCurrency(order.subtotal));
 
+  if (parseFloat(order.retefuenteRate) > 0) {
+    const rate = (parseFloat(order.retefuenteRate) * 100).toFixed(3).replace(/\.?0+$/, '');
+    const amount = parseFloat(order.subtotal) * parseFloat(order.retefuenteRate);
+    doc.setFont('courier', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(180, 40, 40);
+    printRow(`Retefuente (${rate}%):`, `- ${formatCurrency(amount.toString())}`);
+  }
+
+  if (parseFloat(order.reteICARate) > 0) {
+    const rate = (parseFloat(order.reteICARate) * 100).toFixed(3).replace(/\.?0+$/, '');
+    const amount = parseFloat(order.subtotal) * parseFloat(order.reteICARate);
+    doc.setFont('courier', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(180, 40, 40);
+    printRow(`ReteICA (${rate}%):`, `- ${formatCurrency(amount.toString())}`);
+  }
+
   doc.setFont('courier', 'normal');
   doc.setFontSize(7);
   setTextColor(doc, PDF_COLORS.footerText);
   printRow(`IVA (${Math.round(parseFloat(order.taxRate) * 100)}%):`, formatCurrency(order.tax));
+
+  if (parseFloat(order.reteIVARate) > 0 && parseFloat(order.tax) > 0) {
+    const rate = (parseFloat(order.reteIVARate) * 100).toFixed(0);
+    const amount = parseFloat(order.tax) * parseFloat(order.reteIVARate);
+    doc.setFont('courier', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(180, 40, 40);
+    printRow(`ReteIVA (${rate}%):`, `- ${formatCurrency(amount.toString())}`);
+  }
 
   if (parseFloat(order.discountAmount) > 0) {
     doc.setFont('courier', 'normal');

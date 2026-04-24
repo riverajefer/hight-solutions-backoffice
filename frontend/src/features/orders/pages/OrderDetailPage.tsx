@@ -1063,6 +1063,26 @@ export const OrderDetailPage: React.FC = () => {
                         {formatCurrency(parseFloat(order.subtotal))}
                       </Typography>
                     </Box>
+                    {parseFloat(order.retefuenteRate) > 0 && (
+                      <Box display="flex" justifyContent="space-between">
+                        <Typography color="error.main">
+                          Retefuente ({(parseFloat(order.retefuenteRate) * 100).toFixed(3).replace(/\.?0+$/, '')}%):
+                        </Typography>
+                        <Typography fontWeight={500} color="error.main">
+                          -{formatCurrency(parseFloat(order.subtotal) * parseFloat(order.retefuenteRate))}
+                        </Typography>
+                      </Box>
+                    )}
+                    {parseFloat(order.reteICARate) > 0 && (
+                      <Box display="flex" justifyContent="space-between">
+                        <Typography color="error.main">
+                          ReteICA ({(parseFloat(order.reteICARate) * 100).toFixed(3).replace(/\.?0+$/, '')}%):
+                        </Typography>
+                        <Typography fontWeight={500} color="error.main">
+                          -{formatCurrency(parseFloat(order.subtotal) * parseFloat(order.reteICARate))}
+                        </Typography>
+                      </Box>
+                    )}
                     {parseFloat(order.tax) > 0 && (
                       <Box display="flex" justifyContent="space-between">
                         <Typography>
@@ -1070,6 +1090,16 @@ export const OrderDetailPage: React.FC = () => {
                         </Typography>
                         <Typography fontWeight={500}>
                           {formatCurrency(parseFloat(order.tax))}
+                        </Typography>
+                      </Box>
+                    )}
+                    {parseFloat(order.reteIVARate) > 0 && parseFloat(order.tax) > 0 && (
+                      <Box display="flex" justifyContent="space-between">
+                        <Typography color="error.main">
+                          ReteIVA ({(parseFloat(order.reteIVARate) * 100).toFixed(0)}%):
+                        </Typography>
+                        <Typography fontWeight={500} color="error.main">
+                          -{formatCurrency(parseFloat(order.tax) * parseFloat(order.reteIVARate))}
                         </Typography>
                       </Box>
                     )}

@@ -113,13 +113,26 @@ export class OrdersService {
     const taxRate = new Prisma.Decimal(providedTaxRate);
     const tax = subtotal.mul(taxRate);
     const discountAmount = new Prisma.Decimal(0);
-    
+
+    const retefuenteRate = new Prisma.Decimal(createOrderDto.retefuenteRate ?? 0);
+    const reteICARate = new Prisma.Decimal(createOrderDto.reteICARate ?? 0);
+    const reteIVARate = new Prisma.Decimal(createOrderDto.reteIVARate ?? 0);
+    const retefuenteAmount = subtotal.mul(retefuenteRate);
+    const reteICAAmount = subtotal.mul(reteICARate);
+    const reteIVAAmount = tax.mul(reteIVARate);
+
     const requiresColorProof = createOrderDto.requiresColorProof || false;
-    const colorProofPrice = requiresColorProof && createOrderDto.colorProofPrice 
-      ? new Prisma.Decimal(createOrderDto.colorProofPrice) 
+    const colorProofPrice = requiresColorProof && createOrderDto.colorProofPrice
+      ? new Prisma.Decimal(createOrderDto.colorProofPrice)
       : new Prisma.Decimal(0);
-      
-    const total = subtotal.add(tax).sub(discountAmount).add(colorProofPrice);
+
+    const total = subtotal
+      .sub(retefuenteAmount)
+      .sub(reteICAAmount)
+      .add(tax)
+      .sub(reteIVAAmount)
+      .sub(discountAmount)
+      .add(colorProofPrice);
 
     // Manejar pagos iniciales (uno o múltiples)
     let paidAmount = new Prisma.Decimal(0);
@@ -203,6 +216,9 @@ export class OrdersService {
           subtotal,
           taxRate,
           tax,
+          retefuenteRate,
+          reteICARate,
+          reteIVARate,
           discountAmount,
           requiresColorProof,
           colorProofPrice,
@@ -398,6 +414,15 @@ export class OrdersService {
             }),
             ...(updateOrderDto.taxRate !== undefined && {
               taxRate: new Prisma.Decimal(updateOrderDto.taxRate),
+            }),
+            ...(updateOrderDto.retefuenteRate !== undefined && {
+              retefuenteRate: new Prisma.Decimal(updateOrderDto.retefuenteRate),
+            }),
+            ...(updateOrderDto.reteICARate !== undefined && {
+              reteICARate: new Prisma.Decimal(updateOrderDto.reteICARate),
+            }),
+            ...(updateOrderDto.reteIVARate !== undefined && {
+              reteIVARate: new Prisma.Decimal(updateOrderDto.reteIVARate),
             }),
           },
         });
@@ -646,13 +671,25 @@ export class OrdersService {
       ...(updateOrderDto.taxRate !== undefined && {
         taxRate: new Prisma.Decimal(updateOrderDto.taxRate),
       }),
+      ...(updateOrderDto.retefuenteRate !== undefined && {
+        retefuenteRate: new Prisma.Decimal(updateOrderDto.retefuenteRate),
+      }),
+      ...(updateOrderDto.reteICARate !== undefined && {
+        reteICARate: new Prisma.Decimal(updateOrderDto.reteICARate),
+      }),
+      ...(updateOrderDto.reteIVARate !== undefined && {
+        reteIVARate: new Prisma.Decimal(updateOrderDto.reteIVARate),
+      }),
     });
 
-    // Si se actualizó el precio de la prueba de color o la tasa de impuesto, recalcular totales
+    // Si se actualizó el precio de la prueba de color, tasa de impuesto o retenciones, recalcular totales
     if (
-      updateOrderDto.colorProofPrice !== undefined || 
+      updateOrderDto.colorProofPrice !== undefined ||
       updateOrderDto.requiresColorProof !== undefined ||
-      updateOrderDto.taxRate !== undefined
+      updateOrderDto.taxRate !== undefined ||
+      updateOrderDto.retefuenteRate !== undefined ||
+      updateOrderDto.reteICARate !== undefined ||
+      updateOrderDto.reteIVARate !== undefined
     ) {
       await this.recalculateOrderTotals(id, this.prisma);
     }
@@ -1217,16 +1254,28 @@ export class OrdersService {
       subtotal = subtotal.add(item.total);
     }
 
-    // Obtener taxRate y colorProof de la orden
+    // Obtener tasas de la orden
     const order = await tx.order.findUnique({
       where: { id: orderId },
-      select: { taxRate: true, requiresColorProof: true, colorProofPrice: true },
+      select: {
+        taxRate: true,
+        requiresColorProof: true,
+        colorProofPrice: true,
+        retefuenteRate: true,
+        reteICARate: true,
+        reteIVARate: true,
+      },
     });
 
-    const taxRate = order?.taxRate !== undefined && order?.taxRate !== null 
-      ? order.taxRate 
-      : new Prisma.Decimal(0.19);
+    const taxRate = order?.taxRate ?? new Prisma.Decimal(0.19);
     const tax = subtotal.mul(taxRate);
+
+    const retefuenteRate = order?.retefuenteRate ?? new Prisma.Decimal(0);
+    const reteICARate = order?.reteICARate ?? new Prisma.Decimal(0);
+    const reteIVARate = order?.reteIVARate ?? new Prisma.Decimal(0);
+    const retefuenteAmount = subtotal.mul(retefuenteRate);
+    const reteICAAmount = subtotal.mul(reteICARate);
+    const reteIVAAmount = tax.mul(reteIVARate);
 
     // Calcular discountAmount sumando todos los descuentos
     const discounts = await tx.orderDiscount.findMany({
@@ -1239,11 +1288,17 @@ export class OrdersService {
       discountAmount = discountAmount.add(discount.amount);
     }
 
-    const colorProofPrice = order?.requiresColorProof && order?.colorProofPrice 
-      ? new Prisma.Decimal(order.colorProofPrice) 
+    const colorProofPrice = order?.requiresColorProof && order?.colorProofPrice
+      ? new Prisma.Decimal(order.colorProofPrice)
       : new Prisma.Decimal(0);
 
-    const total = subtotal.add(tax).sub(discountAmount).add(colorProofPrice);
+    const total = subtotal
+      .sub(retefuenteAmount)
+      .sub(reteICAAmount)
+      .add(tax)
+      .sub(reteIVAAmount)
+      .sub(discountAmount)
+      .add(colorProofPrice);
 
     // Calcular paidAmount sumando todos los pagos
     const payments = await tx.payment.findMany({

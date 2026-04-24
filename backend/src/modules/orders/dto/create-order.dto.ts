@@ -200,4 +200,22 @@ export class CreateOrderDto {
   @IsNumber()
   @Min(0)
   taxRate?: number;
+
+  @ApiPropertyOptional({ description: 'Tasa de Retefuente sobre subtotal (e.g., 0.025 para 2.5%)', example: 0.025 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  retefuenteRate?: number;
+
+  @ApiPropertyOptional({ description: 'Tasa de ReteICA sobre subtotal (e.g., 0.00414 para 0.414%)', example: 0.00414 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  reteICARate?: number;
+
+  @ApiPropertyOptional({ description: 'Tasa de ReteIVA sobre el monto del IVA (e.g., 0.15 para 15%)', example: 0.15 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  reteIVARate?: number;
 }
