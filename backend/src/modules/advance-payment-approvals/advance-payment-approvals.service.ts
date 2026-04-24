@@ -239,10 +239,13 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       },
     });
 
-    // Actualizar estado de anticipo en la orden
+    // Actualizar estado de anticipo en la orden (limpia rechazo previo si lo había)
     await this.prisma.order.update({
       where: { id: orderId },
-      data: { advancePaymentStatus: EditRequestStatus.PENDING },
+      data: {
+        advancePaymentStatus: EditRequestStatus.PENDING,
+        advancePaymentRejectedReason: null,
+      },
     });
 
     // Formatear monto y método para los mensajes
