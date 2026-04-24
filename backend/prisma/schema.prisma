@@ -442,7 +442,8 @@ model Order {
   balance            Decimal // total - paidAmount (saldo pendiente)
 
   // Estado de aprobación del anticipo (null = sin anticipo o auto-aprobado por admin/caja)
-  advancePaymentStatus EditRequestStatus? @map("advance_payment_status")
+  advancePaymentStatus          EditRequestStatus? @map("advance_payment_status")
+  advancePaymentRejectedReason  String?            @map("advance_payment_rejected_reason")
 
   // Estado de aprobación de descuento (null = sin descuento pendiente o auto-aprobado)
   discountApprovalStatus EditRequestStatus? @map("discount_approval_status")

@@ -120,6 +120,7 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       where: { id: request.orderId },
       data: {
         advancePaymentStatus: EditRequestStatus.REJECTED,
+        advancePaymentRejectedReason: 'Rechazado vía WhatsApp',
         paidAmount: new Prisma.Decimal(0),
         balance: orderTotal,
       },
@@ -426,6 +427,7 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       where: { id: request.orderId },
       data: {
         advancePaymentStatus: EditRequestStatus.REJECTED,
+        advancePaymentRejectedReason: dto.reviewNotes ?? null,
         paidAmount: new Prisma.Decimal(0),
         balance: orderTotal,
       },

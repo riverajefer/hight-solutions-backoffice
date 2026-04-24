@@ -606,6 +606,11 @@ export const OrderDetailPage: React.FC = () => {
       {order.advancePaymentStatus === 'REJECTED' && (
         <Alert severity="error" sx={{ mt: 2 }}>
           <strong>Pago rechazado.</strong> El pago registrado en esta orden fue rechazado por Caja. El pago ha sido revertido.
+          {order.advancePaymentRejectedReason && (
+            <Box sx={{ mt: 0.5 }}>
+              <strong>Motivo del rechazo:</strong> {order.advancePaymentRejectedReason}
+            </Box>
+          )}
         </Alert>
       )}
 
