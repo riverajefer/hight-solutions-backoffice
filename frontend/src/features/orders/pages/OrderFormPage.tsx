@@ -100,6 +100,11 @@ const orderFormSchema = z
     items: z.array(orderItemSchema).min(1, 'Debe agregar al menos un item'),
     applyTax: z.boolean(),
     taxRate: z.number().min(0).max(100),
+    applyWithholdings: z.boolean(),
+    retefuente: z.string().optional(),
+    retefuenteCustom: z.string().optional(),
+    reteICA: z.string().optional(),
+    reteIVA: z.string().optional(),
     useCreditBalance: z.boolean().optional(),
     payments: z.array(initialPaymentSchema).min(1),
     commercialChannelId: z.string().min(1, 'El canal de ventas es requerido'),
@@ -134,6 +139,24 @@ const orderFormSchema = z
       message: 'Debe indicar la razón del cambio de fecha',
       path: ['deliveryDateReason'],
     }
+  )
+  .refine(
+    (data) => {
+      if (!data.applyWithholdings) return true;
+      const hasRetefuente =
+        data.retefuente === 'other'
+          ? !!(data.retefuenteCustom?.trim())
+          : !!(data.retefuente);
+      return hasRetefuente || !!(data.reteICA) || !!(data.reteIVA);
+    },
+    { message: 'Debe configurar al menos una retención', path: ['applyWithholdings'] }
+  )
+  .refine(
+    (data) => {
+      if (!data.applyWithholdings || data.retefuente !== 'other') return true;
+      return !!(data.retefuenteCustom?.trim());
+    },
+    { message: 'Ingrese el porcentaje de Retefuente personalizado', path: ['retefuenteCustom'] }
   );
 
 type OrderFormData = z.infer<typeof orderFormSchema>;
@@ -335,6 +358,11 @@ export const OrderFormPage: React.FC = () => {
       ],
       applyTax: false,
       taxRate: 19,
+      applyWithholdings: false,
+      retefuente: '',
+      retefuenteCustom: '',
+      reteICA: '',
+      reteIVA: '',
       useCreditBalance: false,
       payments: [
         {
@@ -352,14 +380,37 @@ export const OrderFormPage: React.FC = () => {
   const items = watch('items');
   const applyTax = watch('applyTax');
   const taxRate = watch('taxRate');
+  const applyWithholdings = watch('applyWithholdings');
+  const retefuente = watch('retefuente');
+  const retefuenteCustomValue = watch('retefuenteCustom');
+  const reteICAValue = watch('reteICA');
+  const reteIVAValue = watch('reteIVA');
   const deliveryDate = watch('deliveryDate');
   const requiresColorProof = watch('requiresColorProof');
   const colorProofPrice = requiresColorProof ? watch('colorProofPrice') || 0 : 0;
   const commercialChannelId = watch('commercialChannelId');
 
   const subtotal = items.reduce((sum, item) => sum + item.total, 0);
+
+  // Retefuente y ReteICA se calculan sobre el subtotal (antes de IVA)
+  const retefuenteActualRate = applyWithholdings
+    ? retefuente === 'other'
+      ? parseFloat(retefuenteCustomValue || '0') || 0
+      : parseFloat(retefuente || '0') || 0
+    : 0;
+  const retefuenteAmount = subtotal * (retefuenteActualRate / 100);
+
+  const reteICAActualRate = applyWithholdings ? parseFloat(reteICAValue || '0') || 0 : 0;
+  const reteICAAmount = subtotal * (reteICAActualRate / 100);
+
+  // IVA se calcula sobre el subtotal original
   const tax = applyTax ? subtotal * (taxRate / 100) : 0;
-  const total = subtotal + tax + colorProofPrice;
+
+  // ReteIVA se calcula sobre el monto del IVA
+  const reteIVAActualRate = applyWithholdings ? parseFloat(reteIVAValue || '0') || 0 : 0;
+  const reteIVAAmount = applyTax ? tax * (reteIVAActualRate / 100) : 0;
+
+  const total = subtotal - retefuenteAmount - reteICAAmount + tax - reteIVAAmount + colorProofPrice;
 
   const saldoAFavor = selectedClient?.saldoAFavor || 0;
   const useCreditBalance = watch('useCreditBalance');
@@ -390,6 +441,16 @@ export const OrderFormPage: React.FC = () => {
       setValue('applyTax', selectedClient.personType === 'EMPRESA');
     }
   }, [selectedClient, setValue, isEdit]);
+
+  useEffect(() => {
+    if (!applyTax) {
+      setValue('applyWithholdings', false);
+      setValue('retefuente', '');
+      setValue('retefuenteCustom', '');
+      setValue('reteICA', '');
+      setValue('reteIVA', '');
+    }
+  }, [applyTax, setValue]);
 
   useEffect(() => {
     if (isEdit && orderQuery.data) {
@@ -429,6 +490,24 @@ export const OrderFormPage: React.FC = () => {
       const currentTaxRate = parseFloat(order.taxRate);
       setValue('applyTax', currentTaxRate > 0);
       setValue('taxRate', currentTaxRate > 0 ? currentTaxRate * 100 : 19);
+
+      const currentRetefuenteRate = parseFloat(order.retefuenteRate || '0');
+      const currentReteICARate = parseFloat(order.reteICARate || '0');
+      const currentReteIVARate = parseFloat(order.reteIVARate || '0');
+      const hasRetenciones = currentRetefuenteRate > 0 || currentReteICARate > 0 || currentReteIVARate > 0;
+      setValue('applyWithholdings', hasRetenciones);
+      if (currentRetefuenteRate > 0) {
+        const pct = currentRetefuenteRate * 100;
+        const knownRates = [2.5, 3.5, 4.0];
+        if (knownRates.includes(pct)) {
+          setValue('retefuente', pct.toString());
+        } else {
+          setValue('retefuente', 'other');
+          setValue('retefuenteCustom', pct.toString());
+        }
+      }
+      if (currentReteICARate > 0) setValue('reteICA', (currentReteICARate * 100).toString());
+      if (currentReteIVARate > 0) setValue('reteIVA', (currentReteIVARate * 100).toString());
 
       const firstPayment = order.payments && order.payments.length > 0 ? order.payments[0] : null;
       setValue('payments', [{
@@ -512,6 +591,9 @@ export const OrderFormPage: React.FC = () => {
         requiresColorProof: data.requiresColorProof,
         colorProofPrice: data.requiresColorProof ? data.colorProofPrice : 0,
         taxRate: data.applyTax ? data.taxRate / 100 : 0,
+        retefuenteRate: data.applyWithholdings && retefuenteActualRate > 0 ? retefuenteActualRate / 100 : 0,
+        reteICARate: data.applyWithholdings && reteICAActualRate > 0 ? reteICAActualRate / 100 : 0,
+        reteIVARate: data.applyWithholdings && reteIVAActualRate > 0 ? reteIVAActualRate / 100 : 0,
         items: data.items.map((item) => ({
           ...(isEdit && item.id && { id: item.id }),
           description: item.description,
@@ -895,11 +977,159 @@ export const OrderFormPage: React.FC = () => {
                 onApplyTaxChange={applyTaxField.onChange}
                 onTaxRateChange={taxRateField.onChange}
                 disabled={!isClientSelected}
+                applyWithholdings={applyWithholdings}
+                retefuenteRate={retefuenteActualRate}
+                reteICARate={reteICAActualRate}
+                reteIVARate={reteIVAActualRate}
               />
             )}
           />
         )}
       />
+
+      {/* Retenciones */}
+      <Card variant="outlined" sx={{ borderRadius: 2 }}>
+        <CardContent sx={{ pb: '16px !important' }}>
+          <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 600 }}>
+            Retenciones
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+
+          <Controller
+            name="applyWithholdings"
+            control={control}
+            render={({ field }) => (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={field.value}
+                    onChange={(e) => {
+                      field.onChange(e.target.checked);
+                      if (!e.target.checked) {
+                        setValue('retefuente', '');
+                        setValue('retefuenteCustom', '');
+                        setValue('reteICA', '');
+                        setValue('reteIVA', '');
+                      }
+                    }}
+                    disabled={!isClientSelected || !applyTax}
+                  />
+                }
+                label={
+                  <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                    Aplicar Retenciones
+                  </Typography>
+                }
+              />
+            )}
+          />
+          {errors.applyWithholdings && (
+            <Typography variant="caption" color="error" sx={{ ml: 4, display: 'block', mt: 0.5 }}>
+              {errors.applyWithholdings.message}
+            </Typography>
+          )}
+
+          {applyWithholdings && (
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              {/* Retefuente select */}
+              <Grid item xs={12} sm={6} md={4}>
+                <Controller
+                  name="retefuente"
+                  control={control}
+                  render={({ field, fieldState }) => (
+                    <TextField
+                      {...field}
+                      select
+                      fullWidth
+                      size="small"
+                      label="Retefuente"
+                      error={!!fieldState.error}
+                      helperText={fieldState.error?.message}
+                      disabled={!isClientSelected}
+                    >
+                      <MenuItem value="">Sin seleccionar</MenuItem>
+                      <MenuItem value="2.5">2.5%</MenuItem>
+                      <MenuItem value="3.5">3.5%</MenuItem>
+                      <MenuItem value="4.0">4.0%</MenuItem>
+                      <MenuItem value="other">Otro</MenuItem>
+                    </TextField>
+                  )}
+                />
+              </Grid>
+
+              {/* Retefuente custom (cuando se selecciona "Otro") */}
+              {retefuente === 'other' && (
+                <Grid item xs={12} sm={6} md={4}>
+                  <Controller
+                    name="retefuenteCustom"
+                    control={control}
+                    render={({ field, fieldState }) => (
+                      <TextField
+                        {...field}
+                        fullWidth
+                        size="small"
+                        label="Retefuente personalizado (%)"
+                        type="number"
+                        inputProps={{ step: '0.1', min: '0' }}
+                        error={!!fieldState.error}
+                        helperText={fieldState.error?.message || 'Ingrese el porcentaje'}
+                        disabled={!isClientSelected}
+                      />
+                    )}
+                  />
+                </Grid>
+              )}
+
+              {/* ReteICA select */}
+              <Grid item xs={12} sm={6} md={4}>
+                <Controller
+                  name="reteICA"
+                  control={control}
+                  render={({ field, fieldState }) => (
+                    <TextField
+                      {...field}
+                      select
+                      fullWidth
+                      size="small"
+                      label="ReteICA"
+                      error={!!fieldState.error}
+                      helperText={fieldState.error?.message}
+                      disabled={!isClientSelected}
+                    >
+                      <MenuItem value="">Sin seleccionar</MenuItem>
+                      <MenuItem value="0.414">0.414%</MenuItem>
+                      <MenuItem value="0.692">0.692%</MenuItem>
+                    </TextField>
+                  )}
+                />
+              </Grid>
+
+              {/* ReteIVA select */}
+              <Grid item xs={12} sm={6} md={4}>
+                <Controller
+                  name="reteIVA"
+                  control={control}
+                  render={({ field, fieldState }) => (
+                    <TextField
+                      {...field}
+                      select
+                      fullWidth
+                      size="small"
+                      label="ReteIVA"
+                      error={!!fieldState.error}
+                      helperText={fieldState.error?.message}
+                      disabled={!isClientSelected}
+                    >
+                      <MenuItem value="">Sin seleccionar</MenuItem>
+                      <MenuItem value="15">15%</MenuItem>
+                    </TextField>
+                  )}
+                />
+              </Grid>
+            </Grid>
+          )}
+        </CardContent>
+      </Card>
 
       {saldoAFavor > 0 && total > 0 && (
         <Card variant="outlined" sx={{ borderRadius: 2, mb: 3 }}>
@@ -1009,6 +1239,21 @@ export const OrderFormPage: React.FC = () => {
             {applyTax && (
               <Typography variant="body2">
                 <strong>IVA ({taxRate}%):</strong> {formatCurrency(tax)}
+              </Typography>
+            )}
+            {applyWithholdings && retefuenteAmount > 0 && (
+              <Typography variant="body2">
+                <strong>Retefuente ({retefuenteActualRate}%):</strong> - {formatCurrency(retefuenteAmount)}
+              </Typography>
+            )}
+            {applyWithholdings && reteICAAmount > 0 && (
+              <Typography variant="body2">
+                <strong>ReteICA ({reteICAActualRate}%):</strong> - {formatCurrency(reteICAAmount)}
+              </Typography>
+            )}
+            {applyWithholdings && reteIVAAmount > 0 && (
+              <Typography variant="body2">
+                <strong>ReteIVA ({reteIVAActualRate}%):</strong> - {formatCurrency(reteIVAAmount)}
               </Typography>
             )}
             {requiresColorProof && (

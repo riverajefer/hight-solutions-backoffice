@@ -441,6 +441,32 @@ function drawFinancials(doc: jsPDF, y: number, order: Order): number {
   doc.text(formatCurrency(order.subtotal), valueRight, y, { align: 'right' });
   y += lineH;
 
+  // Retefuente — only if rate > 0
+  if (parseFloat(order.retefuenteRate) > 0) {
+    const rate = (parseFloat(order.retefuenteRate) * 100).toFixed(3).replace(/\.?0+$/, '');
+    const amount = parseFloat(order.subtotal) * parseFloat(order.retefuenteRate);
+    doc.setFont('helvetica', 'normal');
+    setTextColor(doc, [220, 53, 69]);
+    doc.text(`Retefuente (${rate}%):`, labelX, y);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`-${formatCurrency(amount.toString())}`, valueRight, y, { align: 'right' });
+    setTextColor(doc, PDF_COLORS.bodyText);
+    y += lineH;
+  }
+
+  // ReteICA — only if rate > 0
+  if (parseFloat(order.reteICARate) > 0) {
+    const rate = (parseFloat(order.reteICARate) * 100).toFixed(3).replace(/\.?0+$/, '');
+    const amount = parseFloat(order.subtotal) * parseFloat(order.reteICARate);
+    doc.setFont('helvetica', 'normal');
+    setTextColor(doc, [220, 53, 69]);
+    doc.text(`ReteICA (${rate}%):`, labelX, y);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`-${formatCurrency(amount.toString())}`, valueRight, y, { align: 'right' });
+    setTextColor(doc, PDF_COLORS.bodyText);
+    y += lineH;
+  }
+
   // IVA — only if tax > 0
   if (parseFloat(order.tax) > 0) {
     const rate = (parseFloat(order.taxRate) * 100).toFixed(1);
@@ -448,6 +474,19 @@ function drawFinancials(doc: jsPDF, y: number, order: Order): number {
     doc.text(`IVA (${rate}%):`, labelX, y);
     doc.setFont('helvetica', 'bold');
     doc.text(formatCurrency(order.tax), valueRight, y, { align: 'right' });
+    y += lineH;
+  }
+
+  // ReteIVA — only if rate > 0 and there is IVA
+  if (parseFloat(order.reteIVARate) > 0 && parseFloat(order.tax) > 0) {
+    const rate = (parseFloat(order.reteIVARate) * 100).toFixed(0);
+    const amount = parseFloat(order.tax) * parseFloat(order.reteIVARate);
+    doc.setFont('helvetica', 'normal');
+    setTextColor(doc, [220, 53, 69]);
+    doc.text(`ReteIVA (${rate}%):`, labelX, y);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`-${formatCurrency(amount.toString())}`, valueRight, y, { align: 'right' });
+    setTextColor(doc, PDF_COLORS.bodyText);
     y += lineH;
   }
 

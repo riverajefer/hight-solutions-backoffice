@@ -19,8 +19,10 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
 import BusinessIcon from '@mui/icons-material/Business';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import SearchIcon from '@mui/icons-material/Search';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { useUIStore } from '../../store/uiStore';
 import { ROUTES } from '../../utils/constants';
 import { formatFullName } from '../../utils/helpers';
 import { NotificationBell } from './NotificationBell';
@@ -42,6 +44,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isDark = theme.palette.mode === 'dark';
   const { user, logout, hasPermission } = useAuthStore();
+  const { setGlobalSearchOpen } = useUIStore();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -131,6 +134,81 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
         </Typography>
 
         <Box display="flex" alignItems="center" gap={2}>
+
+          {/* Global Search Button */}
+          <Box
+            onClick={() => setGlobalSearchOpen(true)}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              cursor: 'pointer',
+              px: { xs: 1.25, md: 1.75 },
+              py: 0.85,
+              borderRadius: '12px',
+              background: isDark
+                ? `linear-gradient(135deg, ${alpha(neonColors.primary.main, 0.12)} 0%, ${alpha(neonAccents.vividPurple, 0.1)} 100%)`
+                : alpha(theme.palette.common.white, 0.15),
+              border: `1px solid ${isDark ? alpha(neonColors.primary.main, 0.35) : alpha(theme.palette.common.white, 0.35)}`,
+              boxShadow: isDark ? `0 0 12px ${alpha(neonColors.primary.main, 0.12)}` : 'none',
+              transition: 'all 0.25s ease',
+              '&:hover': {
+                background: isDark
+                  ? `linear-gradient(135deg, ${alpha(neonColors.primary.main, 0.22)} 0%, ${alpha(neonAccents.vividPurple, 0.18)} 100%)`
+                  : alpha(theme.palette.common.white, 0.25),
+                borderColor: isDark ? neonColors.primary.main : alpha(theme.palette.common.white, 0.6),
+                transform: 'translateY(-2px)',
+                boxShadow: isDark
+                  ? `0 4px 20px ${alpha(neonColors.primary.main, 0.35)}, 0 0 20px ${alpha(neonColors.primary.main, 0.15)}`
+                  : '0 4px 16px rgba(0,0,0,0.2)',
+              },
+            }}
+          >
+            <SearchIcon
+              sx={{
+                fontSize: 17,
+                color: isDark ? neonColors.primary.main : alpha(theme.palette.common.white, 0.95),
+                filter: isDark ? `drop-shadow(0 0 4px ${alpha(neonColors.primary.main, 0.7)})` : 'none',
+              }}
+            />
+            {!isMobile && (
+              <>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 500,
+                    fontSize: '0.82rem',
+                    color: isDark ? alpha('#fff', 0.85) : alpha(theme.palette.common.white, 0.95),
+                    letterSpacing: '0.01em',
+                  }}
+                >
+                  Búsqueda general...
+                </Typography>
+                <Box
+                  sx={{
+                    px: 0.7,
+                    py: 0.2,
+                    borderRadius: '5px',
+                    background: isDark ? alpha(neonAccents.vividPurple, 0.25) : alpha(theme.palette.common.white, 0.15),
+                    border: `1px solid ${isDark ? alpha(neonAccents.vividPurple, 0.4) : alpha(theme.palette.common.white, 0.3)}`,
+                    ml: 0.5,
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontSize: '0.65rem',
+                      fontFamily: 'monospace',
+                      color: isDark ? alpha('#fff', 0.6) : alpha(theme.palette.common.white, 0.85),
+                      lineHeight: 1,
+                    }}
+                  >
+                    ⌘K
+                  </Typography>
+                </Box>
+              </>
+            )}
+          </Box>
 
           {/* Attendance Button — visible solo para usuarios con permiso use_attendance */}
           {hasPermission(PERMISSIONS.USE_ATTENDANCE) && <AttendanceButton />}
