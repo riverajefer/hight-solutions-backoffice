@@ -29,3 +29,4 @@ export { payrollItemsApi } from './payroll-items.api';
 export { commentsApi } from './comments.api';
 export { cashRegisterApi } from './cash-register.api';
 export { refundRequestsApi } from './refund-requests.api';
+export { dashboardApi } from './dashboard.api';
