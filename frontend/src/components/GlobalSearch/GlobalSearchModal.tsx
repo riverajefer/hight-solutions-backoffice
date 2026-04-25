@@ -63,7 +63,7 @@ import ManageSearchIcon from '@mui/icons-material/ManageSearch';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import WorkIcon from '@mui/icons-material/Work';
 import SchemaIcon from '@mui/icons-material/Schema';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useUIStore } from '../../store/uiStore';
 import { useAuthStore } from '../../store/authStore';
 import { SEARCH_REGISTRY, CATEGORY_LABELS, scoreItem, type SearchItem } from './searchRegistry';
@@ -144,6 +144,7 @@ export const GlobalSearchModal: React.FC = () => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const navigate = useNavigate();
+  const location = useLocation();
   const { globalSearchOpen, setGlobalSearchOpen } = useUIStore();
   const { hasPermission } = useAuthStore();
 
@@ -194,10 +195,17 @@ export const GlobalSearchModal: React.FC = () => {
     setGlobalSearchOpen(false);
   }, [setGlobalSearchOpen]);
 
+  // Cierra el modal automáticamente cuando cambia la ruta
+  useEffect(() => {
+    if (globalSearchOpen) {
+      setGlobalSearchOpen(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
+
   const handleSelect = useCallback((item: SearchItem) => {
-    handleClose();
     navigate(item.path);
-  }, [navigate, handleClose]);
+  }, [navigate]);
 
   useEffect(() => {
     if (globalSearchOpen) {
@@ -306,17 +314,6 @@ export const GlobalSearchModal: React.FC = () => {
       {/* Results — event delegation en el contenedor */}
       <Box
         sx={{ maxHeight: 400, overflowY: 'auto' }}
-        onMouseDown={(e) => {
-          const target = (e.target as HTMLElement).closest('[data-search-id]');
-          if (!target) return;
-          e.preventDefault();
-          const itemId = target.getAttribute('data-search-id');
-          const found = flatResults.find(r => r.id === itemId);
-          if (found) {
-            setGlobalSearchOpen(false);
-            navigate(found.path);
-          }
-        }}
       >
         {flatResults.length === 0 ? (
           <Box sx={{ py: 4, textAlign: 'center' }}>
@@ -352,7 +349,7 @@ export const GlobalSearchModal: React.FC = () => {
                       <ListItem
                         key={item.id}
                         ref={isSelected ? selectedRef : undefined}
-                        data-search-id={item.id}
+                        onClick={() => handleSelect(item)}
                         sx={{
                           px: 2,
                           py: 0.75,
