@@ -33,6 +33,7 @@ import {
   FormLabel,
   Tabs,
   Tab,
+  Tooltip,
   useTheme,
   Paper,
 } from '@mui/material';
@@ -68,6 +69,7 @@ import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { parsePhoneValue } from '../../../components/common/PhoneInputWithCountry';
 import { StatusHighlight } from '../../../components/common/StatusHighlight';
 
 import { DocumentTypeBanner } from '../../../components/common/DocumentTypeBanner';
@@ -1419,11 +1421,48 @@ export const OrderDetailPage: React.FC = () => {
                       {order.client.email}
                     </Typography>
                   )}
-                  {order.client.phone && (
-                    <Typography variant="body2" color="textSecondary">
-                      {order.client.phone}
-                    </Typography>
-                  )}
+                  {order.client.phone && (() => {
+                    const { country, local } = parsePhoneValue(order.client.phone);
+                    const waNumber = `${country.dialCode}${local}`;
+                    return (
+                      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                        <Stack direction="row" spacing={0.75} alignItems="center">
+                          <span title={country.name} style={{ fontSize: '1.1rem', lineHeight: 1 }}>
+                            {country.flag}
+                          </span>
+                          <Typography variant="body2" color="textSecondary">
+                            +{country.dialCode} {local}
+                          </Typography>
+                        </Stack>
+                        <Tooltip title="Escribirle al cliente por WhatsApp">
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            href={`https://wa.me/${waNumber}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            startIcon={<WhatsAppIcon sx={{ fontSize: '1rem !important' }} />}
+                            sx={{
+                              borderColor: '#25D366',
+                              color: '#25D366',
+                              fontSize: '0.7rem',
+                              py: 0.25,
+                              px: 1,
+                              minHeight: 'unset',
+                              lineHeight: 1.5,
+                              '&:hover': {
+                                borderColor: '#128C7E',
+                                backgroundColor: 'rgba(37,211,102,0.08)',
+                                color: '#128C7E',
+                              },
+                            }}
+                          >
+                            Escribir
+                          </Button>
+                        </Tooltip>
+                      </Stack>
+                    );
+                  })()}
                 </Stack>
               </CardContent>
             </Card>

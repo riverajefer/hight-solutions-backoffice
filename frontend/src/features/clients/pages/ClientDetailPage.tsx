@@ -10,10 +10,13 @@ import {
   Stack,
   Divider,
   Skeleton,
+  Tooltip,
   ToggleButton,
   ToggleButtonGroup,
 } from '@mui/material';
+import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import { useNavigate, useParams } from 'react-router-dom';
+import { parsePhoneValue } from '../../../components/common/PhoneInputWithCountry';
 import EditIcon from '@mui/icons-material/Edit';
 import BusinessIcon from '@mui/icons-material/Business';
 import PersonIcon from '@mui/icons-material/Person';
@@ -312,7 +315,50 @@ const ClientDetailPage: React.FC = () => {
                   <InfoItem
                     icon={<PhoneIcon fontSize='small' />}
                     label='Teléfono'
-                    value={client.phone || 'No especificado'}
+                    value={
+                      client.phone
+                        ? (() => {
+                            const { country, local } = parsePhoneValue(client.phone);
+                            const waNumber = `${country.dialCode}${local}`;
+                            return (
+                              <Stack direction='row' spacing={1} alignItems='center' flexWrap='wrap'>
+                                <Stack direction='row' spacing={0.75} alignItems='center'>
+                                  <span title={country.name} style={{ fontSize: '1.1rem', lineHeight: 1 }}>
+                                    {country.flag}
+                                  </span>
+                                  <span>+{country.dialCode} {local}</span>
+                                </Stack>
+                                <Tooltip title='Escribirle al cliente por WhatsApp'>
+                                  <Button
+                                    size='small'
+                                    variant='outlined'
+                                    href={`https://wa.me/${waNumber}`}
+                                    target='_blank'
+                                    rel='noopener noreferrer'
+                                    startIcon={<WhatsAppIcon sx={{ fontSize: '1rem !important' }} />}
+                                    sx={{
+                                      borderColor: '#25D366',
+                                      color: '#25D366',
+                                      fontSize: '0.7rem',
+                                      py: 0.25,
+                                      px: 1,
+                                      minHeight: 'unset',
+                                      lineHeight: 1.5,
+                                      '&:hover': {
+                                        borderColor: '#128C7E',
+                                        backgroundColor: 'rgba(37,211,102,0.08)',
+                                        color: '#128C7E',
+                                      },
+                                    }}
+                                  >
+                                    Escribir
+                                  </Button>
+                                </Tooltip>
+                              </Stack>
+                            );
+                          })()
+                        : 'No especificado'
+                    }
                   />
                 </Grid>
 
