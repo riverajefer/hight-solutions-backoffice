@@ -32,29 +32,34 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ value, onChang
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
-        <ButtonGroup size="small" variant="outlined">
-          {PRESETS.map((preset, idx) => (
-            <Button
-              key={preset.label}
-              onClick={() => onChange(preset.getDates())}
-              sx={{
-                textTransform: 'none',
-                fontWeight: idx === activePreset ? 700 : 400,
-                borderColor: idx === activePreset ? NEON_COLOR : 'divider',
-                color: idx === activePreset ? NEON_COLOR : 'text.secondary',
-                backgroundColor: idx === activePreset
-                  ? (theme) => alpha(NEON_COLOR, theme.palette.mode === 'dark' ? 0.12 : 0.06)
-                  : 'transparent',
-                '&:hover': { borderColor: NEON_COLOR, color: NEON_COLOR },
-              }}
-            >
-              {preset.label}
-            </Button>
-          ))}
-        </ButtonGroup>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        {/* Botones preset */}
+        <Box sx={{ overflowX: 'auto', pb: 0.25 }}>
+          <ButtonGroup size="small" variant="outlined" sx={{ flexShrink: 0 }}>
+            {PRESETS.map((preset, idx) => (
+              <Button
+                key={preset.label}
+                onClick={() => onChange(preset.getDates())}
+                sx={{
+                  textTransform: 'none',
+                  whiteSpace: 'nowrap',
+                  fontWeight: idx === activePreset ? 700 : 400,
+                  borderColor: idx === activePreset ? NEON_COLOR : 'divider',
+                  color: idx === activePreset ? NEON_COLOR : 'text.secondary',
+                  backgroundColor: idx === activePreset
+                    ? (theme) => alpha(NEON_COLOR, theme.palette.mode === 'dark' ? 0.12 : 0.06)
+                    : 'transparent',
+                  '&:hover': { borderColor: NEON_COLOR, color: NEON_COLOR },
+                }}
+              >
+                {preset.label}
+              </Button>
+            ))}
+          </ButtonGroup>
+        </Box>
 
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+        {/* Date pickers */}
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
           <DatePicker
             label="Desde"
             value={value.dateFrom ? new Date(value.dateFrom + 'T00:00:00') : null}
@@ -64,7 +69,7 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ value, onChang
             slotProps={{
               textField: {
                 size: 'small',
-                sx: { width: 150 },
+                sx: { width: { xs: '100%', sm: 150 } },
               },
             }}
           />
@@ -77,7 +82,7 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({ value, onChang
             slotProps={{
               textField: {
                 size: 'small',
-                sx: { width: 150 },
+                sx: { width: { xs: '100%', sm: 150 } },
               },
             }}
           />

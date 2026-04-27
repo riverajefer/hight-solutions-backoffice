@@ -39,8 +39,8 @@ const RecentOrdersWidget: React.FC<RecentOrdersWidgetProps> = ({ orders }) => (
       <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>
         Últimas Órdenes
       </Typography>
-      <TableContainer>
-        <Table size="small">
+      <TableContainer sx={{ overflowX: 'auto' }}>
+        <Table size="small" sx={{ minWidth: 360 }}>
           <TableHead>
             <TableRow>
               <TableCell sx={{ fontWeight: 600, fontSize: '0.72rem', color: 'text.secondary', textTransform: 'uppercase' }}>Orden</TableCell>
@@ -81,8 +81,8 @@ const PendingOrdersWidget: React.FC<PendingOrdersWidgetProps> = ({ orders }) => 
       <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>
         Órdenes con Saldo Pendiente
       </Typography>
-      <TableContainer>
-        <Table size="small">
+      <TableContainer sx={{ overflowX: 'auto' }}>
+        <Table size="small" sx={{ minWidth: 360 }}>
           <TableHead>
             <TableRow>
               <TableCell sx={{ fontWeight: 600, fontSize: '0.72rem', color: 'text.secondary', textTransform: 'uppercase' }}>Orden</TableCell>

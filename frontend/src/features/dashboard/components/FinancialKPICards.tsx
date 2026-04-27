@@ -6,6 +6,7 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import RemoveShoppingCartIcon from '@mui/icons-material/RemoveShoppingCart';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import PaymentsIcon from '@mui/icons-material/Payments';
+import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
 import { FinancialSummary } from '../../../types/dashboard.types';
 
 interface KPICardProps {
@@ -118,13 +119,20 @@ export const FinancialKPICards: React.FC<Props> = ({ summary }) => {
       icon: <PaymentsIcon fontSize="small" />,
       color: '#a855f7',
     },
+    {
+      title: 'Cuentas por Cobrar',
+      value: summary.cuentasPorCobrar,
+      prevValue: 0,
+      icon: <RequestQuoteIcon fontSize="small" />,
+      color: '#0ea5e9',
+    },
   ];
 
   return (
     <Box
       sx={{
         display: 'grid',
-        gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' },
+        gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(3, 1fr)', lg: 'repeat(5, 1fr)' },
         gap: { xs: 1.5, md: 2 },
       }}
     >

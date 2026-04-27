@@ -6,6 +6,7 @@ export interface FinancialSummary {
   utilidad: number;
   utilidadPrev: number;
   cuentasPorPagar: number;
+  cuentasPorCobrar: number;
 }
 
 export interface MonthlyDataPoint {
