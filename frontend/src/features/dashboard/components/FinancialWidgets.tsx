@@ -132,25 +132,40 @@ const TopClientsWidget: React.FC<TopClientsWidgetProps> = ({ clients }) => {
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           {clients.map((client, idx) => (
             <Box key={client.clientId}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      width: 20, height: 20, borderRadius: '50%',
-                      bgcolor: idx === 0 ? '#f59e0b' : idx === 1 ? '#94a3b8' : idx === 2 ? '#cd7f32' : 'rgba(255,255,255,0.1)',
-                      color: idx <= 2 ? '#000' : 'text.secondary',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontWeight: 700, fontSize: '0.65rem', flexShrink: 0,
-                    }}
-                  >
-                    {idx + 1}
-                  </Typography>
-                  <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.82rem' }} noWrap>
-                    {client.clientName}
-                  </Typography>
-                </Box>
-                <Typography variant="body2" fontWeight={700} sx={{ fontSize: '0.82rem', color: '#22c55e', ml: 1, whiteSpace: 'nowrap' }}>
+              {/* Grid: badge | nombre | monto */}
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: '24px 1fr auto',
+                  alignItems: 'center',
+                  gap: 1,
+                  mb: 0.5,
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  sx={{
+                    width: 20, height: 20, borderRadius: '50%',
+                    bgcolor: idx === 0 ? '#f59e0b' : idx === 1 ? '#94a3b8' : idx === 2 ? '#cd7f32' : 'rgba(255,255,255,0.1)',
+                    color: idx <= 2 ? '#000' : 'text.secondary',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontWeight: 700, fontSize: '0.65rem',
+                  }}
+                >
+                  {idx + 1}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  fontWeight={600}
+                  sx={{ fontSize: '0.82rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                >
+                  {client.clientName}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  fontWeight={700}
+                  sx={{ fontSize: '0.82rem', color: '#22c55e', whiteSpace: 'nowrap' }}
+                >
                   {formatCOP(client.totalCompras)}
                 </Typography>
               </Box>
