@@ -30,6 +30,17 @@ export class DashboardRepository {
     return Number(result._sum.total ?? 0);
   }
 
+  async getCuentasPorCobrar(): Promise<number> {
+    const result = await this.prisma.order.aggregate({
+      _sum: { balance: true },
+      where: {
+        status: { in: ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'WARRANTY'] },
+        balance: { gt: 0 },
+      },
+    });
+    return Number(result._sum.balance ?? 0);
+  }
+
   async getCuentasPorPagar(): Promise<number> {
     const result = await this.prisma.accountPayable.aggregate({
       _sum: { balance: true },

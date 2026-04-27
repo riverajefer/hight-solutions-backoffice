@@ -15,6 +15,7 @@ export class DashboardService {
       totalGastos,
       totalGastosPrev,
       cuentasPorPagar,
+      cuentasPorCobrar,
       monthlyData,
       indicators,
       recentOrders,
@@ -26,6 +27,7 @@ export class DashboardService {
       this.repository.getTotalGastos(gte, lte),
       this.repository.getTotalGastos(prevGte, prevLte),
       this.repository.getCuentasPorPagar(),
+      this.repository.getCuentasPorCobrar(),
       this.repository.getMonthlyData(),
       this.repository.getIndicators(),
       this.repository.getRecentOrders(10),
@@ -45,6 +47,7 @@ export class DashboardService {
         utilidad,
         utilidadPrev,
         cuentasPorPagar,
+        cuentasPorCobrar,
       },
       monthlyData: monthlyData.map((m) => ({
         ...m,

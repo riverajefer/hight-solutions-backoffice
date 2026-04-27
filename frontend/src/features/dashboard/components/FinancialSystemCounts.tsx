@@ -63,7 +63,7 @@ export const FinancialSystemCounts: React.FC<Props> = ({ indicators }) => {
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(6, 1fr)' },
+          gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', lg: 'repeat(6, 1fr)' },
           gap: { xs: 1, md: 1.5 },
         }}
       >
