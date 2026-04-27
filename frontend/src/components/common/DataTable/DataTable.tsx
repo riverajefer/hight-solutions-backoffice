@@ -8,7 +8,7 @@ import {
   GridRowClassNameParams,
 } from '@mui/x-data-grid';
 import { esES } from '@mui/x-data-grid/locales';
-import { Paper, Box, Typography, Skeleton, useTheme, useMediaQuery } from '@mui/material';
+import { Paper, Box, Typography, Skeleton, LinearProgress, useTheme, useMediaQuery } from '@mui/material';
 import { CustomToolbar } from './CustomToolbar';
 import { dataGridStyles, paperStyles } from './styles';
 
@@ -198,14 +198,15 @@ export function DataTable<T extends GridValidRowModel>({
   };
 
   const renderLoadingSkeleton = () => (
-    <Box sx={{ width: '100%', p: 2 }}>
-      {[...Array(paginationModel.pageSize)].map((_, index) => (
-        <Skeleton
-          key={index}
-          variant="rectangular"
-          height={52}
-          sx={{ mb: 1, borderRadius: 1 }}
-        />
+    <Box sx={{ width: '100%', px: 2, pt: 1 }}>
+      {[...Array(Math.min(paginationModel.pageSize, 8))].map((_, index) => (
+        <Box key={index} sx={{ display: 'flex', gap: 1, mb: '2px', alignItems: 'center' }}>
+          <Skeleton variant="rectangular" width={60} height={48} sx={{ borderRadius: 1, flexShrink: 0 }} />
+          <Skeleton variant="rectangular" height={48} sx={{ borderRadius: 1, flex: 1 }} />
+          <Skeleton variant="rectangular" height={48} sx={{ borderRadius: 1, flex: 2 }} />
+          <Skeleton variant="rectangular" height={48} sx={{ borderRadius: 1, flex: 1.5 }} />
+          <Skeleton variant="rectangular" height={48} sx={{ borderRadius: 1, flex: 2 }} />
+        </Box>
       ))}
     </Box>
   );
@@ -241,6 +242,18 @@ export function DataTable<T extends GridValidRowModel>({
           searchValue={internalSearchText}
           onSearchChange={handleSearchChange}
           showExport={showExport}
+        />
+      )}
+
+      {loading && (
+        <LinearProgress
+          sx={{
+            height: 3,
+            borderRadius: 0,
+            '& .MuiLinearProgress-bar': {
+              transition: 'transform 0.6s linear',
+            },
+          }}
         />
       )}
 
