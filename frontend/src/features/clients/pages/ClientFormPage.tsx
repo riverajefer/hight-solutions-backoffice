@@ -19,6 +19,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
+import { PhoneInputWithCountry } from '../../../components/common/PhoneInputWithCountry';
 import { useClients, useClient } from '../hooks/useClients';
 import { useDepartments, useCitiesByDepartment } from '../../locations/hooks/useLocations';
 import { useUsers } from '../../users/hooks/useUsers';
@@ -44,7 +45,8 @@ const clientSchema = z.object({
     .or(z.literal('')),
   phone: z
     .string()
-    .length(10, 'El celular debe tener exactamente 10 dígitos'),
+    .min(6, 'El número de celular debe tener al menos 6 dígitos')
+    .max(20, 'El número de celular no puede exceder 20 dígitos'),
   landlinePhone: z
     .string()
     .length(10, 'El teléfono fijo debe tener exactamente 10 dígitos')
@@ -331,19 +333,13 @@ const ClientFormPage: React.FC = () => {
                   name="phone"
                   control={control}
                   render={({ field }) => (
-                    <TextField
-                      {...field}
+                    <PhoneInputWithCountry
+                      value={field.value}
+                      onChange={field.onChange}
                       label="Número de celular"
-                      fullWidth
-                      error={!!errors.phone}
-                      helperText={errors.phone?.message || 'Máximo 10 dígitos'}
                       required
-                      placeholder="3001234567"
-                      inputProps={{ maxLength: 10 }}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                        field.onChange(val);
-                      }}
+                      error={!!errors.phone}
+                      helperText={errors.phone?.message}
                     />
                   )}
                 />
