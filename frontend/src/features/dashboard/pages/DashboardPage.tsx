@@ -34,6 +34,8 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import SyncAltIcon from '@mui/icons-material/SyncAlt';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import RequestPageIcon from '@mui/icons-material/RequestPage';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import { FinancialDashboard } from '../components/FinancialDashboard';
 
 import {
   usersApi,
@@ -88,6 +90,7 @@ const NEON_COLORS = {
   audit: '#BC13FE',        // Púrpura neón
   payroll: '#FF00FF',      // Magenta neón
   caja: '#34d399',         // Esmeralda neón
+  financial: '#F97316',   // Naranja — Dashboard Financiero
 };
 
 const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, neonColor, action }) => {
@@ -642,6 +645,9 @@ const DashboardPage: React.FC = () => {
             '& .MuiTab-root:nth-of-type(7).Mui-selected': {
               color: (theme) => theme.palette.mode === 'dark' ? NEON_COLORS.caja : '#047857',
             },
+            '& .MuiTab-root:nth-of-type(8).Mui-selected': {
+              color: (theme) => theme.palette.mode === 'dark' ? NEON_COLORS.financial : '#c2410c',
+            },
           }}
         >
           <Tab
@@ -678,6 +684,11 @@ const DashboardPage: React.FC = () => {
             icon={<AccountBalanceWalletIcon />}
             iconPosition="start"
             label="Caja y Gastos"
+          />
+          <Tab
+            icon={<TrendingUpIcon />}
+            iconPosition="start"
+            label="Financiero"
           />
         </Tabs>
       </Box>
@@ -1547,6 +1558,17 @@ const DashboardPage: React.FC = () => {
             </Grid>
           )}
         </Grid>
+      </TabPanel>
+
+      {/* Tab 7: Financiero */}
+      <TabPanel value={currentTab} index={7}>
+        {hasPermission(PERMISSIONS.READ_FINANCIAL_DASHBOARD) && <FinancialDashboard />}
+        {!hasPermission(PERMISSIONS.READ_FINANCIAL_DASHBOARD) && (
+          <Box sx={{ textAlign: 'center', py: 8 }}>
+            <TrendingUpIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
+            <Typography color="text.secondary">No tienes permisos para ver el dashboard financiero.</Typography>
+          </Box>
+        )}
       </TabPanel>
     </Box>
   );

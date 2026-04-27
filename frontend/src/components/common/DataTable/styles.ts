@@ -68,18 +68,13 @@ export const dataGridStyles: SxProps<Theme> = {
 
   // Filas con hover mejorado
   '& .MuiDataGrid-row': {
-    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    transition: 'background-color 0.2s ease, box-shadow 0.2s ease',
     '&:hover': {
-      backgroundColor: (theme) =>
-        theme.palette.mode === 'light'
-          ? alpha(theme.palette.primary.main, 0.08)
-          : alpha(theme.palette.primary.main, 0.2),
       cursor: 'pointer',
-      transform: 'translateX(2px)',
       boxShadow: (theme) =>
         theme.palette.mode === 'light'
           ? `inset 3px 0 0 ${theme.palette.primary.main}`
-          : `inset 3px 0 0 ${theme.palette.primary.light}, 0 0 10px ${alpha(theme.palette.primary.main, 0.3)}`,
+          : `inset 3px 0 0 ${theme.palette.primary.light}`,
     },
     '&.Mui-selected': {
       backgroundColor: (theme) =>
@@ -101,6 +96,12 @@ export const dataGridStyles: SxProps<Theme> = {
       theme.palette.mode === 'light'
         ? theme.palette.background.paper
         : alpha(theme.palette.background.default, 0.4),
+    '&:hover': {
+      backgroundColor: (theme) =>
+        theme.palette.mode === 'light'
+          ? alpha(theme.palette.primary.main, 0.1)
+          : alpha(theme.palette.primary.main, 0.22),
+    },
   },
 
   '& .MuiDataGrid-row:nth-of-type(even)': {
@@ -108,6 +109,12 @@ export const dataGridStyles: SxProps<Theme> = {
       theme.palette.mode === 'light'
         ? alpha(theme.palette.grey[100], 0.5)
         : alpha(theme.palette.primary.dark, 0.15),
+    '&:hover': {
+      backgroundColor: (theme) =>
+        theme.palette.mode === 'light'
+          ? alpha(theme.palette.primary.main, 0.1)
+          : alpha(theme.palette.primary.main, 0.22),
+    },
   },
 
   // Fila atrasada — entrega vencida y orden no finalizada

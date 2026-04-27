@@ -1016,9 +1016,16 @@ export const OrderFormPage: React.FC = () => {
                   />
                 }
                 label={
-                  <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                    Aplicar Retenciones
-                  </Typography>
+                  <Box>
+                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                      Aplicar Retenciones
+                    </Typography>
+                    {!applyTax && isClientSelected && (
+                      <Typography variant="caption" color="warning.main" sx={{ display: 'block' }}>
+                        Debe activar el IVA para aplicar retenciones
+                      </Typography>
+                    )}
+                  </Box>
                 }
               />
             )}

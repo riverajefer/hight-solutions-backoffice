@@ -322,6 +322,9 @@ async function main() {
     { name: 'update_accounts_payable', description: 'Editar cuentas por pagar' },
     { name: 'delete_accounts_payable', description: 'Anular cuentas por pagar' },
     { name: 'register_ap_payment', description: 'Registrar pagos en cuentas por pagar' },
+
+    // Dashboard Financiero
+    { name: 'read_financial_dashboard', description: 'Ver dashboard financiero con métricas de ventas, gastos y utilidad' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
