@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Add as AddIcon,
-  ArrowBack as ArrowBackIcon,
-  Save as SaveIcon,
 } from '@mui/icons-material';
 import {
   Autocomplete,
