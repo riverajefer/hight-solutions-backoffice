@@ -453,7 +453,7 @@ export const ExpenseOrderDetailPage = () => {
               <Alert severity="info" icon={<HourglassTopIcon />} sx={{ mt: 2 }}>
                 <AlertTitle>Borrador — acción requerida</AlertTitle>
                 Esta OG está en borrador. Cuando tengas todos los ítems listos, usa el botón{' '}
-                <strong>Estado</strong> y selecciona <strong>"Autorizado administrativamente"</strong>{' '}
+                <strong>Estado</strong> y selecciona <strong>"Envíar solicitud de activación a gerencia"</strong>{' '}
                 para enviar la solicitud de aprobación al administrador. Recibirá una notificación por WhatsApp.
               </Alert>
             );
@@ -475,7 +475,7 @@ export const ExpenseOrderDetailPage = () => {
               <Alert severity="warning" icon={<HourglassTopIcon />} sx={{ mt: 2 }}>
                 <AlertTitle>Pendiente de autorización — acción requerida</AlertTitle>
                 Esta OG está lista pero aún no fue autorizada. Usa el botón{' '}
-                <strong>Estado</strong> y selecciona <strong>"Autorizado administrativamente"</strong>{' '}
+                <strong>Estado</strong> y selecciona <strong>"Envíar solicitud de activación a gerencia"</strong>{' '}
                 para enviar la solicitud al administrador. Recibirá una notificación por WhatsApp y
                 podrá aprobarla desde allí o desde la sección <strong>Solicitudes Pendientes</strong>.
               </Alert>
@@ -972,7 +972,7 @@ export const ExpenseOrderDetailPage = () => {
             {availableTransitions.map((s) => (
               <MenuItem key={s} value={s}>
                 {EXPENSE_ORDER_STATUS_CONFIG[s].label}
-                {s === ExpenseOrderStatus.ADMIN_AUTHORIZED && ' (Pre-autorizar — validación administrativa)'}
+                {s === ExpenseOrderStatus.ADMIN_AUTHORIZED && ' (Envíar solicitud de autorización a gerencia)'}
                 {s === ExpenseOrderStatus.AUTHORIZED && ' (Autorización Caja — registra pago)'}
               </MenuItem>
             ))}
