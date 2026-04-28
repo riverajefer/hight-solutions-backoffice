@@ -110,9 +110,6 @@ export const CreateSupplierModal: React.FC<CreateSupplierModalProps> = ({
     const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) newErrors.name = 'El nombre es requerido';
-    if (!formData.email.trim()) newErrors.email = 'El email es requerido';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'Email inválido';
-
     if (!formData.departmentId) newErrors.departmentId = 'El departamento es requerido';
     if (!formData.cityId) newErrors.cityId = 'La ciudad es requerida';
 
@@ -171,7 +168,7 @@ export const CreateSupplierModal: React.FC<CreateSupplierModalProps> = ({
             </TextField>
           </Grid>
           <Grid item xs={12}>
-            <TextField required fullWidth label={formData.personType === 'EMPRESA' ? 'Razón Social' : 'Nombre Completo'} value={formData.name} onChange={(e) => handleChange('name', e.target.value)} error={!!errors.name} helperText={errors.name} />
+            <TextField fullWidth label={formData.personType === 'EMPRESA' ? 'Razón Social' : 'Nombre Completo'} value={formData.name} onChange={(e) => handleChange('name', e.target.value)} error={!!errors.name} helperText={errors.name} />
           </Grid>
           {formData.personType === 'NATURAL' && (
             <Grid item xs={12} sm={6}>
@@ -187,7 +184,7 @@ export const CreateSupplierModal: React.FC<CreateSupplierModalProps> = ({
             <TextField fullWidth label="Encargado" value={formData.encargado} onChange={(e) => handleChange('encargado', e.target.value)} placeholder="Persona de contacto" />
           </Grid>
           <Grid item xs={12} sm={6}>
-            <TextField required fullWidth type="email" label="Email" value={formData.email} onChange={(e) => handleChange('email', e.target.value)} error={!!errors.email} helperText={errors.email} />
+            <TextField fullWidth type="email" label="Email" value={formData.email} onChange={(e) => handleChange('email', e.target.value)} error={!!errors.email} helperText={errors.email} />
           </Grid>
           <Grid item xs={12} sm={6}>
             <TextField fullWidth label="Dirección" value={formData.address} onChange={(e) => handleChange('address', e.target.value)} />
