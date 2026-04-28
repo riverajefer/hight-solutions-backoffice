@@ -79,7 +79,14 @@ export const ExpenseOrderAuthRequestDialog: React.FC<ExpenseOrderAuthRequestDial
       <DialogTitle>Solicitar Autorización de OG</DialogTitle>
       <DialogContent>
         <Alert severity="info" sx={{ mb: 2 }}>
-          Cambiar el estado a <strong>"Autorizada"</strong> requiere aprobación de un administrador.
+          <strong>¿Cómo funciona esto?</strong>
+          <br />
+          Al enviar esta solicitud, el administrador recibirá una notificación por{' '}
+          <strong>WhatsApp</strong> y podrá aprobarla directamente desde su celular. También podrá
+          verla en la sección <strong>"Solicitudes Pendientes"</strong> del sistema.
+          <br />
+          Una vez que el administrador apruebe, el área de <strong>Caja</strong> recibirá la OG
+          para dar la firma final y registrar el pago.
         </Alert>
 
         <Box sx={{ mb: 2 }}>

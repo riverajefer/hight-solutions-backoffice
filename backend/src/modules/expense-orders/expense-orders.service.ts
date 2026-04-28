@@ -50,6 +50,16 @@ export class ExpenseOrdersService {
     createdById: string,
     status: ExpenseOrderStatus = ExpenseOrderStatus.DRAFT,
   ) {
+    // Si el creador es admin, la OG no necesita aprobación administrativa:
+    // pasa directamente a ADMIN_AUTHORIZED para que solo Caja deba firmarla.
+    const creator = await this.prisma.user.findUnique({
+      where: { id: createdById },
+      include: { role: true },
+    });
+    const creatorIsAdmin = creator?.role?.name === 'admin';
+    if (creatorIsAdmin) {
+      status = ExpenseOrderStatus.ADMIN_AUTHORIZED;
+    }
     // Validate WorkOrder exists if provided
     if (dto.workOrderId) {
       const workOrder = await this.prisma.workOrder.findUnique({
@@ -116,6 +126,10 @@ export class ExpenseOrdersService {
           areaOrMachine: dto.areaOrMachine,
           status,
           createdById,
+          ...(creatorIsAdmin && {
+            authorizedById: createdById,
+            authorizedAt: new Date(),
+          }),
           items: itemsData,
         });
 

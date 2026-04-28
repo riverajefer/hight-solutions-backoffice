@@ -18,6 +18,7 @@ import {
   DialogActions,
   CircularProgress,
   Alert,
+  AlertTitle,
   Table,
   TableBody,
   TableCell,
@@ -44,6 +45,10 @@ import {
   Person as PersonIcon,
   Brush as BrushIcon,
   AccountTree as AccountTreeIcon,
+  HourglassTop as HourglassTopIcon,
+  AdminPanelSettings as AdminPanelSettingsIcon,
+  Payments as PaymentsIcon,
+  TaskAlt as TaskAltIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { StatusHighlight } from '../../../components/common/StatusHighlight';
@@ -439,6 +444,97 @@ export const ExpenseOrderDetailPage = () => {
         color={statusConfig.color}
         sx={{ mt: 2 }}
       />
+
+      {/* Banner contextual según estado y rol */}
+      {(() => {
+        if (og.status === ExpenseOrderStatus.DRAFT) {
+          if (canUpdate && !canApprove) {
+            return (
+              <Alert severity="info" icon={<HourglassTopIcon />} sx={{ mt: 2 }}>
+                <AlertTitle>Borrador — acción requerida</AlertTitle>
+                Esta OG está en borrador. Cuando tengas todos los ítems listos, usa el botón{' '}
+                <strong>Estado</strong> y selecciona <strong>"Autorizado administrativamente"</strong>{' '}
+                para enviar la solicitud de aprobación al administrador. Recibirá una notificación por WhatsApp.
+              </Alert>
+            );
+          }
+          if (canApprove) {
+            return (
+              <Alert severity="info" icon={<AdminPanelSettingsIcon />} sx={{ mt: 2 }}>
+                <AlertTitle>Borrador</AlertTitle>
+                Esta OG está en borrador. Puedes cambiar su estado directamente o esperar a que el
+                solicitante envíe la solicitud de autorización.
+              </Alert>
+            );
+          }
+        }
+
+        if (og.status === ExpenseOrderStatus.CREATED) {
+          if (canUpdate && !canApprove) {
+            return (
+              <Alert severity="warning" icon={<HourglassTopIcon />} sx={{ mt: 2 }}>
+                <AlertTitle>Pendiente de autorización — acción requerida</AlertTitle>
+                Esta OG está lista pero aún no fue autorizada. Usa el botón{' '}
+                <strong>Estado</strong> y selecciona <strong>"Autorizado administrativamente"</strong>{' '}
+                para enviar la solicitud al administrador. Recibirá una notificación por WhatsApp y
+                podrá aprobarla desde allí o desde la sección <strong>Solicitudes Pendientes</strong>.
+              </Alert>
+            );
+          }
+          if (canApprove) {
+            return (
+              <Alert severity="warning" icon={<AdminPanelSettingsIcon />} sx={{ mt: 2 }}>
+                <AlertTitle>Requiere tu autorización administrativa</AlertTitle>
+                Esta OG está pendiente de aprobación. Puedes autorizarla desde la sección{' '}
+                <strong>Solicitudes Pendientes</strong>, responder el mensaje de WhatsApp que
+                recibiste, o cambiar el estado directamente desde el botón <strong>Estado</strong>.
+              </Alert>
+            );
+          }
+        }
+
+        if (og.status === ExpenseOrderStatus.ADMIN_AUTHORIZED) {
+          if (canCajaAuthorize) {
+            return (
+              <Alert severity="success" icon={<PaymentsIcon />} sx={{ mt: 2 }}>
+                <AlertTitle>Requiere tu firma de Caja</AlertTitle>
+                El administrador ya aprobó esta OG. Haz clic en el botón{' '}
+                <strong>Autorizar (Firma Caja)</strong> para registrar el pago y descontarlo
+                automáticamente de la caja activa.
+              </Alert>
+            );
+          }
+          return (
+            <Alert severity="info" icon={<HourglassTopIcon />} sx={{ mt: 2 }}>
+              <AlertTitle>Esperando firma de Caja</AlertTitle>
+              El administrador aprobó esta OG. Está pendiente de que el área de{' '}
+              <strong>Caja</strong> dé la firma final para procesar el pago.
+              No se requiere ninguna acción de tu parte en este momento.
+            </Alert>
+          );
+        }
+
+        if (og.status === ExpenseOrderStatus.AUTHORIZED) {
+          return (
+            <Alert severity="info" icon={<HourglassTopIcon />} sx={{ mt: 2 }}>
+              <AlertTitle>Procesando pago</AlertTitle>
+              Caja autorizó esta OG. El pago está siendo registrado en el sistema.
+            </Alert>
+          );
+        }
+
+        if (og.status === ExpenseOrderStatus.PAID) {
+          return (
+            <Alert severity="success" icon={<TaskAltIcon />} sx={{ mt: 2 }}>
+              <AlertTitle>Pagada</AlertTitle>
+              Esta OG fue pagada exitosamente. El valor fue descontado de la caja y el proceso está
+              completo.
+            </Alert>
+          );
+        }
+
+        return null;
+      })()}
 
       {/* Toolbar de Acciones */}
       <Paper
