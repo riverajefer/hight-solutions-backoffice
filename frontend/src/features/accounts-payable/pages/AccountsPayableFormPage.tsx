@@ -1,5 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import {
+  Add as AddIcon,
+  ArrowBack as ArrowBackIcon,
+  Save as SaveIcon,
+} from '@mui/icons-material';
 import {
   Autocomplete,
   Box,
@@ -30,6 +35,7 @@ import { ROUTES } from '../../../utils/constants';
 import { useAccountPayable, useAccountsPayable } from '../hooks/useAccountsPayable';
 import { useSuppliers } from '../../suppliers/hooks/useSuppliers';
 import { useExpenseTypes } from '../../expense-orders/hooks/useExpenseOrders';
+import { CreateSupplierModal } from '../../suppliers/components/CreateSupplierModal';
 
 // ─── Currency helper ──────────────────────────────────────────────────────────
 const formatCurrencyInput = (value: string): string => {
@@ -85,6 +91,7 @@ export default function AccountsPayableFormPage() {
     handleSubmit,
     watch,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -140,6 +147,14 @@ export default function AccountsPayableFormPage() {
       const created = await createMutation.mutateAsync(dto);
       navigate(ROUTES.ACCOUNTS_PAYABLE_DETAIL.replace(':id', created.id));
     }
+  };
+
+  const [supplierModalOpen, setSupplierModalOpen] = useState(false);
+
+  const handleCreateSupplierSuccess = (newSupplier: any) => {
+    // Actualizar el valor en el formulario con el nuevo proveedor
+    setValue('supplierId', newSupplier.id);
+    setSupplierModalOpen(false);
   };
 
   if (isEditing && apQuery.isLoading) {
@@ -295,26 +310,37 @@ export default function AccountsPayableFormPage() {
 
           {/* Proveedor */}
           <Grid item xs={12} sm={6}>
-            <Controller
-              name="supplierId"
-              control={control}
-              render={({ field: { onChange, value } }) => (
-                <Autocomplete
-                  options={suppliers}
-                  getOptionLabel={(opt) => opt.name}
-                  value={suppliers.find((s) => s.id === value) ?? null}
-                  onChange={(_, newValue) => onChange(newValue?.id ?? '')}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Proveedor / Acreedor"
-                      error={!!errors.supplierId}
-                      helperText={errors.supplierId?.message}
-                    />
-                  )}
-                />
-              )}
-            />
+            <Stack direction="row" spacing={1} alignItems="flex-start">
+              <Controller
+                name="supplierId"
+                control={control}
+                render={({ field: { onChange, value } }) => (
+                  <Autocomplete
+                    fullWidth
+                    options={suppliers}
+                    getOptionLabel={(opt) => opt.name}
+                    value={suppliers.find((s) => s.id === value) ?? null}
+                    onChange={(_, newValue) => onChange(newValue?.id ?? '')}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Proveedor / Acreedor"
+                        error={!!errors.supplierId}
+                        helperText={errors.supplierId?.message}
+                      />
+                    )}
+                  />
+                )}
+              />
+              <Button
+                variant="outlined"
+                sx={{ height: 56, minWidth: 56, p: 0 }}
+                onClick={() => setSupplierModalOpen(true)}
+                title="Crear nuevo proveedor"
+              >
+                <AddIcon />
+              </Button>
+            </Stack>
           </Grid>
 
           {/* Pago recurrente */}
@@ -383,6 +409,12 @@ export default function AccountsPayableFormPage() {
           </Grid>
         </Grid>
       </Paper>
+
+      <CreateSupplierModal
+        open={supplierModalOpen}
+        onClose={() => setSupplierModalOpen(false)}
+        onSuccess={handleCreateSupplierSuccess}
+      />
     </Box>
   );
 }

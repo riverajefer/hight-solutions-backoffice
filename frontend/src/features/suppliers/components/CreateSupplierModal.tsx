@@ -127,7 +127,7 @@ export const CreateSupplierModal: React.FC<CreateSupplierModalProps> = ({
     try {
       const supplier = await createSupplierMutation.mutateAsync({
         name: formData.name,
-        email: formData.email,
+        email: formData.email.trim() || undefined,
         phone: formData.phone || undefined,
         personType: formData.personType,
         departmentId: formData.departmentId,

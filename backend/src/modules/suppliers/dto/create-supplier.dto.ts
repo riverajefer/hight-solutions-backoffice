@@ -70,6 +70,7 @@ export class CreateSupplierDto {
     example: 'contacto@distribuidoraxyz.com',
   })
   @IsOptional()
+  @ValidateIf((o) => o.email !== '' && o.email !== null)
   @IsEmail({}, { message: 'El email debe tener un formato válido' })
   email?: string;
 
