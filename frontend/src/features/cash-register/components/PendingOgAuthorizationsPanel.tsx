@@ -124,7 +124,15 @@ const PendingOgAuthorizationsPanel: React.FC = () => {
           </Typography>
         )}
 
-        {pendingOgs.length > 0 && <Divider sx={{ mb: 1.5 }} />}
+        {pendingOgs.length > 0 && (
+          <>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              Estas OGs ya fueron aprobadas por el administrador. Haz clic en{' '}
+              <strong>Autorizar</strong> para registrar el pago y descontarlo de la caja activa.
+            </Typography>
+            <Divider sx={{ mb: 1.5 }} />
+          </>
+        )}
 
         <Stack spacing={1.5}>
           {pendingOgs.map((og) => {

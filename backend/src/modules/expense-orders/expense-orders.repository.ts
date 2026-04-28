@@ -151,6 +151,8 @@ export class ExpenseOrdersRepository {
     areaOrMachine?: string;
     status: ExpenseOrderStatus;
     createdById: string;
+    authorizedById?: string;
+    authorizedAt?: Date;
     items: Array<{
       quantity: number;
       name: string;

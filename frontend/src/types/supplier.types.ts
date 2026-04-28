@@ -11,7 +11,7 @@ export interface Supplier {
   phone?: string;
   landlinePhone?: string;
   address?: string;
-  email: string;
+  email?: string;
   departmentId: string;
   cityId: string;
   personType: PersonType;
@@ -36,7 +36,7 @@ export interface CreateSupplierDto {
   phone?: string;
   landlinePhone?: string;
   address?: string;
-  email: string;
+  email?: string;
   departmentId: string;
   cityId: string;
   personType: PersonType;

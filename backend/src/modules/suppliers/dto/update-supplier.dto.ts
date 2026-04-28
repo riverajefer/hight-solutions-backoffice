@@ -71,8 +71,9 @@ export class UpdateSupplierDto {
     description: 'Correo electrónico del proveedor',
     example: 'contacto@distribuidoraxyz.com',
   })
-  @IsEmail({}, { message: 'El email debe tener un formato válido' })
   @IsOptional()
+  @ValidateIf((o) => o.email !== '' && o.email !== null)
+  @IsEmail({}, { message: 'El email debe tener un formato válido' })
   email?: string;
 
   @ApiPropertyOptional({
