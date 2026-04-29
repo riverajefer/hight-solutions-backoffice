@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
 import {
   Alert,
   AlertTitle,
   Box,
   Button,
   Chip,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -28,24 +28,34 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import HourglassTopIcon from '@mui/icons-material/HourglassTop';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
-import MarkEmailReadIcon from '@mui/icons-material/MarkEmailRead';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CloseIcon from '@mui/icons-material/Close';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS, ROUTES } from '../../../utils/constants';
-import { formatCurrency, formatDate } from '../../../utils/formatters';
+import { formatCurrency, formatDate, formatDateTime } from '../../../utils/formatters';
 import {
   AccountPayableStatus,
+  AP_PAYMENT_AUTH_STATUS_CONFIG,
 } from '../../../types/accounts-payable.types';
+import type { AccountPayablePaymentAuthRequest } from '../../../types/accounts-payable.types';
 import { AccountPayableStatusChip } from '../components/AccountPayableStatusChip';
-import { AccountPayableAuthRequestDialog } from '../components/AccountPayableAuthRequestDialog';
 import { AttachmentsSection } from '../components/AttachmentsSection';
 import { ExpenseOrderInfoSection } from '../components/ExpenseOrderInfoSection';
 import { InstallmentScheduleSection } from '../components/InstallmentScheduleSection';
 import { PaymentHistoryTable } from '../components/PaymentHistoryTable';
-import { RegisterPaymentDialog } from '../components/RegisterPaymentDialog';
-import { useAccountPayable } from '../hooks/useAccountsPayable';
-import type { RegisterPaymentDto } from '../../../types/accounts-payable.types';
-import { accountsPayableAuthRequestsApi } from '../../../api/accounts-payable-auth-requests.api';
+import { RequestPaymentDialog } from '../components/RequestPaymentDialog';
+import { CajaApprovePaymentDialog } from '../components/CajaApprovePaymentDialog';
+import { useAccountPayable, useApPaymentAuthRequests } from '../hooks/useAccountsPayable';
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  CASH: 'Efectivo',
+  BANK_TRANSFER: 'Transferencia Bancaria',
+  CHECK: 'Cheque',
+  CREDIT_CARD: 'Tarjeta de Crédito',
+  DEBIT_CARD: 'Tarjeta Débito',
+  OTHER: 'Otro',
+};
 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -63,46 +73,77 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 export default function AccountsPayableDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { hasPermission } = useAuthStore();
+  const { hasPermission, user } = useAuthStore();
 
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [authRequestDialogOpen, setAuthRequestDialogOpen] = useState(false);
+  const [requestPaymentOpen, setRequestPaymentOpen] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
 
-  const { data: myAuthRequests } = useQuery({
-    queryKey: ['ap-auth-requests-mine', id],
-    queryFn: () => accountsPayableAuthRequestsApi.findByUser(),
-    enabled: !!id,
-  });
-  const hasPendingRequest = myAuthRequests?.some(
-    (r) => r.accountPayableId === id && r.status === 'PENDING',
-  ) ?? false;
+  // Admin approve/reject inline state
+  const [adminActionRequest, setAdminActionRequest] = useState<AccountPayablePaymentAuthRequest | null>(null);
+  const [adminAction, setAdminAction] = useState<'approve' | 'reject' | null>(null);
+  const [adminNotes, setAdminNotes] = useState('');
+
+  // Caja approve dialog
+  const [cajaRequest, setCajaRequest] = useState<AccountPayablePaymentAuthRequest | null>(null);
 
   const {
     query,
     cancelMutation,
-    registerPaymentMutation,
     deletePaymentMutation,
   } = useAccountPayable(id);
 
+  const {
+    paymentAuthRequestsQuery,
+    createRequestMutation,
+    adminApproveMutation,
+    adminRejectMutation,
+    cajaApproveMutation,
+    cajaRejectMutation,
+  } = useApPaymentAuthRequests(id);
+
   const canUpdate = hasPermission(PERMISSIONS.UPDATE_ACCOUNTS_PAYABLE);
   const canDelete = hasPermission(PERMISSIONS.DELETE_ACCOUNTS_PAYABLE);
-  const canRegisterPayment = hasPermission(PERMISSIONS.REGISTER_AP_PAYMENT);
-  const canApprove = hasPermission(PERMISSIONS.APPROVE_ACCOUNTS_PAYABLE);
+  const canRequestPayment = hasPermission(PERMISSIONS.CREATE_ACCOUNTS_PAYABLE);
+  const canAdminApprove = hasPermission(PERMISSIONS.APPROVE_ACCOUNTS_PAYABLE);
+  const canCajaAuthorize = hasPermission(PERMISSIONS.CAJA_AUTHORIZE_AP_PAYMENT);
 
   const ap = query.data;
+  const authRequests = paymentAuthRequestsQuery.data ?? [];
 
-  const handleRegisterPayment = async (dto: RegisterPaymentDto) => {
-    await registerPaymentMutation.mutateAsync(dto);
-    setPaymentDialogOpen(false);
-  };
+  const activePendingRequest = authRequests.find((r) => r.status === 'PENDING');
+  const activeAdminApprovedRequest = authRequests.find((r) => r.status === 'ADMIN_APPROVED');
+  const hasBlockingRequest = !!activePendingRequest || !!activeAdminApprovedRequest;
 
   const handleCancel = async () => {
     if (!cancelReason.trim()) return;
     await cancelMutation.mutateAsync({ cancelReason });
     setConfirmCancel(false);
     setCancelReason('');
+  };
+
+  const handleAdminAction = async () => {
+    if (!adminActionRequest) return;
+    if (adminAction === 'approve') {
+      await adminApproveMutation.mutateAsync({
+        id: adminActionRequest.id,
+        dto: { adminNotes: adminNotes || undefined },
+      });
+    } else {
+      await adminRejectMutation.mutateAsync({
+        id: adminActionRequest.id,
+        dto: { adminNotes: adminNotes || undefined },
+      });
+    }
+    setAdminActionRequest(null);
+    setAdminAction(null);
+    setAdminNotes('');
+  };
+
+  const openAdminAction = (req: AccountPayablePaymentAuthRequest, action: 'approve' | 'reject') => {
+    setAdminActionRequest(req);
+    setAdminAction(action);
+    setAdminNotes('');
   };
 
   if (query.isLoading) {
@@ -135,7 +176,7 @@ export default function AccountsPayableDetailPage() {
           { label: ap.apNumber },
         ]}
         action={
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} flexWrap="wrap">
             <Button
               variant="outlined"
               startIcon={<ArrowBackIcon />}
@@ -152,29 +193,15 @@ export default function AccountsPayableDetailPage() {
                 Editar
               </Button>
             )}
-            {canRegisterPayment &&
-              isEditable &&
-              ap.status !== AccountPayableStatus.PENDING && (
-                <Button
-                  variant="contained"
-                  startIcon={<PaymentIcon />}
-                  onClick={() => setPaymentDialogOpen(true)}
-                >
-                  Registrar Pago
-                </Button>
-              )}
-            {canUpdate &&
-              !canApprove &&
-              ap.status === AccountPayableStatus.PENDING && (
-                <Button
-                  variant="contained"
-                  color="warning"
-                  startIcon={<HourglassTopIcon />}
-                  onClick={() => setAuthRequestDialogOpen(true)}
-                >
-                  Solicitar Autorización
-                </Button>
-              )}
+            {canRequestPayment && isEditable && !hasBlockingRequest && (
+              <Button
+                variant="contained"
+                startIcon={<PaymentIcon />}
+                onClick={() => setRequestPaymentOpen(true)}
+              >
+                Solicitar Pago
+              </Button>
+            )}
             {canDelete && isEditable && (
               <Button
                 variant="outlined"
@@ -189,63 +216,51 @@ export default function AccountsPayableDetailPage() {
         }
       />
 
-      {/* Banner contextual según estado y rol */}
-      {ap.status === AccountPayableStatus.PENDING && !canApprove && !hasPendingRequest && (
+      {/* Contextual banners */}
+      {isEditable && !hasBlockingRequest && canRequestPayment && (
+        <Alert severity="info" icon={<PaymentIcon />} sx={{ mt: 2, mb: 1 }}>
+          <AlertTitle>Flujo de doble autorización</AlertTitle>
+          Para registrar un pago usa <strong>Solicitar Pago</strong>. El administrador lo
+          revisará en el paso 1 y Caja lo completará en el paso 2.
+        </Alert>
+      )}
+      {activePendingRequest && !canAdminApprove && (
         <Alert severity="warning" icon={<HourglassTopIcon />} sx={{ mt: 2, mb: 1 }}>
-          <AlertTitle>Pendiente de autorización — acción requerida</AlertTitle>
-          Esta Cuenta por Pagar requiere aprobación del administrador antes de poder registrar
-          pagos. Haz clic en <strong>Solicitar Autorización</strong>: el administrador recibirá
-          una notificación por WhatsApp y podrá aprobarla desde allí o desde{' '}
-          <strong>Solicitudes Pendientes</strong>.
+          <AlertTitle>Solicitud enviada — esperando aprobación del administrador</AlertTitle>
+          Tu solicitud de {formatCurrency(activePendingRequest.amount)} fue enviada. El
+          administrador recibirá una notificación por <strong>WhatsApp</strong> y podrá
+          aprobarla desde allí.
         </Alert>
       )}
-      {ap.status === AccountPayableStatus.PENDING && !canApprove && hasPendingRequest && (
-        <Alert
-          severity="info"
-          icon={<MarkEmailReadIcon />}
-          sx={{
-            mt: 2,
-            mb: 1,
-            borderLeft: '4px solid',
-            borderColor: 'info.main',
-          }}
-        >
-          <AlertTitle>Solicitud enviada — esperando respuesta de gerencia</AlertTitle>
-          Tu solicitud fue enviada al administrador. Recibirá una notificación por{' '}
-          <strong>WhatsApp</strong> y podrá aprobarla desde su celular o desde{' '}
-          <strong>Solicitudes Pendientes</strong>. Te avisaremos cuando esté lista para pagar.
-        </Alert>
-      )}
-      {ap.status === AccountPayableStatus.PENDING && canApprove && (
+      {activePendingRequest && canAdminApprove && (
         <Alert severity="warning" icon={<AdminPanelSettingsIcon />} sx={{ mt: 2, mb: 1 }}>
-          <AlertTitle>Requiere tu autorización administrativa</AlertTitle>
-          Esta Cuenta por Pagar está pendiente de aprobación. Puedes autorizarla desde la
-          sección <strong>Solicitudes Pendientes</strong> o respondiendo el mensaje de WhatsApp.
+          <AlertTitle>Solicitud de pago pendiente de tu aprobación</AlertTitle>
+          Hay una solicitud de {formatCurrency(activePendingRequest.amount)} esperando tu
+          revisión. Apruébala o recházala en la sección de solicitudes abajo.
         </Alert>
       )}
-      {ap.status === AccountPayableStatus.ADMIN_AUTHORIZED && canRegisterPayment && (
-        <Alert severity="success" icon={<PaymentIcon />} sx={{ mt: 2, mb: 1 }}>
-          <AlertTitle>Autorizada — lista para pagar</AlertTitle>
-          El administrador autorizó esta Cuenta por Pagar. Usa el botón{' '}
-          <strong>Registrar Pago</strong> para registrar un pago o abono y descontarlo de la
-          caja activa.
+      {activeAdminApprovedRequest && canCajaAuthorize && (
+        <Alert severity="success" icon={<TaskAltIcon />} sx={{ mt: 2, mb: 1 }}>
+          <AlertTitle>Aprobado por admin — listo para Caja</AlertTitle>
+          Una solicitud de {formatCurrency(activeAdminApprovedRequest.amount)} fue aprobada
+          por el administrador. Registra el pago usando el botón <strong>Registrar Pago</strong>{' '}
+          en la sección de solicitudes abajo.
         </Alert>
       )}
-      {ap.status === AccountPayableStatus.ADMIN_AUTHORIZED && !canRegisterPayment && (
+      {activeAdminApprovedRequest && !canCajaAuthorize && (
         <Alert severity="info" icon={<HourglassTopIcon />} sx={{ mt: 2, mb: 1 }}>
-          <AlertTitle>Autorizada — esperando pago de Caja</AlertTitle>
-          El administrador aprobó esta Cuenta por Pagar. El área de Caja puede registrar el
-          pago. No se requiere ninguna acción de tu parte en este momento.
+          <AlertTitle>Aprobado — esperando confirmación de Caja</AlertTitle>
+          El administrador aprobó la solicitud. Caja completará el registro del pago.
         </Alert>
       )}
       {ap.status === AccountPayableStatus.PAID && (
         <Alert severity="success" icon={<TaskAltIcon />} sx={{ mt: 2, mb: 1 }}>
           <AlertTitle>Pagada</AlertTitle>
-          Esta Cuenta por Pagar fue pagada en su totalidad. El proceso está completo.
+          Esta Cuenta por Pagar fue pagada en su totalidad.
         </Alert>
       )}
 
-      <Grid container spacing={3}>
+      <Grid container spacing={3} sx={{ mt: 0 }}>
         {/* Información principal */}
         <Grid item xs={12} md={8}>
           <Paper sx={{ p: 3, borderRadius: 3 }}>
@@ -363,53 +378,162 @@ export default function AccountsPayableDetailPage() {
 
             <Stack spacing={1.5}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="body2" color="text.secondary">
-                  Total
-                </Typography>
-                <Typography variant="body2" fontWeight={600}>
-                  {formatCurrency(ap.totalAmount)}
-                </Typography>
+                <Typography variant="body2" color="text.secondary">Total</Typography>
+                <Typography variant="body2" fontWeight={600}>{formatCurrency(ap.totalAmount)}</Typography>
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="body2" color="text.secondary">
-                  Abonado
-                </Typography>
+                <Typography variant="body2" color="text.secondary">Abonado</Typography>
                 <Typography variant="body2" fontWeight={600} color="success.main">
                   {formatCurrency(ap.paidAmount)}
                 </Typography>
               </Box>
               <Divider />
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="body2" fontWeight={600}>
-                  Saldo pendiente
-                </Typography>
+                <Typography variant="body2" fontWeight={600}>Saldo pendiente</Typography>
                 <Typography variant="body2" fontWeight={700} color="warning.main">
                   {formatCurrency(ap.balance)}
                 </Typography>
               </Box>
               <Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    Progreso
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {paidPercent.toFixed(0)}%
-                  </Typography>
+                  <Typography variant="caption" color="text.secondary">Progreso</Typography>
+                  <Typography variant="caption" color="text.secondary">{paidPercent.toFixed(0)}%</Typography>
                 </Box>
                 <LinearProgress
                   variant="determinate"
                   value={paidPercent}
                   sx={{ height: 8, borderRadius: 4 }}
                   color={
-                    ap.status === AccountPayableStatus.PAID
-                      ? 'success'
-                      : ap.status === AccountPayableStatus.OVERDUE
-                        ? 'error'
-                        : 'primary'
+                    ap.status === AccountPayableStatus.PAID ? 'success'
+                    : ap.status === AccountPayableStatus.OVERDUE ? 'error'
+                    : 'primary'
                   }
                 />
               </Box>
             </Stack>
+          </Paper>
+        </Grid>
+
+        {/* Solicitudes de Pago */}
+        <Grid item xs={12}>
+          <Paper sx={{ p: 3, borderRadius: 3 }}>
+            <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+              Solicitudes de Pago
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+
+            {paymentAuthRequestsQuery.isLoading ? (
+              <Skeleton height={60} />
+            ) : authRequests.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                No hay solicitudes de pago registradas.
+              </Typography>
+            ) : (
+              <Stack spacing={2}>
+                {authRequests.map((req) => {
+                  const statusCfg = AP_PAYMENT_AUTH_STATUS_CONFIG[req.status];
+                  const requesterName =
+                    [req.requestedBy.firstName, req.requestedBy.lastName].filter(Boolean).join(' ') ||
+                    req.requestedBy.email;
+                  const isOwn = req.requestedById === user?.id;
+
+                  return (
+                    <Box
+                      key={req.id}
+                      sx={{
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: 2,
+                        p: 2,
+                      }}
+                    >
+                      <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        justifyContent="space-between"
+                        alignItems={{ xs: 'flex-start', sm: 'center' }}
+                        spacing={1}
+                      >
+                        <Box>
+                          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                            <Typography variant="body2" fontWeight={600}>
+                              {formatCurrency(req.amount)}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              · {PAYMENT_METHOD_LABELS[req.paymentMethod] ?? req.paymentMethod}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              · {formatDate(req.paymentDate)}
+                            </Typography>
+                            <Chip
+                              label={statusCfg.label}
+                              color={statusCfg.color}
+                              size="small"
+                            />
+                            {isOwn && (
+                              <Chip label="Mi solicitud" size="small" variant="outlined" />
+                            )}
+                          </Stack>
+                          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                            Solicitado por {requesterName} · {formatDateTime(req.createdAt)}
+                          </Typography>
+                          {req.reason && (
+                            <Typography variant="caption" color="text.secondary">
+                              Justificación: {req.reason}
+                            </Typography>
+                          )}
+                          {req.adminNotes && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              Notas admin: {req.adminNotes}
+                            </Typography>
+                          )}
+                          {req.cajaRejectionReason && (
+                            <Typography variant="caption" color="error.main" sx={{ display: 'block' }}>
+                              Razón de rechazo (Caja): {req.cajaRejectionReason}
+                            </Typography>
+                          )}
+                        </Box>
+
+                        {/* Admin actions on PENDING */}
+                        {req.status === 'PENDING' && canAdminApprove && (
+                          <Stack direction="row" spacing={1}>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="error"
+                              startIcon={<CloseIcon />}
+                              onClick={() => openAdminAction(req, 'reject')}
+                            >
+                              Rechazar
+                            </Button>
+                            <Button
+                              size="small"
+                              variant="contained"
+                              color="success"
+                              startIcon={<CheckCircleIcon />}
+                              onClick={() => openAdminAction(req, 'approve')}
+                            >
+                              Aprobar
+                            </Button>
+                          </Stack>
+                        )}
+
+                        {/* Caja action on ADMIN_APPROVED */}
+                        {req.status === 'ADMIN_APPROVED' && canCajaAuthorize && (
+                          <Button
+                            size="small"
+                            variant="contained"
+                            startIcon={<PaymentIcon />}
+                            onClick={() => setCajaRequest(req)}
+                          >
+                            Registrar Pago
+                          </Button>
+                        )}
+                      </Stack>
+                    </Box>
+                  );
+                })}
+              </Stack>
+            )}
           </Paper>
         </Grid>
 
@@ -458,25 +582,103 @@ export default function AccountsPayableDetailPage() {
         </Grid>
       </Grid>
 
-      {/* Dialog de solicitud de autorización */}
-      <AccountPayableAuthRequestDialog
-        open={authRequestDialogOpen}
-        onClose={() => setAuthRequestDialogOpen(false)}
-        accountPayable={{ id: ap.id, apNumber: ap.apNumber, status: ap.status }}
-      />
-
-      {/* Dialog de pago */}
-      {paymentDialogOpen && (
-        <RegisterPaymentDialog
-          open={paymentDialogOpen}
-          onClose={() => setPaymentDialogOpen(false)}
-          onSubmit={handleRegisterPayment}
-          loading={registerPaymentMutation.isPending}
+      {/* Dialog: Solicitar Pago */}
+      {requestPaymentOpen && (
+        <RequestPaymentDialog
+          open={requestPaymentOpen}
+          onClose={() => setRequestPaymentOpen(false)}
           accountPayable={ap}
+          onSubmit={async (dto) => {
+            await createRequestMutation.mutateAsync(dto);
+            setRequestPaymentOpen(false);
+          }}
+          loading={createRequestMutation.isPending}
         />
       )}
 
-      {/* Dialog de anulación */}
+      {/* Dialog: Admin approve/reject */}
+      <Dialog
+        open={!!adminActionRequest}
+        onClose={() => {
+          if (!adminApproveMutation.isPending && !adminRejectMutation.isPending) {
+            setAdminActionRequest(null);
+            setAdminAction(null);
+            setAdminNotes('');
+          }
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {adminAction === 'approve' ? 'Aprobar solicitud de pago' : 'Rechazar solicitud de pago'}
+        </DialogTitle>
+        <Divider />
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            {adminActionRequest && (
+              <Alert severity={adminAction === 'approve' ? 'success' : 'warning'}>
+                {adminAction === 'approve'
+                  ? `Vas a aprobar el pago de ${formatCurrency(adminActionRequest.amount)}. Caja recibirá una notificación para completarlo.`
+                  : `Vas a rechazar el pago de ${formatCurrency(adminActionRequest.amount)}.`}
+              </Alert>
+            )}
+            <TextField
+              label="Notas (opcional)"
+              multiline
+              rows={2}
+              fullWidth
+              value={adminNotes}
+              onChange={(e) => setAdminNotes(e.target.value)}
+            />
+          </Stack>
+        </DialogContent>
+        <Divider />
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button
+            onClick={() => {
+              setAdminActionRequest(null);
+              setAdminAction(null);
+              setAdminNotes('');
+            }}
+            disabled={adminApproveMutation.isPending || adminRejectMutation.isPending}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            color={adminAction === 'approve' ? 'success' : 'error'}
+            disabled={adminApproveMutation.isPending || adminRejectMutation.isPending}
+            startIcon={
+              (adminApproveMutation.isPending || adminRejectMutation.isPending)
+                ? <CircularProgress size={16} />
+                : adminAction === 'approve' ? <CheckCircleIcon /> : <CloseIcon />
+            }
+            onClick={handleAdminAction}
+          >
+            {adminAction === 'approve' ? 'Aprobar' : 'Rechazar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog: Caja approve */}
+      {cajaRequest && (
+        <CajaApprovePaymentDialog
+          open={!!cajaRequest}
+          onClose={() => setCajaRequest(null)}
+          request={cajaRequest}
+          onApprove={async () => {
+            await cajaApproveMutation.mutateAsync(cajaRequest.id);
+            setCajaRequest(null);
+          }}
+          onReject={async (reason) => {
+            await cajaRejectMutation.mutateAsync({ id: cajaRequest.id, dto: { reason } });
+            setCajaRequest(null);
+          }}
+          loading={cajaApproveMutation.isPending || cajaRejectMutation.isPending}
+        />
+      )}
+
+      {/* Dialog: Anular */}
       <Dialog
         open={confirmCancel}
         onClose={() => {

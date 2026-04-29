@@ -77,10 +77,13 @@ model User {
   cancelledAccountsPayable             AccountPayable[]             @relation("AccountPayableCancelledBy")
   authorizedAccountsPayable            AccountPayable[]             @relation("AccountPayableAuthorizedBy")
   registeredApPayments                 AccountPayablePayment[]      @relation("AccountPayablePaymentRegisteredBy")
-  requestedApAuthRequests              AccountPayableAuthRequest[]  @relation("RequestedApAuthRequests")
-  reviewedApAuthRequests               AccountPayableAuthRequest[]  @relation("ReviewedApAuthRequests")
-  uploadedApAttachments                AccountPayableAttachment[]   @relation("AccountPayableAttachmentUploadedBy")
-  paidInstallments                     AccountPayableInstallment[]  @relation("InstallmentPaidBy")
+  requestedApAuthRequests              AccountPayableAuthRequest[]         @relation("RequestedApAuthRequests")
+  reviewedApAuthRequests               AccountPayableAuthRequest[]         @relation("ReviewedApAuthRequests")
+  uploadedApAttachments                AccountPayableAttachment[]          @relation("AccountPayableAttachmentUploadedBy")
+  paidInstallments                     AccountPayableInstallment[]         @relation("InstallmentPaidBy")
+  requestedApPaymentAuthRequests       AccountPayablePaymentAuthRequest[]  @relation("RequestedApPaymentAuthRequests")
+  adminReviewedApPaymentAuthRequests   AccountPayablePaymentAuthRequest[]  @relation("AdminReviewedApPaymentAuthRequests")
+  cajaReviewedApPaymentAuthRequests    AccountPayablePaymentAuthRequest[]  @relation("CajaReviewedApPaymentAuthRequests")
 
   @@map("users")
 }
@@ -736,6 +739,7 @@ enum ApprovalRequestType {
   CASH_MOVEMENT_VOID
   REFUND_REQUEST
   AP_AUTH
+  AP_PAYMENT_AUTH
 }
 
 enum NotificationType {
@@ -771,6 +775,19 @@ enum NotificationType {
   AP_AUTH_REQUEST_APPROVED // Solicitud de autorización de CP aprobada
   AP_AUTH_REQUEST_REJECTED // Solicitud de autorización de CP rechazada
   REFUND_REQUEST_REJECTED // Devolución rechazada
+  AP_PAYMENT_AUTH_PENDING // Nueva solicitud de pago de CP (paso 1 — admin)
+  AP_PAYMENT_AUTH_ADMIN_APPROVED // Admin aprobó pago de CP — pendiente de Caja
+  AP_PAYMENT_AUTH_ADMIN_REJECTED // Admin rechazó solicitud de pago de CP
+  AP_PAYMENT_AUTH_COMPLETED // Caja completó el pago de CP
+  AP_PAYMENT_AUTH_CAJA_REJECTED // Caja rechazó el pago de CP
+}
+
+enum ApPaymentAuthRequestStatus {
+  PENDING // Esperando aprobación de Admin
+  ADMIN_APPROVED // Admin aprobó — esperando autorización de Caja
+  COMPLETED // Caja autorizó y registró el pago
+  ADMIN_REJECTED // Admin rechazó
+  CAJA_REJECTED // Caja rechazó
 }
 
 model EditableOrderStatus {
@@ -1944,10 +1961,11 @@ model AccountPayable {
   createdBy     User                        @relation("AccountPayableCreatedBy", fields: [createdById], references: [id])
   cancelledBy   User?                       @relation("AccountPayableCancelledBy", fields: [cancelledById], references: [id])
   authorizedBy  User?                       @relation("AccountPayableAuthorizedBy", fields: [authorizedById], references: [id])
-  payments      AccountPayablePayment[]
-  attachments   AccountPayableAttachment[]
-  installments  AccountPayableInstallment[]
-  authRequests  AccountPayableAuthRequest[]
+  payments             AccountPayablePayment[]
+  attachments          AccountPayableAttachment[]
+  installments         AccountPayableInstallment[]
+  authRequests         AccountPayableAuthRequest[]
+  paymentAuthRequests  AccountPayablePaymentAuthRequest[]
 
   @@index([status])
   @@index([dueDate])
@@ -1967,14 +1985,16 @@ model AccountPayablePayment {
   receiptFileId    String?       @map("receipt_file_id")
   cashMovementId   String?       @unique @map("cash_movement_id")
 
-  registeredById String   @map("registered_by_id")
-  paymentDate    DateTime @map("payment_date")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  registeredById         String  @map("registered_by_id")
+  paymentDate            DateTime @map("payment_date")
+  paymentAuthRequestId   String?  @unique @map("payment_auth_request_id")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
 
-  accountPayable AccountPayable @relation(fields: [accountPayableId], references: [id], onDelete: Cascade)
-  cashMovement   CashMovement?  @relation(fields: [cashMovementId], references: [id])
-  registeredBy   User           @relation("AccountPayablePaymentRegisteredBy", fields: [registeredById], references: [id])
+  accountPayable      AccountPayable                    @relation(fields: [accountPayableId], references: [id], onDelete: Cascade)
+  cashMovement        CashMovement?                     @relation(fields: [cashMovementId], references: [id])
+  registeredBy        User                              @relation("AccountPayablePaymentRegisteredBy", fields: [registeredById], references: [id])
+  paymentAuthRequest  AccountPayablePaymentAuthRequest? @relation(fields: [paymentAuthRequestId], references: [id])
 
   @@index([accountPayableId])
   @@index([paymentDate])
@@ -2015,4 +2035,49 @@ model AccountPayableInstallment {
 
   @@index([accountPayableId])
   @@map("account_payable_installments")
+}
+
+// =============================================================================
+// MÓDULO DE AUTORIZACIÓN DE PAGOS DE CUENTAS POR PAGAR (doble firma)
+// =============================================================================
+
+model AccountPayablePaymentAuthRequest {
+  id               String                     @id @default(uuid())
+  accountPayableId String                     @map("account_payable_id")
+  requestedById    String                     @map("requested_by_id")
+
+  // Datos del pago solicitado (capturados al crear la solicitud)
+  amount           Decimal                    @db.Decimal(12, 2)
+  paymentMethod    PaymentMethod              @default(CASH) @map("payment_method")
+  paymentDate      DateTime                   @map("payment_date")
+  reference        String?
+  notes            String?
+  receiptFileId    String?                    @map("receipt_file_id")
+  reason           String?                    // Justificación del pago
+
+  status           ApPaymentAuthRequestStatus @default(PENDING)
+
+  // Paso 1: revisión de Admin
+  adminReviewedById  String?   @map("admin_reviewed_by_id")
+  adminReviewedAt    DateTime? @map("admin_reviewed_at")
+  adminNotes         String?   @map("admin_notes")
+
+  // Paso 2: revisión de Caja
+  cajaReviewedById    String?   @map("caja_reviewed_by_id")
+  cajaReviewedAt      DateTime? @map("caja_reviewed_at")
+  cajaRejectionReason String?   @map("caja_rejection_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  accountPayable  AccountPayable             @relation(fields: [accountPayableId], references: [id], onDelete: Cascade)
+  requestedBy     User                       @relation("RequestedApPaymentAuthRequests", fields: [requestedById], references: [id])
+  adminReviewedBy User?                      @relation("AdminReviewedApPaymentAuthRequests", fields: [adminReviewedById], references: [id])
+  cajaReviewedBy  User?                      @relation("CajaReviewedApPaymentAuthRequests", fields: [cajaReviewedById], references: [id])
+  createdPayment  AccountPayablePayment?
+
+  @@index([accountPayableId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("account_payable_payment_auth_requests")
 }

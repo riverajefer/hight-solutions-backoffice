@@ -210,6 +210,11 @@ export const PERMISSION_LABELS: Record<string, string> = {
   update_accounts_payable: 'Actualizar Cuentas por Pagar',
   delete_accounts_payable: 'Eliminar Cuentas por Pagar',
   register_ap_payment: 'Registrar Pago de Cuenta por Pagar',
+  approve_accounts_payable: 'Aprobar Pago de CP (Admin)',
+  caja_authorize_ap_payment: 'Autorizar Pago de CP en Caja',
+
+  // Reportes Financieros
+  read_financial_dashboard: 'Ver Dashboard Financiero',
 };
 
 /**

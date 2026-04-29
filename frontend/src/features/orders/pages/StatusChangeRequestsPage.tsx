@@ -49,8 +49,10 @@ import { voidRequestsApi } from '../../../api/void-requests.api';
 import type { CashMovementVoidRequest } from '../../../types/void-request.types';
 import { refundRequestsApi } from '../../../api/refund-requests.api';
 import type { RefundRequest } from '../../../types/refund-request.types';
-import { accountsPayableAuthRequestsApi } from '../../../api/accounts-payable-auth-requests.api';
-import type { AccountPayableAuthRequest } from '../../../types/accounts-payable.types';
+import { apPaymentAuthRequestsApi } from '../../../api/accounts-payable-payment-auth-requests.api';
+import type { AccountPayablePaymentAuthRequest } from '../../../types/accounts-payable.types';
+import { AP_PAYMENT_AUTH_STATUS_CONFIG } from '../../../types/accounts-payable.types';
+import { CajaApprovePaymentDialog } from '../../accounts-payable/components/CajaApprovePaymentDialog';
 
 // ============================================================
 // CONSTANTES
@@ -96,6 +98,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const canApproveVoidRequests = hasPermission('approve_cash_movements') || isAdmin;
   const canApproveRefunds = hasPermission('approve_refunds') || isAdmin;
   const canApproveAccountsPayable = hasPermission('approve_accounts_payable') || isAdmin;
+  const canCajaAuthorizeAp = hasPermission('caja_authorize_ap_payment');
 
   const [tabValue, setTabValue] = useState<string>(
     canApproveOrders ? 'status' : canApproveAdvancePayments ? 'advance' : canApproveClientOwnership ? 'ownership' : canApproveExpenseOrders ? 'og' : canApproveVoidRequests ? 'void' : canApproveRefunds ? 'refund' : canApproveAccountsPayable ? 'ap' : 'status',
@@ -159,13 +162,16 @@ export const StatusChangeRequestsPage: React.FC = () => {
   }>({ open: false, request: null, action: null });
   const [refundReviewNotes, setRefundReviewNotes] = useState('');
 
-  // --- AP Auth Requests ---
+  // --- AP Payment Auth Requests (admin step) ---
   const [apAuthReviewDialog, setApAuthReviewDialog] = useState<{
     open: boolean;
-    request: AccountPayableAuthRequest | null;
+    request: AccountPayablePaymentAuthRequest | null;
     action: 'approve' | 'reject' | null;
   }>({ open: false, request: null, action: null });
   const [apAuthReviewNotes, setApAuthReviewNotes] = useState('');
+
+  // --- AP Payment Auth Requests (caja step) ---
+  const [cajaApRequest, setCajaApRequest] = useState<AccountPayablePaymentAuthRequest | null>(null);
 
   // ============================================================
   // QUERIES
@@ -228,11 +234,19 @@ export const StatusChangeRequestsPage: React.FC = () => {
   });
 
   const { data: apAuthRequestsData, isLoading: apAuthLoading } = useQuery({
-    queryKey: ['ap-auth-requests', viewMode],
+    queryKey: ['ap-payment-auth-requests-admin', viewMode],
     queryFn: () => viewMode === 'pending'
-      ? accountsPayableAuthRequestsApi.findPending()
-      : accountsPayableAuthRequestsApi.findAll(),
+      ? apPaymentAuthRequestsApi.findPendingAdmin()
+      : apPaymentAuthRequestsApi.findAll(),
     enabled: canApproveAccountsPayable,
+  });
+
+  const { data: cajaApRequestsData, isLoading: cajaApLoading } = useQuery({
+    queryKey: ['ap-payment-auth-requests-caja', viewMode],
+    queryFn: () => viewMode === 'pending'
+      ? apPaymentAuthRequestsApi.findPendingCaja()
+      : apPaymentAuthRequestsApi.findAll(),
+    enabled: canCajaAuthorizeAp,
   });
 
   const statusRequests = viewMode === 'history' ? statusRequestsData?.filter(r => r.status !== 'PENDING') : statusRequestsData;
@@ -243,6 +257,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const voidRequests = viewMode === 'history' ? voidRequestsData?.filter(r => r.status !== 'PENDING') : voidRequestsData;
   const refundRequests = viewMode === 'history' ? refundRequestsData?.filter(r => r.status !== 'PENDING') : refundRequestsData;
   const apAuthRequests = viewMode === 'history' ? apAuthRequestsData?.filter(r => r.status !== 'PENDING') : apAuthRequestsData;
+  const cajaApRequests = viewMode === 'history' ? cajaApRequestsData?.filter(r => r.status === 'COMPLETED' || r.status === 'CAJA_REJECTED') : cajaApRequestsData;
 
   // ============================================================
   // STATUS CHANGE MUTATIONS
@@ -509,28 +524,28 @@ export const StatusChangeRequestsPage: React.FC = () => {
 
   const approveApAuthMutation = useMutation({
     mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
-      accountsPayableAuthRequestsApi.approve(id, notes),
+      apPaymentAuthRequestsApi.adminApprove(id, { adminNotes: notes }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ap-auth-requests'] });
-      queryClient.invalidateQueries({ queryKey: ['accounts-payable'] });
-      enqueueSnackbar('Cuenta por Pagar autorizada exitosamente', { variant: 'success' });
+      queryClient.invalidateQueries({ queryKey: ['ap-payment-auth-requests-admin'] });
+      queryClient.invalidateQueries({ queryKey: ['ap-payment-auth-requests'] });
+      enqueueSnackbar('Solicitud aprobada. Caja será notificada para completar el pago.', { variant: 'success' });
       handleCloseApAuthReviewDialog();
     },
     onError: (error: any) => {
       enqueueSnackbar(
-        error.response?.data?.message || 'Error al aprobar la autorización',
+        error.response?.data?.message || 'Error al aprobar la solicitud',
         { variant: 'error' }
       );
     },
   });
 
   const rejectApAuthMutation = useMutation({
-    mutationFn: ({ id, notes }: { id: string; notes: string }) =>
-      accountsPayableAuthRequestsApi.reject(id, notes),
+    mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
+      apPaymentAuthRequestsApi.adminReject(id, { adminNotes: notes }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ap-auth-requests'] });
-      queryClient.invalidateQueries({ queryKey: ['accounts-payable'] });
-      enqueueSnackbar('Solicitud de autorización rechazada', { variant: 'info' });
+      queryClient.invalidateQueries({ queryKey: ['ap-payment-auth-requests-admin'] });
+      queryClient.invalidateQueries({ queryKey: ['ap-payment-auth-requests'] });
+      enqueueSnackbar('Solicitud de pago rechazada', { variant: 'info' });
       handleCloseApAuthReviewDialog();
     },
     onError: (error: any) => {
@@ -538,6 +553,32 @@ export const StatusChangeRequestsPage: React.FC = () => {
         error.response?.data?.message || 'Error al rechazar la solicitud',
         { variant: 'error' }
       );
+    },
+  });
+
+  const cajaApApproveMutation = useMutation({
+    mutationFn: (id: string) => apPaymentAuthRequestsApi.cajaApprove(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ap-payment-auth-requests-caja'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts-payable'] });
+      enqueueSnackbar('Pago registrado correctamente por Caja', { variant: 'success' });
+      setCajaApRequest(null);
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(error.response?.data?.message || 'Error al registrar el pago', { variant: 'error' });
+    },
+  });
+
+  const cajaApRejectMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
+      apPaymentAuthRequestsApi.cajaReject(id, { reason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ap-payment-auth-requests-caja'] });
+      enqueueSnackbar('Solicitud de pago rechazada por Caja', { variant: 'info' });
+      setCajaApRequest(null);
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(error.response?.data?.message || 'Error al rechazar el pago', { variant: 'error' });
     },
   });
 
@@ -826,12 +867,12 @@ export const StatusChangeRequestsPage: React.FC = () => {
   // HANDLERS - AP AUTH REQUESTS
   // ============================================================
 
-  const handleApproveApAuth = (request: AccountPayableAuthRequest) => {
+  const handleApproveApAuth = (request: AccountPayablePaymentAuthRequest) => {
     setApAuthReviewDialog({ open: true, request, action: 'approve' });
     setApAuthReviewNotes('');
   };
 
-  const handleRejectApAuth = (request: AccountPayableAuthRequest) => {
+  const handleRejectApAuth = (request: AccountPayablePaymentAuthRequest) => {
     setApAuthReviewDialog({ open: true, request, action: 'reject' });
     setApAuthReviewNotes('');
   };
@@ -845,13 +886,9 @@ export const StatusChangeRequestsPage: React.FC = () => {
         notes: apAuthReviewNotes || undefined,
       });
     } else if (apAuthReviewDialog.action === 'reject') {
-      if (!apAuthReviewNotes.trim()) {
-        enqueueSnackbar('Debe proporcionar una razón para rechazar', { variant: 'warning' });
-        return;
-      }
       rejectApAuthMutation.mutate({
         id: apAuthReviewDialog.request.id,
-        notes: apAuthReviewNotes,
+        notes: apAuthReviewNotes || undefined,
       });
     }
   };
@@ -1570,71 +1607,68 @@ export const StatusChangeRequestsPage: React.FC = () => {
   ];
 
   // ============================================================
-  // COLUMNAS - AP AUTH REQUESTS
+  // COLUMNAS - AP PAYMENT AUTH REQUESTS (admin step)
   // ============================================================
 
-  const apAuthColumns: GridColDef<AccountPayableAuthRequest>[] = [
+  const formatCOP = (v: string | number) =>
+    new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(Number(v));
+
+  const apAuthColumns: GridColDef<AccountPayablePaymentAuthRequest>[] = [
     {
       field: 'apNumber',
       headerName: 'Nº CxP',
-      width: 150,
-      valueGetter: (_, row) => (row as any).accountPayable?.apNumber || '-',
+      width: 130,
+      valueGetter: (_, row) => row.accountPayable?.apNumber || '-',
       renderCell: (params) => (
         <Box
           sx={{ fontWeight: 600, color: 'primary.main', cursor: 'pointer' }}
-          onClick={() => {
-            const apId = (params.row as any).accountPayable?.id || params.row.accountPayableId;
-            if (apId) navigate(`/accounts-payable/${apId}`);
-          }}
+          onClick={() => navigate(`/accounts-payable/${params.row.accountPayableId}`)}
         >
           {params.value}
         </Box>
       ),
     },
     {
-      field: 'supplier',
-      headerName: 'Proveedor',
-      width: 200,
-      valueGetter: (_, row) => (row as any).accountPayable?.supplier?.name || '-',
+      field: 'amount',
+      headerName: 'Monto Pago',
+      width: 140,
+      renderCell: (params) => (
+        <Typography variant="body2" fontWeight={600}>{formatCOP(params.value)}</Typography>
+      ),
     },
     {
-      field: 'totalAmount',
-      headerName: 'Monto Total',
-      width: 150,
-      valueGetter: (_, row) => (row as any).accountPayable?.totalAmount || '0',
-      renderCell: (params) => (
-        <Typography variant="body2" fontWeight={600}>
-          {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(
-            parseFloat(params.value || '0')
-          )}
-        </Typography>
-      ),
+      field: 'paymentMethod',
+      headerName: 'Método',
+      width: 160,
+      valueGetter: (_, row) => (PAYMENT_METHOD_LABELS as Record<string, string>)[row.paymentMethod] ?? row.paymentMethod,
+    },
+    {
+      field: 'paymentDate',
+      headerName: 'Fecha Pago',
+      width: 130,
+      valueFormatter: (value) => formatDateTime(value),
     },
     {
       field: 'requestedBy',
       headerName: 'Solicitado por',
-      width: 200,
+      width: 180,
       valueGetter: (_, row) => getUserName(row.requestedBy),
     },
     {
       field: 'reason',
       headerName: 'Razón',
-      width: 250,
+      width: 220,
       renderCell: (params) => (
-        <Typography variant="body2" noWrap title={params.value || ''}>
-          {params.value || '-'}
-        </Typography>
+        <Typography variant="body2" noWrap title={params.value || ''}>{params.value || '-'}</Typography>
       ),
     },
     {
       field: 'status',
-      headerName: 'Estado Solicitud',
-      width: 130,
+      headerName: 'Estado',
+      width: 140,
       renderCell: (params) => {
-        const statusConfig = STATUS_LABELS[params.value] || { label: params.value, color: 'default' as const };
-        return (
-          <Chip label={statusConfig.label} color={statusConfig.color} size="small" />
-        );
+        const cfg = AP_PAYMENT_AUTH_STATUS_CONFIG[params.value as keyof typeof AP_PAYMENT_AUTH_STATUS_CONFIG];
+        return cfg ? <Chip label={cfg.label} color={cfg.color} size="small" /> : <Chip label={params.value} size="small" />;
       },
     },
     {
@@ -1669,6 +1703,87 @@ export const StatusChangeRequestsPage: React.FC = () => {
   ];
 
   // ============================================================
+  // COLUMNAS - AP PAYMENT AUTH REQUESTS (caja step)
+  // ============================================================
+
+  const cajaApColumns: GridColDef<AccountPayablePaymentAuthRequest>[] = [
+    {
+      field: 'apNumber',
+      headerName: 'Nº CxP',
+      width: 130,
+      valueGetter: (_, row) => row.accountPayable?.apNumber || '-',
+      renderCell: (params) => (
+        <Box
+          sx={{ fontWeight: 600, color: 'primary.main', cursor: 'pointer' }}
+          onClick={() => navigate(`/accounts-payable/${params.row.accountPayableId}`)}
+        >
+          {params.value}
+        </Box>
+      ),
+    },
+    {
+      field: 'amount',
+      headerName: 'Monto Pago',
+      width: 140,
+      renderCell: (params) => (
+        <Typography variant="body2" fontWeight={600}>{formatCOP(params.value)}</Typography>
+      ),
+    },
+    {
+      field: 'paymentMethod',
+      headerName: 'Método',
+      width: 160,
+      valueGetter: (_, row) => (PAYMENT_METHOD_LABELS as Record<string, string>)[row.paymentMethod] ?? row.paymentMethod,
+    },
+    {
+      field: 'paymentDate',
+      headerName: 'Fecha Pago',
+      width: 130,
+      valueFormatter: (value) => formatDateTime(value),
+    },
+    {
+      field: 'requestedBy',
+      headerName: 'Solicitado por',
+      width: 180,
+      valueGetter: (_, row) => getUserName(row.requestedBy),
+    },
+    {
+      field: 'adminNotes',
+      headerName: 'Notas Admin',
+      width: 200,
+      renderCell: (params) => (
+        <Typography variant="body2" noWrap title={params.value || ''}>{params.value || '-'}</Typography>
+      ),
+    },
+    {
+      field: 'status',
+      headerName: 'Estado',
+      width: 140,
+      renderCell: (params) => {
+        const cfg = AP_PAYMENT_AUTH_STATUS_CONFIG[params.value as keyof typeof AP_PAYMENT_AUTH_STATUS_CONFIG];
+        return cfg ? <Chip label={cfg.label} color={cfg.color} size="small" /> : <Chip label={params.value} size="small" />;
+      },
+    },
+    ...(canCajaAuthorizeAp ? [{
+      field: 'actions',
+      type: 'actions' as const,
+      headerName: 'Acciones',
+      width: 120,
+      getActions: (params: any) => {
+        if (params.row.status !== 'ADMIN_APPROVED') return [];
+        return [
+          <GridActionsCellItem
+            icon={<PaymentIcon sx={{ color: 'success.main' }} />}
+            label="Registrar Pago"
+            onClick={() => setCajaApRequest(params.row)}
+            showInMenu={false}
+          />,
+        ];
+      },
+    }] : []),
+  ];
+
+  // ============================================================
   // RENDER
   // ============================================================
 
@@ -1680,6 +1795,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const voidCount = voidRequests?.length || 0;
   const refundCount = refundRequests?.length || 0;
   const apAuthCount = apAuthRequests?.length || 0;
+  const cajaApCount = cajaApRequests?.length || 0;
 
   return (
     <Box>
@@ -1812,6 +1928,18 @@ export const StatusChangeRequestsPage: React.FC = () => {
               }
             />
           )}
+          {canCajaAuthorizeAp && (
+            <Tab
+              value="caja-ap"
+              icon={<PaymentIcon />}
+              iconPosition="start"
+              label={
+                <Badge badgeContent={cajaApCount} color="warning" sx={{ pr: 1.5, '& .MuiBadge-badge': { right: 0, top: 2 } }}>
+                  Caja CxP
+                </Badge>
+              }
+            />
+          )}
         </Tabs>
 
         {/* Tab: Cambio de Estado */}
@@ -1891,12 +2019,23 @@ export const StatusChangeRequestsPage: React.FC = () => {
           />
         )}
 
-        {/* Tab: Autorización CxP */}
+        {/* Tab: Autorización CxP (admin paso 1) */}
         {tabValue === 'ap' && canApproveAccountsPayable && (
           <DataTable
             rows={apAuthRequests || []}
             columns={apAuthColumns}
             loading={apAuthLoading}
+            getRowId={(row) => row.id}
+            pageSize={25}
+          />
+        )}
+
+        {/* Tab: Caja CxP (caja paso 2) */}
+        {tabValue === 'caja-ap' && canCajaAuthorizeAp && (
+          <DataTable
+            rows={cajaApRequests || []}
+            columns={cajaApColumns}
+            loading={cajaApLoading}
             getRowId={(row) => row.id}
             pageSize={25}
           />
@@ -2269,51 +2408,48 @@ export const StatusChangeRequestsPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Dialog: Revisión de Autorización de Cuenta por Pagar */}
+      {/* Dialog: Revisión admin de solicitud de pago CxP */}
       <Dialog open={apAuthReviewDialog.open} onClose={handleCloseApAuthReviewDialog} maxWidth="sm" fullWidth>
         <DialogTitle>
           {apAuthReviewDialog.action === 'approve'
-            ? 'Aprobar Autorización de Cuenta por Pagar'
-            : 'Rechazar Autorización de Cuenta por Pagar'}
+            ? 'Aprobar solicitud de pago'
+            : 'Rechazar solicitud de pago'}
         </DialogTitle>
         <DialogContent>
           {apAuthReviewDialog.request && (
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" gutterBottom>
-                <strong>Cuenta por Pagar:</strong> {(apAuthReviewDialog.request as any).accountPayable?.apNumber || '-'}
+                <strong>CxP:</strong> {apAuthReviewDialog.request.accountPayable?.apNumber || '-'}
               </Typography>
               <Typography variant="body2" gutterBottom>
-                <strong>Proveedor:</strong> {(apAuthReviewDialog.request as any).accountPayable?.supplier?.name || '-'}
+                <strong>Monto:</strong>{' '}
+                {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(Number(apAuthReviewDialog.request.amount))}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Método:</strong> {(PAYMENT_METHOD_LABELS as Record<string, string>)[apAuthReviewDialog.request.paymentMethod] ?? apAuthReviewDialog.request.paymentMethod}
               </Typography>
               <Typography variant="body2" gutterBottom>
                 <strong>Solicitado por:</strong> {getUserName(apAuthReviewDialog.request.requestedBy)}
               </Typography>
               {apAuthReviewDialog.request.reason && (
-                <Typography variant="body2">
-                  <strong>Razón:</strong> {apAuthReviewDialog.request.reason}
+                <Typography variant="body2" gutterBottom>
+                  <strong>Justificación:</strong> {apAuthReviewDialog.request.reason}
                 </Typography>
               )}
               {apAuthReviewDialog.action === 'approve' && (
                 <Typography variant="body2" color="info.main" sx={{ mt: 1 }}>
-                  Al aprobar, el cajero podrá registrar el pago de esta cuenta.
+                  Al aprobar, Caja recibirá una notificación para completar el pago.
                 </Typography>
               )}
             </Box>
           )}
-
           <TextField
             fullWidth
             multiline
-            rows={4}
-            label={apAuthReviewDialog.action === 'approve' ? 'Notas (opcional)' : 'Razón del rechazo *'}
+            rows={3}
+            label="Notas (opcional)"
             value={apAuthReviewNotes}
             onChange={(e) => setApAuthReviewNotes(e.target.value)}
-            placeholder={
-              apAuthReviewDialog.action === 'approve'
-                ? 'Agregue notas adicionales...'
-                : 'Explique por qué se rechaza la solicitud...'
-            }
-            required={apAuthReviewDialog.action === 'reject'}
             sx={{ mt: 2 }}
           />
         </DialogContent>
@@ -2323,16 +2459,24 @@ export const StatusChangeRequestsPage: React.FC = () => {
             onClick={handleConfirmApAuthReview}
             variant="contained"
             color={apAuthReviewDialog.action === 'approve' ? 'success' : 'error'}
-            disabled={
-              approveApAuthMutation.isPending ||
-              rejectApAuthMutation.isPending ||
-              (apAuthReviewDialog.action === 'reject' && !apAuthReviewNotes.trim())
-            }
+            disabled={approveApAuthMutation.isPending || rejectApAuthMutation.isPending}
           >
             {apAuthReviewDialog.action === 'approve' ? 'Aprobar' : 'Rechazar'}
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Dialog: Caja aprueba pago CxP */}
+      {cajaApRequest && (
+        <CajaApprovePaymentDialog
+          open={!!cajaApRequest}
+          onClose={() => setCajaApRequest(null)}
+          request={cajaApRequest}
+          onApprove={async () => { await cajaApApproveMutation.mutateAsync(cajaApRequest.id); }}
+          onReject={async (reason) => { await cajaApRejectMutation.mutateAsync({ id: cajaApRequest.id, reason }); }}
+          loading={cajaApApproveMutation.isPending || cajaApRejectMutation.isPending}
+        />
+      )}
 
       {/* Dialog: Revisión de Devolución */}
       <Dialog open={refundReviewDialog.open} onClose={handleCloseRefundReviewDialog} maxWidth="sm" fullWidth>

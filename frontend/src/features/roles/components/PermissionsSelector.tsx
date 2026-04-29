@@ -46,6 +46,8 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   'Canales Comerciales': ['create_commercial_channels', 'read_commercial_channels', 'update_commercial_channels', 'delete_commercial_channels'],
   Archivos: ['upload_files', 'read_files', 'delete_files', 'manage_storage'],
   'Cuentas por Pagar': ['create_accounts_payable', 'read_accounts_payable', 'update_accounts_payable', 'delete_accounts_payable', 'register_ap_payment'],
+  'Aprobaciones Cuentas por Pagar': ['approve_accounts_payable'],
+  'Reportes Financieros': ['read_financial_dashboard'],
 
   // Inventario y Catálogos
   Movimientos: ['create_inventory_movements', 'read_inventory_movements', 'manage_inventory'],
@@ -82,6 +84,7 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   'Cajas Registradoras': ['create_cash_registers', 'read_cash_registers', 'update_cash_registers', 'delete_cash_registers'],
   'Sesiones de Caja': ['open_cash_session', 'close_cash_session', 'read_cash_sessions'],
   'Movimientos de Caja': ['create_cash_movements', 'void_cash_movements', 'read_cash_movements', 'approve_cash_movements'],
+  'Pagos de CP en Caja': ['caja_authorize_ap_payment'],
   Devoluciones: ['approve_refunds', 'create_refund_requests'],
 
   // Nómina
@@ -109,7 +112,7 @@ const TABS = [
   },
   {
     label: 'Comercial',
-    groups: ['Clientes', 'Cotizaciones', 'Órdenes', 'Canales Comerciales', 'Archivos', 'Cuentas por Pagar'],
+    groups: ['Clientes', 'Cotizaciones', 'Órdenes', 'Canales Comerciales', 'Archivos', 'Cuentas por Pagar', 'Aprobaciones Cuentas por Pagar'],
   },
   {
     label: 'Inventario',
@@ -129,11 +132,11 @@ const TABS = [
   },
   {
     label: 'Caja',
-    groups: ['Cajas Registradoras', 'Sesiones de Caja', 'Movimientos de Caja', 'Devoluciones'],
+    groups: ['Cajas Registradoras', 'Sesiones de Caja', 'Movimientos de Caja', 'Pagos de CP en Caja', 'Devoluciones'],
   },
   {
     label: 'Gastos y Pagos',
-    groups: ['Tipos de Gasto', 'Órdenes de Gasto', 'Anticipos'],
+    groups: ['Tipos de Gasto', 'Órdenes de Gasto', 'Anticipos', 'Reportes Financieros'],
   },
   {
     label: 'Nómina',
