@@ -42,6 +42,7 @@ model User {
   workOrderTimeEntries                 WorkOrderTimeEntry[]         @relation("WorkOrderTimeEntryUser")
   authorizedExpenseOrders              ExpenseOrder[]               @relation("AuthorizedExpenseOrders")
   cajaAuthorizedExpenseOrders          ExpenseOrder[]               @relation("CajaAuthorizedExpenseOrders")
+  cajaRejectedExpenseOrders            ExpenseOrder[]               @relation("CajaRejectedExpenseOrders")
   responsibleExpenseOrders             ExpenseOrder[]               @relation("ResponsibleExpenseOrders")
   createdExpenseOrders                 ExpenseOrder[]               @relation("CreatedExpenseOrders")
   approvedExpenseOrders                ExpenseOrder[]               @relation("ApprovedExpenseOrders")
@@ -1133,6 +1134,11 @@ model ExpenseOrder {
   cajaAuthorizedById String?   @map("caja_authorized_by_id")
   cajaAuthorizedAt   DateTime? @map("caja_authorized_at")
 
+  // Rechazo Caja (cuando Caja rechaza una OG en ADMIN_AUTHORIZED y la devuelve a CREATED)
+  cajaRejectedById   String?   @map("caja_rejected_by_id")
+  cajaRejectedAt     DateTime? @map("caja_rejected_at")
+  cajaRejectionReason String?  @map("caja_rejection_reason")
+
   // Relaciones
   expenseType        ExpenseType               @relation(fields: [expenseTypeId], references: [id])
   expenseSubcategory ExpenseSubcategory        @relation(fields: [expenseSubcategoryId], references: [id])
@@ -1142,6 +1148,7 @@ model ExpenseOrder {
   createdBy          User                      @relation("CreatedExpenseOrders", fields: [createdById], references: [id])
   authorizedBy       User?                     @relation("ApprovedExpenseOrders", fields: [authorizedById], references: [id])
   cajaAuthorizedBy   User?                     @relation("CajaAuthorizedExpenseOrders", fields: [cajaAuthorizedById], references: [id])
+  cajaRejectedBy     User?                     @relation("CajaRejectedExpenseOrders", fields: [cajaRejectedById], references: [id])
   items              ExpenseOrderItem[]
   authRequests       ExpenseOrderAuthRequest[]
   accountPayable     AccountPayable?

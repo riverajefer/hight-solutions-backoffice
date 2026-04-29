@@ -51,6 +51,7 @@ import {
   Payments as PaymentsIcon,
   TaskAlt as TaskAltIcon,
   MarkEmailRead as MarkEmailReadIcon,
+  Block as BlockIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { StatusHighlight } from '../../../components/common/StatusHighlight';
@@ -485,6 +486,36 @@ export const ExpenseOrderDetailPage = () => {
         }
 
         if (og.status === ExpenseOrderStatus.CREATED) {
+          // Banner de rechazo por Caja (tiene prioridad sobre los demás en estado CREATED)
+          if (og.cajaRejectionReason) {
+            return (
+              <Alert
+                severity="error"
+                icon={<BlockIcon />}
+                sx={{ mt: 2, borderLeft: '4px solid', borderColor: 'error.main' }}
+              >
+                <AlertTitle>Rechazada por Caja — se requiere nueva autorización</AlertTitle>
+                <Box sx={{ mb: 0.5 }}>
+                  <strong>Motivo del rechazo:</strong> {og.cajaRejectionReason}
+                </Box>
+                {og.cajaRejectedBy && (
+                  <Box sx={{ mb: 0.5 }}>
+                    <strong>Rechazada por:</strong>{' '}
+                    {[og.cajaRejectedBy.firstName, og.cajaRejectedBy.lastName]
+                      .filter(Boolean)
+                      .join(' ') || og.cajaRejectedBy.email}
+                  </Box>
+                )}
+                {!canApprove && (
+                  <Box sx={{ mt: 0.5 }}>
+                    Para continuar, haz clic en <strong>Solicitar Autorización</strong> y el
+                    administrador deberá volver a aprobarla para que Caja pueda firmarla.
+                  </Box>
+                )}
+              </Alert>
+            );
+          }
+
           if (canUpdate && !canApprove) {
             if (hasPendingOgRequest) {
               return (

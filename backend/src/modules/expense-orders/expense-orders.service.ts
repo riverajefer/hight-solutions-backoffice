@@ -11,6 +11,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { ExpenseOrdersRepository } from './expense-orders.repository';
 import {
+  CajaRejectExpenseOrderDto,
   CreateExpenseItemDto,
   CreateExpenseOrderDto,
   FilterExpenseOrdersDto,
@@ -406,6 +407,28 @@ export class ExpenseOrdersService {
     );
 
     return paid;
+  }
+
+  // ─── Rechazo Caja (endpoint dedicado /caja-reject) ───────────────────────────
+  // Requiere permiso 'caja_authorize_expense_orders' (verificado en el Controller).
+  // La OG debe estar en ADMIN_AUTHORIZED. Devuelve la OG a CREATED con motivo de rechazo.
+  async cajaReject(id: string, dto: CajaRejectExpenseOrderDto, currentUser: AuthenticatedUser) {
+    const expenseOrder = await this.repository.findById(id);
+    if (!expenseOrder) {
+      throw new NotFoundException(`OG con id ${id} no encontrada`);
+    }
+
+    if (expenseOrder.status !== ExpenseOrderStatus.ADMIN_AUTHORIZED) {
+      throw new BadRequestException(
+        `La OG debe estar en estado ADMIN_AUTHORIZED para ser rechazada por Caja. Estado actual: ${expenseOrder.status}`,
+      );
+    }
+
+    return this.repository.updateStatus(id, ExpenseOrderStatus.CREATED, {
+      cajaRejectedById: currentUser.id,
+      cajaRejectedAt: new Date(),
+      cajaRejectionReason: dto.reason,
+    });
   }
 
   async remove(id: string) {

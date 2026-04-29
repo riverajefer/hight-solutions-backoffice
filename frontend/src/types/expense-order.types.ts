@@ -170,6 +170,15 @@ export interface ExpenseOrder {
     lastName?: string | null;
     email: string;
   } | null;
+  cajaRejectedById?: string | null;
+  cajaRejectedAt?: string | null;
+  cajaRejectionReason?: string | null;
+  cajaRejectedBy?: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    email: string;
+  } | null;
   items: ExpenseOrderItem[];
 }
 

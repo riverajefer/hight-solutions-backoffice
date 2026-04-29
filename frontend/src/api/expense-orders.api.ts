@@ -76,6 +76,11 @@ export const expenseOrdersApi = {
     return response.data;
   },
 
+  cajaReject: async (id: string, reason: string): Promise<ExpenseOrder> => {
+    const response = await axiosInstance.patch<ExpenseOrder>(`/expense-orders/${id}/caja-reject`, { reason });
+    return response.data;
+  },
+
   delete: async (id: string): Promise<void> => {
     await axiosInstance.delete(`/expense-orders/${id}`);
   },
