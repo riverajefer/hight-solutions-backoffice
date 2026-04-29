@@ -74,7 +74,10 @@ model User {
   // Cuentas por Pagar
   createdAccountsPayable               AccountPayable[]             @relation("AccountPayableCreatedBy")
   cancelledAccountsPayable             AccountPayable[]             @relation("AccountPayableCancelledBy")
+  authorizedAccountsPayable            AccountPayable[]             @relation("AccountPayableAuthorizedBy")
   registeredApPayments                 AccountPayablePayment[]      @relation("AccountPayablePaymentRegisteredBy")
+  requestedApAuthRequests              AccountPayableAuthRequest[]  @relation("RequestedApAuthRequests")
+  reviewedApAuthRequests               AccountPayableAuthRequest[]  @relation("ReviewedApAuthRequests")
   uploadedApAttachments                AccountPayableAttachment[]   @relation("AccountPayableAttachmentUploadedBy")
   paidInstallments                     AccountPayableInstallment[]  @relation("InstallmentPaidBy")
 
@@ -731,6 +734,7 @@ enum ApprovalRequestType {
   DISCOUNT_APPROVAL
   CASH_MOVEMENT_VOID
   REFUND_REQUEST
+  AP_AUTH
 }
 
 enum NotificationType {
@@ -762,6 +766,9 @@ enum NotificationType {
   CASH_VOID_REQUEST_REJECTED // Solicitud de anulación de movimiento rechazada
   REFUND_REQUEST_PENDING // Nueva solicitud de devolución de dinero al cliente
   REFUND_REQUEST_APPROVED // Devolución aprobada
+  AP_AUTH_REQUEST_PENDING // Nueva solicitud de autorización de Cuenta por Pagar
+  AP_AUTH_REQUEST_APPROVED // Solicitud de autorización de CP aprobada
+  AP_AUTH_REQUEST_REJECTED // Solicitud de autorización de CP rechazada
   REFUND_REQUEST_REJECTED // Devolución rechazada
 }
 
@@ -1203,6 +1210,28 @@ model ExpenseOrderAuthRequest {
   @@index([requestedById])
   @@index([status])
   @@map("expense_order_auth_requests")
+}
+
+model AccountPayableAuthRequest {
+  id               String            @id @default(uuid())
+  accountPayableId String            @map("account_payable_id")
+  requestedById    String            @map("requested_by_id")
+  reason           String?
+  status           EditRequestStatus @default(PENDING)
+  reviewedById     String?           @map("reviewed_by_id")
+  reviewedAt       DateTime?         @map("reviewed_at")
+  reviewNotes      String?           @map("review_notes")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  accountPayable AccountPayable @relation(fields: [accountPayableId], references: [id], onDelete: Cascade)
+  requestedBy    User           @relation("RequestedApAuthRequests", fields: [requestedById], references: [id])
+  reviewedBy     User?          @relation("ReviewedApAuthRequests", fields: [reviewedById], references: [id])
+
+  @@index([accountPayableId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("account_payable_auth_requests")
 }
 
 // =============================================================================
@@ -1859,6 +1888,7 @@ model RefundRequest {
 
 enum AccountPayableStatus {
   PENDING
+  ADMIN_AUTHORIZED
   PARTIAL
   PAID
   OVERDUE
@@ -1891,22 +1921,26 @@ model AccountPayable {
   supplierId     String? @map("supplier_id")
   expenseOrderId String? @unique @map("expense_order_id")
 
-  createdById   String    @map("created_by_id")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
-  cancelledAt   DateTime? @map("cancelled_at")
-  cancelledById String?   @map("cancelled_by_id")
-  cancelReason  String?   @map("cancel_reason")
+  createdById    String    @map("created_by_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  cancelledAt    DateTime? @map("cancelled_at")
+  cancelledById  String?   @map("cancelled_by_id")
+  cancelReason   String?   @map("cancel_reason")
+  authorizedById String?   @map("authorized_by_id")
+  authorizedAt   DateTime? @map("authorized_at")
 
   expenseType        ExpenseType        @relation(fields: [expenseTypeId], references: [id])
   expenseSubcategory ExpenseSubcategory @relation(fields: [expenseSubcategoryId], references: [id])
-  supplier     Supplier?                   @relation(fields: [supplierId], references: [id])
-  expenseOrder ExpenseOrder?               @relation(fields: [expenseOrderId], references: [id])
-  createdBy    User                        @relation("AccountPayableCreatedBy", fields: [createdById], references: [id])
-  cancelledBy  User?                       @relation("AccountPayableCancelledBy", fields: [cancelledById], references: [id])
-  payments     AccountPayablePayment[]
-  attachments  AccountPayableAttachment[]
-  installments AccountPayableInstallment[]
+  supplier      Supplier?                   @relation(fields: [supplierId], references: [id])
+  expenseOrder  ExpenseOrder?               @relation(fields: [expenseOrderId], references: [id])
+  createdBy     User                        @relation("AccountPayableCreatedBy", fields: [createdById], references: [id])
+  cancelledBy   User?                       @relation("AccountPayableCancelledBy", fields: [cancelledById], references: [id])
+  authorizedBy  User?                       @relation("AccountPayableAuthorizedBy", fields: [authorizedById], references: [id])
+  payments      AccountPayablePayment[]
+  attachments   AccountPayableAttachment[]
+  installments  AccountPayableInstallment[]
+  authRequests  AccountPayableAuthRequest[]
 
   @@index([status])
   @@index([dueDate])

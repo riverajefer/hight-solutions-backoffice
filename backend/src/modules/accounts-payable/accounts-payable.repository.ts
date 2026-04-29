@@ -42,6 +42,10 @@ export class AccountsPayableRepository {
     cancelledBy: {
       select: { id: true, firstName: true, lastName: true, email: true },
     },
+    authorizedBy: {
+      select: { id: true, firstName: true, lastName: true, email: true },
+    },
+    authorizedAt: true,
   } satisfies Prisma.AccountPayableSelect;
 
   async findAll(filters: FilterAccountPayableDto) {
@@ -56,8 +60,8 @@ export class AccountsPayableRepository {
       dueDateFrom,
       dueDateTo,
       hasExpenseOrder,
-      orderBy = 'dueDate',
-      orderDir = 'asc',
+      orderBy = 'createdAt',
+      orderDir = 'desc',
     } = filters;
 
     const skip = (page - 1) * limit;

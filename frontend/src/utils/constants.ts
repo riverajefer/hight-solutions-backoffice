@@ -163,6 +163,7 @@ export const PERMISSIONS = {
   UPDATE_ACCOUNTS_PAYABLE: 'update_accounts_payable',
   DELETE_ACCOUNTS_PAYABLE: 'delete_accounts_payable',
   REGISTER_AP_PAYMENT: 'register_ap_payment',
+  APPROVE_ACCOUNTS_PAYABLE: 'approve_accounts_payable',
   // Dashboard Financiero
   READ_FINANCIAL_DASHBOARD: 'read_financial_dashboard',
 };

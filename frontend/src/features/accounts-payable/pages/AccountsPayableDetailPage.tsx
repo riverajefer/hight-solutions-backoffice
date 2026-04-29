@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   Alert,
+  AlertTitle,
   Box,
   Button,
   Chip,
@@ -23,6 +25,10 @@ import EditIcon from '@mui/icons-material/Edit';
 import PaymentIcon from '@mui/icons-material/Payment';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import HourglassTopIcon from '@mui/icons-material/HourglassTop';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import TaskAltIcon from '@mui/icons-material/TaskAlt';
+import MarkEmailReadIcon from '@mui/icons-material/MarkEmailRead';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS, ROUTES } from '../../../utils/constants';
@@ -31,6 +37,7 @@ import {
   AccountPayableStatus,
 } from '../../../types/accounts-payable.types';
 import { AccountPayableStatusChip } from '../components/AccountPayableStatusChip';
+import { AccountPayableAuthRequestDialog } from '../components/AccountPayableAuthRequestDialog';
 import { AttachmentsSection } from '../components/AttachmentsSection';
 import { ExpenseOrderInfoSection } from '../components/ExpenseOrderInfoSection';
 import { InstallmentScheduleSection } from '../components/InstallmentScheduleSection';
@@ -38,6 +45,7 @@ import { PaymentHistoryTable } from '../components/PaymentHistoryTable';
 import { RegisterPaymentDialog } from '../components/RegisterPaymentDialog';
 import { useAccountPayable } from '../hooks/useAccountsPayable';
 import type { RegisterPaymentDto } from '../../../types/accounts-payable.types';
+import { accountsPayableAuthRequestsApi } from '../../../api/accounts-payable-auth-requests.api';
 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -58,8 +66,18 @@ export default function AccountsPayableDetailPage() {
   const { hasPermission } = useAuthStore();
 
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [authRequestDialogOpen, setAuthRequestDialogOpen] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+
+  const { data: myAuthRequests } = useQuery({
+    queryKey: ['ap-auth-requests-mine', id],
+    queryFn: () => accountsPayableAuthRequestsApi.findByUser(),
+    enabled: !!id,
+  });
+  const hasPendingRequest = myAuthRequests?.some(
+    (r) => r.accountPayableId === id && r.status === 'PENDING',
+  ) ?? false;
 
   const {
     query,
@@ -71,6 +89,7 @@ export default function AccountsPayableDetailPage() {
   const canUpdate = hasPermission(PERMISSIONS.UPDATE_ACCOUNTS_PAYABLE);
   const canDelete = hasPermission(PERMISSIONS.DELETE_ACCOUNTS_PAYABLE);
   const canRegisterPayment = hasPermission(PERMISSIONS.REGISTER_AP_PAYMENT);
+  const canApprove = hasPermission(PERMISSIONS.APPROVE_ACCOUNTS_PAYABLE);
 
   const ap = query.data;
 
@@ -133,15 +152,29 @@ export default function AccountsPayableDetailPage() {
                 Editar
               </Button>
             )}
-            {canRegisterPayment && isEditable && (
-              <Button
-                variant="contained"
-                startIcon={<PaymentIcon />}
-                onClick={() => setPaymentDialogOpen(true)}
-              >
-                Registrar Pago
-              </Button>
-            )}
+            {canRegisterPayment &&
+              isEditable &&
+              ap.status !== AccountPayableStatus.PENDING && (
+                <Button
+                  variant="contained"
+                  startIcon={<PaymentIcon />}
+                  onClick={() => setPaymentDialogOpen(true)}
+                >
+                  Registrar Pago
+                </Button>
+              )}
+            {canUpdate &&
+              !canApprove &&
+              ap.status === AccountPayableStatus.PENDING && (
+                <Button
+                  variant="contained"
+                  color="warning"
+                  startIcon={<HourglassTopIcon />}
+                  onClick={() => setAuthRequestDialogOpen(true)}
+                >
+                  Solicitar Autorización
+                </Button>
+              )}
             {canDelete && isEditable && (
               <Button
                 variant="outlined"
@@ -155,6 +188,62 @@ export default function AccountsPayableDetailPage() {
           </Stack>
         }
       />
+
+      {/* Banner contextual según estado y rol */}
+      {ap.status === AccountPayableStatus.PENDING && !canApprove && !hasPendingRequest && (
+        <Alert severity="warning" icon={<HourglassTopIcon />} sx={{ mt: 2, mb: 1 }}>
+          <AlertTitle>Pendiente de autorización — acción requerida</AlertTitle>
+          Esta Cuenta por Pagar requiere aprobación del administrador antes de poder registrar
+          pagos. Haz clic en <strong>Solicitar Autorización</strong>: el administrador recibirá
+          una notificación por WhatsApp y podrá aprobarla desde allí o desde{' '}
+          <strong>Solicitudes Pendientes</strong>.
+        </Alert>
+      )}
+      {ap.status === AccountPayableStatus.PENDING && !canApprove && hasPendingRequest && (
+        <Alert
+          severity="info"
+          icon={<MarkEmailReadIcon />}
+          sx={{
+            mt: 2,
+            mb: 1,
+            borderLeft: '4px solid',
+            borderColor: 'info.main',
+          }}
+        >
+          <AlertTitle>Solicitud enviada — esperando respuesta de gerencia</AlertTitle>
+          Tu solicitud fue enviada al administrador. Recibirá una notificación por{' '}
+          <strong>WhatsApp</strong> y podrá aprobarla desde su celular o desde{' '}
+          <strong>Solicitudes Pendientes</strong>. Te avisaremos cuando esté lista para pagar.
+        </Alert>
+      )}
+      {ap.status === AccountPayableStatus.PENDING && canApprove && (
+        <Alert severity="warning" icon={<AdminPanelSettingsIcon />} sx={{ mt: 2, mb: 1 }}>
+          <AlertTitle>Requiere tu autorización administrativa</AlertTitle>
+          Esta Cuenta por Pagar está pendiente de aprobación. Puedes autorizarla desde la
+          sección <strong>Solicitudes Pendientes</strong> o respondiendo el mensaje de WhatsApp.
+        </Alert>
+      )}
+      {ap.status === AccountPayableStatus.ADMIN_AUTHORIZED && canRegisterPayment && (
+        <Alert severity="success" icon={<PaymentIcon />} sx={{ mt: 2, mb: 1 }}>
+          <AlertTitle>Autorizada — lista para pagar</AlertTitle>
+          El administrador autorizó esta Cuenta por Pagar. Usa el botón{' '}
+          <strong>Registrar Pago</strong> para registrar un pago o abono y descontarlo de la
+          caja activa.
+        </Alert>
+      )}
+      {ap.status === AccountPayableStatus.ADMIN_AUTHORIZED && !canRegisterPayment && (
+        <Alert severity="info" icon={<HourglassTopIcon />} sx={{ mt: 2, mb: 1 }}>
+          <AlertTitle>Autorizada — esperando pago de Caja</AlertTitle>
+          El administrador aprobó esta Cuenta por Pagar. El área de Caja puede registrar el
+          pago. No se requiere ninguna acción de tu parte en este momento.
+        </Alert>
+      )}
+      {ap.status === AccountPayableStatus.PAID && (
+        <Alert severity="success" icon={<TaskAltIcon />} sx={{ mt: 2, mb: 1 }}>
+          <AlertTitle>Pagada</AlertTitle>
+          Esta Cuenta por Pagar fue pagada en su totalidad. El proceso está completo.
+        </Alert>
+      )}
 
       <Grid container spacing={3}>
         {/* Información principal */}
@@ -368,6 +457,13 @@ export default function AccountsPayableDetailPage() {
           </Paper>
         </Grid>
       </Grid>
+
+      {/* Dialog de solicitud de autorización */}
+      <AccountPayableAuthRequestDialog
+        open={authRequestDialogOpen}
+        onClose={() => setAuthRequestDialogOpen(false)}
+        accountPayable={{ id: ap.id, apNumber: ap.apNumber, status: ap.status }}
+      />
 
       {/* Dialog de pago */}
       {paymentDialogOpen && (

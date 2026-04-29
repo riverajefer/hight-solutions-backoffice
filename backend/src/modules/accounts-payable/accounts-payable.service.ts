@@ -21,6 +21,13 @@ const READONLY_STATUSES: AccountPayableStatus[] = [
   AccountPayableStatus.CANCELLED,
 ];
 
+// Statuses that allow payment registration (admin already authorized)
+const PAYABLE_STATUSES: AccountPayableStatus[] = [
+  AccountPayableStatus.ADMIN_AUTHORIZED,
+  AccountPayableStatus.PARTIAL,
+  AccountPayableStatus.OVERDUE,
+];
+
 @Injectable()
 export class AccountsPayableService {
   private readonly logger = new Logger(AccountsPayableService.name);
@@ -56,6 +63,16 @@ export class AccountsPayableService {
       }
     }
 
+    // Si el creador es admin, la CP se pre-autoriza directamente
+    const creator = await this.prisma.user.findUnique({
+      where: { id: createdById },
+      include: { role: true },
+    });
+    const creatorIsAdmin = creator?.role?.name === 'admin';
+    const initialStatus = creatorIsAdmin
+      ? AccountPayableStatus.ADMIN_AUTHORIZED
+      : AccountPayableStatus.PENDING;
+
     return this.repository.create({
       apNumber,
       expenseType: { connect: { id: dto.expenseTypeId } },
@@ -69,10 +86,28 @@ export class AccountsPayableService {
       isRecurring: dto.isRecurring ?? false,
       recurringDay: dto.recurringDay,
       recurringFrequency: dto.recurringFrequency,
-      status: AccountPayableStatus.PENDING,
+      status: initialStatus,
       createdBy: { connect: { id: createdById } },
+      ...(creatorIsAdmin && {
+        authorizedBy: { connect: { id: createdById } },
+        authorizedAt: new Date(),
+      }),
       ...(dto.supplierId && { supplier: { connect: { id: dto.supplierId } } }),
       ...(dto.expenseOrderId && { expenseOrder: { connect: { id: dto.expenseOrderId } } }),
+    });
+  }
+
+  async adminAuthorize(id: string, adminId: string) {
+    const ap = await this.findOne(id);
+    if (ap.status !== AccountPayableStatus.PENDING) {
+      throw new BadRequestException(
+        `La CP debe estar en estado PENDING para ser autorizada. Estado actual: ${ap.status}`,
+      );
+    }
+    return this.repository.update(id, {
+      status: AccountPayableStatus.ADMIN_AUTHORIZED,
+      authorizedBy: { connect: { id: adminId } },
+      authorizedAt: new Date(),
     });
   }
 
@@ -142,6 +177,16 @@ export class AccountsPayableService {
     }
     if (ap.status === AccountPayableStatus.PAID) {
       throw new BadRequestException('La cuenta ya está completamente pagada');
+    }
+    if (ap.status === AccountPayableStatus.PENDING) {
+      throw new BadRequestException(
+        'Esta Cuenta por Pagar requiere autorización del administrador antes de poder registrar un pago.',
+      );
+    }
+    if (!PAYABLE_STATUSES.includes(ap.status as AccountPayableStatus)) {
+      throw new BadRequestException(
+        `No se puede registrar un pago en el estado actual: ${ap.status}`,
+      );
     }
 
     const currentBalance = Number(ap.balance);

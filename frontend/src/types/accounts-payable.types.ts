@@ -2,6 +2,7 @@
 
 export enum AccountPayableStatus {
   PENDING = 'PENDING',
+  ADMIN_AUTHORIZED = 'ADMIN_AUTHORIZED',
   PARTIAL = 'PARTIAL',
   PAID = 'PAID',
   OVERDUE = 'OVERDUE',
@@ -30,11 +31,12 @@ export interface AccountPayableStatusConfig {
 }
 
 export const ACCOUNT_PAYABLE_STATUS_CONFIG: Record<AccountPayableStatus, AccountPayableStatusConfig> = {
-  [AccountPayableStatus.PENDING]:   { label: 'Pendiente', color: 'warning' },
-  [AccountPayableStatus.PARTIAL]:   { label: 'Abonada',   color: 'info' },
-  [AccountPayableStatus.PAID]:      { label: 'Pagada',    color: 'success' },
-  [AccountPayableStatus.OVERDUE]:   { label: 'Vencida',   color: 'error' },
-  [AccountPayableStatus.CANCELLED]: { label: 'Anulada',   color: 'default' },
+  [AccountPayableStatus.PENDING]:          { label: 'Pendiente de autorización', color: 'warning' },
+  [AccountPayableStatus.ADMIN_AUTHORIZED]: { label: 'Autorizada — lista para pagar', color: 'info' },
+  [AccountPayableStatus.PARTIAL]:          { label: 'Abonada',                    color: 'info' },
+  [AccountPayableStatus.PAID]:             { label: 'Pagada',                     color: 'success' },
+  [AccountPayableStatus.OVERDUE]:          { label: 'Vencida',                    color: 'error' },
+  [AccountPayableStatus.CANCELLED]:        { label: 'Anulada',                    color: 'default' },
 };
 
 export const ACCOUNT_PAYABLE_TYPE_LABELS: Record<AccountPayableType, string> = {
@@ -153,6 +155,13 @@ export interface AccountPayable {
     firstName?: string | null;
     lastName?: string | null;
   } | null;
+  authorizedBy?: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
+  } | null;
+  authorizedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   payments?: AccountPayablePayment[];
@@ -255,4 +264,43 @@ export interface AccountPayableListResponse {
     limit: number;
     totalPages: number;
   };
+}
+
+// ─── Auth Request ─────────────────────────────────────────────────────────────
+
+export interface AccountPayableAuthRequest {
+  id: string;
+  accountPayableId: string;
+  requestedById: string;
+  reason?: string | null;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  reviewedById?: string | null;
+  reviewedAt?: string | null;
+  reviewNotes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  requestedBy: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    email: string;
+  };
+  reviewedBy?: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    email: string;
+  } | null;
+  accountPayable: {
+    id: string;
+    apNumber: string;
+    status: AccountPayableStatus;
+    totalAmount?: string;
+    description?: string;
+  };
+}
+
+export interface CreateApAuthRequestDto {
+  accountPayableId: string;
+  reason?: string;
 }

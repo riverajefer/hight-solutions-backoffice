@@ -54,6 +54,7 @@ import { CashMovementVoidRequestsModule } from './modules/cash-movement-void-req
 import { RefundRequestsModule } from './modules/refund-requests/refund-requests.module';
 import { WsEventsModule } from './modules/ws-events/ws-events.module';
 import { AccountsPayableModule } from './modules/accounts-payable/accounts-payable.module';
+import { AccountsPayableAuthRequestsModule } from './modules/accounts-payable-auth-requests/accounts-payable-auth-requests.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
@@ -143,6 +144,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     CashMovementVoidRequestsModule,
     // Módulo de Cuentas por Pagar
     AccountsPayableModule,
+    AccountsPayableAuthRequestsModule,
     // Módulo de Dashboard (métricas financieras)
     DashboardModule,
     // Módulo de WebSocket Events (tiempo real)

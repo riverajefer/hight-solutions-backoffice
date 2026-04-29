@@ -77,6 +77,7 @@ import PendingApprovalsPanel from '../components/PendingApprovalsPanel';
 import PendingVoidRequestsPanel from '../components/PendingVoidRequestsPanel';
 import PendingOgAuthorizationsPanel from '../components/PendingOgAuthorizationsPanel';
 import PendingRefundRequestsPanel from '../components/PendingRefundRequestsPanel';
+import PendingApAuthorizationsPanel from '../components/PendingApAuthorizationsPanel';
 import { useApprovalSocket } from '../hooks/useApprovalSocket';
 import { useCreateVoidRequest } from '../../../hooks/useVoidRequests';
 import type { CashMovementType, CashMovement } from '../../../types/cash-register.types';
@@ -485,6 +486,11 @@ const ActiveSessionPage: React.FC = () => {
       {/* ── Pending Refund Request Approvals ──────────────────────────── */}
       {hasPermission(PERMISSIONS.APPROVE_REFUNDS) && (
         <PendingRefundRequestsPanel />
+      )}
+
+      {/* ── Pending AP Authorizations (CxP listas para pagar) ───────── */}
+      {hasPermission(PERMISSIONS.REGISTER_AP_PAYMENT) && (
+        <PendingApAuthorizationsPanel />
       )}
 
       {/* ── Movements List ───────────────────────────────────────────── */}
