@@ -50,11 +50,9 @@ import { useAccountPayable, useApPaymentAuthRequests } from '../hooks/useAccount
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   CASH: 'Efectivo',
-  BANK_TRANSFER: 'Transferencia Bancaria',
-  CHECK: 'Cheque',
-  CREDIT_CARD: 'Tarjeta de Crédito',
-  DEBIT_CARD: 'Tarjeta Débito',
-  OTHER: 'Otro',
+  TRANSFER: 'Transferencia',
+  CARD: 'Tarjeta',
+  CREDIT: 'Crédito',
 };
 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
