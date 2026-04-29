@@ -1,9 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { accountsPayableApi } from '../../../api/accounts-payable.api';
+import { apPaymentAuthRequestsApi } from '../../../api/accounts-payable-payment-auth-requests.api';
 import type {
+  AdminApproveApPaymentAuthRequestDto,
+  AdminRejectApPaymentAuthRequestDto,
+  CajaRejectApPaymentAuthRequestDto,
   CancelAccountPayableDto,
   CreateAccountPayableDto,
+  CreateApPaymentAuthRequestDto,
   CreateAttachmentDto,
   FilterAccountPayableDto,
   RegisterPaymentDto,
@@ -231,4 +236,107 @@ export const useAccountPayablePayments = (id?: string) => {
     queryFn: () => accountsPayableApi.getPayments(id!),
     enabled: !!id,
   });
+};
+
+// ─── Query keys for payment auth requests ────────────────────────────────────
+
+export const apPaymentAuthKeys = {
+  all: ['ap-payment-auth-requests'] as const,
+  pendingAdmin: () => [...apPaymentAuthKeys.all, 'pending-admin'] as const,
+  pendingCaja: () => [...apPaymentAuthKeys.all, 'pending-caja'] as const,
+  byUser: () => [...apPaymentAuthKeys.all, 'my'] as const,
+  byAccountPayable: (id: string) => [...apPaymentAuthKeys.all, 'by-ap', id] as const,
+};
+
+// ─── Hook: useApPaymentAuthRequests (por CP) ──────────────────────────────────
+
+export const useApPaymentAuthRequests = (accountPayableId?: string) => {
+  const queryClient = useQueryClient();
+  const { enqueueSnackbar } = useSnackbar();
+
+  const paymentAuthRequestsQuery = useQuery({
+    queryKey: apPaymentAuthKeys.byAccountPayable(accountPayableId || ''),
+    queryFn: () => apPaymentAuthRequestsApi.findByAccountPayable(accountPayableId!),
+    enabled: !!accountPayableId,
+  });
+
+  const createRequestMutation = useMutation({
+    mutationFn: (dto: CreateApPaymentAuthRequestDto) => apPaymentAuthRequestsApi.create(dto),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: apPaymentAuthKeys.byAccountPayable(accountPayableId!) });
+      queryClient.invalidateQueries({ queryKey: apPaymentAuthKeys.byUser() });
+      enqueueSnackbar('Solicitud de pago enviada correctamente. Los administradores serán notificados.', { variant: 'success' });
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || 'Error al crear la solicitud de pago';
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+
+  const adminApproveMutation = useMutation({
+    mutationFn: ({ id, dto }: { id: string; dto: AdminApproveApPaymentAuthRequestDto }) =>
+      apPaymentAuthRequestsApi.adminApprove(id, dto),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: apPaymentAuthKeys.byAccountPayable(accountPayableId!) });
+      queryClient.invalidateQueries({ queryKey: apPaymentAuthKeys.pendingAdmin() });
+      enqueueSnackbar('Solicitud aprobada. Caja será notificada para completar el pago.', { variant: 'success' });
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || 'Error al aprobar la solicitud';
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+
+  const adminRejectMutation = useMutation({
+    mutationFn: ({ id, dto }: { id: string; dto: AdminRejectApPaymentAuthRequestDto }) =>
+      apPaymentAuthRequestsApi.adminReject(id, dto),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: apPaymentAuthKeys.byAccountPayable(accountPayableId!) });
+      queryClient.invalidateQueries({ queryKey: apPaymentAuthKeys.pendingAdmin() });
+      enqueueSnackbar('Solicitud rechazada', { variant: 'success' });
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || 'Error al rechazar la solicitud';
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+
+  const cajaApproveMutation = useMutation({
+    mutationFn: (id: string) => apPaymentAuthRequestsApi.cajaApprove(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: apPaymentAuthKeys.byAccountPayable(accountPayableId!) });
+      queryClient.invalidateQueries({ queryKey: apPaymentAuthKeys.pendingCaja() });
+      queryClient.invalidateQueries({ queryKey: accountsPayableKeys.detail(accountPayableId!) });
+      queryClient.invalidateQueries({ queryKey: accountsPayableKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: accountsPayableKeys.summary() });
+      enqueueSnackbar('Pago registrado correctamente por Caja', { variant: 'success' });
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || 'Error al autorizar el pago';
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+
+  const cajaRejectMutation = useMutation({
+    mutationFn: ({ id, dto }: { id: string; dto: CajaRejectApPaymentAuthRequestDto }) =>
+      apPaymentAuthRequestsApi.cajaReject(id, dto),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: apPaymentAuthKeys.byAccountPayable(accountPayableId!) });
+      queryClient.invalidateQueries({ queryKey: apPaymentAuthKeys.pendingCaja() });
+      enqueueSnackbar('Solicitud de pago rechazada por Caja', { variant: 'success' });
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || 'Error al rechazar el pago';
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+
+  return {
+    paymentAuthRequestsQuery,
+    createRequestMutation,
+    adminApproveMutation,
+    adminRejectMutation,
+    cajaApproveMutation,
+    cajaRejectMutation,
+  };
 };

@@ -59,7 +59,7 @@ const formatDate = (iso: string) =>
     minute: '2-digit',
   });
 
-const PendingVoidRequestsPanel: React.FC = () => {
+const PendingVoidRequestsPanel: React.FC<{ hideWhenEmpty?: boolean }> = ({ hideWhenEmpty }) => {
   const { data: requests = [], isLoading, isFetching, refetch } = usePendingVoidRequests();
   const approveMutation = useApproveVoidRequest();
   const rejectMutation = useRejectVoidRequest();
@@ -88,15 +88,8 @@ const PendingVoidRequestsPanel: React.FC = () => {
     setReviewTarget(null);
   };
 
-  if (isLoading) {
-    return (
-      <Card sx={{ mb: 2 }}>
-        <CardContent sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-          <CircularProgress size={24} />
-        </CardContent>
-      </Card>
-    );
-  }
+  if (isLoading) return null;
+  if (hideWhenEmpty && requests.length === 0) return null;
 
   return (
     <>

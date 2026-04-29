@@ -2,6 +2,7 @@
 
 export enum AccountPayableStatus {
   PENDING = 'PENDING',
+  ADMIN_AUTHORIZED = 'ADMIN_AUTHORIZED',
   PARTIAL = 'PARTIAL',
   PAID = 'PAID',
   OVERDUE = 'OVERDUE',
@@ -30,11 +31,12 @@ export interface AccountPayableStatusConfig {
 }
 
 export const ACCOUNT_PAYABLE_STATUS_CONFIG: Record<AccountPayableStatus, AccountPayableStatusConfig> = {
-  [AccountPayableStatus.PENDING]:   { label: 'Pendiente', color: 'warning' },
-  [AccountPayableStatus.PARTIAL]:   { label: 'Abonada',   color: 'info' },
-  [AccountPayableStatus.PAID]:      { label: 'Pagada',    color: 'success' },
-  [AccountPayableStatus.OVERDUE]:   { label: 'Vencida',   color: 'error' },
-  [AccountPayableStatus.CANCELLED]: { label: 'Anulada',   color: 'default' },
+  [AccountPayableStatus.PENDING]:          { label: 'Pendiente de pago', color: 'warning' },
+  [AccountPayableStatus.ADMIN_AUTHORIZED]: { label: 'Autorizada (legado)', color: 'info' },
+  [AccountPayableStatus.PARTIAL]:          { label: 'Abonada',                    color: 'info' },
+  [AccountPayableStatus.PAID]:             { label: 'Pagada',                     color: 'success' },
+  [AccountPayableStatus.OVERDUE]:          { label: 'Vencida',                    color: 'error' },
+  [AccountPayableStatus.CANCELLED]:        { label: 'Anulada',                    color: 'default' },
 };
 
 export const ACCOUNT_PAYABLE_TYPE_LABELS: Record<AccountPayableType, string> = {
@@ -153,6 +155,13 @@ export interface AccountPayable {
     firstName?: string | null;
     lastName?: string | null;
   } | null;
+  authorizedBy?: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
+  } | null;
+  authorizedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   payments?: AccountPayablePayment[];
@@ -255,4 +264,114 @@ export interface AccountPayableListResponse {
     limit: number;
     totalPages: number;
   };
+}
+
+// ─── Auth Request ─────────────────────────────────────────────────────────────
+
+export interface AccountPayableAuthRequest {
+  id: string;
+  accountPayableId: string;
+  requestedById: string;
+  reason?: string | null;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  reviewedById?: string | null;
+  reviewedAt?: string | null;
+  reviewNotes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  requestedBy: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    email: string;
+  };
+  reviewedBy?: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    email: string;
+  } | null;
+  accountPayable: {
+    id: string;
+    apNumber: string;
+    status: AccountPayableStatus;
+    totalAmount?: string;
+    description?: string;
+  };
+}
+
+export interface CreateApAuthRequestDto {
+  accountPayableId: string;
+  reason?: string;
+}
+
+// ─── Payment Auth Request (doble firma) ──────────────────────────────────────
+
+export type ApPaymentAuthRequestStatus =
+  | 'PENDING'
+  | 'ADMIN_APPROVED'
+  | 'COMPLETED'
+  | 'ADMIN_REJECTED'
+  | 'CAJA_REJECTED';
+
+export interface ApPaymentAuthRequestStatusConfig {
+  label: string;
+  color: 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning';
+}
+
+export const AP_PAYMENT_AUTH_STATUS_CONFIG: Record<ApPaymentAuthRequestStatus, ApPaymentAuthRequestStatusConfig> = {
+  PENDING:        { label: 'Pendiente de Admin',    color: 'warning' },
+  ADMIN_APPROVED: { label: 'Aprobado — esperando Caja', color: 'info' },
+  COMPLETED:      { label: 'Pago completado',       color: 'success' },
+  ADMIN_REJECTED: { label: 'Rechazado por Admin',   color: 'error' },
+  CAJA_REJECTED:  { label: 'Rechazado por Caja',    color: 'error' },
+};
+
+export interface AccountPayablePaymentAuthRequest {
+  id: string;
+  accountPayableId: string;
+  requestedById: string;
+  amount: string;
+  paymentMethod: string;
+  paymentDate: string;
+  reference?: string | null;
+  notes?: string | null;
+  receiptFileId?: string | null;
+  reason?: string | null;
+  status: ApPaymentAuthRequestStatus;
+  adminReviewedById?: string | null;
+  adminReviewedAt?: string | null;
+  adminNotes?: string | null;
+  cajaReviewedById?: string | null;
+  cajaReviewedAt?: string | null;
+  cajaRejectionReason?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  requestedBy: { id: string; firstName?: string | null; lastName?: string | null; email: string };
+  adminReviewedBy?: { id: string; firstName?: string | null; lastName?: string | null } | null;
+  cajaReviewedBy?: { id: string; firstName?: string | null; lastName?: string | null } | null;
+  accountPayable?: { id: string; apNumber: string; totalAmount?: string; balance?: string };
+}
+
+export interface CreateApPaymentAuthRequestDto {
+  accountPayableId: string;
+  amount: number;
+  paymentMethod: string;
+  paymentDate: string;
+  reference?: string;
+  notes?: string;
+  receiptFileId?: string;
+  reason?: string;
+}
+
+export interface AdminApproveApPaymentAuthRequestDto {
+  adminNotes?: string;
+}
+
+export interface AdminRejectApPaymentAuthRequestDto {
+  adminNotes?: string;
+}
+
+export interface CajaRejectApPaymentAuthRequestDto {
+  reason?: string;
 }

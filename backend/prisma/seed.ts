@@ -321,7 +321,9 @@ async function main() {
     { name: 'read_accounts_payable', description: 'Ver cuentas por pagar' },
     { name: 'update_accounts_payable', description: 'Editar cuentas por pagar' },
     { name: 'delete_accounts_payable', description: 'Anular cuentas por pagar' },
-    { name: 'register_ap_payment', description: 'Registrar pagos en cuentas por pagar' },
+    { name: 'register_ap_payment', description: 'Registrar pagos directos en cuentas por pagar (bypass admin)' },
+    { name: 'approve_accounts_payable', description: 'Paso 1: Admin aprueba solicitud de pago de CP' },
+    { name: 'caja_authorize_ap_payment', description: 'Paso 2: Caja autoriza y registra el pago de CP (doble firma)' },
 
     // Dashboard Financiero
     { name: 'read_financial_dashboard', description: 'Ver dashboard financiero con métricas de ventas, gastos y utilidad' },
@@ -473,8 +475,11 @@ async function main() {
     'create_comments',
     'read_comments',
     // Cuentas por Pagar (Manager)
+    'create_accounts_payable',
     'read_accounts_payable',
+    'update_accounts_payable',
     'register_ap_payment',
+    'approve_accounts_payable',
   ]);
 
   // User - solo lectura básica
@@ -519,6 +524,9 @@ async function main() {
     'read_expense_orders',
     'approve_expense_orders',
     'caja_authorize_expense_orders',
+    // Cuentas por Pagar (Caja — segunda firma de pago)
+    'read_accounts_payable',
+    'caja_authorize_ap_payment',
   ]);
 
   // ============================================

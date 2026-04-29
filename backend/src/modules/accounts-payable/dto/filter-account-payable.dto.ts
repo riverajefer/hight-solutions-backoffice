@@ -74,13 +74,13 @@ export class FilterAccountPayableDto {
   @IsOptional()
   hasExpenseOrder?: boolean;
 
-  @ApiPropertyOptional({ description: 'Ordenar por campo', enum: ['dueDate', 'totalAmount', 'createdAt'], default: 'dueDate' })
+  @ApiPropertyOptional({ description: 'Ordenar por campo', enum: ['dueDate', 'totalAmount', 'createdAt'], default: 'createdAt' })
   @IsEnum(['dueDate', 'totalAmount', 'createdAt'])
   @IsOptional()
-  orderBy?: 'dueDate' | 'totalAmount' | 'createdAt' = 'dueDate';
+  orderBy?: 'dueDate' | 'totalAmount' | 'createdAt' = 'createdAt';
 
-  @ApiPropertyOptional({ description: 'Dirección del orden', enum: ['asc', 'desc'], default: 'asc' })
+  @ApiPropertyOptional({ description: 'Dirección del orden', enum: ['asc', 'desc'], default: 'desc' })
   @IsEnum(['asc', 'desc'])
   @IsOptional()
-  orderDir?: 'asc' | 'desc' = 'asc';
+  orderDir?: 'asc' | 'desc' = 'desc';
 }

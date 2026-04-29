@@ -67,6 +67,12 @@ export class ExpenseOrdersRepository {
     cajaAuthorizedBy: {
       select: { id: true, firstName: true, lastName: true, email: true },
     },
+    cajaRejectedById: true,
+    cajaRejectedAt: true,
+    cajaRejectionReason: true,
+    cajaRejectedBy: {
+      select: { id: true, firstName: true, lastName: true, email: true },
+    },
     items: {
       select: {
         id: true,
@@ -324,16 +330,22 @@ export class ExpenseOrdersRepository {
       authorizedAt?: Date;
       cajaAuthorizedById?: string;
       cajaAuthorizedAt?: Date;
+      cajaRejectedById?: string;
+      cajaRejectedAt?: Date;
+      cajaRejectionReason?: string;
     },
   ) {
     return this.prisma.expenseOrder.update({
       where: { id },
       data: {
         status,
-        ...(fields?.authorizedById     !== undefined && { authorizedById:     fields.authorizedById }),
-        ...(fields?.authorizedAt       !== undefined && { authorizedAt:       fields.authorizedAt }),
-        ...(fields?.cajaAuthorizedById !== undefined && { cajaAuthorizedById: fields.cajaAuthorizedById }),
-        ...(fields?.cajaAuthorizedAt   !== undefined && { cajaAuthorizedAt:   fields.cajaAuthorizedAt }),
+        ...(fields?.authorizedById       !== undefined && { authorizedById:       fields.authorizedById }),
+        ...(fields?.authorizedAt         !== undefined && { authorizedAt:         fields.authorizedAt }),
+        ...(fields?.cajaAuthorizedById   !== undefined && { cajaAuthorizedById:   fields.cajaAuthorizedById }),
+        ...(fields?.cajaAuthorizedAt     !== undefined && { cajaAuthorizedAt:     fields.cajaAuthorizedAt }),
+        ...(fields?.cajaRejectedById     !== undefined && { cajaRejectedById:     fields.cajaRejectedById }),
+        ...(fields?.cajaRejectedAt       !== undefined && { cajaRejectedAt:       fields.cajaRejectedAt }),
+        ...(fields?.cajaRejectionReason  !== undefined && { cajaRejectionReason:  fields.cajaRejectionReason }),
       },
       select: this.selectFields,
     });

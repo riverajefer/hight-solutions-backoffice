@@ -76,6 +76,20 @@ export class AccountsPayableService {
     });
   }
 
+  async adminAuthorize(id: string, adminId: string) {
+    const ap = await this.findOne(id);
+    if (ap.status !== AccountPayableStatus.PENDING) {
+      throw new BadRequestException(
+        `La CP debe estar en estado PENDING para ser autorizada. Estado actual: ${ap.status}`,
+      );
+    }
+    return this.repository.update(id, {
+      status: AccountPayableStatus.ADMIN_AUTHORIZED,
+      authorizedBy: { connect: { id: adminId } },
+      authorizedAt: new Date(),
+    });
+  }
+
   async update(id: string, dto: UpdateAccountPayableDto) {
     const ap = await this.findOne(id);
 
@@ -151,21 +165,73 @@ export class AccountsPayableService {
       );
     }
 
-    const newPaidAmount = Number(ap.paidAmount) + dto.amount;
-    const newBalance = Number(ap.totalAmount) - newPaidAmount;
+    return this.executePayment(id, ap.apNumber, ap.paidAmount, ap.totalAmount, dto, registeredById);
+  }
+
+  async registerPaymentFromAuthRequest(
+    id: string,
+    dto: Pick<RegisterPaymentDto, 'amount' | 'paymentMethod' | 'paymentDate' | 'reference' | 'notes' | 'receiptFileId'>,
+    registeredById: string,
+    paymentAuthRequestId: string,
+  ) {
+    const ap = await this.findOne(id);
+
+    if (ap.status === AccountPayableStatus.CANCELLED) {
+      throw new BadRequestException('No se puede registrar un pago en una cuenta anulada');
+    }
+    if (ap.status === AccountPayableStatus.PAID) {
+      throw new BadRequestException('La cuenta ya está completamente pagada');
+    }
+
+    const currentBalance = Number(ap.balance);
+    if (dto.amount > currentBalance) {
+      throw new BadRequestException(
+        `El monto del pago (${dto.amount}) supera el saldo pendiente (${currentBalance})`,
+      );
+    }
+
+    // Caja: buscar sesión de caja activa automáticamente
+    const activeSession = await this.prisma.cashSession.findFirst({
+      where: { status: 'OPEN' },
+    });
+
+    return this.executePayment(
+      id,
+      ap.apNumber,
+      ap.paidAmount,
+      ap.totalAmount,
+      dto,
+      registeredById,
+      activeSession?.id,
+      paymentAuthRequestId,
+    );
+  }
+
+  private async executePayment(
+    id: string,
+    apNumber: string,
+    paidAmount: unknown,
+    totalAmount: unknown,
+    dto: Pick<RegisterPaymentDto, 'amount' | 'paymentMethod' | 'paymentDate' | 'reference' | 'notes' | 'receiptFileId'> & { cashSessionId?: string },
+    registeredById: string,
+    cashSessionId?: string,
+    paymentAuthRequestId?: string,
+  ) {
+    const newPaidAmount = Number(paidAmount) + dto.amount;
+    const newBalance = Number(totalAmount) - newPaidAmount;
     const newStatus =
       newBalance <= 0 ? AccountPayableStatus.PAID : AccountPayableStatus.PARTIAL;
 
     let cashMovementId: string | undefined;
 
-    if (dto.cashSessionId) {
+    const effectiveCashSessionId = dto.cashSessionId ?? cashSessionId;
+
+    if (effectiveCashSessionId) {
       const session = await this.prisma.cashSession.findUnique({
-        where: { id: dto.cashSessionId },
+        where: { id: effectiveCashSessionId },
       });
       if (!session || session.status !== 'OPEN') {
-        throw new BadRequestException(
-          'La sesión de caja indicada no está activa o no existe',
-        );
+        throw new BadRequestException('La sesión de caja indicada no está activa o no existe');
       }
 
       const receiptNumber = await this.consecutivesService.generateNumber('CASH_RECEIPT');
@@ -174,12 +240,12 @@ export class AccountsPayableService {
           amount: dto.amount,
           movementType: 'EXPENSE',
           paymentMethod: dto.paymentMethod,
-          description: `Pago Cuenta por Pagar ${ap.apNumber}`,
+          description: `Pago Cuenta por Pagar ${apNumber}`,
           receiptNumber,
-          cashSessionId: dto.cashSessionId,
+          cashSessionId: effectiveCashSessionId,
           performedById: registeredById,
           referenceType: 'ACCOUNT_PAYABLE',
-          referenceId: ap.id,
+          referenceId: id,
         },
       });
       cashMovementId = cashMovement.id;
@@ -195,6 +261,9 @@ export class AccountsPayableService {
       accountPayable: { connect: { id } },
       registeredBy: { connect: { id: registeredById } },
       ...(cashMovementId && { cashMovement: { connect: { id: cashMovementId } } }),
+      ...(paymentAuthRequestId && {
+        paymentAuthRequest: { connect: { id: paymentAuthRequestId } },
+      }),
     });
 
     await this.repository.update(id, {
@@ -225,10 +294,7 @@ export class AccountsPayableService {
 
     let newStatus: AccountPayableStatus;
     if (newPaidAmount <= 0) {
-      newStatus =
-        ap.status === AccountPayableStatus.OVERDUE
-          ? AccountPayableStatus.OVERDUE
-          : AccountPayableStatus.PENDING;
+      newStatus = AccountPayableStatus.PENDING;
     } else {
       newStatus = AccountPayableStatus.PARTIAL;
     }

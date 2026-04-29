@@ -6,7 +6,6 @@ import {
   Card,
   CardContent,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -60,7 +59,7 @@ const formatDate = (iso: string) =>
     minute: '2-digit',
   });
 
-const PendingRefundRequestsPanel: React.FC = () => {
+const PendingRefundRequestsPanel: React.FC<{ hideWhenEmpty?: boolean }> = ({ hideWhenEmpty }) => {
   const { data: requests = [], isLoading, isFetching, refetch } = usePendingRefundRequests();
   const approveMutation = useApproveRefundRequest();
   const rejectMutation = useRejectRefundRequest();
@@ -95,15 +94,8 @@ const PendingRefundRequestsPanel: React.FC = () => {
     setReviewTarget(null);
   };
 
-  if (isLoading) {
-    return (
-      <Card sx={{ mb: 2 }}>
-        <CardContent sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-          <CircularProgress size={24} />
-        </CardContent>
-      </Card>
-    );
-  }
+  if (isLoading) return null;
+  if (hideWhenEmpty && requests.length === 0) return null;
 
   return (
     <>

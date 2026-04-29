@@ -11,7 +11,7 @@ import {
   Alert,
   Box,
 } from '@mui/material';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { expenseOrderAuthRequestsApi } from '../../../api/expense-order-auth-requests.api';
 import { EXPENSE_ORDER_STATUS_CONFIG, ExpenseOrderStatus } from '../../../types/expense-order.types';
@@ -33,10 +33,12 @@ export const ExpenseOrderAuthRequestDialog: React.FC<ExpenseOrderAuthRequestDial
 }) => {
   const [reason, setReason] = useState('');
   const { enqueueSnackbar } = useSnackbar();
+  const queryClient = useQueryClient();
 
   const createRequestMutation = useMutation({
     mutationFn: expenseOrderAuthRequestsApi.create,
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['og-auth-requests-mine', expenseOrder.id] });
       enqueueSnackbar(
         'Solicitud enviada exitosamente. Espere la aprobación de un administrador.',
         { variant: 'success' },

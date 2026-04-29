@@ -7,7 +7,6 @@ import {
   Card,
   CardContent,
   Chip,
-  CircularProgress,
   Divider,
   IconButton,
   Stack,
@@ -60,7 +59,7 @@ const formatDate = (iso: string) =>
     minute: '2-digit',
   });
 
-const PendingApprovalsPanel: React.FC = () => {
+const PendingApprovalsPanel: React.FC<{ hideWhenEmpty?: boolean }> = ({ hideWhenEmpty }) => {
   const { data: approvals = [], isLoading, isFetching, refetch } = useQuery({
     queryKey: ['advancePaymentApprovals', 'pending'],
     queryFn: () => advancePaymentApprovalsApi.findPending(),
@@ -79,15 +78,8 @@ const PendingApprovalsPanel: React.FC = () => {
     setSelectedApproval(null);
   };
 
-  if (isLoading) {
-    return (
-      <Card sx={{ mb: 2 }}>
-        <CardContent sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-          <CircularProgress size={24} />
-        </CardContent>
-      </Card>
-    );
-  }
+  if (isLoading) return null;
+  if (hideWhenEmpty && approvals.length === 0) return null;
 
   return (
     <>
