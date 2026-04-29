@@ -7,6 +7,7 @@ import {
   CardContent,
   Chip,
   CircularProgress,
+  Collapse,
   Divider,
   IconButton,
   InputAdornment,
@@ -62,6 +63,10 @@ import TableChartIcon from '@mui/icons-material/TableChart';
 import PrintIcon from '@mui/icons-material/Print';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import InboxIcon from '@mui/icons-material/Inbox';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { ToolbarButton } from '../../orders/components/ToolbarButton';
 import { exportMovementsPdf, exportMovementsExcel } from '../utils/exportMovements';
@@ -151,6 +156,7 @@ const ActiveSessionPage: React.FC = () => {
   // Real-time WebSocket for advance payment approvals
   useApprovalSocket();
 
+  const [pendingPanelsOpen, setPendingPanelsOpen] = useState(true);
   const [dialogType, setDialogType] = useState<CashMovementType | null>(null);
   const [voidTarget, setVoidTarget] = useState<CashMovement | null>(null);
   const [isBalanceDialogOpen, setIsBalanceDialogOpen] = useState(false);
@@ -468,30 +474,63 @@ const ActiveSessionPage: React.FC = () => {
         </MenuItem>
       </Menu>
 
-      {/* ── Pending Advance Payment Approvals ────────────────────────── */}
-      {hasPermission(PERMISSIONS.APPROVE_ADVANCE_PAYMENTS) && (
-        <PendingApprovalsPanel />
-      )}
+      {/* ── Bandeja de solicitudes ───────────────────────────────────── */}
+      <Card sx={{ mb: 2 }}>
+        <CardContent sx={{ py: '12px !important', px: 2 }}>
+          {/* Header colapsable */}
+          <Box
+            onClick={() => setPendingPanelsOpen((v) => !v)}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              cursor: 'pointer',
+              userSelect: 'none',
+              '&:hover .collapse-icon': { color: 'primary.main' },
+            }}
+          >
+            <InboxIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+            <Typography variant="subtitle2" color="text.secondary" sx={{ flex: 1 }}>
+              Bandeja de solicitudes
+            </Typography>
+            <IconButton
+              size="small"
+              className="collapse-icon"
+              sx={{ color: 'text.disabled', transition: 'color 0.2s' }}
+            >
+              {pendingPanelsOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+            </IconButton>
+          </Box>
 
-      {/* ── Pending Void Request Approvals ───────────────────────────── */}
-      {hasPermission(PERMISSIONS.APPROVE_CASH_MOVEMENTS) && (
-        <PendingVoidRequestsPanel />
-      )}
+          <Collapse in={pendingPanelsOpen}>
+            <Box sx={{ mt: 1.5 }}>
+              {hasPermission(PERMISSIONS.APPROVE_ADVANCE_PAYMENTS) && (
+                <PendingApprovalsPanel hideWhenEmpty />
+              )}
+              {hasPermission(PERMISSIONS.APPROVE_CASH_MOVEMENTS) && (
+                <PendingVoidRequestsPanel hideWhenEmpty />
+              )}
+              {hasPermission(PERMISSIONS.CAJA_AUTHORIZE_EXPENSE_ORDERS) && (
+                <PendingOgAuthorizationsPanel hideWhenEmpty />
+              )}
+              {hasPermission(PERMISSIONS.APPROVE_REFUNDS) && (
+                <PendingRefundRequestsPanel hideWhenEmpty />
+              )}
+              {hasPermission(PERMISSIONS.REGISTER_AP_PAYMENT) && (
+                <PendingApAuthorizationsPanel hideWhenEmpty />
+              )}
 
-      {/* ── Pending OG Authorizations (Firma Caja) ───────────────────── */}
-      {hasPermission(PERMISSIONS.CAJA_AUTHORIZE_EXPENSE_ORDERS) && (
-        <PendingOgAuthorizationsPanel />
-      )}
-
-      {/* ── Pending Refund Request Approvals ──────────────────────────── */}
-      {hasPermission(PERMISSIONS.APPROVE_REFUNDS) && (
-        <PendingRefundRequestsPanel />
-      )}
-
-      {/* ── Pending AP Authorizations (CxP listas para pagar) ───────── */}
-      {hasPermission(PERMISSIONS.REGISTER_AP_PAYMENT) && (
-        <PendingApAuthorizationsPanel />
-      )}
+              {/* Fallback sutil cuando no hay nada pendiente */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5, color: 'text.disabled' }}>
+                <CheckCircleOutlineIcon sx={{ fontSize: 15 }} />
+                <Typography variant="caption">
+                  Todo en orden — sin solicitudes pendientes
+                </Typography>
+              </Box>
+            </Box>
+          </Collapse>
+        </CardContent>
+      </Card>
 
       {/* ── Movements List ───────────────────────────────────────────── */}
       <Card>

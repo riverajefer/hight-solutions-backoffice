@@ -35,7 +35,7 @@ const userName = (user?: { firstName?: string | null; lastName?: string | null; 
   return full || user.email;
 };
 
-const PendingOgAuthorizationsPanel: React.FC = () => {
+const PendingOgAuthorizationsPanel: React.FC<{ hideWhenEmpty?: boolean }> = ({ hideWhenEmpty }) => {
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
 
@@ -61,15 +61,8 @@ const PendingOgAuthorizationsPanel: React.FC = () => {
     },
   });
 
-  if (isLoading) {
-    return (
-      <Card sx={{ mb: 2 }}>
-        <CardContent sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-          <CircularProgress size={24} />
-        </CardContent>
-      </Card>
-    );
-  }
+  if (isLoading) return null;
+  if (hideWhenEmpty && pendingOgs.length === 0) return null;
 
   return (
     <Card

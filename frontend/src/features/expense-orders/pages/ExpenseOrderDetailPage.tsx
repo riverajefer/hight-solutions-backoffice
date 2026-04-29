@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
 import {
   Box,
@@ -49,6 +50,7 @@ import {
   AdminPanelSettings as AdminPanelSettingsIcon,
   Payments as PaymentsIcon,
   TaskAlt as TaskAltIcon,
+  MarkEmailRead as MarkEmailReadIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { StatusHighlight } from '../../../components/common/StatusHighlight';
@@ -56,6 +58,7 @@ import { StatusHighlight } from '../../../components/common/StatusHighlight';
 import { DocumentTypeBanner } from '../../../components/common/DocumentTypeBanner';
 import { ToolbarButton } from '../../orders/components/ToolbarButton';
 import { ExpenseOrderAuthRequestDialog } from '../components/ExpenseOrderAuthRequestDialog';
+import { expenseOrderAuthRequestsApi } from '../../../api/expense-order-auth-requests.api';
 import { ExpenseOrderPdfButton } from '../components/ExpenseOrderPdfButton';
 import { useExpenseOrder } from '../hooks';
 import { useSuppliers } from '../../suppliers/hooks/useSuppliers';
@@ -170,6 +173,15 @@ export const ExpenseOrderDetailPage = () => {
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [newStatus, setNewStatus] = useState<ExpenseOrderStatus | ''>('');
   const [authRequestDialogOpen, setAuthRequestDialogOpen] = useState(false);
+
+  const { data: myOgAuthRequests } = useQuery({
+    queryKey: ['og-auth-requests-mine', id],
+    queryFn: () => expenseOrderAuthRequestsApi.findMy(),
+    enabled: !!id,
+  });
+  const hasPendingOgRequest = myOgAuthRequests?.some(
+    (r) => r.expenseOrderId === id && r.status === 'PENDING',
+  ) ?? false;
 
   // ── Add item dialog ──────────────────────────────────────────────────────────
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
@@ -416,7 +428,9 @@ export const ExpenseOrderDetailPage = () => {
   const availableTransitions = isParentOrderAnulado
     ? []
     : allowedTransitions.filter((s) => {
-        if (s === ExpenseOrderStatus.AUTHORIZED) return canApprove; // Solo Caja
+        if (s === ExpenseOrderStatus.AUTHORIZED) return canApprove;
+        // ADMIN_AUTHORIZED solo aparece en el dropdown para admins; los comerciales usan el botón dedicado
+        if (s === ExpenseOrderStatus.ADMIN_AUTHORIZED) return canApprove;
         return canUpdate;
       });
 
@@ -451,10 +465,11 @@ export const ExpenseOrderDetailPage = () => {
           if (canUpdate && !canApprove) {
             return (
               <Alert severity="info" icon={<HourglassTopIcon />} sx={{ mt: 2 }}>
-                <AlertTitle>Borrador — acción requerida</AlertTitle>
-                Esta OG está en borrador. Cuando tengas todos los ítems listos, usa el botón{' '}
-                <strong>Estado</strong> y selecciona <strong>"Envíar solicitud de activación a gerencia"</strong>{' '}
-                para enviar la solicitud de aprobación al administrador. Recibirá una notificación por WhatsApp.
+                <AlertTitle>Borrador — completa los ítems y solicita autorización</AlertTitle>
+                Esta OG está en borrador. Cuando tengas todos los ítems listos, haz clic en{' '}
+                <strong>Solicitar Autorización</strong>: el administrador recibirá una notificación
+                por <strong>WhatsApp</strong> y podrá aprobarla desde su celular o desde{' '}
+                <strong>Solicitudes Pendientes</strong>.
               </Alert>
             );
           }
@@ -471,13 +486,27 @@ export const ExpenseOrderDetailPage = () => {
 
         if (og.status === ExpenseOrderStatus.CREATED) {
           if (canUpdate && !canApprove) {
+            if (hasPendingOgRequest) {
+              return (
+                <Alert
+                  severity="info"
+                  icon={<MarkEmailReadIcon />}
+                  sx={{ mt: 2, borderLeft: '4px solid', borderColor: 'info.main' }}
+                >
+                  <AlertTitle>Solicitud enviada — esperando respuesta de gerencia</AlertTitle>
+                  Tu solicitud fue enviada al administrador. Recibirá una notificación por{' '}
+                  <strong>WhatsApp</strong> y podrá aprobarla desde su celular o desde{' '}
+                  <strong>Solicitudes Pendientes</strong>. Te avisaremos cuando esté lista para caja.
+                </Alert>
+              );
+            }
             return (
               <Alert severity="warning" icon={<HourglassTopIcon />} sx={{ mt: 2 }}>
                 <AlertTitle>Pendiente de autorización — acción requerida</AlertTitle>
-                Esta OG está lista pero aún no fue autorizada. Usa el botón{' '}
-                <strong>Estado</strong> y selecciona <strong>"Envíar solicitud de activación a gerencia"</strong>{' '}
-                para enviar la solicitud al administrador. Recibirá una notificación por WhatsApp y
-                podrá aprobarla desde allí o desde la sección <strong>Solicitudes Pendientes</strong>.
+                Esta OG está lista pero aún no fue autorizada. Haz clic en{' '}
+                <strong>Solicitar Autorización</strong> para enviar la solicitud al administrador.
+                Recibirá una notificación por <strong>WhatsApp</strong> y podrá aprobarla desde
+                su celular o desde la sección <strong>Solicitudes Pendientes</strong>.
               </Alert>
             );
           }
@@ -589,6 +618,18 @@ export const ExpenseOrderDetailPage = () => {
               onClick={() => setStatusDialogOpen(true)}
               color={theme.palette.info.main}
               tooltip="Cambiar Estado"
+            />
+          )}
+
+          {(og.status === ExpenseOrderStatus.DRAFT || og.status === ExpenseOrderStatus.CREATED) &&
+            canUpdate && !canApprove && !hasPendingOgRequest && !isParentOrderAnulado && (
+            <ToolbarButton
+              icon={<HourglassTopIcon />}
+              label="Solicitar"
+              secondaryLabel="Autorización"
+              onClick={() => setAuthRequestDialogOpen(true)}
+              color={theme.palette.warning.main}
+              tooltip="Solicitar autorización al administrador"
             />
           )}
 

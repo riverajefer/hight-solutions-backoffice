@@ -6,7 +6,6 @@ import {
   Card,
   CardContent,
   Chip,
-  CircularProgress,
   Divider,
   IconButton,
   Stack,
@@ -37,7 +36,7 @@ const userName = (user?: { firstName?: string | null; lastName?: string | null; 
   return full || user.email;
 };
 
-const PendingApAuthorizationsPanel: React.FC = () => {
+const PendingApAuthorizationsPanel: React.FC<{ hideWhenEmpty?: boolean }> = ({ hideWhenEmpty }) => {
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
   const [selectedAp, setSelectedAp] = useState<AccountPayable | null>(null);
@@ -72,15 +71,8 @@ const PendingApAuthorizationsPanel: React.FC = () => {
     registerPaymentMutation.mutate({ id: selectedAp.id, dto });
   };
 
-  if (isLoading) {
-    return (
-      <Card sx={{ mb: 2 }}>
-        <CardContent sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-          <CircularProgress size={24} />
-        </CardContent>
-      </Card>
-    );
-  }
+  if (isLoading) return null;
+  if (hideWhenEmpty && pendingAps.length === 0) return null;
 
   return (
     <>
