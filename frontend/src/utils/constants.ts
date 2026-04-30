@@ -167,6 +167,12 @@ export const PERMISSIONS = {
   CAJA_AUTHORIZE_AP_PAYMENT: 'caja_authorize_ap_payment',
   // Dashboard Financiero
   READ_FINANCIAL_DASHBOARD: 'read_financial_dashboard',
+  // DTF
+  READ_DTF: 'read_dtf',
+  CREATE_DTF: 'create_dtf',
+  UPDATE_DTF: 'update_dtf',
+  CHANGE_DTF_STATUS: 'change_dtf_status',
+  CONVERT_DTF_TO_ORDER: 'convert_dtf_to_order',
 };
 
 export const ROUTES = {
@@ -291,6 +297,11 @@ export const ROUTES = {
   ACCOUNTS_PAYABLE_NEW: '/accounts-payable/new',
   ACCOUNTS_PAYABLE_DETAIL: '/accounts-payable/:id',
   ACCOUNTS_PAYABLE_EDIT: '/accounts-payable/:id/edit',
+  // DTF
+  DTF: '/dtf',
+  DTF_CREATE: '/dtf/create',
+  DTF_DETAIL: '/dtf/:id',
+  DTF_EDIT: '/dtf/:id/edit',
 };
 
 export const DEFAULT_PAGINATION = {

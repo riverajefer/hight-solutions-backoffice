@@ -57,6 +57,7 @@ import { AccountsPayableModule } from './modules/accounts-payable/accounts-payab
 import { AccountsPayableAuthRequestsModule } from './modules/accounts-payable-auth-requests/accounts-payable-auth-requests.module';
 import { AccountsPayablePaymentAuthRequestsModule } from './modules/accounts-payable-payment-auth-requests/accounts-payable-payment-auth-requests.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { DtfModule } from './modules/dtf/dtf.module';
 
 @Module({
   imports: [
@@ -151,6 +152,8 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     DashboardModule,
     // Módulo de WebSocket Events (tiempo real)
     WsEventsModule,
+    // Módulo DTF
+    DtfModule,
   ],
   providers: [
     {
