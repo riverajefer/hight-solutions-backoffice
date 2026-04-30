@@ -81,6 +81,11 @@ export const DtfEditPage = () => {
       <PageHeader
         title={`Editar ${record.consecutive}`}
         subtitle={`${record.product?.name} — ${record.client?.name}`}
+        breadcrumbs={[
+          { label: 'DTF', path: PATHS.DTF },
+          { label: record.consecutive, path: PATHS.DTF_DETAIL.replace(':id', id!) },
+          { label: 'Editar' },
+        ]}
       />
 
       <Grid container spacing={3}>

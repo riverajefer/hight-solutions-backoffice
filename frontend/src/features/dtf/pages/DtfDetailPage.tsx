@@ -129,6 +129,10 @@ export const DtfDetailPage = () => {
       <PageHeader
         title={record.consecutive}
         subtitle={`Registro DTF — ${record.product?.name}`}
+        breadcrumbs={[
+          { label: 'DTF', path: PATHS.DTF },
+          { label: record.consecutive },
+        ]}
         action={
           <Stack direction="row" spacing={1}>
             {canEdit && (

@@ -96,12 +96,18 @@ export interface ChangeDtfStatusDto {
 
 export interface DtfFormItem {
   _localId: string;
+  // populated after individual save
+  id?: string;
+  consecutive?: string;
+  status?: DtfStatus;
+  // form fields
   productId: string;
   clientId: string;
   quantity: number;
   notes: string;
   unitPrice: number;
   value: number;
+  // files
   imageFile?: File | null;
   imagePreviewUrl?: string | null;
   comprobanteFile?: File | null;

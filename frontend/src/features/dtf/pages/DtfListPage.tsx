@@ -205,6 +205,7 @@ export const DtfListPage = () => {
       <PageHeader
         title="DTF"
         subtitle="Gestión de solicitudes DTF"
+        breadcrumbs={[{ label: 'DTF' }]}
         action={
           hasPermission(PERMISSIONS.CREATE_DTF) ? (
             <Button
