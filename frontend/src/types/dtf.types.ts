@@ -15,6 +15,13 @@ export interface DtfProduct {
 export interface DtfClient {
   id: string;
   name: string;
+  phone?: string | null;
+  landlinePhone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  nit?: string | null;
+  personType?: string | null;
+  city?: { name: string } | null;
 }
 
 export interface DtfOrder {

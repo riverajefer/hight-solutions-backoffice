@@ -515,6 +515,7 @@ export const OrderFormPage: React.FC = () => {
         paymentMethod: firstPayment?.paymentMethod || 'CASH',
         reference: firstPayment?.reference || '',
         notes: firstPayment?.notes || '',
+        existingReceiptFileId: firstPayment?.receiptFileId || null,
       }]);
       setValue('commercialChannelId', order.commercialChannelId || '');
       // En edición todos los pasos fueron completados

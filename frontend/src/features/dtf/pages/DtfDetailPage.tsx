@@ -23,6 +23,11 @@ import EditIcon from '@mui/icons-material/Edit';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import CloseIcon from '@mui/icons-material/Close';
+import WhatsAppIcon from '@mui/icons-material/WhatsApp';
+import PersonIcon from '@mui/icons-material/Person';
+import EmailIcon from '@mui/icons-material/Email';
+import PhoneIcon from '@mui/icons-material/Phone';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { DtfStatusChip } from '../components/DtfStatusChip';
 import { useDtfDetail, useDtfFiles, useDtfMutations } from '../hooks/useDtf';
@@ -30,6 +35,7 @@ import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
 import { PATHS } from '../../../router/paths';
 import { formatCurrency, formatDate } from '../../../utils/formatters';
+import { useSnackbar } from 'notistack';
 import axiosInstance from '../../../api/axios';
 import type { DtfStatus } from '../../../types/dtf.types';
 
@@ -49,10 +55,19 @@ const STATUS_LABELS: Record<DtfStatus, string> = {
   CONVERTIDA_EN_OP: 'Convertida en OP',
 };
 
+const formatPhoneForWhatsApp = (phone: string): string => {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) return `57${digits}`;
+  if (digits.length === 12 && digits.startsWith('57')) return digits;
+  if (digits.length === 13 && digits.startsWith('057')) return digits.slice(1);
+  return digits;
+};
+
 export const DtfDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { hasPermission } = useAuthStore();
+  const { enqueueSnackbar } = useSnackbar();
   const { changeStatus, convertToOrder } = useDtfMutations();
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<DtfStatus | ''>('');
@@ -122,6 +137,37 @@ export const DtfDetailPage = () => {
     }
   };
 
+  const handleShareWhatsApp = () => {
+    if (!record.client?.phone) {
+      enqueueSnackbar('El cliente no tiene número de teléfono registrado', { variant: 'info' });
+      return;
+    }
+    const waNumber = formatPhoneForWhatsApp(record.client.phone);
+    const qty = Number(record.quantity).toLocaleString('es-CO');
+    const unitPrice = formatCurrency(Number(record.unitPrice));
+    const total = formatCurrency(Number(record.value));
+
+    const message = [
+      `Hola ${record.client.name}, buen día!`,
+      ``,
+      `Le compartimos el detalle de su registro DTF:`,
+      ``,
+      `📋 *Consecutivo:* ${record.consecutive}`,
+      `🎨 *Producto:* ${record.product?.name ?? '—'}`,
+      `📦 *Cantidad:* ${qty}`,
+      `💲 *Precio unitario:* ${unitPrice}`,
+      `💰 *Valor total:* ${total}`,
+      ``,
+      `Quedamos atentos a cualquier inquietud. ¡Gracias por preferirnos!`,
+    ].join('\n');
+
+    window.open(
+      `https://wa.me/${waNumber}?text=${encodeURIComponent(message)}`,
+      '_blank',
+      'noopener,noreferrer',
+    );
+  };
+
   const files = filesQuery.data;
 
   return (
@@ -156,6 +202,14 @@ export const DtfDetailPage = () => {
                 Cambiar estado
               </Button>
             )}
+            <Button
+              variant="outlined"
+              startIcon={<WhatsAppIcon />}
+              onClick={handleShareWhatsApp}
+              sx={{ borderColor: '#25D366', color: '#25D366', '&:hover': { borderColor: '#128C7E', bgcolor: 'rgba(37,211,102,0.08)', color: '#128C7E' } }}
+            >
+              WhatsApp
+            </Button>
             {canConvert && (
               <Button
                 variant="contained"
@@ -235,6 +289,76 @@ export const DtfDetailPage = () => {
               </CardContent>
             </Card>
           )}
+        </Grid>
+
+        <Grid item xs={12}>
+          <Card variant="outlined">
+            <CardContent>
+              <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+                <PersonIcon fontSize="small" color="primary" />
+                <Typography variant="subtitle2" color="text.secondary">
+                  Cliente
+                </Typography>
+              </Stack>
+              <Divider sx={{ mb: 2 }} />
+              <Stack spacing={1.5}>
+                <Typography variant="subtitle1" fontWeight={600}>
+                  {record.client?.name}
+                </Typography>
+                {record.client?.nit && (
+                  <Typography variant="body2" color="text.secondary">
+                    NIT / Cédula: {record.client.nit}
+                  </Typography>
+                )}
+                {record.client?.email && (
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <EmailIcon fontSize="small" color="action" />
+                    <Typography variant="body2">{record.client.email}</Typography>
+                  </Stack>
+                )}
+                {record.client?.phone && (
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <PhoneIcon fontSize="small" color="action" />
+                    <Typography variant="body2">{record.client.phone}</Typography>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      href={`https://wa.me/${formatPhoneForWhatsApp(record.client.phone)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      startIcon={<WhatsAppIcon sx={{ fontSize: '1rem !important' }} />}
+                      sx={{
+                        borderColor: '#25D366',
+                        color: '#25D366',
+                        fontSize: '0.7rem',
+                        py: 0.25,
+                        px: 1,
+                        minHeight: 'unset',
+                        lineHeight: 1.5,
+                        '&:hover': { borderColor: '#128C7E', bgcolor: 'rgba(37,211,102,0.08)', color: '#128C7E' },
+                      }}
+                    >
+                      Escribir
+                    </Button>
+                  </Stack>
+                )}
+                {record.client?.landlinePhone && (
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <PhoneIcon fontSize="small" color="action" />
+                    <Typography variant="body2">{record.client.landlinePhone}</Typography>
+                  </Stack>
+                )}
+                {(record.client?.address || record.client?.city) && (
+                  <Stack direction="row" spacing={1} alignItems="flex-start">
+                    <LocationOnIcon fontSize="small" color="action" />
+                    <Typography variant="body2">
+                      {[record.client.address, record.client.city?.name].filter(Boolean).join(', ')}
+                    </Typography>
+                  </Stack>
+                )}
+              </Stack>
+            </CardContent>
+          </Card>
         </Grid>
 
         {(files?.images?.length || files?.comprobantes?.length) ? (

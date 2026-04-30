@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
@@ -6,8 +6,12 @@ import {
   Card,
   CardContent,
   CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   Divider,
   Grid,
+  IconButton,
   Stack,
   TextField,
   Typography,
@@ -15,9 +19,11 @@ import {
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import UploadIcon from '@mui/icons-material/Upload';
+import CloseIcon from '@mui/icons-material/Close';
 import { PageHeader } from '../../../components/common/PageHeader';
-import { useDtfDetail, useDtfMutations } from '../hooks/useDtf';
+import { useDtfDetail, useDtfFiles, useDtfMutations } from '../hooks/useDtf';
 import { PATHS } from '../../../router/paths';
+import axiosInstance from '../../../api/axios';
 
 export const DtfEditPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -27,17 +33,39 @@ export const DtfEditPage = () => {
   const comprobanteInputRef = useRef<HTMLInputElement>(null);
 
   const detailQuery = useDtfDetail(id!);
+  const filesQuery = useDtfFiles(id!);
   const record = detailQuery.data;
 
   const [quantity, setQuantity] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [initialized, setInitialized] = useState(false);
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+  const [viewImage, setViewImage] = useState<{ open: boolean; url: string; title: string }>({
+    open: false, url: '', title: '',
+  });
 
   if (record && !initialized) {
     setQuantity(String(Number(record.quantity)));
     setNotes(record.notes ?? '');
     setInitialized(true);
   }
+
+  useEffect(() => {
+    const files = filesQuery.data;
+    if (!files) return;
+    const allFiles = [...(files.images ?? []), ...(files.comprobantes ?? [])];
+    const missing = allFiles.filter((f) => !signedUrls[f.id]);
+    if (missing.length === 0) return;
+    Promise.all(
+      missing.map(async (f) => {
+        const { data } = await axiosInstance.get(`/storage/${f.id}/url`);
+        return [f.id, data.url as string] as const;
+      }),
+    ).then((entries) =>
+      setSignedUrls((prev) => ({ ...prev, ...Object.fromEntries(entries) })),
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filesQuery.data]);
 
   if (detailQuery.isLoading) {
     return (
@@ -132,6 +160,29 @@ export const DtfEditPage = () => {
               <Stack spacing={2}>
                 <Box>
                   <Typography variant="body2" mb={1}>Imagen de referencia</Typography>
+                  {(filesQuery.data?.images?.length ?? 0) > 0 && (
+                    <Stack direction="row" flexWrap="wrap" gap={1} mb={1}>
+                      {filesQuery.data!.images.map((img) => (
+                        <Box
+                          key={img.id}
+                          component="img"
+                          src={signedUrls[img.id]}
+                          alt={img.originalName}
+                          onClick={() => setViewImage({ open: true, url: signedUrls[img.id], title: img.originalName })}
+                          sx={{
+                            width: 80,
+                            height: 80,
+                            objectFit: 'cover',
+                            borderRadius: 1,
+                            border: '1px solid',
+                            borderColor: 'grey.300',
+                            cursor: 'pointer',
+                            '&:hover': { opacity: 0.85 },
+                          }}
+                        />
+                      ))}
+                    </Stack>
+                  )}
                   <input
                     ref={imageInputRef}
                     type="file"
@@ -155,6 +206,29 @@ export const DtfEditPage = () => {
 
                 <Box>
                   <Typography variant="body2" mb={1}>Comprobante de pago</Typography>
+                  {(filesQuery.data?.comprobantes?.length ?? 0) > 0 && (
+                    <Stack direction="row" flexWrap="wrap" gap={1} mb={1}>
+                      {filesQuery.data!.comprobantes.map((comp) => (
+                        <Box
+                          key={comp.id}
+                          component="img"
+                          src={signedUrls[comp.id]}
+                          alt={comp.originalName}
+                          onClick={() => setViewImage({ open: true, url: signedUrls[comp.id], title: comp.originalName })}
+                          sx={{
+                            width: 80,
+                            height: 80,
+                            objectFit: 'cover',
+                            borderRadius: 1,
+                            border: '1px solid',
+                            borderColor: 'grey.300',
+                            cursor: 'pointer',
+                            '&:hover': { opacity: 0.85 },
+                          }}
+                        />
+                      ))}
+                    </Stack>
+                  )}
                   <input
                     ref={comprobanteInputRef}
                     type="file"
@@ -198,6 +272,30 @@ export const DtfEditPage = () => {
           Guardar cambios
         </Button>
       </Stack>
+
+      <Dialog
+        open={viewImage.open}
+        onClose={() => setViewImage({ open: false, url: '', title: '' })}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {viewImage.title}
+          <IconButton size="small" onClick={() => setViewImage({ open: false, url: '', title: '' })}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          {viewImage.url && (
+            <Box
+              component="img"
+              src={viewImage.url}
+              alt={viewImage.title}
+              sx={{ width: '100%', maxHeight: '75vh', objectFit: 'contain' }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };

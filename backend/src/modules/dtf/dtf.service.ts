@@ -12,7 +12,7 @@ import { OrdersService } from '../orders/orders.service';
 import { CreateDtfRecordDto, BulkCreateDtfDto } from './dto/create-dtf-record.dto';
 import { UpdateDtfRecordDto } from './dto/update-dtf-record.dto';
 import { ChangeDtfStatusDto } from './dto/change-dtf-status.dto';
-import { DtfStatus, Prisma } from '../../generated/prisma';
+import { DtfStatus, PaymentMethod, Prisma } from '../../generated/prisma';
 import { isValidDtfTransition } from './dtf-status-transitions';
 
 @Injectable()
@@ -125,21 +125,89 @@ export class DtfService {
       where: { id: record.productId },
     });
 
+    // Resolve production area by product type (DTF UV vs DTF Textil)
+    const productionAreaName = product?.name?.toLowerCase().includes('uv')
+      ? 'DTF UV'
+      : 'DTF Textil';
+    const productionArea = await this.prisma.productionArea.findFirst({
+      where: { name: { contains: productionAreaName, mode: 'insensitive' } },
+    });
+
+    // Fetch DTF files before creating the order
+    const [dtfImages, dtfComprobantes] = await Promise.all([
+      this.storageService.getFilesByEntity('DTF_IMAGE', id),
+      this.storageService.getFilesByEntity('DTF_COMPROBANTE', id),
+    ]);
+
+    const dtfImage = dtfImages[0] ?? null;
+    const dtfComprobante = dtfComprobantes[0] ?? null;
+
     const order = await this.ordersService.create(
       {
         clientId: record.clientId,
+        notes: `[DTF] ${record.consecutive}`,
         items: [
           {
             description: `${product?.name ?? 'DTF'} - ${record.consecutive}`,
             quantity: Number(record.quantity),
             unitPrice: Number(record.unitPrice),
             productId: record.productId,
+            ...(productionArea && { productionAreaIds: [productionArea.id] }),
           },
         ],
         taxRate: 0,
       },
       userId,
     );
+
+    // Transfer reference image → order item sampleImageId
+    if (dtfImage && order?.items?.[0]) {
+      const orderItem = order.items[0] as { id: string };
+      await this.prisma.uploadedFile.update({
+        where: { id: dtfImage.id },
+        data: { entityType: 'order-item', entityId: orderItem.id },
+      });
+      await this.prisma.orderItem.update({
+        where: { id: orderItem.id },
+        data: { sampleImageId: dtfImage.id },
+      });
+    }
+
+    // Transfer comprobante → create advance payment + attach receipt file
+    // Done directly via Prisma to avoid cash-session / receipt_number machinery
+    if (dtfComprobante && order?.id) {
+      const dtfValue = new Prisma.Decimal(Number(record.value));
+
+      const payment = await this.prisma.payment.create({
+        data: {
+          orderId: order.id,
+          amount: dtfValue,
+          paymentMethod: PaymentMethod.TRANSFER,
+          reference: record.consecutive,
+          notes: `Anticipo DTF ${record.consecutive}`,
+          receivedById: userId,
+        },
+      });
+
+      // Keep order totals in sync
+      await this.prisma.order.update({
+        where: { id: order.id },
+        data: {
+          paidAmount: { increment: dtfValue },
+          balance: { decrement: dtfValue },
+        },
+      });
+
+      // Reassign the comprobante file to the new payment
+      await this.prisma.uploadedFile.update({
+        where: { id: dtfComprobante.id },
+        data: { entityType: 'payment', entityId: payment.id },
+      });
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: { receiptFileId: dtfComprobante.id },
+      });
+    }
 
     await this.dtfRepository.updateStatus(id, DtfStatus.CONVERTIDA_EN_OP, order?.id);
 

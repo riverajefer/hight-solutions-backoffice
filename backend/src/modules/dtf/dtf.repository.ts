@@ -13,7 +13,19 @@ const selectFields = {
   createdAt: true,
   updatedAt: true,
   product: { select: { id: true, name: true, basePrice: true, priceUnit: true } },
-  client: { select: { id: true, name: true } },
+  client: {
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      landlinePhone: true,
+      email: true,
+      address: true,
+      nit: true,
+      personType: true,
+      city: { select: { name: true } },
+    },
+  },
   order: { select: { id: true, orderNumber: true } },
   createdBy: { select: { id: true, firstName: true, lastName: true } },
 };

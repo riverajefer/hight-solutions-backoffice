@@ -592,6 +592,14 @@ export const OrderDetailPage: React.FC = () => {
       {/* Banner de permiso activo */}
       <ActivePermissionBanner orderId={id!} />
 
+      {/* Banner de origen DTF */}
+      {order.notes?.startsWith('[DTF]') && (
+        <Alert severity="info" sx={{ mt: 2, mb: 1 }}>
+          Esta orden fue generada desde el registro DTF{' '}
+          <strong>{order.notes.replace('[DTF] ', '')}</strong>.
+        </Alert>
+      )}
+
       {/* Banner de orden ANULADA */}
       {isAnulado && (
         <Alert severity="error" icon={<WarningIcon />} sx={{ mt: 2, mb: 1 }}>
@@ -1380,7 +1388,7 @@ export const OrderDetailPage: React.FC = () => {
               isDeleting={deletingDiscount}
             />
             {/* Notas y Detalles Adicionales */}
-            {(order.notes || order.requiresColorProof) && (
+            {((order.notes && !order.notes.startsWith('[DTF]')) || order.requiresColorProof) && (
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
