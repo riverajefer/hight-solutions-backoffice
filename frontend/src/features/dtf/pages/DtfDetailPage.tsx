@@ -127,6 +127,34 @@ export const DtfDetailPage = () => {
     if (!selectedStatus) return;
     await changeStatus.mutateAsync({ id: id!, dto: { status: selectedStatus } });
     setStatusDialogOpen(false);
+
+    if (selectedStatus === 'COMPLETADA') {
+      if (!record.client?.phone) {
+        enqueueSnackbar('Estado actualizado. El cliente no tiene teléfono registrado para notificar.', { variant: 'info' });
+        return;
+      }
+      const waNumber = formatPhoneForWhatsApp(record.client.phone);
+      const message = [
+        `Hola ${record.client.name}! Como esta?`,
+        ``,
+        `Le tenemos una muy buena noticia!`,
+        ``,
+        `Su pedido DTF *${record.consecutive}* ya esta completamente listo y esperando por usted.`,
+        ``,
+        `*Producto:* ${record.product?.name ?? '—'}`,
+        `*Cantidad:* ${Number(record.quantity).toLocaleString('es-CO')} unidades`,
+        ``,
+        `Puede pasar a recogerlo cuando guste, con mucho gusto lo atendemos.`,
+        ``,
+        `Gracias por confiar en nosotros!`,
+      ].join('\n');
+
+      window.open(
+        `https://wa.me/${waNumber}?text=${encodeURIComponent(message)}`,
+        '_blank',
+        'noopener,noreferrer',
+      );
+    }
   };
 
   const handleConvertToOrder = async () => {
@@ -148,17 +176,17 @@ export const DtfDetailPage = () => {
     const total = formatCurrency(Number(record.value));
 
     const message = [
-      `Hola ${record.client.name}, buen día!`,
+      `Hola ${record.client.name}, buen dia!`,
       ``,
-      `Le compartimos el detalle de su registro DTF:`,
+      `Le compartimos el detalle de su pedido DTF:`,
       ``,
-      `📋 *Consecutivo:* ${record.consecutive}`,
-      `🎨 *Producto:* ${record.product?.name ?? '—'}`,
-      `📦 *Cantidad:* ${qty}`,
-      `💲 *Precio unitario:* ${unitPrice}`,
-      `💰 *Valor total:* ${total}`,
+      `*Consecutivo:* ${record.consecutive}`,
+      `*Producto:* ${record.product?.name ?? '—'}`,
+      `*Cantidad:* ${qty}`,
+      `*Precio unitario:* ${unitPrice}`,
+      `*Valor total:* ${total}`,
       ``,
-      `Quedamos atentos a cualquier inquietud. ¡Gracias por preferirnos!`,
+      `Quedamos atentos a cualquier inquietud. Gracias por preferirnos!`,
     ].join('\n');
 
     window.open(
