@@ -100,7 +100,7 @@ export class DtfService {
     return this.dtfRepository.update(id, updates);
   }
 
-  async changeStatus(id: string, dto: ChangeDtfStatusDto) {
+  async changeStatus(id: string, dto: ChangeDtfStatusDto, changedById: string) {
     const record = await this.dtfRepository.findByIdRaw(id);
     if (!record) throw new NotFoundException(`Registro DTF con id ${id} no encontrado`);
 
@@ -110,7 +110,20 @@ export class DtfService {
       );
     }
 
-    return this.dtfRepository.updateStatus(id, dto.status);
+    const result = await this.dtfRepository.updateStatus(id, dto.status);
+    await this.dtfRepository.createStatusHistory({
+      dtfId: id,
+      fromStatus: record.status,
+      toStatus: dto.status,
+      changedById,
+    });
+    return result;
+  }
+
+  async getStatusHistory(id: string) {
+    const record = await this.dtfRepository.findByIdRaw(id);
+    if (!record) throw new NotFoundException(`Registro DTF con id ${id} no encontrado`);
+    return this.dtfRepository.getStatusHistory(id);
   }
 
   async convertToOrder(id: string, userId: string) {
@@ -210,6 +223,12 @@ export class DtfService {
     }
 
     await this.dtfRepository.updateStatus(id, DtfStatus.CONVERTIDA_EN_OP, order?.id);
+    await this.dtfRepository.createStatusHistory({
+      dtfId: id,
+      fromStatus: record.status,
+      toStatus: DtfStatus.CONVERTIDA_EN_OP,
+      changedById: userId,
+    });
 
     return order;
   }

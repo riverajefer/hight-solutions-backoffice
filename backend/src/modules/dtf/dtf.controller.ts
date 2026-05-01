@@ -55,6 +55,14 @@ export class DtfController {
     });
   }
 
+  @Get(':id/status-history')
+  @RequirePermissions('read_dtf')
+  @ApiOperation({ summary: 'Obtener historial de estados del registro DTF' })
+  @ApiParam({ name: 'id', description: 'DTF Record ID' })
+  getStatusHistory(@Param('id') id: string) {
+    return this.dtfService.getStatusHistory(id);
+  }
+
   @Get(':id')
   @RequirePermissions('read_dtf')
   @ApiOperation({ summary: 'Obtener registro DTF por ID' })
@@ -96,8 +104,9 @@ export class DtfController {
   changeStatus(
     @Param('id') id: string,
     @Body() dto: ChangeDtfStatusDto,
+    @CurrentUser('id') userId: string,
   ) {
-    return this.dtfService.changeStatus(id, dto);
+    return this.dtfService.changeStatus(id, dto, userId);
   }
 
   @Post(':id/convert-to-order')

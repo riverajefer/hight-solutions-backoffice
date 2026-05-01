@@ -114,4 +114,28 @@ export class DtfRepository {
   async findByIdRaw(id: string) {
     return this.prisma.dtfRecord.findUnique({ where: { id } });
   }
+
+  async createStatusHistory(data: {
+    dtfId: string;
+    fromStatus: DtfStatus | null;
+    toStatus: DtfStatus;
+    changedById: string;
+    changedAt?: Date;
+  }) {
+    await this.prisma.dtfStatusHistory.create({ data });
+  }
+
+  async getStatusHistory(dtfId: string) {
+    return this.prisma.dtfStatusHistory.findMany({
+      where: { dtfId },
+      orderBy: { changedAt: 'asc' },
+      select: {
+        id: true,
+        fromStatus: true,
+        toStatus: true,
+        changedAt: true,
+        changedBy: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
+  }
 }

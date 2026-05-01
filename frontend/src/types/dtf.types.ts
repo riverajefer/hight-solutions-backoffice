@@ -101,6 +101,18 @@ export interface ChangeDtfStatusDto {
   status: DtfStatus;
 }
 
+export interface DtfStatusHistoryEntry {
+  id: string;
+  fromStatus: DtfStatus | null;
+  toStatus: DtfStatus;
+  changedAt: string;
+  changedBy: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
+}
+
 export interface DtfFormItem {
   _localId: string;
   // populated after individual save

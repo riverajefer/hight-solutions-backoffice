@@ -28,7 +28,8 @@ import PhoneIcon from '@mui/icons-material/Phone';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { DtfStatusChip } from '../components/DtfStatusChip';
-import { useDtfDetail, useDtfFiles, useDtfMutations } from '../hooks/useDtf';
+import { DtfStatusStepper } from '../components/DtfStatusStepper';
+import { useDtfDetail, useDtfFiles, useDtfMutations, useDtfStatusHistory } from '../hooks/useDtf';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
 import { PATHS } from '../../../router/paths';
@@ -80,6 +81,7 @@ export const DtfDetailPage = () => {
 
   const detailQuery = useDtfDetail(id!);
   const filesQuery = useDtfFiles(id!);
+  const statusHistoryQuery = useDtfStatusHistory(id);
   const record = detailQuery.data;
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [viewImage, setViewImage] = useState<{ open: boolean; url: string; title: string }>({
@@ -274,8 +276,24 @@ export const DtfDetailPage = () => {
       />
 
       <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12}>
           <Card variant="outlined">
+            <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Progreso del pedido
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              <DtfStatusStepper
+                currentStatus={record.status}
+                history={statusHistoryQuery.data ?? []}
+                isLoading={statusHistoryQuery.isLoading}
+              />
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={6} sx={{ display: 'flex', flexDirection: 'column' }}>
+          <Card variant="outlined" sx={{ height: '100%' }}>
             <CardContent>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                 Información General
@@ -296,7 +314,7 @@ export const DtfDetailPage = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={6} sx={{ display: 'flex', flexDirection: 'column' }}>
           <Card variant="outlined">
             <CardContent>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>

@@ -33,6 +33,14 @@ export const useDtfFiles = (id: string) => {
   });
 };
 
+export const useDtfStatusHistory = (id: string | undefined) => {
+  return useQuery({
+    queryKey: [DTF_QUERY_KEY, 'status-history', id],
+    queryFn: () => dtfApi.getStatusHistory(id!),
+    enabled: !!id,
+  });
+};
+
 export const useDtfMutations = () => {
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();

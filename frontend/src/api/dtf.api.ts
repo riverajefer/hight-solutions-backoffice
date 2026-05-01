@@ -7,6 +7,7 @@ import type {
   UpdateDtfRecordDto,
   ChangeDtfStatusDto,
   DtfFiles,
+  DtfStatusHistoryEntry,
 } from '../types/dtf.types';
 
 const BASE_URL = '/dtf';
@@ -64,6 +65,13 @@ export const dtfApi = {
 
   getFiles: async (id: string): Promise<DtfFiles> => {
     const { data } = await axiosInstance.get<DtfFiles>(`${BASE_URL}/${id}/files`);
+    return data;
+  },
+
+  getStatusHistory: async (id: string): Promise<DtfStatusHistoryEntry[]> => {
+    const { data } = await axiosInstance.get<DtfStatusHistoryEntry[]>(
+      `${BASE_URL}/${id}/status-history`,
+    );
     return data;
   },
 };
