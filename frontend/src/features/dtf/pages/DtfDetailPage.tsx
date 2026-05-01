@@ -12,8 +12,6 @@ import {
   Divider,
   Grid,
   IconButton,
-  MenuItem,
-  Select,
   Stack,
   Typography,
   CircularProgress,
@@ -55,6 +53,22 @@ const STATUS_LABELS: Record<DtfStatus, string> = {
   CONVERTIDA_EN_OP: 'Convertida en OP',
 };
 
+const STATUS_ACTION_LABELS: Record<DtfStatus, string> = {
+  BORRADOR: 'Devolver a borrador',
+  ENVIADA: 'Marcar como enviada',
+  EN_IMPRESION: 'Pasar a impresión',
+  COMPLETADA: 'Marcar como completada',
+  CONVERTIDA_EN_OP: 'Convertir en OP',
+};
+
+const STATUS_ACTION_COLORS: Record<DtfStatus, 'inherit' | 'primary' | 'secondary' | 'success' | 'error' | 'info' | 'warning'> = {
+  BORRADOR: 'error',
+  ENVIADA: 'primary',
+  EN_IMPRESION: 'warning',
+  COMPLETADA: 'success',
+  CONVERTIDA_EN_OP: 'secondary',
+};
+
 const formatPhoneForWhatsApp = (phone: string): string => {
   const digits = phone.replace(/\D/g, '');
   if (digits.length === 10) return `57${digits}`;
@@ -69,8 +83,6 @@ export const DtfDetailPage = () => {
   const { hasPermission } = useAuthStore();
   const { enqueueSnackbar } = useSnackbar();
   const { changeStatus, convertToOrder } = useDtfMutations();
-  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState<DtfStatus | ''>('');
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
 
   const detailQuery = useDtfDetail(id!);
@@ -123,12 +135,10 @@ export const DtfDetailPage = () => {
     hasPermission(PERMISSIONS.CONVERT_DTF_TO_ORDER) &&
     record.status !== 'CONVERTIDA_EN_OP';
 
-  const handleChangeStatus = async () => {
-    if (!selectedStatus) return;
-    await changeStatus.mutateAsync({ id: id!, dto: { status: selectedStatus } });
-    setStatusDialogOpen(false);
+  const handleChangeStatusDirect = async (status: DtfStatus) => {
+    await changeStatus.mutateAsync({ id: id!, dto: { status } });
 
-    if (selectedStatus === 'COMPLETADA') {
+    if (status === 'COMPLETADA') {
       if (!record.client?.phone) {
         enqueueSnackbar('Estado actualizado. El cliente no tiene teléfono registrado para notificar.', { variant: 'info' });
         return;
@@ -218,18 +228,28 @@ export const DtfDetailPage = () => {
                 Editar
               </Button>
             )}
-            {canChangeStatus && (
+            {canChangeStatus && nextStatuses.filter((s) => s !== 'CONVERTIDA_EN_OP').map((s) => (
               <Button
-                variant="outlined"
-                startIcon={<SwapHorizIcon />}
-                onClick={() => {
-                  setSelectedStatus('');
-                  setStatusDialogOpen(true);
-                }}
+                key={s}
+                variant={s === 'BORRADOR' ? 'outlined' : 'contained'}
+                color={s !== 'COMPLETADA' ? STATUS_ACTION_COLORS[s] : undefined}
+                sx={s === 'COMPLETADA' ? {
+                  background: 'linear-gradient(135deg, #00C853, #1B5E20)',
+                  boxShadow: '0 0 12px 2px rgba(0, 200, 83, 0.7)',
+                  color: '#fff',
+                  fontWeight: 700,
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #69F0AE, #00C853)',
+                    boxShadow: '0 0 18px 4px rgba(0, 200, 83, 0.9)',
+                  },
+                } : undefined}
+                startIcon={changeStatus.isPending ? <CircularProgress size={16} color="inherit" /> : <SwapHorizIcon />}
+                onClick={() => handleChangeStatusDirect(s)}
+                disabled={changeStatus.isPending}
               >
-                Cambiar estado
+                {STATUS_ACTION_LABELS[s]}
               </Button>
-            )}
+            ))}
             <Button
               variant="outlined"
               startIcon={<WhatsAppIcon />}
@@ -241,8 +261,17 @@ export const DtfDetailPage = () => {
             {canConvert && (
               <Button
                 variant="contained"
-                color="success"
                 onClick={() => setConvertDialogOpen(true)}
+                sx={{
+                  background: 'linear-gradient(135deg, #9B59B6, #6C3483)',
+                  boxShadow: '0 0 12px 2px rgba(155, 89, 182, 0.7)',
+                  color: '#fff',
+                  fontWeight: 700,
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #AF7AC5, #7D3C98)',
+                    boxShadow: '0 0 18px 4px rgba(155, 89, 182, 0.9)',
+                  },
+                }}
               >
                 Convertir en OP
               </Button>
@@ -466,36 +495,6 @@ export const DtfDetailPage = () => {
           </Grid>
         ) : null}
       </Grid>
-
-      {/* Change Status Dialog */}
-      <Dialog open={statusDialogOpen} onClose={() => setStatusDialogOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Cambiar estado</DialogTitle>
-        <DialogContent>
-          <Select
-            fullWidth
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value as DtfStatus)}
-            displayEmpty
-            size="small"
-            sx={{ mt: 1 }}
-          >
-            <MenuItem value="" disabled>Seleccionar estado...</MenuItem>
-            {nextStatuses.map((s) => (
-              <MenuItem key={s} value={s}>{STATUS_LABELS[s]}</MenuItem>
-            ))}
-          </Select>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setStatusDialogOpen(false)}>Cancelar</Button>
-          <Button
-            variant="contained"
-            onClick={handleChangeStatus}
-            disabled={!selectedStatus || changeStatus.isPending}
-          >
-            {changeStatus.isPending ? <CircularProgress size={18} /> : 'Confirmar'}
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       {/* Full-size image viewer */}
       <Dialog
