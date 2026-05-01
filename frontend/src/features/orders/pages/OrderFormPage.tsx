@@ -75,6 +75,7 @@ const initialPaymentSchema = z
     notes: z.string().optional(),
     receiptFile: z.any().optional(),
     receiptFileUrl: z.any().optional(),
+    existingReceiptFileId: z.string().nullable().optional(),
   })
   .refine(
     (data) => {
