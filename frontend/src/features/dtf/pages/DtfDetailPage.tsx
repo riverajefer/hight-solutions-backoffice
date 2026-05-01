@@ -45,13 +45,6 @@ const NEXT_STATUSES: Record<DtfStatus, DtfStatus[]> = {
   CONVERTIDA_EN_OP: [],
 };
 
-const STATUS_LABELS: Record<DtfStatus, string> = {
-  BORRADOR: 'Borrador',
-  ENVIADA: 'Enviada',
-  EN_IMPRESION: 'En Impresión',
-  COMPLETADA: 'Completada',
-  CONVERTIDA_EN_OP: 'Convertida en OP',
-};
 
 const STATUS_ACTION_LABELS: Record<DtfStatus, string> = {
   BORRADOR: 'Devolver a borrador',
