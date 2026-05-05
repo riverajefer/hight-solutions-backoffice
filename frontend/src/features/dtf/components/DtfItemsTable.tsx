@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   IconButton,
+  InputAdornment,
   Table,
   TableBody,
   TableCell,
@@ -116,7 +117,7 @@ export const DtfItemsTable = ({
           const product = dtfProducts.find((p) => p.id === updated.productId);
           const unitPrice = Number(product?.basePrice ?? 0);
           updated.unitPrice = unitPrice;
-          updated.value = unitPrice * (updated.quantity || 0);
+          updated.value = unitPrice * ((updated.quantity || 0) / 100);
         }
         return updated;
       }),
@@ -274,7 +275,7 @@ export const DtfItemsTable = ({
               <TableCell sx={{ minWidth: 140 }}>Producto *</TableCell>
               <TableCell sx={{ width: 72 }} align="center">Imagen</TableCell>
               <TableCell sx={{ minWidth: 190 }}>Cliente *</TableCell>
-              <TableCell sx={{ width: 80 }}>Cantidad *</TableCell>
+              <TableCell sx={{ width: 90 }}>Cantidad (cm) *</TableCell>
               <TableCell sx={{ width: 110 }} align="right">Valor</TableCell>
               <TableCell sx={{ width: 72 }} align="center">Comprobante</TableCell>
               <TableCell sx={{ minWidth: 140 }}>Notas</TableCell>
@@ -383,7 +384,7 @@ export const DtfItemsTable = ({
                   <TableCell>
                     {saved ? (
                       <Typography variant="body2">
-                        {Number(item.quantity).toLocaleString('es-CO')}
+                        {Number(item.quantity).toLocaleString('es-CO')} cm
                       </Typography>
                     ) : (
                       <TextField
@@ -411,7 +412,10 @@ export const DtfItemsTable = ({
                           })
                         }
                         disabled={disabled || saving}
-                        sx={{ width: 80 }}
+                        sx={{ width: 96 }}
+                        InputProps={{
+                          endAdornment: <InputAdornment position="end">cm</InputAdornment>,
+                        }}
                         inputProps={{ style: { textAlign: 'right' } }}
                       />
                     )}
@@ -419,7 +423,7 @@ export const DtfItemsTable = ({
 
                   {/* Valor */}
                   <TableCell align={saved ? 'center' : 'right'}>
-                    <Typography variant="body2" fontWeight={500}>
+                    <Typography variant="body2" fontWeight={700} color="warning.main">
                       {formatCurrency(item.value)}
                     </Typography>
                     {item.unitPrice > 0 && (
