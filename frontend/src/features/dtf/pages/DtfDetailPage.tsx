@@ -201,6 +201,34 @@ export const DtfDetailPage = () => {
     );
   };
 
+  const handleShareCompletedWhatsApp = () => {
+    if (!record.client?.phone) {
+      enqueueSnackbar('El cliente no tiene número de teléfono registrado', { variant: 'info' });
+      return;
+    }
+    const waNumber = formatPhoneForWhatsApp(record.client.phone);
+    const message = [
+      `Hola ${record.client.name}! Como esta?`,
+      ``,
+      `Le tenemos una muy buena noticia!`,
+      ``,
+      `Su pedido DTF *${record.consecutive}* ya esta completamente listo y esperando por usted.`,
+      ``,
+      `*Producto:* ${record.product?.name ?? '—'}`,
+      `*Cantidad:* ${Number(record.quantity).toLocaleString('es-CO')} unidades`,
+      ``,
+      `Puede pasar a recogerlo cuando guste, con mucho gusto lo atendemos.`,
+      ``,
+      `Gracias por confiar en nosotros!`,
+    ].join('\n');
+
+    window.open(
+      `https://wa.me/${waNumber}?text=${encodeURIComponent(message)}`,
+      '_blank',
+      'noopener,noreferrer',
+    );
+  };
+
   const files = filesQuery.data;
 
   return (
@@ -246,12 +274,21 @@ export const DtfDetailPage = () => {
               </Button>
             ))}
             <Button
-              variant="outlined"
+              variant={record.status === 'COMPLETADA' ? 'contained' : 'outlined'}
               startIcon={<WhatsAppIcon />}
-              onClick={handleShareWhatsApp}
-              sx={{ borderColor: '#25D366', color: '#25D366', '&:hover': { borderColor: '#128C7E', bgcolor: 'rgba(37,211,102,0.08)', color: '#128C7E' } }}
+              onClick={record.status === 'COMPLETADA' ? handleShareCompletedWhatsApp : handleShareWhatsApp}
+              sx={record.status === 'COMPLETADA' ? {
+                bgcolor: '#25D366',
+                color: '#fff',
+                fontWeight: 700,
+                '&:hover': { bgcolor: '#128C7E' },
+              } : {
+                borderColor: '#25D366',
+                color: '#25D366',
+                '&:hover': { borderColor: '#128C7E', bgcolor: 'rgba(37,211,102,0.08)', color: '#128C7E' },
+              }}
             >
-              WhatsApp
+              {record.status === 'COMPLETADA' ? 'Notificar pedido listo' : 'WhatsApp'}
             </Button>
             {canConvert && (
               <Button

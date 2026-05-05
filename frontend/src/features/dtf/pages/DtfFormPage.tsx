@@ -1,7 +1,11 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Box, Button, Stack, CircularProgress, Typography } from '@mui/material';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { useNavigate, useBeforeUnload } from 'react-router-dom';
+import {
+  Box, Button, Stack, CircularProgress, Typography,
+  Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
+} from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { v4 as uuidv4 } from 'uuid';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { DtfItemsTable } from '../components/DtfItemsTable';
@@ -32,6 +36,62 @@ export const DtfFormPage = () => {
 
   const unsavedItems = items.filter((i) => !i.id);
   const savedItems = items.filter((i) => !!i.id);
+
+  const hasUnsavedData = unsavedItems.some(
+    (i) => i.productId || i.clientId || i.quantity > 0 || !!i.notes,
+  );
+  const hasUnsavedDataRef = useRef(hasUnsavedData);
+  hasUnsavedDataRef.current = hasUnsavedData;
+
+  const [pendingNav, setPendingNav] = useState<string | null>(null);
+
+  // Intercepta cierre/recarga del navegador
+  useBeforeUnload(
+    useCallback((e) => { if (hasUnsavedDataRef.current) e.preventDefault(); }, []),
+  );
+
+  // Intercepta clicks en <Link> / <a href> internos (sidebar, breadcrumbs, etc.)
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (!hasUnsavedDataRef.current) return;
+      const anchor = (e.target as Element).closest('a[href]');
+      if (!anchor) return;
+      const href = anchor.getAttribute('href');
+      if (!href || href.startsWith('http') || href.startsWith('mailto') || href === '#') return;
+      e.preventDefault();
+      e.stopPropagation();
+      setPendingNav(href);
+    };
+    document.addEventListener('click', handler, true);
+    return () => document.removeEventListener('click', handler, true);
+  }, []);
+
+  // Intercepta el botón atrás/adelante del navegador
+  useEffect(() => {
+    if (!hasUnsavedData) return;
+    window.history.pushState(null, '', window.location.pathname + window.location.search);
+    const handler = () => {
+      window.history.pushState(null, '', window.location.pathname + window.location.search);
+      setPendingNav('__back__');
+    };
+    window.addEventListener('popstate', handler);
+    return () => window.removeEventListener('popstate', handler);
+  }, [hasUnsavedData]);
+
+  const guardedNavigate = useCallback((path: string) => {
+    if (hasUnsavedDataRef.current) {
+      setPendingNav(path);
+    } else {
+      navigate(path);
+    }
+  }, [navigate]);
+
+  const handleConfirmLeave = () => {
+    const path = pendingNav;
+    setPendingNav(null);
+    if (path === '__back__') navigate(-1);
+    else if (path) navigate(path);
+  };
 
   const handleSaveItem = async (localId: string) => {
     const item = items.find((i) => i._localId === localId);
@@ -96,13 +156,13 @@ export const DtfFormPage = () => {
         disabled={!!savingItemId}
         onSaveItem={handleSaveItem}
         savingItemId={savingItemId}
-        onViewItem={(id) => navigate(PATHS.DTF_DETAIL.replace(':id', id))}
+        onViewItem={(id) => guardedNavigate(PATHS.DTF_DETAIL.replace(':id', id))}
       />
 
       <Stack direction="row" spacing={2} mt={3} justifyContent="flex-end">
         <Button
           variant="outlined"
-          onClick={() => navigate(PATHS.DTF)}
+          onClick={() => guardedNavigate(PATHS.DTF)}
         >
           {allSaved ? 'Volver al listado' : 'Cancelar'}
         </Button>
@@ -122,6 +182,40 @@ export const DtfFormPage = () => {
           </Button>
         )}
       </Stack>
+
+      <Dialog
+        open={!!pendingNav}
+        onClose={() => setPendingNav(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <WarningAmberIcon color="warning" />
+            <span>¿Salir sin guardar?</span>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {unsavedItems.length === 1
+              ? 'Tienes 1 registro sin guardar.'
+              : `Tienes ${unsavedItems.length} registros sin guardar.`}{' '}
+            Si sales ahora perderás los datos que no has guardado.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPendingNav(null)}>
+            Quedarme
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleConfirmLeave}
+          >
+            Salir sin guardar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

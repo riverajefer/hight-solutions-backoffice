@@ -174,6 +174,10 @@ export function DtfStatusStepper({ currentStatus, history, isLoading }: DtfStatu
                           {entry.changedBy.firstName} {entry.changedBy.lastName}
                         </Typography>
                       </>
+                    ) : isActive ? (
+                      <Typography variant="caption" color="primary.main" sx={{ fontWeight: 600 }}>
+                        Actual
+                      </Typography>
                     ) : (
                       <Typography variant="caption" color="text.disabled">
                         Pendiente

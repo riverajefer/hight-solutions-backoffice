@@ -28,12 +28,15 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import SaveIcon from '@mui/icons-material/Save';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import {
   CloudUpload as UploadIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
+import { DtfQuickPreviewModal } from './DtfQuickPreviewModal';
 import { useProducts } from '../../portfolio/products/hooks/useProducts';
 import { useClients } from '../../clients/hooks/useClients';
+import { useDtfDetail } from '../hooks/useDtf';
 import { formatCurrency } from '../../../utils/formatters';
 import { DtfStatusChip } from './DtfStatusChip';
 import { CreateClientModal } from '../../orders/components/CreateClientModal';
@@ -68,6 +71,12 @@ const emptyItem = (): DtfFormItem => ({
 
 type FileField = 'image' | 'comprobante';
 
+function LiveStatusChip({ id }: { id: string }) {
+  const { data } = useDtfDetail(id);
+  if (!data) return null;
+  return <DtfStatusChip status={data.status} />;
+}
+
 export const DtfItemsTable = ({
   items,
   onChange,
@@ -85,6 +94,7 @@ export const DtfItemsTable = ({
     url: '',
     title: '',
   });
+  const [previewId, setPreviewId] = useState<string | null>(null);
 
   const allProducts: Product[] = productsQuery.data ?? [];
   const dtfProducts = allProducts.filter((p) => p.name.toLowerCase().includes('dtf'));
@@ -156,15 +166,15 @@ export const DtfItemsTable = ({
 
     if (previewUrl) {
       return (
-        <Stack spacing={0.5} alignItems="center">
+        <Stack spacing={0.25} alignItems="center">
           <Box
             component="img"
             src={previewUrl}
             alt={title}
             onClick={() => setViewDialog({ open: true, url: previewUrl, title })}
             sx={{
-              width: 48,
-              height: 48,
+              width: 36,
+              height: 36,
               objectFit: 'cover',
               borderRadius: 0.5,
               border: '1px solid',
@@ -207,16 +217,16 @@ export const DtfItemsTable = ({
           border: '2px dashed',
           borderColor: 'grey.300',
           borderRadius: 1,
-          p: 0.75,
+          p: 0.5,
           textAlign: 'center',
           cursor: disabled ? 'default' : 'pointer',
-          minWidth: 64,
+          minWidth: 52,
           '&:hover, &:focus': disabled ? {} : { borderColor: 'primary.main', bgcolor: 'action.hover' },
         }}
       >
-        <UploadIcon sx={{ fontSize: 20, color: 'grey.400' }} />
-        <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.65rem', lineHeight: 1.2, mt: 0.25 }}>
-          Subir o pegar
+        <UploadIcon sx={{ fontSize: 16, color: 'grey.400' }} />
+        <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.6rem', lineHeight: 1.1, mt: 0.25 }}>
+          Subir/pegar
         </Typography>
         <input
           id={inputId}
@@ -238,18 +248,37 @@ export const DtfItemsTable = ({
   return (
     <Box>
       <TableContainer sx={{ overflowX: 'auto' }}>
-        <Table size="small" sx={{ minWidth: 980 }}>
+        <Table
+          size="small"
+          sx={{
+            minWidth: 900,
+            borderCollapse: 'collapse',
+            '& .MuiTableCell-root': {
+              py: 0.5,
+              px: 1,
+              border: '1px solid',
+              borderColor: 'divider',
+            },
+            '& .MuiTableCell-head': {
+              py: 0.75,
+              px: 1,
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              bgcolor: 'action.selected',
+            },
+          }}
+        >
           <TableHead>
             <TableRow sx={{ backgroundColor: 'action.hover' }}>
-              <TableCell sx={{ width: 170 }}>Consecutivo</TableCell>
-              <TableCell sx={{ minWidth: 160 }}>Producto *</TableCell>
-              <TableCell sx={{ minWidth: 90 }} align="center">Imagen ref.</TableCell>
-              <TableCell sx={{ minWidth: 220 }}>Cliente *</TableCell>
-              <TableCell sx={{ width: 90 }}>Cantidad *</TableCell>
-              <TableCell sx={{ minWidth: 130 }} align="right">Valor</TableCell>
-              <TableCell sx={{ minWidth: 90 }} align="center">Comprobante</TableCell>
-              <TableCell sx={{ minWidth: 160 }}>Notas</TableCell>
-              <TableCell sx={{ width: 90 }} align="center">Acciones</TableCell>
+              <TableCell sx={{ width: 150 }}>Consecutivo</TableCell>
+              <TableCell sx={{ minWidth: 140 }}>Producto *</TableCell>
+              <TableCell sx={{ width: 72 }} align="center">Imagen</TableCell>
+              <TableCell sx={{ minWidth: 190 }}>Cliente *</TableCell>
+              <TableCell sx={{ width: 80 }}>Cantidad *</TableCell>
+              <TableCell sx={{ width: 110 }} align="right">Valor</TableCell>
+              <TableCell sx={{ width: 72 }} align="center">Comprobante</TableCell>
+              <TableCell sx={{ minWidth: 140 }}>Notas</TableCell>
+              <TableCell sx={{ width: 80 }} align="center">Acciones</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -262,12 +291,15 @@ export const DtfItemsTable = ({
               return (
                 <TableRow
                   key={item._localId}
-                  sx={saved ? { bgcolor: (t) => t.palette.mode === 'light' ? 'success.50' : 'rgba(76,175,80,0.06)' } : {}}
+                  sx={saved ? {
+                    bgcolor: (t) => t.palette.mode === 'light' ? 'success.50' : 'rgba(76,175,80,0.06)',
+                    '& .MuiTableCell-root': { textAlign: 'center', verticalAlign: 'middle' },
+                  } : {}}
                 >
                   {/* Consecutivo */}
                   <TableCell>
                     {saved ? (
-                      <Stack spacing={0.5}>
+                      <Stack spacing={0.5} alignItems="center">
                         <Chip
                           label={item.consecutive}
                           size="small"
@@ -275,7 +307,7 @@ export const DtfItemsTable = ({
                           variant="outlined"
                           sx={{ fontWeight: 600, fontSize: '0.7rem' }}
                         />
-                        {item.status && <DtfStatusChip status={item.status} />}
+                        <LiveStatusChip id={item.id!} />
                       </Stack>
                     ) : (
                       <Typography variant="caption" color="text.disabled">Pendiente</Typography>
@@ -350,7 +382,7 @@ export const DtfItemsTable = ({
                   {/* Cantidad */}
                   <TableCell>
                     {saved ? (
-                      <Typography variant="body2" textAlign="right">
+                      <Typography variant="body2">
                         {Number(item.quantity).toLocaleString('es-CO')}
                       </Typography>
                     ) : (
@@ -386,7 +418,7 @@ export const DtfItemsTable = ({
                   </TableCell>
 
                   {/* Valor */}
-                  <TableCell align="right">
+                  <TableCell align={saved ? 'center' : 'right'}>
                     <Typography variant="body2" fontWeight={500}>
                       {formatCurrency(item.value)}
                     </Typography>
@@ -424,15 +456,26 @@ export const DtfItemsTable = ({
                   <TableCell align="center">
                     <Stack direction="row" spacing={0.5} justifyContent="center">
                       {saved ? (
-                        <Tooltip title="Ver detalle">
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            onClick={() => onViewItem?.(item.id!)}
-                          >
-                            <VisibilityIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
+                        <>
+                          <Tooltip title="Vista rápida">
+                            <IconButton
+                              size="small"
+                              color="info"
+                              onClick={() => setPreviewId(item.id!)}
+                            >
+                              <VisibilityIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Ver detalle completo">
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              onClick={() => onViewItem?.(item.id!)}
+                            >
+                              <OpenInNewIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </>
                       ) : (
                         <Tooltip title={canSaveItem(item) ? 'Guardar este registro' : 'Completa producto, cliente y cantidad'}>
                           <span>
@@ -512,6 +555,11 @@ export const DtfItemsTable = ({
           )}
         </DialogContent>
       </Dialog>
+
+      <DtfQuickPreviewModal
+        id={previewId}
+        onClose={() => setPreviewId(null)}
+      />
     </Box>
   );
 };
