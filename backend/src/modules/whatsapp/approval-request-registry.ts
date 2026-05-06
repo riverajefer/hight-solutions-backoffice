@@ -32,6 +32,9 @@ export interface ApprovalRequestHandler {
    * Útil para módulos que validan por permiso en vez de por rol.
    */
   findReviewerByPhone?(phone: string): Promise<{ id: string } | null>;
+
+  /** Retorna el ID de la entidad raíz asociada a la solicitud (orderId, expenseOrderId, etc.). */
+  getEntityId(requestId: string): Promise<string | null>;
 }
 
 /**

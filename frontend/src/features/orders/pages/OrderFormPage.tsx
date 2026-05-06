@@ -75,6 +75,7 @@ const initialPaymentSchema = z
     notes: z.string().optional(),
     receiptFile: z.any().optional(),
     receiptFileUrl: z.any().optional(),
+    existingReceiptFileId: z.string().nullable().optional(),
   })
   .refine(
     (data) => {
@@ -515,6 +516,7 @@ export const OrderFormPage: React.FC = () => {
         paymentMethod: firstPayment?.paymentMethod || 'CASH',
         reference: firstPayment?.reference || '',
         notes: firstPayment?.notes || '',
+        existingReceiptFileId: firstPayment?.receiptFileId || null,
       }]);
       setValue('commercialChannelId', order.commercialChannelId || '');
       // En edición todos los pasos fueron completados

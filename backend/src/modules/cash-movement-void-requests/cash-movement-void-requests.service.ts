@@ -531,4 +531,12 @@ export class CashMovementVoidRequestsService
       );
     }
   }
+
+  async getEntityId(requestId: string): Promise<string | null> {
+    const request = await this.prisma.cashMovementVoidRequest.findUnique({
+      where: { id: requestId },
+      include: { cashMovement: { select: { cashSessionId: true } } },
+    });
+    return request?.cashMovement?.cashSessionId ?? null;
+  }
 }

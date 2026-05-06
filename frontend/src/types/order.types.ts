@@ -341,6 +341,7 @@ export interface InitialPaymentData {
   notes?: string;
   receiptFile?: File | null;
   receiptFileUrl?: string | null;
+  existingReceiptFileId?: string | null;
 }
 
 // ============================================================

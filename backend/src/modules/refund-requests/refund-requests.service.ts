@@ -594,4 +594,12 @@ export class RefundRequestsService
       );
     }
   }
+
+  async getEntityId(requestId: string): Promise<string | null> {
+    const request = await this.prisma.refundRequest.findUnique({
+      where: { id: requestId },
+      select: { orderId: true },
+    });
+    return request?.orderId ?? null;
+  }
 }

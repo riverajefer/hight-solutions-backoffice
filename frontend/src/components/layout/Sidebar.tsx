@@ -54,6 +54,7 @@ import GroupsIcon from '@mui/icons-material/Groups';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import PrintIcon from '@mui/icons-material/Print';
 import TuneIcon from '@mui/icons-material/Tune';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
@@ -220,6 +221,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           path: '/commercial-channels',
           permission: PERMISSIONS.READ_COMMERCIAL_CHANNELS,
         },
+        {
+          label: 'DTF',
+          icon: <PrintIcon />,
+          path: ROUTES.DTF,
+          permission: PERMISSIONS.READ_DTF,
+        },
       ],
       permissions: [
         PERMISSIONS.READ_ORDERS,
@@ -234,6 +241,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
         PERMISSIONS.APPROVE_ADVANCE_PAYMENTS,
         PERMISSIONS.APPROVE_CLIENT_OWNERSHIP_AUTH,
         PERMISSIONS.APPROVE_EXPENSE_ORDERS,
+        PERMISSIONS.READ_DTF,
       ],
     },
     {

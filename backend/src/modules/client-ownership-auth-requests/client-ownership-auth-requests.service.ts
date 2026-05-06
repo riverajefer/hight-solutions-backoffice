@@ -491,4 +491,12 @@ export class ClientOwnershipAuthRequestsService implements OnModuleInit, Approva
       );
     }
   }
+
+  async getEntityId(requestId: string): Promise<string | null> {
+    const request = await this.prisma.clientOwnershipAuthRequest.findUnique({
+      where: { id: requestId },
+      select: { orderId: true },
+    });
+    return request?.orderId ?? null;
+  }
 }

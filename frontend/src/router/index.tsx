@@ -112,6 +112,13 @@ const AccountsPayableListPage = lazy(() => import('../features/accounts-payable/
 const AccountsPayableDetailPage = lazy(() => import('../features/accounts-payable/pages/AccountsPayableDetailPage'));
 const AccountsPayableFormPage = lazy(() => import('../features/accounts-payable/pages/AccountsPayableFormPage'));
 
+const DtfListPage = lazy(() => import('../features/dtf/pages/DtfListPage'));
+const DtfFormPage = lazy(() => import('../features/dtf/pages/DtfFormPage'));
+const DtfDetailPage = lazy(() => import('../features/dtf/pages/DtfDetailPage'));
+const DtfEditPage = lazy(() => import('../features/dtf/pages/DtfEditPage'));
+// Approval Redirect
+const ApprovalRedirectPage = lazy(() => import('../features/approvals/pages/ApprovalRedirectPage'));
+
 const RoutesConfig: FC = () => {
   return (
     <Suspense fallback={<LoadingSpinner fullScreen />}>
@@ -1480,6 +1487,66 @@ const RoutesConfig: FC = () => {
                   <AccountsPayableFormPage />
                 </PermissionGuard>
               </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* DTF Routes */}
+        <Route
+          path={PATHS.DTF}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_DTF}>
+                  <DtfListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.DTF_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_DTF}>
+                  <DtfFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.DTF_DETAIL}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_DTF}>
+                  <DtfDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.DTF_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_DTF}>
+                  <DtfEditPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Approval Redirect (WhatsApp CTA) */}
+        <Route
+          path={PATHS.APPROVAL_REDIRECT}
+          element={
+            <AuthGuard>
+              <ApprovalRedirectPage />
             </AuthGuard>
           }
         />

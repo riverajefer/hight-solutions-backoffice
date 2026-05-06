@@ -511,4 +511,12 @@ export class ExpenseOrderAuthRequestsService implements OnModuleInit, ApprovalRe
       );
     }
   }
+
+  async getEntityId(requestId: string): Promise<string | null> {
+    const request = await this.prisma.expenseOrderAuthRequest.findUnique({
+      where: { id: requestId },
+      select: { expenseOrderId: true },
+    });
+    return request?.expenseOrderId ?? null;
+  }
 }

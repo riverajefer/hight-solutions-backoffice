@@ -327,6 +327,13 @@ async function main() {
 
     // Dashboard Financiero
     { name: 'read_financial_dashboard', description: 'Ver dashboard financiero con métricas de ventas, gastos y utilidad' },
+
+    // DTF
+    { name: 'read_dtf', description: 'Ver registros DTF' },
+    { name: 'create_dtf', description: 'Crear registros DTF' },
+    { name: 'update_dtf', description: 'Editar registros DTF' },
+    { name: 'change_dtf_status', description: 'Cambiar estado de registros DTF' },
+    { name: 'convert_dtf_to_order', description: 'Convertir registro DTF en Orden de Pedido' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
@@ -536,73 +543,40 @@ async function main() {
 
   const adminPassword = await bcrypt.hash('admin123', 12);
 
-  const adminUser = await prisma.user.upsert({
-    where: { username: 'adminsistema' },
-    update: {
-      username: 'adminsistema',
-      email: 'admin@example.com',
-      password: adminPassword,
-      roleId: adminRole.id,
-      firstName: 'Admin',
-      lastName: 'Sistema',
-    },
-    create: {
-      username: 'adminsistema',
-      email: 'admin@example.com',
-      password: adminPassword,
-      roleId: adminRole.id,
-      firstName: 'Admin',
-      lastName: 'Sistema',
-    },
-  });
+  let adminUser = await prisma.user.findFirst({ where: { OR: [{ username: 'adminsistema' }, { email: 'admin@example.com' }] } });
+  if (!adminUser) {
+    adminUser = await prisma.user.create({
+      data: { username: 'adminsistema', email: 'admin@example.com', password: adminPassword, roleId: adminRole.id, firstName: 'Admin', lastName: 'Sistema' },
+    });
+  } else {
+    adminUser = await prisma.user.update({ where: { id: adminUser.id }, data: { roleId: adminRole.id } });
+  }
   console.log(`  ✓ Admin user: ${adminUser.username}`);
 
   // Crear usuario de prueba con rol manager
   const managerPassword = await bcrypt.hash('manager123', 12);
 
-  const managerUser = await prisma.user.upsert({
-    where: { username: 'managersistema' },
-    update: {
-      username: 'managersistema',
-      email: 'manager@example.com',
-      password: managerPassword,
-      roleId: managerRole.id,
-      firstName: 'Manager',
-      lastName: 'Sistema',
-    },
-    create: {
-      username: 'managersistema',
-      email: 'manager@example.com',
-      password: managerPassword,
-      roleId: managerRole.id,
-      firstName: 'Manager',
-      lastName: 'Sistema',
-    },
-  });
+  let managerUser = await prisma.user.findFirst({ where: { OR: [{ username: 'managersistema' }, { email: 'manager@example.com' }] } });
+  if (!managerUser) {
+    managerUser = await prisma.user.create({
+      data: { username: 'managersistema', email: 'manager@example.com', password: managerPassword, roleId: managerRole.id, firstName: 'Manager', lastName: 'Sistema' },
+    });
+  } else {
+    managerUser = await prisma.user.update({ where: { id: managerUser.id }, data: { roleId: managerRole.id } });
+  }
   console.log(`  ✓ Manager user: ${managerUser.username}`);
 
   // Crear usuario de prueba con rol user
   const userPassword = await bcrypt.hash('user123', 12);
 
-  const regularUser = await prisma.user.upsert({
-    where: { username: 'usuariosistema' },
-    update: {
-      username: 'usuariosistema',
-      email: 'user@example.com',
-      password: userPassword,
-      roleId: userRole.id,
-      firstName: 'Usuario',
-      lastName: 'Sistema',
-    },
-    create: {
-      username: 'usuariosistema',
-      email: 'user@example.com',
-      password: userPassword,
-      firstName: 'Usuario',
-      lastName: 'Sistema',
-      roleId: userRole.id,
-    },
-  });
+  let regularUser = await prisma.user.findFirst({ where: { OR: [{ username: 'usuariosistema' }, { email: 'user@example.com' }] } });
+  if (!regularUser) {
+    regularUser = await prisma.user.create({
+      data: { username: 'usuariosistema', email: 'user@example.com', password: userPassword, roleId: userRole.id, firstName: 'Usuario', lastName: 'Sistema' },
+    });
+  } else {
+    regularUser = await prisma.user.update({ where: { id: regularUser.id }, data: { roleId: userRole.id } });
+  }
   console.log(`  ✓ Regular user: ${regularUser.username}`);
 
   // ============================================
@@ -1305,6 +1279,24 @@ async function main() {
       basePrice: 12000,
       priceUnit: 'por centímetro de altura',
       categoryId: senalizacionCategory?.id,
+    },
+
+    // DTF
+    {
+      name: 'DTF TEXTIL',
+      slug: 'dtf-textil',
+      description: 'Impresión DTF sobre textiles',
+      basePrice: 0,
+      priceUnit: 'm²',
+      categoryId: impresionCategory?.id,
+    },
+    {
+      name: 'DTF UV',
+      slug: 'dtf-uv',
+      description: 'Impresión DTF con tecnología UV',
+      basePrice: 0,
+      priceUnit: 'm²',
+      categoryId: impresionCategory?.id,
     },
   ];
 
@@ -2282,6 +2274,18 @@ async function main() {
     {
       type: 'CASH_RECEIPT',
       prefix: 'RC',
+      year: new Date().getFullYear(),
+      lastNumber: 0,
+    },
+    {
+      type: 'DTF_TEXTIL',
+      prefix: 'DTF-TEXTIL',
+      year: new Date().getFullYear(),
+      lastNumber: 0,
+    },
+    {
+      type: 'DTF_UV',
+      prefix: 'DTF-UV',
       year: new Date().getFullYear(),
       lastNumber: 0,
     },

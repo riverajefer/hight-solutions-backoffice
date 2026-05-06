@@ -126,5 +126,12 @@ export const PATHS = {
   ACCOUNTS_PAYABLE_NEW: '/accounts-payable/new',
   ACCOUNTS_PAYABLE_DETAIL: '/accounts-payable/:id',
   ACCOUNTS_PAYABLE_EDIT: '/accounts-payable/:id/edit',
+  // DTF
+  DTF: '/dtf',
+  DTF_CREATE: '/dtf/create',
+  DTF_DETAIL: '/dtf/:id',
+  DTF_EDIT: '/dtf/:id/edit',
+  // Approval Redirect (WhatsApp CTA)
+  APPROVAL_REDIRECT: '/approvals/:id',
 };
 
