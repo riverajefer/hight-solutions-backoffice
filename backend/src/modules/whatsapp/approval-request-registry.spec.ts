@@ -28,6 +28,7 @@ describe('ApprovalRequestRegistry', () => {
       findPendingRequest: jest.fn(),
       approveViaWhatsApp: jest.fn(),
       rejectViaWhatsApp: jest.fn(),
+      getEntityId: jest.fn(),
     };
 
     registry.register('TYPE_1', mockHandler);

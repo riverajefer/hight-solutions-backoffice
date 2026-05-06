@@ -364,4 +364,12 @@ export class AccountsPayableAuthRequestsService implements OnModuleInit, Approva
       this.logger.error(`Error notifying admins via WhatsApp: ${error.message}`);
     }
   }
+
+  async getEntityId(requestId: string): Promise<string | null> {
+    const request = await this.prisma.accountPayableAuthRequest.findUnique({
+      where: { id: requestId },
+      select: { accountPayableId: true },
+    });
+    return request?.accountPayableId ?? null;
+  }
 }

@@ -131,5 +131,7 @@ export const PATHS = {
   DTF_CREATE: '/dtf/create',
   DTF_DETAIL: '/dtf/:id',
   DTF_EDIT: '/dtf/:id/edit',
+  // Approval Redirect (WhatsApp CTA)
+  APPROVAL_REDIRECT: '/approvals/:id',
 };
 

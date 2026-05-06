@@ -598,4 +598,12 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       );
     }
   }
+
+  async getEntityId(requestId: string): Promise<string | null> {
+    const request = await this.prisma.advancePaymentApproval.findUnique({
+      where: { id: requestId },
+      select: { orderId: true },
+    });
+    return request?.orderId ?? null;
+  }
 }

@@ -116,6 +116,8 @@ const DtfListPage = lazy(() => import('../features/dtf/pages/DtfListPage'));
 const DtfFormPage = lazy(() => import('../features/dtf/pages/DtfFormPage'));
 const DtfDetailPage = lazy(() => import('../features/dtf/pages/DtfDetailPage'));
 const DtfEditPage = lazy(() => import('../features/dtf/pages/DtfEditPage'));
+// Approval Redirect
+const ApprovalRedirectPage = lazy(() => import('../features/approvals/pages/ApprovalRedirectPage'));
 
 const RoutesConfig: FC = () => {
   return (
@@ -1535,6 +1537,16 @@ const RoutesConfig: FC = () => {
                   <DtfEditPage />
                 </PermissionGuard>
               </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Approval Redirect (WhatsApp CTA) */}
+        <Route
+          path={PATHS.APPROVAL_REDIRECT}
+          element={
+            <AuthGuard>
+              <ApprovalRedirectPage />
             </AuthGuard>
           }
         />
