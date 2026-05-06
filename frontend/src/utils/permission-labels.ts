@@ -181,6 +181,13 @@ export const PERMISSION_LABELS: Record<string, string> = {
   create_production_orders: 'Crear Órdenes de Producción',
   update_production_orders: 'Actualizar Órdenes de Producción',
 
+  // DTF (Direct to Film)
+  create_dtf: 'Crear DTF',
+  read_dtf: 'Ver DTF',
+  update_dtf: 'Actualizar DTF',
+  change_dtf_status: 'Cambiar Estado de DTF',
+  convert_dtf_to_order: 'Convertir DTF a Orden',
+
   // Comentarios
   create_comments: 'Crear Comentarios',
   read_comments: 'Ver Comentarios',
