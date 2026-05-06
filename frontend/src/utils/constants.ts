@@ -252,6 +252,13 @@ export const ROUTES = {
   WORK_ORDERS_CREATE: '/work-orders/new',
   WORK_ORDERS_DETAIL: '/work-orders/:id',
   WORK_ORDERS_EDIT: '/work-orders/:id/edit',
+  // Expense Types & Subcategories
+  EXPENSE_TYPES: '/expense-types',
+  EXPENSE_TYPES_CREATE: '/expense-types/new',
+  EXPENSE_TYPES_EDIT: '/expense-types/:id/edit',
+  EXPENSE_SUBCATEGORIES: '/expense-subcategories',
+  EXPENSE_SUBCATEGORIES_CREATE: '/expense-subcategories/new',
+  EXPENSE_SUBCATEGORIES_EDIT: '/expense-subcategories/:id/edit',
   // Expense Orders
   EXPENSE_ORDERS: '/expense-orders',
   EXPENSE_ORDERS_CREATE: '/expense-orders/new',
