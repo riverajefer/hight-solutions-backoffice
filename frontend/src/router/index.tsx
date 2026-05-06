@@ -71,6 +71,11 @@ const CompanyPage = lazy(() => import('../features/company/pages/CompanyPage'));
 const WorkOrdersListPage = lazy(() => import('../features/work-orders/pages/WorkOrdersListPage'));
 const WorkOrderFormPage = lazy(() => import('../features/work-orders/pages/WorkOrderFormPage'));
 const WorkOrderDetailPage = lazy(() => import('../features/work-orders/pages/WorkOrderDetailPage'));
+// Expense Types & Subcategories
+const ExpenseTypesListPage = lazy(() => import('../features/expense-types/pages/ExpenseTypesListPage'));
+const ExpenseTypeFormPage = lazy(() => import('../features/expense-types/pages/ExpenseTypeFormPage'));
+const ExpenseSubcategoriesListPage = lazy(() => import('../features/expense-types/pages/ExpenseSubcategoriesListPage'));
+const ExpenseSubcategoryFormPage = lazy(() => import('../features/expense-types/pages/ExpenseSubcategoryFormPage'));
 // Expense Orders
 const ExpenseOrdersListPage = lazy(() => import('../features/expense-orders/pages/ExpenseOrdersListPage'));
 const ExpenseOrderFormPage = lazy(() => import('../features/expense-orders/pages/ExpenseOrderFormPage'));
@@ -1061,6 +1066,82 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.READ_WORK_ORDERS}>
                   <WorkOrderDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Expense Types Routes */}
+        <Route
+          path={PATHS.EXPENSE_TYPES}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_EXPENSE_TYPES}>
+                  <ExpenseTypesListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.EXPENSE_TYPES_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_EXPENSE_TYPES}>
+                  <ExpenseTypeFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.EXPENSE_TYPES_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_EXPENSE_TYPES}>
+                  <ExpenseTypeFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Expense Subcategories Routes */}
+        <Route
+          path={PATHS.EXPENSE_SUBCATEGORIES}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_EXPENSE_TYPES}>
+                  <ExpenseSubcategoriesListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.EXPENSE_SUBCATEGORIES_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_EXPENSE_TYPES}>
+                  <ExpenseSubcategoryFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.EXPENSE_SUBCATEGORIES_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_EXPENSE_TYPES}>
+                  <ExpenseSubcategoryFormPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

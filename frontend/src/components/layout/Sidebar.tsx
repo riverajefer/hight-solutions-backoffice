@@ -180,6 +180,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           permission: PERMISSIONS.READ_EXPENSE_ORDERS,
         },
         {
+          label: 'Tipos de Gasto',
+          icon: <CategoryOutlinedIcon />,
+          path: ROUTES.EXPENSE_TYPES,
+          permission: PERMISSIONS.READ_EXPENSE_TYPES,
+        },
+        {
+          label: 'Subcategorías de Gasto',
+          icon: <FolderSpecialOutlinedIcon />,
+          path: ROUTES.EXPENSE_SUBCATEGORIES,
+          permission: PERMISSIONS.READ_EXPENSE_TYPES,
+        },
+        {
           label: 'Cuentas por Pagar',
           icon: <AccountBalanceIcon />,
           path: ROUTES.ACCOUNTS_PAYABLE,
@@ -232,6 +244,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
         PERMISSIONS.READ_ORDERS,
         PERMISSIONS.READ_WORK_ORDERS,
         PERMISSIONS.READ_EXPENSE_ORDERS,
+        PERMISSIONS.READ_EXPENSE_TYPES,
         PERMISSIONS.READ_ACCOUNTS_PAYABLE,
         PERMISSIONS.BROWSE_CLIENTS,
         PERMISSIONS.SEARCH_CLIENTS,

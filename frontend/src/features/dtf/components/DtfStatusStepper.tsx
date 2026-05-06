@@ -178,7 +178,7 @@ export function DtfStatusStepper({ currentStatus, history, isLoading }: DtfStatu
                       <Typography variant="caption" color="primary.main" sx={{ fontWeight: 600 }}>
                         Actual
                       </Typography>
-                    ) : (
+                    ) : isCompleted ? null : (
                       <Typography variant="caption" color="text.disabled">
                         Pendiente
                       </Typography>

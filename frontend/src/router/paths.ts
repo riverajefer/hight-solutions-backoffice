@@ -80,6 +80,13 @@ export const PATHS = {
   WORK_ORDERS_CREATE: '/work-orders/new',
   WORK_ORDERS_EDIT: '/work-orders/:id/edit',
   WORK_ORDERS_DETAIL: '/work-orders/:id',
+  // Expense Types & Subcategories Routes
+  EXPENSE_TYPES: '/expense-types',
+  EXPENSE_TYPES_CREATE: '/expense-types/new',
+  EXPENSE_TYPES_EDIT: '/expense-types/:id/edit',
+  EXPENSE_SUBCATEGORIES: '/expense-subcategories',
+  EXPENSE_SUBCATEGORIES_CREATE: '/expense-subcategories/new',
+  EXPENSE_SUBCATEGORIES_EDIT: '/expense-subcategories/:id/edit',
   // Expense Orders Routes
   EXPENSE_ORDERS: '/expense-orders',
   EXPENSE_ORDERS_CREATE: '/expense-orders/new',
