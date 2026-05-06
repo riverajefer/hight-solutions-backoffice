@@ -64,6 +64,7 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   'Plantillas de Producto': ['read_product_templates', 'create_product_templates', 'update_product_templates', 'delete_product_templates'],
   'Etapas de Producción': ['read_step_definitions', 'create_step_definitions', 'update_step_definitions'],
   'Órdenes de Producción': ['read_production_orders', 'create_production_orders', 'update_production_orders'],
+  DTF: ['create_dtf', 'read_dtf', 'update_dtf', 'change_dtf_status', 'convert_dtf_to_order'],
 
   // Gastos y Pagos
   'Tipos de Gasto': ['create_expense_types', 'read_expense_types', 'update_expense_types', 'delete_expense_types'],
@@ -112,7 +113,7 @@ const TABS = [
   },
   {
     label: 'Comercial',
-    groups: ['Clientes', 'Cotizaciones', 'Órdenes', 'Canales Comerciales', 'Archivos', 'Cuentas por Pagar', 'Aprobaciones Cuentas por Pagar'],
+    groups: ['Clientes', 'Cotizaciones', 'Órdenes', 'DTF', 'Canales Comerciales', 'Archivos', 'Cuentas por Pagar', 'Aprobaciones Cuentas por Pagar'],
   },
   {
     label: 'Inventario',
