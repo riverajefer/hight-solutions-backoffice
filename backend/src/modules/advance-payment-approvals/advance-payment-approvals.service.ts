@@ -270,18 +270,18 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       },
     );
 
-    // Notificar por WhatsApp a usuarios con permiso (fire & forget)
-    const requesterName =
-      [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
-      user?.email ||
-      'Usuario';
+    // Notificaciones WA de anticipo desactivadas temporalmente
+    // const requesterName =
+    //   [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
+    //   user?.email ||
+    //   'Usuario';
 
-    this.notifyReviewersByWhatsApp(
-      request.id,
-      requesterName,
-      `aprobación del ${paymentLabel}${paymentDetail} de la orden ${order.orderNumber}`,
-      `El ${paymentLabel} requiere aprobación de Caja`,
-    );
+    // this.notifyReviewersByWhatsApp(
+    //   request.id,
+    //   requesterName,
+    //   `aprobación del ${paymentLabel}${paymentDetail} de la orden ${order.orderNumber}`,
+    //   `El ${paymentLabel} requiere aprobación de Caja`,
+    // );
 
     // Emitir evento WebSocket en tiempo real
     const fullRequest = await this.prisma.advancePaymentApproval.findUnique({
