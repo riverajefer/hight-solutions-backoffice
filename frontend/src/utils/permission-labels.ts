@@ -222,6 +222,10 @@ export const PERMISSION_LABELS: Record<string, string> = {
 
   // Reportes Financieros
   read_financial_dashboard: 'Ver Dashboard Financiero',
+
+  // Ventas por Asesor
+  read_sales_by_advisor: 'Ver Ventas por Asesor',
+  manage_sales_goals: 'Gestionar Metas de Ventas',
 };
 
 /**
