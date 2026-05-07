@@ -48,6 +48,7 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   'Cuentas por Pagar': ['create_accounts_payable', 'read_accounts_payable', 'update_accounts_payable', 'delete_accounts_payable', 'register_ap_payment'],
   'Aprobaciones Cuentas por Pagar': ['approve_accounts_payable'],
   'Reportes Financieros': ['read_financial_dashboard'],
+  'Ventas por Asesor': ['read_sales_by_advisor', 'manage_sales_goals'],
 
   // Inventario y Catálogos
   Movimientos: ['create_inventory_movements', 'read_inventory_movements', 'manage_inventory'],
@@ -113,7 +114,7 @@ const TABS = [
   },
   {
     label: 'Comercial',
-    groups: ['Clientes', 'Cotizaciones', 'Órdenes', 'DTF', 'Canales Comerciales', 'Archivos', 'Cuentas por Pagar', 'Aprobaciones Cuentas por Pagar'],
+    groups: ['Clientes', 'Cotizaciones', 'Órdenes', 'DTF', 'Canales Comerciales', 'Archivos', 'Cuentas por Pagar', 'Aprobaciones Cuentas por Pagar', 'Ventas por Asesor'],
   },
   {
     label: 'Inventario',

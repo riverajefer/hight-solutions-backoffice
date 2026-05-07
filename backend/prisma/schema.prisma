@@ -61,6 +61,7 @@ model User {
   dtfRecords                           DtfRecord[]            @relation("DtfCreatedBy")
   dtfStatusChanges                     DtfStatusHistory[]     @relation("DtfStatusChangedBy")
   activityHeartbeats                   ActivityHeartbeat[]
+  salesGoals                           SalesGoal[]            @relation("AdvisorSalesGoals")
   inventoryMovements                   InventoryMovement[]
   productionOrdersCreated              ProductionOrder[]            @relation("ProductionOrderCreatedBy")
   productionStepsCompleted             ProductionOrderStep[]        @relation("ProductionStepCompletedBy")
@@ -2125,6 +2126,21 @@ model DtfRecord {
   @@index([status])
   @@index([createdById])
   @@map("dtf_records")
+}
+
+model SalesGoal {
+  id           String   @id @default(uuid())
+  advisorId    String   @map("advisor_id")
+  month        Int
+  year         Int
+  targetAmount Decimal  @map("target_amount") @db.Decimal(18, 2)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  advisor User @relation("AdvisorSalesGoals", fields: [advisorId], references: [id])
+
+  @@unique([advisorId, month, year])
+  @@map("sales_goals")
 }
 
 model DtfStatusHistory {

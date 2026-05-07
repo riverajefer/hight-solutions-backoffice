@@ -447,3 +447,46 @@ export interface FilterProfitabilityDto {
   page?: number;
   limit?: number;
 }
+
+// ============================================================
+// VENTAS POR ASESOR
+// ============================================================
+
+export interface AdvisorBreakdown {
+  advisorId: string;
+  advisorName: string;
+  totalRevenue: number;
+  totalOrders: number;
+}
+
+export interface SalesSummary {
+  totalRevenue: number;
+  totalOrders: number;
+  averageOrderValue: number;
+  advisorBreakdown: AdvisorBreakdown[];
+}
+
+// ── Sales Goals ──────────────────────────────────────────────────
+
+export interface SalesGoal {
+  id: string;
+  advisorId: string;
+  month: number;
+  year: number;
+  targetAmount: number;
+  advisor: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string | null;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpsertSalesGoalDto {
+  advisorId: string;
+  month: number;
+  year: number;
+  targetAmount: number;
+}

@@ -14,3 +14,4 @@ export { ApplyDiscountDialog } from './ApplyDiscountDialog';
 export { RefundRequestDialog } from './RefundRequestDialog';
 export { DiscountsSection } from './DiscountsSection';
 export { ToolbarButton } from './ToolbarButton';
+export { SalesGoalsSection } from './SalesGoalsSection';

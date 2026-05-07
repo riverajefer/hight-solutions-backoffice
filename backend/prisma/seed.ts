@@ -334,6 +334,10 @@ async function main() {
     { name: 'update_dtf', description: 'Editar registros DTF' },
     { name: 'change_dtf_status', description: 'Cambiar estado de registros DTF' },
     { name: 'convert_dtf_to_order', description: 'Convertir registro DTF en Orden de Pedido' },
+
+    // Ventas por Asesor
+    { name: 'read_sales_by_advisor', description: 'Ver ventas por asesor' },
+    { name: 'manage_sales_goals', description: 'Crear y editar metas de ventas mensuales por asesor' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
