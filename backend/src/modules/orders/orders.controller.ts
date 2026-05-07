@@ -38,6 +38,8 @@ import {
   RegisterElectronicInvoiceDto,
   OrderProfitabilityDto,
   PaginatedProfitabilityDto,
+  UpsertSalesGoalDto,
+  FilterSalesGoalsDto,
 } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -60,6 +62,35 @@ export class OrdersController {
   findAll(@Query() filters: FilterOrdersDto) {
     return this.ordersService.findAll(filters);
   }
+
+  // ── Sales Goals ──────────────────────────────────────────────
+
+  @Get('sales-goals')
+  @RequirePermissions('read_sales_by_advisor')
+  @ApiOperation({ summary: 'List sales goals by month/year' })
+  @ApiResponse({ status: 200, description: 'Sales goals retrieved successfully' })
+  getSalesGoals(@Query() filters: FilterSalesGoalsDto) {
+    return this.ordersService.getSalesGoals(filters);
+  }
+
+  @Post('sales-goals')
+  @RequirePermissions('manage_sales_goals')
+  @ApiOperation({ summary: 'Create or update a monthly sales goal for an advisor' })
+  @ApiResponse({ status: 200, description: 'Sales goal saved successfully' })
+  upsertSalesGoal(@Body() dto: UpsertSalesGoalDto) {
+    return this.ordersService.upsertSalesGoal(dto);
+  }
+
+  @Delete('sales-goals/:goalId')
+  @RequirePermissions('manage_sales_goals')
+  @ApiOperation({ summary: 'Delete a sales goal' })
+  @ApiParam({ name: 'goalId', type: String })
+  @ApiResponse({ status: 200, description: 'Sales goal deleted successfully' })
+  deleteSalesGoal(@Param('goalId') goalId: string) {
+    return this.ordersService.deleteSalesGoal(goalId);
+  }
+
+  // ── Sales Summary ─────────────────────────────────────────────
 
   @Get('sales-summary')
   @RequirePermissions('read_sales_by_advisor')

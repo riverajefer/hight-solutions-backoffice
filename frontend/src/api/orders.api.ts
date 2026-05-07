@@ -14,6 +14,8 @@ import type {
   PaginatedProfitability,
   FilterProfitabilityDto,
   SalesSummary,
+  SalesGoal,
+  UpsertSalesGoalDto,
 } from '../types/order.types';
 
 const BASE_URL = '/orders';
@@ -216,6 +218,22 @@ export const ordersApi = {
   getSalesSummary: async (params?: FilterOrdersDto): Promise<SalesSummary> => {
     const { data } = await axiosInstance.get<SalesSummary>(`${BASE_URL}/sales-summary`, { params });
     return data;
+  },
+
+  // ── Sales Goals ─────────────────────────────────────────────
+
+  getSalesGoals: async (params?: { month?: number; year?: number; advisorId?: string }): Promise<SalesGoal[]> => {
+    const { data } = await axiosInstance.get<SalesGoal[]>(`${BASE_URL}/sales-goals`, { params });
+    return data;
+  },
+
+  upsertSalesGoal: async (dto: UpsertSalesGoalDto): Promise<SalesGoal> => {
+    const { data } = await axiosInstance.post<SalesGoal>(`${BASE_URL}/sales-goals`, dto);
+    return data;
+  },
+
+  deleteSalesGoal: async (goalId: string): Promise<void> => {
+    await axiosInstance.delete(`${BASE_URL}/sales-goals/${goalId}`);
   },
 
   /**

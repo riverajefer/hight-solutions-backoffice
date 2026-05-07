@@ -9,6 +9,7 @@ import type {
   CreatePaymentDto,
   FilterProfitabilityDto,
   SalesSummary,
+  UpsertSalesGoalDto,
 } from '../../../types/order.types';
 
 // ============================================================
@@ -293,4 +294,51 @@ export const useSalesSummary = (filters?: FilterOrdersDto) => {
     queryKey: salesSummaryKeys.summary(filters),
     queryFn: () => ordersApi.getSalesSummary(filters),
   });
+};
+
+// ============================================================
+// HOOK: useSalesGoals — Metas de ventas mensuales
+// ============================================================
+
+export const salesGoalsKeys = {
+  all: ['sales-goals'] as const,
+  list: (params?: { month?: number; year?: number; advisorId?: string }) =>
+    [...salesGoalsKeys.all, params] as const,
+};
+
+export const useSalesGoals = (params?: { month?: number; year?: number; advisorId?: string }) => {
+  const queryClient = useQueryClient();
+  const { enqueueSnackbar } = useSnackbar();
+
+  const goalsQuery = useQuery({
+    queryKey: salesGoalsKeys.list(params),
+    queryFn: () => ordersApi.getSalesGoals(params),
+    enabled: !!(params?.month && params?.year),
+  });
+
+  const upsertMutation = useMutation({
+    mutationFn: (dto: UpsertSalesGoalDto) => ordersApi.upsertSalesGoal(dto),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: salesGoalsKeys.all });
+      enqueueSnackbar('Meta guardada correctamente', { variant: 'success' });
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || 'Error al guardar la meta';
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (goalId: string) => ordersApi.deleteSalesGoal(goalId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: salesGoalsKeys.all });
+      enqueueSnackbar('Meta eliminada', { variant: 'info' });
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || 'Error al eliminar la meta';
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+
+  return { goalsQuery, upsertMutation, deleteMutation };
 };

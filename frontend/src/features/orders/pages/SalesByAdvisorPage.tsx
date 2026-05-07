@@ -10,12 +10,16 @@ import {
   Autocomplete,
   Button,
   Skeleton,
+  Tab,
+  Tabs,
 } from '@mui/material';
 import {
   TrendingUp as TrendingUpIcon,
   Receipt as ReceiptIcon,
   BarChart as BarChartIcon,
   Visibility as VisibilityIcon,
+  BarChart as SalesIcon,
+  EmojiEvents as GoalsIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -24,7 +28,7 @@ import { useOrders, useSalesSummary } from '../hooks';
 import { useClients } from '../../clients/hooks/useClients';
 import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
 import { useUsers } from '../../users/hooks/useUsers';
-import { OrderStatusChip } from '../components';
+import { OrderStatusChip, SalesGoalsSection } from '../components';
 import { ROUTES } from '../../../utils/constants';
 import type { FilterOrdersDto, OrderStatus } from '../../../types/order.types';
 import type { Client } from '../../../types/client.types';
@@ -100,6 +104,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ title, value, icon, loading, co
 export const SalesByAdvisorPage: React.FC = () => {
   const navigate = useNavigate();
 
+  const [activeTab, setActiveTab] = useState(0);
   const [filters, setFilters] = useState<FilterOrdersDto>({ page: 1, limit: 20 });
 
   const { ordersQuery } = useOrders(filters);
@@ -218,6 +223,13 @@ export const SalesByAdvisorPage: React.FC = () => {
     filters.productionAreaId ||
     filters.createdById;
 
+  const advisors = users.map((u: any) => ({
+    id: u.id,
+    firstName: u.firstName ?? null,
+    lastName: u.lastName ?? null,
+    email: u.email ?? null,
+  }));
+
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <PageHeader
@@ -225,169 +237,192 @@ export const SalesByAdvisorPage: React.FC = () => {
         breadcrumbs={[{ label: 'Comercial' }, { label: 'Ventas por Asesor' }]}
       />
 
-      {/* Métricas del header */}
-      <Box
-        sx={{
-          display: 'flex',
-          gap: 2,
-          mb: 3,
-          mt: 2,
-          flexDirection: { xs: 'column', sm: 'row' },
-        }}
-      >
-        <MetricCard
-          title="Total Vendido"
-          value={summary ? formatCurrency(summary.totalRevenue) : '—'}
-          icon={<TrendingUpIcon />}
-          loading={summaryQuery.isLoading}
-          color="success"
-        />
-        <MetricCard
-          title="Número de Órdenes"
-          value={summary ? summary.totalOrders.toString() : '—'}
-          icon={<ReceiptIcon />}
-          loading={summaryQuery.isLoading}
-          color="primary"
-        />
-        <MetricCard
-          title="Valor Promedio por OP"
-          value={summary ? formatCurrency(summary.averageOrderValue) : '—'}
-          icon={<BarChartIcon />}
-          loading={summaryQuery.isLoading}
-          color="warning"
-        />
+      {/* Tabs */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3, mt: 1 }}>
+        <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)}>
+          <Tab
+            icon={<SalesIcon fontSize="small" />}
+            iconPosition="start"
+            label="Ventas"
+          />
+          <Tab
+            icon={<GoalsIcon fontSize="small" />}
+            iconPosition="start"
+            label="Metas de Ventas"
+          />
+        </Tabs>
       </Box>
 
-      {/* Filtros */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: {
-            xs: '1fr',
-            sm: '1fr 1fr',
-            md: 'repeat(3, 1fr)',
-            lg: '1fr 1fr 1.5fr 1.5fr 1fr 1fr auto',
-          },
-          gap: 2,
-          mb: 3,
-        }}
-      >
-        {/* Asesor */}
-        <Autocomplete
-          options={users}
-          getOptionLabel={(u: any) =>
-            `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email
-          }
-          value={selectedUser}
-          onChange={(_: any, newValue: any) =>
-            handleFilterChange('createdById', newValue?.id ?? undefined)
-          }
-          size="small"
-          renderInput={(params) => <TextField {...params} label="Asesor" />}
-        />
+      {/* Tab 0 — Ventas */}
+      {activeTab === 0 && (
+        <>
+          {/* Métricas */}
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 2,
+              mb: 3,
+              flexDirection: { xs: 'column', sm: 'row' },
+            }}
+          >
+            <MetricCard
+              title="Total Vendido"
+              value={summary ? formatCurrency(summary.totalRevenue) : '—'}
+              icon={<TrendingUpIcon />}
+              loading={summaryQuery.isLoading}
+              color="success"
+            />
+            <MetricCard
+              title="Número de Órdenes"
+              value={summary ? summary.totalOrders.toString() : '—'}
+              icon={<ReceiptIcon />}
+              loading={summaryQuery.isLoading}
+              color="primary"
+            />
+            <MetricCard
+              title="Valor Promedio por OP"
+              value={summary ? formatCurrency(summary.averageOrderValue) : '—'}
+              icon={<BarChartIcon />}
+              loading={summaryQuery.isLoading}
+              color="warning"
+            />
+          </Box>
 
-        {/* Estado */}
-        <TextField
-          select
-          label="Estado"
-          value={filters.status || ''}
-          onChange={(e) =>
-            handleFilterChange('status', e.target.value || undefined)
-          }
-          fullWidth
-          size="small"
-        >
-          <MenuItem value="">Todos los estados</MenuItem>
-          {ORDER_STATUS_OPTIONS.map((opt) => (
-            <MenuItem key={opt.value} value={opt.value}>
-              {opt.label}
-            </MenuItem>
-          ))}
-        </TextField>
+          {/* Filtros */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: '1fr 1fr',
+                md: 'repeat(3, 1fr)',
+                lg: '1fr 1fr 1.5fr 1.5fr 1fr 1fr auto',
+              },
+              gap: 2,
+              mb: 3,
+            }}
+          >
+            <Autocomplete
+              options={users}
+              getOptionLabel={(u: any) =>
+                `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email
+              }
+              value={selectedUser}
+              onChange={(_: any, newValue: any) =>
+                handleFilterChange('createdById', newValue?.id ?? undefined)
+              }
+              size="small"
+              renderInput={(params) => <TextField {...params} label="Asesor" />}
+            />
 
-        {/* Fecha desde */}
-        <DatePicker
-          label="Fecha desde"
-          value={filters.orderDateFrom ? new Date(filters.orderDateFrom) : null}
-          onChange={(date) =>
-            handleFilterChange(
-              'orderDateFrom',
-              date ? date.toISOString().split('T')[0] : undefined,
-            )
-          }
-          slotProps={{ textField: { size: 'small', fullWidth: true } }}
-        />
+            <TextField
+              select
+              label="Estado"
+              value={filters.status || ''}
+              onChange={(e) =>
+                handleFilterChange('status', e.target.value || undefined)
+              }
+              fullWidth
+              size="small"
+            >
+              <MenuItem value="">Todos los estados</MenuItem>
+              {ORDER_STATUS_OPTIONS.map((opt) => (
+                <MenuItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </MenuItem>
+              ))}
+            </TextField>
 
-        {/* Fecha hasta */}
-        <DatePicker
-          label="Fecha hasta"
-          value={filters.orderDateTo ? new Date(filters.orderDateTo) : null}
-          onChange={(date) =>
-            handleFilterChange(
-              'orderDateTo',
-              date ? date.toISOString().split('T')[0] : undefined,
-            )
-          }
-          slotProps={{ textField: { size: 'small', fullWidth: true } }}
-        />
+            <DatePicker
+              label="Fecha desde"
+              value={filters.orderDateFrom ? new Date(filters.orderDateFrom) : null}
+              onChange={(date) =>
+                handleFilterChange(
+                  'orderDateFrom',
+                  date ? date.toISOString().split('T')[0] : undefined,
+                )
+              }
+              slotProps={{ textField: { size: 'small', fullWidth: true } }}
+            />
 
-        {/* Cliente */}
-        <Autocomplete
-          options={clients}
-          getOptionLabel={(c: Client) => c.name}
-          value={selectedClient}
-          onChange={(_: any, newValue: Client | null) =>
-            handleFilterChange('clientId', newValue?.id ?? undefined)
-          }
-          size="small"
-          renderInput={(params) => <TextField {...params} label="Cliente" />}
-        />
+            <DatePicker
+              label="Fecha hasta"
+              value={filters.orderDateTo ? new Date(filters.orderDateTo) : null}
+              onChange={(date) =>
+                handleFilterChange(
+                  'orderDateTo',
+                  date ? date.toISOString().split('T')[0] : undefined,
+                )
+              }
+              slotProps={{ textField: { size: 'small', fullWidth: true } }}
+            />
 
-        {/* Área de producción */}
-        <Autocomplete
-          options={productionAreas}
-          getOptionLabel={(a: any) => a.name}
-          value={selectedArea}
-          onChange={(_: any, newValue: any) =>
-            handleFilterChange('productionAreaId', newValue?.id ?? undefined)
-          }
-          size="small"
-          renderInput={(params) => (
-            <TextField {...params} label="Área de Producción" />
-          )}
-        />
+            <Autocomplete
+              options={clients}
+              getOptionLabel={(c: Client) => c.name}
+              value={selectedClient}
+              onChange={(_: any, newValue: Client | null) =>
+                handleFilterChange('clientId', newValue?.id ?? undefined)
+              }
+              size="small"
+              renderInput={(params) => <TextField {...params} label="Cliente" />}
+            />
 
-        {/* Limpiar */}
-        {hasActiveFilters && (
-          <Button variant="text" onClick={handleClearFilters} size="small" sx={{ alignSelf: 'center' }}>
-            Limpiar
-          </Button>
-        )}
-      </Box>
+            <Autocomplete
+              options={productionAreas}
+              getOptionLabel={(a: any) => a.name}
+              value={selectedArea}
+              onChange={(_: any, newValue: any) =>
+                handleFilterChange('productionAreaId', newValue?.id ?? undefined)
+              }
+              size="small"
+              renderInput={(params) => (
+                <TextField {...params} label="Área de Producción" />
+              )}
+            />
 
-      {/* Búsqueda general */}
-      <Box sx={{ mb: 2 }}>
-        <TextField
-          label="Buscar (N° orden, cliente...)"
-          value={filters.search || ''}
-          onChange={(e) => handleFilterChange('search', e.target.value || undefined)}
-          size="small"
-          sx={{ width: { xs: '100%', sm: 320 } }}
-        />
-      </Box>
+            {hasActiveFilters && (
+              <Button
+                variant="text"
+                onClick={handleClearFilters}
+                size="small"
+                sx={{ alignSelf: 'center' }}
+              >
+                Limpiar
+              </Button>
+            )}
+          </Box>
 
-      {/* Tabla */}
-      <DataTable
-        rows={orders}
-        columns={columns}
-        loading={ordersQuery.isLoading}
-        rowCount={ordersQuery.data?.meta?.total ?? 0}
-        pageSize={filters.limit ?? 20}
-        onPaginationModelChange={({ page, pageSize }: { page: number; pageSize: number }) => {
-          handleFilterChange('page', page + 1);
-          handleFilterChange('limit', pageSize);
-        }}
-      />
+          {/* Búsqueda */}
+          <Box sx={{ mb: 2 }}>
+            <TextField
+              label="Buscar (N° orden, cliente...)"
+              value={filters.search || ''}
+              onChange={(e) => handleFilterChange('search', e.target.value || undefined)}
+              size="small"
+              sx={{ width: { xs: '100%', sm: 320 } }}
+            />
+          </Box>
+
+          {/* Tabla */}
+          <DataTable
+            rows={orders}
+            columns={columns}
+            loading={ordersQuery.isLoading}
+            rowCount={ordersQuery.data?.meta?.total ?? 0}
+            pageSize={filters.limit ?? 20}
+            onPaginationModelChange={({ page, pageSize }: { page: number; pageSize: number }) => {
+              handleFilterChange('page', page + 1);
+              handleFilterChange('limit', pageSize);
+            }}
+          />
+        </>
+      )}
+
+      {/* Tab 1 — Metas de Ventas */}
+      {activeTab === 1 && (
+        <SalesGoalsSection advisors={advisors} />
+      )}
     </Box>
   );
 };

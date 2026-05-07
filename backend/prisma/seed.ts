@@ -337,6 +337,7 @@ async function main() {
 
     // Ventas por Asesor
     { name: 'read_sales_by_advisor', description: 'Ver ventas por asesor' },
+    { name: 'manage_sales_goals', description: 'Crear y editar metas de ventas mensuales por asesor' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};

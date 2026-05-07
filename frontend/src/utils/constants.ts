@@ -173,8 +173,9 @@ export const PERMISSIONS = {
   UPDATE_DTF: 'update_dtf',
   CHANGE_DTF_STATUS: 'change_dtf_status',
   CONVERT_DTF_TO_ORDER: 'convert_dtf_to_order',
-  // Ventas por Asesor
+  // Ventas por Asesor / Metas
   READ_SALES_BY_ADVISOR: 'read_sales_by_advisor',
+  MANAGE_SALES_GOALS: 'manage_sales_goals',
 };
 
 export const ROUTES = {

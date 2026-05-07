@@ -465,3 +465,28 @@ export interface SalesSummary {
   averageOrderValue: number;
   advisorBreakdown: AdvisorBreakdown[];
 }
+
+// ── Sales Goals ──────────────────────────────────────────────────
+
+export interface SalesGoal {
+  id: string;
+  advisorId: string;
+  month: number;
+  year: number;
+  targetAmount: number;
+  advisor: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string | null;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpsertSalesGoalDto {
+  advisorId: string;
+  month: number;
+  year: number;
+  targetAmount: number;
+}

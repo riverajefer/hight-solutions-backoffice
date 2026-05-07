@@ -25,6 +25,8 @@ import {
   OrderProfitabilityListItemDto,
   PaginatedProfitabilityDto,
   ExpenseOrderSummaryDto,
+  UpsertSalesGoalDto,
+  FilterSalesGoalsDto,
 } from './dto';
 import { InitialPaymentDto } from './dto/create-order.dto';
 import { EditRequestStatus, OrderStatus, Prisma } from '../../generated/prisma';
@@ -136,6 +138,43 @@ export class OrdersService {
     }
 
     return { totalRevenue, totalOrders, averageOrderValue, advisorBreakdown };
+  }
+
+  async getSalesGoals(filters: FilterSalesGoalsDto) {
+    const where: Prisma.SalesGoalWhereInput = {};
+    if (filters.month !== undefined) where.month = filters.month;
+    if (filters.year !== undefined) where.year = filters.year;
+    if (filters.advisorId) where.advisorId = filters.advisorId;
+
+    return this.prisma.salesGoal.findMany({
+      where,
+      include: {
+        advisor: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+      },
+      orderBy: [{ year: 'asc' }, { month: 'asc' }],
+    });
+  }
+
+  async upsertSalesGoal(dto: UpsertSalesGoalDto) {
+    const { advisorId, month, year, targetAmount } = dto;
+    return this.prisma.salesGoal.upsert({
+      where: { advisorId_month_year: { advisorId, month, year } },
+      update: { targetAmount },
+      create: { advisorId, month, year, targetAmount },
+      include: {
+        advisor: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+      },
+    });
+  }
+
+  async deleteSalesGoal(id: string) {
+    const goal = await this.prisma.salesGoal.findUnique({ where: { id } });
+    if (!goal) throw new NotFoundException(`Sales goal with ID ${id} not found`);
+    return this.prisma.salesGoal.delete({ where: { id } });
   }
 
   async findOne(id: string) {
