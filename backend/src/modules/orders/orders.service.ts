@@ -64,6 +64,80 @@ export class OrdersService {
     });
   }
 
+  async getSalesSummary(filters: FilterOrdersDto) {
+    const { status, clientId, orderDateFrom, orderDateTo, productionAreaId, createdById, search } = filters;
+
+    const where: Prisma.OrderWhereInput = {};
+
+    if (status) where.status = status;
+    if (clientId) where.clientId = clientId;
+    if (productionAreaId) {
+      where.items = { some: { productionAreas: { some: { productionAreaId } } } };
+    }
+    if (createdById) where.createdById = createdById;
+    if (orderDateFrom || orderDateTo) {
+      where.orderDate = {};
+      if (orderDateFrom) where.orderDate.gte = new Date(orderDateFrom);
+      if (orderDateTo) where.orderDate.lte = new Date(orderDateTo);
+    }
+    if (search) {
+      where.OR = [
+        { orderNumber: { contains: search, mode: 'insensitive' } },
+        { client: { name: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    const [aggregate, grouped] = await Promise.all([
+      this.prisma.order.aggregate({
+        where,
+        _sum: { total: true },
+        _count: { id: true },
+      }),
+      createdById
+        ? Promise.resolve([])
+        : this.prisma.order.groupBy({
+            by: ['createdById'],
+            where,
+            _sum: { total: true },
+            _count: { id: true },
+          }),
+    ]);
+
+    const totalRevenue = Number(aggregate._sum.total ?? 0);
+    const totalOrders = aggregate._count.id;
+    const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+    let advisorBreakdown: Array<{
+      advisorId: string;
+      advisorName: string;
+      totalRevenue: number;
+      totalOrders: number;
+    }> = [];
+
+    if (grouped.length > 0) {
+      const advisorIds = grouped.map((g) => g.createdById);
+      const advisors = await this.prisma.user.findMany({
+        where: { id: { in: advisorIds } },
+        select: { id: true, firstName: true, lastName: true },
+      });
+      const advisorMap = new Map(advisors.map((a) => [a.id, a]));
+
+      advisorBreakdown = grouped.map((g) => {
+        const advisor = advisorMap.get(g.createdById);
+        const firstName = advisor?.firstName ?? '';
+        const lastName = advisor?.lastName ?? '';
+        return {
+          advisorId: g.createdById,
+          advisorName: `${firstName} ${lastName}`.trim() || g.createdById,
+          totalRevenue: Number(g._sum.total ?? 0),
+          totalOrders: g._count.id,
+        };
+      });
+    }
+
+    return { totalRevenue, totalOrders, averageOrderValue, advisorBreakdown };
+  }
+
   async findOne(id: string) {
     const order = await this.ordersRepository.findById(id);
     if (!order) {

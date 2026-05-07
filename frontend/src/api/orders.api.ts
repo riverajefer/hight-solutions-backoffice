@@ -13,6 +13,7 @@ import type {
   OrderProfitability,
   PaginatedProfitability,
   FilterProfitabilityDto,
+  SalesSummary,
 } from '../types/order.types';
 
 const BASE_URL = '/orders';
@@ -206,6 +207,14 @@ export const ordersApi = {
       `${BASE_URL}/profitability`,
       { params }
     );
+    return data;
+  },
+
+  /**
+   * Obtener resumen de ventas por asesor
+   */
+  getSalesSummary: async (params?: FilterOrdersDto): Promise<SalesSummary> => {
+    const { data } = await axiosInstance.get<SalesSummary>(`${BASE_URL}/sales-summary`, { params });
     return data;
   },
 

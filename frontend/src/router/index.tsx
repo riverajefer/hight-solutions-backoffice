@@ -123,6 +123,8 @@ const DtfDetailPage = lazy(() => import('../features/dtf/pages/DtfDetailPage'));
 const DtfEditPage = lazy(() => import('../features/dtf/pages/DtfEditPage'));
 // Approval Redirect
 const ApprovalRedirectPage = lazy(() => import('../features/approvals/pages/ApprovalRedirectPage'));
+// Ventas por Asesor
+const SalesByAdvisorPage = lazy(() => import('../features/orders/pages/SalesByAdvisorPage'));
 
 const RoutesConfig: FC = () => {
   return (
@@ -1628,6 +1630,20 @@ const RoutesConfig: FC = () => {
           element={
             <AuthGuard>
               <ApprovalRedirectPage />
+            </AuthGuard>
+          }
+        />
+
+        {/* Ventas por Asesor */}
+        <Route
+          path={PATHS.SALES_BY_ADVISOR}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_SALES_BY_ADVISOR}>
+                  <SalesByAdvisorPage />
+                </PermissionGuard>
+              </MainLayout>
             </AuthGuard>
           }
         />

@@ -61,6 +61,14 @@ export class OrdersController {
     return this.ordersService.findAll(filters);
   }
 
+  @Get('sales-summary')
+  @RequirePermissions('read_sales_by_advisor')
+  @ApiOperation({ summary: 'Get sales summary grouped by advisor' })
+  @ApiResponse({ status: 200, description: 'Sales summary retrieved successfully' })
+  getSalesSummary(@Query() filters: FilterOrdersDto) {
+    return this.ordersService.getSalesSummary(filters);
+  }
+
   @Get('profitability')
   @RequirePermissions('read_orders')
   @ApiOperation({ summary: 'Get profitability list for all orders' })

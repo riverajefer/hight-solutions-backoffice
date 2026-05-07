@@ -8,6 +8,7 @@ import type {
   OrderStatus,
   CreatePaymentDto,
   FilterProfitabilityDto,
+  SalesSummary,
 } from '../../../types/order.types';
 
 // ============================================================
@@ -275,5 +276,21 @@ export const useProfitabilityList = (filters?: FilterProfitabilityDto) => {
   return useQuery({
     queryKey: ordersKeys.profitabilityList(filters),
     queryFn: () => ordersApi.getProfitabilityList(filters),
+  });
+};
+
+// ============================================================
+// HOOK: useSalesSummary - Resumen de ventas por asesor
+// ============================================================
+
+export const salesSummaryKeys = {
+  all: ['sales-summary'] as const,
+  summary: (filters?: FilterOrdersDto) => [...salesSummaryKeys.all, filters] as const,
+};
+
+export const useSalesSummary = (filters?: FilterOrdersDto) => {
+  return useQuery<SalesSummary>({
+    queryKey: salesSummaryKeys.summary(filters),
+    queryFn: () => ordersApi.getSalesSummary(filters),
   });
 };

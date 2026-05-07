@@ -222,6 +222,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           permission: PERMISSIONS.READ_ORDERS,
         },
         {
+          label: 'Ventas por Asesor',
+          icon: <PeopleAltIcon />,
+          path: ROUTES.SALES_BY_ADVISOR,
+          permission: PERMISSIONS.READ_SALES_BY_ADVISOR,
+        },
+        {
           label: 'Clientes',
           icon: <BadgeIcon />,
           path: ROUTES.CLIENTS,
@@ -255,6 +261,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
         PERMISSIONS.APPROVE_CLIENT_OWNERSHIP_AUTH,
         PERMISSIONS.APPROVE_EXPENSE_ORDERS,
         PERMISSIONS.READ_DTF,
+        PERMISSIONS.READ_SALES_BY_ADVISOR,
       ],
     },
     {

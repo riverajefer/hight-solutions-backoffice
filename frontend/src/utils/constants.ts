@@ -173,6 +173,8 @@ export const PERMISSIONS = {
   UPDATE_DTF: 'update_dtf',
   CHANGE_DTF_STATUS: 'change_dtf_status',
   CONVERT_DTF_TO_ORDER: 'convert_dtf_to_order',
+  // Ventas por Asesor
+  READ_SALES_BY_ADVISOR: 'read_sales_by_advisor',
 };
 
 export const ROUTES = {
@@ -309,6 +311,8 @@ export const ROUTES = {
   DTF_CREATE: '/dtf/create',
   DTF_DETAIL: '/dtf/:id',
   DTF_EDIT: '/dtf/:id/edit',
+  // Ventas por Asesor
+  SALES_BY_ADVISOR: '/ventas-por-asesor',
 };
 
 export const DEFAULT_PAGINATION = {
