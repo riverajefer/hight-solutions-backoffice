@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   Box,
   Card,
@@ -25,6 +26,7 @@ import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { DataTable } from '../../../components/common/DataTable';
 import { useOrders, useSalesSummary } from '../hooks';
+import { ordersApi } from '../../../api';
 import { useClients } from '../../clients/hooks/useClients';
 import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
 import { useUsers } from '../../users/hooks/useUsers';
@@ -130,6 +132,30 @@ export const SalesByAdvisorPage: React.FC = () => {
   const selectedUser = filters.createdById
     ? users.find((u: any) => u.id === filters.createdById) ?? null
     : null;
+
+  // Query to get all orders (unfiltered) for extracting advisor IDs
+  const allOrdersForAdvisorsQuery = useQuery({
+    queryKey: ['orders-all-advisors'],
+    queryFn: () => ordersApi.getAll({ page: 1, limit: 1000 }),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Set of user IDs who have created at least one order
+  const orderCreatorIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const order of allOrdersForAdvisorsQuery.data?.data ?? []) {
+      if (order.createdBy?.id) ids.add(order.createdBy.id);
+    }
+    return ids;
+  }, [allOrdersForAdvisorsQuery.data]);
+
+  // Users who have role "Comercial" OR have created at least one order
+  const advisorOptions = useMemo(() => {
+    return users.filter((u: any) =>
+      u.role?.name?.toLowerCase().includes('comercial') ||
+      orderCreatorIds.has(u.id),
+    );
+  }, [users, orderCreatorIds]);
 
   const handleFilterChange = (key: keyof FilterOrdersDto, value: any) => {
     setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
@@ -303,7 +329,7 @@ export const SalesByAdvisorPage: React.FC = () => {
             }}
           >
             <Autocomplete
-              options={users}
+              options={advisorOptions}
               getOptionLabel={(u: any) =>
                 `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email
               }
