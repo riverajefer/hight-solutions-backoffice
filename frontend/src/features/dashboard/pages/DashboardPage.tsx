@@ -35,6 +35,8 @@ import SyncAltIcon from '@mui/icons-material/SyncAlt';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import RequestPageIcon from '@mui/icons-material/RequestPage';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import DescriptionIcon from '@mui/icons-material/Description';
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import { FinancialDashboard } from '../components/FinancialDashboard';
 
 import {
@@ -63,6 +65,8 @@ import {
   cashRegisterApi,
   inventoryApi
 } from '../../../api';
+import { dtfApi } from '../../../api/dtf.api';
+import { accountsPayableApi } from '../../../api/accounts-payable.api';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { useAuthStore } from '../../../store/authStore';
@@ -495,6 +499,22 @@ const DashboardPage: React.FC = () => {
     },
   });
 
+  const { data: dtfData, isLoading: dtfLoading } = useQuery({
+    queryKey: ['dtf'],
+    queryFn: async () => {
+      if (!hasPermission(PERMISSIONS.READ_DTF)) return { meta: { total: 0 } };
+      return dtfApi.getAll({ limit: 1 });
+    },
+  });
+
+  const { data: accountsPayableData, isLoading: accountsPayableLoading } = useQuery({
+    queryKey: ['accounts-payable'],
+    queryFn: async () => {
+      if (!hasPermission(PERMISSIONS.READ_ACCOUNTS_PAYABLE)) return { meta: { total: 0, page: 1, limit: 1, totalPages: 0 } };
+      return accountsPayableApi.getAll({ limit: 1 });
+    },
+  });
+
   const isLoading =
     usersLoading || rolesLoading || permissionsLoading || clientsLoading ||
     suppliersLoading || areasLoading || cargosLoading || auditLogsLoading ||
@@ -502,7 +522,8 @@ const DashboardPage: React.FC = () => {
     productionAreasLoading || channelsLoading || productCatsLoading ||
     supplyCatsLoading || unitsLoading || pendingOrdersLoading || quotesLoading ||
     workOrdersLoading || expenseOrdersLoading || statusChangeRequestsLoading || 
-    payrollEmployeesLoading || payrollPeriodsLoading || cashRegistersLoading || inventoryLoading;
+    payrollEmployeesLoading || payrollPeriodsLoading || cashRegistersLoading ||
+    inventoryLoading || dtfLoading || accountsPayableLoading;
   
   // Logs de verificación de permisos específicos
   console.log('=== VERIFICACIÓN DE PERMISOS ESPECÍFICOS ===');
@@ -559,6 +580,8 @@ const DashboardPage: React.FC = () => {
 
   const cashRegistersCount = Array.isArray(cashRegistersData) ? cashRegistersData.length : 0;
   const inventoryMovementsCount = (inventoryMovementsData as any)?.meta?.total || 0;
+  const dtfCount = (dtfData as any)?.meta?.total || 0;
+  const accountsPayableCount = (accountsPayableData as any)?.meta?.total || 0;
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setCurrentTab(newValue);
@@ -696,6 +719,7 @@ const DashboardPage: React.FC = () => {
       {/* Tab 0: Vista General */}
       <TabPanel value={currentTab} index={0}>
         <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }}>
+          {/* ── Comercial ── */}
           {hasPermission(PERMISSIONS.READ_ORDERS) && (
             <Grid item xs={12} sm={6} md={4} lg={3}>
               <StatCard
@@ -704,10 +728,7 @@ const DashboardPage: React.FC = () => {
                 icon={<ReceiptIcon />}
                 color="#FFD700"
                 neonColor={NEON_COLORS.general}
-                action={{
-                  label: 'Ver órdenes',
-                  onClick: () => navigate(ROUTES.ORDERS),
-                }}
+                action={{ label: 'Ver órdenes', onClick: () => navigate(ROUTES.ORDERS) }}
               />
             </Grid>
           )}
@@ -719,10 +740,7 @@ const DashboardPage: React.FC = () => {
                 icon={<PostAddIcon />}
                 color="#06b6d4"
                 neonColor={NEON_COLORS.general}
-                action={{
-                  label: 'Ver cotizaciones',
-                  onClick: () => navigate(ROUTES.QUOTES),
-                }}
+                action={{ label: 'Ver cotizaciones', onClick: () => navigate(ROUTES.QUOTES) }}
               />
             </Grid>
           )}
@@ -734,10 +752,7 @@ const DashboardPage: React.FC = () => {
                 icon={<BuildIcon />}
                 color="#8B5CF6"
                 neonColor={NEON_COLORS.general}
-                action={{
-                  label: 'Ver órdenes de trabajo',
-                  onClick: () => navigate(ROUTES.WORK_ORDERS),
-                }}
+                action={{ label: 'Ver órdenes de trabajo', onClick: () => navigate(ROUTES.WORK_ORDERS) }}
               />
             </Grid>
           )}
@@ -749,10 +764,7 @@ const DashboardPage: React.FC = () => {
                 icon={<RequestQuoteIcon />}
                 color="#EC4899"
                 neonColor={NEON_COLORS.general}
-                action={{
-                  label: 'Ver órdenes de gastos',
-                  onClick: () => navigate(ROUTES.EXPENSE_ORDERS),
-                }}
+                action={{ label: 'Ver órdenes de gastos', onClick: () => navigate(ROUTES.EXPENSE_ORDERS) }}
               />
             </Grid>
           )}
@@ -764,13 +776,47 @@ const DashboardPage: React.FC = () => {
                 icon={<PaymentsIcon />}
                 color="#F97316"
                 neonColor={NEON_COLORS.general}
-                action={{
-                  label: 'Ver pendientes',
-                  onClick: () => navigate(ROUTES.PENDING_PAYMENT_ORDERS),
-                }}
+                action={{ label: 'Ver pendientes', onClick: () => navigate(ROUTES.PENDING_PAYMENT_ORDERS) }}
               />
             </Grid>
           )}
+          {hasPermission(PERMISSIONS.APPROVE_ORDERS) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Solicitudes de Cambio"
+                value={statusChangeRequestsCount}
+                icon={<PendingActionsIcon />}
+                color="#EF4444"
+                neonColor={NEON_COLORS.general}
+                action={{ label: 'Ver solicitudes', onClick: () => navigate(ROUTES.STATUS_CHANGE_REQUESTS) }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_DTF) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="DTF"
+                value={dtfCount}
+                icon={<DescriptionIcon />}
+                color="#7C3AED"
+                neonColor={NEON_COLORS.general}
+                action={{ label: 'Ver DTF', onClick: () => navigate(ROUTES.DTF) }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_SALES_BY_ADVISOR) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Ventas por Asesor"
+                value={ordersCount}
+                icon={<TrendingUpIcon />}
+                color="#F59E0B"
+                neonColor={NEON_COLORS.general}
+                action={{ label: 'Ver reporte', onClick: () => navigate(ROUTES.SALES_BY_ADVISOR) }}
+              />
+            </Grid>
+          )}
+          {/* ── Clientes y Proveedores ── */}
           {hasPermission(PERMISSIONS.READ_CLIENTS) && (
             <Grid item xs={12} sm={6} md={4} lg={3}>
               <StatCard
@@ -779,10 +825,7 @@ const DashboardPage: React.FC = () => {
                 icon={<BadgeIcon />}
                 color="#38BDF8"
                 neonColor={NEON_COLORS.general}
-                action={{
-                  label: 'Ver clientes',
-                  onClick: () => navigate(ROUTES.CLIENTS),
-                }}
+                action={{ label: 'Ver clientes', onClick: () => navigate(ROUTES.CLIENTS) }}
               />
             </Grid>
           )}
@@ -794,13 +837,23 @@ const DashboardPage: React.FC = () => {
                 icon={<LocalShippingIcon />}
                 color="#A78BFA"
                 neonColor={NEON_COLORS.general}
-                action={{
-                  label: 'Ver proveedores',
-                  onClick: () => navigate(ROUTES.SUPPLIERS),
-                }}
+                action={{ label: 'Ver proveedores', onClick: () => navigate(ROUTES.SUPPLIERS) }}
               />
             </Grid>
           )}
+          {hasPermission(PERMISSIONS.READ_COMMERCIAL_CHANNELS) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Canales de Venta"
+                value={channelsCount}
+                icon={<StoreIcon />}
+                color="#FBBF24"
+                neonColor={NEON_COLORS.general}
+                action={{ label: 'Ver canales', onClick: () => navigate('/commercial-channels') }}
+              />
+            </Grid>
+          )}
+          {/* ── Portafolio e Inventario ── */}
           {hasPermission(PERMISSIONS.READ_PRODUCTS) && (
             <Grid item xs={12} sm={6} md={4} lg={3}>
               <StatCard
@@ -809,10 +862,7 @@ const DashboardPage: React.FC = () => {
                 icon={<MiscellaneousServicesIcon />}
                 color="#60A5FA"
                 neonColor={NEON_COLORS.general}
-                action={{
-                  label: 'Ver productos',
-                  onClick: () => navigate(ROUTES.PRODUCTS),
-                }}
+                action={{ label: 'Ver productos', onClick: () => navigate(ROUTES.PRODUCTS) }}
               />
             </Grid>
           )}
@@ -824,28 +874,59 @@ const DashboardPage: React.FC = () => {
                 icon={<Inventory2OutlinedIcon />}
                 color="#FBBF24"
                 neonColor={NEON_COLORS.general}
-                action={{
-                  label: 'Ver insumos',
-                  onClick: () => navigate(ROUTES.SUPPLIES),
-                }}
+                action={{ label: 'Ver insumos', onClick: () => navigate(ROUTES.SUPPLIES) }}
               />
             </Grid>
           )}
-          {hasPermission(PERMISSIONS.READ_USERS) && (
+          {hasPermission(PERMISSIONS.READ_PRODUCT_CATEGORIES) && (
             <Grid item xs={12} sm={6} md={4} lg={3}>
               <StatCard
-                title="Usuarios"
-                value={usersCount}
-                icon={<PeopleIcon />}
-                color="#5B9FED"
+                title="Categorías Productos"
+                value={productCatsCount}
+                icon={<CategoryOutlinedIcon />}
+                color="#EC4899"
                 neonColor={NEON_COLORS.general}
-                action={{
-                  label: 'Ver usuarios',
-                  onClick: () => navigate(ROUTES.USERS),
-                }}
+                action={{ label: 'Ver categorías', onClick: () => navigate(ROUTES.PRODUCT_CATEGORIES) }}
               />
             </Grid>
           )}
+          {hasPermission(PERMISSIONS.READ_SUPPLY_CATEGORIES) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Categorías Insumos"
+                value={supplyCatsCount}
+                icon={<FolderSpecialOutlinedIcon />}
+                color="#8B5CF6"
+                neonColor={NEON_COLORS.general}
+                action={{ label: 'Ver categorías', onClick: () => navigate(ROUTES.SUPPLY_CATEGORIES) }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_UNITS_OF_MEASURE) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Unidades de Medida"
+                value={unitsCount}
+                icon={<StraightenOutlinedIcon />}
+                color="#64748B"
+                neonColor={NEON_COLORS.general}
+                action={{ label: 'Ver unidades', onClick: () => navigate(ROUTES.UNITS_OF_MEASURE) }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_INVENTORY_MOVEMENTS) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Mov. Inventario"
+                value={inventoryMovementsCount}
+                icon={<SyncAltIcon />}
+                color="#14B8A6"
+                neonColor={NEON_COLORS.general}
+                action={{ label: 'Ver movimientos', onClick: () => navigate(ROUTES.INVENTORY_MOVEMENTS) }}
+              />
+            </Grid>
+          )}
+          {/* ── Organización ── */}
           {hasPermission(PERMISSIONS.READ_PRODUCTION_AREAS) && (
             <Grid item xs={12} sm={6} md={4} lg={3}>
               <StatCard
@@ -854,10 +935,7 @@ const DashboardPage: React.FC = () => {
                 icon={<BusinessIcon />}
                 color="#2DD4BF"
                 neonColor={NEON_COLORS.general}
-                action={{
-                  label: 'Ver áreas de producción',
-                  onClick: () => navigate(ROUTES.PRODUCTION_AREAS),
-                }}
+                action={{ label: 'Ver áreas de producción', onClick: () => navigate(ROUTES.PRODUCTION_AREAS) }}
               />
             </Grid>
           )}
@@ -869,10 +947,118 @@ const DashboardPage: React.FC = () => {
                 icon={<WorkIcon />}
                 color="#F472B6"
                 neonColor={NEON_COLORS.general}
-                action={{
-                  label: 'Ver cargos',
-                  onClick: () => navigate(ROUTES.CARGOS),
-                }}
+                action={{ label: 'Ver cargos', onClick: () => navigate(ROUTES.CARGOS) }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_USERS) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Usuarios"
+                value={usersCount}
+                icon={<PeopleIcon />}
+                color="#5B9FED"
+                neonColor={NEON_COLORS.general}
+                action={{ label: 'Ver usuarios', onClick: () => navigate(ROUTES.USERS) }}
+              />
+            </Grid>
+          )}
+          {/* ── Seguridad ── */}
+          {hasPermission(PERMISSIONS.READ_ROLES) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Roles"
+                value={rolesCount}
+                icon={<SecurityIcon />}
+                color="#FB923C"
+                neonColor={NEON_COLORS.general}
+                action={{ label: 'Ver roles', onClick: () => navigate(ROUTES.ROLES) }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_PERMISSIONS) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Permisos"
+                value={permissionsCount}
+                icon={<VerifiedUserIcon />}
+                color="#4ADE80"
+                neonColor={NEON_COLORS.general}
+                action={{ label: 'Ver permisos', onClick: () => navigate(ROUTES.PERMISSIONS) }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_SESSION_LOGS) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Sesiones"
+                value={sessionLogsCount}
+                icon={<LoginIcon />}
+                color="#94A3B8"
+                neonColor={NEON_COLORS.general}
+                action={{ label: 'Ver historial', onClick: () => navigate(ROUTES.SESSION_LOGS) }}
+              />
+            </Grid>
+          )}
+          {/* ── Nómina ── */}
+          {hasPermission(PERMISSIONS.READ_PAYROLL_EMPLOYEES) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Empleados"
+                value={payrollEmployeesCount}
+                icon={<PeopleIcon />}
+                color="#EC4899"
+                neonColor={NEON_COLORS.general}
+                action={{ label: 'Ver empleados', onClick: () => navigate(ROUTES.PAYROLL_EMPLOYEES) }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_PAYROLL_PERIODS) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Períodos de Nómina"
+                value={payrollPeriodsCount}
+                icon={<PendingActionsIcon />}
+                color="#8B5CF6"
+                neonColor={NEON_COLORS.general}
+                action={{ label: 'Ver periodos', onClick: () => navigate(ROUTES.PAYROLL_PERIODS) }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_ATTENDANCE) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Asistencia"
+                value={0}
+                icon={<VerifiedUserIcon />}
+                color="#F59E0B"
+                neonColor={NEON_COLORS.general}
+                action={{ label: 'Ver asistencia', onClick: () => navigate(ROUTES.ATTENDANCE) }}
+              />
+            </Grid>
+          )}
+          {/* ── Caja y Finanzas ── */}
+          {hasPermission(PERMISSIONS.READ_CASH_REGISTERS) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Cajas Registradoras"
+                value={cashRegistersCount}
+                icon={<PointOfSaleIcon />}
+                color="#34D399"
+                neonColor={NEON_COLORS.general}
+                action={{ label: 'Ver cajas', onClick: () => navigate(ROUTES.CASH_REGISTERS) }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_ACCOUNTS_PAYABLE) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Cuentas por Pagar"
+                value={accountsPayableCount}
+                icon={<AccountBalanceIcon />}
+                color="#6366F1"
+                neonColor={NEON_COLORS.general}
+                action={{ label: 'Ver cuentas', onClick: () => navigate(ROUTES.ACCOUNTS_PAYABLE) }}
               />
             </Grid>
           )}
@@ -1013,6 +1199,36 @@ const DashboardPage: React.FC = () => {
                 action={{
                   label: 'Ver trazabilidad',
                   onClick: () => navigate(ROUTES.ORDER_FLOW_BASE),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_DTF) && (
+            <Grid item xs={12} sm={6} md={4}>
+              <StatCard
+                title="DTF"
+                value={dtfCount}
+                icon={<DescriptionIcon />}
+                color="#7C3AED"
+                neonColor={NEON_COLORS.commercial}
+                action={{
+                  label: 'Ver DTF',
+                  onClick: () => navigate(ROUTES.DTF),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_SALES_BY_ADVISOR) && (
+            <Grid item xs={12} sm={6} md={4}>
+              <StatCard
+                title="Ventas por Asesor"
+                value={ordersCount}
+                icon={<TrendingUpIcon />}
+                color="#F59E0B"
+                neonColor={NEON_COLORS.commercial}
+                action={{
+                  label: 'Ver reporte',
+                  onClick: () => navigate(ROUTES.SALES_BY_ADVISOR),
                 }}
               />
             </Grid>
@@ -1538,6 +1754,21 @@ const DashboardPage: React.FC = () => {
                 action={{
                   label: 'Gestión',
                   onClick: () => navigate(ROUTES.EXPENSE_ORDERS),
+                }}
+              />
+            </Grid>
+          )}
+          {hasPermission(PERMISSIONS.READ_ACCOUNTS_PAYABLE) && (
+            <Grid item xs={12} sm={6} md={4} lg={3}>
+              <StatCard
+                title="Cuentas por Pagar"
+                value={accountsPayableCount}
+                icon={<AccountBalanceIcon />}
+                color="#6366F1"
+                neonColor={NEON_COLORS.caja}
+                action={{
+                  label: 'Ver cuentas',
+                  onClick: () => navigate(ROUTES.ACCOUNTS_PAYABLE),
                 }}
               />
             </Grid>

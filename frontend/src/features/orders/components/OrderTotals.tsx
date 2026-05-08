@@ -11,6 +11,7 @@ import {
   Stack,
 } from '@mui/material';
 import type { OrderItemRow } from '../../../types/order.types';
+import { applyColombianRounding } from '../../../utils/formatters';
 
 interface OrderTotalsProps {
   items: OrderItemRow[];
@@ -60,8 +61,9 @@ export const OrderTotals: React.FC<OrderTotalsProps> = ({
   const hasRetenciones = applyWithholdings && (retefuenteAmount > 0 || reteICAAmount > 0);
   const subtotalAfterRetenciones = subtotal - retefuenteAmount - reteICAAmount;
 
-  const total =
-    subtotal - retefuenteAmount - reteICAAmount + tax - reteIVAAmount + (requiresColorProof ? colorProofPrice : 0);
+  const total = applyColombianRounding(
+    subtotal - retefuenteAmount - reteICAAmount + tax - reteIVAAmount + (requiresColorProof ? colorProofPrice : 0),
+  );
 
   return (
     <Card variant="outlined" sx={{ borderRadius: 2 }}>

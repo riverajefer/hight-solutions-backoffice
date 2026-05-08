@@ -50,6 +50,7 @@ import { useAuthStore } from '../../../store/authStore';
 import { enqueueSnackbar } from 'notistack';
 import { storageApi } from '../../../api/storage.api';
 import { useQueryClient } from '@tanstack/react-query';
+import { applyColombianRounding } from '../../../utils/formatters';
 
 // ============================================================
 // VALIDATION SCHEMA
@@ -411,7 +412,9 @@ export const OrderFormPage: React.FC = () => {
   const reteIVAActualRate = applyWithholdings ? parseFloat(reteIVAValue || '0') || 0 : 0;
   const reteIVAAmount = applyTax ? tax * (reteIVAActualRate / 100) : 0;
 
-  const total = subtotal - retefuenteAmount - reteICAAmount + tax - reteIVAAmount + colorProofPrice;
+  const total = applyColombianRounding(
+    subtotal - retefuenteAmount - reteICAAmount + tax - reteIVAAmount + colorProofPrice,
+  );
 
   const saldoAFavor = selectedClient?.saldoAFavor || 0;
   const useCreditBalance = watch('useCreditBalance');
