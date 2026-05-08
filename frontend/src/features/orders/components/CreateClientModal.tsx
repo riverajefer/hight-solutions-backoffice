@@ -12,6 +12,7 @@ import {
   Autocomplete,
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
+import { PhoneInputWithCountry } from '../../../components/common/PhoneInputWithCountry';
 import { useClients } from '../../clients/hooks/useClients';
 import { useDepartments, useCitiesByDepartment } from '../../locations/hooks/useLocations';
 import type { Client, PersonType } from '../../../types/client.types';
@@ -125,8 +126,10 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
     }
     if (!formData.phone.trim()) {
       newErrors.phone = 'El celular es requerido';
-    } else if (formData.phone.length !== 10) {
-      newErrors.phone = 'El celular debe tener exactamente 10 dígitos';
+    } else if (formData.phone.length < 6) {
+      newErrors.phone = 'El celular debe tener al menos 6 dígitos';
+    } else if (formData.phone.length > 20) {
+      newErrors.phone = 'El celular no puede exceder 20 dígitos';
     }
 
     if (formData.landlinePhone && formData.landlinePhone.trim() && formData.landlinePhone.length !== 10) {
@@ -335,19 +338,13 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
 
           {/* Número de celular */}
           <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              required
-              label="Número de celular"
+            <PhoneInputWithCountry
               value={formData.phone}
-              onChange={(e) => {
-                const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                handleChange('phone', value);
-              }}
+              onChange={(value) => handleChange('phone', value)}
+              label="Número de celular"
+              required
               error={!!errors.phone}
-              helperText={errors.phone || 'Máximo 10 dígitos'}
-              placeholder="3001234567"
-              inputProps={{ maxLength: 10 }}
+              helperText={errors.phone}
             />
           </Grid>
 

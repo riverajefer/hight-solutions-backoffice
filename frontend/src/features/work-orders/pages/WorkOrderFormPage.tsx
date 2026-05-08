@@ -16,7 +16,6 @@ import {
   alpha,
   useTheme,
   IconButton,
-  Tooltip,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -28,6 +27,8 @@ import {
   Inventory2 as Inventory2Icon,
   Notes as NotesIcon,
   Add as AddIcon,
+  CloudUpload as CloudUploadIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { useWorkOrders, useWorkOrder } from '../hooks';
@@ -37,6 +38,7 @@ import { useSupplies } from '../../portfolio/supplies/hooks/useSupplies';
 import { useUsers } from '../../users/hooks/useUsers';
 import { useAuthStore } from '../../../store/authStore';
 import { ROUTES, PERMISSIONS } from '../../../utils/constants';
+import { storageApi } from '../../../api/storage.api';
 import { CreateSupplyModal } from '../components/CreateSupplyModal';
 import type { Order } from '../../../types/order.types';
 import type {
@@ -209,6 +211,17 @@ export const WorkOrderFormPage = () => {
   const [designerId, setDesignerId] = useState<string | null>(null);
   const [fileName, setFileName] = useState('');
   const [fileNameError, setFileNameError] = useState('');
+  const [attachment, setAttachment] = useState<{ id: string; originalName: string; size: number } | null>(null);
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+
+  const [attachment2, setAttachment2] = useState<{ id: string; originalName: string; size: number } | null>(null);
+  const [attachmentFile2, setAttachmentFile2] = useState<File | null>(null);
+  const [isUploading2, setIsUploading2] = useState(false);
+  const [isDragging2, setIsDragging2] = useState(false);
+  const [uploadError2, setUploadError2] = useState('');
 
   // Step 3: Items form
   const [itemsForms, setItemsForms] = useState<WorkOrderItemForm[]>([]);
@@ -241,6 +254,20 @@ export const WorkOrderFormPage = () => {
       const wo = workOrderQuery.data;
       setDesignerId(wo.designer?.id ?? null);
       setFileName(wo.fileName ?? '');
+      if (wo.attachment) {
+        setAttachment({
+          id: wo.attachment.id,
+          originalName: wo.attachment.originalName,
+          size: wo.attachment.size,
+        });
+      }
+      if (wo.attachment2) {
+        setAttachment2({
+          id: wo.attachment2.id,
+          originalName: wo.attachment2.originalName,
+          size: wo.attachment2.size,
+        });
+      }
       setObservations(wo.observations ?? '');
       setItemsForms(
         wo.items.map((item) => ({
@@ -321,6 +348,76 @@ export const WorkOrderFormPage = () => {
     setFileNameError(value.length > 30 ? 'Máximo 30 caracteres' : '');
   };
 
+  const processFile = async (file: File, isSecond: boolean = false) => {
+    if (file.size > 10 * 1024 * 1024) {
+      isSecond ? setUploadError2('El archivo excede el tamaño máximo permitido (10MB)') : setUploadError('El archivo excede el tamaño máximo permitido (10MB)');
+      return;
+    }
+
+    isSecond ? setUploadError2('') : setUploadError('');
+    isSecond ? setIsUploading2(true) : setIsUploading(true);
+    try {
+      const uploaded = await storageApi.uploadFile(file, { entityType: 'work_order' });
+      if (isSecond) {
+        setAttachment2({
+          id: uploaded.id,
+          originalName: file.name,
+          size: file.size,
+        });
+        setAttachmentFile2(file);
+      } else {
+        setAttachment({
+          id: uploaded.id,
+          originalName: file.name,
+          size: file.size,
+        });
+        setAttachmentFile(file);
+      }
+    } catch (error) {
+      isSecond ? setUploadError2('Error al subir el archivo') : setUploadError('Error al subir el archivo');
+    } finally {
+      isSecond ? setIsUploading2(false) : setIsUploading(false);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, isSecond: boolean = false) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await processFile(file, isSecond);
+    }
+    // reset input
+    e.target.value = '';
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement | HTMLButtonElement | HTMLLabelElement>, isSecond: boolean = false) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isSecond) {
+      if (!isUploading2) setIsDragging2(true);
+    } else {
+      if (!isUploading) setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement | HTMLButtonElement | HTMLLabelElement>, isSecond: boolean = false) => {
+    e.preventDefault();
+    e.stopPropagation();
+    isSecond ? setIsDragging2(false) : setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement | HTMLButtonElement | HTMLLabelElement>, isSecond: boolean = false) => {
+    e.preventDefault();
+    e.stopPropagation();
+    isSecond ? setIsDragging2(false) : setIsDragging(false);
+    
+    if (isSecond ? isUploading2 : isUploading) return;
+    
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      await processFile(file, isSecond);
+    }
+  };
+
   const updateItemForm = (index: number, field: keyof WorkOrderItemForm, value: unknown) => {
     setItemsForms((prev) => {
       const updated = [...prev];
@@ -349,6 +446,8 @@ export const WorkOrderFormPage = () => {
       orderId: selectedOrder!.id,
       designerId: designerId ?? undefined,
       fileName: fileName || undefined,
+      attachmentId: attachment?.id || undefined,
+      attachment2Id: attachment2?.id || undefined,
       observations: observations || undefined,
       items,
     };
@@ -365,6 +464,12 @@ export const WorkOrderFormPage = () => {
     return {
       designerId: designerId ?? undefined,
       fileName: fileName || undefined,
+      attachmentId: attachment?.id === undefined && attachmentFile === null && !attachment
+          ? null 
+          : attachment?.id || undefined,
+      attachment2Id: attachment2?.id === undefined && attachmentFile2 === null && !attachment2
+          ? null 
+          : attachment2?.id || undefined,
       observations: observations || undefined,
       items,
     };
@@ -536,6 +641,166 @@ export const WorkOrderFormPage = () => {
         fullWidth
         size="small"
       />
+
+      <Box>
+        <Typography variant="body2" fontWeight={600} gutterBottom>
+          Archivo adjunto de la OT
+        </Typography>
+        {attachment ? (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              p: 2,
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 2,
+              bgcolor: 'background.paper',
+            }}
+          >
+            <Box>
+              <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
+                {attachment.originalName}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {(attachment.size / 1024 / 1024).toFixed(2)} MB
+              </Typography>
+            </Box>
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => {
+                setAttachment(null);
+                setAttachmentFile(null);
+              }}
+            >
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        ) : (
+          <Button
+            component="label"
+            variant="outlined"
+            size="small"
+            startIcon={isUploading ? <CircularProgress size={16} /> : <CloudUploadIcon />}
+            disabled={isUploading}
+            fullWidth
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            sx={{
+              justifyContent: 'flex-start',
+              p: 2,
+              borderStyle: 'dashed',
+              borderWidth: 2,
+              textAlign: 'left',
+              borderColor: isDragging ? 'primary.main' : 'divider',
+              bgcolor: isDragging ? alpha('#1976d2', 0.04) : 'transparent',
+              color: isDragging ? 'primary.main' : 'text.secondary',
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                borderColor: 'primary.main',
+                bgcolor: alpha('#1976d2', 0.04),
+              },
+            }}
+          >
+            <Typography variant="body2" sx={{ ml: 1 }}>
+              {isUploading ? 'Subiendo...' : 'Haz clic o arrastra un archivo aquí (Max 10MB)'}
+            </Typography>
+            <input
+              type="file"
+              hidden
+              onChange={handleFileUpload}
+            />
+          </Button>
+        )}
+        {uploadError && (
+          <Typography color="error" variant="caption" display="block" sx={{ mt: 1 }}>
+            {uploadError}
+          </Typography>
+        )}
+      </Box>
+
+      <Box>
+        <Typography variant="body2" fontWeight={600} gutterBottom>
+          Archivo adjunto de la OT (Adicional)
+        </Typography>
+        {attachment2 ? (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              p: 2,
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 2,
+              bgcolor: 'background.paper',
+            }}
+          >
+            <Box>
+              <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
+                {attachment2.originalName}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {(attachment2.size / 1024 / 1024).toFixed(2)} MB
+              </Typography>
+            </Box>
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => {
+                setAttachment2(null);
+                setAttachmentFile2(null);
+              }}
+            >
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        ) : (
+          <Button
+            component="label"
+            variant="outlined"
+            size="small"
+            startIcon={isUploading2 ? <CircularProgress size={16} /> : <CloudUploadIcon />}
+            disabled={isUploading2}
+            fullWidth
+            onDragOver={(e) => handleDragOver(e, true)}
+            onDragLeave={(e) => handleDragLeave(e, true)}
+            onDrop={(e) => handleDrop(e, true)}
+            sx={{
+              justifyContent: 'flex-start',
+              p: 2,
+              borderStyle: 'dashed',
+              borderWidth: 2,
+              textAlign: 'left',
+              borderColor: isDragging2 ? 'primary.main' : 'divider',
+              bgcolor: isDragging2 ? alpha('#1976d2', 0.04) : 'transparent',
+              color: isDragging2 ? 'primary.main' : 'text.secondary',
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                borderColor: 'primary.main',
+                bgcolor: alpha('#1976d2', 0.04),
+              },
+            }}
+          >
+            <Typography variant="body2" sx={{ ml: 1 }}>
+              {isUploading2 ? 'Subiendo...' : 'Haz clic o arrastra un archivo aquí (Max 10MB)'}
+            </Typography>
+            <input
+              type="file"
+              hidden
+              onChange={(e) => handleFileUpload(e, true)}
+            />
+          </Button>
+        )}
+        {uploadError2 && (
+          <Typography color="error" variant="caption" display="block" sx={{ mt: 1 }}>
+            {uploadError2}
+          </Typography>
+        )}
+      </Box>
     </Stack>
   );
 
@@ -645,16 +910,16 @@ export const WorkOrderFormPage = () => {
                     sx={{ flex: 1 }}
                   />
                   {hasPermission(PERMISSIONS.CREATE_SUPPLIES) && (
-                    <Tooltip title="Crear nuevo insumo">
-                      <IconButton
-                        onClick={() => setSupplyModalOpenIdx(i)}
-                        size="small"
-                        color="primary"
-                        sx={{ mt: 0.5 }}
-                      >
-                        <AddIcon />
-                      </IconButton>
-                    </Tooltip>
+                    <Button
+                      onClick={() => setSupplyModalOpenIdx(i)}
+                      size="verySmall"
+                      color="primary"
+                      variant="outlined"
+                      startIcon={<AddIcon />}
+                      sx={{ mt: 0.5, whiteSpace: 'nowrap' }}
+                    >
+                      Nuevo insumo
+                    </Button>
                   )}
                 </Stack>
 

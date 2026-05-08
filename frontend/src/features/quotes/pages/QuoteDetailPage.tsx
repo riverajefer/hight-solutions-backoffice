@@ -42,6 +42,7 @@ import {
   Add as AddIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { StatusHighlight } from '../../../components/common/StatusHighlight';
 
 import { DocumentTypeBanner } from '../../../components/common/DocumentTypeBanner';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
@@ -280,6 +281,12 @@ export const QuoteDetailPage: React.FC = () => {
           { label: 'Cotizaciones', path: '/quotes' },
           { label: quote.quoteNumber },
         ]}
+      />
+
+      <StatusHighlight
+        label={QUOTE_STATUS_CONFIG[quote.status].label}
+        color={QUOTE_STATUS_CONFIG[quote.status].color as any}
+        sx={{ mt: 2 }}
       />
 
       {/* Toolbar de Acciones */}
@@ -636,6 +643,9 @@ export const QuoteDetailPage: React.FC = () => {
           const validNext = ALLOWED_QUOTE_TRANSITIONS[quote.status] || [];
           const isCurrentStatus = quote.status === status;
           const isAllowed = validNext.includes(status as QuoteStatus);
+          const isGradient = config.color === 'gradient';
+          const shouldUseGradient = (isCurrentStatus || isAllowed) && isGradient;
+
           return (
             <MenuItem
               key={status}
@@ -644,7 +654,7 @@ export const QuoteDetailPage: React.FC = () => {
             >
               <Chip
                 label={config.label}
-                color={isCurrentStatus || isAllowed ? config.color : 'default'}
+                color={shouldUseGradient ? undefined : (isCurrentStatus || isAllowed ? config.color as any : 'default')}
                 size='small'
                 variant={
                   isCurrentStatus ? 'filled' : isAllowed ? 'outlined' : 'filled'
@@ -656,6 +666,12 @@ export const QuoteDetailPage: React.FC = () => {
                     fontWeight: 'bold',
                     border: '2px solid',
                   }),
+                  ...(shouldUseGradient && {
+                    background: 'linear-gradient(135deg, #2EB0C4 0%, #8B5CF6 50%, #FF2D95 100%)',
+                    color: 'white',
+                    border: 'none',
+                    WebkitTextFillColor: 'white'
+                  })
                 }}
               />
             </MenuItem>

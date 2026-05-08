@@ -2,9 +2,11 @@ import React from 'react';
 import {
   PictureAsPdf as PdfIcon,
   Print as PrintIcon,
+  ReceiptLong as ReceiptLongIcon,
 } from '@mui/icons-material';
 import type { Order } from '../../../types/order.types';
 import { generateOrderPdf } from '../utils/generateOrderPdf';
+import { generateOrderPosReceipt } from '../utils/generateOrderPosReceipt';
 import { ToolbarButton } from './ToolbarButton';
 
 interface OrderPdfButtonProps {
@@ -20,6 +22,17 @@ export const OrderPdfButton: React.FC<OrderPdfButtonProps> = ({ order, showPrint
 
   const handlePrint = async () => {
     const doc = await generateOrderPdf(order);
+    const url = doc.output('bloburl');
+    const win = window.open(url);
+    if (win) {
+      win.onload = () => {
+        win.print();
+      };
+    }
+  };
+
+  const handlePrintPos = () => {
+    const doc = generateOrderPosReceipt(order);
     const url = doc.output('bloburl');
     const win = window.open(url);
     if (win) {
@@ -45,6 +58,12 @@ export const OrderPdfButton: React.FC<OrderPdfButtonProps> = ({ order, showPrint
           tooltip="Imprimir Orden"
         />
       )}
+      <ToolbarButton
+        icon={<ReceiptLongIcon />}
+        label="Tirilla"
+        onClick={handlePrintPos}
+        tooltip="Imprimir tirilla POS (80mm)"
+      />
     </>
   );
 };

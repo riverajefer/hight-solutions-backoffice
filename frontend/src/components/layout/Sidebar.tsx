@@ -47,12 +47,14 @@ import BuildIcon from '@mui/icons-material/Build';
 import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import GroupsIcon from '@mui/icons-material/Groups';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import PrintIcon from '@mui/icons-material/Print';
 import TuneIcon from '@mui/icons-material/Tune';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
@@ -178,7 +180,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           permission: PERMISSIONS.READ_EXPENSE_ORDERS,
         },
         {
-          label: 'Órdenes Pendientes de Pago',
+          label: 'Tipos de Gasto',
+          icon: <CategoryOutlinedIcon />,
+          path: ROUTES.EXPENSE_TYPES,
+          permission: PERMISSIONS.READ_EXPENSE_TYPES,
+        },
+        {
+          label: 'Subcategorías de Gasto',
+          icon: <FolderSpecialOutlinedIcon />,
+          path: ROUTES.EXPENSE_SUBCATEGORIES,
+          permission: PERMISSIONS.READ_EXPENSE_TYPES,
+        },
+        {
+          label: 'Cuentas por Pagar',
+          icon: <AccountBalanceIcon />,
+          path: ROUTES.ACCOUNTS_PAYABLE,
+          permission: PERMISSIONS.READ_ACCOUNTS_PAYABLE,
+        },
+        {
+          label: 'Órdenes Pendientes por cobrar',
           icon: <PaymentsIcon />,
           path: ROUTES.PENDING_PAYMENT_ORDERS,
           permission: PERMISSIONS.READ_ORDERS,
@@ -202,10 +222,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           permission: PERMISSIONS.READ_ORDERS,
         },
         {
+          label: 'Ventas por Asesor',
+          icon: <PeopleAltIcon />,
+          path: ROUTES.SALES_BY_ADVISOR,
+          permission: PERMISSIONS.READ_SALES_BY_ADVISOR,
+        },
+        {
           label: 'Clientes',
           icon: <BadgeIcon />,
           path: ROUTES.CLIENTS,
-          permission: [PERMISSIONS.BROWSE_CLIENTS, PERMISSIONS.CREATE_CLIENTS],
+          permission: [PERMISSIONS.BROWSE_CLIENTS, PERMISSIONS.SEARCH_CLIENTS, PERMISSIONS.CREATE_CLIENTS],
         },
         {
           label: 'Canales de Venta',
@@ -213,18 +239,29 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           path: '/commercial-channels',
           permission: PERMISSIONS.READ_COMMERCIAL_CHANNELS,
         },
+        {
+          label: 'DTF',
+          icon: <PrintIcon />,
+          path: ROUTES.DTF,
+          permission: PERMISSIONS.READ_DTF,
+        },
       ],
       permissions: [
         PERMISSIONS.READ_ORDERS,
         PERMISSIONS.READ_WORK_ORDERS,
         PERMISSIONS.READ_EXPENSE_ORDERS,
+        PERMISSIONS.READ_EXPENSE_TYPES,
+        PERMISSIONS.READ_ACCOUNTS_PAYABLE,
         PERMISSIONS.BROWSE_CLIENTS,
+        PERMISSIONS.SEARCH_CLIENTS,
         PERMISSIONS.CREATE_CLIENTS,
         PERMISSIONS.READ_COMMERCIAL_CHANNELS,
         PERMISSIONS.APPROVE_ORDERS,
         PERMISSIONS.APPROVE_ADVANCE_PAYMENTS,
         PERMISSIONS.APPROVE_CLIENT_OWNERSHIP_AUTH,
         PERMISSIONS.APPROVE_EXPENSE_ORDERS,
+        PERMISSIONS.READ_DTF,
+        PERMISSIONS.READ_SALES_BY_ADVISOR,
       ],
     },
     {

@@ -64,6 +64,7 @@ async function main() {
     { name: 'browse_clients', description: 'Acceder a la tabla completa de clientes (/clients)' },
     { name: 'update_clients', description: 'Update client information' },
     { name: 'delete_clients', description: 'Delete clients' },
+    { name: 'search_clients', description: 'Buscar clientes por nombre, celular, NIT/cédula o correo' },
     {
       name: 'update_client_special_condition',
       description: 'Editar condición especial del cliente',
@@ -253,13 +254,18 @@ async function main() {
     { name: 'read_expense_orders', description: 'Ver órdenes de gasto' },
     { name: 'update_expense_orders', description: 'Actualizar órdenes de gasto' },
     { name: 'delete_expense_orders', description: 'Eliminar órdenes de gasto' },
-    { name: 'approve_expense_orders', description: 'Aprobar/marcar como pagada una OG' },
+    { name: 'approve_expense_orders', description: 'Autorización Caja: segunda firma y registro de pago de OG' },
+    { name: 'caja_authorize_expense_orders', description: 'Segunda firma Caja: autorizar OG y registrar pago (permiso dedicado)' },
 
     // Advance Payment Approvals
     { name: 'approve_advance_payments', description: 'Aprobar/rechazar anticipos de órdenes' },
 
     // Discount Approvals
     { name: 'approve_discounts', description: 'Aprobar o rechazar descuentos en órdenes' },
+
+    // Refund Requests (Devoluciones de dinero al cliente en OP)
+    { name: 'create_refund_requests', description: 'Solicitar devolución de saldo a favor en órdenes de pedido' },
+    { name: 'approve_refunds', description: 'Aprobar o rechazar devoluciones de dinero al cliente' },
 
     // Client Ownership Authorization
     { name: 'approve_client_ownership_auth', description: 'Aprobar solicitudes de autorización de propiedad de cliente en órdenes' },
@@ -307,7 +313,31 @@ async function main() {
     { name: 'read_cash_sessions', description: 'Ver sesiones de caja e historial' },
     { name: 'create_cash_movements', description: 'Registrar movimientos de caja (ingresos/egresos)' },
     { name: 'void_cash_movements', description: 'Anular movimientos de caja' },
+    { name: 'approve_cash_movements', description: 'Aprobar/rechazar solicitudes de anulación de movimientos de caja' },
     { name: 'read_cash_movements', description: 'Ver movimientos de caja' },
+
+    // Cuentas por Pagar
+    { name: 'create_accounts_payable', description: 'Crear cuentas por pagar' },
+    { name: 'read_accounts_payable', description: 'Ver cuentas por pagar' },
+    { name: 'update_accounts_payable', description: 'Editar cuentas por pagar' },
+    { name: 'delete_accounts_payable', description: 'Anular cuentas por pagar' },
+    { name: 'register_ap_payment', description: 'Registrar pagos directos en cuentas por pagar (bypass admin)' },
+    { name: 'approve_accounts_payable', description: 'Paso 1: Admin aprueba solicitud de pago de CP' },
+    { name: 'caja_authorize_ap_payment', description: 'Paso 2: Caja autoriza y registra el pago de CP (doble firma)' },
+
+    // Dashboard Financiero
+    { name: 'read_financial_dashboard', description: 'Ver dashboard financiero con métricas de ventas, gastos y utilidad' },
+
+    // DTF
+    { name: 'read_dtf', description: 'Ver registros DTF' },
+    { name: 'create_dtf', description: 'Crear registros DTF' },
+    { name: 'update_dtf', description: 'Editar registros DTF' },
+    { name: 'change_dtf_status', description: 'Cambiar estado de registros DTF' },
+    { name: 'convert_dtf_to_order', description: 'Convertir registro DTF en Orden de Pedido' },
+
+    // Ventas por Asesor
+    { name: 'read_sales_by_advisor', description: 'Ver ventas por asesor' },
+    { name: 'manage_sales_goals', description: 'Crear y editar metas de ventas mensuales por asesor' },
   ];
 
   const permissions: { [key: string]: { id: string } } = {};
@@ -409,6 +439,7 @@ async function main() {
     'read_cargos',
     'read_clients',
     'browse_clients',
+    'search_clients',
     'read_suppliers',
     'read_units_of_measure',
     'read_product_categories',
@@ -421,6 +452,7 @@ async function main() {
     'approve_orders',
     'change_order_status',
     'apply_discounts',
+    'create_refund_requests',
     // Quotes (Manager)
     'create_quotes',
     'read_quotes',
@@ -453,6 +485,12 @@ async function main() {
     // Comments (Manager)
     'create_comments',
     'read_comments',
+    // Cuentas por Pagar (Manager)
+    'create_accounts_payable',
+    'read_accounts_payable',
+    'update_accounts_payable',
+    'register_ap_payment',
+    'approve_accounts_payable',
   ]);
 
   // User - solo lectura básica
@@ -470,6 +508,7 @@ async function main() {
   // Caja - gestión de pagos y anticipos
   await assignPermissionsToRole(cajaRole.id, 'caja', [
     'approve_advance_payments',
+    'approve_refunds',
     'read_orders',
     'read_clients',
     'read_users',
@@ -490,7 +529,15 @@ async function main() {
     'read_cash_sessions',
     'create_cash_movements',
     'void_cash_movements',
+    'approve_cash_movements',
     'read_cash_movements',
+    // Expense Orders (Caja — segunda firma financiera)
+    'read_expense_orders',
+    'approve_expense_orders',
+    'caja_authorize_expense_orders',
+    // Cuentas por Pagar (Caja — segunda firma de pago)
+    'read_accounts_payable',
+    'caja_authorize_ap_payment',
   ]);
 
   // ============================================
@@ -500,73 +547,40 @@ async function main() {
 
   const adminPassword = await bcrypt.hash('admin123', 12);
 
-  const adminUser = await prisma.user.upsert({
-    where: { username: 'adminsistema' },
-    update: {
-      username: 'adminsistema',
-      email: 'admin@example.com',
-      password: adminPassword,
-      roleId: adminRole.id,
-      firstName: 'Admin',
-      lastName: 'Sistema',
-    },
-    create: {
-      username: 'adminsistema',
-      email: 'admin@example.com',
-      password: adminPassword,
-      roleId: adminRole.id,
-      firstName: 'Admin',
-      lastName: 'Sistema',
-    },
-  });
+  let adminUser = await prisma.user.findFirst({ where: { OR: [{ username: 'adminsistema' }, { email: 'admin@example.com' }] } });
+  if (!adminUser) {
+    adminUser = await prisma.user.create({
+      data: { username: 'adminsistema', email: 'admin@example.com', password: adminPassword, roleId: adminRole.id, firstName: 'Admin', lastName: 'Sistema' },
+    });
+  } else {
+    adminUser = await prisma.user.update({ where: { id: adminUser.id }, data: { roleId: adminRole.id } });
+  }
   console.log(`  ✓ Admin user: ${adminUser.username}`);
 
   // Crear usuario de prueba con rol manager
   const managerPassword = await bcrypt.hash('manager123', 12);
 
-  const managerUser = await prisma.user.upsert({
-    where: { username: 'managersistema' },
-    update: {
-      username: 'managersistema',
-      email: 'manager@example.com',
-      password: managerPassword,
-      roleId: managerRole.id,
-      firstName: 'Manager',
-      lastName: 'Sistema',
-    },
-    create: {
-      username: 'managersistema',
-      email: 'manager@example.com',
-      password: managerPassword,
-      roleId: managerRole.id,
-      firstName: 'Manager',
-      lastName: 'Sistema',
-    },
-  });
+  let managerUser = await prisma.user.findFirst({ where: { OR: [{ username: 'managersistema' }, { email: 'manager@example.com' }] } });
+  if (!managerUser) {
+    managerUser = await prisma.user.create({
+      data: { username: 'managersistema', email: 'manager@example.com', password: managerPassword, roleId: managerRole.id, firstName: 'Manager', lastName: 'Sistema' },
+    });
+  } else {
+    managerUser = await prisma.user.update({ where: { id: managerUser.id }, data: { roleId: managerRole.id } });
+  }
   console.log(`  ✓ Manager user: ${managerUser.username}`);
 
   // Crear usuario de prueba con rol user
   const userPassword = await bcrypt.hash('user123', 12);
 
-  const regularUser = await prisma.user.upsert({
-    where: { username: 'usuariosistema' },
-    update: {
-      username: 'usuariosistema',
-      email: 'user@example.com',
-      password: userPassword,
-      roleId: userRole.id,
-      firstName: 'Usuario',
-      lastName: 'Sistema',
-    },
-    create: {
-      username: 'usuariosistema',
-      email: 'user@example.com',
-      password: userPassword,
-      firstName: 'Usuario',
-      lastName: 'Sistema',
-      roleId: userRole.id,
-    },
-  });
+  let regularUser = await prisma.user.findFirst({ where: { OR: [{ username: 'usuariosistema' }, { email: 'user@example.com' }] } });
+  if (!regularUser) {
+    regularUser = await prisma.user.create({
+      data: { username: 'usuariosistema', email: 'user@example.com', password: userPassword, roleId: userRole.id, firstName: 'Usuario', lastName: 'Sistema' },
+    });
+  } else {
+    regularUser = await prisma.user.update({ where: { id: regularUser.id }, data: { roleId: userRole.id } });
+  }
   console.log(`  ✓ Regular user: ${regularUser.username}`);
 
   // ============================================
@@ -1269,6 +1283,24 @@ async function main() {
       basePrice: 12000,
       priceUnit: 'por centímetro de altura',
       categoryId: senalizacionCategory?.id,
+    },
+
+    // DTF
+    {
+      name: 'DTF TEXTIL',
+      slug: 'dtf-textil',
+      description: 'Impresión DTF sobre textiles',
+      basePrice: 0,
+      priceUnit: 'm²',
+      categoryId: impresionCategory?.id,
+    },
+    {
+      name: 'DTF UV',
+      slug: 'dtf-uv',
+      description: 'Impresión DTF con tecnología UV',
+      basePrice: 0,
+      priceUnit: 'm²',
+      categoryId: impresionCategory?.id,
     },
   ];
 
@@ -2246,6 +2278,18 @@ async function main() {
     {
       type: 'CASH_RECEIPT',
       prefix: 'RC',
+      year: new Date().getFullYear(),
+      lastNumber: 0,
+    },
+    {
+      type: 'DTF_TEXTIL',
+      prefix: 'DTF-TEXTIL',
+      year: new Date().getFullYear(),
+      lastNumber: 0,
+    },
+    {
+      type: 'DTF_UV',
+      prefix: 'DTF-UV',
       year: new Date().getFullYear(),
       lastNumber: 0,
     },

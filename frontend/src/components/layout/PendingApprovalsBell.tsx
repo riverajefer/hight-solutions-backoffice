@@ -11,6 +11,7 @@ import { editRequestsApi } from '../../api/edit-requests.api';
 import { expenseOrderAuthRequestsApi } from '../../api/expense-order-auth-requests.api';
 import { advancePaymentApprovalsApi } from '../../api/advance-payment-approvals.api';
 import { clientOwnershipAuthRequestsApi } from '../../api/client-ownership-auth-requests.api';
+import { refundRequestsApi } from '../../api/refund-requests.api';
 
 export const PendingApprovalsBell: React.FC = () => {
   const navigate = useNavigate();
@@ -21,6 +22,7 @@ export const PendingApprovalsBell: React.FC = () => {
   const canApproveAdvancePayments = hasPermission('approve_advance_payments') || isAdmin;
   const canApproveClientOwnership = hasPermission('approve_client_ownership_auth') || isAdmin;
   const canApproveExpenseOrders = hasPermission('approve_expense_orders') || isAdmin;
+  const canApproveRefunds = hasPermission('approve_refunds') || isAdmin;
 
   const { data: statusRequests } = useQuery({
     queryKey: ['statusChangeRequests', 'pending', 'badge'],
@@ -52,6 +54,12 @@ export const PendingApprovalsBell: React.FC = () => {
     enabled: !!canApproveClientOwnership,
   });
 
+  const { data: refundRequests } = useQuery({
+    queryKey: ['refund-requests', 'pending', 'badge'],
+    queryFn: () => refundRequestsApi.findPending(),
+    enabled: !!canApproveRefunds,
+  });
+
   const totalPending = useMemo(() => {
     let count = 0;
     if (statusRequests) count += statusRequests.length;
@@ -59,10 +67,11 @@ export const PendingApprovalsBell: React.FC = () => {
     if (ogAuthRequests) count += ogAuthRequests.length;
     if (advanceRequests) count += advanceRequests.length;
     if (ownershipRequests) count += ownershipRequests.length;
+    if (refundRequests) count += refundRequests.length;
     return count;
-  }, [statusRequests, editRequests, ogAuthRequests, advanceRequests, ownershipRequests]);
+  }, [statusRequests, editRequests, ogAuthRequests, advanceRequests, ownershipRequests, refundRequests]);
 
-  const hasAnyPermission = canApproveOrders || canApproveAdvancePayments || canApproveClientOwnership || canApproveExpenseOrders || isAdmin;
+  const hasAnyPermission = canApproveOrders || canApproveAdvancePayments || canApproveClientOwnership || canApproveExpenseOrders || canApproveRefunds || isAdmin;
 
   if (!hasAnyPermission) {
     return null;

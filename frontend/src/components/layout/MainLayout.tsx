@@ -4,6 +4,8 @@ import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { EnvironmentBanner } from './EnvironmentBanner';
 import { useHeartbeat } from '../../hooks/useHeartbeat';
+import { GlobalSearchModal } from '../GlobalSearch';
+import { useUIStore } from '../../store/uiStore';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -19,8 +21,21 @@ export const MainLayout: FC<MainLayoutProps> = ({ children }) => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isTablet = useMediaQuery(theme.breakpoints.between('md', 'lg'));
 
+  const { toggleGlobalSearch } = useUIStore();
+
   // Enviar heartbeats de actividad cada 5 minutos mientras el layout está montado
   useHeartbeat();
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        toggleGlobalSearch();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [toggleGlobalSearch]);
 
   useEffect(() => {
     if (isMobile) {
@@ -86,6 +101,8 @@ export const MainLayout: FC<MainLayoutProps> = ({ children }) => {
         </Box>
 
       </Box>
+
+      <GlobalSearchModal />
     </Box>
   );
 };

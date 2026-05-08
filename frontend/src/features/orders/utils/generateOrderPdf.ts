@@ -283,16 +283,16 @@ async function drawItemsTable(doc: jsPDF, y: number, order: Order): Promise<numb
   const hasImages = order.items?.some(item => item.sampleImageId);
 
   const colWidths = hasImages
-    ? [25, 15, 70, 32.5, 37.5] // Imagen | Cant | Descripción | Val. Unitario | Val. Total
-    : [20, 85, 37.5, 37.5]; // Cant | Descripción | Val. Unitario | Val. Total
+    ? [20, 10, 25, 60, 32.5, 32.5] // Imagen | Cant | Producto | Descripción | Val. Unitario | Val. Total
+    : [13, 27, 70, 35, 35]; // Cant | Producto | Descripción | Val. Unitario | Val. Total
 
   const colLabels = hasImages
-    ? ['Imagen', 'Cant.', 'Descripción', 'Val. Unitario', 'Val. Total']
-    : ['Cant.', 'Descripción', 'Val. Unitario', 'Val. Total'];
+    ? ['Imagen', 'Cant.', 'Producto', 'Descripción', 'Val. Unitario', 'Val. Total']
+    : ['Cant.', 'Producto', 'Descripción', 'Val. Unitario', 'Val. Total'];
 
   const colAligns: ('center' | 'left' | 'right')[] = hasImages
-    ? ['center', 'center', 'left', 'right', 'right']
-    : ['center', 'left', 'right', 'right'];
+    ? ['center', 'center', 'left', 'left', 'right', 'right']
+    : ['center', 'left', 'left', 'right', 'right'];
 
   const rowHeight = 6;
   const headerHeight = 7;
@@ -340,10 +340,14 @@ async function drawItemsTable(doc: jsPDF, y: number, order: Order): Promise<numb
     const item = order.items[idx];
 
     // Calculate required row height based on description wrapping
-    const descColIndex = hasImages ? 2 : 1;
+    const descColIndex = hasImages ? 3 : 2;
+    const prodColIndex = hasImages ? 2 : 1;
     const descLines = calcLineCount(doc, item.description, colWidths[descColIndex] - 4);
+    const prodLines = calcLineCount(doc, item.product?.name || 'N/A', colWidths[prodColIndex] - 4);
+    const maxTextLines = Math.max(descLines, prodLines);
+    
     const imageHeight = item.sampleImageId && imageCache[item.sampleImageId] ? 20 : 0;
-    const dynamicRowHeight = Math.max(rowHeight, descLines * 4 + 2, imageHeight + 4);
+    const dynamicRowHeight = Math.max(rowHeight, maxTextLines * 4 + 2, imageHeight + 4);
 
     // Page break check
     if (y + dynamicRowHeight > PDF_LAYOUT.pageHeight - PDF_LAYOUT.marginBottom - 5) {
@@ -371,12 +375,14 @@ async function drawItemsTable(doc: jsPDF, y: number, order: Order): Promise<numb
       ? [
           '', // Image placeholder
           String(item.quantity),
+          item.product?.name || 'N/A',
           item.description,
           formatCurrency(item.unitPrice),
           formatCurrency(item.total),
         ]
       : [
           String(item.quantity),
+          item.product?.name || 'N/A',
           item.description,
           formatCurrency(item.unitPrice),
           formatCurrency(item.total),
@@ -394,8 +400,8 @@ async function drawItemsTable(doc: jsPDF, y: number, order: Order): Promise<numb
           const imgY = y + (dynamicRowHeight - imgHeight) / 2;
           doc.addImage(imgData, 'PNG', imgX, imgY, imgWidth, imgHeight);
         }
-      } else if ((hasImages && i === 2) || (!hasImages && i === 1)) {
-        // Description: left-aligned with padding, support multi-line
+      } else if ((hasImages && (i === 2 || i === 3)) || (!hasImages && (i === 1 || i === 2))) {
+        // Left-aligned with padding, support multi-line (Producto and Descripción)
         const lines = doc.splitTextToSize(val, colWidths[i] - 4);
         const lineH = 4;
         const blockH = lines.length * lineH;
@@ -404,7 +410,12 @@ async function drawItemsTable(doc: jsPDF, y: number, order: Order): Promise<numb
           doc.text(line, cx + 2, startY + li * lineH);
         });
       } else if (val !== '') {
-        doc.text(val, cx + colWidths[i] / 2, textY, { align: colAligns[i] });
+        const align = colAligns[i];
+        let textX = cx + colWidths[i] / 2;
+        if (align === 'right') textX = cx + colWidths[i] - 2;
+        if (align === 'left') textX = cx + 2;
+
+        doc.text(val, textX, textY, { align });
       }
       cx += colWidths[i];
     });
@@ -430,6 +441,32 @@ function drawFinancials(doc: jsPDF, y: number, order: Order): number {
   doc.text(formatCurrency(order.subtotal), valueRight, y, { align: 'right' });
   y += lineH;
 
+  // Retefuente — only if rate > 0
+  if (parseFloat(order.retefuenteRate) > 0) {
+    const rate = (parseFloat(order.retefuenteRate) * 100).toFixed(3).replace(/\.?0+$/, '');
+    const amount = parseFloat(order.subtotal) * parseFloat(order.retefuenteRate);
+    doc.setFont('helvetica', 'normal');
+    setTextColor(doc, [220, 53, 69]);
+    doc.text(`Retefuente (${rate}%):`, labelX, y);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`-${formatCurrency(amount.toString())}`, valueRight, y, { align: 'right' });
+    setTextColor(doc, PDF_COLORS.bodyText);
+    y += lineH;
+  }
+
+  // ReteICA — only if rate > 0
+  if (parseFloat(order.reteICARate) > 0) {
+    const rate = (parseFloat(order.reteICARate) * 100).toFixed(3).replace(/\.?0+$/, '');
+    const amount = parseFloat(order.subtotal) * parseFloat(order.reteICARate);
+    doc.setFont('helvetica', 'normal');
+    setTextColor(doc, [220, 53, 69]);
+    doc.text(`ReteICA (${rate}%):`, labelX, y);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`-${formatCurrency(amount.toString())}`, valueRight, y, { align: 'right' });
+    setTextColor(doc, PDF_COLORS.bodyText);
+    y += lineH;
+  }
+
   // IVA — only if tax > 0
   if (parseFloat(order.tax) > 0) {
     const rate = (parseFloat(order.taxRate) * 100).toFixed(1);
@@ -437,6 +474,19 @@ function drawFinancials(doc: jsPDF, y: number, order: Order): number {
     doc.text(`IVA (${rate}%):`, labelX, y);
     doc.setFont('helvetica', 'bold');
     doc.text(formatCurrency(order.tax), valueRight, y, { align: 'right' });
+    y += lineH;
+  }
+
+  // ReteIVA — only if rate > 0 and there is IVA
+  if (parseFloat(order.reteIVARate) > 0 && parseFloat(order.tax) > 0) {
+    const rate = (parseFloat(order.reteIVARate) * 100).toFixed(0);
+    const amount = parseFloat(order.tax) * parseFloat(order.reteIVARate);
+    doc.setFont('helvetica', 'normal');
+    setTextColor(doc, [220, 53, 69]);
+    doc.text(`ReteIVA (${rate}%):`, labelX, y);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`-${formatCurrency(amount.toString())}`, valueRight, y, { align: 'right' });
+    setTextColor(doc, PDF_COLORS.bodyText);
     y += lineH;
   }
 

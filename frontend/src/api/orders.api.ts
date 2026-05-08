@@ -13,6 +13,9 @@ import type {
   OrderProfitability,
   PaginatedProfitability,
   FilterProfitabilityDto,
+  SalesSummary,
+  SalesGoal,
+  UpsertSalesGoalDto,
 } from '../types/order.types';
 
 const BASE_URL = '/orders';
@@ -205,6 +208,54 @@ export const ordersApi = {
     const { data } = await axiosInstance.get<PaginatedProfitability>(
       `${BASE_URL}/profitability`,
       { params }
+    );
+    return data;
+  },
+
+  /**
+   * Obtener resumen de ventas por asesor
+   */
+  getSalesSummary: async (params?: FilterOrdersDto): Promise<SalesSummary> => {
+    const { data } = await axiosInstance.get<SalesSummary>(`${BASE_URL}/sales-summary`, { params });
+    return data;
+  },
+
+  // ── Sales Goals ─────────────────────────────────────────────
+
+  getSalesGoals: async (params?: { month?: number; year?: number; advisorId?: string }): Promise<SalesGoal[]> => {
+    const { data } = await axiosInstance.get<SalesGoal[]>(`${BASE_URL}/sales-goals`, { params });
+    return data;
+  },
+
+  upsertSalesGoal: async (dto: UpsertSalesGoalDto): Promise<SalesGoal> => {
+    const { data } = await axiosInstance.post<SalesGoal>(`${BASE_URL}/sales-goals`, dto);
+    return data;
+  },
+
+  deleteSalesGoal: async (goalId: string): Promise<void> => {
+    await axiosInstance.delete(`${BASE_URL}/sales-goals/${goalId}`);
+  },
+
+  /**
+   * Subir imagen de muestra para un item de la orden
+   */
+  uploadItemSampleImage: async (orderId: string, itemId: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const { data } = await axiosInstance.post(
+      `${BASE_URL}/${orderId}/items/${itemId}/sample-image`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+    return data;
+  },
+
+  /**
+   * Eliminar imagen de muestra de un item de la orden
+   */
+  deleteItemSampleImage: async (orderId: string, itemId: string) => {
+    const { data } = await axiosInstance.delete(
+      `${BASE_URL}/${orderId}/items/${itemId}/sample-image`
     );
     return data;
   },

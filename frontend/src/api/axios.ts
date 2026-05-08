@@ -2,6 +2,7 @@ import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'ax
 import { useAuthStore } from '../store/authStore';
 import { getFriendlyErrorMessage } from '../utils/error-messages';
 import { useMaintenanceModeStore } from '../hooks/useMaintenanceMode';
+import { enqueueSnackbar } from 'notistack';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
 
@@ -56,6 +57,16 @@ axiosInstance.interceptors.response.use(
         (data?.message as string) ||
         'El sistema se encuentra en mantenimiento. Por favor intenta más tarde.';
       useMaintenanceModeStore.getState().activateMaintenance(message);
+      return Promise.reject(error);
+    }
+
+    // Manejo de Modo "Missing Permissions" — 403 Forbidden
+    if (error.response?.status === 403) {
+      const data = error.response.data as any;
+      const backendMessage = data?.message || 'No tienes permisos para realizar esta acción.';
+      
+      enqueueSnackbar(backendMessage, { variant: 'error' });
+      
       return Promise.reject(error);
     }
 

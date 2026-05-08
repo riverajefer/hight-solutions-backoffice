@@ -227,6 +227,7 @@ describe('WhatsappWebhookService', () => {
         findPendingRequest: jest.fn().mockResolvedValue({ status: 'PENDING', displayLabel: 'Test', requestedById: 'u1' }),
         approveViaWhatsApp: jest.fn().mockResolvedValue(undefined),
         rejectViaWhatsApp: jest.fn().mockResolvedValue(undefined),
+        getEntityId: jest.fn().mockResolvedValue('entity-1'),
       };
       approvalRegistry.getHandler.mockReturnValue(mockHandler);
 
@@ -467,6 +468,7 @@ describe('WhatsappWebhookService', () => {
         findPendingRequest: jest.fn().mockResolvedValue({ status: 'PENDING', displayLabel: 'Gasto #100', requestedById: 'u2' }),
         approveViaWhatsApp: jest.fn().mockResolvedValue(undefined),
         rejectViaWhatsApp: jest.fn().mockResolvedValue(undefined),
+        getEntityId: jest.fn().mockResolvedValue('entity-2'),
       };
       approvalRegistry.getHandler.mockReturnValue(mockHandler);
     });

@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import * as XLSX from 'xlsx';
 import logo from '../../../assets/logo-dark.webp';
 import {
   COMPANY_INFO,
@@ -140,7 +141,7 @@ function ensureSpace(doc: jsPDF, y: number, needed: number): number {
 // PDF Header
 // ---------------------------------------------------------------------------
 
-async function drawHeader(doc: jsPDF): Promise<number> {
+async function drawHeader(doc: jsPDF, title = 'Reporte de Movimientos de Caja'): Promise<number> {
   const logoData = await loadImage(logo);
   const logoW = 40;
   const logoH = 12;
@@ -150,7 +151,7 @@ async function drawHeader(doc: jsPDF): Promise<number> {
   doc.setFontSize(14);
   setTextColor(doc, PDF_COLORS.bodyText);
   doc.text(
-    'Reporte de Movimientos de Caja',
+    title,
     PDF_LAYOUT.pageWidth - PDF_LAYOUT.marginRight,
     PDF_LAYOUT.marginTop + 7,
     { align: 'right' },
@@ -409,6 +410,37 @@ function drawSummary(
 }
 
 // ---------------------------------------------------------------------------
+// Page Total calculation
+// ---------------------------------------------------------------------------
+
+function drawPageTotal(doc: jsPDF, startY: number, label: string, total: number, isPositive: boolean): number {
+  let y = ensureSpace(doc, startY, 15) + 3;
+  const totalBoxW = 75;
+  const startX = PDF_LAYOUT.pageWidth - PDF_LAYOUT.marginRight - totalBoxW;
+  const rowH = 8;
+
+  // Fondo claro para que resalte el texto de color
+  setFillColor(doc, PDF_COLORS.tableRowEven);
+  doc.rect(startX, y, totalBoxW, rowH, 'F');
+
+  // Borde para separar del resto de la página
+  setDrawColor(doc, PDF_COLORS.borderGray);
+  doc.setLineWidth(0.2);
+  doc.rect(startX, y, totalBoxW, rowH, 'S');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(PDF_FONTS.tableBody + 1);
+  setTextColor(doc, PDF_COLORS.bodyText);
+  doc.text(label, startX + 3, y + rowH * 0.68);
+
+  setTextColor(doc, isPositive ? [46, 125, 50] : [211, 47, 47]);
+  const sign = isPositive ? '+' : '-';
+  doc.text(`${sign}${formatCurrency(total)}`, startX + totalBoxW - 3, y + rowH * 0.68, { align: 'right' });
+
+  return y + rowH + 5;
+}
+
+// ---------------------------------------------------------------------------
 // Main: Generate PDF
 // ---------------------------------------------------------------------------
 
@@ -424,6 +456,28 @@ export async function exportMovementsPdf(
   y = drawMovementsTable(doc, y, movements);
   y = drawSummary(doc, y, movements);
 
+  const activeMovements = movements.filter((m) => !m.isVoided);
+
+  // Pagina de Ingresos
+  const incomes = activeMovements.filter((m) => m.movementType === 'INCOME' || m.movementType === 'DEPOSIT');
+  if (incomes.length > 0) {
+    doc.addPage();
+    y = await drawHeader(doc, 'Reporte de Ingresos');
+    y = drawMovementsTable(doc, y, incomes);
+    const totalIncomes = incomes.reduce((acc, m) => acc + Number(m.amount), 0);
+    y = drawPageTotal(doc, y, 'Total Ingresos:', totalIncomes, true);
+  }
+
+  // Pagina de Egresos
+  const expenses = activeMovements.filter((m) => m.movementType === 'EXPENSE' || m.movementType === 'WITHDRAWAL');
+  if (expenses.length > 0) {
+    doc.addPage();
+    y = await drawHeader(doc, 'Reporte de Egresos');
+    y = drawMovementsTable(doc, y, expenses);
+    const totalExpenses = expenses.reduce((acc, m) => acc + Number(m.amount), 0);
+    y = drawPageTotal(doc, y, 'Total Egresos:', totalExpenses, false);
+  }
+
   drawFooter(doc);
 
   const fileName = `Movimientos_${session.cashRegister.name.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`;
@@ -431,10 +485,10 @@ export async function exportMovementsPdf(
 }
 
 // ---------------------------------------------------------------------------
-// Main: Export CSV
+// Main: Export Excel
 // ---------------------------------------------------------------------------
 
-export function exportMovementsCsv(
+export function exportMovementsExcel(
   session: CashSession,
   movements: CashMovement[],
 ): void {
@@ -451,7 +505,7 @@ export function exportMovementsCsv(
     'Realizado por',
   ];
 
-  const rows = movements.map((mov, i) => {
+  const getRows = (movs: CashMovement[]) => movs.map((mov, i) => {
     const isPos = mov.movementType === 'INCOME' || mov.movementType === 'DEPOSIT';
     const ref = mov.referenceType === 'ORDER' && mov.orderRef
       ? `OP ${mov.orderRef.orderNumber}`
@@ -461,24 +515,46 @@ export function exportMovementsCsv(
 
     return [
       i + 1,
-      mov.receiptNumber,
+      mov.receiptNumber || '',
       formatDate(mov.createdAt),
       MOVEMENT_TYPE_LABELS[mov.movementType] || mov.movementType,
-      `"${(mov.description || '').replace(/"/g, '""')}"`,
+      mov.description || '',
       PAYMENT_METHOD_LABELS[mov.paymentMethod] || mov.paymentMethod || '-',
-      `${isPos ? '' : '-'}${Number(mov.amount)}`,
+      (isPos ? 1 : -1) * Number(mov.amount),
       mov.isVoided ? 'Anulado' : 'Activo',
       ref,
       userName(mov.performedBy),
-    ].join(',');
+    ];
   });
 
-  const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `Movimientos_${session.cashRegister.name.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`;
-  link.click();
-  URL.revokeObjectURL(url);
+  const wb = XLSX.utils.book_new();
+
+  // Todos los movimientos
+  const wsAll = XLSX.utils.aoa_to_sheet([headers, ...getRows(movements)]);
+  XLSX.utils.book_append_sheet(wb, wsAll, 'Todos');
+
+  const activeMovements = movements.filter((m) => !m.isVoided);
+
+  // Solo Ingresos
+  const incomes = activeMovements.filter((m) => m.movementType === 'INCOME' || m.movementType === 'DEPOSIT');
+  const sumIncomes = incomes.reduce((acc, m) => acc + Number(m.amount), 0);
+  const incomeRows = getRows(incomes);
+  if (incomes.length > 0) {
+    incomeRows.push(['', '', '', '', '', 'Total:', sumIncomes, '', '', '']);
+  }
+  const wsIncomes = XLSX.utils.aoa_to_sheet([headers, ...incomeRows]);
+  XLSX.utils.book_append_sheet(wb, wsIncomes, 'Ingresos');
+
+  // Solo Egresos
+  const expenses = activeMovements.filter((m) => m.movementType === 'EXPENSE' || m.movementType === 'WITHDRAWAL');
+  const sumExpenses = expenses.reduce((acc, m) => acc + Number(m.amount), 0);
+  const expenseRows = getRows(expenses);
+  if (expenses.length > 0) {
+    expenseRows.push(['', '', '', '', '', 'Total:', -Math.abs(sumExpenses), '', '', '']);
+  }
+  const wsExpenses = XLSX.utils.aoa_to_sheet([headers, ...expenseRows]);
+  XLSX.utils.book_append_sheet(wb, wsExpenses, 'Egresos');
+
+  const fileName = `Movimientos_${session.cashRegister.name.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  XLSX.writeFile(wb, fileName);
 }

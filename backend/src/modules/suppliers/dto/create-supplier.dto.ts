@@ -65,12 +65,14 @@ export class CreateSupplierDto {
   @MaxLength(300)
   address?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Correo electrónico del proveedor',
     example: 'contacto@distribuidoraxyz.com',
   })
+  @IsOptional()
+  @ValidateIf((o) => o.email !== '' && o.email !== null)
   @IsEmail({}, { message: 'El email debe tener un formato válido' })
-  email: string;
+  email?: string;
 
   @ApiProperty({
     description: 'ID del departamento',

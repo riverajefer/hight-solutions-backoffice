@@ -50,7 +50,14 @@ import { CommentsModule } from './modules/comments/comments.module';
 import { CashRegisterModule } from './modules/cash-register/cash-register.module';
 import { CashSessionModule } from './modules/cash-session/cash-session.module';
 import { CashMovementModule } from './modules/cash-movement/cash-movement.module';
+import { CashMovementVoidRequestsModule } from './modules/cash-movement-void-requests/cash-movement-void-requests.module';
+import { RefundRequestsModule } from './modules/refund-requests/refund-requests.module';
 import { WsEventsModule } from './modules/ws-events/ws-events.module';
+import { AccountsPayableModule } from './modules/accounts-payable/accounts-payable.module';
+import { AccountsPayableAuthRequestsModule } from './modules/accounts-payable-auth-requests/accounts-payable-auth-requests.module';
+import { AccountsPayablePaymentAuthRequestsModule } from './modules/accounts-payable-payment-auth-requests/accounts-payable-payment-auth-requests.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { DtfModule } from './modules/dtf/dtf.module';
 
 @Module({
   imports: [
@@ -116,6 +123,8 @@ import { WsEventsModule } from './modules/ws-events/ws-events.module';
     AdvancePaymentApprovalsModule,
     // Módulo de Aprobación de Descuentos
     DiscountApprovalsModule,
+    // Módulo de Solicitudes de Devolución de Dinero al Cliente
+    RefundRequestsModule,
     // Módulo de Autorización de Propiedad de Cliente
     ClientOwnershipAuthRequestsModule,
     // Módulo de Trazabilidad de Órdenes
@@ -134,8 +143,17 @@ import { WsEventsModule } from './modules/ws-events/ws-events.module';
     CashRegisterModule,
     CashSessionModule,
     CashMovementModule,
+    CashMovementVoidRequestsModule,
+    // Módulo de Cuentas por Pagar
+    AccountsPayableModule,
+    AccountsPayableAuthRequestsModule,
+    AccountsPayablePaymentAuthRequestsModule,
+    // Módulo de Dashboard (métricas financieras)
+    DashboardModule,
     // Módulo de WebSocket Events (tiempo real)
     WsEventsModule,
+    // Módulo DTF
+    DtfModule,
   ],
   providers: [
     {

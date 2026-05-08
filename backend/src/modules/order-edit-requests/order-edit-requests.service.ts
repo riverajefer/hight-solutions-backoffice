@@ -683,4 +683,12 @@ export class OrderEditRequestsService implements OnModuleInit, ApprovalRequestHa
       );
     }
   }
+
+  async getEntityId(requestId: string): Promise<string | null> {
+    const request = await this.prisma.orderEditRequest.findUnique({
+      where: { id: requestId },
+      select: { orderId: true },
+    });
+    return request?.orderId ?? null;
+  }
 }

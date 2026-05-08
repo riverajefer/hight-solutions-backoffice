@@ -25,11 +25,22 @@ import {
   OrderProfitabilityListItemDto,
   PaginatedProfitabilityDto,
   ExpenseOrderSummaryDto,
+  UpsertSalesGoalDto,
+  FilterSalesGoalsDto,
 } from './dto';
 import { InitialPaymentDto } from './dto/create-order.dto';
 import { EditRequestStatus, OrderStatus, Prisma } from '../../generated/prisma';
 import { isValidTransition, getValidNextStatuses } from './order-status-transitions';
 import { PrismaService } from '../../database/prisma.service';
+
+/** Redondeo comercial colombiano al múltiplo de 100 más cercano según regla de denominaciones. */
+function applyColombianRounding(value: Prisma.Decimal): Prisma.Decimal {
+  const truncated = value.toDecimalPlaces(0, Prisma.Decimal.ROUND_DOWN);
+  const lastTwo = truncated.mod(100).toNumber();
+  if (lastTwo === 0) return truncated;
+  if (lastTwo >= 1 && lastTwo <= 40) return truncated.sub(lastTwo);
+  return truncated.add(100 - lastTwo);
+}
 
 @Injectable()
 export class OrdersService {
@@ -64,6 +75,117 @@ export class OrdersService {
     });
   }
 
+  async getSalesSummary(filters: FilterOrdersDto) {
+    const { status, clientId, orderDateFrom, orderDateTo, productionAreaId, createdById, search } = filters;
+
+    const where: Prisma.OrderWhereInput = {};
+
+    if (status) where.status = status;
+    if (clientId) where.clientId = clientId;
+    if (productionAreaId) {
+      where.items = { some: { productionAreas: { some: { productionAreaId } } } };
+    }
+    if (createdById) where.createdById = createdById;
+    if (orderDateFrom || orderDateTo) {
+      where.orderDate = {};
+      if (orderDateFrom) where.orderDate.gte = new Date(orderDateFrom);
+      if (orderDateTo) where.orderDate.lte = new Date(orderDateTo);
+    }
+    if (search) {
+      where.OR = [
+        { orderNumber: { contains: search, mode: 'insensitive' } },
+        { client: { name: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    const [aggregate, grouped] = await Promise.all([
+      this.prisma.order.aggregate({
+        where,
+        _sum: { total: true },
+        _count: { id: true },
+      }),
+      createdById
+        ? Promise.resolve([])
+        : this.prisma.order.groupBy({
+            by: ['createdById'],
+            where,
+            _sum: { total: true },
+            _count: { id: true },
+          }),
+    ]);
+
+    const totalRevenue = Number(aggregate._sum.total ?? 0);
+    const totalOrders = aggregate._count.id;
+    const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+    let advisorBreakdown: Array<{
+      advisorId: string;
+      advisorName: string;
+      totalRevenue: number;
+      totalOrders: number;
+    }> = [];
+
+    if (grouped.length > 0) {
+      const advisorIds = grouped.map((g) => g.createdById);
+      const advisors = await this.prisma.user.findMany({
+        where: { id: { in: advisorIds } },
+        select: { id: true, firstName: true, lastName: true },
+      });
+      const advisorMap = new Map(advisors.map((a) => [a.id, a]));
+
+      advisorBreakdown = grouped.map((g) => {
+        const advisor = advisorMap.get(g.createdById);
+        const firstName = advisor?.firstName ?? '';
+        const lastName = advisor?.lastName ?? '';
+        return {
+          advisorId: g.createdById,
+          advisorName: `${firstName} ${lastName}`.trim() || g.createdById,
+          totalRevenue: Number(g._sum.total ?? 0),
+          totalOrders: g._count.id,
+        };
+      });
+    }
+
+    return { totalRevenue, totalOrders, averageOrderValue, advisorBreakdown };
+  }
+
+  async getSalesGoals(filters: FilterSalesGoalsDto) {
+    const where: Prisma.SalesGoalWhereInput = {};
+    if (filters.month !== undefined) where.month = filters.month;
+    if (filters.year !== undefined) where.year = filters.year;
+    if (filters.advisorId) where.advisorId = filters.advisorId;
+
+    return this.prisma.salesGoal.findMany({
+      where,
+      include: {
+        advisor: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+      },
+      orderBy: [{ year: 'asc' }, { month: 'asc' }],
+    });
+  }
+
+  async upsertSalesGoal(dto: UpsertSalesGoalDto) {
+    const { advisorId, month, year, targetAmount } = dto;
+    return this.prisma.salesGoal.upsert({
+      where: { advisorId_month_year: { advisorId, month, year } },
+      update: { targetAmount },
+      create: { advisorId, month, year, targetAmount },
+      include: {
+        advisor: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+      },
+    });
+  }
+
+  async deleteSalesGoal(id: string) {
+    const goal = await this.prisma.salesGoal.findUnique({ where: { id } });
+    if (!goal) throw new NotFoundException(`Sales goal with ID ${id} not found`);
+    return this.prisma.salesGoal.delete({ where: { id } });
+  }
+
   async findOne(id: string) {
     const order = await this.ordersRepository.findById(id);
     if (!order) {
@@ -94,6 +216,7 @@ export class OrdersService {
         unitPrice: item.unitPrice,
         total: itemTotal,
         specifications: item.specifications || undefined,
+        sampleImageId: item.sampleImageId || undefined,
         sortOrder: index + 1,
         ...(item.productId && {
           product: { connect: { id: item.productId } },
@@ -112,13 +235,28 @@ export class OrdersService {
     const taxRate = new Prisma.Decimal(providedTaxRate);
     const tax = subtotal.mul(taxRate);
     const discountAmount = new Prisma.Decimal(0);
-    
+
+    const retefuenteRate = new Prisma.Decimal(createOrderDto.retefuenteRate ?? 0);
+    const reteICARate = new Prisma.Decimal(createOrderDto.reteICARate ?? 0);
+    const reteIVARate = new Prisma.Decimal(createOrderDto.reteIVARate ?? 0);
+    const retefuenteAmount = subtotal.mul(retefuenteRate);
+    const reteICAAmount = subtotal.mul(reteICARate);
+    const reteIVAAmount = tax.mul(reteIVARate);
+
     const requiresColorProof = createOrderDto.requiresColorProof || false;
-    const colorProofPrice = requiresColorProof && createOrderDto.colorProofPrice 
-      ? new Prisma.Decimal(createOrderDto.colorProofPrice) 
+    const colorProofPrice = requiresColorProof && createOrderDto.colorProofPrice
+      ? new Prisma.Decimal(createOrderDto.colorProofPrice)
       : new Prisma.Decimal(0);
-      
-    const total = subtotal.add(tax).sub(discountAmount).add(colorProofPrice);
+
+    const total = applyColombianRounding(
+      subtotal
+        .sub(retefuenteAmount)
+        .sub(reteICAAmount)
+        .add(tax)
+        .sub(reteIVAAmount)
+        .sub(discountAmount)
+        .add(colorProofPrice),
+    );
 
     // Manejar pagos iniciales (uno o múltiples)
     let paidAmount = new Prisma.Decimal(0);
@@ -135,10 +273,9 @@ export class OrdersService {
         new Prisma.Decimal(0),
       );
 
-      // Validar que la suma de pagos iniciales no exceda el total
-      if (paidAmount.greaterThan(total)) {
-        throw new BadRequestException('Initial payments cannot exceed order total');
-      }
+      // Nota: se permite que los pagos iniciales excedan el total.
+      // El excedente queda como saldo a favor del cliente y podrá reembolsarse
+      // mediante el flujo de RefundRequest.
 
       // 1. Buscar sesión activa
       const activeSession = await this.prisma.cashSession.findFirst({
@@ -203,6 +340,9 @@ export class OrdersService {
           subtotal,
           taxRate,
           tax,
+          retefuenteRate,
+          reteICARate,
+          reteIVARate,
           discountAmount,
           requiresColorProof,
           colorProofPrice,
@@ -399,6 +539,15 @@ export class OrdersService {
             ...(updateOrderDto.taxRate !== undefined && {
               taxRate: new Prisma.Decimal(updateOrderDto.taxRate),
             }),
+            ...(updateOrderDto.retefuenteRate !== undefined && {
+              retefuenteRate: new Prisma.Decimal(updateOrderDto.retefuenteRate),
+            }),
+            ...(updateOrderDto.reteICARate !== undefined && {
+              reteICARate: new Prisma.Decimal(updateOrderDto.reteICARate),
+            }),
+            ...(updateOrderDto.reteIVARate !== undefined && {
+              reteIVARate: new Prisma.Decimal(updateOrderDto.reteIVARate),
+            }),
           },
         });
 
@@ -446,6 +595,7 @@ export class OrdersService {
                 unitPrice: item.unitPrice,
                 total: itemTotal,
                 specifications: item.specifications || undefined,
+                sampleImageId: item.sampleImageId || undefined,
                 ...(item.productId && { productId: item.productId }),
               },
             });
@@ -482,6 +632,7 @@ export class OrdersService {
                   unitPrice: item.unitPrice,
                   total: itemTotal,
                   specifications: item.specifications || undefined,
+                  sampleImageId: item.sampleImageId || undefined,
                   sortOrder: remainingCount + i + 1,
                   ...(item.productId && { productId: item.productId }),
                 },
@@ -565,6 +716,8 @@ export class OrdersService {
         const approvalCheck = await this.advancePaymentApprovalsService.requiresApproval(userId);
         this.logger.debug(`[update] requiresApproval: ${JSON.stringify(approvalCheck)}`);
 
+        const wasRejected = oldOrder.advancePaymentStatus === EditRequestStatus.REJECTED;
+
         if (approvalCheck.required) {
           const payment = await this.prisma.payment.findFirst({
             where: { orderId: id },
@@ -580,6 +733,16 @@ export class OrdersService {
             );
             return this.findOne(id);
           }
+        } else if (wasRejected) {
+          // Admin/caja no requiere aprobación — limpiar el estado rechazado para que el banner desaparezca
+          await this.prisma.order.update({
+            where: { id },
+            data: {
+              advancePaymentStatus: null,
+              advancePaymentRejectedReason: null,
+            },
+          });
+          return this.findOne(id);
         }
       }
 
@@ -632,13 +795,25 @@ export class OrdersService {
       ...(updateOrderDto.taxRate !== undefined && {
         taxRate: new Prisma.Decimal(updateOrderDto.taxRate),
       }),
+      ...(updateOrderDto.retefuenteRate !== undefined && {
+        retefuenteRate: new Prisma.Decimal(updateOrderDto.retefuenteRate),
+      }),
+      ...(updateOrderDto.reteICARate !== undefined && {
+        reteICARate: new Prisma.Decimal(updateOrderDto.reteICARate),
+      }),
+      ...(updateOrderDto.reteIVARate !== undefined && {
+        reteIVARate: new Prisma.Decimal(updateOrderDto.reteIVARate),
+      }),
     });
 
-    // Si se actualizó el precio de la prueba de color o la tasa de impuesto, recalcular totales
+    // Si se actualizó el precio de la prueba de color, tasa de impuesto o retenciones, recalcular totales
     if (
-      updateOrderDto.colorProofPrice !== undefined || 
+      updateOrderDto.colorProofPrice !== undefined ||
       updateOrderDto.requiresColorProof !== undefined ||
-      updateOrderDto.taxRate !== undefined
+      updateOrderDto.taxRate !== undefined ||
+      updateOrderDto.retefuenteRate !== undefined ||
+      updateOrderDto.reteICARate !== undefined ||
+      updateOrderDto.reteIVARate !== undefined
     ) {
       await this.recalculateOrderTotals(id, this.prisma);
     }
@@ -1074,12 +1249,9 @@ export class OrdersService {
       select: { id: true },
     });
 
-    // Validar que el pago no exceda el saldo pendiente
-    if (paymentAmount.greaterThan(order.balance)) {
-      throw new BadRequestException(
-        `Payment amount (${paymentAmount}) cannot exceed order balance (${order.balance})`,
-      );
-    }
+    // Nota: se permite que el pago exceda el saldo pendiente.
+    // El excedente queda como "saldo a favor" (paidAmount > total → balance negativo)
+    // y puede devolverse al cliente mediante el flujo de RefundRequest.
 
     // Usar transacción simple y luego obtener el pago completo
     const paymentId = await this.prisma.$transaction(async (tx) => {
@@ -1206,16 +1378,28 @@ export class OrdersService {
       subtotal = subtotal.add(item.total);
     }
 
-    // Obtener taxRate y colorProof de la orden
+    // Obtener tasas de la orden
     const order = await tx.order.findUnique({
       where: { id: orderId },
-      select: { taxRate: true, requiresColorProof: true, colorProofPrice: true },
+      select: {
+        taxRate: true,
+        requiresColorProof: true,
+        colorProofPrice: true,
+        retefuenteRate: true,
+        reteICARate: true,
+        reteIVARate: true,
+      },
     });
 
-    const taxRate = order?.taxRate !== undefined && order?.taxRate !== null 
-      ? order.taxRate 
-      : new Prisma.Decimal(0.19);
+    const taxRate = order?.taxRate ?? new Prisma.Decimal(0.19);
     const tax = subtotal.mul(taxRate);
+
+    const retefuenteRate = order?.retefuenteRate ?? new Prisma.Decimal(0);
+    const reteICARate = order?.reteICARate ?? new Prisma.Decimal(0);
+    const reteIVARate = order?.reteIVARate ?? new Prisma.Decimal(0);
+    const retefuenteAmount = subtotal.mul(retefuenteRate);
+    const reteICAAmount = subtotal.mul(reteICARate);
+    const reteIVAAmount = tax.mul(reteIVARate);
 
     // Calcular discountAmount sumando todos los descuentos
     const discounts = await tx.orderDiscount.findMany({
@@ -1228,11 +1412,19 @@ export class OrdersService {
       discountAmount = discountAmount.add(discount.amount);
     }
 
-    const colorProofPrice = order?.requiresColorProof && order?.colorProofPrice 
-      ? new Prisma.Decimal(order.colorProofPrice) 
+    const colorProofPrice = order?.requiresColorProof && order?.colorProofPrice
+      ? new Prisma.Decimal(order.colorProofPrice)
       : new Prisma.Decimal(0);
 
-    const total = subtotal.add(tax).sub(discountAmount).add(colorProofPrice);
+    const total = applyColombianRounding(
+      subtotal
+        .sub(retefuenteAmount)
+        .sub(reteICAAmount)
+        .add(tax)
+        .sub(reteIVAAmount)
+        .sub(discountAmount)
+        .add(colorProofPrice),
+    );
 
     // Calcular paidAmount sumando todos los pagos
     const payments = await tx.payment.findMany({
@@ -1280,6 +1472,94 @@ export class OrdersService {
         payments: true,
       },
     });
+  }
+
+
+  // ========== ITEM SAMPLE IMAGE MANAGEMENT ==========
+
+  async uploadItemSampleImage(
+    orderId: string,
+    itemId: string,
+    file: Express.Multer.File,
+    userId: string,
+  ) {
+    // Verify order exists
+    await this.findOne(orderId);
+
+    // Verify item belongs to this order
+    const item = await this.prisma.orderItem.findFirst({
+      where: {
+        id: itemId,
+        orderId: orderId,
+      },
+    });
+
+    if (!item) {
+      throw new NotFoundException(
+        `Order item with ID ${itemId} not found in order ${orderId}`,
+      );
+    }
+
+    // If item already has a sample image, delete it first
+    if (item.sampleImageId) {
+      try {
+        await this.storageService.deleteFile(item.sampleImageId);
+      } catch (error) {
+        this.logger.error(
+          `Failed to delete existing sample image ${item.sampleImageId}:`,
+          error,
+        );
+      }
+    }
+
+    // Upload new image
+    const uploadedFile = await this.storageService.uploadFile(file, {
+      entityType: 'order-item',
+      entityId: itemId,
+      userId,
+    });
+
+    // Update order item with new image ID
+    await this.prisma.orderItem.update({
+      where: { id: itemId },
+      data: { sampleImageId: uploadedFile.id },
+    });
+
+    return uploadedFile;
+  }
+
+  async deleteItemSampleImage(orderId: string, itemId: string) {
+    // Verify order exists
+    await this.findOne(orderId);
+
+    // Verify item belongs to this order
+    const item = await this.prisma.orderItem.findFirst({
+      where: {
+        id: itemId,
+        orderId: orderId,
+      },
+    });
+
+    if (!item) {
+      throw new NotFoundException(
+        `Order item with ID ${itemId} not found in order ${orderId}`,
+      );
+    }
+
+    if (!item.sampleImageId) {
+      throw new BadRequestException('Order item does not have a sample image');
+    }
+
+    // Delete file from storage
+    await this.storageService.deleteFile(item.sampleImageId);
+
+    // Remove image reference from quote item
+    await this.prisma.orderItem.update({
+      where: { id: itemId },
+      data: { sampleImageId: null },
+    });
+
+    return { message: 'Sample image deleted successfully' };
   }
 
   // ========== PAYMENT RECEIPT MANAGEMENT ==========

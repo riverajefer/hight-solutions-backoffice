@@ -11,7 +11,7 @@ import {
   Alert,
   Box,
 } from '@mui/material';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { expenseOrderAuthRequestsApi } from '../../../api/expense-order-auth-requests.api';
 import { EXPENSE_ORDER_STATUS_CONFIG, ExpenseOrderStatus } from '../../../types/expense-order.types';
@@ -33,10 +33,12 @@ export const ExpenseOrderAuthRequestDialog: React.FC<ExpenseOrderAuthRequestDial
 }) => {
   const [reason, setReason] = useState('');
   const { enqueueSnackbar } = useSnackbar();
+  const queryClient = useQueryClient();
 
   const createRequestMutation = useMutation({
     mutationFn: expenseOrderAuthRequestsApi.create,
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['og-auth-requests-mine', expenseOrder.id] });
       enqueueSnackbar(
         'Solicitud enviada exitosamente. Espere la aprobación de un administrador.',
         { variant: 'success' },
@@ -79,7 +81,14 @@ export const ExpenseOrderAuthRequestDialog: React.FC<ExpenseOrderAuthRequestDial
       <DialogTitle>Solicitar Autorización de OG</DialogTitle>
       <DialogContent>
         <Alert severity="info" sx={{ mb: 2 }}>
-          Cambiar el estado a <strong>"Autorizada"</strong> requiere aprobación de un administrador.
+          <strong>¿Cómo funciona esto?</strong>
+          <br />
+          Al enviar esta solicitud, el administrador recibirá una notificación por{' '}
+          <strong>WhatsApp</strong> y podrá aprobarla directamente desde su celular. También podrá
+          verla en la sección <strong>"Solicitudes Pendientes"</strong> del sistema.
+          <br />
+          Una vez que el administrador apruebe, el área de <strong>Caja</strong> recibirá la OG
+          para dar la firma final y registrar el pago.
         </Alert>
 
         <Box sx={{ mb: 2 }}>

@@ -38,14 +38,17 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
     'manage_permissions',
   ],
   Cargos: ['create_cargos', 'read_cargos', 'update_cargos', 'delete_cargos'],
-  Áreas: ['create_areas', 'read_areas', 'update_areas', 'delete_areas'],
 
   // Comercial
-  Clientes: ['browse_clients', 'create_clients', 'read_clients', 'update_clients', 'delete_clients', 'update_client_special_condition', 'approve_client_ownership_auth'],
+  Clientes: ['browse_clients', 'search_clients', 'create_clients', 'read_clients', 'update_clients', 'delete_clients', 'update_client_special_condition', 'approve_client_ownership_auth'],
   Cotizaciones: ['create_quotes', 'read_quotes', 'update_quotes', 'delete_quotes', 'convert_quotes', 'manage_quote_columns', 'read_all_quotes'],
   Órdenes: ['create_orders', 'read_orders', 'update_orders', 'delete_orders', 'approve_orders', 'change_order_status', 'register_order_payments', 'approve_discounts', 'apply_discounts', 'delete_discounts', 'read_pending_orders'],
   'Canales Comerciales': ['create_commercial_channels', 'read_commercial_channels', 'update_commercial_channels', 'delete_commercial_channels'],
   Archivos: ['upload_files', 'read_files', 'delete_files', 'manage_storage'],
+  'Cuentas por Pagar': ['create_accounts_payable', 'read_accounts_payable', 'update_accounts_payable', 'delete_accounts_payable', 'register_ap_payment'],
+  'Aprobaciones Cuentas por Pagar': ['approve_accounts_payable'],
+  'Reportes Financieros': ['read_financial_dashboard'],
+  'Ventas por Asesor': ['read_sales_by_advisor', 'manage_sales_goals'],
 
   // Inventario y Catálogos
   Movimientos: ['create_inventory_movements', 'read_inventory_movements', 'manage_inventory'],
@@ -62,10 +65,11 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   'Plantillas de Producto': ['read_product_templates', 'create_product_templates', 'update_product_templates', 'delete_product_templates'],
   'Etapas de Producción': ['read_step_definitions', 'create_step_definitions', 'update_step_definitions'],
   'Órdenes de Producción': ['read_production_orders', 'create_production_orders', 'update_production_orders'],
+  DTF: ['create_dtf', 'read_dtf', 'update_dtf', 'change_dtf_status', 'convert_dtf_to_order'],
 
   // Gastos y Pagos
   'Tipos de Gasto': ['create_expense_types', 'read_expense_types', 'update_expense_types', 'delete_expense_types'],
-  'Órdenes de Gasto': ['create_expense_orders', 'read_expense_orders', 'update_expense_orders', 'delete_expense_orders', 'approve_expense_orders'],
+  'Órdenes de Gasto': ['create_expense_orders', 'read_expense_orders', 'update_expense_orders', 'delete_expense_orders', 'approve_expense_orders', 'caja_authorize_expense_orders'],
   Anticipos: ['approve_advance_payments'],
   
   // Auditoría y Control
@@ -81,7 +85,9 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   // Caja Registradora (POS)
   'Cajas Registradoras': ['create_cash_registers', 'read_cash_registers', 'update_cash_registers', 'delete_cash_registers'],
   'Sesiones de Caja': ['open_cash_session', 'close_cash_session', 'read_cash_sessions'],
-  'Movimientos de Caja': ['create_cash_movements', 'void_cash_movements', 'read_cash_movements'],
+  'Movimientos de Caja': ['create_cash_movements', 'void_cash_movements', 'read_cash_movements', 'approve_cash_movements'],
+  'Pagos de CP en Caja': ['caja_authorize_ap_payment'],
+  Devoluciones: ['approve_refunds', 'create_refund_requests'],
 
   // Nómina
   'Empleados de Nómina': [
@@ -104,11 +110,11 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
 const TABS = [
   {
     label: 'Administración',
-    groups: ['Usuarios', 'Roles', 'Permisos', 'Cargos', 'Áreas'],
+    groups: ['Usuarios', 'Roles', 'Permisos', 'Cargos'],
   },
   {
     label: 'Comercial',
-    groups: ['Clientes', 'Cotizaciones', 'Órdenes', 'Canales Comerciales', 'Archivos'],
+    groups: ['Clientes', 'Cotizaciones', 'Órdenes', 'DTF', 'Canales Comerciales', 'Archivos', 'Cuentas por Pagar', 'Aprobaciones Cuentas por Pagar', 'Ventas por Asesor'],
   },
   {
     label: 'Inventario',
@@ -128,11 +134,11 @@ const TABS = [
   },
   {
     label: 'Caja',
-    groups: ['Cajas Registradoras', 'Sesiones de Caja', 'Movimientos de Caja'],
+    groups: ['Cajas Registradoras', 'Sesiones de Caja', 'Movimientos de Caja', 'Pagos de CP en Caja', 'Devoluciones'],
   },
   {
     label: 'Gastos y Pagos',
-    groups: ['Tipos de Gasto', 'Órdenes de Gasto', 'Anticipos'],
+    groups: ['Tipos de Gasto', 'Órdenes de Gasto', 'Anticipos', 'Reportes Financieros'],
   },
   {
     label: 'Nómina',

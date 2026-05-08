@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   Alert,
   Box,
@@ -15,6 +15,10 @@ import {
   Button,
   IconButton,
   Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  CircularProgress,
 } from '@mui/material';
 import {
   AttachFile as AttachFileIcon,
@@ -22,7 +26,10 @@ import {
   Close as CloseIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
+  Visibility as VisibilityIcon,
 } from '@mui/icons-material';
+import axiosInstance from '../../../api/axios';
+import { storageApi } from '../../../api/storage.api';
 import type {
   InitialPaymentData,
   PaymentMethod,
@@ -41,6 +48,7 @@ interface InitialPaymentProps {
   errors?: Record<string, string>;
   disabled?: boolean;
   required?: boolean;
+  creditBalance?: number;
 }
 
 const formatCurrency = (value: number): string => {
@@ -74,9 +82,36 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
   onChange,
   disabled = false,
   required = false,
+  creditBalance,
 }) => {
   // One ref per possible payment block (max 3)
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([null, null, null]);
+
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+  const [signedMimeTypes, setSignedMimeTypes] = useState<Record<string, string>>({});
+  const [viewReceipt, setViewReceipt] = useState<{ open: boolean; url: string; mimeType: string }>({
+    open: false, url: '', mimeType: '',
+  });
+
+  useEffect(() => {
+    const fileIds = values
+      .map((p) => p.existingReceiptFileId)
+      .filter((id): id is string => !!id && !signedUrls[id]);
+    if (fileIds.length === 0) return;
+    Promise.all(
+      fileIds.map(async (fileId) => {
+        const [urlRes, fileData] = await Promise.all([
+          axiosInstance.get(`/storage/${fileId}/url`),
+          storageApi.getFile(fileId),
+        ]);
+        return { fileId, url: urlRes.data.url as string, mimeType: fileData.mimeType };
+      }),
+    ).then((results) => {
+      setSignedUrls((prev) => ({ ...prev, ...Object.fromEntries(results.map((r) => [r.fileId, r.url])) }));
+      setSignedMimeTypes((prev) => ({ ...prev, ...Object.fromEntries(results.map((r) => [r.fileId, r.mimeType])) }));
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values]);
 
   const handleFieldChange = (
     index: number,
@@ -182,16 +217,22 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
                       disabled={disabled}
                     >
                       {(Object.entries(PAYMENT_METHOD_LABELS) as [PaymentMethod, string][]).map(
-                        ([method, label]) => (
-                          <MenuItem
-                            key={method}
-                            value={method}
-                            disabled={isMethodDisabled(index, method)}
-                          >
-                            {label}
-                            {isMethodDisabled(index, method) ? ' (ya usado)' : ''}
-                          </MenuItem>
-                        ),
+                        ([method, label]) => {
+                          if (method === 'CREDIT_BALANCE' && payment.paymentMethod !== 'CREDIT_BALANCE') {
+                            return null;
+                          }
+                          const displayLabel = method === 'CREDIT_BALANCE' ? `${label} (${formatCurrency(creditBalance || 0)})` : label;
+                          return (
+                            <MenuItem
+                              key={method}
+                              value={method}
+                              disabled={isMethodDisabled(index, method)}
+                            >
+                              {displayLabel}
+                              {isMethodDisabled(index, method) ? ' (ya usado)' : ''}
+                            </MenuItem>
+                          );
+                        },
                       )}
                     </TextField>
                   </Grid>
@@ -214,14 +255,20 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
                         const amount = rawValue ? parseInt(rawValue, 10) : 0;
                         handleFieldChange(index, 'amount', amount);
                       }}
-                      error={totalPaid > total}
+                      color={totalPaid > total ? 'warning' : 'primary'}
                       helperText={
                         totalPaid > total
-                          ? `La suma supera el total (${formatCurrency(total)})`
+                          ? `Quedará un saldo a favor al cliente de ${formatCurrency(totalPaid - total)}`
                           : disabled
                           ? 'Primero seleccione un cliente'
-                          : `Máximo disponible: ${formatCurrency(total)}`
+                          : `Total de la orden: ${formatCurrency(total)}`
                       }
+                      FormHelperTextProps={{
+                        sx: {
+                          color: totalPaid > total ? 'warning.main' : 'text.secondary',
+                          fontWeight: totalPaid > total ? 600 : 400
+                        }
+                      }}
                       disabled={disabled}
                       InputProps={{
                         startAdornment: (
@@ -267,7 +314,110 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
                         }}
                       />
 
-                      {!payment.receiptFile ? (
+                      {/* Existing receipt from server (edit mode) */}
+                      {payment.existingReceiptFileId && !payment.receiptFile && (
+                        <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+                          {signedUrls[payment.existingReceiptFileId] ? (
+                            signedMimeTypes[payment.existingReceiptFileId]?.startsWith('image/') ? (
+                              <Box
+                                component="img"
+                                src={signedUrls[payment.existingReceiptFileId]}
+                                alt="Comprobante"
+                                onClick={() => setViewReceipt({
+                                  open: true,
+                                  url: signedUrls[payment.existingReceiptFileId!],
+                                  mimeType: signedMimeTypes[payment.existingReceiptFileId!],
+                                })}
+                                sx={{
+                                  width: 80,
+                                  height: 80,
+                                  objectFit: 'cover',
+                                  borderRadius: 1,
+                                  border: '1px solid',
+                                  borderColor: 'grey.300',
+                                  cursor: 'pointer',
+                                  '&:hover': { opacity: 0.85 },
+                                }}
+                              />
+                            ) : (
+                              <Chip
+                                icon={<AttachFileIcon />}
+                                label="Comprobante adjunto"
+                                variant="outlined"
+                                color="info"
+                                size="small"
+                                onClick={() => setViewReceipt({
+                                  open: true,
+                                  url: signedUrls[payment.existingReceiptFileId!],
+                                  mimeType: signedMimeTypes[payment.existingReceiptFileId!],
+                                })}
+                              />
+                            )
+                          ) : (
+                            <CircularProgress size={20} />
+                          )}
+                          <IconButton
+                            size="small"
+                            color="info"
+                            title="Ver comprobante"
+                            disabled={!signedUrls[payment.existingReceiptFileId]}
+                            onClick={() => setViewReceipt({
+                              open: true,
+                              url: signedUrls[payment.existingReceiptFileId!],
+                              mimeType: signedMimeTypes[payment.existingReceiptFileId!],
+                            })}
+                          >
+                            <VisibilityIcon fontSize="small" />
+                          </IconButton>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            startIcon={<AttachFileIcon />}
+                            disabled={disabled}
+                            onClick={() => fileInputRefs.current[index]?.click()}
+                            sx={{ textTransform: 'none' }}
+                          >
+                            Reemplazar
+                          </Button>
+                        </Stack>
+                      )}
+
+                      {payment.existingReceiptFileId && !payment.receiptFile && (
+                        <Box
+                          onPaste={(e) => {
+                            if (disabled) return;
+                            const items = e.clipboardData.items;
+                            for (let i = 0; i < items.length; i++) {
+                              if (items[i].type.indexOf('image') !== -1) {
+                                const file = items[i].getAsFile();
+                                if (file) handleFieldChange(index, 'receiptFile', file);
+                                break;
+                              }
+                            }
+                          }}
+                          tabIndex={disabled ? -1 : 0}
+                          sx={{
+                            border: '2px dashed',
+                            borderColor: 'grey.300',
+                            borderRadius: 1,
+                            p: 1.5,
+                            textAlign: 'center',
+                            cursor: disabled ? 'not-allowed' : 'pointer',
+                            opacity: disabled ? 0.6 : 1,
+                            transition: 'border-color 0.2s, background-color 0.2s',
+                            '&:hover, &:focus': !disabled
+                              ? { borderColor: 'primary.main', bgcolor: 'action.hover' }
+                              : {},
+                          }}
+                          onClick={() => { if (!disabled) fileInputRefs.current[index]?.click(); }}
+                        >
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            O pega una imagen aquí para reemplazar (Ctrl+V / ⌘+V)
+                          </Typography>
+                        </Box>
+                      )}
+
+                      {!payment.receiptFile && !payment.existingReceiptFileId ? (
                         <Stack spacing={1}>
                           <Button
                             variant="outlined"
@@ -315,7 +465,9 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
                             </Typography>
                           </Box>
                         </Stack>
-                      ) : (
+                      ) : null}
+
+                      {payment.receiptFile && (
                         <Stack spacing={1.5} direction="row" alignItems="center">
                           {payment.receiptFile.type.startsWith('image/') ? (
                             <Box
@@ -421,6 +573,39 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
           </Stack>
         </Collapse>
       </CardContent>
+
+      {/* Viewer de comprobante existente */}
+      <Dialog
+        open={viewReceipt.open}
+        onClose={() => setViewReceipt({ open: false, url: '', mimeType: '' })}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Comprobante de Pago
+          <IconButton size="small" onClick={() => setViewReceipt({ open: false, url: '', mimeType: '' })}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', justifyContent: 'center', bgcolor: 'grey.100', borderRadius: 1, p: 2, minHeight: 300 }}>
+            {viewReceipt.mimeType.startsWith('image/') ? (
+              <Box
+                component="img"
+                src={viewReceipt.url}
+                alt="Comprobante"
+                sx={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain' }}
+              />
+            ) : viewReceipt.mimeType === 'application/pdf' ? (
+              <iframe
+                src={viewReceipt.url}
+                title="Comprobante PDF"
+                style={{ width: '100%', height: '70vh', border: 'none' }}
+              />
+            ) : null}
+          </Box>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };

@@ -1,6 +1,7 @@
 import axiosInstance from './axios';
 import {
   Client,
+  ClientStats,
   CreateClientDto,
   UpdateClientDto,
   UpdateClientSpecialConditionDto,
@@ -66,6 +67,14 @@ export const clientsApi = {
       `/clients/${id}/special-condition`,
       data,
     );
+    return response.data;
+  },
+
+  /**
+   * Get consolidated financial stats + order history for a client
+   */
+  getStats: async (id: string): Promise<ClientStats> => {
+    const response = await axiosInstance.get<ClientStats>(`/clients/${id}/stats`);
     return response.data;
   },
 

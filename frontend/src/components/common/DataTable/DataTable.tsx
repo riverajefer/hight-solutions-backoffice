@@ -8,7 +8,7 @@ import {
   GridRowClassNameParams,
 } from '@mui/x-data-grid';
 import { esES } from '@mui/x-data-grid/locales';
-import { Paper, Box, Typography, Skeleton, useTheme, useMediaQuery } from '@mui/material';
+import { Paper, Box, Typography, Skeleton, LinearProgress, useTheme, useMediaQuery } from '@mui/material';
 import { CustomToolbar } from './CustomToolbar';
 import { dataGridStyles, paperStyles } from './styles';
 
@@ -31,6 +31,11 @@ interface DataTableProps<T extends GridValidRowModel> {
   showExport?: boolean;
   emptyMessage?: string;
   getRowClassName?: (params: GridRowClassNameParams<T>) => string;
+  density?: 'standard' | 'comfortable' | 'compact';
+  // Server-side pagination
+  rowCount?: number;
+  currentPage?: number; // 0-indexed
+  onPaginationModelChange?: (model: { page: number; pageSize: number }) => void;
 }
 
 export function DataTable<T extends GridValidRowModel>({
@@ -52,14 +57,40 @@ export function DataTable<T extends GridValidRowModel>({
   showExport = false,
   emptyMessage = 'No se encontraron registros',
   getRowClassName,
+  density = 'standard',
+  rowCount,
+  currentPage,
+  onPaginationModelChange: externalOnPaginationModelChange,
 }: DataTableProps<T>) {
+  const isServerPagination =
+    rowCount !== undefined && externalOnPaginationModelChange !== undefined;
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const [paginationModel, setPaginationModel] = useState({
     pageSize: initialPageSize,
-    page: 0,
+    page: currentPage ?? 0,
   });
+
+  // Sync controlled page/pageSize from parent (server-side pagination)
+  useEffect(() => {
+    if (isServerPagination) {
+      setPaginationModel((prev) => ({
+        pageSize: initialPageSize,
+        page: currentPage ?? prev.page,
+      }));
+    }
+  }, [currentPage, initialPageSize, isServerPagination]);
+
+  const handlePaginationModelChange = (newModel: {
+    page: number;
+    pageSize: number;
+  }) => {
+    setPaginationModel(newModel);
+    if (isServerPagination && externalOnPaginationModelChange) {
+      externalOnPaginationModelChange(newModel);
+    }
+  };
   const [internalSearchText, setInternalSearchText] = useState(searchValue || '');
   const [debouncedSearchText, setDebouncedSearchText] = useState('');
 
@@ -167,14 +198,15 @@ export function DataTable<T extends GridValidRowModel>({
   };
 
   const renderLoadingSkeleton = () => (
-    <Box sx={{ width: '100%', p: 2 }}>
-      {[...Array(paginationModel.pageSize)].map((_, index) => (
-        <Skeleton
-          key={index}
-          variant="rectangular"
-          height={52}
-          sx={{ mb: 1, borderRadius: 1 }}
-        />
+    <Box sx={{ width: '100%', px: 2, pt: 1 }}>
+      {[...Array(Math.min(paginationModel.pageSize, 8))].map((_, index) => (
+        <Box key={index} sx={{ display: 'flex', gap: 1, mb: '2px', alignItems: 'center' }}>
+          <Skeleton variant="rectangular" width={60} height={48} sx={{ borderRadius: 1, flexShrink: 0 }} />
+          <Skeleton variant="rectangular" height={48} sx={{ borderRadius: 1, flex: 1 }} />
+          <Skeleton variant="rectangular" height={48} sx={{ borderRadius: 1, flex: 2 }} />
+          <Skeleton variant="rectangular" height={48} sx={{ borderRadius: 1, flex: 1.5 }} />
+          <Skeleton variant="rectangular" height={48} sx={{ borderRadius: 1, flex: 2 }} />
+        </Box>
       ))}
     </Box>
   );
@@ -213,13 +245,28 @@ export function DataTable<T extends GridValidRowModel>({
         />
       )}
 
+      {loading && (
+        <LinearProgress
+          sx={{
+            height: 3,
+            borderRadius: 0,
+            '& .MuiLinearProgress-bar': {
+              transition: 'transform 0.6s linear',
+            },
+          }}
+        />
+      )}
+
       <DataGrid
+        density={density}
         rows={filteredRows}
         columns={columnsWithRowNumber}
         loading={loading}
         paginationModel={paginationModel}
-        onPaginationModelChange={setPaginationModel}
+        onPaginationModelChange={handlePaginationModelChange}
         pageSizeOptions={pageSizeOptions}
+        paginationMode={isServerPagination ? 'server' : 'client'}
+        rowCount={isServerPagination ? rowCount : undefined}
         checkboxSelection={checkboxSelection}
         getRowId={getRowId}
         onRowClick={onRowClick ? handleRowClick : undefined}

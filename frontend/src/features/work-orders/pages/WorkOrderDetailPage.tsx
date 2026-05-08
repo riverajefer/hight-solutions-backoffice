@@ -28,8 +28,10 @@ import {
   ReceiptLong as ReceiptLongIcon,
   AccessTime as AccessTimeIcon,
   PrecisionManufacturing as PrecisionManufacturingIcon,
+  Download as DownloadIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { StatusHighlight } from '../../../components/common/StatusHighlight';
 
 import { DocumentTypeBanner } from '../../../components/common/DocumentTypeBanner';
 import { ToolbarButton } from '../../orders/components/ToolbarButton';
@@ -45,6 +47,7 @@ import {
 } from '../../../types/work-order.types';
 import { EXPENSE_ORDER_STATUS_CONFIG } from '../../../types/expense-order.types';
 import { CommentSection } from '../../comments';
+import { storageApi } from '../../../api/storage.api';
 
 const formatDate = (date?: string | null): string => {
   if (!date) return '-';
@@ -247,6 +250,12 @@ export const WorkOrderDetailPage = () => {
         </Alert>
       )}
 
+      <StatusHighlight
+        label={WORK_ORDER_STATUS_CONFIG[workOrder.status].label}
+        color={WORK_ORDER_STATUS_CONFIG[workOrder.status].color}
+        sx={{ mt: 2 }}
+      />
+
       {/* Toolbar de Acciones */}
       <Paper
         elevation={0}
@@ -380,6 +389,50 @@ export const WorkOrderDetailPage = () => {
                     <Typography variant="caption" color="text.secondary">Nombre de archivo</Typography>
                     <Typography variant="body1">{workOrder.fileName || '-'}</Typography>
                   </Box>
+                  {workOrder.attachment && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Archivo Adjunto</Typography>
+                      <Box mt={0.5} display="flex" gap={2} flexWrap="wrap">
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<DownloadIcon />}
+                          onClick={async () => {
+                            try {
+                              const { url } = await storageApi.getFileUrl(workOrder.attachment!.id);
+                              window.open(url, '_blank', 'noopener,noreferrer');
+                            } catch (error) {
+                              console.error('Error opening file:', error);
+                            }
+                          }}
+                        >
+                          {workOrder.attachment.originalName} ({(workOrder.attachment.size / 1024 / 1024).toFixed(2)} MB)
+                        </Button>
+                      </Box>
+                    </Box>
+                  )}
+                  {workOrder.attachment2 && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Archivo Adjunto Adicional</Typography>
+                      <Box mt={0.5} display="flex" gap={2} flexWrap="wrap">
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<DownloadIcon />}
+                          onClick={async () => {
+                            try {
+                              const { url } = await storageApi.getFileUrl(workOrder.attachment2!.id);
+                              window.open(url, '_blank', 'noopener,noreferrer');
+                            } catch (error) {
+                              console.error('Error opening file:', error);
+                            }
+                          }}
+                        >
+                          {workOrder.attachment2.originalName} ({(workOrder.attachment2.size / 1024 / 1024).toFixed(2)} MB)
+                        </Button>
+                      </Box>
+                    </Box>
+                  )}
                   <Box>
                     <Typography variant="caption" color="text.secondary">Creada</Typography>
                     <Typography variant="body1">{formatDate(workOrder.createdAt)}</Typography>

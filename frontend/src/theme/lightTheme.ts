@@ -690,6 +690,10 @@ export const lightTheme = createTheme({
         root: {
           backgroundColor: alpha(neonColors.secondary.main, 0.25),
           backdropFilter: 'blur(6px)',
+          '&.MuiBackdrop-invisible': {
+            backgroundColor: 'transparent',
+            backdropFilter: 'none',
+          },
         },
       },
     },

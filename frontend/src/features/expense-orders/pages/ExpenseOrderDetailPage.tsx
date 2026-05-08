@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
 import {
   Box,
@@ -18,6 +19,7 @@ import {
   DialogActions,
   CircularProgress,
   Alert,
+  AlertTitle,
   Table,
   TableBody,
   TableCell,
@@ -32,6 +34,7 @@ import {
 import {
   Edit as EditIcon,
   SwapHoriz as SwapHorizIcon,
+  CheckCircle as CheckCircleIcon,
   Add as AddIcon,
   AttachFile as AttachFileIcon,
   Close as CloseIcon,
@@ -43,12 +46,20 @@ import {
   Person as PersonIcon,
   Brush as BrushIcon,
   AccountTree as AccountTreeIcon,
+  HourglassTop as HourglassTopIcon,
+  AdminPanelSettings as AdminPanelSettingsIcon,
+  Payments as PaymentsIcon,
+  TaskAlt as TaskAltIcon,
+  MarkEmailRead as MarkEmailReadIcon,
+  Block as BlockIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { StatusHighlight } from '../../../components/common/StatusHighlight';
 
 import { DocumentTypeBanner } from '../../../components/common/DocumentTypeBanner';
 import { ToolbarButton } from '../../orders/components/ToolbarButton';
 import { ExpenseOrderAuthRequestDialog } from '../components/ExpenseOrderAuthRequestDialog';
+import { expenseOrderAuthRequestsApi } from '../../../api/expense-order-auth-requests.api';
 import { ExpenseOrderPdfButton } from '../components/ExpenseOrderPdfButton';
 import { useExpenseOrder } from '../hooks';
 import { useSuppliers } from '../../suppliers/hooks/useSuppliers';
@@ -90,8 +101,9 @@ const formatCurrency = (value?: string | number | null): string => {
 };
 
 const STATUS_TRANSITIONS: Record<ExpenseOrderStatus, ExpenseOrderStatus[]> = {
-  [ExpenseOrderStatus.DRAFT]: [ExpenseOrderStatus.CREATED, ExpenseOrderStatus.AUTHORIZED],
-  [ExpenseOrderStatus.CREATED]: [ExpenseOrderStatus.AUTHORIZED, ExpenseOrderStatus.DRAFT],
+  [ExpenseOrderStatus.DRAFT]: [ExpenseOrderStatus.CREATED, ExpenseOrderStatus.ADMIN_AUTHORIZED],
+  [ExpenseOrderStatus.CREATED]: [ExpenseOrderStatus.ADMIN_AUTHORIZED, ExpenseOrderStatus.DRAFT],
+  [ExpenseOrderStatus.ADMIN_AUTHORIZED]: [], // La segunda firma usa el botón dedicado
   [ExpenseOrderStatus.AUTHORIZED]: [],
   [ExpenseOrderStatus.PAID]: [],
 };
@@ -151,7 +163,7 @@ export const ExpenseOrderDetailPage = () => {
   const theme = useTheme();
   const { hasPermission } = useAuthStore();
 
-  const { expenseOrderQuery, updateStatusMutation, addExpenseItemMutation } = useExpenseOrder(id);
+  const { expenseOrderQuery, updateStatusMutation, addExpenseItemMutation, cajaAuthorizeMutation } = useExpenseOrder(id);
   const { suppliersQuery } = useSuppliers();
   const { productionAreasQuery } = useProductionAreas();
 
@@ -162,6 +174,15 @@ export const ExpenseOrderDetailPage = () => {
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [newStatus, setNewStatus] = useState<ExpenseOrderStatus | ''>('');
   const [authRequestDialogOpen, setAuthRequestDialogOpen] = useState(false);
+
+  const { data: myOgAuthRequests } = useQuery({
+    queryKey: ['og-auth-requests-mine', id],
+    queryFn: () => expenseOrderAuthRequestsApi.findMy(),
+    enabled: !!id,
+  });
+  const hasPendingOgRequest = myOgAuthRequests?.some(
+    (r) => r.expenseOrderId === id && r.status === 'PENDING',
+  ) ?? false;
 
   // ── Add item dialog ──────────────────────────────────────────────────────────
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
@@ -193,8 +214,15 @@ export const ExpenseOrderDetailPage = () => {
 
   const canUpdate = hasPermission(PERMISSIONS.UPDATE_EXPENSE_ORDERS);
   const canApprove = hasPermission(PERMISSIONS.APPROVE_EXPENSE_ORDERS);
+  const canCajaAuthorize = hasPermission(PERMISSIONS.CAJA_AUTHORIZE_EXPENSE_ORDERS);
 
   const og = expenseOrderQuery.data;
+
+  // ── Caja authorize ───────────────────────────────────────────────────────────
+  const handleCajaAuthorize = async () => {
+    if (!id) return;
+    await cajaAuthorizeMutation.mutateAsync(id);
+  };
 
   // ── Status change ────────────────────────────────────────────────────────────
   const handleStatusChange = async () => {
@@ -401,7 +429,9 @@ export const ExpenseOrderDetailPage = () => {
   const availableTransitions = isParentOrderAnulado
     ? []
     : allowedTransitions.filter((s) => {
-        if (s === ExpenseOrderStatus.PAID) return canApprove;
+        if (s === ExpenseOrderStatus.AUTHORIZED) return canApprove;
+        // ADMIN_AUTHORIZED solo aparece en el dropdown para admins; los comerciales usan el botón dedicado
+        if (s === ExpenseOrderStatus.ADMIN_AUTHORIZED) return canApprove;
         return canUpdate;
       });
 
@@ -423,6 +453,148 @@ export const ExpenseOrderDetailPage = () => {
           <strong>Esta orden de gasto proviene de una OP ANULADA.</strong> La Orden de Pedido relacionada ha sido anulada. Este registro es de solo lectura.
         </Alert>
       )}
+
+      <StatusHighlight
+        label={statusConfig.label}
+        color={statusConfig.color}
+        sx={{ mt: 2 }}
+      />
+
+      {/* Banner contextual según estado y rol */}
+      {(() => {
+        if (og.status === ExpenseOrderStatus.DRAFT) {
+          if (canUpdate && !canApprove) {
+            return (
+              <Alert severity="info" icon={<HourglassTopIcon />} sx={{ mt: 2 }}>
+                <AlertTitle>Borrador — completa los ítems y solicita autorización</AlertTitle>
+                Esta OG está en borrador. Cuando tengas todos los ítems listos, haz clic en{' '}
+                <strong>Solicitar Autorización</strong>: el administrador recibirá una notificación
+                por <strong>WhatsApp</strong> y podrá aprobarla desde su celular o desde{' '}
+                <strong>Solicitudes Pendientes</strong>.
+              </Alert>
+            );
+          }
+          if (canApprove) {
+            return (
+              <Alert severity="info" icon={<AdminPanelSettingsIcon />} sx={{ mt: 2 }}>
+                <AlertTitle>Borrador</AlertTitle>
+                Esta OG está en borrador. Puedes cambiar su estado directamente o esperar a que el
+                solicitante envíe la solicitud de autorización.
+              </Alert>
+            );
+          }
+        }
+
+        if (og.status === ExpenseOrderStatus.CREATED) {
+          // Banner de rechazo por Caja (tiene prioridad sobre los demás en estado CREATED)
+          if (og.cajaRejectionReason) {
+            return (
+              <Alert
+                severity="error"
+                icon={<BlockIcon />}
+                sx={{ mt: 2, borderLeft: '4px solid', borderColor: 'error.main' }}
+              >
+                <AlertTitle>Rechazada por Caja — se requiere nueva autorización</AlertTitle>
+                <Box sx={{ mb: 0.5 }}>
+                  <strong>Motivo del rechazo:</strong> {og.cajaRejectionReason}
+                </Box>
+                {og.cajaRejectedBy && (
+                  <Box sx={{ mb: 0.5 }}>
+                    <strong>Rechazada por:</strong>{' '}
+                    {[og.cajaRejectedBy.firstName, og.cajaRejectedBy.lastName]
+                      .filter(Boolean)
+                      .join(' ') || og.cajaRejectedBy.email}
+                  </Box>
+                )}
+                {!canApprove && (
+                  <Box sx={{ mt: 0.5 }}>
+                    Para continuar, haz clic en <strong>Solicitar Autorización</strong> y el
+                    administrador deberá volver a aprobarla para que Caja pueda firmarla.
+                  </Box>
+                )}
+              </Alert>
+            );
+          }
+
+          if (canUpdate && !canApprove) {
+            if (hasPendingOgRequest) {
+              return (
+                <Alert
+                  severity="info"
+                  icon={<MarkEmailReadIcon />}
+                  sx={{ mt: 2, borderLeft: '4px solid', borderColor: 'info.main' }}
+                >
+                  <AlertTitle>Solicitud enviada — esperando respuesta de gerencia</AlertTitle>
+                  Tu solicitud fue enviada al administrador. Recibirá una notificación por{' '}
+                  <strong>WhatsApp</strong> y podrá aprobarla desde su celular o desde{' '}
+                  <strong>Solicitudes Pendientes</strong>. Te avisaremos cuando esté lista para caja.
+                </Alert>
+              );
+            }
+            return (
+              <Alert severity="warning" icon={<HourglassTopIcon />} sx={{ mt: 2 }}>
+                <AlertTitle>Pendiente de autorización — acción requerida</AlertTitle>
+                Esta OG está lista pero aún no fue autorizada. Haz clic en{' '}
+                <strong>Solicitar Autorización</strong> para enviar la solicitud al administrador.
+                Recibirá una notificación por <strong>WhatsApp</strong> y podrá aprobarla desde
+                su celular o desde la sección <strong>Solicitudes Pendientes</strong>.
+              </Alert>
+            );
+          }
+          if (canApprove) {
+            return (
+              <Alert severity="warning" icon={<AdminPanelSettingsIcon />} sx={{ mt: 2 }}>
+                <AlertTitle>Requiere tu autorización administrativa</AlertTitle>
+                Esta OG está pendiente de aprobación. Puedes autorizarla desde la sección{' '}
+                <strong>Solicitudes Pendientes</strong>, responder el mensaje de WhatsApp que
+                recibiste, o cambiar el estado directamente desde el botón <strong>Estado</strong>.
+              </Alert>
+            );
+          }
+        }
+
+        if (og.status === ExpenseOrderStatus.ADMIN_AUTHORIZED) {
+          if (canCajaAuthorize) {
+            return (
+              <Alert severity="success" icon={<PaymentsIcon />} sx={{ mt: 2 }}>
+                <AlertTitle>Requiere tu firma de Caja</AlertTitle>
+                El administrador ya aprobó esta OG. Haz clic en el botón{' '}
+                <strong>Autorizar (Firma Caja)</strong> para registrar el pago y descontarlo
+                automáticamente de la caja activa.
+              </Alert>
+            );
+          }
+          return (
+            <Alert severity="info" icon={<HourglassTopIcon />} sx={{ mt: 2 }}>
+              <AlertTitle>Esperando firma de Caja</AlertTitle>
+              El administrador aprobó esta OG. Está pendiente de que el área de{' '}
+              <strong>Caja</strong> dé la firma final para procesar el pago.
+              No se requiere ninguna acción de tu parte en este momento.
+            </Alert>
+          );
+        }
+
+        if (og.status === ExpenseOrderStatus.AUTHORIZED) {
+          return (
+            <Alert severity="info" icon={<HourglassTopIcon />} sx={{ mt: 2 }}>
+              <AlertTitle>Procesando pago</AlertTitle>
+              Caja autorizó esta OG. El pago está siendo registrado en el sistema.
+            </Alert>
+          );
+        }
+
+        if (og.status === ExpenseOrderStatus.PAID) {
+          return (
+            <Alert severity="success" icon={<TaskAltIcon />} sx={{ mt: 2 }}>
+              <AlertTitle>Pagada</AlertTitle>
+              Esta OG fue pagada exitosamente. El valor fue descontado de la caja y el proceso está
+              completo.
+            </Alert>
+          );
+        }
+
+        return null;
+      })()}
 
       {/* Toolbar de Acciones */}
       <Paper
@@ -477,6 +649,30 @@ export const ExpenseOrderDetailPage = () => {
               onClick={() => setStatusDialogOpen(true)}
               color={theme.palette.info.main}
               tooltip="Cambiar Estado"
+            />
+          )}
+
+          {(og.status === ExpenseOrderStatus.DRAFT || og.status === ExpenseOrderStatus.CREATED) &&
+            canUpdate && !canApprove && !hasPendingOgRequest && !isParentOrderAnulado && (
+            <ToolbarButton
+              icon={<HourglassTopIcon />}
+              label="Solicitar"
+              secondaryLabel="Autorización"
+              onClick={() => setAuthRequestDialogOpen(true)}
+              color={theme.palette.warning.main}
+              tooltip="Solicitar autorización al administrador"
+            />
+          )}
+
+          {og.status === ExpenseOrderStatus.ADMIN_AUTHORIZED && canCajaAuthorize && !isParentOrderAnulado && (
+            <ToolbarButton
+              icon={<CheckCircleIcon />}
+              label="Autorizar"
+              secondaryLabel="Firma Caja"
+              onClick={handleCajaAuthorize}
+              color={theme.palette.success.main}
+              tooltip="Segunda firma Caja — registra el pago"
+              disabled={cajaAuthorizeMutation.isPending}
             />
           )}
 
@@ -539,8 +735,14 @@ export const ExpenseOrderDetailPage = () => {
                 </Grid>
                 {og.authorizedBy && (
                   <Grid item xs={6} sm={3}>
-                    <Typography variant="caption" color="text.secondary">Autorizado por</Typography>
+                    <Typography variant="caption" color="text.secondary">Autorizado por (Admin)</Typography>
                     <Typography variant="body2">{userName(og.authorizedBy)}</Typography>
+                  </Grid>
+                )}
+                {og.cajaAuthorizedBy && (
+                  <Grid item xs={6} sm={3}>
+                    <Typography variant="caption" color="text.secondary">Autorizado por (Caja)</Typography>
+                    <Typography variant="body2">{userName(og.cajaAuthorizedBy)}</Typography>
                   </Grid>
                 )}
               </Grid>
@@ -842,7 +1044,8 @@ export const ExpenseOrderDetailPage = () => {
             {availableTransitions.map((s) => (
               <MenuItem key={s} value={s}>
                 {EXPENSE_ORDER_STATUS_CONFIG[s].label}
-                {s === ExpenseOrderStatus.AUTHORIZED && ' (autoriza y registra pago en caja)'}
+                {s === ExpenseOrderStatus.ADMIN_AUTHORIZED && ' (Envíar solicitud de autorización a gerencia)'}
+                {s === ExpenseOrderStatus.AUTHORIZED && ' (Autorización Caja — registra pago)'}
               </MenuItem>
             ))}
           </TextField>

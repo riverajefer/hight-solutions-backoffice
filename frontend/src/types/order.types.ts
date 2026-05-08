@@ -13,7 +13,7 @@ export type OrderStatus =
   | 'PAID'
   | 'ANULADO';
 
-export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'CREDIT';
+export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'CREDIT' | 'CREDIT_BALANCE';
 
 // ============================================================
 // ENTITIES
@@ -69,13 +69,31 @@ export interface Order {
   subtotal: string; // Decimal viene como string del backend
   taxRate: string;
   tax: string;
+  retefuenteRate: string; // Tasa de Retefuente (e.g., "0.025" = 2.5%)
+  reteICARate: string;    // Tasa de ReteICA (e.g., "0.00414" = 0.414%)
+  reteIVARate: string;    // Tasa de ReteIVA sobre IVA (e.g., "0.15" = 15%)
   discountAmount: string; // Total de descuentos aplicados
   total: string;
   paidAmount: string;
   balance: string;
   advancePaymentStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+  advancePaymentRejectedReason: string | null;
   discountApprovalStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   advancePaymentApprovals?: AdvancePaymentApproval[];
+  refundRequests?: Array<{
+    id: string;
+    refundAmount: string;
+    paymentMethod: 'CASH' | 'TRANSFER' | 'CARD';
+    observation: string;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    requestedAt: string;
+    requestedBy?: {
+      id: string;
+      email?: string;
+      firstName?: string;
+      lastName?: string;
+    };
+  }>;
   clientOwnershipAuthStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   status: OrderStatus;
   notes: string | null;
@@ -204,6 +222,9 @@ export interface CreateOrderDto {
   requiresColorProof?: boolean;
   colorProofPrice?: number;
   taxRate?: number;
+  retefuenteRate?: number;
+  reteICARate?: number;
+  reteIVARate?: number;
   items: CreateOrderItemDto[];
   initialPayment?: InitialPaymentDto;
   initialPayments?: InitialPaymentDto[];
@@ -221,6 +242,9 @@ export interface UpdateOrderDto {
   requiresColorProof?: boolean;
   colorProofPrice?: number;
   taxRate?: number;
+  retefuenteRate?: number;
+  reteICARate?: number;
+  reteIVARate?: number;
   items?: CreateOrderItemDto[];
   initialPayment?: InitialPaymentDto;
   commercialChannelId?: string;
@@ -306,6 +330,7 @@ export interface OrderItemRow {
   total: number; // Calculado
   productId?: string;
   specifications?: Record<string, any>;
+  sampleImageId?: string | null;
   productionAreaIds: string[];
 }
 
@@ -316,6 +341,7 @@ export interface InitialPaymentData {
   notes?: string;
   receiptFile?: File | null;
   receiptFileUrl?: string | null;
+  existingReceiptFileId?: string | null;
 }
 
 // ============================================================
@@ -369,7 +395,7 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   TRANSFER: 'Transferencia',
   CARD: 'Tarjeta',
   CREDIT: 'Crédito',
-
+  CREDIT_BALANCE: 'Saldo a favor (Cliente)',
 };
 
 // ============================================================
@@ -420,4 +446,47 @@ export interface FilterProfitabilityDto {
   orderDateTo?: string;
   page?: number;
   limit?: number;
+}
+
+// ============================================================
+// VENTAS POR ASESOR
+// ============================================================
+
+export interface AdvisorBreakdown {
+  advisorId: string;
+  advisorName: string;
+  totalRevenue: number;
+  totalOrders: number;
+}
+
+export interface SalesSummary {
+  totalRevenue: number;
+  totalOrders: number;
+  averageOrderValue: number;
+  advisorBreakdown: AdvisorBreakdown[];
+}
+
+// ── Sales Goals ──────────────────────────────────────────────────
+
+export interface SalesGoal {
+  id: string;
+  advisorId: string;
+  month: number;
+  year: number;
+  targetAmount: number;
+  advisor: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string | null;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpsertSalesGoalDto {
+  advisorId: string;
+  month: number;
+  year: number;
+  targetAmount: number;
 }

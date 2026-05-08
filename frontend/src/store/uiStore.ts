@@ -4,10 +4,13 @@ import { persist } from 'zustand/middleware';
 interface UIState {
   sidebarOpen: boolean;
   theme: 'light' | 'dark';
+  globalSearchOpen: boolean;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
   toggleTheme: () => void;
   setTheme: (theme: 'light' | 'dark') => void;
+  setGlobalSearchOpen: (open: boolean) => void;
+  toggleGlobalSearch: () => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -15,6 +18,7 @@ export const useUIStore = create<UIState>()(
     (set) => ({
       sidebarOpen: true,
       theme: 'dark',
+      globalSearchOpen: false,
 
       toggleSidebar: () => {
         set((state) => ({
@@ -35,9 +39,18 @@ export const useUIStore = create<UIState>()(
       setTheme: (theme: 'light' | 'dark') => {
         set({ theme });
       },
+
+      setGlobalSearchOpen: (open: boolean) => {
+        set({ globalSearchOpen: open });
+      },
+
+      toggleGlobalSearch: () => {
+        set((state) => ({ globalSearchOpen: !state.globalSearchOpen }));
+      },
     }),
     {
-      name: 'ui-storage', // name of the item in the storage (must be unique)
+      name: 'ui-storage',
+      partialize: (state) => ({ sidebarOpen: state.sidebarOpen, theme: state.theme }),
     }
   )
 );

@@ -661,4 +661,12 @@ export class OrderStatusChangeRequestsService implements OnModuleInit, ApprovalR
       );
     }
   }
+
+  async getEntityId(requestId: string): Promise<string | null> {
+    const request = await this.prisma.orderStatusChangeRequest.findUnique({
+      where: { id: requestId },
+      select: { orderId: true },
+    });
+    return request?.orderId ?? null;
+  }
 }

@@ -127,11 +127,28 @@ export const useExpenseOrder = (id?: string) => {
     },
   });
 
+  const cajaAuthorizeMutation = useMutation({
+    mutationFn: (ogId: string) => expenseOrdersApi.cajaAuthorize(ogId),
+    onSuccess: (_, ogId) => {
+      queryClient.invalidateQueries({ queryKey: expenseOrdersKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: expenseOrdersKeys.detail(ogId) });
+      queryClient.invalidateQueries({ queryKey: ['cash-movements'] });
+      queryClient.invalidateQueries({ queryKey: ['cash-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['expense-orders', 'pending-caja'] });
+      enqueueSnackbar('OG autorizada por Caja y pagada correctamente', { variant: 'success' });
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || 'Error al autorizar la OG';
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+
   return {
     expenseOrderQuery,
     updateExpenseOrderMutation,
     updateStatusMutation,
     addExpenseItemMutation,
+    cajaAuthorizeMutation,
   };
 };
 

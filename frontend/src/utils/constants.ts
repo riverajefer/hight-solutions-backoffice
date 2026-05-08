@@ -39,6 +39,7 @@ export const PERMISSIONS = {
   UPDATE_CLIENTS: 'update_clients',
   DELETE_CLIENTS: 'delete_clients',
   UPDATE_CLIENT_SPECIAL_CONDITION: 'update_client_special_condition',
+  SEARCH_CLIENTS: 'search_clients',
   // Portfolio - Units of Measure
   CREATE_UNITS_OF_MEASURE: 'create_units_of_measure',
   READ_UNITS_OF_MEASURE: 'read_units_of_measure',
@@ -75,6 +76,8 @@ export const PERMISSIONS = {
   READ_PENDING_ORDERS: 'read_pending_orders',
   APPROVE_ADVANCE_PAYMENTS: 'approve_advance_payments',
   APPROVE_CLIENT_OWNERSHIP_AUTH: 'approve_client_ownership_auth',
+  CREATE_REFUND_REQUESTS: 'create_refund_requests',
+  APPROVE_REFUNDS: 'approve_refunds',
   //READ_COMMERCIAL_CHANNELS
   READ_COMMERCIAL_CHANNELS: 'read_commercial_channels',
   CREATE_COMMERCIAL_CHANNELS: 'create_commercial_channels',
@@ -107,6 +110,7 @@ export const PERMISSIONS = {
   UPDATE_EXPENSE_ORDERS: 'update_expense_orders',
   DELETE_EXPENSE_ORDERS: 'delete_expense_orders',
   APPROVE_EXPENSE_ORDERS: 'approve_expense_orders',
+  CAJA_AUTHORIZE_EXPENSE_ORDERS: 'caja_authorize_expense_orders',
   // Payroll - Empleados de nómina
   CREATE_PAYROLL_EMPLOYEES: 'create_payroll_employees',
   READ_PAYROLL_EMPLOYEES: 'read_payroll_employees',
@@ -151,7 +155,27 @@ export const PERMISSIONS = {
   READ_CASH_SESSIONS: 'read_cash_sessions',
   CREATE_CASH_MOVEMENTS: 'create_cash_movements',
   VOID_CASH_MOVEMENTS: 'void_cash_movements',
+  APPROVE_CASH_MOVEMENTS: 'approve_cash_movements',
   READ_CASH_MOVEMENTS: 'read_cash_movements',
+  // Cuentas por Pagar
+  CREATE_ACCOUNTS_PAYABLE: 'create_accounts_payable',
+  READ_ACCOUNTS_PAYABLE: 'read_accounts_payable',
+  UPDATE_ACCOUNTS_PAYABLE: 'update_accounts_payable',
+  DELETE_ACCOUNTS_PAYABLE: 'delete_accounts_payable',
+  REGISTER_AP_PAYMENT: 'register_ap_payment',
+  APPROVE_ACCOUNTS_PAYABLE: 'approve_accounts_payable',
+  CAJA_AUTHORIZE_AP_PAYMENT: 'caja_authorize_ap_payment',
+  // Dashboard Financiero
+  READ_FINANCIAL_DASHBOARD: 'read_financial_dashboard',
+  // DTF
+  READ_DTF: 'read_dtf',
+  CREATE_DTF: 'create_dtf',
+  UPDATE_DTF: 'update_dtf',
+  CHANGE_DTF_STATUS: 'change_dtf_status',
+  CONVERT_DTF_TO_ORDER: 'convert_dtf_to_order',
+  // Ventas por Asesor / Metas
+  READ_SALES_BY_ADVISOR: 'read_sales_by_advisor',
+  MANAGE_SALES_GOALS: 'manage_sales_goals',
 };
 
 export const ROUTES = {
@@ -231,6 +255,13 @@ export const ROUTES = {
   WORK_ORDERS_CREATE: '/work-orders/new',
   WORK_ORDERS_DETAIL: '/work-orders/:id',
   WORK_ORDERS_EDIT: '/work-orders/:id/edit',
+  // Expense Types & Subcategories
+  EXPENSE_TYPES: '/expense-types',
+  EXPENSE_TYPES_CREATE: '/expense-types/new',
+  EXPENSE_TYPES_EDIT: '/expense-types/:id/edit',
+  EXPENSE_SUBCATEGORIES: '/expense-subcategories',
+  EXPENSE_SUBCATEGORIES_CREATE: '/expense-subcategories/new',
+  EXPENSE_SUBCATEGORIES_EDIT: '/expense-subcategories/:id/edit',
   // Expense Orders
   EXPENSE_ORDERS: '/expense-orders',
   EXPENSE_ORDERS_CREATE: '/expense-orders/new',
@@ -271,6 +302,18 @@ export const ROUTES = {
   CASH_SESSION_CLOSE: '/cash-register/session/:id/close',
   CASH_SESSION_HISTORY: '/cash-register/history',
   CASH_SESSION_HISTORY_DETAIL: '/cash-register/history/:id',
+  // Cuentas por Pagar
+  ACCOUNTS_PAYABLE: '/accounts-payable',
+  ACCOUNTS_PAYABLE_NEW: '/accounts-payable/new',
+  ACCOUNTS_PAYABLE_DETAIL: '/accounts-payable/:id',
+  ACCOUNTS_PAYABLE_EDIT: '/accounts-payable/:id/edit',
+  // DTF
+  DTF: '/dtf',
+  DTF_CREATE: '/dtf/create',
+  DTF_DETAIL: '/dtf/:id',
+  DTF_EDIT: '/dtf/:id/edit',
+  // Ventas por Asesor
+  SALES_BY_ADVISOR: '/ventas-por-asesor',
 };
 
 export const DEFAULT_PAGINATION = {

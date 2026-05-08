@@ -46,15 +46,15 @@ export class UpdateClientDto {
   encargado?: string;
 
   @ApiPropertyOptional({
-    description: 'Número de celular',
-    example: '3001234567',
-    minLength: 10,
-    maxLength: 10,
+    description: 'Número de celular (puede incluir indicativo país, ej: 573001234567)',
+    example: '573001234567',
+    minLength: 6,
+    maxLength: 20,
   })
   @IsString()
   @IsOptional()
-  @MinLength(10, { message: 'El número de celular debe tener exactamente 10 dígitos' })
-  @MaxLength(10, { message: 'El número de celular no puede exceder 10 dígitos' })
+  @MinLength(6, { message: 'El número de celular debe tener al menos 6 dígitos' })
+  @MaxLength(20, { message: 'El número de celular no puede exceder 20 dígitos' })
   phone?: string;
 
   @ApiPropertyOptional({

@@ -2,12 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usersApi } from '../../../api';
 import { CreateUserDto, UpdateUserDto } from '../../../types';
 
-export const useUsers = () => {
+export const useUsers = (options?: { enabled?: boolean }) => {
   const queryClient = useQueryClient();
 
   const usersQuery = useQuery({
     queryKey: ['users'],
     queryFn: () => usersApi.getAll(),
+    enabled: options?.enabled ?? true,
   });
 
   const getUserQuery = (id: string) => {

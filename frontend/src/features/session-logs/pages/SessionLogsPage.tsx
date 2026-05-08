@@ -31,6 +31,7 @@ const SessionLogsPage: React.FC = () => {
       minWidth: 200,
       renderCell: (params: GridRenderCellParams<SessionLog>) => {
         const user = params.row.user;
+        if (!user) return <Typography variant="body2">-</Typography>;
         const fullName = user.firstName && user.lastName
           ? `${user.firstName} ${user.lastName}`
           : user.email;
@@ -52,6 +53,7 @@ const SessionLogsPage: React.FC = () => {
       responsive: 'md',
       renderCell: (params: GridRenderCellParams<SessionLog>) => {
         const user = params.row.user;
+        if (!user) return <Typography variant="body2">-</Typography>;
         return (
           <Box>
             <Typography variant="body2" sx={{ fontWeight: 500 }}>
@@ -66,14 +68,14 @@ const SessionLogsPage: React.FC = () => {
       headerName: 'Área',
       width: 150,
       responsive: 'md',
-      valueGetter: (_value, row: SessionLog) => row.user.cargo?.area.name || '-',
+      valueGetter: (_value, row: SessionLog) => row.user?.cargo?.area?.name || '-',
     },
     {
       field: 'cargo',
       headerName: 'Cargo',
       width: 150,
       responsive: 'md',
-      valueGetter: (_value, row: SessionLog) => row.user.cargo?.name || '-',
+      valueGetter: (_value, row: SessionLog) => row.user?.cargo?.name || '-',
     },
     {
       field: 'loginAt',

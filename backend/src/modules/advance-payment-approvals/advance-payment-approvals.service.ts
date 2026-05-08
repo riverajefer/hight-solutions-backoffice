@@ -120,6 +120,7 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       where: { id: request.orderId },
       data: {
         advancePaymentStatus: EditRequestStatus.REJECTED,
+        advancePaymentRejectedReason: 'Rechazado vía WhatsApp',
         paidAmount: new Prisma.Decimal(0),
         balance: orderTotal,
       },
@@ -238,10 +239,13 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       },
     });
 
-    // Actualizar estado de anticipo en la orden
+    // Actualizar estado de anticipo en la orden (limpia rechazo previo si lo había)
     await this.prisma.order.update({
       where: { id: orderId },
-      data: { advancePaymentStatus: EditRequestStatus.PENDING },
+      data: {
+        advancePaymentStatus: EditRequestStatus.PENDING,
+        advancePaymentRejectedReason: null,
+      },
     });
 
     // Formatear monto y método para los mensajes
@@ -266,18 +270,18 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       },
     );
 
-    // Notificar por WhatsApp a usuarios con permiso (fire & forget)
-    const requesterName =
-      [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
-      user?.email ||
-      'Usuario';
+    // Notificaciones WA de anticipo desactivadas temporalmente
+    // const requesterName =
+    //   [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
+    //   user?.email ||
+    //   'Usuario';
 
-    this.notifyReviewersByWhatsApp(
-      request.id,
-      requesterName,
-      `aprobación del ${paymentLabel}${paymentDetail} de la orden ${order.orderNumber}`,
-      `El ${paymentLabel} requiere aprobación de Caja`,
-    );
+    // this.notifyReviewersByWhatsApp(
+    //   request.id,
+    //   requesterName,
+    //   `aprobación del ${paymentLabel}${paymentDetail} de la orden ${order.orderNumber}`,
+    //   `El ${paymentLabel} requiere aprobación de Caja`,
+    // );
 
     // Emitir evento WebSocket en tiempo real
     const fullRequest = await this.prisma.advancePaymentApproval.findUnique({
@@ -426,6 +430,7 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       where: { id: request.orderId },
       data: {
         advancePaymentStatus: EditRequestStatus.REJECTED,
+        advancePaymentRejectedReason: dto.reviewNotes ?? null,
         paidAmount: new Prisma.Decimal(0),
         balance: orderTotal,
       },
@@ -592,5 +597,13 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
         `Error sending WhatsApp notifications: ${error.message}`,
       );
     }
+  }
+
+  async getEntityId(requestId: string): Promise<string | null> {
+    const request = await this.prisma.advancePaymentApproval.findUnique({
+      where: { id: requestId },
+      select: { orderId: true },
+    });
+    return request?.orderId ?? null;
   }
 }

@@ -7,6 +7,7 @@ import {
   CardContent,
   Chip,
   CircularProgress,
+  Collapse,
   Divider,
   IconButton,
   InputAdornment,
@@ -62,9 +63,13 @@ import TableChartIcon from '@mui/icons-material/TableChart';
 import PrintIcon from '@mui/icons-material/Print';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import InboxIcon from '@mui/icons-material/Inbox';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { ToolbarButton } from '../../orders/components/ToolbarButton';
-import { exportMovementsPdf, exportMovementsCsv } from '../utils/exportMovements';
+import { exportMovementsPdf, exportMovementsExcel } from '../utils/exportMovements';
 import { generateMovementReceipt } from '../utils/generateMovementReceipt';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
@@ -74,7 +79,12 @@ import CreateMovementDialog from '../components/CreateMovementDialog';
 import VoidMovementDialog from '../components/VoidMovementDialog';
 import CalculatorDialog from '../components/CalculatorDialog';
 import PendingApprovalsPanel from '../components/PendingApprovalsPanel';
+import PendingVoidRequestsPanel from '../components/PendingVoidRequestsPanel';
+import PendingOgAuthorizationsPanel from '../components/PendingOgAuthorizationsPanel';
+import PendingRefundRequestsPanel from '../components/PendingRefundRequestsPanel';
+import PendingApAuthorizationsPanel from '../components/PendingApAuthorizationsPanel';
 import { useApprovalSocket } from '../hooks/useApprovalSocket';
+import { useCreateVoidRequest } from '../../../hooks/useVoidRequests';
 import type { CashMovementType, CashMovement } from '../../../types/cash-register.types';
 
 const MOVEMENT_TYPE_LABELS: Record<CashMovementType, string> = {
@@ -135,20 +145,25 @@ const ActiveSessionPage: React.FC = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   const { hasPermission } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
+  const isAdmin = user?.role?.name === 'admin';
 
   const sessionQuery = useCashSession(id);
   const movementsQuery = useCashMovements({ cashSessionId: id, includeVoided: true });
   const { createMovement, voidMovement } = useCashMutations();
+  const createVoidRequest = useCreateVoidRequest();
 
   // Real-time WebSocket for advance payment approvals
   useApprovalSocket();
 
+  const [pendingPanelsOpen, setPendingPanelsOpen] = useState(true);
   const [dialogType, setDialogType] = useState<CashMovementType | null>(null);
   const [voidTarget, setVoidTarget] = useState<CashMovement | null>(null);
   const [isBalanceDialogOpen, setIsBalanceDialogOpen] = useState(false);
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [movementSearch, setMovementSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<CashMovementType | 'ALL'>('ALL');
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState<string | 'ALL'>('ALL');
   const [sortBy, setSortBy] = useState<'date' | 'amount' | 'type'>('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [sortAnchorEl, setSortAnchorEl] = useState<null | HTMLElement>(null);
@@ -163,6 +178,11 @@ const ActiveSessionPage: React.FC = () => {
     // Type filter
     if (typeFilter !== 'ALL') {
       result = result.filter((m) => m.movementType === typeFilter);
+    }
+
+    // Payment method filter
+    if (paymentMethodFilter !== 'ALL') {
+      result = result.filter((m) => (m.paymentMethod || 'OTHER') === paymentMethodFilter);
     }
 
     // Text search
@@ -201,9 +221,9 @@ const ActiveSessionPage: React.FC = () => {
     });
 
     return sorted;
-  }, [movements, movementSearch, typeFilter, sortBy, sortDir]);
+  }, [movements, movementSearch, typeFilter, paymentMethodFilter, sortBy, sortDir]);
 
-  const activeFilterCount = (typeFilter !== 'ALL' ? 1 : 0) + (movementSearch.trim() ? 1 : 0);
+  const activeFilterCount = (typeFilter !== 'ALL' ? 1 : 0) + (paymentMethodFilter !== 'ALL' ? 1 : 0) + (movementSearch.trim() ? 1 : 0);
 
   const balanceBreakdown = useMemo(() => {
     const summary: Record<string, number> = {
@@ -277,7 +297,11 @@ const ActiveSessionPage: React.FC = () => {
   };
 
   const handleVoidMovement = async (movId: string, voidReason: string) => {
-    await voidMovement.mutateAsync({ id: movId, dto: { voidReason } });
+    if (isAdmin) {
+      await voidMovement.mutateAsync({ id: movId, dto: { voidReason } });
+    } else {
+      await createVoidRequest.mutateAsync({ movementId: movId, dto: { voidReason } });
+    }
     setVoidTarget(null);
   };
 
@@ -444,16 +468,69 @@ const ActiveSessionPage: React.FC = () => {
           <ListItemIcon><PictureAsPdfIcon fontSize="small" color="error" /></ListItemIcon>
           <ListItemText>Exportar PDF</ListItemText>
         </MenuItem>
-        <MenuItem onClick={() => { setExportAnchorEl(null); exportMovementsCsv(session, filteredMovements); }}>
+        <MenuItem onClick={() => { setExportAnchorEl(null); exportMovementsExcel(session, filteredMovements); }}>
           <ListItemIcon><TableChartIcon fontSize="small" color="success" /></ListItemIcon>
-          <ListItemText>Exportar CSV</ListItemText>
+          <ListItemText>Exportar Excel</ListItemText>
         </MenuItem>
       </Menu>
 
-      {/* ── Pending Advance Payment Approvals ────────────────────────── */}
-      {hasPermission(PERMISSIONS.APPROVE_ADVANCE_PAYMENTS) && (
-        <PendingApprovalsPanel />
-      )}
+      {/* ── Bandeja de solicitudes ───────────────────────────────────── */}
+      <Card sx={{ mb: 2 }}>
+        <CardContent sx={{ py: '12px !important', px: 2 }}>
+          {/* Header colapsable */}
+          <Box
+            onClick={() => setPendingPanelsOpen((v) => !v)}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              cursor: 'pointer',
+              userSelect: 'none',
+              '&:hover .collapse-icon': { color: 'primary.main' },
+            }}
+          >
+            <InboxIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+            <Typography variant="subtitle2" color="text.secondary" sx={{ flex: 1 }}>
+              Bandeja de solicitudes
+            </Typography>
+            <IconButton
+              size="small"
+              className="collapse-icon"
+              sx={{ color: 'text.disabled', transition: 'color 0.2s' }}
+            >
+              {pendingPanelsOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+            </IconButton>
+          </Box>
+
+          <Collapse in={pendingPanelsOpen}>
+            <Box sx={{ mt: 1.5 }}>
+              {hasPermission(PERMISSIONS.APPROVE_ADVANCE_PAYMENTS) && (
+                <PendingApprovalsPanel hideWhenEmpty />
+              )}
+              {hasPermission(PERMISSIONS.APPROVE_CASH_MOVEMENTS) && (
+                <PendingVoidRequestsPanel hideWhenEmpty />
+              )}
+              {hasPermission(PERMISSIONS.CAJA_AUTHORIZE_EXPENSE_ORDERS) && (
+                <PendingOgAuthorizationsPanel hideWhenEmpty />
+              )}
+              {hasPermission(PERMISSIONS.APPROVE_REFUNDS) && (
+                <PendingRefundRequestsPanel hideWhenEmpty />
+              )}
+              {hasPermission(PERMISSIONS.REGISTER_AP_PAYMENT) && (
+                <PendingApAuthorizationsPanel hideWhenEmpty />
+              )}
+
+              {/* Fallback sutil cuando no hay nada pendiente */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5, color: 'text.disabled' }}>
+                <CheckCircleOutlineIcon sx={{ fontSize: 15 }} />
+                <Typography variant="caption">
+                  Todo en orden — sin solicitudes pendientes
+                </Typography>
+              </Box>
+            </Box>
+          </Collapse>
+        </CardContent>
+      </Card>
 
       {/* ── Movements List ───────────────────────────────────────────── */}
       <Card>
@@ -477,7 +554,7 @@ const ActiveSessionPage: React.FC = () => {
                   size="small"
                   color="primary"
                   variant="outlined"
-                  onDelete={() => { setTypeFilter('ALL'); setMovementSearch(''); }}
+                  onDelete={() => { setTypeFilter('ALL'); setPaymentMethodFilter('ALL'); setMovementSearch(''); }}
                   sx={{ height: 20, fontSize: '0.7rem' }}
                 />
               )}
@@ -518,7 +595,7 @@ const ActiveSessionPage: React.FC = () => {
                   fontSize: '0.8rem',
                 }}
               >
-                {sortBy === 'date' ? 'Fecha' : sortBy === 'amount' ? 'Monto' : 'Tipo'}
+                {sortBy === 'date' ? 'Fecha' : sortBy === 'amount' ? 'Monto' : 'Tipo'} {sortDir === 'desc' ? '(Desc.)' : '(Asc.)'}
                 {sortDir === 'desc'
                   ? <ArrowDownwardIcon sx={{ fontSize: '0.85rem', ml: 0.25 }} />
                   : <ArrowUpwardIcon sx={{ fontSize: '0.85rem', ml: 0.25 }} />}
@@ -563,43 +640,84 @@ const ActiveSessionPage: React.FC = () => {
           </Box>
 
           {/* ── Type filter chips ─────────────────────── */}
-          <ToggleButtonGroup
-            value={typeFilter}
-            exclusive
-            onChange={(_e, val) => val !== null && setTypeFilter(val)}
-            size="small"
-            sx={{
-              mb: 1.5,
-              flexWrap: 'wrap',
-              gap: 0.5,
-              '& .MuiToggleButton-root': {
-                borderRadius: '20px !important',
-                border: '1px solid',
-                borderColor: 'divider',
-                px: 1.5,
-                py: 0.25,
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                textTransform: 'none',
-                '&.Mui-selected': {
-                  borderColor: 'primary.main',
-                  bgcolor: 'primary.main',
-                  color: '#fff',
-                  '&:hover': { bgcolor: 'primary.dark' },
+          <Box sx={{ display: 'flex', flexDirection: 'row', gap: 2, flexWrap: 'wrap', mb: 1.5 }}>
+            <ToggleButtonGroup
+              value={typeFilter}
+              exclusive
+              onChange={(_e, val) => val !== null && setTypeFilter(val)}
+              size="small"
+              sx={{
+                flexWrap: 'wrap',
+                gap: 0.5,
+                '& .MuiToggleButton-root': {
+                  borderRadius: '20px !important',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  px: 1.5,
+                  py: 0.25,
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  '&.Mui-selected': {
+                    borderColor: 'primary.main',
+                    bgcolor: 'primary.main',
+                    color: '#fff',
+                    '&:hover': { bgcolor: 'primary.dark' },
+                  },
                 },
-              },
-            }}
-          >
-            <ToggleButton value="ALL">Todos</ToggleButton>
-            {(['INCOME', 'EXPENSE', 'WITHDRAWAL', 'DEPOSIT'] as CashMovementType[]).map((t) => (
-              <ToggleButton key={t} value={t}>
-                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-                  {React.cloneElement(MOVEMENT_TYPE_ICONS[t], { sx: { fontSize: '0.9rem' } })}
-                  {MOVEMENT_TYPE_LABELS[t]}
-                </Box>
-              </ToggleButton>
-            ))}
-          </ToggleButtonGroup>
+              }}
+            >
+              <ToggleButton value="ALL">Tipos: Todos</ToggleButton>
+              {(['INCOME', 'EXPENSE', 'WITHDRAWAL', 'DEPOSIT'] as CashMovementType[]).map((t) => (
+                <ToggleButton key={t} value={t}>
+                  <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                    {React.cloneElement(MOVEMENT_TYPE_ICONS[t], { sx: { fontSize: '0.9rem' } })}
+                    {MOVEMENT_TYPE_LABELS[t]}
+                  </Box>
+                </ToggleButton>
+              ))}
+            </ToggleButtonGroup>
+
+            <ToggleButtonGroup
+              value={paymentMethodFilter}
+              exclusive
+              onChange={(_e, val) => val !== null && setPaymentMethodFilter(val)}
+              size="small"
+              sx={{
+                flexWrap: 'wrap',
+                gap: 0.5,
+                '& .MuiToggleButton-root': {
+                  borderRadius: '20px !important',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  px: 1.5,
+                  py: 0.25,
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  '&.Mui-selected': {
+                    borderColor: 'secondary.main',
+                    bgcolor: 'secondary.main',
+                    color: '#fff',
+                    '&:hover': { bgcolor: 'secondary.dark' },
+                  },
+                },
+              }}
+            >
+              <ToggleButton value="ALL">Métodos: Todos</ToggleButton>
+              {(['CASH', 'TRANSFER', 'CARD'] as const).map((t) => {
+                const info = PAYMENT_METHOD_INFO[t];
+                return (
+                  <ToggleButton key={t} value={t}>
+                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                      {info && React.cloneElement(info.icon as React.ReactElement, { sx: { fontSize: '0.9rem' } })}
+                      {PAYMENT_METHOD_LABELS[t] || t}
+                    </Box>
+                  </ToggleButton>
+                );
+              })}
+            </ToggleButtonGroup>
+          </Box>
 
           <Divider sx={{ mb: 1.5 }} />
 
@@ -613,7 +731,7 @@ const ActiveSessionPage: React.FC = () => {
             </Typography>
           ) : filteredMovements.length === 0 ? (
             <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
-              No se encontraron movimientos para "{movementSearch}".
+              {movementSearch ? `No se encontraron movimientos para "${movementSearch}".` : 'No se encontraron movimientos con los filtros seleccionados.'}
             </Typography>
           ) : (
             <Stack spacing={1}>
@@ -981,7 +1099,8 @@ const ActiveSessionPage: React.FC = () => {
         movement={voidTarget}
         onClose={() => setVoidTarget(null)}
         onSubmit={handleVoidMovement}
-        isLoading={voidMovement.isPending}
+        isLoading={voidMovement.isPending || createVoidRequest.isPending}
+        isRequestMode={!isAdmin}
       />
 
       <CalculatorDialog

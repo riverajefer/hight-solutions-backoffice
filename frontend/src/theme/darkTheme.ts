@@ -725,6 +725,10 @@ export const darkTheme = createTheme({
         root: {
           backgroundColor: alpha(neonColors.base.black, 0.75),
           backdropFilter: 'blur(8px)',
+          '&.MuiBackdrop-invisible': {
+            backgroundColor: 'transparent',
+            backdropFilter: 'none',
+          },
         },
       },
     },
@@ -1015,6 +1019,12 @@ export const darkTheme = createTheme({
     // Menu
     // =========================================================================
     MuiMenu: {
+      defaultProps: {
+        // Avoid dark global backdrop when opening Select menus.
+        BackdropProps: {
+          invisible: true,
+        },
+      },
       styleOverrides: {
         paper: {
           borderRadius: borderRadius.large,

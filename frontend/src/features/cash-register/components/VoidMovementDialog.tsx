@@ -44,6 +44,7 @@ interface Props {
   onClose: () => void;
   onSubmit: (id: string, voidReason: string) => Promise<void>;
   isLoading?: boolean;
+  isRequestMode?: boolean;
 }
 
 const VoidMovementDialog: React.FC<Props> = ({
@@ -52,6 +53,7 @@ const VoidMovementDialog: React.FC<Props> = ({
   onClose,
   onSubmit,
   isLoading,
+  isRequestMode,
 }) => {
   const {
     control,
@@ -82,7 +84,7 @@ const VoidMovementDialog: React.FC<Props> = ({
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <form onSubmit={handleSubmit(handleFormSubmit)}>
-        <DialogTitle>Anular Movimiento</DialogTitle>
+        <DialogTitle>{isRequestMode ? 'Solicitar Anulación de Movimiento' : 'Anular Movimiento'}</DialogTitle>
 
         <DialogContent>
           <Stack spacing={2.5} sx={{ mt: 1 }}>
@@ -133,7 +135,9 @@ const VoidMovementDialog: React.FC<Props> = ({
             </Box>
 
             <Typography variant="body2" color="warning.main">
-              Esta acción creará un movimiento de contrapartida para anular el efecto en caja. No se puede deshacer.
+              {isRequestMode
+                ? 'Se enviará una solicitud de anulación al administrador para su aprobación.'
+                : 'Esta acción creará un movimiento de contrapartida para anular el efecto en caja. No se puede deshacer.'}
             </Typography>
 
             {/* Void reason */}
@@ -164,11 +168,11 @@ const VoidMovementDialog: React.FC<Props> = ({
           <Button
             type="submit"
             variant="contained"
-            color="error"
+            color={isRequestMode ? 'warning' : 'error'}
             disabled={isLoading}
             startIcon={isLoading ? <CircularProgress size={16} /> : undefined}
           >
-            Confirmar Anulación
+            {isRequestMode ? 'Enviar Solicitud' : 'Confirmar Anulación'}
           </Button>
         </DialogActions>
       </form>

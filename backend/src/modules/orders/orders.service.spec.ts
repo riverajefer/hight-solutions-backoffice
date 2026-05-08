@@ -112,6 +112,13 @@ const mockPrisma = {
     findUnique: jest.fn(),
     update: jest.fn(),
   },
+  cashSession: {
+    findFirst: jest.fn(),
+  },
+  cashMovement: {
+    updateMany: jest.fn(),
+    create: jest.fn(),
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -260,6 +267,8 @@ describe('OrdersService', () => {
     beforeEach(() => {
       mockConsecutivesService.generateNumber.mockResolvedValue('OP-2026-001');
       mockOrdersRepository.create.mockResolvedValue(mockOrder);
+      mockPrisma.cashSession.findFirst.mockResolvedValue(null);
+      mockPrisma.payment.findMany.mockResolvedValue([]);
     });
 
     it('should throw BadRequestException when items array is empty', async () => {
@@ -330,26 +339,20 @@ describe('OrdersService', () => {
       });
     });
 
-    it('should throw BadRequestException when initialPayment exceeds order total', async () => {
-      // total = 119, initialPayment = 200 → should fail
-      await expect(
-        service.create(
-          {
-            ...baseCreateDto,
-            initialPayment: { amount: 200, paymentMethod: PaymentMethod.CASH },
-          },
-          'user-1',
-        ),
-      ).rejects.toThrow(BadRequestException);
-      await expect(
-        service.create(
-          {
-            ...baseCreateDto,
-            initialPayment: { amount: 200, paymentMethod: PaymentMethod.CASH },
-          },
-          'user-1',
-        ),
-      ).rejects.toThrow('Initial payment cannot exceed order total');
+    it('should allow initialPayment that exceeds order total (saldo a favor via RefundRequest)', async () => {
+      // total = 119, initialPayment = 200 → allowed; overpayment becomes saldo a favor
+      await service.create(
+        {
+          ...baseCreateDto,
+          initialPayment: { amount: 200, paymentMethod: PaymentMethod.CASH },
+        },
+        'user-1',
+      );
+
+      const callArg = mockOrdersRepository.create.mock.calls[0][0];
+      // paidAmount = 200, total = 119, balance = total - paidAmount = -81 (saldo a favor)
+      expect(Number(callArg.paidAmount.toString())).toBe(200);
+      expect(Number(callArg.balance.toString())).toBe(-81);
     });
 
     it('should set balance = total - paidAmount when payment is provided', async () => {
@@ -1519,6 +1522,7 @@ describe('OrdersService', () => {
       mockPrisma.payment.create.mockResolvedValue({ id: 'pay-new' });
       mockPrisma.order.update.mockResolvedValue(mockConfirmedOrder);
       mockPrisma.payment.findUnique.mockResolvedValue(mockPaymentFull);
+      mockPrisma.cashSession.findFirst.mockResolvedValue(null);
     });
 
     it('should throw NotFoundException when order does not exist', async () => {
@@ -1540,14 +1544,21 @@ describe('OrdersService', () => {
       );
     });
 
-    it('should throw BadRequestException when payment amount exceeds order balance', async () => {
-      // Balance = 119, payment = 200
-      await expect(
-        service.addPayment('order-1', { amount: 200, paymentMethod: PaymentMethod.CASH }, 'user-1'),
-      ).rejects.toThrow(BadRequestException);
-      await expect(
-        service.addPayment('order-1', { amount: 200, paymentMethod: PaymentMethod.CASH }, 'user-1'),
-      ).rejects.toThrow('cannot exceed order balance');
+    it('should allow payment amount that exceeds order balance (saldo a favor via RefundRequest)', async () => {
+      // Balance = 119, payment = 200 → allowed; excess becomes saldo a favor
+      await service.addPayment(
+        'order-1',
+        { amount: 200, paymentMethod: PaymentMethod.CASH },
+        'user-1',
+      );
+
+      expect(mockPrisma.payment.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            orderId: 'order-1',
+          }),
+        }),
+      );
     });
 
     it('should create payment inside a transaction and update paidAmount and balance', async () => {

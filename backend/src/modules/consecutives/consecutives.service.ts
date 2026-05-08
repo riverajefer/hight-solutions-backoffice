@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConsecutivesRepository } from './consecutives.repository';
 
-type ConsecutiveType = 'ORDER' | 'PRODUCTION' | 'EXPENSE' | 'QUOTE' | 'WORK_ORDER' | 'PRODUCTION_ORDER' | 'CASH_RECEIPT';
+type ConsecutiveType = 'ORDER' | 'PRODUCTION' | 'EXPENSE' | 'QUOTE' | 'WORK_ORDER' | 'PRODUCTION_ORDER' | 'CASH_RECEIPT' | 'DTF_TEXTIL' | 'DTF_UV';
 
 @Injectable()
 export class ConsecutivesService {
@@ -37,6 +37,8 @@ export class ConsecutivesService {
       WORK_ORDER: { table: 'work_orders', column: 'work_order_number' },
       PRODUCTION_ORDER: { table: 'production_orders', column: 'oprod_number' },
       CASH_RECEIPT: { table: 'cash_movements', column: 'receipt_number' },
+      DTF_TEXTIL: { table: 'dtf_records', column: 'consecutive' },
+      DTF_UV: { table: 'dtf_records', column: 'consecutive' },
     };
 
     const config = syncConfig[type];
@@ -90,6 +92,8 @@ export class ConsecutivesService {
       WORK_ORDER: 'OT',
       PRODUCTION_ORDER: 'OPROD',
       CASH_RECEIPT: 'RC',
+      DTF_TEXTIL: 'DTF-TEXTIL',
+      DTF_UV: 'DTF-UV',
     };
 
     return prefixMap[type];

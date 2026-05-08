@@ -71,6 +71,11 @@ const CompanyPage = lazy(() => import('../features/company/pages/CompanyPage'));
 const WorkOrdersListPage = lazy(() => import('../features/work-orders/pages/WorkOrdersListPage'));
 const WorkOrderFormPage = lazy(() => import('../features/work-orders/pages/WorkOrderFormPage'));
 const WorkOrderDetailPage = lazy(() => import('../features/work-orders/pages/WorkOrderDetailPage'));
+// Expense Types & Subcategories
+const ExpenseTypesListPage = lazy(() => import('../features/expense-types/pages/ExpenseTypesListPage'));
+const ExpenseTypeFormPage = lazy(() => import('../features/expense-types/pages/ExpenseTypeFormPage'));
+const ExpenseSubcategoriesListPage = lazy(() => import('../features/expense-types/pages/ExpenseSubcategoriesListPage'));
+const ExpenseSubcategoryFormPage = lazy(() => import('../features/expense-types/pages/ExpenseSubcategoryFormPage'));
 // Expense Orders
 const ExpenseOrdersListPage = lazy(() => import('../features/expense-orders/pages/ExpenseOrdersListPage'));
 const ExpenseOrderFormPage = lazy(() => import('../features/expense-orders/pages/ExpenseOrderFormPage'));
@@ -108,6 +113,18 @@ const CloseSessionPage = lazy(() => import('../features/cash-register/pages/Clos
 const SessionHistoryPage = lazy(() => import('../features/cash-register/pages/SessionHistoryPage'));
 const SessionDetailPage = lazy(() => import('../features/cash-register/pages/SessionDetailPage'));
 
+const AccountsPayableListPage = lazy(() => import('../features/accounts-payable/pages/AccountsPayableListPage'));
+const AccountsPayableDetailPage = lazy(() => import('../features/accounts-payable/pages/AccountsPayableDetailPage'));
+const AccountsPayableFormPage = lazy(() => import('../features/accounts-payable/pages/AccountsPayableFormPage'));
+
+const DtfListPage = lazy(() => import('../features/dtf/pages/DtfListPage'));
+const DtfFormPage = lazy(() => import('../features/dtf/pages/DtfFormPage'));
+const DtfDetailPage = lazy(() => import('../features/dtf/pages/DtfDetailPage'));
+const DtfEditPage = lazy(() => import('../features/dtf/pages/DtfEditPage'));
+// Approval Redirect
+const ApprovalRedirectPage = lazy(() => import('../features/approvals/pages/ApprovalRedirectPage'));
+// Ventas por Asesor
+const SalesByAdvisorPage = lazy(() => import('../features/orders/pages/SalesByAdvisorPage'));
 
 const RoutesConfig: FC = () => {
   return (
@@ -397,7 +414,7 @@ const RoutesConfig: FC = () => {
           element={
             <AuthGuard>
               <MainLayout>
-                <PermissionGuard permission={[PERMISSIONS.BROWSE_CLIENTS, PERMISSIONS.CREATE_CLIENTS]}>
+                <PermissionGuard permission={[PERMISSIONS.BROWSE_CLIENTS, PERMISSIONS.SEARCH_CLIENTS, PERMISSIONS.CREATE_CLIENTS]}>
                   <ClientsListPage />
                 </PermissionGuard>
               </MainLayout>
@@ -972,7 +989,7 @@ const RoutesConfig: FC = () => {
           element={
             <AuthGuard>
               <MainLayout>
-                <PermissionGuard permission={[PERMISSIONS.APPROVE_ORDERS, PERMISSIONS.APPROVE_ADVANCE_PAYMENTS, PERMISSIONS.APPROVE_CLIENT_OWNERSHIP_AUTH, PERMISSIONS.APPROVE_EXPENSE_ORDERS]}>
+                <PermissionGuard permission={[PERMISSIONS.APPROVE_ORDERS, PERMISSIONS.APPROVE_ADVANCE_PAYMENTS, PERMISSIONS.APPROVE_CLIENT_OWNERSHIP_AUTH, PERMISSIONS.APPROVE_EXPENSE_ORDERS, PERMISSIONS.APPROVE_CASH_MOVEMENTS]}>
                   <StatusChangeRequestsPage />
                 </PermissionGuard>
               </MainLayout>
@@ -1051,6 +1068,82 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.READ_WORK_ORDERS}>
                   <WorkOrderDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Expense Types Routes */}
+        <Route
+          path={PATHS.EXPENSE_TYPES}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_EXPENSE_TYPES}>
+                  <ExpenseTypesListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.EXPENSE_TYPES_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_EXPENSE_TYPES}>
+                  <ExpenseTypeFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.EXPENSE_TYPES_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_EXPENSE_TYPES}>
+                  <ExpenseTypeFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Expense Subcategories Routes */}
+        <Route
+          path={PATHS.EXPENSE_SUBCATEGORIES}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_EXPENSE_TYPES}>
+                  <ExpenseSubcategoriesListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.EXPENSE_SUBCATEGORIES_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_EXPENSE_TYPES}>
+                  <ExpenseSubcategoryFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.EXPENSE_SUBCATEGORIES_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_EXPENSE_TYPES}>
+                  <ExpenseSubcategoryFormPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>
@@ -1425,6 +1518,130 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.READ_CASH_SESSIONS}>
                   <SessionDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Accounts Payable Routes */}
+        <Route
+          path={PATHS.ACCOUNTS_PAYABLE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_ACCOUNTS_PAYABLE}>
+                  <AccountsPayableListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.ACCOUNTS_PAYABLE_NEW}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_ACCOUNTS_PAYABLE}>
+                  <AccountsPayableFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.ACCOUNTS_PAYABLE_DETAIL}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_ACCOUNTS_PAYABLE}>
+                  <AccountsPayableDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.ACCOUNTS_PAYABLE_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_ACCOUNTS_PAYABLE}>
+                  <AccountsPayableFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* DTF Routes */}
+        <Route
+          path={PATHS.DTF}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_DTF}>
+                  <DtfListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.DTF_CREATE}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.CREATE_DTF}>
+                  <DtfFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.DTF_DETAIL}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_DTF}>
+                  <DtfDetailPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.DTF_EDIT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.UPDATE_DTF}>
+                  <DtfEditPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Approval Redirect (WhatsApp CTA) */}
+        <Route
+          path={PATHS.APPROVAL_REDIRECT}
+          element={
+            <AuthGuard>
+              <ApprovalRedirectPage />
+            </AuthGuard>
+          }
+        />
+
+        {/* Ventas por Asesor */}
+        <Route
+          path={PATHS.SALES_BY_ADVISOR}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_SALES_BY_ADVISOR}>
+                  <SalesByAdvisorPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

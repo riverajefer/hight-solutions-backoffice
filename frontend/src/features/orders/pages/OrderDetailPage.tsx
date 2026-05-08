@@ -33,6 +33,7 @@ import {
   FormLabel,
   Tabs,
   Tab,
+  Tooltip,
   useTheme,
   Paper,
 } from '@mui/material';
@@ -59,12 +60,17 @@ import {
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
   ExpandMore as ExpandMoreIcon,
+  CurrencyExchange as CurrencyExchangeIcon,
+  HourglassEmpty as HourglassEmptyIcon,
+  WhatsApp as WhatsAppIcon,
 } from '@mui/icons-material';
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { parsePhoneValue } from '../../../components/common/PhoneInputWithCountry';
+import { StatusHighlight } from '../../../components/common/StatusHighlight';
 
 import { DocumentTypeBanner } from '../../../components/common/DocumentTypeBanner';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
@@ -76,7 +82,9 @@ import {
   ApplyDiscountDialog,
   DiscountsSection,
   ToolbarButton,
+  RefundRequestDialog,
 } from '../components';
+import { generateOrderPdf } from '../utils/generateOrderPdf';
 import { ActivePermissionBanner } from '../components/ActivePermissionBanner';
 import { RequestEditPermissionButton } from '../components/RequestEditPermissionButton';
 import { EditRequestsList } from '../components/EditRequestsList';
@@ -102,8 +110,8 @@ import {
 } from '../../../types/order.types';
 import { CommentSection } from '../../comments';
 
-const formatCurrency = (value: string): string => {
-  const numValue = parseFloat(value);
+const formatCurrency = (value: string | number): string => {
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
   return new Intl.NumberFormat('es-CO', {
     style: 'currency',
     currency: 'COP',
@@ -128,6 +136,14 @@ const formatDateTime = (date: string): string => {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(date));
+};
+
+const formatPhoneForWhatsApp = (phone: string): string => {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) return `57${digits}`;
+  if (digits.length === 12 && digits.startsWith('57')) return digits;
+  if (digits.length === 13 && digits.startsWith('057')) return digits.slice(1);
+  return digits;
 };
 
 interface TabPanelProps {
@@ -172,9 +188,11 @@ export const OrderDetailPage: React.FC = () => {
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [discountDialogOpen, setDiscountDialogOpen] = useState(false);
+  const [refundDialogOpen, setRefundDialogOpen] = useState(false);
   const [tabValue, setTabValue] = useState(0);
   const [paymentData, setPaymentData] = useState<CreatePaymentDto>({
     amount: 0,
@@ -207,6 +225,10 @@ export const OrderDetailPage: React.FC = () => {
     url: string;
     mimeType: string;
   }>({ open: false, url: '', mimeType: '' });
+  const [viewSampleImageDialog, setViewSampleImageDialog] = useState<{
+    open: boolean;
+    url: string;
+  }>({ open: false, url: '' });
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceLoading, setInvoiceLoading] = useState(false);
@@ -287,6 +309,59 @@ export const OrderDetailPage: React.FC = () => {
     navigate('/orders');
   };
 
+  const handleShareWhatsApp = async () => {
+    if (!order) return;
+
+    if (!order.client?.phone) {
+      enqueueSnackbar('El cliente no tiene número de teléfono registrado', {
+        variant: 'info',
+      });
+      return;
+    }
+
+    setIsGeneratingPdf(true);
+    try {
+      const pdfDoc = await generateOrderPdf(order);
+      pdfDoc.save(`Orden_${order.orderNumber}.pdf`);
+
+      const whatsappPhone = formatPhoneForWhatsApp(order.client.phone);
+
+      const totalFormatted = formatCurrency(order.total);
+      const balanceFormatted = formatCurrency(order.balance);
+
+      const message = [
+        `Hola ${order.client.name},`,
+        ``,
+        `Adjunto encontrará la Orden de Pedido *${order.orderNumber}* de High Solutions.`,
+        ``,
+        `*Resumen:*`,
+        `• Total: ${totalFormatted}`,
+        `• Saldo Pendiente: ${balanceFormatted}`,
+        ``,
+        `Quedamos atentos a cualquier pregunta. ¡Gracias por preferirnos!`,
+      ].join('\\n');
+
+      const encodedMessage = encodeURIComponent(message);
+      window.open(
+        `https://wa.me/${whatsappPhone}?text=${encodedMessage}`,
+        '_blank',
+        'noopener,noreferrer',
+      );
+
+      enqueueSnackbar(
+        'PDF descargado. Adjúntalo en la conversación de WhatsApp que se abrió.',
+        { variant: 'success' },
+      );
+    } catch (error) {
+      console.error('Error al compartir por WhatsApp:', error);
+      enqueueSnackbar('Error al generar el PDF para compartir', {
+        variant: 'error',
+      });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
   const handleAddPayment = async () => {
     if (paymentSubmitting) return;
 
@@ -351,6 +426,16 @@ export const OrderDetailPage: React.FC = () => {
 
   const handleCloseViewReceipt = () => {
     setViewReceiptDialog({ open: false, url: '', mimeType: '' });
+  };
+
+  const handleViewSampleImage = async (sampleImageId: string) => {
+    try {
+      const { data } = await axiosInstance.get(`/storage/${sampleImageId}/url`);
+      setViewSampleImageDialog({ open: true, url: data.url });
+    } catch (error) {
+      console.error('Error loading image:', error);
+      enqueueSnackbar('Error al cargar la imagen', { variant: 'error' });
+    }
   };
 
   const handleOpenInvoiceDialog = () => {
@@ -476,6 +561,22 @@ export const OrderDetailPage: React.FC = () => {
 
   const balance = parseFloat(order.balance);
 
+  // Saldo a favor (overpayment) = paidAmount - total
+  const overpayment = Math.max(
+    0,
+    parseFloat(order.paidAmount) - parseFloat(order.total),
+  );
+  const hasOverpayment = overpayment > 0;
+  const pendingRefund = order.refundRequests?.find(
+    (r) => r.status === 'PENDING',
+  );
+  const hasPendingRefund = !!pendingRefund;
+  const canCreateRefund =
+    !isAnulado &&
+    hasOverpayment &&
+    !hasPendingRefund &&
+    permissions.includes('create_refund_requests');
+
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <DocumentTypeBanner type="OP" documentNumber={order.orderNumber} />
@@ -490,6 +591,14 @@ export const OrderDetailPage: React.FC = () => {
 
       {/* Banner de permiso activo */}
       <ActivePermissionBanner orderId={id!} />
+
+      {/* Banner de origen DTF */}
+      {order.notes?.startsWith('[DTF]') && (
+        <Alert severity="info" sx={{ mt: 2, mb: 1 }}>
+          Esta orden fue generada desde el registro DTF{' '}
+          <strong>{order.notes.replace('[DTF] ', '')}</strong>.
+        </Alert>
+      )}
 
       {/* Banner de orden ANULADA */}
       {isAnulado && (
@@ -507,6 +616,11 @@ export const OrderDetailPage: React.FC = () => {
       {order.advancePaymentStatus === 'REJECTED' && (
         <Alert severity="error" sx={{ mt: 2 }}>
           <strong>Pago rechazado.</strong> El pago registrado en esta orden fue rechazado por Caja. El pago ha sido revertido.
+          {order.advancePaymentRejectedReason && (
+            <Box sx={{ mt: 0.5 }}>
+              <strong>Motivo del rechazo:</strong> {order.advancePaymentRejectedReason}
+            </Box>
+          )}
         </Alert>
       )}
 
@@ -519,6 +633,23 @@ export const OrderDetailPage: React.FC = () => {
       {order.discountApprovalStatus === 'REJECTED' && (
         <Alert severity="error" sx={{ mt: 2 }}>
           <strong>Descuento rechazado.</strong> El descuento aplicado en esta orden fue rechazado. Verifique con administración.
+        </Alert>
+      )}
+
+      {/* Alertas de devolución (saldo a favor) */}
+      {hasPendingRefund && pendingRefund && (
+        <Alert severity="warning" icon={<HourglassEmptyIcon />} sx={{ mt: 2 }}>
+          <strong>Devolución pendiente de aprobación.</strong> Monto:{' '}
+          {formatCurrency(pendingRefund.refundAmount)} ·{' '}
+          {PAYMENT_METHOD_LABELS[
+            pendingRefund.paymentMethod as PaymentMethod
+          ] ?? pendingRefund.paymentMethod}
+        </Alert>
+      )}
+      {hasOverpayment && !hasPendingRefund && (
+        <Alert severity="info" sx={{ mt: 2 }}>
+          <strong>Saldo a favor:</strong> {formatCurrency(overpayment.toString())}.
+          Puede registrar una devolución al cliente.
         </Alert>
       )}
 
@@ -541,6 +672,12 @@ export const OrderDetailPage: React.FC = () => {
             : order.client.advisor.email}
         </Alert>
       )}
+
+      <StatusHighlight
+        label={ORDER_STATUS_CONFIG[order.status].label}
+        color={ORDER_STATUS_CONFIG[order.status].color}
+        sx={{ mt: 2 }}
+      />
 
       {/* Toolbar de Acciones */}
       <Paper
@@ -614,6 +751,17 @@ export const OrderDetailPage: React.FC = () => {
             />
           )}
 
+          {canCreateRefund && (
+            <ToolbarButton
+              icon={<CurrencyExchangeIcon />}
+              label="Devolución"
+              secondaryLabel="Registrar"
+              onClick={() => setRefundDialogOpen(true)}
+              color={theme.palette.warning.main}
+              tooltip={`Registrar devolución al cliente (saldo a favor: ${formatCurrency(overpayment.toString())})`}
+            />
+          )}
+
           {canRegisterInvoice && (
             <ToolbarButton
               icon={<ReceiptIcon />}
@@ -646,6 +794,16 @@ export const OrderDetailPage: React.FC = () => {
           )}
 
           <OrderPdfButton order={order} />
+
+          <ToolbarButton
+            icon={<WhatsAppIcon />}
+            label="WhatsApp"
+            secondaryLabel="Compartir"
+            onClick={handleShareWhatsApp}
+            disabled={isGeneratingPdf}
+            color={theme.palette.success.main}
+            tooltip="Compartir por WhatsApp"
+          />
 
           {!order.workOrders?.[0] &&
             ['CONFIRMED', 'IN_PRODUCTION', 'READY'].includes(order.status) &&
@@ -690,7 +848,7 @@ export const OrderDetailPage: React.FC = () => {
                       Estado
                     </Typography>
                     <Box sx={{ mt: 1 }}>
-                      <OrderStatusChip status={order.status} size="medium" />
+                      <OrderStatusChip status={order.status} size="medium" variant="outlined" />
                     </Box>
                   </Grid>
 
@@ -836,6 +994,9 @@ export const OrderDetailPage: React.FC = () => {
                   <Table size="small" sx={{ minWidth: { xs: 600, sm: 'auto' } }}>
                     <TableHead>
                       <TableRow>
+                        {order.items?.some((i) => i.sampleImageId) && (
+                          <TableCell width="60px" align="center">Imagen</TableCell>
+                        )}
                         <TableCell>Descripción</TableCell>
                         <TableCell>Áreas de Producción</TableCell>
                         <TableCell align="right">Cantidad</TableCell>
@@ -846,6 +1007,19 @@ export const OrderDetailPage: React.FC = () => {
                     <TableBody>
                       {order.items.map((item) => (
                         <TableRow key={item.id}>
+                          {order.items?.some((i) => i.sampleImageId) && (
+                            <TableCell align="center">
+                              {item.sampleImageId && (
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleViewSampleImage(item.sampleImageId!)}
+                                  color="primary"
+                                >
+                                  <VisibilityIcon fontSize="small" />
+                                </IconButton>
+                              )}
+                            </TableCell>
+                          )}
                           <TableCell>
                             {item.product && (
                               <Chip
@@ -896,16 +1070,46 @@ export const OrderDetailPage: React.FC = () => {
                     <Box display="flex" justifyContent="space-between">
                       <Typography>Subtotal:</Typography>
                       <Typography fontWeight={500}>
-                        {formatCurrency(order.subtotal)}
+                        {formatCurrency(parseFloat(order.subtotal))}
                       </Typography>
                     </Box>
+                    {parseFloat(order.retefuenteRate) > 0 && (
+                      <Box display="flex" justifyContent="space-between">
+                        <Typography color="error.main">
+                          Retefuente ({(parseFloat(order.retefuenteRate) * 100).toFixed(3).replace(/\.?0+$/, '')}%):
+                        </Typography>
+                        <Typography fontWeight={500} color="error.main">
+                          -{formatCurrency(parseFloat(order.subtotal) * parseFloat(order.retefuenteRate))}
+                        </Typography>
+                      </Box>
+                    )}
+                    {parseFloat(order.reteICARate) > 0 && (
+                      <Box display="flex" justifyContent="space-between">
+                        <Typography color="error.main">
+                          ReteICA ({(parseFloat(order.reteICARate) * 100).toFixed(3).replace(/\.?0+$/, '')}%):
+                        </Typography>
+                        <Typography fontWeight={500} color="error.main">
+                          -{formatCurrency(parseFloat(order.subtotal) * parseFloat(order.reteICARate))}
+                        </Typography>
+                      </Box>
+                    )}
                     {parseFloat(order.tax) > 0 && (
                       <Box display="flex" justifyContent="space-between">
                         <Typography>
                           IVA ({(parseFloat(order.taxRate) * 100).toFixed(1)}%):
                         </Typography>
                         <Typography fontWeight={500}>
-                          {formatCurrency(order.tax)}
+                          {formatCurrency(parseFloat(order.tax))}
+                        </Typography>
+                      </Box>
+                    )}
+                    {parseFloat(order.reteIVARate) > 0 && parseFloat(order.tax) > 0 && (
+                      <Box display="flex" justifyContent="space-between">
+                        <Typography color="error.main">
+                          ReteIVA ({(parseFloat(order.reteIVARate) * 100).toFixed(0)}%):
+                        </Typography>
+                        <Typography fontWeight={500} color="error.main">
+                          -{formatCurrency(parseFloat(order.tax) * parseFloat(order.reteIVARate))}
                         </Typography>
                       </Box>
                     )}
@@ -915,7 +1119,7 @@ export const OrderDetailPage: React.FC = () => {
                           Prueba de Color:
                         </Typography>
                         <Typography fontWeight={500}>
-                          {formatCurrency(order.colorProofPrice)}
+                          {formatCurrency(parseFloat(order.colorProofPrice as any || 0))}
                         </Typography>
                       </Box>
                     )}
@@ -925,7 +1129,7 @@ export const OrderDetailPage: React.FC = () => {
                           Descuentos:
                         </Typography>
                         <Typography fontWeight={500} color="error.main">
-                          -{formatCurrency(order.discountAmount)}
+                          -{formatCurrency(parseFloat(order.discountAmount))}
                         </Typography>
                       </Box>
                     )}
@@ -933,23 +1137,27 @@ export const OrderDetailPage: React.FC = () => {
                     <Box display="flex" justifyContent="space-between">
                       <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Total:</Typography>
                       <Typography variant="h6" color="primary.main" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
-                        {formatCurrency(order.total)}
+                        {formatCurrency(parseFloat(order.total))}
                       </Typography>
                     </Box>
                     <Box display="flex" justifyContent="space-between">
-                      <Typography>Pagado:</Typography>
+                      <Typography>Abono:</Typography>
                       <Typography fontWeight={500} color="success.main">
-                        {formatCurrency(order.paidAmount)}
+                        {formatCurrency(parseFloat(order.paidAmount))}
                       </Typography>
                     </Box>
-                    <Box display="flex" justifyContent="space-between">
-                      <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Saldo:</Typography>
+                    <Box display="flex" justifyContent="space-between" mt={1}>
+                      <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+                        {parseFloat(order.balance) < 0 ? 'Saldo a favor del cliente:' : 'Saldo a cobrar:'}
+                      </Typography>
                       <Typography
                         variant="h6"
-                        color={balance > 0 ? 'warning.main' : 'success.main'}
+                        color={parseFloat(order.balance) < 0 ? 'warning.main' : parseFloat(order.balance) > 0 ? 'error.main' : 'success.main'}
                         sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
                       >
-                        {formatCurrency(order.balance)}
+                        {parseFloat(order.balance) < 0 
+                          ? formatCurrency(Math.abs(parseFloat(order.balance))) 
+                          : formatCurrency(parseFloat(order.balance))}
                       </Typography>
                     </Box>
                   </Stack>
@@ -1180,7 +1388,7 @@ export const OrderDetailPage: React.FC = () => {
               isDeleting={deletingDiscount}
             />
             {/* Notas y Detalles Adicionales */}
-            {(order.notes || order.requiresColorProof) && (
+            {((order.notes && !order.notes.startsWith('[DTF]')) || order.requiresColorProof) && (
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
@@ -1221,11 +1429,48 @@ export const OrderDetailPage: React.FC = () => {
                       {order.client.email}
                     </Typography>
                   )}
-                  {order.client.phone && (
-                    <Typography variant="body2" color="textSecondary">
-                      {order.client.phone}
-                    </Typography>
-                  )}
+                  {order.client.phone && (() => {
+                    const { country, local } = parsePhoneValue(order.client.phone);
+                    const waNumber = `${country.dialCode}${local}`;
+                    return (
+                      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                        <Stack direction="row" spacing={0.75} alignItems="center">
+                          <span title={country.name} style={{ fontSize: '1.1rem', lineHeight: 1 }}>
+                            {country.flag}
+                          </span>
+                          <Typography variant="body2" color="textSecondary">
+                            +{country.dialCode} {local}
+                          </Typography>
+                        </Stack>
+                        <Tooltip title="Escribirle al cliente por WhatsApp">
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            href={`https://wa.me/${waNumber}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            startIcon={<WhatsAppIcon sx={{ fontSize: '1rem !important' }} />}
+                            sx={{
+                              borderColor: '#25D366',
+                              color: '#25D366',
+                              fontSize: '0.7rem',
+                              py: 0.25,
+                              px: 1,
+                              minHeight: 'unset',
+                              lineHeight: 1.5,
+                              '&:hover': {
+                                borderColor: '#128C7E',
+                                backgroundColor: 'rgba(37,211,102,0.08)',
+                                color: '#128C7E',
+                              },
+                            }}
+                          >
+                            Escribir
+                          </Button>
+                        </Tooltip>
+                      </Stack>
+                    );
+                  })()}
                 </Stack>
               </CardContent>
             </Card>
@@ -1425,29 +1670,37 @@ export const OrderDetailPage: React.FC = () => {
                   amount,
                 });
               }}
-              InputProps={{
-                startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>,
-              }}
-              inputProps={{
-                style: { textAlign: 'right' },
-              }}
-              helperText={`Saldo pendiente: ${formatCurrency(order.balance)}`}
-            />
-
-            <FormControl fullWidth>
-              <InputLabel id="payment-method-label">Método de Pago</InputLabel>
-              <Select
-                labelId="payment-method-label"
-                id="payment-method-select"
-                value={paymentData.paymentMethod}
-                label="Método de Pago"
-                onChange={(e) =>
-                  setPaymentData({
-                    ...paymentData,
-                    paymentMethod: e.target.value as PaymentMethod,
-                  })
+                color={(paymentData.amount || 0) > parseFloat(order.balance) ? 'warning' : 'primary'}
+                InputProps={{
+                  startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>,
+                }}
+                inputProps={{
+                  style: { textAlign: 'right' },
+                }}
+                helperText={
+                  (paymentData.amount || 0) > parseFloat(order.balance)
+                    ? `Quedará un saldo a favor al cliente de ${formatCurrency((paymentData.amount || 0) - parseFloat(order.balance))}`
+                    : `Saldo pendiente: ${formatCurrency(order.balance)}`
                 }
-              >
+                FormHelperTextProps={{
+                  sx: {
+                    color: (paymentData.amount || 0) > parseFloat(order.balance) ? 'warning.main' : 'text.secondary',
+                    fontWeight: (paymentData.amount || 0) > parseFloat(order.balance) ? 600 : 400
+                  }
+                }}
+              />
+
+              <FormControl fullWidth>
+                <InputLabel>Método de Pago</InputLabel>
+                <Select
+                  value={paymentData.paymentMethod}
+                  onChange={(e) =>
+                    setPaymentData({
+                      ...paymentData,
+                      paymentMethod: e.target.value as import('../../../types/order.types').PaymentMethod,
+                    })
+                  }
+                >
                 {(
                   Object.entries(PAYMENT_METHOD_LABELS) as [PaymentMethod, string][]
                 ).map(([method, label]) => (
@@ -1628,6 +1881,15 @@ export const OrderDetailPage: React.FC = () => {
         maxAmount={parseFloat(order.subtotal) + parseFloat(order.tax)}
       />
 
+      {/* Dialog: Registrar Devolución */}
+      <RefundRequestDialog
+        open={refundDialogOpen}
+        onClose={() => setRefundDialogOpen(false)}
+        orderId={id!}
+        orderNumber={order.orderNumber}
+        maxAmount={overpayment}
+      />
+
       {/* Dialog: Ver Comprobante */}
       <Dialog
         open={viewReceiptDialog.open}
@@ -1748,6 +2010,31 @@ export const OrderDetailPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      {/* Dialog: Ver Imagen de Muestra de Item */}
+      <Dialog
+        open={viewSampleImageDialog.open}
+        onClose={() => setViewSampleImageDialog({ open: false, url: '' })}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Imagen de Muestra
+          <IconButton onClick={() => setViewSampleImageDialog({ open: false, url: '' })} sx={{ position: 'absolute', right: 8, top: 8 }}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          {viewSampleImageDialog.url && (
+            <Box
+              component="img"
+              src={viewSampleImageDialog.url}
+              alt="Imagen de muestra"
+              sx={{ width: '100%', height: 'auto', maxHeight: '70vh', objectFit: 'contain' }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Dialog: Solicitar Autorización de Cambio de Estado */}
       {statusAuthDialogOpen && pendingStatus && order && (
         <StatusChangeAuthRequestDialog

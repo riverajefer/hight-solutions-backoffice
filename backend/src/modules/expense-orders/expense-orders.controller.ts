@@ -21,6 +21,7 @@ import {
 } from '@nestjs/swagger';
 import { ExpenseOrdersService } from './expense-orders.service';
 import {
+  CajaRejectExpenseOrderDto,
   CreateExpenseItemDto,
   CreateExpenseOrderDto,
   FilterExpenseOrdersDto,
@@ -124,6 +125,35 @@ export class ExpenseOrdersController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.service.updateStatus(id, dto, user);
+  }
+
+  @Patch(':id/caja-authorize')
+  @RequirePermissions('caja_authorize_expense_orders')
+  @ApiOperation({ summary: 'Segunda firma Caja: autorizar OG y registrar pago (requiere ADMIN_AUTHORIZED)' })
+  @ApiParam({ name: 'id', description: 'ID de la OG' })
+  @ApiResponse({ status: 200, description: 'OG autorizada por Caja y pagada automáticamente' })
+  @ApiResponse({ status: 400, description: 'OG no está en estado ADMIN_AUTHORIZED o no hay sesión de caja activa' })
+  @ApiResponse({ status: 404, description: 'OG no encontrada' })
+  cajaAuthorize(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.cajaAuthorize(id, user);
+  }
+
+  @Patch(':id/caja-reject')
+  @RequirePermissions('caja_authorize_expense_orders')
+  @ApiOperation({ summary: 'Caja rechaza una OG y la devuelve a CREATED con un motivo' })
+  @ApiParam({ name: 'id', description: 'ID de la OG' })
+  @ApiResponse({ status: 200, description: 'OG rechazada por Caja y devuelta a CREATED' })
+  @ApiResponse({ status: 400, description: 'OG no está en estado ADMIN_AUTHORIZED' })
+  @ApiResponse({ status: 404, description: 'OG no encontrada' })
+  cajaReject(
+    @Param('id') id: string,
+    @Body() dto: CajaRejectExpenseOrderDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.cajaReject(id, dto, user);
   }
 
   @Delete(':id')

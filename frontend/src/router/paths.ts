@@ -80,6 +80,13 @@ export const PATHS = {
   WORK_ORDERS_CREATE: '/work-orders/new',
   WORK_ORDERS_EDIT: '/work-orders/:id/edit',
   WORK_ORDERS_DETAIL: '/work-orders/:id',
+  // Expense Types & Subcategories Routes
+  EXPENSE_TYPES: '/expense-types',
+  EXPENSE_TYPES_CREATE: '/expense-types/new',
+  EXPENSE_TYPES_EDIT: '/expense-types/:id/edit',
+  EXPENSE_SUBCATEGORIES: '/expense-subcategories',
+  EXPENSE_SUBCATEGORIES_CREATE: '/expense-subcategories/new',
+  EXPENSE_SUBCATEGORIES_EDIT: '/expense-subcategories/:id/edit',
   // Expense Orders Routes
   EXPENSE_ORDERS: '/expense-orders',
   EXPENSE_ORDERS_CREATE: '/expense-orders/new',
@@ -121,5 +128,19 @@ export const PATHS = {
   CASH_SESSION_CLOSE: '/cash-register/session/:id/close',
   CASH_SESSION_HISTORY: '/cash-register/history',
   CASH_SESSION_HISTORY_DETAIL: '/cash-register/history/:id',
+  // Cuentas por Pagar
+  ACCOUNTS_PAYABLE: '/accounts-payable',
+  ACCOUNTS_PAYABLE_NEW: '/accounts-payable/new',
+  ACCOUNTS_PAYABLE_DETAIL: '/accounts-payable/:id',
+  ACCOUNTS_PAYABLE_EDIT: '/accounts-payable/:id/edit',
+  // DTF
+  DTF: '/dtf',
+  DTF_CREATE: '/dtf/create',
+  DTF_DETAIL: '/dtf/:id',
+  DTF_EDIT: '/dtf/:id/edit',
+  // Approval Redirect (WhatsApp CTA)
+  APPROVAL_REDIRECT: '/approvals/:id',
+  // Ventas por Asesor
+  SALES_BY_ADVISOR: '/ventas-por-asesor',
 };
 

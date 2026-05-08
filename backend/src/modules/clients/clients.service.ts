@@ -36,6 +36,17 @@ export class ClientsService {
   }
 
   /**
+   * Get consolidated financial stats + order history for a client
+   */
+  async getClientStats(id: string) {
+    const client = await this.clientsRepository.findById(id);
+    if (!client) {
+      throw new NotFoundException(`Cliente con ID ${id} no encontrado`);
+    }
+    return this.clientsRepository.findClientStats(id);
+  }
+
+  /**
    * Create a new client.
    * If the creator is not an admin (does not have `approve_client_ownership_auth`),
    * they are assigned as the advisor of the client.

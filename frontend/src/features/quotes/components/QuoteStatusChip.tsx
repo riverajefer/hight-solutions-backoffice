@@ -12,15 +12,21 @@ export const QuoteStatusChip: React.FC<QuoteStatusChipProps> = ({
   size = 'small',
 }) => {
   const config = QUOTE_STATUS_CONFIG[status] || { label: status, color: 'default' };
+  const isGradient = config.color === 'gradient';
 
   return (
     <Chip
       label={config.label}
-      color={config.color}
+      color={isGradient ? undefined : (config.color as any)}
       size={size}
       sx={{
         fontWeight: 500,
         minWidth: size === 'small' ? 80 : 100,
+        ...(isGradient && {
+          background: 'linear-gradient(135deg, #2EB0C4 0%, #8B5CF6 50%, #FF2D95 100%)',
+          color: 'white',
+          border: 'none'
+        })
       }}
     />
   );

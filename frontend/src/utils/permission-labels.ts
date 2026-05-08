@@ -40,7 +40,8 @@ export const PERMISSION_LABELS: Record<string, string> = {
   delete_cargos: 'Eliminar Cargos',
 
   // Clientes
-  browse_clients: 'Navegar Clientes',
+  search_clients: 'Buscador Global de Clientes',
+  browse_clients: 'Ver la lista completa de clientes',
   create_clients: 'Crear Clientes',
   read_clients: 'Ver Clientes',
   update_clients: 'Actualizar Clientes',
@@ -107,7 +108,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
    approve_orders: 'Aprobar Órdenes',
    change_order_status: 'Cambiar Estado de Órdenes',
    register_order_payments: 'Agrega pago en OP',
-   read_pending_orders: 'Ver Órdenes Pendientes de Pago',
+   read_pending_orders: 'Ver Órdenes Pendientes por Cobrar',
    approve_discounts: 'Aprobar Descuentos',
    apply_discounts: 'Aplicar Descuentos',
    delete_discounts: 'Eliminar Descuentos',
@@ -180,6 +181,13 @@ export const PERMISSION_LABELS: Record<string, string> = {
   create_production_orders: 'Crear Órdenes de Producción',
   update_production_orders: 'Actualizar Órdenes de Producción',
 
+  // DTF (Direct to Film)
+  create_dtf: 'Crear DTF',
+  read_dtf: 'Ver DTF',
+  update_dtf: 'Actualizar DTF',
+  change_dtf_status: 'Cambiar Estado de DTF',
+  convert_dtf_to_order: 'Convertir DTF a Orden',
+
   // Comentarios
   create_comments: 'Crear Comentarios',
   read_comments: 'Ver Comentarios',
@@ -196,6 +204,28 @@ export const PERMISSION_LABELS: Record<string, string> = {
   create_cash_movements: 'Registrar Movimientos de Caja',
   void_cash_movements: 'Anular Movimientos de Caja',
   read_cash_movements: 'Ver Movimientos de Caja',
+  approve_cash_movements: 'Aprobar Movimientos de Caja',
+  caja_authorize_expense_orders: 'Autorizar Órdenes de Gasto en Caja',
+
+  // Devoluciones
+  approve_refunds: 'Aprobar Devoluciones',
+  create_refund_requests: 'Crear Solicitudes de Devolución',
+
+  // Cuentas por Pagar
+  create_accounts_payable: 'Crear Cuentas por Pagar',
+  read_accounts_payable: 'Ver Cuentas por Pagar',
+  update_accounts_payable: 'Actualizar Cuentas por Pagar',
+  delete_accounts_payable: 'Eliminar Cuentas por Pagar',
+  register_ap_payment: 'Registrar Pago de Cuenta por Pagar',
+  approve_accounts_payable: 'Aprobar Pago de CP (Admin)',
+  caja_authorize_ap_payment: 'Autorizar Pago de CP en Caja',
+
+  // Reportes Financieros
+  read_financial_dashboard: 'Ver Dashboard Financiero',
+
+  // Ventas por Asesor
+  read_sales_by_advisor: 'Ver Ventas por Asesor',
+  manage_sales_goals: 'Gestionar Metas de Ventas',
 };
 
 /**

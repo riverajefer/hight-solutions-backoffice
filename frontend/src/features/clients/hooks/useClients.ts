@@ -81,3 +81,14 @@ export const useClient = (id: string) => {
     enabled: !!id,
   });
 };
+
+/**
+ * Hook for fetching a client's financial stats and order history
+ */
+export const useClientStats = (id: string) => {
+  return useQuery({
+    queryKey: ['clients', id, 'stats'],
+    queryFn: () => clientsApi.getStats(id),
+    enabled: !!id,
+  });
+};

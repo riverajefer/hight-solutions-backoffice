@@ -49,7 +49,11 @@ const supplierSchema = z.object({
     .max(300, 'La dirección no puede exceder 300 caracteres')
     .optional()
     .or(z.literal('')),
-  email: z.string().email('El email debe tener un formato válido'),
+  email: z
+    .string()
+    .email('El email debe tener un formato válido')
+    .optional()
+    .or(z.literal('')),
   departmentId: z.string().min(1, 'Debe seleccionar un departamento'),
   cityId: z.string().min(1, 'Debe seleccionar una ciudad'),
   personType: z.enum(['NATURAL', 'EMPRESA'], {
@@ -259,7 +263,6 @@ const SupplierFormPage: React.FC = () => {
                       fullWidth
                       error={!!errors.email}
                       helperText={errors.email?.message}
-                      required
                     />
                   )}
                 />
