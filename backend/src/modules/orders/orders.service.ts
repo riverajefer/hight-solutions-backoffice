@@ -33,6 +33,15 @@ import { EditRequestStatus, OrderStatus, Prisma } from '../../generated/prisma';
 import { isValidTransition, getValidNextStatuses } from './order-status-transitions';
 import { PrismaService } from '../../database/prisma.service';
 
+/** Redondeo comercial colombiano al múltiplo de 100 más cercano según regla de denominaciones. */
+function applyColombianRounding(value: Prisma.Decimal): Prisma.Decimal {
+  const truncated = value.toDecimalPlaces(0, Prisma.Decimal.ROUND_DOWN);
+  const lastTwo = truncated.mod(100).toNumber();
+  if (lastTwo === 0) return truncated;
+  if (lastTwo >= 1 && lastTwo <= 40) return truncated.sub(lastTwo);
+  return truncated.add(100 - lastTwo);
+}
+
 @Injectable()
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
@@ -239,13 +248,15 @@ export class OrdersService {
       ? new Prisma.Decimal(createOrderDto.colorProofPrice)
       : new Prisma.Decimal(0);
 
-    const total = subtotal
-      .sub(retefuenteAmount)
-      .sub(reteICAAmount)
-      .add(tax)
-      .sub(reteIVAAmount)
-      .sub(discountAmount)
-      .add(colorProofPrice);
+    const total = applyColombianRounding(
+      subtotal
+        .sub(retefuenteAmount)
+        .sub(reteICAAmount)
+        .add(tax)
+        .sub(reteIVAAmount)
+        .sub(discountAmount)
+        .add(colorProofPrice),
+    );
 
     // Manejar pagos iniciales (uno o múltiples)
     let paidAmount = new Prisma.Decimal(0);
@@ -1405,13 +1416,15 @@ export class OrdersService {
       ? new Prisma.Decimal(order.colorProofPrice)
       : new Prisma.Decimal(0);
 
-    const total = subtotal
-      .sub(retefuenteAmount)
-      .sub(reteICAAmount)
-      .add(tax)
-      .sub(reteIVAAmount)
-      .sub(discountAmount)
-      .add(colorProofPrice);
+    const total = applyColombianRounding(
+      subtotal
+        .sub(retefuenteAmount)
+        .sub(reteICAAmount)
+        .add(tax)
+        .sub(reteIVAAmount)
+        .sub(discountAmount)
+        .add(colorProofPrice),
+    );
 
     // Calcular paidAmount sumando todos los pagos
     const payments = await tx.payment.findMany({

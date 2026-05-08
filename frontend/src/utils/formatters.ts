@@ -26,6 +26,20 @@ export const formatCurrency = (
 };
 
 /**
+ * Aplica redondeo comercial colombiano al total de una orden.
+ * - Últimos 2 dígitos 01–40 → redondea hacia abajo al múltiplo de 100.
+ * - Últimos 2 dígitos 41–99 → redondea hacia arriba al siguiente múltiplo de 100.
+ * - Múltiplo exacto de 100 → sin cambios.
+ */
+export const applyColombianRounding = (value: number): number => {
+  const truncated = Math.trunc(value);
+  const lastTwo = truncated % 100;
+  if (lastTwo === 0) return truncated;
+  if (lastTwo >= 1 && lastTwo <= 40) return truncated - lastTwo;
+  return truncated + (100 - lastTwo);
+};
+
+/**
  * Formatea una fecha en formato largo (ej: "15 de enero de 2024")
  * @param date - Fecha en formato string o Date
  */
