@@ -3,7 +3,7 @@ import { FC } from 'react';
 export const EnvironmentBanner: FC = () => {
   const env = import.meta.env.VITE_ENVIRONMENT?.toLowerCase() || import.meta.env.MODE?.toLowerCase() || 'development';
 
-  if (env === 'production') {
+  if (env === 'production' || import.meta.env.PROD) {
     return null;
   }
 
