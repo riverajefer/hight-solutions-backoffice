@@ -326,6 +326,29 @@ export class AccountsPayableService {
     return `CP-${year}-${String(sequence).padStart(3, '0')}`;
   }
 
+  async findByExpenseOrderId(expenseOrderId: string) {
+    return this.repository.findByExpenseOrderId(expenseOrderId);
+  }
+
+  async syncFromExpenseOrder(id: string, data: { totalAmount?: number; expenseTypeId?: string; expenseSubcategoryId?: string }) {
+    const ap = await this.repository.findById(id);
+    if (!ap) return;
+
+    const updateData: Record<string, unknown> = {};
+
+    if (data.expenseTypeId !== undefined) updateData.expenseTypeId = data.expenseTypeId;
+    if (data.expenseSubcategoryId !== undefined) updateData.expenseSubcategoryId = data.expenseSubcategoryId;
+
+    if (data.totalAmount !== undefined) {
+      updateData.totalAmount = data.totalAmount;
+      updateData.balance = data.totalAmount - Number(ap.paidAmount);
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      await this.repository.update(id, updateData);
+    }
+  }
+
   async createFromExpenseOrder(
     expenseOrderId: string,
     description: string,
