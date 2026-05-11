@@ -1,5 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { CustomThrottlerGuard } from './common/guards';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule } from './config/config.module';
 import { DatabaseModule } from './database/database.module';
@@ -61,6 +63,14 @@ import { DtfModule } from './modules/dtf/dtf.module';
 
 @Module({
   imports: [
+    // Rate limiting global
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60_000,   // ventana de 1 minuto
+        limit: 120,    // 120 requests por minuto por IP
+      },
+    ]),
     // Health check (sin prefijo /api/v1, siempre disponible)
     HealthModule,
     // Configuración centralizada
@@ -156,6 +166,10 @@ import { DtfModule } from './modules/dtf/dtf.module';
     DtfModule,
   ],
   providers: [
+    {
+      provide: APP_GUARD,
+      useClass: CustomThrottlerGuard,
+    },
     {
       provide: APP_INTERCEPTOR,
       useClass: AuditContextInterceptor,
