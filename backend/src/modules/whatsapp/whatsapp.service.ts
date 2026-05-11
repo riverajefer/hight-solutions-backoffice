@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { createHmac } from 'crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { ApprovalRequestType } from '../../generated/prisma';
+import { isProduction } from '../../common/utils/environment.util';
 
 @Injectable()
 export class WhatsappService {
@@ -220,6 +221,17 @@ export class WhatsappService {
   }
 
   /**
+   * Retorna el nombre de la plantilla de aprobación según el ambiente.
+   * - production  → solicitud_aprobacion_prod_v1
+   * - dev/staging → solicitud_aprobacion_v1
+   */
+  private getApprovalTemplateName(): string {
+    return isProduction()
+      ? 'solicitud_aprobacion_prod_v1'
+      : 'solicitud_aprobacion_v1';
+  }
+
+  /**
    * Envía un mensaje interactivo con hasta 3 botones de respuesta rápida.
    * A diferencia de los templates, los IDs de botón son dinámicos — pueden
    * incluir HMAC y contexto de la solicitud.
@@ -433,7 +445,7 @@ export class WhatsappService {
 
     const messageId = await this.sendTemplateMessage(
       params.telefono,
-      'solicitud_aprobacion_v1',
+      this.getApprovalTemplateName(),
       [
         params.requesterName,
         params.requesterRole,
