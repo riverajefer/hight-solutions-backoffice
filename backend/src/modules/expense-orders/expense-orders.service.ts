@@ -247,7 +247,21 @@ export class ExpenseOrdersService {
       await this.repository.replaceItems(id, itemsData);
     }
 
-    return this.repository.findById(id);
+    const updated = await this.repository.findById(id);
+
+    const ap = await this.accountsPayableService.findByExpenseOrderId(id);
+    if (ap && !['PAID', 'CANCELLED'].includes(ap.status)) {
+      const newTotal = (updated!.items as Array<{ total: unknown }>).reduce(
+        (sum, item) => sum + Number(item.total),
+        0,
+      );
+      const syncData: { totalAmount: number; expenseTypeId?: string; expenseSubcategoryId?: string } = { totalAmount: newTotal };
+      if (dto.expenseTypeId) syncData.expenseTypeId = dto.expenseTypeId;
+      if (dto.expenseSubcategoryId) syncData.expenseSubcategoryId = dto.expenseSubcategoryId;
+      await this.accountsPayableService.syncFromExpenseOrder(ap.id, syncData);
+    }
+
+    return updated;
   }
 
   async addItem(id: string, dto: CreateExpenseItemDto) {
@@ -286,8 +300,18 @@ export class ExpenseOrdersService {
       sortOrder,
     });
 
-    // Return the full updated expense order
-    return this.repository.findById(id);
+    const updated = await this.repository.findById(id);
+
+    const ap = await this.accountsPayableService.findByExpenseOrderId(id);
+    if (ap && !['PAID', 'CANCELLED'].includes(ap.status)) {
+      const newTotal = (updated!.items as Array<{ total: unknown }>).reduce(
+        (sum, item) => sum + Number(item.total),
+        0,
+      );
+      await this.accountsPayableService.syncFromExpenseOrder(ap.id, { totalAmount: newTotal });
+    }
+
+    return updated;
   }
 
   async updateStatus(id: string, dto: UpdateExpenseOrderStatusDto, currentUser: AuthenticatedUser) {
