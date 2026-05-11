@@ -54,8 +54,19 @@ async function bootstrap() {
   });
 
   // CORS
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'https://pruebas.crmhighsolutions.com',
+    'https://crmhighsolutions.com',
+  ];
   app.enableCors({
-    origin: true,
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
+      }
+    },
     credentials: true,
   });
 

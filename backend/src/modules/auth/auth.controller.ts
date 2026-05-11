@@ -9,6 +9,7 @@ import {
   HttpStatus,
   Req,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
@@ -27,6 +28,7 @@ export class AuthController {
    * Autentica un usuario con email y password
    * Retorna access token y refresh token
    */
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
   @Public()
   @UseGuards(LocalAuthGuard)
   @Post('login')
@@ -52,6 +54,7 @@ export class AuthController {
    * Registra un nuevo usuario
    * Retorna access token y refresh token
    */
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @Public()
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
