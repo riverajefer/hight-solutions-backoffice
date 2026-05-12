@@ -14,7 +14,7 @@ set -euo pipefail
 
 # --- Config ------------------------------------------------------------------
 
-STAGING_DB_URL="postgresql://postgres:gvKVvzcBIAbmRdGYfyvxZsvgjKKrRtjU@mainline.proxy.rlwy.net:55766/railway"
+STAGING_DB_URL="postgresql://postgres:[password]]@mainline.proxy.rlwy.net:55766/railway"
 BACKUP_DIR="$(dirname "$0")/../backups/staging"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 BACKUP_MODE="full"   # full | schema | data
