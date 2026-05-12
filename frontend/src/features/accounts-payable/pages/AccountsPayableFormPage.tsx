@@ -80,9 +80,7 @@ export default function AccountsPayableFormPage() {
   const suppliers = suppliersQuery.data ?? [];
   const { data: expenseTypes = [] } = useExpenseTypes();
 
-  const filteredExpenseTypes = expenseTypes.filter(
-    (t: any) => t.name.toLowerCase() !== 'producción',
-  );
+  const filteredExpenseTypes = expenseTypes;
 
   const {
     control,
