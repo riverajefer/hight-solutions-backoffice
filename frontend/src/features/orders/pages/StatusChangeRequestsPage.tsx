@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -11,11 +11,14 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Tabs,
-  Tab,
   Badge,
   ToggleButton,
   ToggleButtonGroup,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Divider,
 } from '@mui/material';
 import { GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -53,6 +56,10 @@ import { apPaymentAuthRequestsApi } from '../../../api/accounts-payable-payment-
 import type { AccountPayablePaymentAuthRequest } from '../../../types/accounts-payable.types';
 import { AP_PAYMENT_AUTH_STATUS_CONFIG } from '../../../types/accounts-payable.types';
 import { CajaApprovePaymentDialog } from '../../accounts-payable/components/CajaApprovePaymentDialog';
+import { apPaymentReversalRequestsApi } from '../../../api/accounts-payable-payment-reversal-requests.api';
+import type { AccountPayablePaymentReversalRequest } from '../../../types/accounts-payable-payment-reversal.types';
+import { AP_REVERSAL_STATUS_CONFIG } from '../../../types/accounts-payable-payment-reversal.types';
+import UndoIcon from '@mui/icons-material/Undo';
 
 // ============================================================
 // CONSTANTES
@@ -99,9 +106,33 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const canApproveRefunds = hasPermission('approve_refunds') || isAdmin;
   const canApproveAccountsPayable = hasPermission('approve_accounts_payable') || isAdmin;
   const canCajaAuthorizeAp = hasPermission('caja_authorize_ap_payment');
+  const canGerenciaApproveReversal = hasPermission('gerencia_approve_ap_payment_reversal') || isAdmin;
+
+  const [navWidth, setNavWidth] = useState(220);
+  const isResizing = useRef(false);
+
+  const startResize = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizing.current = true;
+    const startX = e.clientX;
+    const startWidth = navWidth;
+
+    const onMove = (ev: MouseEvent) => {
+      if (!isResizing.current) return;
+      const delta = ev.clientX - startX;
+      setNavWidth(Math.max(160, Math.min(360, startWidth + delta)));
+    };
+    const onUp = () => {
+      isResizing.current = false;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [navWidth]);
 
   const [tabValue, setTabValue] = useState<string>(
-    canApproveOrders ? 'status' : canApproveAdvancePayments ? 'advance' : canApproveClientOwnership ? 'ownership' : canApproveExpenseOrders ? 'og' : canApproveVoidRequests ? 'void' : canApproveRefunds ? 'refund' : canApproveAccountsPayable ? 'ap' : 'status',
+    canApproveOrders ? 'status' : canApproveAdvancePayments ? 'advance' : canApproveClientOwnership ? 'ownership' : canApproveExpenseOrders ? 'og' : canApproveVoidRequests ? 'void' : canApproveRefunds ? 'refund' : canApproveAccountsPayable ? 'ap' : canGerenciaApproveReversal ? 'ap-reversal' : 'status',
   );
   
   const [viewMode, setViewMode] = useState<'pending' | 'history'>('pending');
@@ -172,6 +203,14 @@ export const StatusChangeRequestsPage: React.FC = () => {
 
   // --- AP Payment Auth Requests (caja step) ---
   const [cajaApRequest, setCajaApRequest] = useState<AccountPayablePaymentAuthRequest | null>(null);
+
+  // --- AP Payment Reversal Requests (gerencia step) ---
+  const [reversalReviewDialog, setReversalReviewDialog] = useState<{
+    open: boolean;
+    request: AccountPayablePaymentReversalRequest | null;
+    action: 'approve' | 'reject' | null;
+  }>({ open: false, request: null, action: null });
+  const [reversalReviewNotes, setReversalReviewNotes] = useState('');
 
   // ============================================================
   // QUERIES
@@ -249,6 +288,14 @@ export const StatusChangeRequestsPage: React.FC = () => {
     enabled: canCajaAuthorizeAp,
   });
 
+  const { data: reversalRequestsData, isLoading: reversalLoading } = useQuery({
+    queryKey: ['ap-payment-reversals-gerencia', viewMode],
+    queryFn: () => viewMode === 'pending'
+      ? apPaymentReversalRequestsApi.findPendingGerencia()
+      : apPaymentReversalRequestsApi.findAll(),
+    enabled: canGerenciaApproveReversal,
+  });
+
   const statusRequests = viewMode === 'history' ? statusRequestsData?.filter(r => r.status !== 'PENDING') : statusRequestsData;
   const editRequests = viewMode === 'history' ? editRequestsData?.filter(r => r.status !== 'PENDING') : editRequestsData;
   const ogAuthRequests = viewMode === 'history' ? ogAuthRequestsData?.filter(r => r.status !== 'PENDING') : ogAuthRequestsData;
@@ -258,6 +305,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const refundRequests = viewMode === 'history' ? refundRequestsData?.filter(r => r.status !== 'PENDING') : refundRequestsData;
   const apAuthRequests = viewMode === 'history' ? apAuthRequestsData?.filter(r => r.status !== 'PENDING') : apAuthRequestsData;
   const cajaApRequests = viewMode === 'history' ? cajaApRequestsData?.filter(r => r.status === 'COMPLETED' || r.status === 'CAJA_REJECTED') : cajaApRequestsData;
+  const reversalRequests = viewMode === 'history' ? reversalRequestsData?.filter(r => r.status !== 'PENDING_GERENCIA') : reversalRequestsData;
 
   // ============================================================
   // STATUS CHANGE MUTATIONS
@@ -579,6 +627,33 @@ export const StatusChangeRequestsPage: React.FC = () => {
     },
     onError: (error: any) => {
       enqueueSnackbar(error.response?.data?.message || 'Error al rechazar el pago', { variant: 'error' });
+    },
+  });
+
+  const reversalGerenciaApproveMutation = useMutation({
+    mutationFn: (id: string) => apPaymentReversalRequestsApi.gerenciaApprove(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ap-payment-reversals-gerencia'] });
+      enqueueSnackbar('Reversión aprobada por Gerencia — pendiente de Caja', { variant: 'success' });
+      setReversalReviewDialog({ open: false, request: null, action: null });
+      setReversalReviewNotes('');
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(error.response?.data?.message || 'Error al aprobar la reversión', { variant: 'error' });
+    },
+  });
+
+  const reversalGerenciaRejectMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
+      apPaymentReversalRequestsApi.gerenciaReject(id, { rejectionNotes: notes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ap-payment-reversals-gerencia'] });
+      enqueueSnackbar('Reversión rechazada por Gerencia', { variant: 'info' });
+      setReversalReviewDialog({ open: false, request: null, action: null });
+      setReversalReviewNotes('');
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(error.response?.data?.message || 'Error al rechazar la reversión', { variant: 'error' });
     },
   });
 
@@ -1796,6 +1871,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const refundCount = refundRequests?.length || 0;
   const apAuthCount = apAuthRequests?.length || 0;
   const cajaApCount = cajaApRequests?.length || 0;
+  const reversalCount = reversalRequests?.length || 0;
 
   return (
     <Box>
@@ -1826,221 +1902,216 @@ export const StatusChangeRequestsPage: React.FC = () => {
         }
       />
 
-      <Paper sx={{ p: 3 }}>
-        <Tabs
-          value={tabValue}
-          onChange={(_, v) => setTabValue(v)}
-          sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}
+      <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+        {/* ── Navegación vertical ── */}
+        <Paper sx={{ width: navWidth, flexShrink: 0 }}>
+          <Typography
+            variant="overline"
+            sx={{ px: 2, pt: 2, pb: 0.5, display: 'block', color: 'text.secondary', fontSize: '0.65rem', letterSpacing: '0.08em' }}
+          >
+            Órdenes
+          </Typography>
+          <List dense disablePadding>
+            {canApproveOrders && (
+              <ListItemButton selected={tabValue === 'status'} onClick={() => setTabValue('status')} sx={{ borderRadius: 1, mx: 1 }}>
+                <ListItemIcon sx={{ minWidth: 36 }}><SwapHorizIcon fontSize="small" /></ListItemIcon>
+                <ListItemText primary="Cambio de Estado" primaryTypographyProps={{ variant: 'body2' }} />
+                {statusCount > 0 && <Badge badgeContent={statusCount} color="warning" sx={{ mr: 1 }} />}
+              </ListItemButton>
+            )}
+            {canApproveOrders && (
+              <ListItemButton selected={tabValue === 'edit'} onClick={() => setTabValue('edit')} sx={{ borderRadius: 1, mx: 1 }}>
+                <ListItemIcon sx={{ minWidth: 36 }}><EditNoteIcon fontSize="small" /></ListItemIcon>
+                <ListItemText primary="Edición de Orden" primaryTypographyProps={{ variant: 'body2' }} />
+                {editCount > 0 && <Badge badgeContent={editCount} color="warning" sx={{ mr: 1 }} />}
+              </ListItemButton>
+            )}
+            {canApproveAdvancePayments && (
+              <ListItemButton selected={tabValue === 'advance'} onClick={() => setTabValue('advance')} sx={{ borderRadius: 1, mx: 1 }}>
+                <ListItemIcon sx={{ minWidth: 36 }}><PaymentIcon fontSize="small" /></ListItemIcon>
+                <ListItemText primary="Anticipo OP" primaryTypographyProps={{ variant: 'body2' }} />
+                {advanceCount > 0 && <Badge badgeContent={advanceCount} color="warning" sx={{ mr: 1 }} />}
+              </ListItemButton>
+            )}
+            {canApproveClientOwnership && (
+              <ListItemButton selected={tabValue === 'ownership'} onClick={() => setTabValue('ownership')} sx={{ borderRadius: 1, mx: 1 }}>
+                <ListItemIcon sx={{ minWidth: 36 }}><BadgeIcon fontSize="small" /></ListItemIcon>
+                <ListItemText primary="Propiedad Cliente" primaryTypographyProps={{ variant: 'body2' }} />
+                {ownershipCount > 0 && <Badge badgeContent={ownershipCount} color="warning" sx={{ mr: 1 }} />}
+              </ListItemButton>
+            )}
+          </List>
+
+          <Divider sx={{ my: 1 }} />
+          <Typography
+            variant="overline"
+            sx={{ px: 2, pb: 0.5, display: 'block', color: 'text.secondary', fontSize: '0.65rem', letterSpacing: '0.08em' }}
+          >
+            Caja
+          </Typography>
+          <List dense disablePadding>
+            {canApproveVoidRequests && (
+              <ListItemButton selected={tabValue === 'void'} onClick={() => setTabValue('void')} sx={{ borderRadius: 1, mx: 1 }}>
+                <ListItemIcon sx={{ minWidth: 36 }}><BlockIcon fontSize="small" /></ListItemIcon>
+                <ListItemText primary="Anulación de Caja" primaryTypographyProps={{ variant: 'body2' }} />
+                {voidCount > 0 && <Badge badgeContent={voidCount} color="warning" sx={{ mr: 1 }} />}
+              </ListItemButton>
+            )}
+            {canApproveRefunds && (
+              <ListItemButton selected={tabValue === 'refund'} onClick={() => setTabValue('refund')} sx={{ borderRadius: 1, mx: 1 }}>
+                <ListItemIcon sx={{ minWidth: 36 }}><CurrencyExchangeIcon fontSize="small" /></ListItemIcon>
+                <ListItemText primary="Devoluciones" primaryTypographyProps={{ variant: 'body2' }} />
+                {refundCount > 0 && <Badge badgeContent={refundCount} color="warning" sx={{ mr: 1 }} />}
+              </ListItemButton>
+            )}
+          </List>
+
+          <Divider sx={{ my: 1 }} />
+          <Typography
+            variant="overline"
+            sx={{ px: 2, pb: 0.5, display: 'block', color: 'text.secondary', fontSize: '0.65rem', letterSpacing: '0.08em' }}
+          >
+            Cuentas por Pagar
+          </Typography>
+          <List dense disablePadding sx={{ pb: 1 }}>
+            {canApproveExpenseOrders && (
+              <ListItemButton selected={tabValue === 'og'} onClick={() => setTabValue('og')} sx={{ borderRadius: 1, mx: 1 }}>
+                <ListItemIcon sx={{ minWidth: 36 }}><ReceiptLongIcon fontSize="small" /></ListItemIcon>
+                <ListItemText primary="Autorización OG" primaryTypographyProps={{ variant: 'body2' }} />
+                {ogAuthCount > 0 && <Badge badgeContent={ogAuthCount} color="warning" sx={{ mr: 1 }} />}
+              </ListItemButton>
+            )}
+            {canApproveAccountsPayable && (
+              <ListItemButton selected={tabValue === 'ap'} onClick={() => setTabValue('ap')} sx={{ borderRadius: 1, mx: 1 }}>
+                <ListItemIcon sx={{ minWidth: 36 }}><PaymentIcon fontSize="small" /></ListItemIcon>
+                <ListItemText primary="Autorización CxP" primaryTypographyProps={{ variant: 'body2' }} />
+                {apAuthCount > 0 && <Badge badgeContent={apAuthCount} color="warning" sx={{ mr: 1 }} />}
+              </ListItemButton>
+            )}
+            {canCajaAuthorizeAp && (
+              <ListItemButton selected={tabValue === 'caja-ap'} onClick={() => setTabValue('caja-ap')} sx={{ borderRadius: 1, mx: 1 }}>
+                <ListItemIcon sx={{ minWidth: 36 }}><PaymentIcon fontSize="small" /></ListItemIcon>
+                <ListItemText primary="Caja CxP" primaryTypographyProps={{ variant: 'body2' }} />
+                {cajaApCount > 0 && <Badge badgeContent={cajaApCount} color="warning" sx={{ mr: 1 }} />}
+              </ListItemButton>
+            )}
+            {canGerenciaApproveReversal && (
+              <ListItemButton selected={tabValue === 'ap-reversal'} onClick={() => setTabValue('ap-reversal')} sx={{ borderRadius: 1, mx: 1 }}>
+                <ListItemIcon sx={{ minWidth: 36 }}><UndoIcon fontSize="small" /></ListItemIcon>
+                <ListItemText primary="Reversiones CP" primaryTypographyProps={{ variant: 'body2' }} />
+                {reversalCount > 0 && <Badge badgeContent={reversalCount} color="error" sx={{ mr: 1 }} />}
+              </ListItemButton>
+            )}
+          </List>
+        </Paper>
+
+        {/* ── Handle de redimensión ── */}
+        <Box
+          onMouseDown={startResize}
+          sx={{
+            width: 6,
+            flexShrink: 0,
+            alignSelf: 'stretch',
+            cursor: 'col-resize',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            '&:hover > div, &:active > div': { opacity: 1 },
+          }}
         >
-          {canApproveOrders && (
-            <Tab
-              value="status"
-              icon={<SwapHorizIcon />}
-              iconPosition="start"
-              label={
-                <Badge badgeContent={statusCount} color="warning" sx={{ pr: 1.5, '& .MuiBadge-badge': { right: 0, top: 2 } }}>
-                  Cambio de Estado
-                </Badge>
-              }
+          <Box sx={{
+            width: 2,
+            height: '100%',
+            borderRadius: 1,
+            bgcolor: 'divider',
+            opacity: 0,
+            transition: 'opacity 0.15s',
+          }} />
+        </Box>
+
+        {/* ── Contenido ── */}
+        <Paper sx={{ flex: 1, p: 3, minWidth: 0 }}>
+          {tabValue === 'status' && canApproveOrders && (
+            <DataTable rows={statusRequests || []} columns={statusColumns} loading={statusLoading} getRowId={(row) => row.id} pageSize={25} />
+          )}
+          {tabValue === 'edit' && canApproveOrders && (
+            <DataTable rows={editRequests || []} columns={editColumns} loading={editLoading} getRowId={(row) => row.id} pageSize={25} />
+          )}
+          {tabValue === 'og' && canApproveExpenseOrders && (
+            <DataTable rows={ogAuthRequests || []} columns={ogAuthColumns} loading={ogAuthLoading} getRowId={(row) => row.id} pageSize={25} />
+          )}
+          {tabValue === 'advance' && canApproveAdvancePayments && (
+            <DataTable rows={advancePaymentRequests || []} columns={advanceColumns} loading={advanceLoading} getRowId={(row) => row.id} pageSize={25} />
+          )}
+          {tabValue === 'ownership' && canApproveClientOwnership && (
+            <DataTable rows={ownershipRequests || []} columns={ownershipColumns} loading={ownershipLoading} getRowId={(row) => row.id} pageSize={25} />
+          )}
+          {tabValue === 'void' && canApproveVoidRequests && (
+            <DataTable rows={voidRequests || []} columns={voidColumns} loading={voidLoading} getRowId={(row) => row.id} pageSize={25} />
+          )}
+          {tabValue === 'refund' && canApproveRefunds && (
+            <DataTable rows={refundRequests || []} columns={refundColumns} loading={refundLoading} getRowId={(row) => row.id} pageSize={25} />
+          )}
+          {tabValue === 'ap' && canApproveAccountsPayable && (
+            <DataTable rows={apAuthRequests || []} columns={apAuthColumns} loading={apAuthLoading} getRowId={(row) => row.id} pageSize={25} />
+          )}
+          {tabValue === 'caja-ap' && canCajaAuthorizeAp && (
+            <DataTable rows={cajaApRequests || []} columns={cajaApColumns} loading={cajaApLoading} getRowId={(row) => row.id} pageSize={25} />
+          )}
+          {tabValue === 'ap-reversal' && canGerenciaApproveReversal && (
+            <DataTable
+              rows={reversalRequests || []}
+              columns={[
+                { field: 'createdAt', headerName: 'Fecha', width: 160, renderCell: (p) => formatDateTime(p.value) },
+                {
+                  field: 'apNumber', headerName: 'CP', width: 110,
+                  valueGetter: (_v: any, row: AccountPayablePaymentReversalRequest) => row.paymentAuthRequest?.accountPayable?.apNumber ?? '—',
+                },
+                {
+                  field: 'amount', headerName: 'Monto', width: 130,
+                  valueGetter: (_v: any, row: AccountPayablePaymentReversalRequest) => row.paymentAuthRequest?.amount ?? '0',
+                  renderCell: (p: any) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(Number(p.value)),
+                },
+                { field: 'reason', headerName: 'Motivo', flex: 1, minWidth: 180 },
+                {
+                  field: 'requestedBy', headerName: 'Solicitado por', width: 160,
+                  valueGetter: (_v: any, row: AccountPayablePaymentReversalRequest) => getUserName(row.requestedBy as any),
+                },
+                {
+                  field: 'status', headerName: 'Estado', width: 160,
+                  renderCell: (p: any) => {
+                    const cfg = AP_REVERSAL_STATUS_CONFIG[p.value as keyof typeof AP_REVERSAL_STATUS_CONFIG];
+                    return cfg ? <Chip label={cfg.label} color={cfg.color} size="small" /> : <Chip label={p.value} size="small" />;
+                  },
+                },
+                {
+                  field: 'actions', type: 'actions' as const, headerName: 'Acciones', width: 140,
+                  getActions: (params: any) => {
+                    if (params.row.status !== 'PENDING_GERENCIA') return [];
+                    return [
+                      <GridActionsCellItem
+                        icon={<CheckCircleIcon sx={{ color: 'success.main' }} />}
+                        label="Aprobar"
+                        onClick={() => setReversalReviewDialog({ open: true, request: params.row, action: 'approve' })}
+                        showInMenu={false}
+                      />,
+                      <GridActionsCellItem
+                        icon={<CancelIcon sx={{ color: 'error.main' }} />}
+                        label="Rechazar"
+                        onClick={() => setReversalReviewDialog({ open: true, request: params.row, action: 'reject' })}
+                        showInMenu={false}
+                      />,
+                    ];
+                  },
+                },
+              ]}
+              loading={reversalLoading}
+              getRowId={(row) => row.id}
+              pageSize={25}
             />
           )}
-          {canApproveOrders && (
-            <Tab
-              value="edit"
-              icon={<EditNoteIcon />}
-              iconPosition="start"
-              label={
-                <Badge badgeContent={editCount} color="warning" sx={{ pr: 1.5, '& .MuiBadge-badge': { right: 0, top: 2 } }}>
-                  Edición de Orden
-                </Badge>
-              }
-            />
-          )}
-          {canApproveExpenseOrders && (
-            <Tab
-              value="og"
-              icon={<ReceiptLongIcon />}
-              iconPosition="start"
-              label={
-                <Badge badgeContent={ogAuthCount} color="warning" sx={{ pr: 1.5, '& .MuiBadge-badge': { right: 0, top: 2 } }}>
-                  Autorización OG
-                </Badge>
-              }
-            />
-          )}
-          {canApproveAdvancePayments && (
-            <Tab
-              value="advance"
-              icon={<PaymentIcon />}
-              iconPosition="start"
-              label={
-                <Badge badgeContent={advanceCount} color="warning" sx={{ pr: 1.5, '& .MuiBadge-badge': { right: 0, top: 2 } }}>
-                  Anticipo OP
-                </Badge>
-              }
-            />
-          )}
-          {canApproveClientOwnership && (
-            <Tab
-              value="ownership"
-              icon={<BadgeIcon />}
-              iconPosition="start"
-              label={
-                <Badge badgeContent={ownershipCount} color="warning" sx={{ pr: 1.5, '& .MuiBadge-badge': { right: 0, top: 2 } }}>
-                  Propiedad de Cliente
-                </Badge>
-              }
-            />
-          )}
-          {canApproveVoidRequests && (
-            <Tab
-              value="void"
-              icon={<BlockIcon />}
-              iconPosition="start"
-              label={
-                <Badge badgeContent={voidCount} color="warning" sx={{ pr: 1.5, '& .MuiBadge-badge': { right: 0, top: 2 } }}>
-                  Anulación de Caja
-                </Badge>
-              }
-            />
-          )}
-          {canApproveRefunds && (
-            <Tab
-              value="refund"
-              icon={<CurrencyExchangeIcon />}
-              iconPosition="start"
-              label={
-                <Badge badgeContent={refundCount} color="warning" sx={{ pr: 1.5, '& .MuiBadge-badge': { right: 0, top: 2 } }}>
-                  Devoluciones
-                </Badge>
-              }
-            />
-          )}
-          {canApproveAccountsPayable && (
-            <Tab
-              value="ap"
-              icon={<PaymentIcon />}
-              iconPosition="start"
-              label={
-                <Badge badgeContent={apAuthCount} color="warning" sx={{ pr: 1.5, '& .MuiBadge-badge': { right: 0, top: 2 } }}>
-                  Autorización CxP
-                </Badge>
-              }
-            />
-          )}
-          {canCajaAuthorizeAp && (
-            <Tab
-              value="caja-ap"
-              icon={<PaymentIcon />}
-              iconPosition="start"
-              label={
-                <Badge badgeContent={cajaApCount} color="warning" sx={{ pr: 1.5, '& .MuiBadge-badge': { right: 0, top: 2 } }}>
-                  Caja CxP
-                </Badge>
-              }
-            />
-          )}
-        </Tabs>
-
-        {/* Tab: Cambio de Estado */}
-        {tabValue === 'status' && canApproveOrders && (
-          <DataTable
-            rows={statusRequests || []}
-            columns={statusColumns}
-            loading={statusLoading}
-            getRowId={(row) => row.id}
-            pageSize={25}
-          />
-        )}
-
-        {/* Tab: Edición de Orden */}
-        {tabValue === 'edit' && canApproveOrders && (
-          <DataTable
-            rows={editRequests || []}
-            columns={editColumns}
-            loading={editLoading}
-            getRowId={(row) => row.id}
-            pageSize={25}
-          />
-        )}
-
-        {/* Tab: Autorización OG */}
-        {tabValue === 'og' && canApproveExpenseOrders && (
-          <DataTable
-            rows={ogAuthRequests || []}
-            columns={ogAuthColumns}
-            loading={ogAuthLoading}
-            getRowId={(row) => row.id}
-            pageSize={25}
-          />
-        )}
-
-        {/* Tab: Anticipo OP */}
-        {tabValue === 'advance' && canApproveAdvancePayments && (
-          <DataTable
-            rows={advancePaymentRequests || []}
-            columns={advanceColumns}
-            loading={advanceLoading}
-            getRowId={(row) => row.id}
-            pageSize={25}
-          />
-        )}
-
-        {/* Tab: Propiedad de Cliente */}
-        {tabValue === 'ownership' && canApproveClientOwnership && (
-          <DataTable
-            rows={ownershipRequests || []}
-            columns={ownershipColumns}
-            loading={ownershipLoading}
-            getRowId={(row) => row.id}
-            pageSize={25}
-          />
-        )}
-
-        {/* Tab: Anulación de Caja */}
-        {tabValue === 'void' && canApproveVoidRequests && (
-          <DataTable
-            rows={voidRequests || []}
-            columns={voidColumns}
-            loading={voidLoading}
-            getRowId={(row) => row.id}
-            pageSize={25}
-          />
-        )}
-
-        {/* Tab: Devoluciones */}
-        {tabValue === 'refund' && canApproveRefunds && (
-          <DataTable
-            rows={refundRequests || []}
-            columns={refundColumns}
-            loading={refundLoading}
-            getRowId={(row) => row.id}
-            pageSize={25}
-          />
-        )}
-
-        {/* Tab: Autorización CxP (admin paso 1) */}
-        {tabValue === 'ap' && canApproveAccountsPayable && (
-          <DataTable
-            rows={apAuthRequests || []}
-            columns={apAuthColumns}
-            loading={apAuthLoading}
-            getRowId={(row) => row.id}
-            pageSize={25}
-          />
-        )}
-
-        {/* Tab: Caja CxP (caja paso 2) */}
-        {tabValue === 'caja-ap' && canCajaAuthorizeAp && (
-          <DataTable
-            rows={cajaApRequests || []}
-            columns={cajaApColumns}
-            loading={cajaApLoading}
-            getRowId={(row) => row.id}
-            pageSize={25}
-          />
-        )}
-      </Paper>
+        </Paper>
+      </Box>
 
       {/* Dialog: Revisión de Cambio de Estado */}
       <Dialog open={reviewDialog.open} onClose={handleCloseReviewDialog} maxWidth="sm" fullWidth>
@@ -2549,6 +2620,70 @@ export const StatusChangeRequestsPage: React.FC = () => {
             }
           >
             {refundReviewDialog.action === 'approve' ? 'Aprobar' : 'Rechazar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      {/* Dialog: Revisión de Reversión de Pago CP */}
+      <Dialog
+        open={reversalReviewDialog.open}
+        onClose={() => { setReversalReviewDialog({ open: false, request: null, action: null }); setReversalReviewNotes(''); }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {reversalReviewDialog.action === 'approve' ? 'Aprobar Reversión de Pago' : 'Rechazar Reversión de Pago'}
+        </DialogTitle>
+        <DialogContent>
+          {reversalReviewDialog.request && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                <strong>CP:</strong> {reversalReviewDialog.request.paymentAuthRequest?.accountPayable?.apNumber ?? '—'}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Monto a revertir:</strong>{' '}
+                {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(
+                  Number(reversalReviewDialog.request.paymentAuthRequest?.amount ?? '0')
+                )}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Motivo:</strong> {reversalReviewDialog.request.reason}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Solicitado por:</strong> {getUserName(reversalReviewDialog.request.requestedBy as any)}
+              </Typography>
+              {reversalReviewDialog.action === 'approve' && (
+                <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
+                  Al aprobar, Caja recibirá una notificación para confirmar y ejecutar la reversión.
+                </Typography>
+              )}
+            </Box>
+          )}
+          <TextField
+            fullWidth multiline rows={3}
+            label={reversalReviewDialog.action === 'approve' ? 'Notas (opcional)' : 'Motivo del rechazo (opcional)'}
+            value={reversalReviewNotes}
+            onChange={(e) => setReversalReviewNotes(e.target.value)}
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setReversalReviewDialog({ open: false, request: null, action: null }); setReversalReviewNotes(''); }}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            color={reversalReviewDialog.action === 'approve' ? 'success' : 'error'}
+            disabled={reversalGerenciaApproveMutation.isPending || reversalGerenciaRejectMutation.isPending}
+            onClick={() => {
+              if (!reversalReviewDialog.request) return;
+              if (reversalReviewDialog.action === 'approve') {
+                reversalGerenciaApproveMutation.mutate(reversalReviewDialog.request.id);
+              } else {
+                reversalGerenciaRejectMutation.mutate({ id: reversalReviewDialog.request.id, notes: reversalReviewNotes || undefined });
+              }
+            }}
+          >
+            {reversalReviewDialog.action === 'approve' ? 'Aprobar' : 'Rechazar'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -165,6 +165,9 @@ export const PERMISSIONS = {
   REGISTER_AP_PAYMENT: 'register_ap_payment',
   APPROVE_ACCOUNTS_PAYABLE: 'approve_accounts_payable',
   CAJA_AUTHORIZE_AP_PAYMENT: 'caja_authorize_ap_payment',
+  REQUEST_AP_PAYMENT_REVERSAL: 'request_ap_payment_reversal',
+  GERENCIA_APPROVE_AP_PAYMENT_REVERSAL: 'gerencia_approve_ap_payment_reversal',
+  CAJA_CONFIRM_AP_PAYMENT_REVERSAL: 'caja_confirm_ap_payment_reversal',
   // Dashboard Financiero
   READ_FINANCIAL_DASHBOARD: 'read_financial_dashboard',
   // DTF
