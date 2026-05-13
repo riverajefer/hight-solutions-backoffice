@@ -58,6 +58,7 @@ import { WsEventsModule } from './modules/ws-events/ws-events.module';
 import { AccountsPayableModule } from './modules/accounts-payable/accounts-payable.module';
 import { AccountsPayableAuthRequestsModule } from './modules/accounts-payable-auth-requests/accounts-payable-auth-requests.module';
 import { AccountsPayablePaymentAuthRequestsModule } from './modules/accounts-payable-payment-auth-requests/accounts-payable-payment-auth-requests.module';
+import { AccountsPayablePaymentReversalRequestsModule } from './modules/accounts-payable-payment-reversal-requests/accounts-payable-payment-reversal-requests.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DtfModule } from './modules/dtf/dtf.module';
 
@@ -158,6 +159,7 @@ import { DtfModule } from './modules/dtf/dtf.module';
     AccountsPayableModule,
     AccountsPayableAuthRequestsModule,
     AccountsPayablePaymentAuthRequestsModule,
+    AccountsPayablePaymentReversalRequestsModule,
     // Módulo de Dashboard (métricas financieras)
     DashboardModule,
     // Módulo de WebSocket Events (tiempo real)

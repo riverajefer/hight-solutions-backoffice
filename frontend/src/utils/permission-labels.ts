@@ -219,6 +219,9 @@ export const PERMISSION_LABELS: Record<string, string> = {
   register_ap_payment: 'Registrar Pago de Cuenta por Pagar',
   approve_accounts_payable: 'Aprobar Pago de CP (Admin)',
   caja_authorize_ap_payment: 'Autorizar Pago de CP en Caja',
+  request_ap_payment_reversal: 'Solicitar Reversión de Pago CP',
+  gerencia_approve_ap_payment_reversal: 'Aprobar Reversión de Pago CP (Gerencia)',
+  caja_confirm_ap_payment_reversal: 'Confirmar Reversión de Pago CP (Caja)',
 
   // Reportes Financieros
   read_financial_dashboard: 'Ver Dashboard Financiero',

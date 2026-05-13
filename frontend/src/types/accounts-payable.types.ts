@@ -64,6 +64,9 @@ export interface AccountPayablePayment {
   notes?: string | null;
   receiptFileId?: string | null;
   cashMovementId?: string | null;
+  paymentAuthRequestId?: string | null;
+  isReversed?: boolean;
+  reversedAt?: string | null;
   createdAt: string;
   registeredBy: {
     id: string;
@@ -351,6 +354,12 @@ export interface AccountPayablePaymentAuthRequest {
   adminReviewedBy?: { id: string; firstName?: string | null; lastName?: string | null } | null;
   cajaReviewedBy?: { id: string; firstName?: string | null; lastName?: string | null } | null;
   accountPayable?: { id: string; apNumber: string; totalAmount?: string; balance?: string };
+  reversalRequest?: {
+    id: string;
+    status: string;
+    reason: string;
+    createdAt: string;
+  } | null;
 }
 
 export interface CreateApPaymentAuthRequestDto {

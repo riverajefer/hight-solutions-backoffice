@@ -47,6 +47,7 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   Archivos: ['upload_files', 'read_files', 'delete_files', 'manage_storage'],
   'Cuentas por Pagar': ['create_accounts_payable', 'read_accounts_payable', 'update_accounts_payable', 'delete_accounts_payable', 'register_ap_payment'],
   'Aprobaciones Cuentas por Pagar': ['approve_accounts_payable'],
+  'Reversiones de Pago CP': ['request_ap_payment_reversal', 'gerencia_approve_ap_payment_reversal', 'caja_confirm_ap_payment_reversal'],
   'Reportes Financieros': ['read_financial_dashboard'],
   'Ventas por Asesor': ['read_sales_by_advisor', 'manage_sales_goals'],
 
@@ -114,7 +115,7 @@ const TABS = [
   },
   {
     label: 'Comercial',
-    groups: ['Clientes', 'Cotizaciones', 'Órdenes', 'DTF', 'Canales Comerciales', 'Archivos', 'Cuentas por Pagar', 'Aprobaciones Cuentas por Pagar', 'Ventas por Asesor'],
+    groups: ['Clientes', 'Cotizaciones', 'Órdenes', 'DTF', 'Canales Comerciales', 'Archivos', 'Cuentas por Pagar', 'Aprobaciones Cuentas por Pagar', 'Reversiones de Pago CP', 'Ventas por Asesor'],
   },
   {
     label: 'Inventario',

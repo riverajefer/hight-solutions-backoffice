@@ -324,6 +324,9 @@ async function main() {
     { name: 'register_ap_payment', description: 'Registrar pagos directos en cuentas por pagar (bypass admin)' },
     { name: 'approve_accounts_payable', description: 'Paso 1: Admin aprueba solicitud de pago de CP' },
     { name: 'caja_authorize_ap_payment', description: 'Paso 2: Caja autoriza y registra el pago de CP (doble firma)' },
+    { name: 'request_ap_payment_reversal', description: 'Solicitar reversión de un pago de CP completado' },
+    { name: 'gerencia_approve_ap_payment_reversal', description: 'Paso 1: Gerencia aprueba la reversión de pago de CP' },
+    { name: 'caja_confirm_ap_payment_reversal', description: 'Paso 2: Caja confirma y ejecuta la reversión de pago de CP' },
 
     // Dashboard Financiero
     { name: 'read_financial_dashboard', description: 'Ver dashboard financiero con métricas de ventas, gastos y utilidad' },
@@ -491,6 +494,8 @@ async function main() {
     'update_accounts_payable',
     'register_ap_payment',
     'approve_accounts_payable',
+    'request_ap_payment_reversal',
+    'gerencia_approve_ap_payment_reversal',
   ]);
 
   // User - solo lectura básica
@@ -535,9 +540,11 @@ async function main() {
     'read_expense_orders',
     'approve_expense_orders',
     'caja_authorize_expense_orders',
-    // Cuentas por Pagar (Caja — segunda firma de pago)
+    // Cuentas por Pagar (Caja — segunda firma de pago y reversión)
     'read_accounts_payable',
     'caja_authorize_ap_payment',
+    'request_ap_payment_reversal',
+    'caja_confirm_ap_payment_reversal',
   ]);
 
   // ============================================
