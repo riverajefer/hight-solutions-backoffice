@@ -83,6 +83,7 @@ import PendingVoidRequestsPanel from '../components/PendingVoidRequestsPanel';
 import PendingOgAuthorizationsPanel from '../components/PendingOgAuthorizationsPanel';
 import PendingRefundRequestsPanel from '../components/PendingRefundRequestsPanel';
 import PendingApAuthorizationsPanel from '../components/PendingApAuthorizationsPanel';
+import PendingApReversalsCajaPanel from '../components/PendingApReversalsCajaPanel';
 import { useApprovalSocket } from '../hooks/useApprovalSocket';
 import { useCreateVoidRequest } from '../../../hooks/useVoidRequests';
 import type { CashMovementType, CashMovement } from '../../../types/cash-register.types';
@@ -518,6 +519,9 @@ const ActiveSessionPage: React.FC = () => {
               )}
               {hasPermission(PERMISSIONS.REGISTER_AP_PAYMENT) && (
                 <PendingApAuthorizationsPanel hideWhenEmpty />
+              )}
+              {hasPermission(PERMISSIONS.CAJA_CONFIRM_AP_PAYMENT_REVERSAL) && (
+                <PendingApReversalsCajaPanel hideWhenEmpty />
               )}
 
               {/* Fallback sutil cuando no hay nada pendiente */}

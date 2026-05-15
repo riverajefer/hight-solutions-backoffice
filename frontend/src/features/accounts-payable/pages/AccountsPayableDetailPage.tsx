@@ -39,6 +39,7 @@ import {
   AP_PAYMENT_AUTH_STATUS_CONFIG,
 } from '../../../types/accounts-payable.types';
 import type { AccountPayablePaymentAuthRequest } from '../../../types/accounts-payable.types';
+import { AP_REVERSAL_STATUS_CONFIG } from '../../../types/accounts-payable-payment-reversal.types';
 import { AccountPayableStatusChip } from '../components/AccountPayableStatusChip';
 import { AttachmentsSection } from '../components/AttachmentsSection';
 import { ExpenseOrderInfoSection } from '../components/ExpenseOrderInfoSection';
@@ -46,7 +47,12 @@ import { InstallmentScheduleSection } from '../components/InstallmentScheduleSec
 import { PaymentHistoryTable } from '../components/PaymentHistoryTable';
 import { RequestPaymentDialog } from '../components/RequestPaymentDialog';
 import { CajaApprovePaymentDialog } from '../components/CajaApprovePaymentDialog';
+import { RequestPaymentReversalDialog } from '../components/RequestPaymentReversalDialog';
 import { useAccountPayable, useApPaymentAuthRequests } from '../hooks/useAccountsPayable';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { apPaymentReversalRequestsApi } from '../../../api/accounts-payable-payment-reversal-requests.api';
+import UndoIcon from '@mui/icons-material/Undo';
+import { useSnackbar } from 'notistack';
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   CASH: 'Efectivo',
@@ -85,6 +91,12 @@ export default function AccountsPayableDetailPage() {
   // Caja approve dialog
   const [cajaRequest, setCajaRequest] = useState<AccountPayablePaymentAuthRequest | null>(null);
 
+  // Reversal dialog
+  const [reversalTarget, setReversalTarget] = useState<AccountPayablePaymentAuthRequest | null>(null);
+
+  const queryClient = useQueryClient();
+  const { enqueueSnackbar } = useSnackbar();
+
   const {
     query,
     cancelMutation,
@@ -105,6 +117,19 @@ export default function AccountsPayableDetailPage() {
   const canRequestPayment = hasPermission(PERMISSIONS.CREATE_ACCOUNTS_PAYABLE);
   const canAdminApprove = hasPermission(PERMISSIONS.APPROVE_ACCOUNTS_PAYABLE);
   const canCajaAuthorize = hasPermission(PERMISSIONS.CAJA_AUTHORIZE_AP_PAYMENT);
+  const canRequestReversal = hasPermission(PERMISSIONS.REQUEST_AP_PAYMENT_REVERSAL);
+
+  const createReversalMutation = useMutation({
+    mutationFn: ({ paymentAuthRequestId, reason }: { paymentAuthRequestId: string; reason: string }) =>
+      apPaymentReversalRequestsApi.create({ paymentAuthRequestId, reason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ap-payment-auth-requests', id] });
+      enqueueSnackbar('Solicitud de reversión enviada — pendiente de Gerencia', { variant: 'success' });
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(error?.response?.data?.message || 'Error al crear la solicitud de reversión', { variant: 'error' });
+    },
+  });
 
   const ap = query.data;
   const authRequests = paymentAuthRequestsQuery.data ?? [];
@@ -526,6 +551,29 @@ export default function AccountsPayableDetailPage() {
                             Registrar Pago
                           </Button>
                         )}
+
+                        {/* Solicitar reversión en pagos completados */}
+                        {req.status === 'COMPLETED' && (
+                          req.reversalRequest ? (
+                            <Chip
+                              size="small"
+                              icon={<UndoIcon />}
+                              label={`Reversión: ${AP_REVERSAL_STATUS_CONFIG[req.reversalRequest.status as keyof typeof AP_REVERSAL_STATUS_CONFIG]?.label ?? req.reversalRequest.status}`}
+                              color={AP_REVERSAL_STATUS_CONFIG[req.reversalRequest.status as keyof typeof AP_REVERSAL_STATUS_CONFIG]?.color ?? 'default'}
+                              variant="outlined"
+                            />
+                          ) : canRequestReversal ? (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="warning"
+                              startIcon={<UndoIcon />}
+                              onClick={() => setReversalTarget(req)}
+                            >
+                              Revertir Pago
+                            </Button>
+                          ) : null
+                        )}
                       </Stack>
                     </Box>
                   );
@@ -673,6 +721,20 @@ export default function AccountsPayableDetailPage() {
             setCajaRequest(null);
           }}
           loading={cajaApproveMutation.isPending || cajaRejectMutation.isPending}
+        />
+      )}
+
+      {/* Dialog: Solicitar reversión */}
+      {reversalTarget && (
+        <RequestPaymentReversalDialog
+          open={!!reversalTarget}
+          onClose={() => setReversalTarget(null)}
+          authRequest={reversalTarget}
+          onSubmit={async (reason) => {
+            await createReversalMutation.mutateAsync({ paymentAuthRequestId: reversalTarget.id, reason });
+            setReversalTarget(null);
+          }}
+          loading={createReversalMutation.isPending}
         />
       )}
 

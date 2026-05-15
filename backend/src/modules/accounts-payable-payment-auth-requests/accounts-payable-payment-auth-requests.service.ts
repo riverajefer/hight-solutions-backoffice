@@ -452,6 +452,9 @@ export class AccountsPayablePaymentAuthRequestsService implements OnModuleInit, 
         requestedBy: { select: USER_SELECT },
         adminReviewedBy: { select: USER_SELECT },
         cajaReviewedBy: { select: USER_SELECT },
+        reversalRequest: {
+          select: { id: true, status: true, reason: true, createdAt: true },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
