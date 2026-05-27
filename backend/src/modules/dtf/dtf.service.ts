@@ -171,7 +171,7 @@ export class DtfService {
         items: [
           {
             description: `${product?.name ?? 'DTF'} - ${record.consecutive}`,
-            quantity: Number(record.quantity),
+            quantity: Number(record.quantity) / 100, // DTF stores cm, OP uses meters
             unitPrice: Number(record.unitPrice),
             productId: record.productId,
             ...(productionArea && { productionAreaIds: [productionArea.id] }),
