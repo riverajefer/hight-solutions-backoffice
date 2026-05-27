@@ -62,7 +62,9 @@ export class DtfService {
     const consecutiveType = this.getConsecutiveType(product.name);
     const consecutive = await this.consecutivesService.generateNumber(consecutiveType);
 
-    const unitPrice = product.basePrice ?? new Prisma.Decimal(0);
+    const unitPrice = dto.unitPrice != null
+      ? new Prisma.Decimal(dto.unitPrice)
+      : (product.basePrice ?? new Prisma.Decimal(0));
     const quantity = new Prisma.Decimal(dto.quantity);
     const value = unitPrice.mul(quantity);
 
@@ -91,10 +93,17 @@ export class DtfService {
     if (dto.clientId !== undefined) updates.clientId = dto.clientId;
     if (dto.notes !== undefined) updates.notes = dto.notes;
 
-    if (dto.quantity !== undefined) {
-      updates.quantity = new Prisma.Decimal(dto.quantity);
-      const unitPrice = record.unitPrice;
-      updates.value = unitPrice.mul(updates.quantity);
+    if (dto.unitPrice !== undefined) {
+      updates.unitPrice = new Prisma.Decimal(dto.unitPrice);
+    }
+
+    if (dto.quantity !== undefined || dto.unitPrice !== undefined) {
+      const qty = dto.quantity !== undefined
+        ? new Prisma.Decimal(dto.quantity)
+        : record.quantity;
+      const price = updates.unitPrice ?? record.unitPrice;
+      updates.quantity = qty;
+      updates.value = price.mul(qty);
     }
 
     return this.dtfRepository.update(id, updates);
