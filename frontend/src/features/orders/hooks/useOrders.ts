@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { ordersApi } from '../../../api/orders.api';
 import type {
@@ -43,6 +43,7 @@ export const useOrders = (filters?: FilterOrdersDto) => {
   const ordersQuery = useQuery({
     queryKey: ordersKeys.list(filters),
     queryFn: () => ordersApi.getAll(filters),
+    placeholderData: keepPreviousData,
   });
 
   // Mutation: Crear orden

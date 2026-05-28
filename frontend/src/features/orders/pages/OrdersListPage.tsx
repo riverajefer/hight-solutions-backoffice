@@ -673,10 +673,11 @@ export const OrdersListPage: React.FC = () => {
         density='compact'
         rows={orders}
         columns={columns}
-        loading={ordersQuery.isLoading}
+        loading={ordersQuery.isLoading || ordersQuery.isFetching}
         getRowId={(row) => row.id}
         onRowClick={handleViewOrder}
-        pageSize={filters.limit}
+        pageSize={filters.limit ?? 20}
+        pageSizeOptions={[20, 50, 100]}
         rowCount={ordersQuery.data?.meta.total ?? 0}
         currentPage={(filters.page ?? 1) - 1}
         onPaginationModelChange={(model) =>
