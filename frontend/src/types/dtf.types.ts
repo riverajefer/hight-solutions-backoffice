@@ -84,6 +84,7 @@ export interface CreateDtfItemDto {
   productId: string;
   clientId: string;
   quantity: number;
+  unitPrice?: number;
   notes?: string;
 }
 
@@ -94,6 +95,7 @@ export interface BulkCreateDtfDto {
 export interface UpdateDtfRecordDto {
   clientId?: string;
   quantity?: number;
+  unitPrice?: number;
   notes?: string;
 }
 

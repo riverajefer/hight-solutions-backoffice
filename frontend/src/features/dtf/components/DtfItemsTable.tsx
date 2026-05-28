@@ -28,6 +28,7 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import SaveIcon from '@mui/icons-material/Save';
+import EditIcon from '@mui/icons-material/Edit';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import {
@@ -89,6 +90,9 @@ export const DtfItemsTable = ({
   const { productsQuery } = useProducts();
   const { clientsQuery } = useClients();
   const [quantityInputs, setQuantityInputs] = useState<Record<string, string>>({});
+  const [unitPriceInputs, setUnitPriceInputs] = useState<Record<string, string>>({});
+  const [editingUnitPrice, setEditingUnitPrice] = useState<Record<string, boolean>>({});
+  const [clientInputValues, setClientInputValues] = useState<Record<string, string>>({});
   const [clientModalItemId, setClientModalItemId] = useState<string | null>(null);
   const [viewDialog, setViewDialog] = useState<{ open: boolean; url: string; title: string }>({
     open: false,
@@ -113,11 +117,14 @@ export const DtfItemsTable = ({
       items.map((item) => {
         if (item._localId !== localId) return item;
         const updated = { ...item, ...patch };
-        if (patch.productId !== undefined || patch.quantity !== undefined) {
+        if (patch.productId !== undefined) {
           const product = dtfProducts.find((p) => p.id === updated.productId);
-          const unitPrice = Number(product?.basePrice ?? 0);
-          updated.unitPrice = unitPrice;
-          updated.value = unitPrice * ((updated.quantity || 0) / 100);
+          updated.unitPrice = Number(product?.basePrice ?? 0);
+          setEditingUnitPrice((prev) => ({ ...prev, [localId]: false }));
+          setUnitPriceInputs((prev) => { const n = { ...prev }; delete n[localId]; return n; });
+        }
+        if (patch.productId !== undefined || patch.quantity !== undefined || patch.unitPrice !== undefined) {
+          updated.value = updated.unitPrice * ((updated.quantity || 0) / 100);
         }
         return updated;
       }),
@@ -352,7 +359,28 @@ export const DtfItemsTable = ({
                           options={allClients}
                           getOptionLabel={(c) => c.name}
                           value={allClients.find((c) => c.id === item.clientId) ?? null}
-                          onChange={(_, client) => updateItem(item._localId, { clientId: client?.id ?? '' })}
+                          inputValue={clientInputValues[item._localId] ?? ''}
+                          onInputChange={(_, newInputValue) => {
+                            setClientInputValues((prev) => ({ ...prev, [item._localId]: newInputValue }));
+                          }}
+                          onChange={(_, client) => {
+                            updateItem(item._localId, { clientId: client?.id ?? '' });
+                            setClientInputValues((prev) => ({ ...prev, [item._localId]: '' }));
+                          }}
+                          filterOptions={(options, { inputValue: searchInput }) => {
+                            const trimmed = searchInput.trim().toLowerCase();
+                            if (trimmed.length < 2) return [];
+                            const terms = trimmed.split(' ');
+                            return options
+                              .filter((opt) => {
+                                const haystack = [opt.name, opt.nit, opt.phone, opt.email]
+                                  .filter(Boolean)
+                                  .join(' ')
+                                  .toLowerCase();
+                                return terms.every((t) => haystack.includes(t));
+                              })
+                              .slice(0, 10);
+                          }}
                           disabled={disabled || saving}
                           renderInput={(params) => <TextField {...params} placeholder="Buscar cliente..." />}
                           isOptionEqualToValue={(a, b) => a.id === b.id}
@@ -426,11 +454,69 @@ export const DtfItemsTable = ({
                     <Typography variant="body2" fontWeight={700} color="warning.main">
                       {formatCurrency(item.value)}
                     </Typography>
-                    {item.unitPrice > 0 && (
-                      <Typography variant="caption" color="text.secondary">
-                        {formatCurrency(item.unitPrice)}/u
-                      </Typography>
-                    )}
+                    {!saved && item.productId && editingUnitPrice[item._localId] ? (
+                      <TextField
+                        size="small"
+                        type="text"
+                        inputMode="decimal"
+                        autoFocus
+                        value={
+                          unitPriceInputs[item._localId] !== undefined
+                            ? unitPriceInputs[item._localId]
+                            : String(item.unitPrice)
+                        }
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return;
+                          setUnitPriceInputs((prev) => ({ ...prev, [item._localId]: raw }));
+                          const num = parseFloat(raw);
+                          if (!isNaN(num)) updateItem(item._localId, { unitPrice: num });
+                          else if (raw === '') updateItem(item._localId, { unitPrice: 0 });
+                        }}
+                        onBlur={() => {
+                          setUnitPriceInputs((prev) => { const n = { ...prev }; delete n[item._localId]; return n; });
+                          if (item.unitPrice <= 0) setEditingUnitPrice((prev) => ({ ...prev, [item._localId]: false }));
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === 'Escape') {
+                            setEditingUnitPrice((prev) => ({ ...prev, [item._localId]: false }));
+                            setUnitPriceInputs((prev) => { const n = { ...prev }; delete n[item._localId]; return n; });
+                          }
+                        }}
+                        disabled={disabled || saving}
+                        sx={{ width: 110, mt: 0.25 }}
+                        InputProps={{
+                          startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          endAdornment: <InputAdornment position="end">/u</InputAdornment>,
+                        }}
+                        inputProps={{ style: { textAlign: 'right', fontSize: '0.75rem' } }}
+                      />
+                    ) : item.unitPrice > 0 ? (
+                      <Stack
+                        direction="row"
+                        spacing={0.25}
+                        alignItems="center"
+                        justifyContent={saved ? 'center' : 'flex-end'}
+                        sx={!saved && item.productId ? {
+                          cursor: 'pointer',
+                          borderRadius: 0.5,
+                          px: 0.5,
+                          '&:hover': { bgcolor: 'action.hover' },
+                        } : {}}
+                        onClick={() => {
+                          if (!saved && item.productId && !disabled && !saving) {
+                            setEditingUnitPrice((prev) => ({ ...prev, [item._localId]: true }));
+                          }
+                        }}
+                      >
+                        <Typography variant="caption" color="text.secondary">
+                          {formatCurrency(item.unitPrice)}/u
+                        </Typography>
+                        {!saved && item.productId && (
+                          <EditIcon sx={{ fontSize: 12, color: 'text.disabled' }} />
+                        )}
+                      </Stack>
+                    ) : null}
                   </TableCell>
 
                   {/* Comprobante */}

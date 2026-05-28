@@ -18,6 +18,12 @@ export class CreateDtfRecordDto {
   @IsPositive()
   quantity: number;
 
+  @ApiPropertyOptional({ description: 'Precio unitario personalizado (descuento por cliente)', example: 17000 })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  unitPrice?: number;
+
   @ApiPropertyOptional({ description: 'Notas u observaciones' })
   @IsOptional()
   @IsString()

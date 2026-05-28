@@ -126,10 +126,10 @@ export const DtfListPage = () => {
     {
       field: 'quantity',
       headerName: 'Cantidad',
-      width: 100,
+      width: 110,
       align: 'right',
       headerAlign: 'right',
-      valueFormatter: (value) => Number(value).toLocaleString('es-CO'),
+      valueFormatter: (value) => `${Number(value).toLocaleString('es-CO')} cm`,
     },
     {
       field: 'value',
@@ -184,7 +184,7 @@ export const DtfListPage = () => {
           <ActionsCell
             onView={() => navigate(PATHS.DTF_DETAIL.replace(':id', record.id))}
             onEdit={
-              hasPermission(PERMISSIONS.UPDATE_DTF) && record.status === 'BORRADOR'
+              hasPermission(PERMISSIONS.UPDATE_DTF) && (record.status === 'BORRADOR' || record.status === 'ENVIADA')
                 ? () => navigate(PATHS.DTF_EDIT.replace(':id', record.id))
                 : undefined
             }
