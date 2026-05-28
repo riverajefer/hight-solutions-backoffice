@@ -123,7 +123,7 @@ export const DtfDetailPage = () => {
 
   const nextStatuses = NEXT_STATUSES[record.status] ?? [];
   const canEdit =
-    hasPermission(PERMISSIONS.UPDATE_DTF) && record.status === 'BORRADOR';
+    hasPermission(PERMISSIONS.UPDATE_DTF) && (record.status === 'BORRADOR' || record.status === 'ENVIADA');
   const canChangeStatus =
     hasPermission(PERMISSIONS.CHANGE_DTF_STATUS) && nextStatuses.length > 0;
   const canConvert =

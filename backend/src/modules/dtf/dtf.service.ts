@@ -66,7 +66,8 @@ export class DtfService {
       ? new Prisma.Decimal(dto.unitPrice)
       : (product.basePrice ?? new Prisma.Decimal(0));
     const quantity = new Prisma.Decimal(dto.quantity);
-    const value = unitPrice.mul(quantity);
+    // Price is per 100 cm (per meter), so value = unitPrice × quantity / 100
+    const value = unitPrice.mul(quantity).div(100);
 
     return this.dtfRepository.create({
       consecutive,
@@ -84,8 +85,9 @@ export class DtfService {
     const record = await this.dtfRepository.findByIdRaw(id);
     if (!record) throw new NotFoundException(`Registro DTF con id ${id} no encontrado`);
 
-    if (record.status !== DtfStatus.BORRADOR) {
-      throw new ForbiddenException('Solo se pueden editar registros en estado BORRADOR');
+    const editableStatuses: DtfStatus[] = [DtfStatus.BORRADOR, DtfStatus.ENVIADA];
+    if (!editableStatuses.includes(record.status)) {
+      throw new ForbiddenException('Solo se pueden editar registros en estado BORRADOR o ENVIADA');
     }
 
     const updates: Parameters<DtfRepository['update']>[1] = {};
@@ -103,7 +105,7 @@ export class DtfService {
         : record.quantity;
       const price = updates.unitPrice ?? record.unitPrice;
       updates.quantity = qty;
-      updates.value = price.mul(qty);
+      updates.value = price.mul(qty).div(100);
     }
 
     return this.dtfRepository.update(id, updates);

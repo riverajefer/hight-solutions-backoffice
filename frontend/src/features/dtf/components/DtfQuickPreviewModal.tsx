@@ -204,7 +204,7 @@ export function DtfQuickPreviewModal({ id, onClose }: DtfQuickPreviewModalProps)
               <Stack spacing={1}>
                 <Row
                   label="Cantidad"
-                  value={Number(record.quantity).toLocaleString('es-CO')}
+                  value={`${Number(record.quantity).toLocaleString('es-CO')} cm`}
                 />
                 <Row
                   label="Precio unitario"

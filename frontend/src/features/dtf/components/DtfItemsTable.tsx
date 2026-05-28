@@ -92,6 +92,7 @@ export const DtfItemsTable = ({
   const [quantityInputs, setQuantityInputs] = useState<Record<string, string>>({});
   const [unitPriceInputs, setUnitPriceInputs] = useState<Record<string, string>>({});
   const [editingUnitPrice, setEditingUnitPrice] = useState<Record<string, boolean>>({});
+  const [clientInputValues, setClientInputValues] = useState<Record<string, string>>({});
   const [clientModalItemId, setClientModalItemId] = useState<string | null>(null);
   const [viewDialog, setViewDialog] = useState<{ open: boolean; url: string; title: string }>({
     open: false,
@@ -358,7 +359,28 @@ export const DtfItemsTable = ({
                           options={allClients}
                           getOptionLabel={(c) => c.name}
                           value={allClients.find((c) => c.id === item.clientId) ?? null}
-                          onChange={(_, client) => updateItem(item._localId, { clientId: client?.id ?? '' })}
+                          inputValue={clientInputValues[item._localId] ?? ''}
+                          onInputChange={(_, newInputValue) => {
+                            setClientInputValues((prev) => ({ ...prev, [item._localId]: newInputValue }));
+                          }}
+                          onChange={(_, client) => {
+                            updateItem(item._localId, { clientId: client?.id ?? '' });
+                            setClientInputValues((prev) => ({ ...prev, [item._localId]: '' }));
+                          }}
+                          filterOptions={(options, { inputValue: searchInput }) => {
+                            const trimmed = searchInput.trim().toLowerCase();
+                            if (trimmed.length < 2) return [];
+                            const terms = trimmed.split(' ');
+                            return options
+                              .filter((opt) => {
+                                const haystack = [opt.name, opt.nit, opt.phone, opt.email]
+                                  .filter(Boolean)
+                                  .join(' ')
+                                  .toLowerCase();
+                                return terms.every((t) => haystack.includes(t));
+                              })
+                              .slice(0, 10);
+                          }}
                           disabled={disabled || saving}
                           renderInput={(params) => <TextField {...params} placeholder="Buscar cliente..." />}
                           isOptionEqualToValue={(a, b) => a.id === b.id}
