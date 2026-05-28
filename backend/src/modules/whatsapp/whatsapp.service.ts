@@ -232,6 +232,17 @@ export class WhatsappService {
   }
 
   /**
+   * Retorna el nombre de la plantilla de edición de OP según el ambiente.
+   * - production  → solicitud_edicion_op_v2_prod
+   * - dev/staging → solicitud_edicion_op_v2
+   */
+  private getEdicionOpTemplateName(): string {
+    return isProduction()
+      ? 'solicitud_edicion_op_v2_prod'
+      : 'solicitud_edicion_op_v2';
+  }
+
+  /**
    * Envía un mensaje interactivo con hasta 3 botones de respuesta rápida.
    * A diferencia de los templates, los IDs de botón son dinámicos — pueden
    * incluir HMAC y contexto de la solicitud.
@@ -381,7 +392,7 @@ export class WhatsappService {
     // Enviar template v2 que ya contiene los 3 botones
     const messageId = await this.sendTemplateMessage(
       telefono,
-      'solicitud_edicion_op_v2',
+      this.getEdicionOpTemplateName(),
       [nombreSolicitante, rolSolicitante, numeroOrden, motivo],
       'es_CO',
       [{ index: 2, text: orderId }], // sufijo dinámico del botón URL "Ver Orden" (índice 2: después de 2 quick-reply)

@@ -87,6 +87,9 @@ model User {
   requestedApPaymentAuthRequests       AccountPayablePaymentAuthRequest[]  @relation("RequestedApPaymentAuthRequests")
   adminReviewedApPaymentAuthRequests   AccountPayablePaymentAuthRequest[]  @relation("AdminReviewedApPaymentAuthRequests")
   cajaReviewedApPaymentAuthRequests    AccountPayablePaymentAuthRequest[]  @relation("CajaReviewedApPaymentAuthRequests")
+  requestedApPaymentReversalRequests   AccountPayablePaymentReversalRequest[] @relation("RequestedApPaymentReversalRequests")
+  gerenciaReviewedApPaymentReversalRequests AccountPayablePaymentReversalRequest[] @relation("GerenciaReviewedApPaymentReversalRequests")
+  cajaReviewedApPaymentReversalRequests    AccountPayablePaymentReversalRequest[] @relation("CajaReviewedApPaymentReversalRequests")
 
   @@map("users")
 }
@@ -786,6 +789,11 @@ enum NotificationType {
   AP_PAYMENT_AUTH_ADMIN_REJECTED // Admin rechazó solicitud de pago de CP
   AP_PAYMENT_AUTH_COMPLETED // Caja completó el pago de CP
   AP_PAYMENT_AUTH_CAJA_REJECTED // Caja rechazó el pago de CP
+  AP_PAYMENT_REVERSAL_REQUESTED // Solicitud de reversión creada
+  AP_PAYMENT_REVERSAL_GERENCIA_APPROVED // Gerencia aprobó reversión — pendiente de Caja
+  AP_PAYMENT_REVERSAL_GERENCIA_REJECTED // Gerencia rechazó reversión
+  AP_PAYMENT_REVERSAL_COMPLETED // Caja confirmó reversión — pago revertido
+  AP_PAYMENT_REVERSAL_CAJA_REJECTED // Caja rechazó la reversión
 }
 
 enum ApPaymentAuthRequestStatus {
@@ -2001,6 +2009,8 @@ model AccountPayablePayment {
   cashMovement        CashMovement?                     @relation(fields: [cashMovementId], references: [id])
   registeredBy        User                              @relation("AccountPayablePaymentRegisteredBy", fields: [registeredById], references: [id])
   paymentAuthRequest  AccountPayablePaymentAuthRequest? @relation(fields: [paymentAuthRequestId], references: [id])
+  isReversed          Boolean  @default(false) @map("is_reversed")
+  reversedAt          DateTime? @map("reversed_at")
 
   @@index([accountPayableId])
   @@index([paymentDate])
@@ -2081,11 +2091,57 @@ model AccountPayablePaymentAuthRequest {
   adminReviewedBy User?                      @relation("AdminReviewedApPaymentAuthRequests", fields: [adminReviewedById], references: [id])
   cajaReviewedBy  User?                      @relation("CajaReviewedApPaymentAuthRequests", fields: [cajaReviewedById], references: [id])
   createdPayment  AccountPayablePayment?
+  reversalRequest AccountPayablePaymentReversalRequest?
 
   @@index([accountPayableId])
   @@index([requestedById])
   @@index([status])
   @@map("account_payable_payment_auth_requests")
+}
+
+// =============================================================================
+// MÓDULO DE REVERSIÓN DE PAGOS DE CUENTAS POR PAGAR (doble firma inversa)
+// =============================================================================
+
+enum ApPaymentReversalStatus {
+  PENDING_GERENCIA  // Esperando aprobación de Gerencia (paso 1)
+  PENDING_CAJA      // Gerencia aprobó — esperando confirmación de Caja (paso 2)
+  COMPLETED         // Caja confirmó — reversión ejecutada
+  REJECTED_BY_GERENCIA
+  REJECTED_BY_CAJA
+}
+
+model AccountPayablePaymentReversalRequest {
+  id     String @id @default(uuid())
+  reason String
+
+  status ApPaymentReversalStatus @default(PENDING_GERENCIA)
+
+  // Paso 1: Gerencia aprueba o rechaza
+  gerenciaReviewedById   String?   @map("gerencia_reviewed_by_id")
+  gerenciaReviewedAt     DateTime? @map("gerencia_reviewed_at")
+  gerenciaRejectionNotes String?   @map("gerencia_rejection_notes")
+
+  // Paso 2: Caja confirma o rechaza
+  cajaReviewedById   String?   @map("caja_reviewed_by_id")
+  cajaReviewedAt     DateTime? @map("caja_reviewed_at")
+  cajaRejectionNotes String?   @map("caja_rejection_notes")
+
+  // Relaciones
+  paymentAuthRequestId String  @unique @map("payment_auth_request_id")
+  requestedById        String  @map("requested_by_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  paymentAuthRequest AccountPayablePaymentAuthRequest @relation(fields: [paymentAuthRequestId], references: [id], onDelete: Cascade)
+  requestedBy        User @relation("RequestedApPaymentReversalRequests", fields: [requestedById], references: [id])
+  gerenciaReviewedBy User? @relation("GerenciaReviewedApPaymentReversalRequests", fields: [gerenciaReviewedById], references: [id])
+  cajaReviewedBy     User? @relation("CajaReviewedApPaymentReversalRequests", fields: [cajaReviewedById], references: [id])
+
+  @@index([status])
+  @@index([requestedById])
+  @@map("account_payable_payment_reversal_requests")
 }
 
 // =============================================================================

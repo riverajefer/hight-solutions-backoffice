@@ -123,7 +123,7 @@ export const DtfDetailPage = () => {
 
   const nextStatuses = NEXT_STATUSES[record.status] ?? [];
   const canEdit =
-    hasPermission(PERMISSIONS.UPDATE_DTF) && record.status === 'BORRADOR';
+    hasPermission(PERMISSIONS.UPDATE_DTF) && (record.status === 'BORRADOR' || record.status === 'ENVIADA');
   const canChangeStatus =
     hasPermission(PERMISSIONS.CHANGE_DTF_STATUS) && nextStatuses.length > 0;
   const canConvert =
@@ -147,7 +147,7 @@ export const DtfDetailPage = () => {
         `Su pedido DTF *${record.consecutive}* ya esta completamente listo y esperando por usted.`,
         ``,
         `*Producto:* ${record.product?.name ?? '—'}`,
-        `*Cantidad:* ${Number(record.quantity).toLocaleString('es-CO')} unidades`,
+        `*Cantidad:* ${(Number(record.quantity) / 100).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 4 })} m`,
         ``,
         `Puede pasar a recogerlo cuando guste, con mucho gusto lo atendemos.`,
         ``,
@@ -176,9 +176,9 @@ export const DtfDetailPage = () => {
       return;
     }
     const waNumber = formatPhoneForWhatsApp(record.client.phone);
-    const qty = Number(record.quantity).toLocaleString('es-CO');
+    const qty = `${(Number(record.quantity) / 100).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 4 })} m`;
     const unitPrice = formatCurrency(Number(record.unitPrice));
-    const total = formatCurrency(Number(record.value));
+    const total = formatCurrency(Number(record.value) / 100);
 
     const message = [
       `Hola ${record.client.name}, buen dia!`,
@@ -215,7 +215,7 @@ export const DtfDetailPage = () => {
       `Su pedido DTF *${record.consecutive}* ya esta completamente listo y esperando por usted.`,
       ``,
       `*Producto:* ${record.product?.name ?? '—'}`,
-      `*Cantidad:* ${Number(record.quantity).toLocaleString('es-CO')} unidades`,
+      `*Cantidad:* ${(Number(record.quantity) / 100).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 4 })} m`,
       ``,
       `Puede pasar a recogerlo cuando guste, con mucho gusto lo atendemos.`,
       ``,
@@ -359,7 +359,7 @@ export const DtfDetailPage = () => {
               </Typography>
               <Divider sx={{ mb: 2 }} />
               <Stack spacing={1.5}>
-                <Row label="Cantidad" value={Number(record.quantity).toLocaleString('es-CO')} />
+                <Row label="Cantidad" value={`${(Number(record.quantity) / 100).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 4 })} m`} />
                 <Row
                   label="Precio unitario"
                   value={formatCurrency(Number(record.unitPrice))}
@@ -368,7 +368,7 @@ export const DtfDetailPage = () => {
                   label="Valor total"
                   value={
                     <Typography fontWeight={600} variant="body2">
-                      {formatCurrency(Number(record.value))}
+                      {formatCurrency(Number(record.value) / 100)}
                     </Typography>
                   }
                 />

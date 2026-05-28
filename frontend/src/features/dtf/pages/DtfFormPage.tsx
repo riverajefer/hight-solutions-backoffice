@@ -100,7 +100,13 @@ export const DtfFormPage = () => {
     setSavingItemId(localId);
     try {
       const [created] = await bulkCreate.mutateAsync({
-        items: [{ productId: item.productId, clientId: item.clientId, quantity: item.quantity, notes: item.notes || undefined }],
+        items: [{
+          productId: item.productId,
+          clientId: item.clientId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice || undefined,
+          notes: item.notes || undefined,
+        }],
       });
 
       if (item.imageFile) {
