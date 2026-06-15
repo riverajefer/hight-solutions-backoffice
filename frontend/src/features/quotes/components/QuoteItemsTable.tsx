@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -34,6 +34,9 @@ import type { Product } from '../../../types/product.types';
 import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
 import type { ProductionArea } from '../../../types/production-area.types';
 import axiosInstance from '../../../api/axios';
+import { useAuthStore } from '../../../store/authStore';
+import { PERMISSIONS } from '../../../utils/constants';
+import { CreateProductModal } from '../../portfolio/products/components/CreateProductModal';
 
 export interface QuoteItemRow {
   id: string;
@@ -86,6 +89,9 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
 
   const { productionAreasQuery } = useProductionAreas();
   const productionAreas: ProductionArea[] = productionAreasQuery.data || [];
+
+  const { hasPermission } = useAuthStore();
+  const [productModalOpenItemId, setProductModalOpenItemId] = useState<string | null>(null);
 
   const [viewImageDialog, setViewImageDialog] = React.useState<{
     open: boolean;
@@ -216,6 +222,30 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
 
   return (
     <Box>
+      {productModalOpenItemId !== null && (
+        <CreateProductModal
+          open
+          onClose={() => setProductModalOpenItemId(null)}
+          onSuccess={(newProduct) => {
+            const updatedItems = items.map((i) => {
+              if (i.id !== productModalOpenItemId) return i;
+              const quantity = parseFloat(i.quantity);
+              const hasBasePrice = newProduct.basePrice !== undefined && newProduct.basePrice !== null;
+              const basePriceValue = hasBasePrice ? Number(newProduct.basePrice!) : parseFloat(i.unitPrice);
+              return {
+                ...i,
+                productId: newProduct.id,
+                description: i.description || newProduct.name,
+                unitPrice: i.unitPrice || (hasBasePrice ? newProduct.basePrice!.toString() : ''),
+                total: !isNaN(quantity) && !isNaN(basePriceValue) ? quantity * basePriceValue : i.total,
+              };
+            });
+            onChange(updatedItems);
+            setProductModalOpenItemId(null);
+          }}
+        />
+      )}
+
       <TableContainer sx={{ overflowX: 'auto', width: '100%' }}>
         <Table size="small" sx={{ minWidth: 600 }}>
           <TableHead>
@@ -376,6 +406,7 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
                     />
                   </TableCell>
                   <TableCell>
+                    <Stack direction="row" spacing={0.5} alignItems="flex-start">
                     <Autocomplete<Product>
                       size="small"
                       options={products}
@@ -397,6 +428,8 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
                         }
                       }}
                       sx={{
+                        flex: 1,
+                        minWidth: 0,
                         '& .MuiInputBase-input': {
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap',
@@ -423,14 +456,37 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
                       }}
                       disabled={disabled}
                       renderInput={(params) => (
-                        <TextField 
-                          {...params} 
-                          size="small" 
-                          placeholder="Buscar producto..." 
+                        <TextField
+                          {...params}
+                          size="small"
+                          placeholder="Buscar producto..."
                           inputProps={{ ...params.inputProps, style: { fontSize: '0.8125rem' } }}
                         />
                       )}
                     />
+                    {!disabled && hasPermission(PERMISSIONS.CREATE_PRODUCTS) && (
+                      <Tooltip title="Crear nuevo producto">
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          onClick={() => setProductModalOpenItemId(item.id)}
+                          sx={{
+                            mt: 0.25,
+                            flexShrink: 0,
+                            border: '1px dashed',
+                            borderColor: 'primary.main',
+                            borderRadius: 1,
+                            '&:hover': {
+                              bgcolor: 'primary.main',
+                              color: 'primary.contrastText',
+                            },
+                          }}
+                        >
+                          <AddIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    </Stack>
                   </TableCell>
                   <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                     <TextField
