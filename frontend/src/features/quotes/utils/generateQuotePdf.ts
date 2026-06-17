@@ -358,6 +358,9 @@ async function drawItemsTable(doc: jsPDF, y: number, quote: Quote): Promise<numb
       y = PDF_LAYOUT.marginTop;
       drawTableHeader(y);
       y += headerHeight;
+      // Reset body font after the header redraw (drawTableHeader leaves it bold)
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(PDF_FONTS.tableBody);
     }
 
     // Row background
