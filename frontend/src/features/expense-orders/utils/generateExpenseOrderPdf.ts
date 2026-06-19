@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import logo from '../../../assets/logo-dark.webp';
+import axiosInstance from '../../../api/axios';
 import type { ExpenseOrder } from '../../../types/expense-order.types';
 import { EXPENSE_ORDER_STATUS_CONFIG, PAYMENT_METHOD_LABELS } from '../../../types/expense-order.types';
 import {
@@ -79,6 +80,29 @@ function loadImage(url: string): Promise<string> {
     };
     img.onerror = (e) => reject(e);
   });
+}
+
+/**
+ * Descarga una imagen desde el storage (endpoint autenticado) y la devuelve como
+ * data URL. Se usa la descarga vía blob para evitar el "tainting" del canvas que
+ * ocurre con URLs firmadas sin cabeceras CORS. Devuelve null si falla o no es imagen.
+ */
+async function loadImageFromStorage(fileId: string): Promise<string | null> {
+  try {
+    const response = await axiosInstance.get(`/storage/${fileId}/download`, {
+      responseType: 'blob',
+    });
+    const blob = response.data as Blob;
+    if (!blob.type.startsWith('image/')) return null;
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
 }
 
 function drawFooterOnPage(doc: jsPDF, pageIndex: number) {
@@ -543,6 +567,86 @@ function drawObservations(doc: jsPDF, y: number, expenseOrder: ExpenseOrder): nu
   return y + 3;
 }
 
+async function drawReferenceImages(
+  doc: jsPDF,
+  y: number,
+  expenseOrder: ExpenseOrder,
+): Promise<number> {
+  const itemsWithReference = expenseOrder.items.filter((item) => item.referenceFileId);
+  if (itemsWithReference.length === 0) return y;
+
+  const pageLimit = PDF_LAYOUT.pageHeight - PDF_LAYOUT.marginBottom - 5;
+
+  // Section title
+  if (y + 12 > pageLimit) {
+    doc.addPage();
+    y = PDF_LAYOUT.marginTop;
+  }
+
+  setDrawColor(doc, PDF_COLORS.tableHeaderBg);
+  doc.setLineWidth(0.4);
+  doc.line(PDF_LAYOUT.marginLeft, y, PDF_LAYOUT.marginLeft + PDF_LAYOUT.contentWidth, y);
+  y += 4;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(PDF_FONTS.sectionTitle);
+  setTextColor(doc, PDF_COLORS.sectionTitleText);
+  doc.text('Imágenes de referencia', PDF_LAYOUT.marginLeft, y);
+  y += 6;
+
+  const maxW = 80;
+  const maxH = 60;
+
+  for (let idx = 0; idx < itemsWithReference.length; idx++) {
+    const item = itemsWithReference[idx];
+    const dataUrl = await loadImageFromStorage(item.referenceFileId!);
+    if (!dataUrl) continue;
+
+    let props: { width: number; height: number; fileType: string };
+    try {
+      props = doc.getImageProperties(dataUrl) as typeof props;
+    } catch {
+      continue;
+    }
+
+    // Fit preserving aspect ratio
+    let w = maxW;
+    let h = (props.height / props.width) * w;
+    if (h > maxH) {
+      h = maxH;
+      w = (props.width / props.height) * h;
+    }
+
+    const labelH = 5;
+    const blockH = labelH + h + 6;
+
+    if (y + blockH > pageLimit) {
+      doc.addPage();
+      y = PDF_LAYOUT.marginTop;
+    }
+
+    // Item label
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(PDF_FONTS.label);
+    setTextColor(doc, PDF_COLORS.sectionTitleText);
+    doc.text(`Ítem ${idx + 1}: ${item.name}`, PDF_LAYOUT.marginLeft, y);
+    y += labelH;
+
+    try {
+      doc.addImage(dataUrl, props.fileType, PDF_LAYOUT.marginLeft, y, w, h);
+    } catch {
+      continue;
+    }
+    setDrawColor(doc, PDF_COLORS.borderGray);
+    doc.setLineWidth(0.2);
+    doc.rect(PDF_LAYOUT.marginLeft, y, w, h);
+
+    y += h + 6;
+  }
+
+  return y;
+}
+
 function drawCreatedBy(doc: jsPDF, y: number, expenseOrder: ExpenseOrder): number {
   if (y > PDF_LAYOUT.pageHeight - PDF_LAYOUT.marginBottom - 10) {
     doc.addPage();
@@ -581,6 +685,7 @@ export async function generateExpenseOrderPdf(expenseOrder: ExpenseOrder): Promi
   y = drawItemsTable(doc, y, expenseOrder);
   y = drawFinancialSummary(doc, y, expenseOrder);
   y = drawObservations(doc, y, expenseOrder);
+  y = await drawReferenceImages(doc, y, expenseOrder);
   drawCreatedBy(doc, y, expenseOrder);
 
   const totalPages = doc.getNumberOfPages();
