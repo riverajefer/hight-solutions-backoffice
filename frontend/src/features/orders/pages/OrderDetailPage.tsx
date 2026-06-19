@@ -805,18 +805,42 @@ export const OrderDetailPage: React.FC = () => {
             tooltip="Compartir por WhatsApp"
           />
 
-          {!order.workOrders?.[0] &&
-            ['CONFIRMED', 'IN_PRODUCTION', 'READY'].includes(order.status) &&
-            permissions.includes('create_work_orders') && (
-              <ToolbarButton
-                icon={<BuildIcon />}
-                label="OT"
-                secondaryLabel="Crear"
-                onClick={() => navigate(`${ROUTES.WORK_ORDERS_CREATE}?orderId=${id}`)}
-                color={theme.palette.info.main}
-                tooltip="Crear Orden de Trabajo"
-              />
-            )}
+          {order.workOrders?.[0] ? (
+            <ToolbarButton
+              icon={<OpenInNewIcon />}
+              label="OT"
+              secondaryLabel="Ver"
+              onClick={() =>
+                navigate(ROUTES.WORK_ORDERS_DETAIL.replace(':id', order.workOrders![0].id))
+              }
+              color={theme.palette.info.main}
+              tooltip={`Ver Orden de Trabajo ${order.workOrders[0].workOrderNumber}`}
+            />
+          ) : ['CONFIRMED', 'IN_PRODUCTION', 'READY'].includes(order.status) &&
+            permissions.includes('create_work_orders') ? (
+            <ToolbarButton
+              icon={<BuildIcon />}
+              label="OT"
+              secondaryLabel="Crear"
+              onClick={() => navigate(`${ROUTES.WORK_ORDERS_CREATE}?orderId=${id}`)}
+              color={theme.palette.info.main}
+              tooltip="Crear Orden de Trabajo"
+            />
+          ) : (
+            <ToolbarButton
+              icon={<BuildIcon />}
+              label="OT"
+              secondaryLabel="No disponible"
+              onClick={() => {}}
+              disabled
+              color={theme.palette.info.main}
+              tooltip={
+                !permissions.includes('create_work_orders')
+                  ? 'No tienes permiso para crear Órdenes de Trabajo'
+                  : 'Solo se puede crear una OT cuando la orden está Confirmada, En producción o Lista'
+              }
+            />
+          )}
 
           <ToolbarButton
             icon={<AccountTreeIcon />}

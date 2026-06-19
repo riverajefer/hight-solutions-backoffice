@@ -31,6 +31,12 @@ interface ClientSelectorProps {
   currentUserId?: string;
   isAdmin?: boolean;
   documentType?: 'orden' | 'cotización' | 'documento';
+  /**
+   * Estado de autorización de propiedad del cliente para la orden en edición.
+   * Si la orden ya fue autorizada/rechazada por administración, el mensaje cambia.
+   * `undefined`/`null` = aún no se ha solicitado (modo creación).
+   */
+  ownershipAuthStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
 }
 
 export const ClientSelector: React.FC<ClientSelectorProps> = ({
@@ -41,6 +47,7 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
   currentUserId,
   isAdmin,
   documentType = 'orden',
+  ownershipAuthStatus,
 }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
@@ -123,16 +130,52 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
         </Card>
 
         {/* Advertencia cuando el cliente pertenece a otro asesor */}
-        {value.advisorId && value.advisorId !== currentUserId && !isAdmin && (
-          <Alert severity="warning" icon={<WarningAmberIcon />} sx={{ mt: 1.5 }}>
-            <strong>Cliente de otro asesor.</strong>{' '}
-            Este cliente pertenece al asesor{' '}
-            {value.advisor?.firstName && value.advisor?.lastName
+        {value.advisorId && value.advisorId !== currentUserId && !isAdmin && (() => {
+          const advisorName =
+            value.advisor?.firstName && value.advisor?.lastName
               ? `${value.advisor.firstName} ${value.advisor.lastName}`
-              : value.advisor?.email || 'desconocido'}
-            . Crear est{documentType === 'orden' ? 'a' : documentType === 'cotización' ? 'a' : 'e'} {documentType} requerirá autorización de administración.
-          </Alert>
-        )}
+              : value.advisor?.email || 'desconocido';
+          const docArticle =
+            documentType === 'orden' ? 'a' : documentType === 'cotización' ? 'a' : 'e';
+
+          if (ownershipAuthStatus === 'APPROVED') {
+            return (
+              <Alert severity="success" sx={{ mt: 1.5 }}>
+                <strong>Autorización concedida.</strong>{' '}
+                Administración autorizó trabajar est{docArticle} {documentType} con el cliente del
+                asesor {advisorName}. Puedes continuar.
+              </Alert>
+            );
+          }
+
+          if (ownershipAuthStatus === 'PENDING') {
+            return (
+              <Alert severity="warning" icon={<WarningAmberIcon />} sx={{ mt: 1.5 }}>
+                <strong>Autorización pendiente.</strong>{' '}
+                Este cliente pertenece al asesor {advisorName}. La solicitud está en revisión por
+                administración.
+              </Alert>
+            );
+          }
+
+          if (ownershipAuthStatus === 'REJECTED') {
+            return (
+              <Alert severity="error" sx={{ mt: 1.5 }}>
+                <strong>Autorización rechazada.</strong>{' '}
+                Administración rechazó trabajar est{docArticle} {documentType} con el cliente del
+                asesor {advisorName}.
+              </Alert>
+            );
+          }
+
+          return (
+            <Alert severity="warning" icon={<WarningAmberIcon />} sx={{ mt: 1.5 }}>
+              <strong>Cliente de otro asesor.</strong>{' '}
+              Este cliente pertenece al asesor {advisorName}. Crear est{docArticle} {documentType}{' '}
+              requerirá autorización de administración.
+            </Alert>
+          );
+        })()}
       </Box>
     );
   }

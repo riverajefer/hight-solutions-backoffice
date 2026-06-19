@@ -25,12 +25,18 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
   
   const activeColor = color || theme.palette.primary.main;
 
+  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
+    if (disabled) return;
+    onClick(event);
+  };
+
   return (
     <Tooltip title={tooltip || (isMobile ? label : '')} arrow placement="bottom">
       <Box
         component="button"
-        onClick={onClick}
-        disabled={disabled}
+        type="button"
+        onClick={handleClick}
+        aria-disabled={disabled}
         sx={{
           display: 'flex',
           flexDirection: 'column',

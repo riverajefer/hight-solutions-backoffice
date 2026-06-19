@@ -698,6 +698,7 @@ export const OrderFormPage: React.FC = () => {
                   helperText={errors.client?.message}
                   currentUserId={user?.id}
                   isAdmin={isAdmin}
+                  ownershipAuthStatus={isEdit ? orderQuery.data?.clientOwnershipAuthStatus : undefined}
                 />
               )}
             />
