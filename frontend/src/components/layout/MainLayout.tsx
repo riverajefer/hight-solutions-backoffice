@@ -3,6 +3,7 @@ import { Box, useMediaQuery, useTheme } from '@mui/material';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { EnvironmentBanner } from './EnvironmentBanner';
+import { AttendanceReminderBanner } from './AttendanceReminderBanner';
 import { useHeartbeat } from '../../hooks/useHeartbeat';
 import { GlobalSearchModal } from '../GlobalSearch';
 import { useUIStore } from '../../store/uiStore';
@@ -87,6 +88,7 @@ export const MainLayout: FC<MainLayoutProps> = ({ children }) => {
       <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
         <EnvironmentBanner />
         <Topbar onMenuClick={handleMenuClick} />
+        <AttendanceReminderBanner />
 
         <Box
           component="main"
