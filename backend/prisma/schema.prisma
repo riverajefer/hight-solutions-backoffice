@@ -1150,6 +1150,8 @@ model ExpenseOrder {
   responsibleId        String?            @map("responsible_id") // Responsable (opcional)
   observations         String?
   areaOrMachine        String?            @map("area_or_machine")
+  applyIva             Boolean            @default(false) @map("apply_iva")
+  ivaRate              Decimal            @default(0.19) @map("iva_rate")
   status               ExpenseOrderStatus @default(DRAFT)
 
   // Auditoría
@@ -1951,6 +1953,8 @@ model AccountPayable {
   totalAmount  Decimal              @map("total_amount") @db.Decimal(12, 2)
   paidAmount   Decimal              @default(0) @map("paid_amount") @db.Decimal(12, 2)
   balance      Decimal              @map("balance") @db.Decimal(12, 2)
+  applyIva     Boolean              @default(false) @map("apply_iva")
+  ivaRate      Decimal              @default(0.19) @map("iva_rate")
   dueDate      DateTime             @map("due_date")
   isRecurring        Boolean              @default(false) @map("is_recurring")
   recurringDay       Int?                 @map("recurring_day")

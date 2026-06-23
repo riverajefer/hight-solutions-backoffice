@@ -49,6 +49,8 @@ const schema = z
     description: z.string().max(500).optional().or(z.literal('')),
     observations: z.string().optional(),
     totalAmount: z.string().min(1, 'Ingresa el monto total'),
+    applyIva: z.boolean().optional(),
+    ivaPercentage: z.coerce.number().min(0, 'Mínimo 0%').max(100, 'Máximo 100%').optional(),
     dueDate: z.date({ invalid_type_error: 'Fecha inválida' }).nullable(),
     supplierId: z.string().uuid().optional().or(z.literal('')),
     isRecurring: z.boolean().optional(),
@@ -96,12 +98,26 @@ export default function AccountsPayableFormPage() {
       expenseSubcategoryId: '',
       isRecurring: false,
       totalAmount: '',
+      applyIva: false,
+      ivaPercentage: 19,
       dueDate: null,
     },
   });
 
   const watchIsRecurring = watch('isRecurring');
   const watchExpenseTypeId = watch('expenseTypeId');
+  const watchApplyIva = watch('applyIva');
+  const watchIvaPercentage = watch('ivaPercentage');
+  const watchTotalAmount = watch('totalAmount');
+
+  // ─── IVA breakdown (Monto Total se interpreta como base/subtotal) ──────────────
+  const baseAmount = Number((watchTotalAmount ?? '').replace(/\D/g, '')) || 0;
+  const ivaPercent = Number(watchIvaPercentage) || 0;
+  const ivaAmount = watchApplyIva ? Math.round(baseAmount * (ivaPercent / 100)) : 0;
+  const grandTotal = baseAmount + ivaAmount;
+
+  const formatCOP = (value: number) =>
+    new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(value);
 
   const selectedExpenseType = filteredExpenseTypes.find((t: any) => t.id === watchExpenseTypeId);
   const currentSubcategories = selectedExpenseType?.subcategories || [];
@@ -109,12 +125,19 @@ export default function AccountsPayableFormPage() {
   useEffect(() => {
     if (isEditing && apQuery.data) {
       const ap = apQuery.data;
+      // El monto almacenado incluye IVA; derivamos la base para editarla.
+      const rate = Number(ap.ivaRate) || 0;
+      const baseStored = ap.applyIva && rate > 0
+        ? Math.round(Number(ap.totalAmount) / (1 + rate))
+        : Math.round(Number(ap.totalAmount));
       reset({
         expenseTypeId: ap.expenseType?.id ?? '',
         expenseSubcategoryId: ap.expenseSubcategory?.id ?? '',
         description: ap.description,
         observations: ap.observations ?? '',
-        totalAmount: String(Math.round(Number(ap.totalAmount))),
+        totalAmount: String(baseStored),
+        applyIva: ap.applyIva ?? false,
+        ivaPercentage: ap.applyIva ? Math.round(rate * 100) : 19,
         dueDate: ap.dueDate ? new Date(ap.dueDate) : null,
         supplierId: ap.supplier?.id ?? '',
         isRecurring: ap.isRecurring,
@@ -124,12 +147,17 @@ export default function AccountsPayableFormPage() {
   }, [isEditing, apQuery.data, reset]);
 
   const onSubmit = async (values: FormValues) => {
+    const base = Number(values.totalAmount.replace(/\D/g, ''));
+    const pct = Number(values.ivaPercentage) || 0;
+    const finalTotal = values.applyIva ? Math.round(base * (1 + pct / 100)) : base;
     const dto = {
       expenseTypeId: values.expenseTypeId,
       expenseSubcategoryId: values.expenseSubcategoryId,
       description: values.description || '',
       observations: values.observations || undefined,
-      totalAmount: Number(values.totalAmount.replace(/\D/g, '')),
+      totalAmount: finalTotal,
+      applyIva: values.applyIva ?? false,
+      ivaRate: values.applyIva ? pct / 100 : undefined,
       dueDate: values.dueDate!.toISOString(),
       supplierId: values.supplierId || undefined,
       isRecurring: values.isRecurring ?? false,
@@ -248,7 +276,7 @@ export default function AccountsPayableFormPage() {
               render={({ field: { onChange, value, ...field } }) => (
                 <TextField
                   {...field}
-                  label="Monto Total *"
+                  label={watchApplyIva ? 'Monto base (sin IVA) *' : 'Monto Total *'}
                   value={value ? formatCurrencyInput(value) : ''}
                   onChange={(e) => onChange(e.target.value.replace(/\D/g, ''))}
                   InputProps={{
@@ -262,6 +290,86 @@ export default function AccountsPayableFormPage() {
               )}
             />
           </Grid>
+
+          {/* IVA opcional */}
+          <Grid item xs={12} sm={6}>
+            <Stack
+              direction="row"
+              spacing={2}
+              alignItems="center"
+              sx={{ height: '100%' }}
+            >
+              <Controller
+                name="applyIva"
+                control={control}
+                render={({ field }) => (
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={field.value ?? false}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                      />
+                    }
+                    label="Aplicar IVA"
+                  />
+                )}
+              />
+              {watchApplyIva && (
+                <Controller
+                  name="ivaPercentage"
+                  control={control}
+                  render={({ field: { onChange, value, ...field } }) => (
+                    <TextField
+                      {...field}
+                      label="% IVA"
+                      type="number"
+                      value={value ?? ''}
+                      onChange={(e) => onChange(e.target.value)}
+                      InputProps={{
+                        endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                      }}
+                      inputProps={{ min: 0, max: 100, step: 1 }}
+                      error={!!errors.ivaPercentage}
+                      helperText={errors.ivaPercentage?.message}
+                      sx={{ width: 130 }}
+                    />
+                  )}
+                />
+              )}
+            </Stack>
+          </Grid>
+
+          {/* Desglose con IVA */}
+          {watchApplyIva && (
+            <Grid item xs={12}>
+              <Stack
+                spacing={0.5}
+                sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  bgcolor: 'action.hover',
+                }}
+              >
+                <Stack direction="row" justifyContent="space-between">
+                  <Typography variant="body2" color="text.secondary">Subtotal</Typography>
+                  <Typography variant="body2">{formatCOP(baseAmount)}</Typography>
+                </Stack>
+                <Stack direction="row" justifyContent="space-between">
+                  <Typography variant="body2" color="text.secondary">
+                    IVA ({ivaPercent}%)
+                  </Typography>
+                  <Typography variant="body2">{formatCOP(ivaAmount)}</Typography>
+                </Stack>
+                <Divider sx={{ my: 0.5 }} />
+                <Stack direction="row" justifyContent="space-between">
+                  <Typography variant="subtitle2" fontWeight={700}>Total a pagar</Typography>
+                  <Typography variant="subtitle2" fontWeight={700} color="primary">
+                    {formatCOP(grandTotal)}
+                  </Typography>
+                </Stack>
+              </Stack>
+            </Grid>
+          )}
 
           {/* Descripción */}
           <Grid item xs={12}>

@@ -38,12 +38,25 @@ export class UpdateAccountPayableDto {
   @IsOptional()
   observations?: string;
 
-  @ApiPropertyOptional({ description: 'Monto total a pagar', minimum: 0.01 })
+  @ApiPropertyOptional({ description: 'Monto total a pagar (con IVA incluido si aplica)', minimum: 0.01 })
   @Type(() => Number)
   @IsNumber()
   @IsPositive()
   @IsOptional()
   totalAmount?: number;
+
+  @ApiPropertyOptional({ description: 'Indica si el monto incluye IVA' })
+  @IsBoolean()
+  @IsOptional()
+  applyIva?: boolean;
+
+  @ApiPropertyOptional({ description: 'Tasa de IVA en decimal (0.19 = 19%)' })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  @IsOptional()
+  ivaRate?: number;
 
   @ApiPropertyOptional({ description: 'Fecha de vencimiento (ISO 8601)' })
   @IsDateString()

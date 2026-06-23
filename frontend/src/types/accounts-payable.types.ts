@@ -115,6 +115,8 @@ export interface AccountPayable {
   totalAmount: string;
   paidAmount: string;
   balance: string;
+  applyIva: boolean;
+  ivaRate: string;
   dueDate: string;
   isRecurring: boolean;
   recurringDay?: number | null;
@@ -190,6 +192,8 @@ export interface CreateAccountPayableDto {
   description: string;
   observations?: string;
   totalAmount: number;
+  applyIva?: boolean;
+  ivaRate?: number;
   dueDate: string;
   supplierId?: string;
   expenseOrderId?: string;
@@ -202,6 +206,8 @@ export interface UpdateAccountPayableDto {
   description?: string;
   observations?: string;
   totalAmount?: number;
+  applyIva?: boolean;
+  ivaRate?: number;
   dueDate?: string;
   supplierId?: string;
   isRecurring?: boolean;

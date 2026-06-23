@@ -13,6 +13,8 @@ export class ExpenseOrdersRepository {
     status: true,
     observations: true,
     areaOrMachine: true,
+    applyIva: true,
+    ivaRate: true,
     createdAt: true,
     updatedAt: true,
     expenseType: {
@@ -155,6 +157,8 @@ export class ExpenseOrdersRepository {
     responsibleId?: string;
     observations?: string;
     areaOrMachine?: string;
+    applyIva?: boolean;
+    ivaRate?: number;
     status: ExpenseOrderStatus;
     createdById: string;
     authorizedById?: string;
@@ -214,6 +218,8 @@ export class ExpenseOrdersRepository {
       responsibleId?: string | null;
       observations?: string;
       areaOrMachine?: string;
+      applyIva?: boolean;
+      ivaRate?: number;
     },
   ) {
     return this.prisma.expenseOrder.update({
