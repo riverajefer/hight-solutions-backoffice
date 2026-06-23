@@ -94,6 +94,8 @@ export interface ExpenseOrder {
   status: ExpenseOrderStatus;
   observations?: string | null;
   areaOrMachine?: string | null;
+  applyIva: boolean;
+  ivaRate: string;
   createdAt: string;
   updatedAt: string;
   expenseType: {
@@ -216,6 +218,8 @@ export interface CreateExpenseOrderDto {
   responsibleId?: string;
   observations?: string;
   areaOrMachine?: string;
+  applyIva?: boolean;
+  ivaRate?: number;
   items: CreateExpenseItemDto[];
 }
 
@@ -240,6 +244,8 @@ export interface UpdateExpenseOrderDto {
   responsibleId?: string | null;
   observations?: string;
   areaOrMachine?: string;
+  applyIva?: boolean;
+  ivaRate?: number;
   items?: UpdateExpenseItemDto[];
 }
 

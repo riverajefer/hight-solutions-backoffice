@@ -46,6 +46,17 @@ export class ExpenseOrdersService {
     private readonly accountsPayableService: AccountsPayableService,
   ) {}
 
+  /** Calcula el total a pagar incluyendo IVA cuando aplica. */
+  private totalWithIva(
+    subtotal: number,
+    applyIva?: boolean,
+    ivaRate?: number | { toString(): string },
+  ): number {
+    if (!applyIva) return subtotal;
+    const rate = ivaRate != null ? Number(ivaRate.toString()) : 0.19;
+    return subtotal + subtotal * rate;
+  }
+
   async create(
     dto: CreateExpenseOrderDto,
     createdById: string,
@@ -125,6 +136,8 @@ export class ExpenseOrdersService {
           responsibleId: dto.responsibleId,
           observations: dto.observations,
           areaOrMachine: dto.areaOrMachine,
+          applyIva: dto.applyIva ?? false,
+          ivaRate: dto.ivaRate ?? 0.19,
           status,
           createdById,
           ...(creatorIsAdmin && {
@@ -134,9 +147,14 @@ export class ExpenseOrdersService {
           items: itemsData,
         });
 
-        const totalAmount = (created.items as Array<{ total: unknown }>).reduce(
+        const subtotal = (created.items as Array<{ total: unknown }>).reduce(
           (sum, item) => sum + Number(item.total),
           0,
+        );
+        const totalAmount = this.totalWithIva(
+          subtotal,
+          dto.applyIva,
+          dto.ivaRate,
         );
         await this.accountsPayableService.createFromExpenseOrder(
           created.id,
@@ -251,9 +269,14 @@ export class ExpenseOrdersService {
 
     const ap = await this.accountsPayableService.findByExpenseOrderId(id);
     if (ap && !['PAID', 'CANCELLED'].includes(ap.status)) {
-      const newTotal = (updated!.items as Array<{ total: unknown }>).reduce(
+      const subtotal = (updated!.items as Array<{ total: unknown }>).reduce(
         (sum, item) => sum + Number(item.total),
         0,
+      );
+      const newTotal = this.totalWithIva(
+        subtotal,
+        (updated as { applyIva?: boolean }).applyIva,
+        (updated as { ivaRate?: unknown }).ivaRate as number,
       );
       const syncData: { totalAmount: number; expenseTypeId?: string; expenseSubcategoryId?: string } = { totalAmount: newTotal };
       if (dto.expenseTypeId) syncData.expenseTypeId = dto.expenseTypeId;
@@ -304,9 +327,14 @@ export class ExpenseOrdersService {
 
     const ap = await this.accountsPayableService.findByExpenseOrderId(id);
     if (ap && !['PAID', 'CANCELLED'].includes(ap.status)) {
-      const newTotal = (updated!.items as Array<{ total: unknown }>).reduce(
+      const subtotal = (updated!.items as Array<{ total: unknown }>).reduce(
         (sum, item) => sum + Number(item.total),
         0,
+      );
+      const newTotal = this.totalWithIva(
+        subtotal,
+        (updated as { applyIva?: boolean }).applyIva,
+        (updated as { ivaRate?: unknown }).ivaRate as number,
       );
       await this.accountsPayableService.syncFromExpenseOrder(ap.id, { totalAmount: newTotal });
     }

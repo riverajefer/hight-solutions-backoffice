@@ -15,6 +15,8 @@ import {
   Card,
   CardContent,
   InputAdornment,
+  Checkbox,
+  FormControlLabel,
   Chip,
   Grid,
   alpha,
@@ -246,6 +248,10 @@ export const ExpenseOrderFormPage = () => {
   const [observations, setObservations] = useState('');
   const [areaOrMachine, setAreaOrMachine] = useState('');
 
+  // ─── IVA (opcional, nivel orden) ─────────────────────────────────────────────
+  const [applyIva, setApplyIva] = useState(false);
+  const [ivaPercentage, setIvaPercentage] = useState(19); // porcentaje en UI (19 = 19%)
+
   // ─── Step 3: Items ──────────────────────────────────────────────────────────
   const [items, setItems] = useState<ExpenseItemForm[]>([defaultItem()]);
   // receiptFiles[i] and referenceFiles[i] hold the File selected for items[i] (not yet uploaded)
@@ -279,6 +285,10 @@ export const ExpenseOrderFormPage = () => {
       setResponsibleId(existingOG.responsible?.id ?? '');
       setObservations(existingOG.observations ?? '');
       setAreaOrMachine(existingOG.areaOrMachine ?? '');
+      setApplyIva(existingOG.applyIva ?? false);
+      setIvaPercentage(
+        existingOG.applyIva ? Math.round(Number(existingOG.ivaRate) * 100) : 19,
+      );
       if (existingOG.items.length) {
         setItems(
           existingOG.items.map((item) => ({
@@ -364,6 +374,12 @@ export const ExpenseOrderFormPage = () => {
       return acc + q * p;
     }, 0);
   }, [items]);
+
+  const ivaAmount = useMemo(
+    () => (applyIva ? Math.round(totalAmount * (ivaPercentage / 100)) : 0),
+    [applyIva, ivaPercentage, totalAmount],
+  );
+  const grandTotal = totalAmount + ivaAmount;
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('es-CO', {
@@ -526,6 +542,8 @@ export const ExpenseOrderFormPage = () => {
     responsibleId: responsibleId || undefined,
     observations: observations || undefined,
     areaOrMachine: areaOrMachine || undefined,
+    applyIva,
+    ivaRate: applyIva ? ivaPercentage / 100 : undefined,
     items: items.map((item, index) => ({
       quantity: parseFloat(item.quantity),
       name: item.name.trim(),
@@ -1103,11 +1121,64 @@ export const ExpenseOrderFormPage = () => {
             </Stack>
 
             <Stack direction="row" justifyContent="space-between">
+              <Typography color="text.secondary">Subtotal:</Typography>
+              <Typography fontWeight={500}>{formatCurrency(totalAmount)}</Typography>
+            </Stack>
+
+            <Divider />
+
+            {/* IVA opcional */}
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              justifyContent="space-between"
+              alignItems={{ xs: 'flex-start', sm: 'center' }}
+              spacing={1}
+            >
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={applyIva}
+                    onChange={(e) => setApplyIva(e.target.checked)}
+                  />
+                }
+                label="Aplicar IVA"
+              />
+              {applyIva && (
+                <TextField
+                  size="small"
+                  type="number"
+                  label="Porcentaje IVA"
+                  value={ivaPercentage}
+                  onChange={(e) => {
+                    const v = parseFloat(e.target.value);
+                    setIvaPercentage(
+                      Number.isNaN(v) ? 0 : Math.min(100, Math.max(0, v)),
+                    );
+                  }}
+                  sx={{ width: 150 }}
+                  InputProps={{
+                    endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                  }}
+                  inputProps={{ min: 0, max: 100, step: 1 }}
+                />
+              )}
+            </Stack>
+
+            {applyIva && (
+              <Stack direction="row" justifyContent="space-between">
+                <Typography color="text.secondary">IVA ({ivaPercentage}%):</Typography>
+                <Typography fontWeight={500}>{formatCurrency(ivaAmount)}</Typography>
+              </Stack>
+            )}
+
+            <Divider />
+
+            <Stack direction="row" justifyContent="space-between">
               <Typography variant="subtitle1" fontWeight={700}>
-                Total estimado:
+                {applyIva ? 'Total con IVA:' : 'Total estimado:'}
               </Typography>
               <Typography variant="subtitle1" fontWeight={700} color="primary">
-                {formatCurrency(totalAmount)}
+                {formatCurrency(grandTotal)}
               </Typography>
             </Stack>
           </Stack>
