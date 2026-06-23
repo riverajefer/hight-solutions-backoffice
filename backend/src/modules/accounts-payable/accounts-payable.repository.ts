@@ -18,6 +18,8 @@ export class AccountsPayableRepository {
     totalAmount: true,
     paidAmount: true,
     balance: true,
+    applyIva: true,
+    ivaRate: true,
     dueDate: true,
     isRecurring: true,
     recurringDay: true,

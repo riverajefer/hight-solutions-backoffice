@@ -400,6 +400,26 @@ export default function AccountsPayableDetailPage() {
             <Divider sx={{ mb: 2 }} />
 
             <Stack spacing={1.5}>
+              {ap.applyIva && (
+                <>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2" color="text.secondary">Subtotal</Typography>
+                    <Typography variant="body2">
+                      {formatCurrency(Number(ap.totalAmount) / (1 + Number(ap.ivaRate)))}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      IVA ({Math.round(Number(ap.ivaRate) * 100)}%)
+                    </Typography>
+                    <Typography variant="body2">
+                      {formatCurrency(
+                        Number(ap.totalAmount) - Number(ap.totalAmount) / (1 + Number(ap.ivaRate)),
+                      )}
+                    </Typography>
+                  </Box>
+                </>
+              )}
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Typography variant="body2" color="text.secondary">Total</Typography>
                 <Typography variant="body2" fontWeight={600}>{formatCurrency(ap.totalAmount)}</Typography>

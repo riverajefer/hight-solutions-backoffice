@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "expense_orders" ADD COLUMN IF NOT EXISTS "apply_iva" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "expense_orders" ADD COLUMN IF NOT EXISTS "iva_rate" DECIMAL(65,30) NOT NULL DEFAULT 0.19;

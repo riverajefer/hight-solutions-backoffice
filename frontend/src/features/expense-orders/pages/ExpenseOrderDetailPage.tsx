@@ -421,7 +421,9 @@ export const ExpenseOrderDetailPage = () => {
   const isParentOrderAnulado = og.workOrder?.order?.status === 'ANULADO';
   const statusConfig = EXPENSE_ORDER_STATUS_CONFIG[og.status];
   const allowedTransitions = STATUS_TRANSITIONS[og.status] ?? [];
-  const totalAmount = og.items.reduce((acc, item) => acc + parseFloat(item.total), 0);
+  const subtotalAmount = og.items.reduce((acc, item) => acc + parseFloat(item.total), 0);
+  const ivaAmount = og.applyIva ? Math.round(subtotalAmount * Number(og.ivaRate)) : 0;
+  const totalAmount = subtotalAmount + ivaAmount;
   const isEditable =
     !isParentOrderAnulado &&
     (og.status === ExpenseOrderStatus.DRAFT || og.status === ExpenseOrderStatus.CREATED);
@@ -883,8 +885,44 @@ export const ExpenseOrderDetailPage = () => {
                       </TableCell>
                     </TableRow>
                   ))}
+                  {og.applyIva && (
+                    <>
+                      <TableRow>
+                        <TableCell colSpan={3} align="right">
+                          <Typography variant="body2" color="text.secondary">
+                            Subtotal
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2">
+                            {formatCurrency(subtotalAmount)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell colSpan={og.workOrder ? 5 : 4} />
+                      </TableRow>
+                      <TableRow>
+                        <TableCell colSpan={3} align="right">
+                          <Typography variant="body2" color="text.secondary">
+                            IVA ({Math.round(Number(og.ivaRate) * 100)}%)
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2">
+                            {formatCurrency(ivaAmount)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell colSpan={og.workOrder ? 5 : 4} />
+                      </TableRow>
+                    </>
+                  )}
                   <TableRow>
-                    <TableCell colSpan={3} />
+                    <TableCell colSpan={3} align="right">
+                      {og.applyIva && (
+                        <Typography variant="subtitle2" fontWeight={700}>
+                          Total
+                        </Typography>
+                      )}
+                    </TableCell>
                     <TableCell align="right">
                       <Typography variant="subtitle2" fontWeight={700}>
                         {formatCurrency(totalAmount)}

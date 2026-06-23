@@ -65,6 +65,8 @@ export class AccountsPayableService {
       totalAmount: dto.totalAmount,
       paidAmount: 0,
       balance: dto.totalAmount,
+      applyIva: dto.applyIva ?? false,
+      ivaRate: dto.ivaRate ?? 0.19,
       dueDate: new Date(dto.dueDate),
       isRecurring: dto.isRecurring ?? false,
       recurringDay: dto.recurringDay,
@@ -115,6 +117,8 @@ export class AccountsPayableService {
     if (dto.isRecurring !== undefined) updateData.isRecurring = dto.isRecurring;
     if (dto.recurringDay !== undefined) updateData.recurringDay = dto.recurringDay;
     if (dto.recurringFrequency !== undefined) updateData.recurringFrequency = dto.recurringFrequency;
+    if (dto.applyIva !== undefined) updateData.applyIva = dto.applyIva;
+    if (dto.ivaRate !== undefined) updateData.ivaRate = dto.ivaRate;
     if (dto.supplierId !== undefined) {
       updateData.supplier = dto.supplierId
         ? { connect: { id: dto.supplierId } }
@@ -360,7 +364,7 @@ export class AccountsPayableService {
 
     const expenseOrder = await this.prisma.expenseOrder.findUnique({
       where: { id: expenseOrderId },
-      select: { expenseTypeId: true, expenseSubcategoryId: true },
+      select: { expenseTypeId: true, expenseSubcategoryId: true, applyIva: true, ivaRate: true },
     });
 
     if (!expenseOrder) throw new BadRequestException(`No se encontró la Orden de Gasto ${expenseOrderId}`);
@@ -377,6 +381,8 @@ export class AccountsPayableService {
       totalAmount,
       paidAmount: 0,
       balance: totalAmount,
+      applyIva: expenseOrder.applyIva,
+      ivaRate: expenseOrder.ivaRate,
       dueDate,
       isRecurring: false,
       status: AccountPayableStatus.PENDING,

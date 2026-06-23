@@ -7,6 +7,9 @@ import {
   IsEnum,
   IsNumber,
   IsPositive,
+  IsBoolean,
+  Min,
+  Max,
   ValidateNested,
   MaxLength,
 } from 'class-validator';
@@ -105,6 +108,18 @@ export class UpdateExpenseOrderDto {
   @IsOptional()
   @MaxLength(200)
   areaOrMachine?: string;
+
+  @ApiPropertyOptional({ description: 'Aplicar IVA a la orden' })
+  @IsBoolean()
+  @IsOptional()
+  applyIva?: boolean;
+
+  @ApiPropertyOptional({ description: 'Tasa de IVA en decimal (0.19 = 19%)' })
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  @IsOptional()
+  ivaRate?: number;
 
   @ApiPropertyOptional({ type: [UpdateExpenseItemDto], description: 'Ítems de gasto (reemplaza todos)' })
   @IsArray()
