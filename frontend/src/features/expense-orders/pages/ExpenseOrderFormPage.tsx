@@ -676,12 +676,19 @@ export const ExpenseOrderFormPage = () => {
         />
       )}
 
-      <TextField
-        label="Área encargada o máquina"
-        value={areaOrMachine}
-        onChange={(e) => setAreaOrMachine(e.target.value)}
-        placeholder="Ej: Impresión, Maquina cortadora..."
-        inputProps={{ maxLength: 200 }}
+      <Autocomplete
+        options={productionAreas.filter((pa) => pa.isActive !== false)}
+        getOptionLabel={(pa) => pa.name}
+        value={productionAreas.find((pa) => pa.name === areaOrMachine) ?? null}
+        onChange={(_, val) => setAreaOrMachine(val?.name ?? '')}
+        isOptionEqualToValue={(option, val) => option.id === val.id}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label="Área encargada o máquina"
+            placeholder="Seleccionar área de producción..."
+          />
+        )}
       />
     </Stack>
   );
