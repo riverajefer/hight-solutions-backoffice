@@ -3,7 +3,7 @@ export const COMPANY_INFO = {
   address: 'Cra 28 #10-18',
   city: 'Bogotá D.C. / Colombia',
   phones: ['305 451 8018', '304 484 8835'],
-  email: 'comercial1@hsgroup.com.co',
+  email: 'hsolutionssas@gmail.com',
 } as const;
 
 export const PDF_COLORS = {
