@@ -420,9 +420,10 @@ export const OrderFormPage: React.FC = () => {
   const reteIVAActualRate = applyWithholdings ? parseFloat(reteIVAValue || '0') || 0 : 0;
   const reteIVAAmount = applyTax ? tax * (reteIVAActualRate / 100) : 0;
 
-  const total = applyColombianRounding(
-    subtotal - retefuenteAmount - reteICAAmount + tax - reteIVAAmount + colorProofPrice,
-  );
+  const rawTotal = subtotal - retefuenteAmount - reteICAAmount + tax - reteIVAAmount + colorProofPrice;
+  // Si hay retenciones el total debe ser exacto (sin redondeo comercial).
+  const hasRetencionesForTotal = retefuenteAmount > 0 || reteICAAmount > 0 || reteIVAAmount > 0;
+  const total = hasRetencionesForTotal ? rawTotal : applyColombianRounding(rawTotal);
 
   const saldoAFavor = selectedClient?.saldoAFavor || 0;
   const useCreditBalance = watch('useCreditBalance');
