@@ -97,6 +97,7 @@ export interface Order {
   clientOwnershipAuthStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   status: OrderStatus;
   notes: string | null;
+  notesImageId: string | null;
   electronicInvoiceNumber: string | null;
   createdAt: string;
   updatedAt: string;
@@ -219,6 +220,7 @@ export interface CreateOrderDto {
   clientId: string;
   deliveryDate?: string; // ISO date string
   notes?: string;
+  notesImageId?: string | null;
   requiresColorProof?: boolean;
   colorProofPrice?: number;
   taxRate?: number;
@@ -239,6 +241,7 @@ export interface UpdateOrderDto {
   clientId?: string;
   deliveryDate?: string;
   notes?: string;
+  notesImageId?: string | null;
   requiresColorProof?: boolean;
   colorProofPrice?: number;
   taxRate?: number;

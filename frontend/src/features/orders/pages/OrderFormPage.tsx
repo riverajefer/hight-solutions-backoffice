@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Card,
@@ -13,6 +13,8 @@ import {
   Divider,
   MenuItem,
   CircularProgress,
+  IconButton,
+  Tooltip,
   alpha,
   useTheme,
 } from '@mui/material';
@@ -31,6 +33,10 @@ import {
   ShoppingCart as ShoppingCartIcon,
   AttachMoney as AttachMoneyIcon,
   Notes as NotesIcon,
+  Image as ImageIcon,
+  AddPhotoAlternate as AddPhotoAlternateIcon,
+  Visibility as VisibilityIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { v4 as uuidv4 } from 'uuid';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -97,6 +103,7 @@ const orderFormSchema = z
     deliveryDate: z.date().nullable(),
     deliveryDateReason: z.string().optional(),
     notes: z.string().optional(),
+    notesImageId: z.string().nullable().optional(),
     requiresColorProof: z.boolean().default(false),
     colorProofPrice: z.number().min(0).optional(),
     items: z.array(orderItemSchema).min(1, 'Debe agregar al menos un item'),
@@ -346,6 +353,7 @@ export const OrderFormPage: React.FC = () => {
       deliveryDate: null,
       deliveryDateReason: '',
       notes: '',
+      notesImageId: null,
       requiresColorProof: false,
       colorProofPrice: undefined,
       items: [
@@ -426,6 +434,32 @@ export const OrderFormPage: React.FC = () => {
   const [isDatePostponed, setIsDatePostponed] = useState(false);
   const [originalDeliveryDate, setOriginalDeliveryDate] = useState<Date | null>(null);
 
+  // Imagen adjunta a observaciones
+  const notesImageInputRef = useRef<HTMLInputElement>(null);
+  const [notesImagePreview, setNotesImagePreview] = useState<string | null>(null);
+  const [notesImageUploading, setNotesImageUploading] = useState(false);
+  const notesImageId = watch('notesImageId');
+
+  // Cargar URL firmada para previsualizar la imagen de observaciones
+  useEffect(() => {
+    let active = true;
+    if (notesImageId) {
+      storageApi
+        .getFileUrl(notesImageId)
+        .then(({ url }) => {
+          if (active) setNotesImagePreview(url);
+        })
+        .catch(() => {
+          /* ignore */
+        });
+    } else {
+      setNotesImagePreview(null);
+    }
+    return () => {
+      active = false;
+    };
+  }, [notesImageId]);
+
   useEffect(() => {
     if (isEdit && orderQuery.data && deliveryDate) {
       const currentDate = orderQuery.data.deliveryDate ? new Date(orderQuery.data.deliveryDate) : null;
@@ -473,6 +507,7 @@ export const OrderFormPage: React.FC = () => {
       setValue('client', order.client as any);
       setValue('deliveryDate', order.deliveryDate ? new Date(order.deliveryDate) : null);
       setValue('notes', order.notes || '');
+      setValue('notesImageId', order.notesImageId || null);
       setValue('requiresColorProof', order.requiresColorProof || false);
       setValue('colorProofPrice', order.colorProofPrice ? parseFloat(order.colorProofPrice) : 0);
       setValue(
@@ -593,6 +628,7 @@ export const OrderFormPage: React.FC = () => {
           deliveryDateReason: data.deliveryDateReason,
         }),
         notes: data.notes,
+        notesImageId: data.notesImageId ?? null,
         requiresColorProof: data.requiresColorProof,
         colorProofPrice: data.requiresColorProof ? data.colorProofPrice : 0,
         taxRate: data.applyTax ? data.taxRate / 100 : 0,
@@ -859,6 +895,49 @@ export const OrderFormPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['order', id] });
     } catch {
       enqueueSnackbar('Error al eliminar la imagen', { variant: 'error' });
+    }
+  };
+
+  // ── Notes image handlers ─────────────────────────────────────────────────────
+
+  const handleNotesImageUpload = async (file: File) => {
+    setNotesImageUploading(true);
+    try {
+      // En creación, si ya había una imagen sin guardar, borrarla para no dejar huérfanos.
+      // En edición, el backend elimina la anterior al guardar.
+      const existing = getValues('notesImageId');
+      if (!isEdit && existing) {
+        try { await storageApi.deleteFile(existing); } catch { /* ignore */ }
+      }
+      const uploaded = await storageApi.uploadFile(file, { entityType: 'order' });
+      setValue('notesImageId', uploaded.id, { shouldDirty: true });
+      setNotesImagePreview(uploaded.url);
+      enqueueSnackbar('Imagen subida exitosamente', { variant: 'success' });
+    } catch (error: any) {
+      enqueueSnackbar(error.response?.data?.message || 'Error al subir la imagen', { variant: 'error' });
+    } finally {
+      setNotesImageUploading(false);
+    }
+  };
+
+  const handleNotesImageDelete = async () => {
+    const existing = getValues('notesImageId');
+    if (!isEdit && existing) {
+      try { await storageApi.deleteFile(existing); } catch { /* ignore */ }
+    }
+    setValue('notesImageId', null, { shouldDirty: true });
+    setNotesImagePreview(null);
+    enqueueSnackbar('Imagen eliminada', { variant: 'success' });
+  };
+
+  const handleNotesImagePaste = (e: React.ClipboardEvent) => {
+    const fileItem = Array.from(e.clipboardData.items).find((i) => i.type.startsWith('image/'));
+    if (fileItem) {
+      const file = fileItem.getAsFile();
+      if (file) {
+        e.preventDefault();
+        handleNotesImageUpload(file);
+      }
     }
   };
 
@@ -1226,6 +1305,101 @@ export const OrderFormPage: React.FC = () => {
               />
             )}
           />
+
+          {/* Imagen adjunta a observaciones */}
+          <Box sx={{ mt: 2 }} onPaste={isClientSelected ? handleNotesImagePaste : undefined}>
+            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+              Imagen de referencia (opcional)
+            </Typography>
+            <input
+              ref={notesImageInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              hidden
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleNotesImageUpload(file);
+                e.target.value = '';
+              }}
+            />
+
+            {notesImageUploading ? (
+              <Stack direction="row" spacing={1} alignItems="center">
+                <CircularProgress size={20} />
+                <Typography variant="body2" color="text.secondary">
+                  Subiendo imagen...
+                </Typography>
+              </Stack>
+            ) : notesImageId ? (
+              <Stack direction="row" spacing={1.5} alignItems="center">
+                {notesImagePreview ? (
+                  <Box
+                    component="img"
+                    src={notesImagePreview}
+                    alt="Imagen de observaciones"
+                    onClick={() => notesImagePreview && window.open(notesImagePreview, '_blank')}
+                    sx={{
+                      width: 72,
+                      height: 72,
+                      objectFit: 'cover',
+                      borderRadius: 1,
+                      border: '1px solid',
+                      borderColor: 'grey.300',
+                      cursor: 'pointer',
+                      transition: 'opacity 0.2s',
+                      '&:hover': { opacity: 0.8 },
+                    }}
+                  />
+                ) : (
+                  <Box
+                    sx={{
+                      width: 72,
+                      height: 72,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: 1,
+                      border: '1px solid',
+                      borderColor: 'grey.300',
+                      bgcolor: 'grey.50',
+                    }}
+                  >
+                    <ImageIcon color="disabled" />
+                  </Box>
+                )}
+                {notesImagePreview && (
+                  <Tooltip title="Ver imagen">
+                    <IconButton size="small" onClick={() => window.open(notesImagePreview, '_blank')}>
+                      <VisibilityIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                <Tooltip title="Eliminar imagen">
+                  <IconButton
+                    size="small"
+                    color="error"
+                    onClick={handleNotesImageDelete}
+                    disabled={!isClientSelected}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Stack>
+            ) : (
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<AddPhotoAlternateIcon />}
+                onClick={() => notesImageInputRef.current?.click()}
+                disabled={!isClientSelected}
+              >
+                Adjuntar imagen
+              </Button>
+            )}
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+              Puede adjuntar o pegar una imagen (JPG, PNG, GIF o WEBP).
+            </Typography>
+          </Box>
         </CardContent>
       </Card>
 

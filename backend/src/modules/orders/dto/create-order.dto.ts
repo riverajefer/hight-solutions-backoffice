@@ -140,6 +140,14 @@ export class CreateOrderDto {
   @IsString()
   notes?: string;
 
+  @ApiPropertyOptional({
+    description: 'ID de la imagen adjunta a las observaciones',
+    example: 'uuid-file',
+  })
+  @IsOptional()
+  @IsString()
+  notesImageId?: string;
+
   @ApiProperty({
     description: 'Items de la orden',
     type: [CreateOrderItemDto],
