@@ -61,9 +61,11 @@ export const OrderTotals: React.FC<OrderTotalsProps> = ({
   const hasRetenciones = applyWithholdings && (retefuenteAmount > 0 || reteICAAmount > 0);
   const subtotalAfterRetenciones = subtotal - retefuenteAmount - reteICAAmount;
 
-  const total = applyColombianRounding(
-    subtotal - retefuenteAmount - reteICAAmount + tax - reteIVAAmount + (requiresColorProof ? colorProofPrice : 0),
-  );
+  const rawTotal =
+    subtotal - retefuenteAmount - reteICAAmount + tax - reteIVAAmount + (requiresColorProof ? colorProofPrice : 0);
+  // Si hay retenciones el total debe ser exacto (sin redondeo comercial).
+  const hasRetencionesForTotal = retefuenteAmount > 0 || reteICAAmount > 0 || reteIVAAmount > 0;
+  const total = hasRetencionesForTotal ? rawTotal : applyColombianRounding(rawTotal);
 
   return (
     <Card variant="outlined" sx={{ borderRadius: 2 }}>

@@ -471,6 +471,7 @@ model Order {
 
   status OrderStatus @default(DRAFT)
   notes  String? // Observaciones generales
+  notesImageId String? @map("notes_image_id") // Imagen adjunta a observaciones
 
   // Facturación electrónica (solo aplica cuando tax > 0)
   electronicInvoiceNumber String? @map("electronic_invoice_number") // Número de factura electrónica (máx 30 chars)

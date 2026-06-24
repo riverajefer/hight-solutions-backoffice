@@ -129,7 +129,7 @@ async function drawHeader(doc: jsPDF): Promise<number> {
   doc.text('Cra 28 #10-18, Bogotá D.C - Barrio Ricaurte', PDF_LAYOUT.pageWidth / 2, y, { align: 'center' });
   y += 4;
   doc.text(
-    'Tel: 305 451 8018 / 304 484 8835 / 305 4525079 | comercial1@hsgroup.com.co | hsolutionssas@gmail.com',
+    'Tel: 305 451 8018 / 304 484 8835 / 305 4525079 | hsolutionssas@gmail.com',
     PDF_LAYOUT.pageWidth / 2,
     y,
     { align: 'center' },
