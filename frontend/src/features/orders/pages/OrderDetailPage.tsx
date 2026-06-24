@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import {
@@ -229,6 +229,7 @@ export const OrderDetailPage: React.FC = () => {
     open: boolean;
     url: string;
   }>({ open: false, url: '' });
+  const [notesImageUrl, setNotesImageUrl] = useState<string | null>(null);
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceLoading, setInvoiceLoading] = useState(false);
@@ -238,6 +239,27 @@ export const OrderDetailPage: React.FC = () => {
   const order = orderQuery.data;
   const payments = paymentsQuery.data || [];
   const discounts = order?.discounts || [];
+
+  // Cargar URL firmada de la imagen de observaciones
+  useEffect(() => {
+    let active = true;
+    const notesImageId = order?.notesImageId;
+    if (notesImageId) {
+      storageApi
+        .getFileUrl(notesImageId)
+        .then(({ url }) => {
+          if (active) setNotesImageUrl(url);
+        })
+        .catch(() => {
+          /* ignore */
+        });
+    } else {
+      setNotesImageUrl(null);
+    }
+    return () => {
+      active = false;
+    };
+  }, [order?.notesImageId]);
 
   const openMenu = Boolean(anchorEl);
 
@@ -1412,7 +1434,7 @@ export const OrderDetailPage: React.FC = () => {
               isDeleting={deletingDiscount}
             />
             {/* Notas y Detalles Adicionales */}
-            {((order.notes && !order.notes.startsWith('[DTF]')) || order.requiresColorProof) && (
+            {((order.notes && !order.notes.startsWith('[DTF]')) || order.requiresColorProof || order.notesImageId) && (
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
@@ -1427,9 +1449,37 @@ export const OrderDetailPage: React.FC = () => {
                   {order.notes && (
                     <Typography variant="body2">{order.notes}</Typography>
                   )}
+                  {order.notesImageId && (
+                    <Box sx={{ mt: order.notes || order.requiresColorProof ? 2 : 0 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                        Imagen de referencia
+                      </Typography>
+                      {notesImageUrl ? (
+                        <Box
+                          component="img"
+                          src={notesImageUrl}
+                          alt="Imagen de observaciones"
+                          onClick={() => handleViewSampleImage(order.notesImageId!)}
+                          sx={{
+                            width: 120,
+                            height: 120,
+                            objectFit: 'cover',
+                            borderRadius: 1,
+                            border: '1px solid',
+                            borderColor: 'grey.300',
+                            cursor: 'pointer',
+                            transition: 'opacity 0.2s',
+                            '&:hover': { opacity: 0.8 },
+                          }}
+                        />
+                      ) : (
+                        <CircularProgress size={20} />
+                      )}
+                    </Box>
+                  )}
                 </CardContent>
               </Card>
-            )}            
+            )}
           </Stack>
         </Grid>
 

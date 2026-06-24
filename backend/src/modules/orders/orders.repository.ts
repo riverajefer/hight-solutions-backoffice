@@ -61,6 +61,7 @@ export class OrdersRepository {
     colorProofPrice: true,
     status: true,
     notes: true,
+    notesImageId: true,
     electronicInvoiceNumber: true,
     createdAt: true,
     updatedAt: true,

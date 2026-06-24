@@ -248,15 +248,17 @@ export class OrdersService {
       ? new Prisma.Decimal(createOrderDto.colorProofPrice)
       : new Prisma.Decimal(0);
 
-    const total = applyColombianRounding(
-      subtotal
-        .sub(retefuenteAmount)
-        .sub(reteICAAmount)
-        .add(tax)
-        .sub(reteIVAAmount)
-        .sub(discountAmount)
-        .add(colorProofPrice),
-    );
+    const rawTotal = subtotal
+      .sub(retefuenteAmount)
+      .sub(reteICAAmount)
+      .add(tax)
+      .sub(reteIVAAmount)
+      .sub(discountAmount)
+      .add(colorProofPrice);
+    // Si hay retenciones el total debe ser exacto (sin redondeo comercial).
+    const hasRetenciones =
+      retefuenteAmount.gt(0) || reteICAAmount.gt(0) || reteIVAAmount.gt(0);
+    const total = hasRetenciones ? rawTotal : applyColombianRounding(rawTotal);
 
     // Manejar pagos iniciales (uno o múltiples)
     let paidAmount = new Prisma.Decimal(0);
@@ -350,6 +352,7 @@ export class OrdersService {
           paidAmount,
           balance,
           notes: createOrderDto.notes,
+          notesImageId: createOrderDto.notesImageId,
           client: { connect: { id: createOrderDto.clientId } },
           createdBy: { connect: { id: createdById } },
           ...(createOrderDto.commercialChannelId && {
@@ -473,6 +476,22 @@ export class OrdersService {
     const oldOrder = await this.findOne(id);
     this.assertNotAnulado(oldOrder, 'editar orden');
 
+    // Si cambia o se elimina la imagen de observaciones, borrar la anterior del storage
+    if (
+      updateOrderDto.notesImageId !== undefined &&
+      oldOrder.notesImageId &&
+      oldOrder.notesImageId !== updateOrderDto.notesImageId
+    ) {
+      try {
+        await this.storageService.deleteFile(oldOrder.notesImageId);
+      } catch (error) {
+        this.logger.error(
+          `Failed to delete previous notes image ${oldOrder.notesImageId}:`,
+          error,
+        );
+      }
+    }
+
     // Validar cambio de fecha de entrega
     if (updateOrderDto.deliveryDate) {
       const newDeliveryDate = new Date(updateOrderDto.deliveryDate);
@@ -523,6 +542,9 @@ export class OrdersService {
             ...deliveryDateUpdateData,
             ...(updateOrderDto.notes !== undefined && {
               notes: updateOrderDto.notes,
+            }),
+            ...(updateOrderDto.notesImageId !== undefined && {
+              notesImageId: updateOrderDto.notesImageId,
             }),
             ...(updateOrderDto.status && {
               status: updateOrderDto.status,
@@ -779,6 +801,9 @@ export class OrdersService {
       ...deliveryDateUpdateData,
       ...(updateOrderDto.notes !== undefined && {
         notes: updateOrderDto.notes,
+      }),
+      ...(updateOrderDto.notesImageId !== undefined && {
+        notesImageId: updateOrderDto.notesImageId,
       }),
       ...(updateOrderDto.status && {
         status: updateOrderDto.status,
@@ -1416,15 +1441,17 @@ export class OrdersService {
       ? new Prisma.Decimal(order.colorProofPrice)
       : new Prisma.Decimal(0);
 
-    const total = applyColombianRounding(
-      subtotal
-        .sub(retefuenteAmount)
-        .sub(reteICAAmount)
-        .add(tax)
-        .sub(reteIVAAmount)
-        .sub(discountAmount)
-        .add(colorProofPrice),
-    );
+    const rawTotal = subtotal
+      .sub(retefuenteAmount)
+      .sub(reteICAAmount)
+      .add(tax)
+      .sub(reteIVAAmount)
+      .sub(discountAmount)
+      .add(colorProofPrice);
+    // Si hay retenciones el total debe ser exacto (sin redondeo comercial).
+    const hasRetenciones =
+      retefuenteAmount.gt(0) || reteICAAmount.gt(0) || reteIVAAmount.gt(0);
+    const total = hasRetenciones ? rawTotal : applyColombianRounding(rawTotal);
 
     // Calcular paidAmount sumando todos los pagos
     const payments = await tx.payment.findMany({
