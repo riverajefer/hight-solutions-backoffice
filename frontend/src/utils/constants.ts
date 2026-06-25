@@ -68,6 +68,7 @@ export const PERMISSIONS = {
   // Orders
   CREATE_ORDERS: 'create_orders',
   READ_ORDERS: 'read_orders',
+  EXPORT_ORDERS: 'export_orders',
   UPDATE_ORDERS: 'update_orders',
   DELETE_ORDERS: 'delete_orders',
   APPROVE_ORDERS: 'approve_orders',

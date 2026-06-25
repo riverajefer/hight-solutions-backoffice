@@ -176,6 +176,10 @@ async function main() {
     // Orders
     { name: 'create_orders', description: 'Crear órdenes de pedido' },
     { name: 'read_orders', description: 'Ver órdenes de pedido' },
+    {
+      name: 'export_orders',
+      description: 'Exportar órdenes de pedido a Excel',
+    },
     { name: 'update_orders', description: 'Actualizar órdenes de pedido' },
     { name: 'delete_orders', description: 'Eliminar órdenes de pedido' },
     {
@@ -451,6 +455,7 @@ async function main() {
     'read_supplies',
     'create_orders',
     'read_orders',
+    'export_orders',
     'update_orders',
     'approve_orders',
     'change_order_status',
