@@ -17,6 +17,7 @@ import {
   WarningAmber as WarningAmberIcon,
   Today as TodayIcon,
   Build as BuildIcon,
+  FileDownload as FileDownloadIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -27,8 +28,15 @@ import { useOrders } from '../hooks';
 import { useClients } from '../../clients/hooks/useClients';
 import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
 import { useUsers } from '../../users/hooks/useUsers';
-import { OrderStatusChip, ChangeStatusDialog } from '../components';
-import { ROUTES } from '../../../utils/constants';
+import { OrderStatusChip, ChangeStatusDialog, ExportOrdersDialog } from '../components';
+import {
+  formatCurrency,
+  formatDate,
+  formatDateTime,
+  getDaysSince,
+} from '../utils/orderFormatters';
+import { useAuthStore } from '../../../store/authStore';
+import { PERMISSIONS, ROUTES } from '../../../utils/constants';
 import type {
   Order,
   OrderStatus,
@@ -62,41 +70,6 @@ function getDeliveryAlert(order: Order): DeliveryAlert {
   return null;
 }
 
-const formatCurrency = (value: string): string => {
-  const numValue = parseFloat(value);
-  return new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: 'COP',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(numValue);
-};
-
-const formatDate = (date: string): string => {
-  return new Intl.DateTimeFormat('es-CO').format(new Date(date));
-};
-
-const formatDateTime = (date: string): string => {
-  return new Intl.DateTimeFormat('es-CO', {
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(date));
-};
-
-const getDaysSince = (date: string): number => {
-  const created = new Date(date);
-  created.setHours(0, 0, 0, 0);
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const diffMs = today.getTime() - created.getTime();
-  return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
-};
-
 const ORDER_STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
   { value: 'DRAFT', label: 'Borrador' },
   { value: 'CONFIRMED', label: 'Confirmada' },
@@ -123,6 +96,10 @@ export const OrdersListPage: React.FC = () => {
   const [changeStatusOrder, setChangeStatusOrder] = useState<Order | null>(
     null,
   );
+  const [exportOpen, setExportOpen] = useState(false);
+
+  const { hasPermission } = useAuthStore();
+  const canExport = hasPermission(PERMISSIONS.EXPORT_ORDERS);
 
   // Queries
   const { ordersQuery, deleteOrderMutation, updateStatusMutation } =
@@ -527,13 +504,25 @@ export const OrdersListPage: React.FC = () => {
         title='Órdenes de Pedido'
         breadcrumbs={[{ label: 'Órdenes' }]}
         action={
-          <Button
-            variant='outlined'
-            startIcon={<ShoppingCartIcon />}
-            onClick={() => navigate('/orders/new')}
-          >
-            Nueva Orden
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {canExport && (
+              <Button
+                variant='outlined'
+                color='success'
+                startIcon={<FileDownloadIcon />}
+                onClick={() => setExportOpen(true)}
+              >
+                Exportar a Excel
+              </Button>
+            )}
+            <Button
+              variant='outlined'
+              startIcon={<ShoppingCartIcon />}
+              onClick={() => navigate('/orders/new')}
+            >
+              Nueva Orden
+            </Button>
+          </Box>
         }
       />
 
@@ -722,6 +711,15 @@ export const OrdersListPage: React.FC = () => {
         onConfirm={handleChangeStatus}
         isLoading={updateStatusMutation.isPending}
       />
+
+      {/* Export to Excel Dialog */}
+      {canExport && (
+        <ExportOrdersDialog
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          currentFilters={filters}
+        />
+      )}
     </Box>
   );
 };
