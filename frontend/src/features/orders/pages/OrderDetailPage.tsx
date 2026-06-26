@@ -75,7 +75,12 @@ import { StatusHighlight } from '../../../components/common/StatusHighlight';
 import { DocumentTypeBanner } from '../../../components/common/DocumentTypeBanner';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
-import { useOrder, useOrderPayments, useOrderProfitability } from '../hooks';
+import {
+  useOrder,
+  useOrderPayments,
+  useOrderProfitability,
+  usePaymentEditApprovals,
+} from '../hooks';
 import {
   OrderStatusChip,
   OrderPdfButton,
@@ -102,6 +107,7 @@ import type {
   CreatePaymentDto,
   ApplyDiscountDto,
   ExpenseOrderSummary,
+  Payment,
 } from '../../../types/order.types';
 import {
   ORDER_STATUS_CONFIG,
@@ -136,6 +142,16 @@ const formatDateTime = (date: string): string => {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(date));
+};
+
+const PAYMENT_EDIT_STATUS_CONFIG: Record<
+  string,
+  { label: string; color: 'warning' | 'success' | 'error' | 'default' }
+> = {
+  PENDING: { label: 'Pendiente de aprobación', color: 'warning' },
+  APPROVED: { label: 'Aprobada', color: 'success' },
+  REJECTED: { label: 'Rechazada', color: 'error' },
+  EXPIRED: { label: 'Expirada', color: 'default' },
 };
 
 const formatPhoneForWhatsApp = (phone: string): string => {
@@ -182,7 +198,13 @@ export const OrderDetailPage: React.FC = () => {
   const { orderQuery, updateStatusMutation, deleteOrderMutation } = useOrder(
     id!
   );
-  const { paymentsQuery, addPaymentMutation } = useOrderPayments(id!);
+  const { paymentsQuery, addPaymentMutation, updatePaymentMutation } =
+    useOrderPayments(id!);
+  const {
+    approvalsQuery: paymentEditApprovalsQuery,
+    approveMutation: approvePaymentEditMutation,
+    rejectMutation: rejectPaymentEditMutation,
+  } = usePaymentEditApprovals(id!);
   const { data: profitabilityData, isLoading: profitabilityLoading } =
     useOrderProfitability(id!);
 
@@ -199,6 +221,9 @@ export const OrderDetailPage: React.FC = () => {
     paymentMethod: 'CASH',
     paymentDate: new Date().toISOString(),
   });
+  // Edición de pago: id del pago en edición (null = modo "agregar")
+  const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
+  const [editReason, setEditReason] = useState('');
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const receiptFileInputRef = React.useRef<HTMLInputElement | null>(null);
   const [deletingReceipt, setDeletingReceipt] = useState<string | null>(null);
@@ -239,6 +264,15 @@ export const OrderDetailPage: React.FC = () => {
   const order = orderQuery.data;
   const payments = paymentsQuery.data || [];
   const discounts = order?.discounts || [];
+  const paymentEditApprovals = paymentEditApprovalsQuery.data || [];
+  // Mapa paymentId -> solicitud PENDING (para badge "Edición pendiente")
+  const pendingEditByPayment = React.useMemo(() => {
+    const map: Record<string, (typeof paymentEditApprovals)[number]> = {};
+    for (const req of paymentEditApprovals) {
+      if (req.status === 'PENDING') map[req.paymentId] = req;
+    }
+    return map;
+  }, [paymentEditApprovals]);
 
   // Cargar URL firmada de la imagen de observaciones
   useEffect(() => {
@@ -294,6 +328,14 @@ export const OrderDetailPage: React.FC = () => {
     );
   const canDeleteDiscount =
     !isAnulado && permissions.includes('delete_discounts');
+  const canEditPayment =
+    !isAnulado && permissions.includes('edit_order_payments');
+  // Usuario que puede aplicar la edición sin solicitud de aprobación
+  const canApprovePaymentEdit =
+    isAdmin || permissions.includes('approve_payment_edits');
+  // Quién puede ver el historial/estado de solicitudes de edición de pago
+  const canSeePaymentEdits =
+    permissions.includes('edit_order_payments') || canApprovePaymentEdit;
   const hasIva = parseFloat(order.tax) > 0;
   const canRegisterInvoice =
     !isAnulado && hasIva && order.status !== 'DRAFT' && permissions.includes('update_orders');
@@ -419,6 +461,57 @@ export const OrderDetailPage: React.FC = () => {
     } catch (error) {
       console.error('Error adding payment:', error);
       enqueueSnackbar('Error al registrar el pago', { variant: 'error' });
+    } finally {
+      setPaymentSubmitting(false);
+    }
+  };
+
+  const resetPaymentDialog = () => {
+    setPaymentDialogOpen(false);
+    setEditingPaymentId(null);
+    setEditReason('');
+    setPaymentData({
+      amount: 0,
+      paymentMethod: 'CASH',
+      paymentDate: new Date().toISOString(),
+    });
+    setReceiptFile(null);
+  };
+
+  const handleOpenEditPayment = (payment: Payment) => {
+    setEditingPaymentId(payment.id);
+    setEditReason('');
+    setReceiptFile(null);
+    setPaymentData({
+      amount: parseFloat(payment.amount),
+      paymentMethod: payment.paymentMethod,
+      paymentDate: payment.paymentDate,
+      reference: payment.reference ?? undefined,
+      notes: payment.notes ?? undefined,
+    });
+    setPaymentDialogOpen(true);
+  };
+
+  const handleUpdatePayment = async () => {
+    if (paymentSubmitting || !editingPaymentId) return;
+
+    setPaymentSubmitting(true);
+    try {
+      await updatePaymentMutation.mutateAsync({
+        paymentId: editingPaymentId,
+        data: {
+          amount: paymentData.amount,
+          paymentMethod: paymentData.paymentMethod,
+          paymentDate: paymentData.paymentDate,
+          reference: paymentData.reference,
+          notes: paymentData.notes,
+          reason: editReason || undefined,
+        },
+        file: receiptFile ?? undefined,
+      });
+      resetPaymentDialog();
+    } catch (error) {
+      console.error('Error updating payment:', error);
     } finally {
       setPaymentSubmitting(false);
     }
@@ -1356,6 +1449,9 @@ export const OrderDetailPage: React.FC = () => {
                           <TableCell align="right">Monto</TableCell>
                           <TableCell>Recibido por</TableCell>
                           <TableCell align="center">Comprobante</TableCell>
+                          {canEditPayment && (
+                            <TableCell align="center">Acciones</TableCell>
+                          )}
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -1417,11 +1513,208 @@ export const OrderDetailPage: React.FC = () => {
                                 </Typography>
                               )}
                             </TableCell>
+                            {canEditPayment && (
+                              <TableCell align="center">
+                                {pendingEditByPayment[payment.id] ? (
+                                  <Chip
+                                    label="Edición pendiente"
+                                    color="warning"
+                                    size="small"
+                                    variant="outlined"
+                                  />
+                                ) : (
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleOpenEditPayment(payment)}
+                                    color="primary"
+                                    title="Editar pago"
+                                  >
+                                    <EditIcon fontSize="small" />
+                                  </IconButton>
+                                )}
+                              </TableCell>
+                            )}
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
                   </TableContainer>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Solicitudes de edición de pago (estado e historial) */}
+            {canSeePaymentEdits && paymentEditApprovals.length > 0 && (
+              <Card>
+                <CardContent>
+                  <Typography
+                    variant="h6"
+                    gutterBottom
+                    sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
+                  >
+                    Solicitudes de edición de pago
+                  </Typography>
+                  <Divider sx={{ mb: 2 }} />
+                  <Stack spacing={2}>
+                    {paymentEditApprovals.map((req) => {
+                      const statusCfg = PAYMENT_EDIT_STATUS_CONFIG[req.status] ?? {
+                        label: req.status,
+                        color: 'default' as const,
+                      };
+                      const reviewer = req.reviewedBy
+                        ? `${req.reviewedBy.firstName ?? ''} ${req.reviewedBy.lastName ?? ''}`.trim() ||
+                          req.reviewedBy.email
+                        : null;
+                      return (
+                        <Box
+                          key={req.id}
+                          sx={{
+                            p: 2,
+                            borderRadius: 1,
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            borderLeft: '4px solid',
+                            borderLeftColor:
+                              req.status === 'PENDING'
+                                ? 'warning.main'
+                                : req.status === 'APPROVED'
+                                  ? 'success.main'
+                                  : 'error.main',
+                          }}
+                        >
+                          <Stack
+                            direction="row"
+                            alignItems="center"
+                            justifyContent="space-between"
+                            sx={{ mb: 1 }}
+                          >
+                            <Chip
+                              label={statusCfg.label}
+                              color={statusCfg.color}
+                              size="small"
+                            />
+                            <Typography variant="caption" color="text.secondary">
+                              Solicitado por{' '}
+                              {req.requestedBy?.firstName} {req.requestedBy?.lastName} ·{' '}
+                              {formatDateTime(req.createdAt)}
+                            </Typography>
+                          </Stack>
+
+                          {/* Cambios solicitados: antes → después */}
+                          <Stack spacing={0.25}>
+                            {req.newAmount != null && (
+                              <Typography variant="body2">
+                                <strong>Monto:</strong>{' '}
+                                {formatCurrency(req.oldAmount)} →{' '}
+                                <strong>{formatCurrency(req.newAmount)}</strong>
+                              </Typography>
+                            )}
+                            {req.newPaymentMethod != null && (
+                              <Typography variant="body2">
+                                <strong>Método:</strong>{' '}
+                                {PAYMENT_METHOD_LABELS[req.oldPaymentMethod]} →{' '}
+                                <strong>{PAYMENT_METHOD_LABELS[req.newPaymentMethod]}</strong>
+                              </Typography>
+                            )}
+                            {req.newPaymentDate != null && (
+                              <Typography variant="body2">
+                                <strong>Fecha:</strong>{' '}
+                                {formatDateTime(req.oldPaymentDate)} →{' '}
+                                <strong>{formatDateTime(req.newPaymentDate)}</strong>
+                              </Typography>
+                            )}
+                            {req.newReference != null && (
+                              <Typography variant="body2">
+                                <strong>Referencia:</strong>{' '}
+                                {req.oldReference || '—'} →{' '}
+                                <strong>{req.newReference || '—'}</strong>
+                              </Typography>
+                            )}
+                            {req.newNotes != null && (
+                              <Typography variant="body2">
+                                <strong>Notas:</strong>{' '}
+                                {req.oldNotes || '—'} →{' '}
+                                <strong>{req.newNotes || '—'}</strong>
+                              </Typography>
+                            )}
+                            {req.newReceiptFileId != null && (
+                              <Typography variant="body2" color="info.main">
+                                Incluye un nuevo comprobante
+                                {req.status === 'PENDING'
+                                  ? ' (se aplicará al aprobar).'
+                                  : req.status === 'APPROVED'
+                                    ? ' (aplicado).'
+                                    : '.'}
+                              </Typography>
+                            )}
+                          </Stack>
+
+                          {req.reason && (
+                            <Typography
+                              variant="body2"
+                              color="text.secondary"
+                              sx={{ mt: 0.5 }}
+                            >
+                              Motivo: {req.reason}
+                            </Typography>
+                          )}
+
+                          {/* Resolución */}
+                          {req.status !== 'PENDING' && (
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{ display: 'block', mt: 1 }}
+                            >
+                              {req.status === 'APPROVED' ? 'Aprobada' : 'Rechazada'}
+                              {reviewer ? ` por ${reviewer}` : ''}
+                              {req.reviewedAt ? ` · ${formatDateTime(req.reviewedAt)}` : ''}
+                              {req.reviewNotes ? ` — ${req.reviewNotes}` : ''}
+                            </Typography>
+                          )}
+
+                          {/* Acciones de aprobación (solo aprobadores, solo pendientes) */}
+                          {req.status === 'PENDING' && canApprovePaymentEdit && (
+                            <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
+                              <Button
+                                size="small"
+                                variant="contained"
+                                color="success"
+                                disabled={approvePaymentEditMutation.isPending}
+                                onClick={() =>
+                                  approvePaymentEditMutation.mutate({ id: req.id })
+                                }
+                              >
+                                Autorizar
+                              </Button>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="error"
+                                disabled={rejectPaymentEditMutation.isPending}
+                                onClick={() =>
+                                  rejectPaymentEditMutation.mutate({ id: req.id })
+                                }
+                              >
+                                Rechazar
+                              </Button>
+                            </Stack>
+                          )}
+
+                          {/* Aviso para el solicitante cuando está pendiente */}
+                          {req.status === 'PENDING' && !canApprovePaymentEdit && (
+                            <Typography
+                              variant="caption"
+                              color="warning.main"
+                              sx={{ display: 'block', mt: 1 }}
+                            >
+                              Pendiente de autorización del administrador.
+                            </Typography>
+                          )}
+                        </Box>
+                      );
+                    })}
+                  </Stack>
                 </CardContent>
               </Card>
             )}
@@ -1718,18 +2011,20 @@ export const OrderDetailPage: React.FC = () => {
         )} */}
       </Menu>
 
-      {/* Dialog: Registrar Pago */}
+      {/* Dialog: Registrar / Editar Pago */}
       <Dialog
         open={paymentDialogOpen}
         onClose={() => {
           if (!paymentSubmitting) {
-            setPaymentDialogOpen(false);
+            resetPaymentDialog();
           }
         }}
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Registrar Pago</DialogTitle>
+        <DialogTitle>
+          {editingPaymentId ? 'Editar Pago' : 'Registrar Pago'}
+        </DialogTitle>
         <DialogContent onPaste={handleReceiptPaste}>
           <Stack spacing={3} sx={{ mt: 2 }}>
             <TextField
@@ -1810,9 +2105,28 @@ export const OrderDetailPage: React.FC = () => {
               }
             />
 
+            {editingPaymentId && (
+              <>
+                <TextField
+                  fullWidth
+                  label="Motivo de la edición"
+                  placeholder="Ej: El valor consignado fue $107.000, no $258.000"
+                  value={editReason}
+                  onChange={(e) => setEditReason(e.target.value)}
+                />
+                <Alert severity={canApprovePaymentEdit ? 'info' : 'warning'}>
+                  {canApprovePaymentEdit
+                    ? 'El cambio se aplicará de inmediato y se recalculará el saldo de la orden.'
+                    : 'La edición de un pago requiere autorización del administrador. El saldo no cambiará hasta que sea aprobada.'}
+                </Alert>
+              </>
+            )}
+
             <Box>
               <FormLabel sx={{ mb: 1, display: 'block' }}>
-                Comprobante de Pago (Opcional)
+                {editingPaymentId
+                  ? 'Reemplazar comprobante (Opcional)'
+                  : 'Comprobante de Pago (Opcional)'}
               </FormLabel>
               <input
                 type="file"
@@ -1920,20 +2234,38 @@ export const OrderDetailPage: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button
-            onClick={() => setPaymentDialogOpen(false)}
+            onClick={resetPaymentDialog}
             disabled={paymentSubmitting}
           >
             Cancelar
           </Button>
-          <Button
-            onClick={handleAddPayment}
-            variant="contained"
-            disabled={
-              paymentSubmitting || addPaymentMutation.isPending || paymentData.amount <= 0
-            }
-          >
-            {paymentSubmitting ? 'Registrando...' : 'Registrar Pago'}
-          </Button>
+          {editingPaymentId ? (
+            <Button
+              onClick={handleUpdatePayment}
+              variant="contained"
+              disabled={
+                paymentSubmitting ||
+                updatePaymentMutation.isPending ||
+                (paymentData.amount ?? 0) <= 0
+              }
+            >
+              {paymentSubmitting
+                ? 'Guardando...'
+                : canApprovePaymentEdit
+                  ? 'Guardar cambios'
+                  : 'Solicitar edición'}
+            </Button>
+          ) : (
+            <Button
+              onClick={handleAddPayment}
+              variant="contained"
+              disabled={
+                paymentSubmitting || addPaymentMutation.isPending || paymentData.amount <= 0
+              }
+            >
+              {paymentSubmitting ? 'Registrando...' : 'Registrar Pago'}
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 

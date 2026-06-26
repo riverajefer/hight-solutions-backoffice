@@ -8,3 +8,7 @@ export {
   useRejectRefundRequest,
   refundRequestsKeys,
 } from './useRefundRequests';
+export {
+  usePaymentEditApprovals,
+  paymentEditApprovalsKeys,
+} from './usePaymentEditApprovals';

@@ -16,6 +16,7 @@ import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { StorageService } from '../storage/storage.service';
 import { OrderStatusChangeRequestsService } from '../order-status-change-requests/order-status-change-requests.service';
 import { AdvancePaymentApprovalsService } from '../advance-payment-approvals/advance-payment-approvals.service';
+import { PaymentEditApprovalsService } from '../payment-edit-approvals/payment-edit-approvals.service';
 import { DiscountApprovalsService } from '../discount-approvals/discount-approvals.service';
 import { ClientOwnershipAuthRequestsService } from '../client-ownership-auth-requests/client-ownership-auth-requests.service';
 import { PrismaService } from '../../database/prisma.service';
@@ -65,6 +66,11 @@ const mockStatusChangeRequestsService = {
 const mockAdvancePaymentApprovalsService = {
   requiresApproval: jest.fn().mockResolvedValue({ required: false }),
   createFromOrderCreation: jest.fn(),
+};
+
+const mockPaymentEditApprovalsService = {
+  requiresApproval: jest.fn().mockResolvedValue({ required: false }),
+  createRequest: jest.fn(),
 };
 
 const mockDiscountApprovalsService = {
@@ -173,6 +179,10 @@ describe('OrdersService', () => {
         {
           provide: AdvancePaymentApprovalsService,
           useValue: mockAdvancePaymentApprovalsService,
+        },
+        {
+          provide: PaymentEditApprovalsService,
+          useValue: mockPaymentEditApprovalsService,
         },
         {
           provide: DiscountApprovalsService,
@@ -1911,6 +1921,85 @@ describe('OrdersService', () => {
         data: { receiptFileId: null },
       });
       expect(result).toMatchObject({ message: 'Receipt deleted successfully' });
+    });
+  });
+
+  describe('updatePayment', () => {
+    beforeEach(() => {
+      mockOrdersRepository.findById.mockResolvedValue(mockConfirmedOrder);
+      mockPrisma.payment.findFirst.mockResolvedValue({ id: 'pay-1' });
+    });
+
+    it('creates an approval request (PENDING) without modifying the payment when approval is required', async () => {
+      mockPaymentEditApprovalsService.requiresApproval.mockResolvedValue({
+        required: true,
+        reason: 'Requiere aprobación',
+      });
+      mockPaymentEditApprovalsService.createRequest.mockResolvedValue({
+        id: 'req-1',
+      });
+
+      const result = await service.updatePayment(
+        'order-1',
+        'pay-1',
+        { amount: 107000 },
+        'user-1',
+      );
+
+      expect(mockPaymentEditApprovalsService.createRequest).toHaveBeenCalledWith(
+        'order-1',
+        'pay-1',
+        'user-1',
+        expect.objectContaining({ amount: 107000 }),
+      );
+      // No se aplica el cambio ni se mueven totales
+      expect(mockPrisma.payment.update).not.toHaveBeenCalled();
+      expect(result).toMatchObject({
+        status: 'PENDING_APPROVAL',
+        approvalId: 'req-1',
+      });
+    });
+
+    it('applies the edit directly and recalculates totals when user can approve', async () => {
+      mockPaymentEditApprovalsService.requiresApproval.mockResolvedValue({
+        required: false,
+      });
+      mockPrisma.$transaction.mockImplementation((fn: any) => fn(mockPrisma));
+      mockPrisma.payment.update.mockResolvedValue({
+        id: 'pay-1',
+        amount: new Prisma.Decimal(107000),
+        paymentMethod: 'TRANSFER',
+        cashMovementId: null,
+      });
+      mockPrisma.payment.findMany.mockResolvedValue([
+        { amount: new Prisma.Decimal(107000) },
+      ]);
+      mockPrisma.payment.findUnique.mockResolvedValue({ id: 'pay-1' });
+
+      await service.updatePayment(
+        'order-1',
+        'pay-1',
+        { amount: 107000 },
+        'user-1',
+      );
+
+      expect(mockPrisma.payment.update).toHaveBeenCalled();
+      // balance = total(119) - paidAmount(107000) recalculado desde los pagos
+      const orderUpdate = mockPrisma.order.update.mock.calls.find(
+        (c: any) => c[0].data.paidAmount !== undefined,
+      )[0];
+      expect(Number(orderUpdate.data.paidAmount.toString())).toBe(107000);
+    });
+
+    it('throws NotFound when the payment does not belong to the order', async () => {
+      mockPaymentEditApprovalsService.requiresApproval.mockResolvedValue({
+        required: false,
+      });
+      mockPrisma.payment.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updatePayment('order-1', 'bad-pay', { amount: 1 }, 'user-1'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

@@ -40,7 +40,8 @@ import { orderStatusChangeRequestsApi } from '../../../api/order-status-change-r
 import { editRequestsApi } from '../../../api/edit-requests.api';
 import { expenseOrderAuthRequestsApi } from '../../../api/expense-order-auth-requests.api';
 import { advancePaymentApprovalsApi } from '../../../api/advance-payment-approvals.api';
-import { ORDER_STATUS_CONFIG, PAYMENT_METHOD_LABELS, type OrderStatus } from '../../../types/order.types';
+import { paymentEditApprovalsApi } from '../../../api/payment-edit-approvals.api';
+import { ORDER_STATUS_CONFIG, PAYMENT_METHOD_LABELS, type OrderStatus, type PaymentEditApproval } from '../../../types/order.types';
 import { EXPENSE_ORDER_STATUS_CONFIG, ExpenseOrderStatus } from '../../../types/expense-order.types';
 import type { OrderStatusChangeRequest } from '../../../types/order-status-change-request.types';
 import type { OrderEditRequest } from '../../../types/edit-request.types';
@@ -100,6 +101,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const isAdmin = user?.role?.name === 'admin';
   const canApproveOrders = hasPermission('approve_orders') || isAdmin;
   const canApproveAdvancePayments = hasPermission('approve_advance_payments') || isAdmin;
+  const canApprovePaymentEdits = hasPermission('approve_payment_edits') || isAdmin;
   const canApproveClientOwnership = hasPermission('approve_client_ownership_auth') || isAdmin;
   const canApproveExpenseOrders = hasPermission('approve_expense_orders') || isAdmin;
   const canApproveVoidRequests = hasPermission('approve_cash_movements') || isAdmin;
@@ -132,7 +134,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   }, [navWidth]);
 
   const [tabValue, setTabValue] = useState<string>(
-    canApproveOrders ? 'status' : canApproveAdvancePayments ? 'advance' : canApproveClientOwnership ? 'ownership' : canApproveExpenseOrders ? 'og' : canApproveVoidRequests ? 'void' : canApproveRefunds ? 'refund' : canApproveAccountsPayable ? 'ap' : canGerenciaApproveReversal ? 'ap-reversal' : 'status',
+    canApproveOrders ? 'status' : canApproveAdvancePayments ? 'advance' : canApprovePaymentEdits ? 'payment-edit' : canApproveClientOwnership ? 'ownership' : canApproveExpenseOrders ? 'og' : canApproveVoidRequests ? 'void' : canApproveRefunds ? 'refund' : canApproveAccountsPayable ? 'ap' : canGerenciaApproveReversal ? 'ap-reversal' : 'status',
   );
   
   const [viewMode, setViewMode] = useState<'pending' | 'history'>('pending');
@@ -168,6 +170,14 @@ export const StatusChangeRequestsPage: React.FC = () => {
     action: 'approve' | 'reject' | null;
   }>({ open: false, request: null, action: null });
   const [advanceReviewNotes, setAdvanceReviewNotes] = useState('');
+
+  // --- Payment Edit Approvals ---
+  const [paymentEditReviewDialog, setPaymentEditReviewDialog] = useState<{
+    open: boolean;
+    request: PaymentEditApproval | null;
+    action: 'approve' | 'reject' | null;
+  }>({ open: false, request: null, action: null });
+  const [paymentEditReviewNotes, setPaymentEditReviewNotes] = useState('');
 
   // --- Client Ownership Auth Requests ---
   const [ownershipReviewDialog, setOwnershipReviewDialog] = useState<{
@@ -248,6 +258,14 @@ export const StatusChangeRequestsPage: React.FC = () => {
     enabled: canApproveAdvancePayments,
   });
 
+  const { data: paymentEditRequestsData, isLoading: paymentEditLoading } = useQuery({
+    queryKey: ['paymentEditApprovals', viewMode],
+    queryFn: () => viewMode === 'pending'
+      ? paymentEditApprovalsApi.findPending()
+      : paymentEditApprovalsApi.findAll(),
+    enabled: canApprovePaymentEdits,
+  });
+
   const { data: ownershipRequestsData, isLoading: ownershipLoading } = useQuery({
     queryKey: ['clientOwnershipAuthRequests', viewMode],
     queryFn: () => viewMode === 'pending'
@@ -300,6 +318,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const editRequests = viewMode === 'history' ? editRequestsData?.filter(r => r.status !== 'PENDING') : editRequestsData;
   const ogAuthRequests = viewMode === 'history' ? ogAuthRequestsData?.filter(r => r.status !== 'PENDING') : ogAuthRequestsData;
   const advancePaymentRequests = viewMode === 'history' ? advancePaymentRequestsData?.filter(r => r.status !== 'PENDING') : advancePaymentRequestsData;
+  const paymentEditRequests = viewMode === 'history' ? paymentEditRequestsData?.filter(r => r.status !== 'PENDING') : paymentEditRequestsData;
   const ownershipRequests = viewMode === 'history' ? ownershipRequestsData?.filter(r => r.status !== 'PENDING') : ownershipRequestsData;
   const voidRequests = viewMode === 'history' ? voidRequestsData?.filter(r => r.status !== 'PENDING') : voidRequestsData;
   const refundRequests = viewMode === 'history' ? refundRequestsData?.filter(r => r.status !== 'PENDING') : refundRequestsData;
@@ -450,6 +469,46 @@ export const StatusChangeRequestsPage: React.FC = () => {
     onError: (error: any) => {
       enqueueSnackbar(
         error.response?.data?.message || 'Error al rechazar anticipo',
+        { variant: 'error' }
+      );
+    },
+  });
+
+  // ============================================================
+  // PAYMENT EDIT MUTATIONS
+  // ============================================================
+
+  const approvePaymentEditMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
+      paymentEditApprovalsApi.approve(id, notes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['paymentEditApprovals'] });
+      queryClient.invalidateQueries({ queryKey: ['payment-edit-approvals'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      enqueueSnackbar('Edición de pago aprobada y aplicada', { variant: 'success' });
+      handleClosePaymentEditReviewDialog();
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(
+        error.response?.data?.message || 'Error al aprobar la edición',
+        { variant: 'error' }
+      );
+    },
+  });
+
+  const rejectPaymentEditMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes: string }) =>
+      paymentEditApprovalsApi.reject(id, notes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['paymentEditApprovals'] });
+      queryClient.invalidateQueries({ queryKey: ['payment-edit-approvals'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      enqueueSnackbar('Edición de pago rechazada. El pago no fue modificado.', { variant: 'info' });
+      handleClosePaymentEditReviewDialog();
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(
+        error.response?.data?.message || 'Error al rechazar la edición',
         { variant: 'error' }
       );
     },
@@ -811,6 +870,45 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const handleCloseAdvanceReviewDialog = () => {
     setAdvanceReviewDialog({ open: false, request: null, action: null });
     setAdvanceReviewNotes('');
+  };
+
+  // ============================================================
+  // HANDLERS - PAYMENT EDIT
+  // ============================================================
+
+  const handleApprovePaymentEdit = (request: PaymentEditApproval) => {
+    setPaymentEditReviewDialog({ open: true, request, action: 'approve' });
+    setPaymentEditReviewNotes('');
+  };
+
+  const handleRejectPaymentEdit = (request: PaymentEditApproval) => {
+    setPaymentEditReviewDialog({ open: true, request, action: 'reject' });
+    setPaymentEditReviewNotes('');
+  };
+
+  const handleConfirmPaymentEditReview = () => {
+    if (!paymentEditReviewDialog.request) return;
+
+    if (paymentEditReviewDialog.action === 'approve') {
+      approvePaymentEditMutation.mutate({
+        id: paymentEditReviewDialog.request.id,
+        notes: paymentEditReviewNotes || undefined,
+      });
+    } else if (paymentEditReviewDialog.action === 'reject') {
+      if (!paymentEditReviewNotes.trim()) {
+        enqueueSnackbar('Debe proporcionar una razón para rechazar', { variant: 'warning' });
+        return;
+      }
+      rejectPaymentEditMutation.mutate({
+        id: paymentEditReviewDialog.request.id,
+        notes: paymentEditReviewNotes,
+      });
+    }
+  };
+
+  const handleClosePaymentEditReviewDialog = () => {
+    setPaymentEditReviewDialog({ open: false, request: null, action: null });
+    setPaymentEditReviewNotes('');
   };
 
   const handleViewOrder = (orderId: string) => {
@@ -1380,6 +1478,101 @@ export const StatusChangeRequestsPage: React.FC = () => {
   ];
 
   // ============================================================
+  // COLUMNAS - PAYMENT EDIT APPROVALS
+  // ============================================================
+
+  const formatCOPAmount = (v: string | number) =>
+    new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(Number(v));
+
+  const paymentEditColumns: GridColDef<PaymentEditApproval>[] = [
+    {
+      field: 'orderNumber',
+      headerName: 'Nº Orden',
+      width: 150,
+      valueGetter: (_, row) => row.order?.orderNumber || '-',
+      renderCell: (params) => (
+        <Box
+          sx={{ fontWeight: 600, color: 'primary.main', cursor: 'pointer' }}
+          onClick={() => params.row.order && handleViewOrder(params.row.order.id)}
+        >
+          {params.value}
+        </Box>
+      ),
+    },
+    {
+      field: 'amountChange',
+      headerName: 'Cambio de Monto',
+      width: 220,
+      valueGetter: (_, row) => (row.newAmount != null ? `${row.oldAmount}->${row.newAmount}` : ''),
+      renderCell: (params) => {
+        const row = params.row;
+        if (row.newAmount == null) {
+          return <Typography variant="body2" color="text.secondary">Sin cambio de monto</Typography>;
+        }
+        return (
+          <Typography variant="body2" fontWeight={600}>
+            {formatCOPAmount(row.oldAmount)} → {formatCOPAmount(row.newAmount)}
+          </Typography>
+        );
+      },
+    },
+    {
+      field: 'requestedBy',
+      headerName: 'Solicitado por',
+      width: 200,
+      valueGetter: (_, row) => getUserName(row.requestedBy),
+    },
+    {
+      field: 'reason',
+      headerName: 'Motivo',
+      width: 250,
+      renderCell: (params) => (
+        <Typography variant="body2" noWrap title={params.value || ''}>
+          {params.value || '-'}
+        </Typography>
+      ),
+    },
+    {
+      field: 'status',
+      headerName: 'Estado Solicitud',
+      width: 130,
+      renderCell: (params) => {
+        const statusConfig = STATUS_LABELS[params.value] || { label: params.value, color: 'default' as const };
+        return <Chip label={statusConfig.label} color={statusConfig.color} size="small" />;
+      },
+    },
+    {
+      field: 'createdAt',
+      headerName: 'Fecha Solicitud',
+      width: 150,
+      valueFormatter: (value) => formatDateTime(value),
+    },
+    ...(canApprovePaymentEdits ? [{
+      field: 'actions',
+      type: 'actions' as const,
+      headerName: 'Acciones',
+      width: 120,
+      getActions: (params: any) => {
+        if (params.row.status !== 'PENDING') return [];
+        return [
+          <GridActionsCellItem
+            icon={<CheckCircleIcon sx={{ color: 'success.main' }} />}
+            label="Aprobar"
+            onClick={() => handleApprovePaymentEdit(params.row)}
+            showInMenu={false}
+          />,
+          <GridActionsCellItem
+            icon={<CancelIcon sx={{ color: 'error.main' }} />}
+            label="Rechazar"
+            onClick={() => handleRejectPaymentEdit(params.row)}
+            showInMenu={false}
+          />,
+        ];
+      },
+    }] : []),
+  ];
+
+  // ============================================================
   // COLUMNAS - CLIENT OWNERSHIP AUTH REQUESTS
   // ============================================================
 
@@ -1866,6 +2059,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const editCount = editRequests?.length || 0;
   const ogAuthCount = ogAuthRequests?.length || 0;
   const advanceCount = advancePaymentRequests?.length || 0;
+  const paymentEditCount = paymentEditRequests?.length || 0;
   const ownershipCount = ownershipRequests?.length || 0;
   const voidCount = voidRequests?.length || 0;
   const refundCount = refundRequests?.length || 0;
@@ -1931,6 +2125,13 @@ export const StatusChangeRequestsPage: React.FC = () => {
                 <ListItemIcon sx={{ minWidth: 36 }}><PaymentIcon fontSize="small" /></ListItemIcon>
                 <ListItemText primary="Anticipo OP" primaryTypographyProps={{ variant: 'body2' }} />
                 {advanceCount > 0 && <Badge badgeContent={advanceCount} color="warning" sx={{ mr: 1 }} />}
+              </ListItemButton>
+            )}
+            {canApprovePaymentEdits && (
+              <ListItemButton selected={tabValue === 'payment-edit'} onClick={() => setTabValue('payment-edit')} sx={{ borderRadius: 1, mx: 1 }}>
+                <ListItemIcon sx={{ minWidth: 36 }}><ReceiptLongIcon fontSize="small" /></ListItemIcon>
+                <ListItemText primary="Edición de Pago" primaryTypographyProps={{ variant: 'body2' }} />
+                {paymentEditCount > 0 && <Badge badgeContent={paymentEditCount} color="warning" sx={{ mr: 1 }} />}
               </ListItemButton>
             )}
             {canApproveClientOwnership && (
@@ -2042,6 +2243,9 @@ export const StatusChangeRequestsPage: React.FC = () => {
           )}
           {tabValue === 'advance' && canApproveAdvancePayments && (
             <DataTable rows={advancePaymentRequests || []} columns={advanceColumns} loading={advanceLoading} getRowId={(row) => row.id} pageSize={25} />
+          )}
+          {tabValue === 'payment-edit' && canApprovePaymentEdits && (
+            <DataTable rows={paymentEditRequests || []} columns={paymentEditColumns} loading={paymentEditLoading} getRowId={(row) => row.id} pageSize={25} />
           )}
           {tabValue === 'ownership' && canApproveClientOwnership && (
             <DataTable rows={ownershipRequests || []} columns={ownershipColumns} loading={ownershipLoading} getRowId={(row) => row.id} pageSize={25} />
@@ -2296,6 +2500,84 @@ export const StatusChangeRequestsPage: React.FC = () => {
             }
           >
             {advanceReviewDialog.action === 'approve' ? 'Aprobar' : 'Rechazar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog: Revisión de Edición de Pago */}
+      <Dialog open={paymentEditReviewDialog.open} onClose={handleClosePaymentEditReviewDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {paymentEditReviewDialog.action === 'approve'
+            ? 'Aprobar Edición de Pago'
+            : 'Rechazar Edición de Pago'}
+        </DialogTitle>
+        <DialogContent>
+          {paymentEditReviewDialog.request && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                <strong>Orden:</strong> {paymentEditReviewDialog.request.order?.orderNumber || '-'}
+              </Typography>
+              {paymentEditReviewDialog.request.newAmount != null && (
+                <Typography variant="body2" gutterBottom>
+                  <strong>Monto:</strong>{' '}
+                  {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(
+                    parseFloat(paymentEditReviewDialog.request.oldAmount || '0')
+                  )}{' '}→{' '}
+                  {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(
+                    parseFloat(paymentEditReviewDialog.request.newAmount || '0')
+                  )}
+                </Typography>
+              )}
+              {paymentEditReviewDialog.request.newReceiptFileId && (
+                <Typography variant="body2" gutterBottom color="info.main">
+                  Incluye un nuevo comprobante que reemplazará al actual al aprobar.
+                </Typography>
+              )}
+              <Typography variant="body2" gutterBottom>
+                <strong>Solicitado por:</strong> {getUserName(paymentEditReviewDialog.request.requestedBy)}
+              </Typography>
+              {paymentEditReviewDialog.request.reason && (
+                <Typography variant="body2">
+                  <strong>Motivo:</strong> {paymentEditReviewDialog.request.reason}
+                </Typography>
+              )}
+              {paymentEditReviewDialog.action === 'approve' && (
+                <Typography variant="body2" color="info.main" sx={{ mt: 1 }}>
+                  Al aprobar, el pago se actualizará y el saldo de la orden se recalculará.
+                </Typography>
+              )}
+            </Box>
+          )}
+
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            label={paymentEditReviewDialog.action === 'approve' ? 'Notas (opcional)' : 'Razón del rechazo *'}
+            value={paymentEditReviewNotes}
+            onChange={(e) => setPaymentEditReviewNotes(e.target.value)}
+            placeholder={
+              paymentEditReviewDialog.action === 'approve'
+                ? 'Agregue notas adicionales...'
+                : 'Explique por qué se rechaza la edición...'
+            }
+            required={paymentEditReviewDialog.action === 'reject'}
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClosePaymentEditReviewDialog}>Cancelar</Button>
+          <Button
+            onClick={handleConfirmPaymentEditReview}
+            variant="contained"
+            color={paymentEditReviewDialog.action === 'approve' ? 'success' : 'error'}
+            disabled={
+              approvePaymentEditMutation.isPending ||
+              rejectPaymentEditMutation.isPending ||
+              (paymentEditReviewDialog.action === 'reject' && !paymentEditReviewNotes.trim())
+            }
+          >
+            {paymentEditReviewDialog.action === 'approve' ? 'Aprobar' : 'Rechazar'}
           </Button>
         </DialogActions>
       </Dialog>
