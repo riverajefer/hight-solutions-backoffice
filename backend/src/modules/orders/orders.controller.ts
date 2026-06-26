@@ -33,6 +33,7 @@ import {
   AddOrderItemDto,
   UpdateOrderItemDto,
   CreatePaymentDto,
+  UpdatePaymentDto,
   UpdateOrderStatusDto,
   ApplyDiscountDto,
   RegisterElectronicInvoiceDto,
@@ -280,6 +281,43 @@ export class OrdersController {
   @ApiResponse({ status: 200, description: 'Payments retrieved successfully' })
   getPayments(@Param('id') orderId: string) {
     return this.ordersService.getPayments(orderId);
+  }
+
+  @Patch(':id/payments/:paymentId')
+  @RequirePermissions('edit_order_payments')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary:
+      'Editar un pago (incluye comprobante opcional). Requiere aprobación del admin salvo permiso approve_payment_edits',
+  })
+  @ApiParam({ name: 'id', description: 'Order ID' })
+  @ApiParam({ name: 'paymentId', description: 'Payment ID' })
+  @ApiResponse({ status: 200, description: 'Pago actualizado o solicitud creada' })
+  @ApiResponse({ status: 404, description: 'Orden o pago no encontrado' })
+  updatePayment(
+    @Param('id') orderId: string,
+    @Param('paymentId') paymentId: string,
+    @Body() updatePaymentDto: UpdatePaymentDto,
+    @CurrentUser('id') userId: string,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }),
+          new FileTypeValidator({ fileType: /(jpeg|jpg|png|gif|webp|pdf)$/ }),
+        ],
+        fileIsRequired: false,
+      }),
+    )
+    file?: Express.Multer.File,
+  ) {
+    return this.ordersService.updatePayment(
+      orderId,
+      paymentId,
+      updatePaymentDto,
+      userId,
+      file,
+    );
   }
 
   @Post(':orderId/payments/:paymentId/receipt')

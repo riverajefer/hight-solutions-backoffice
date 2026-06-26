@@ -284,6 +284,67 @@ export interface CreatePaymentDto {
   receiptFileId?: string;
 }
 
+export interface UpdatePaymentDto {
+  amount?: number;
+  paymentMethod?: PaymentMethod;
+  paymentDate?: string; // ISO date string
+  reference?: string;
+  notes?: string;
+  reason?: string; // Motivo de la edición (para la solicitud de aprobación)
+}
+
+/**
+ * Respuesta del endpoint de edición de pago cuando el usuario NO tiene
+ * permiso para aplicar el cambio directamente: queda pendiente de aprobación.
+ */
+export interface PaymentEditPendingResponse {
+  status: 'PENDING_APPROVAL';
+  approvalId?: string;
+  message: string;
+}
+
+export type UpdatePaymentResponse = Payment | PaymentEditPendingResponse;
+
+export interface PaymentEditApproval {
+  id: string;
+  orderId: string;
+  paymentId: string;
+  reason: string | null;
+  oldAmount: string;
+  oldPaymentMethod: PaymentMethod;
+  oldPaymentDate: string;
+  oldReference: string | null;
+  oldNotes: string | null;
+  oldReceiptFileId: string | null;
+  newAmount: string | null;
+  newPaymentMethod: PaymentMethod | null;
+  newPaymentDate: string | null;
+  newReference: string | null;
+  newNotes: string | null;
+  newReceiptFileId: string | null;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
+  reviewNotes: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+  requestedBy?: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
+  reviewedBy?: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  } | null;
+  order?: {
+    id: string;
+    orderNumber: string;
+    status?: OrderStatus;
+  };
+}
+
 export interface ApplyDiscountDto {
   amount: number;
   reason: string; // Motivo del descuento (obligatorio)

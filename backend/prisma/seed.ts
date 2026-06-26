@@ -264,6 +264,10 @@ async function main() {
     // Advance Payment Approvals
     { name: 'approve_advance_payments', description: 'Aprobar/rechazar anticipos de órdenes' },
 
+    // Payment Edit Approvals (edición de pagos en órdenes)
+    { name: 'edit_order_payments', description: 'Solicitar edición de un pago en una orden' },
+    { name: 'approve_payment_edits', description: 'Aprobar/rechazar ediciones de pagos en órdenes (autoriza sin solicitud)' },
+
     // Discount Approvals
     { name: 'approve_discounts', description: 'Aprobar o rechazar descuentos en órdenes' },
 
@@ -460,6 +464,8 @@ async function main() {
     'approve_orders',
     'change_order_status',
     'apply_discounts',
+    'register_order_payments',
+    'edit_order_payments',
     'create_refund_requests',
     // Quotes (Manager)
     'create_quotes',
@@ -518,6 +524,8 @@ async function main() {
   // Caja - gestión de pagos y anticipos
   await assignPermissionsToRole(cajaRole.id, 'caja', [
     'approve_advance_payments',
+    'approve_payment_edits',
+    'edit_order_payments',
     'approve_refunds',
     'read_orders',
     'read_clients',

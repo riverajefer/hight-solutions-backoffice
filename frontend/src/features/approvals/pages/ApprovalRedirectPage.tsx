@@ -9,6 +9,7 @@ const ROUTE_MAP: Record<string, (entityId: string) => string> = {
   ORDER_EDIT: (id) => `/orders/${id}`,
   STATUS_CHANGE: (id) => `/orders/${id}`,
   ADVANCE_PAYMENT: (id) => `/orders/${id}`,
+  PAYMENT_EDIT: (id) => `/orders/${id}`,
   DISCOUNT_APPROVAL: (id) => `/orders/${id}`,
   CLIENT_OWNERSHIP_AUTH: (id) => `/orders/${id}`,
   REFUND_REQUEST: (id) => `/orders/${id}`,
