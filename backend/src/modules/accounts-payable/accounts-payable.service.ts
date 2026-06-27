@@ -109,8 +109,8 @@ export class AccountsPayableService {
     }
 
     const updateData: Record<string, unknown> = {};
-    if (dto.expenseTypeId !== undefined) updateData.expenseTypeId = dto.expenseTypeId;
-    if (dto.expenseSubcategoryId !== undefined) updateData.expenseSubcategoryId = dto.expenseSubcategoryId;
+    if (dto.expenseTypeId !== undefined) updateData.expenseType = { connect: { id: dto.expenseTypeId } };
+    if (dto.expenseSubcategoryId !== undefined) updateData.expenseSubcategory = { connect: { id: dto.expenseSubcategoryId } };
     if (dto.description !== undefined) updateData.description = dto.description;
     if (dto.observations !== undefined) updateData.observations = dto.observations;
     if (dto.dueDate !== undefined) updateData.dueDate = new Date(dto.dueDate);
@@ -340,8 +340,8 @@ export class AccountsPayableService {
 
     const updateData: Record<string, unknown> = {};
 
-    if (data.expenseTypeId !== undefined) updateData.expenseTypeId = data.expenseTypeId;
-    if (data.expenseSubcategoryId !== undefined) updateData.expenseSubcategoryId = data.expenseSubcategoryId;
+    if (data.expenseTypeId !== undefined) updateData.expenseType = { connect: { id: data.expenseTypeId } };
+    if (data.expenseSubcategoryId !== undefined) updateData.expenseSubcategory = { connect: { id: data.expenseSubcategoryId } };
 
     if (data.totalAmount !== undefined) {
       updateData.totalAmount = data.totalAmount;
