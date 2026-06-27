@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
+  Alert,
   Box,
   Card,
   CardContent,
@@ -646,33 +647,20 @@ export const OrderFormPage: React.FC = () => {
           sampleImageId: item.sampleImageId ?? undefined,
           productionAreaIds: item.productionAreaIds,
         })),
-        // En edición solo se actualiza el primer pago como initialPayment (comportamiento existente)
-        // En creación enviamos todos como initialPayments para que el backend los cree en una sola transacción
-        initialPayment: isEdit ? {
-          amount: data.payments[0].amount,
-          paymentMethod: data.payments[0].paymentMethod,
-          reference: data.payments[0].reference,
-          notes: data.payments[0].notes,
-        } : undefined,
+        // En EDICIÓN no se tocan los pagos desde el formulario de la orden:
+        // los abonos se editan únicamente por el flujo dedicado "Historial de Pagos"
+        // (con autorización del admin). Esto evita sobrescribir el primer pago e
+        // inflar el saldo, y evita saltarse el flujo de aprobación.
+        // En creación enviamos todos como initialPayments para que el backend los cree en una sola transacción.
+        initialPayment: undefined,
         initialPayments: initialPaymentsPayload,
         commercialChannelId: data.commercialChannelId,
       };
 
       if (isEdit) {
-        const updatedOrder = await updateOrderMutation.mutateAsync(orderDto);
-
-        // Subir comprobante editado si existe — usar el payment del order actualizado (no el cacheado)
-        // porque el anticipo pudo haber sido rechazado (payment eliminado) y recreado con nuevo ID
-        const newPaymentId = updatedOrder?.payments?.[0]?.id;
-        if (data.payments[0] && data.payments[0].receiptFile && newPaymentId) {
-          try {
-            await ordersApi.uploadPaymentReceipt(id!, newPaymentId, data.payments[0].receiptFile);
-          } catch (e: any) {
-            console.error('Error al subir comprobante en edición:', e);
-            enqueueSnackbar('Orden actualizada, pero hubo un error subiendo el comprobante', { variant: 'warning' });
-          }
-        }
-        
+        await updateOrderMutation.mutateAsync(orderDto);
+        // Nota: en edición no se modifican pagos ni comprobantes desde este formulario.
+        // Para editar un abono o su comprobante usar "Historial de Pagos" en el detalle.
         navigate(`/orders/${id}`);
       } else {
         const newOrder = await createOrderMutation.mutateAsync(orderDto);
@@ -1258,6 +1246,13 @@ export const OrderFormPage: React.FC = () => {
         </Card>
       )}
 
+      {isEdit && (
+        <Alert severity="info">
+          Los abonos no se editan desde aquí. Para corregir un pago o su comprobante
+          usa <strong>Historial de Pagos</strong> en el detalle de la orden (requiere
+          autorización del administrador).
+        </Alert>
+      )}
       <Controller
         name="payments"
         control={control}
@@ -1268,7 +1263,7 @@ export const OrderFormPage: React.FC = () => {
             values={paymentsField.value}
             onEnabledChange={() => {}}
             onChange={paymentsField.onChange}
-            disabled={!isClientSelected}
+            disabled={!isClientSelected || isEdit}
             required={true}
             creditBalance={saldoAFavor}
           />

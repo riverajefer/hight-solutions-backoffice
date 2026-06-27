@@ -25,71 +25,73 @@ model User {
   isActive           Boolean  @default(true)
   mustChangePassword Boolean  @default(false)
 
-  role                                 Role                         @relation(fields: [roleId], references: [id])
-  cargo                                Cargo?                       @relation(fields: [cargoId], references: [id])
-  sessionLogs                          SessionLog[]
-  createdOrders                        Order[]
-  receivedPayments                     Payment[]                    @relation("ReceivedPayments")
-  requestedEditRequests                OrderEditRequest[]           @relation("RequestedEditRequests")
-  reviewedEditRequests                 OrderEditRequest[]           @relation("ReviewedEditRequests")
-  requestedStatusChangeRequests        OrderStatusChangeRequest[]   @relation("RequestedStatusChangeRequests")
-  reviewedStatusChangeRequests         OrderStatusChangeRequest[]   @relation("ReviewedStatusChangeRequests")
-  notifications                        Notification[]
-  createdQuotes                        Quote[]
-  appliedDiscounts                     OrderDiscount[]              @relation("AppliedDiscounts")
-  advisedWorkOrders                    WorkOrder[]                  @relation("WorkOrderAdvisor")
-  designedWorkOrders                   WorkOrder[]                  @relation("WorkOrderDesigner")
-  workOrderTimeEntries                 WorkOrderTimeEntry[]         @relation("WorkOrderTimeEntryUser")
-  authorizedExpenseOrders              ExpenseOrder[]               @relation("AuthorizedExpenseOrders")
-  cajaAuthorizedExpenseOrders          ExpenseOrder[]               @relation("CajaAuthorizedExpenseOrders")
-  cajaRejectedExpenseOrders            ExpenseOrder[]               @relation("CajaRejectedExpenseOrders")
-  responsibleExpenseOrders             ExpenseOrder[]               @relation("ResponsibleExpenseOrders")
-  createdExpenseOrders                 ExpenseOrder[]               @relation("CreatedExpenseOrders")
-  approvedExpenseOrders                ExpenseOrder[]               @relation("ApprovedExpenseOrders")
-  requestedExpenseOrderAuthRequests    ExpenseOrderAuthRequest[]    @relation("RequestedExpenseOrderAuthRequests")
-  reviewedExpenseOrderAuthRequests     ExpenseOrderAuthRequest[]    @relation("ReviewedExpenseOrderAuthRequests")
-  requestedAdvancePaymentApprovals     AdvancePaymentApproval[]     @relation("RequestedAdvancePaymentApprovals")
-  reviewedAdvancePaymentApprovals      AdvancePaymentApproval[]     @relation("ReviewedAdvancePaymentApprovals")
-  discountApprovalRequests             DiscountApproval[]           @relation("DiscountApprovalRequests")
-  discountApprovalReviews              DiscountApproval[]           @relation("DiscountApprovalReviews")
-  advisedClients                       Client[]                     @relation("ClientAdvisor")
-  requestedClientOwnershipAuthRequests ClientOwnershipAuthRequest[] @relation("RequestedClientOwnershipAuthRequests")
-  advisedClientOwnershipAuthRequests   ClientOwnershipAuthRequest[] @relation("AdvisedClientOwnershipAuthRequests")
-  reviewedClientOwnershipAuthRequests  ClientOwnershipAuthRequest[] @relation("ReviewedClientOwnershipAuthRequests")
-  payrollEmployee                      Employee?
-  attendanceRecords                    AttendanceRecord[]
-  dtfRecords                           DtfRecord[]            @relation("DtfCreatedBy")
-  dtfStatusChanges                     DtfStatusHistory[]     @relation("DtfStatusChangedBy")
-  activityHeartbeats                   ActivityHeartbeat[]
-  salesGoals                           SalesGoal[]            @relation("AdvisorSalesGoals")
-  inventoryMovements                   InventoryMovement[]
-  productionOrdersCreated              ProductionOrder[]            @relation("ProductionOrderCreatedBy")
-  productionStepsCompleted             ProductionOrderStep[]        @relation("ProductionStepCompletedBy")
-  authoredComments                     Comment[]                    @relation("CommentAuthor")
+  role                                      Role                                   @relation(fields: [roleId], references: [id])
+  cargo                                     Cargo?                                 @relation(fields: [cargoId], references: [id])
+  sessionLogs                               SessionLog[]
+  createdOrders                             Order[]
+  receivedPayments                          Payment[]                              @relation("ReceivedPayments")
+  requestedEditRequests                     OrderEditRequest[]                     @relation("RequestedEditRequests")
+  reviewedEditRequests                      OrderEditRequest[]                     @relation("ReviewedEditRequests")
+  requestedStatusChangeRequests             OrderStatusChangeRequest[]             @relation("RequestedStatusChangeRequests")
+  reviewedStatusChangeRequests              OrderStatusChangeRequest[]             @relation("ReviewedStatusChangeRequests")
+  notifications                             Notification[]
+  createdQuotes                             Quote[]
+  appliedDiscounts                          OrderDiscount[]                        @relation("AppliedDiscounts")
+  advisedWorkOrders                         WorkOrder[]                            @relation("WorkOrderAdvisor")
+  designedWorkOrders                        WorkOrder[]                            @relation("WorkOrderDesigner")
+  workOrderTimeEntries                      WorkOrderTimeEntry[]                   @relation("WorkOrderTimeEntryUser")
+  authorizedExpenseOrders                   ExpenseOrder[]                         @relation("AuthorizedExpenseOrders")
+  cajaAuthorizedExpenseOrders               ExpenseOrder[]                         @relation("CajaAuthorizedExpenseOrders")
+  cajaRejectedExpenseOrders                 ExpenseOrder[]                         @relation("CajaRejectedExpenseOrders")
+  responsibleExpenseOrders                  ExpenseOrder[]                         @relation("ResponsibleExpenseOrders")
+  createdExpenseOrders                      ExpenseOrder[]                         @relation("CreatedExpenseOrders")
+  approvedExpenseOrders                     ExpenseOrder[]                         @relation("ApprovedExpenseOrders")
+  requestedExpenseOrderAuthRequests         ExpenseOrderAuthRequest[]              @relation("RequestedExpenseOrderAuthRequests")
+  reviewedExpenseOrderAuthRequests          ExpenseOrderAuthRequest[]              @relation("ReviewedExpenseOrderAuthRequests")
+  requestedAdvancePaymentApprovals          AdvancePaymentApproval[]               @relation("RequestedAdvancePaymentApprovals")
+  reviewedAdvancePaymentApprovals           AdvancePaymentApproval[]               @relation("ReviewedAdvancePaymentApprovals")
+  discountApprovalRequests                  DiscountApproval[]                     @relation("DiscountApprovalRequests")
+  discountApprovalReviews                   DiscountApproval[]                     @relation("DiscountApprovalReviews")
+  requestedPaymentEditApprovals             PaymentEditApproval[]                  @relation("RequestedPaymentEditApprovals")
+  reviewedPaymentEditApprovals              PaymentEditApproval[]                  @relation("ReviewedPaymentEditApprovals")
+  advisedClients                            Client[]                               @relation("ClientAdvisor")
+  requestedClientOwnershipAuthRequests      ClientOwnershipAuthRequest[]           @relation("RequestedClientOwnershipAuthRequests")
+  advisedClientOwnershipAuthRequests        ClientOwnershipAuthRequest[]           @relation("AdvisedClientOwnershipAuthRequests")
+  reviewedClientOwnershipAuthRequests       ClientOwnershipAuthRequest[]           @relation("ReviewedClientOwnershipAuthRequests")
+  payrollEmployee                           Employee?
+  attendanceRecords                         AttendanceRecord[]
+  dtfRecords                                DtfRecord[]                            @relation("DtfCreatedBy")
+  dtfStatusChanges                          DtfStatusHistory[]                     @relation("DtfStatusChangedBy")
+  activityHeartbeats                        ActivityHeartbeat[]
+  salesGoals                                SalesGoal[]                            @relation("AdvisorSalesGoals")
+  inventoryMovements                        InventoryMovement[]
+  productionOrdersCreated                   ProductionOrder[]                      @relation("ProductionOrderCreatedBy")
+  productionStepsCompleted                  ProductionOrderStep[]                  @relation("ProductionStepCompletedBy")
+  authoredComments                          Comment[]                              @relation("CommentAuthor")
   // Caja Registradora
-  openedCashSessions                   CashSession[]                @relation("OpenedCashSessions")
-  closedCashSessions                   CashSession[]                @relation("ClosedCashSessions")
-  performedCashMovements               CashMovement[]               @relation("PerformedCashMovements")
-  voidedCashMovements                  CashMovement[]               @relation("VoidedCashMovements")
-  requestedVoidRequests                CashMovementVoidRequest[]    @relation("RequestedVoidRequests")
-  reviewedVoidRequests                 CashMovementVoidRequest[]    @relation("ReviewedVoidRequests")
-  requestedRefundRequests              RefundRequest[]              @relation("RequestedRefundRequests")
-  reviewedRefundRequests               RefundRequest[]              @relation("ReviewedRefundRequests")
+  openedCashSessions                        CashSession[]                          @relation("OpenedCashSessions")
+  closedCashSessions                        CashSession[]                          @relation("ClosedCashSessions")
+  performedCashMovements                    CashMovement[]                         @relation("PerformedCashMovements")
+  voidedCashMovements                       CashMovement[]                         @relation("VoidedCashMovements")
+  requestedVoidRequests                     CashMovementVoidRequest[]              @relation("RequestedVoidRequests")
+  reviewedVoidRequests                      CashMovementVoidRequest[]              @relation("ReviewedVoidRequests")
+  requestedRefundRequests                   RefundRequest[]                        @relation("RequestedRefundRequests")
+  reviewedRefundRequests                    RefundRequest[]                        @relation("ReviewedRefundRequests")
   // Cuentas por Pagar
-  createdAccountsPayable               AccountPayable[]             @relation("AccountPayableCreatedBy")
-  cancelledAccountsPayable             AccountPayable[]             @relation("AccountPayableCancelledBy")
-  authorizedAccountsPayable            AccountPayable[]             @relation("AccountPayableAuthorizedBy")
-  registeredApPayments                 AccountPayablePayment[]      @relation("AccountPayablePaymentRegisteredBy")
-  requestedApAuthRequests              AccountPayableAuthRequest[]         @relation("RequestedApAuthRequests")
-  reviewedApAuthRequests               AccountPayableAuthRequest[]         @relation("ReviewedApAuthRequests")
-  uploadedApAttachments                AccountPayableAttachment[]          @relation("AccountPayableAttachmentUploadedBy")
-  paidInstallments                     AccountPayableInstallment[]         @relation("InstallmentPaidBy")
-  requestedApPaymentAuthRequests       AccountPayablePaymentAuthRequest[]  @relation("RequestedApPaymentAuthRequests")
-  adminReviewedApPaymentAuthRequests   AccountPayablePaymentAuthRequest[]  @relation("AdminReviewedApPaymentAuthRequests")
-  cajaReviewedApPaymentAuthRequests    AccountPayablePaymentAuthRequest[]  @relation("CajaReviewedApPaymentAuthRequests")
-  requestedApPaymentReversalRequests   AccountPayablePaymentReversalRequest[] @relation("RequestedApPaymentReversalRequests")
+  createdAccountsPayable                    AccountPayable[]                       @relation("AccountPayableCreatedBy")
+  cancelledAccountsPayable                  AccountPayable[]                       @relation("AccountPayableCancelledBy")
+  authorizedAccountsPayable                 AccountPayable[]                       @relation("AccountPayableAuthorizedBy")
+  registeredApPayments                      AccountPayablePayment[]                @relation("AccountPayablePaymentRegisteredBy")
+  requestedApAuthRequests                   AccountPayableAuthRequest[]            @relation("RequestedApAuthRequests")
+  reviewedApAuthRequests                    AccountPayableAuthRequest[]            @relation("ReviewedApAuthRequests")
+  uploadedApAttachments                     AccountPayableAttachment[]             @relation("AccountPayableAttachmentUploadedBy")
+  paidInstallments                          AccountPayableInstallment[]            @relation("InstallmentPaidBy")
+  requestedApPaymentAuthRequests            AccountPayablePaymentAuthRequest[]     @relation("RequestedApPaymentAuthRequests")
+  adminReviewedApPaymentAuthRequests        AccountPayablePaymentAuthRequest[]     @relation("AdminReviewedApPaymentAuthRequests")
+  cajaReviewedApPaymentAuthRequests         AccountPayablePaymentAuthRequest[]     @relation("CajaReviewedApPaymentAuthRequests")
+  requestedApPaymentReversalRequests        AccountPayablePaymentReversalRequest[] @relation("RequestedApPaymentReversalRequests")
   gerenciaReviewedApPaymentReversalRequests AccountPayablePaymentReversalRequest[] @relation("GerenciaReviewedApPaymentReversalRequests")
-  cajaReviewedApPaymentReversalRequests    AccountPayablePaymentReversalRequest[] @relation("CajaReviewedApPaymentReversalRequests")
+  cajaReviewedApPaymentReversalRequests     AccountPayablePaymentReversalRequest[] @relation("CajaReviewedApPaymentReversalRequests")
 
   @@map("users")
 }
@@ -225,9 +227,9 @@ model Client {
   createdAt        DateTime   @default(now()) @map("created_at")
   updatedAt        DateTime   @updatedAt @map("updated_at")
 
-  department Department @relation(fields: [departmentId], references: [id])
-  city       City       @relation(fields: [cityId], references: [id])
-  advisor    User?      @relation("ClientAdvisor", fields: [advisorId], references: [id])
+  department Department  @relation(fields: [departmentId], references: [id])
+  city       City        @relation(fields: [cityId], references: [id])
+  advisor    User?       @relation("ClientAdvisor", fields: [advisorId], references: [id])
   orders     Order[]
   quotes     Quote[]
   dtfRecords DtfRecord[]
@@ -450,8 +452,8 @@ model Order {
   taxRate            Decimal @default(0.19) @map("tax_rate") // IVA 19%
   tax                Decimal // subtotal * taxRate
   retefuenteRate     Decimal @default(0) @map("retefuente_rate") // Retefuente sobre subtotal (e.g., 0.025 = 2.5%)
-  reteICARate        Decimal @default(0) @map("rete_ica_rate")   // ReteICA sobre subtotal (e.g., 0.00414 = 0.414%)
-  reteIVARate        Decimal @default(0) @map("rete_iva_rate")   // ReteIVA sobre IVA (e.g., 0.15 = 15%)
+  reteICARate        Decimal @default(0) @map("rete_ica_rate") // ReteICA sobre subtotal (e.g., 0.00414 = 0.414%)
+  reteIVARate        Decimal @default(0) @map("rete_iva_rate") // ReteIVA sobre IVA (e.g., 0.15 = 15%)
   discountAmount     Decimal @default(0) @map("discount_amount") // Total de descuentos aplicados
   requiresColorProof Boolean @default(false) @map("requires_color_proof") // ¿Requiere prueba de color?
   colorProofPrice    Decimal @default(0) @map("color_proof_price") // Precio de la prueba de color
@@ -460,8 +462,8 @@ model Order {
   balance            Decimal // total - paidAmount (saldo pendiente)
 
   // Estado de aprobación del anticipo (null = sin anticipo o auto-aprobado por admin/caja)
-  advancePaymentStatus          EditRequestStatus? @map("advance_payment_status")
-  advancePaymentRejectedReason  String?            @map("advance_payment_rejected_reason")
+  advancePaymentStatus         EditRequestStatus? @map("advance_payment_status")
+  advancePaymentRejectedReason String?            @map("advance_payment_rejected_reason")
 
   // Estado de aprobación de descuento (null = sin descuento pendiente o auto-aprobado)
   discountApprovalStatus EditRequestStatus? @map("discount_approval_status")
@@ -469,9 +471,9 @@ model Order {
   // Estado de autorización de propiedad de cliente (null = no aplica o autorizado automáticamente)
   clientOwnershipAuthStatus EditRequestStatus? @map("client_ownership_auth_status")
 
-  status OrderStatus @default(DRAFT)
-  notes  String? // Observaciones generales
-  notesImageId String? @map("notes_image_id") // Imagen adjunta a observaciones
+  status       OrderStatus @default(DRAFT)
+  notes        String? // Observaciones generales
+  notesImageId String?     @map("notes_image_id") // Imagen adjunta a observaciones
 
   // Facturación electrónica (solo aplica cuando tax > 0)
   electronicInvoiceNumber String? @map("electronic_invoice_number") // Número de factura electrónica (máx 30 chars)
@@ -493,6 +495,7 @@ model Order {
   statusChangeRequests        OrderStatusChangeRequest[]
   advancePaymentApprovals     AdvancePaymentApproval[]
   discountApprovals           DiscountApproval[]
+  paymentEditApprovals        PaymentEditApproval[]
   clientOwnershipAuthRequests ClientOwnershipAuthRequest[]
   refundRequests              RefundRequest[]
 
@@ -696,6 +699,7 @@ model Payment {
   order                  Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   receivedBy             User                    @relation("ReceivedPayments", fields: [receivedById], references: [id])
   advancePaymentApproval AdvancePaymentApproval?
+  paymentEditApprovals   PaymentEditApproval[]
   cashMovement           CashMovement?           @relation(fields: [cashMovementId], references: [id])
 
   @@index([orderId])
@@ -746,6 +750,7 @@ enum ApprovalRequestType {
   CLIENT_OWNERSHIP_AUTH
   ADVANCE_PAYMENT
   DISCOUNT_APPROVAL
+  PAYMENT_EDIT
   CASH_MOVEMENT_VOID
   REFUND_REQUEST
   AP_AUTH
@@ -774,6 +779,9 @@ enum NotificationType {
   DISCOUNT_APPROVAL_PENDING // Nueva solicitud de aprobación de descuento
   DISCOUNT_APPROVAL_APPROVED // Descuento aprobado
   DISCOUNT_APPROVAL_REJECTED // Descuento rechazado
+  PAYMENT_EDIT_APPROVAL_PENDING // Nueva solicitud de edición de pago
+  PAYMENT_EDIT_APPROVAL_APPROVED // Edición de pago aprobada
+  PAYMENT_EDIT_APPROVAL_REJECTED // Edición de pago rechazada
   CASH_SESSION_CLOSED_WITH_DISCREPANCY // Sesión de caja cerrada con descuadre
   CASH_LARGE_WITHDRAWAL // Retiro grande de efectivo de caja
   CASH_VOID_REQUEST_PENDING // Nueva solicitud de anulación de movimiento de caja
@@ -1117,8 +1125,8 @@ model ExpenseType {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  subcategories ExpenseSubcategory[]
-  expenseOrders ExpenseOrder[]
+  subcategories   ExpenseSubcategory[]
+  expenseOrders   ExpenseOrder[]
   accountsPayable AccountPayable[]
 
   @@map("expense_types")
@@ -1133,8 +1141,8 @@ model ExpenseSubcategory {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  expenseType   ExpenseType    @relation(fields: [expenseTypeId], references: [id])
-  expenseOrders ExpenseOrder[]
+  expenseType     ExpenseType      @relation(fields: [expenseTypeId], references: [id])
+  expenseOrders   ExpenseOrder[]
   accountsPayable AccountPayable[]
 
   @@unique([name, expenseTypeId])
@@ -1169,9 +1177,9 @@ model ExpenseOrder {
   cajaAuthorizedAt   DateTime? @map("caja_authorized_at")
 
   // Rechazo Caja (cuando Caja rechaza una OG en ADMIN_AUTHORIZED y la devuelve a CREATED)
-  cajaRejectedById   String?   @map("caja_rejected_by_id")
-  cajaRejectedAt     DateTime? @map("caja_rejected_at")
-  cajaRejectionReason String?  @map("caja_rejection_reason")
+  cajaRejectedById    String?   @map("caja_rejected_by_id")
+  cajaRejectedAt      DateTime? @map("caja_rejected_at")
+  cajaRejectionReason String?   @map("caja_rejection_reason")
 
   // Relaciones
   expenseType        ExpenseType               @relation(fields: [expenseTypeId], references: [id])
@@ -1329,6 +1337,53 @@ model DiscountApproval {
   @@index([requestedById])
   @@index([status])
   @@map("discount_approvals")
+}
+
+// =============================================================================
+// MÓDULO DE APROBACIÓN DE EDICIÓN DE PAGOS
+// =============================================================================
+
+model PaymentEditApproval {
+  id            String  @id @default(uuid())
+  orderId       String  @map("order_id")
+  paymentId     String  @map("payment_id")
+  requestedById String  @map("requested_by_id")
+  reason        String?
+
+  // Snapshot de valores anteriores (auditoría)
+  oldAmount        Decimal       @map("old_amount")
+  oldPaymentMethod PaymentMethod @map("old_payment_method")
+  oldPaymentDate   DateTime      @map("old_payment_date")
+  oldReference     String?       @map("old_reference")
+  oldNotes         String?       @map("old_notes")
+  oldReceiptFileId String?       @map("old_receipt_file_id")
+
+  // Payload pendiente: valores solicitados (null = sin cambio)
+  newAmount        Decimal?       @map("new_amount")
+  newPaymentMethod PaymentMethod? @map("new_payment_method")
+  newPaymentDate   DateTime?      @map("new_payment_date")
+  newReference     String?        @map("new_reference")
+  newNotes         String?        @map("new_notes")
+  // Comprobante propuesto (ya subido a storage, sin enlazar al pago hasta aprobar)
+  newReceiptFileId String?        @map("new_receipt_file_id")
+
+  status       EditRequestStatus @default(PENDING)
+  reviewedById String?           @map("reviewed_by_id")
+  reviewedAt   DateTime?         @map("reviewed_at")
+  reviewNotes  String?           @map("review_notes")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  payment     Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  requestedBy User    @relation("RequestedPaymentEditApprovals", fields: [requestedById], references: [id])
+  reviewedBy  User?   @relation("ReviewedPaymentEditApprovals", fields: [reviewedById], references: [id])
+
+  @@index([orderId])
+  @@index([paymentId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("payment_edit_approvals")
 }
 
 // =============================================================================
@@ -1944,22 +1999,22 @@ enum RecurringFrequency {
 }
 
 model AccountPayable {
-  id           String               @id @default(uuid())
-  apNumber     String               @unique @map("ap_number")
-  expenseTypeId        String       @map("expense_type_id")
-  expenseSubcategoryId String       @map("expense_subcategory_id")
-  status       AccountPayableStatus @default(PENDING)
-  description  String
-  observations String?
-  totalAmount  Decimal              @map("total_amount") @db.Decimal(12, 2)
-  paidAmount   Decimal              @default(0) @map("paid_amount") @db.Decimal(12, 2)
-  balance      Decimal              @map("balance") @db.Decimal(12, 2)
-  applyIva     Boolean              @default(false) @map("apply_iva")
-  ivaRate      Decimal              @default(0.19) @map("iva_rate")
-  dueDate      DateTime             @map("due_date")
-  isRecurring        Boolean              @default(false) @map("is_recurring")
-  recurringDay       Int?                 @map("recurring_day")
-  recurringFrequency RecurringFrequency?  @map("recurring_frequency")
+  id                   String               @id @default(uuid())
+  apNumber             String               @unique @map("ap_number")
+  expenseTypeId        String               @map("expense_type_id")
+  expenseSubcategoryId String               @map("expense_subcategory_id")
+  status               AccountPayableStatus @default(PENDING)
+  description          String
+  observations         String?
+  totalAmount          Decimal              @map("total_amount") @db.Decimal(12, 2)
+  paidAmount           Decimal              @default(0) @map("paid_amount") @db.Decimal(12, 2)
+  balance              Decimal              @map("balance") @db.Decimal(12, 2)
+  applyIva             Boolean              @default(false) @map("apply_iva")
+  ivaRate              Decimal              @default(0.19) @map("iva_rate")
+  dueDate              DateTime             @map("due_date")
+  isRecurring          Boolean              @default(false) @map("is_recurring")
+  recurringDay         Int?                 @map("recurring_day")
+  recurringFrequency   RecurringFrequency?  @map("recurring_frequency")
 
   supplierId     String? @map("supplier_id")
   expenseOrderId String? @unique @map("expense_order_id")
@@ -1973,18 +2028,18 @@ model AccountPayable {
   authorizedById String?   @map("authorized_by_id")
   authorizedAt   DateTime? @map("authorized_at")
 
-  expenseType        ExpenseType        @relation(fields: [expenseTypeId], references: [id])
-  expenseSubcategory ExpenseSubcategory @relation(fields: [expenseSubcategoryId], references: [id])
-  supplier      Supplier?                   @relation(fields: [supplierId], references: [id])
-  expenseOrder  ExpenseOrder?               @relation(fields: [expenseOrderId], references: [id])
-  createdBy     User                        @relation("AccountPayableCreatedBy", fields: [createdById], references: [id])
-  cancelledBy   User?                       @relation("AccountPayableCancelledBy", fields: [cancelledById], references: [id])
-  authorizedBy  User?                       @relation("AccountPayableAuthorizedBy", fields: [authorizedById], references: [id])
-  payments             AccountPayablePayment[]
-  attachments          AccountPayableAttachment[]
-  installments         AccountPayableInstallment[]
-  authRequests         AccountPayableAuthRequest[]
-  paymentAuthRequests  AccountPayablePaymentAuthRequest[]
+  expenseType         ExpenseType                        @relation(fields: [expenseTypeId], references: [id])
+  expenseSubcategory  ExpenseSubcategory                 @relation(fields: [expenseSubcategoryId], references: [id])
+  supplier            Supplier?                          @relation(fields: [supplierId], references: [id])
+  expenseOrder        ExpenseOrder?                      @relation(fields: [expenseOrderId], references: [id])
+  createdBy           User                               @relation("AccountPayableCreatedBy", fields: [createdById], references: [id])
+  cancelledBy         User?                              @relation("AccountPayableCancelledBy", fields: [cancelledById], references: [id])
+  authorizedBy        User?                              @relation("AccountPayableAuthorizedBy", fields: [authorizedById], references: [id])
+  payments            AccountPayablePayment[]
+  attachments         AccountPayableAttachment[]
+  installments        AccountPayableInstallment[]
+  authRequests        AccountPayableAuthRequest[]
+  paymentAuthRequests AccountPayablePaymentAuthRequest[]
 
   @@index([status])
   @@index([dueDate])
@@ -2004,18 +2059,18 @@ model AccountPayablePayment {
   receiptFileId    String?       @map("receipt_file_id")
   cashMovementId   String?       @unique @map("cash_movement_id")
 
-  registeredById         String  @map("registered_by_id")
-  paymentDate            DateTime @map("payment_date")
-  paymentAuthRequestId   String?  @unique @map("payment_auth_request_id")
-  createdAt              DateTime @default(now()) @map("created_at")
-  updatedAt              DateTime @updatedAt @map("updated_at")
+  registeredById       String   @map("registered_by_id")
+  paymentDate          DateTime @map("payment_date")
+  paymentAuthRequestId String?  @unique @map("payment_auth_request_id")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
 
-  accountPayable      AccountPayable                    @relation(fields: [accountPayableId], references: [id], onDelete: Cascade)
-  cashMovement        CashMovement?                     @relation(fields: [cashMovementId], references: [id])
-  registeredBy        User                              @relation("AccountPayablePaymentRegisteredBy", fields: [registeredById], references: [id])
-  paymentAuthRequest  AccountPayablePaymentAuthRequest? @relation(fields: [paymentAuthRequestId], references: [id])
-  isReversed          Boolean  @default(false) @map("is_reversed")
-  reversedAt          DateTime? @map("reversed_at")
+  accountPayable     AccountPayable                    @relation(fields: [accountPayableId], references: [id], onDelete: Cascade)
+  cashMovement       CashMovement?                     @relation(fields: [cashMovementId], references: [id])
+  registeredBy       User                              @relation("AccountPayablePaymentRegisteredBy", fields: [registeredById], references: [id])
+  paymentAuthRequest AccountPayablePaymentAuthRequest? @relation(fields: [paymentAuthRequestId], references: [id])
+  isReversed         Boolean                           @default(false) @map("is_reversed")
+  reversedAt         DateTime?                         @map("reversed_at")
 
   @@index([accountPayableId])
   @@index([paymentDate])
@@ -2063,25 +2118,25 @@ model AccountPayableInstallment {
 // =============================================================================
 
 model AccountPayablePaymentAuthRequest {
-  id               String                     @id @default(uuid())
-  accountPayableId String                     @map("account_payable_id")
-  requestedById    String                     @map("requested_by_id")
+  id               String @id @default(uuid())
+  accountPayableId String @map("account_payable_id")
+  requestedById    String @map("requested_by_id")
 
   // Datos del pago solicitado (capturados al crear la solicitud)
-  amount           Decimal                    @db.Decimal(12, 2)
-  paymentMethod    PaymentMethod              @default(CASH) @map("payment_method")
-  paymentDate      DateTime                   @map("payment_date")
-  reference        String?
-  notes            String?
-  receiptFileId    String?                    @map("receipt_file_id")
-  reason           String?                    // Justificación del pago
+  amount        Decimal       @db.Decimal(12, 2)
+  paymentMethod PaymentMethod @default(CASH) @map("payment_method")
+  paymentDate   DateTime      @map("payment_date")
+  reference     String?
+  notes         String?
+  receiptFileId String?       @map("receipt_file_id")
+  reason        String? // Justificación del pago
 
-  status           ApPaymentAuthRequestStatus @default(PENDING)
+  status ApPaymentAuthRequestStatus @default(PENDING)
 
   // Paso 1: revisión de Admin
-  adminReviewedById  String?   @map("admin_reviewed_by_id")
-  adminReviewedAt    DateTime? @map("admin_reviewed_at")
-  adminNotes         String?   @map("admin_notes")
+  adminReviewedById String?   @map("admin_reviewed_by_id")
+  adminReviewedAt   DateTime? @map("admin_reviewed_at")
+  adminNotes        String?   @map("admin_notes")
 
   // Paso 2: revisión de Caja
   cajaReviewedById    String?   @map("caja_reviewed_by_id")
@@ -2091,10 +2146,10 @@ model AccountPayablePaymentAuthRequest {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  accountPayable  AccountPayable             @relation(fields: [accountPayableId], references: [id], onDelete: Cascade)
-  requestedBy     User                       @relation("RequestedApPaymentAuthRequests", fields: [requestedById], references: [id])
-  adminReviewedBy User?                      @relation("AdminReviewedApPaymentAuthRequests", fields: [adminReviewedById], references: [id])
-  cajaReviewedBy  User?                      @relation("CajaReviewedApPaymentAuthRequests", fields: [cajaReviewedById], references: [id])
+  accountPayable  AccountPayable                        @relation(fields: [accountPayableId], references: [id], onDelete: Cascade)
+  requestedBy     User                                  @relation("RequestedApPaymentAuthRequests", fields: [requestedById], references: [id])
+  adminReviewedBy User?                                 @relation("AdminReviewedApPaymentAuthRequests", fields: [adminReviewedById], references: [id])
+  cajaReviewedBy  User?                                 @relation("CajaReviewedApPaymentAuthRequests", fields: [cajaReviewedById], references: [id])
   createdPayment  AccountPayablePayment?
   reversalRequest AccountPayablePaymentReversalRequest?
 
@@ -2109,9 +2164,9 @@ model AccountPayablePaymentAuthRequest {
 // =============================================================================
 
 enum ApPaymentReversalStatus {
-  PENDING_GERENCIA  // Esperando aprobación de Gerencia (paso 1)
-  PENDING_CAJA      // Gerencia aprobó — esperando confirmación de Caja (paso 2)
-  COMPLETED         // Caja confirmó — reversión ejecutada
+  PENDING_GERENCIA // Esperando aprobación de Gerencia (paso 1)
+  PENDING_CAJA // Gerencia aprobó — esperando confirmación de Caja (paso 2)
+  COMPLETED // Caja confirmó — reversión ejecutada
   REJECTED_BY_GERENCIA
   REJECTED_BY_CAJA
 }
@@ -2133,16 +2188,16 @@ model AccountPayablePaymentReversalRequest {
   cajaRejectionNotes String?   @map("caja_rejection_notes")
 
   // Relaciones
-  paymentAuthRequestId String  @unique @map("payment_auth_request_id")
-  requestedById        String  @map("requested_by_id")
+  paymentAuthRequestId String @unique @map("payment_auth_request_id")
+  requestedById        String @map("requested_by_id")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   paymentAuthRequest AccountPayablePaymentAuthRequest @relation(fields: [paymentAuthRequestId], references: [id], onDelete: Cascade)
-  requestedBy        User @relation("RequestedApPaymentReversalRequests", fields: [requestedById], references: [id])
-  gerenciaReviewedBy User? @relation("GerenciaReviewedApPaymentReversalRequests", fields: [gerenciaReviewedById], references: [id])
-  cajaReviewedBy     User? @relation("CajaReviewedApPaymentReversalRequests", fields: [cajaReviewedById], references: [id])
+  requestedBy        User                             @relation("RequestedApPaymentReversalRequests", fields: [requestedById], references: [id])
+  gerenciaReviewedBy User?                            @relation("GerenciaReviewedApPaymentReversalRequests", fields: [gerenciaReviewedById], references: [id])
+  cajaReviewedBy     User?                            @relation("CajaReviewedApPaymentReversalRequests", fields: [cajaReviewedById], references: [id])
 
   @@index([status])
   @@index([requestedById])

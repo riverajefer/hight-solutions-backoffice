@@ -6,6 +6,8 @@ import type {
   UpdateOrderDto,
   FilterOrdersDto,
   CreatePaymentDto,
+  UpdatePaymentDto,
+  UpdatePaymentResponse,
   Payment,
   OrderStatus,
   ApplyDiscountDto,
@@ -88,6 +90,40 @@ export const ordersApi = {
     const { data } = await axiosInstance.post<Payment>(
       `${BASE_URL}/${orderId}/payments`,
       createPaymentDto
+    );
+    return data;
+  },
+
+  /**
+   * Editar un pago existente. Si el usuario no tiene permiso para aplicar el
+   * cambio directamente, la respuesta indica que quedó pendiente de aprobación.
+   */
+  updatePayment: async (
+    orderId: string,
+    paymentId: string,
+    updatePaymentDto: UpdatePaymentDto,
+    receiptFile?: File
+  ): Promise<UpdatePaymentResponse> => {
+    // Siempre se envía como multipart porque el comprobante (imagen/PDF)
+    // es opcional y, cuando existe, debe viajar junto con la edición.
+    const formData = new FormData();
+    Object.entries(updatePaymentDto).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        formData.append(key, String(value));
+      }
+    });
+    if (receiptFile) {
+      formData.append('file', receiptFile);
+    }
+
+    const { data } = await axiosInstance.patch<UpdatePaymentResponse>(
+      `${BASE_URL}/${orderId}/payments/${paymentId}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
     );
     return data;
   },

@@ -7,6 +7,7 @@ import type {
   UpdateOrderDto,
   OrderStatus,
   CreatePaymentDto,
+  UpdatePaymentDto,
   FilterProfitabilityDto,
   SalesSummary,
   UpsertSalesGoalDto,
@@ -249,12 +250,51 @@ export const useOrderPayments = (orderId: string) => {
     },
   });
 
+  // Mutation: Editar pago (puede quedar pendiente de aprobación del admin)
+  const updatePaymentMutation = useMutation({
+    mutationFn: ({
+      paymentId,
+      data,
+      file,
+    }: {
+      paymentId: string;
+      data: UpdatePaymentDto;
+      file?: File;
+    }) => ordersApi.updatePayment(orderId, paymentId, data, file),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({
+        queryKey: ordersKeys.payments(orderId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: ordersKeys.detail(orderId),
+      });
+      queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
+      if (result && 'status' in result && result.status === 'PENDING_APPROVAL') {
+        enqueueSnackbar(
+          result.message ||
+            'La edición fue enviada para aprobación del administrador',
+          { variant: 'info' },
+        );
+      } else {
+        enqueueSnackbar('Pago actualizado correctamente', {
+          variant: 'success',
+        });
+      }
+    },
+    onError: (error: any) => {
+      const message =
+        error?.response?.data?.message || 'Error al actualizar el pago';
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+
   return {
     // Query
     paymentsQuery,
 
     // Mutations
     addPaymentMutation,
+    updatePaymentMutation,
   };
 };
 

@@ -11,6 +11,7 @@ import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { StorageService } from '../storage/storage.service';
 import { OrderStatusChangeRequestsService } from '../order-status-change-requests/order-status-change-requests.service';
 import { AdvancePaymentApprovalsService } from '../advance-payment-approvals/advance-payment-approvals.service';
+import { PaymentEditApprovalsService } from '../payment-edit-approvals/payment-edit-approvals.service';
 import { DiscountApprovalsService } from '../discount-approvals/discount-approvals.service';
 import { ClientOwnershipAuthRequestsService } from '../client-ownership-auth-requests/client-ownership-auth-requests.service';
 import {
@@ -20,6 +21,7 @@ import {
   AddOrderItemDto,
   UpdateOrderItemDto,
   CreatePaymentDto,
+  UpdatePaymentDto,
   ApplyDiscountDto,
   OrderProfitabilityDto,
   OrderProfitabilityListItemDto,
@@ -54,6 +56,7 @@ export class OrdersService {
     private readonly storageService: StorageService,
     private readonly statusChangeRequestsService: OrderStatusChangeRequestsService,
     private readonly advancePaymentApprovalsService: AdvancePaymentApprovalsService,
+    private readonly paymentEditApprovalsService: PaymentEditApprovalsService,
     private readonly discountApprovalsService: DiscountApprovalsService,
     private readonly clientOwnershipAuthRequestsService: ClientOwnershipAuthRequestsService,
   ) {}
@@ -269,6 +272,9 @@ export class OrdersService {
       ...(createOrderDto.initialPayments ?? []),
     ];
 
+    // Buscar sesión activa una sola vez (se reutiliza en buildPayments)
+    let activeSession: { id: string } | null = null;
+
     if (allInitialPayments.length > 0) {
       paidAmount = allInitialPayments.reduce(
         (sum, p) => sum.add(new Prisma.Decimal(p.amount)),
@@ -280,12 +286,17 @@ export class OrdersService {
       // mediante el flujo de RefundRequest.
 
       // 1. Buscar sesión activa
-      const activeSession = await this.prisma.cashSession.findFirst({
+      activeSession = await this.prisma.cashSession.findFirst({
         where: { status: 'OPEN' },
         select: { id: true },
       });
+    }
 
-      // 2. Generar datos del pago y movimientos de caja si hay sesión activa
+    // Helper: construye los datos de pagos generando nuevos receiptNumbers en cada llamada.
+    // Se invoca al inicio de cada intento del bucle de reintento para que, ante una colisión
+    // en receipt_number, el siguiente intento use un número fresco.
+    const buildPayments = async () => {
+      if (allInitialPayments.length === 0) return undefined;
       const paymentsToCreate = [];
       for (const p of allInitialPayments) {
         const paymentData: any = {
@@ -308,30 +319,28 @@ export class OrdersService {
               amount: new Prisma.Decimal(p.amount),
               description: `Abono a nueva orden (pendiente de número)`,
               referenceType: 'ORDER',
-              // referenceId will be linked later or omitted here since order is not created yet!
-              // WAIT! We can't set referenceId here because the orderId is not known until the order is created!
               performedById: createdById,
             }
           };
         }
         paymentsToCreate.push(paymentData);
       }
-
-      payments = {
-        create: paymentsToCreate,
-      };
-    }
+      return { create: paymentsToCreate };
+    };
 
     const balance = total.sub(paidAmount);
 
     // Crear orden con items y pago inicial (en transacción)
-    // Se implementa un mecanismo de reintento en caso de colisión de número de orden (P2002)
+    // Se implementa un mecanismo de reintento en caso de colisión de número de orden o
+    // receipt_number (P2002). Los receiptNumbers se regeneran en cada intento.
     let newOrder;
     let attempts = 0;
     const maxAttempts = 3;
     let currentOrderNumber = orderNumber;
 
     while (attempts < maxAttempts) {
+      // Generar receiptNumbers frescos en cada intento para evitar colisiones en reintentos
+      payments = await buildPayments();
       try {
         newOrder = await this.ordersRepository.create({
           orderNumber: currentOrderNumber,
@@ -364,25 +373,55 @@ export class OrdersService {
           ...(payments && { payments }),
         });
         break; // Éxito, salir del bucle
-      } catch (error) {
+      } catch (error: any) {
         attempts++;
-        
-        // Determinar si es un error de duplicado de order_number
-        // Prisma puede devolver el target en diferentes formatos dependiendo de la configuración
-        const isUniqueConstraintError = error.code === 'P2002';
-        const target = JSON.stringify(error.meta?.target || '');
-        const isOrderNumberTarget = 
-          target.includes('order_number') || 
-          target.includes('orders_order_number_key') ||
-          (error.meta?.modelName === 'Order' && (error.meta?.target === undefined || target === '""'));
 
-        if (isUniqueConstraintError && isOrderNumberTarget && attempts < maxAttempts) {
-          // Sincronizar el contador de consecutivos y generar un nuevo número
+        if (error.code !== 'P2002' || attempts >= maxAttempts) {
+          throw error;
+        }
+
+        // El driver de pg no expone `meta.target`; en su lugar la info está en driverAdapterError.
+        // driverAdapterError es una instancia de Error por lo que .cause puede ser accesible
+        // a través de la cadena de Error o como propiedad directa según la versión del adapter.
+        const driverErr = error.meta?.driverAdapterError;
+        const driverCause = driverErr?.cause ?? (driverErr as any)?.error?.cause;
+        const constraintFields: string[] =
+          (driverCause?.constraint?.fields as string[] | undefined) ??
+          (error.meta?.target as string[] | undefined) ??
+          [];
+
+        // Fallback: parsear el mensaje original de pg para identificar la constraint
+        const originalMessage: string =
+          driverCause?.originalMessage ?? driverErr?.message ?? '';
+
+        const target = JSON.stringify(error.meta?.target || '');
+
+        const isOrderNumberCollision =
+          constraintFields.includes('order_number') ||
+          target.includes('order_number') ||
+          target.includes('orders_order_number_key') ||
+          originalMessage.includes('orders_order_number');
+
+        const isReceiptNumberCollision =
+          constraintFields.includes('receipt_number') ||
+          originalMessage.includes('receipt_number') ||
+          originalMessage.includes('cash_movements_receipt_number');
+
+        if (isOrderNumberCollision) {
+          // Sincronizar el contador de consecutivos y generar un nuevo número de orden
           await this.consecutivesService.syncCounter('ORDER');
           currentOrderNumber = await this.consecutivesService.generateNumber('ORDER');
           continue;
         }
-        throw error; // Re-lanzar si no es P2002 o se agotaron los intentos
+
+        if (isReceiptNumberCollision) {
+          // Sincronizar el contador de CASH_RECEIPT; los nuevos receiptNumbers
+          // se generarán automáticamente al inicio del siguiente intento (buildPayments).
+          await this.consecutivesService.syncCounter('CASH_RECEIPT');
+          continue;
+        }
+
+        throw error; // Re-lanzar si no es una colisión conocida
       }
     }
 
@@ -1380,6 +1419,159 @@ export class OrdersService {
     await this.findOne(orderId);
 
     return this.ordersRepository.findPaymentsByOrderId(orderId);
+  }
+
+  /**
+   * Editar un pago existente de una orden.
+   * Quien tenga `approve_payment_edits` aplica el cambio directamente.
+   * El resto genera una solicitud PENDING que el admin debe autorizar:
+   * el pago NO se modifica (ni el saldo) hasta la aprobación.
+   */
+  async updatePayment(
+    orderId: string,
+    paymentId: string,
+    updatePaymentDto: UpdatePaymentDto,
+    userId: string,
+    receiptFile?: Express.Multer.File,
+  ) {
+    const order = await this.findOne(orderId);
+    this.assertNotAnulado(order, 'editar pago');
+
+    const payment = await this.prisma.payment.findFirst({
+      where: { id: paymentId, orderId },
+      select: { id: true, receiptFileId: true },
+    });
+    if (!payment) {
+      throw new NotFoundException(
+        `Pago con id ${paymentId} no encontrado en la orden`,
+      );
+    }
+
+    // ¿El usuario requiere aprobación del admin?
+    const approvalCheck =
+      await this.paymentEditApprovalsService.requiresApproval(userId);
+
+    if (approvalCheck.required) {
+      // Si adjuntó comprobante, súbelo a storage SIN enlazarlo al pago todavía:
+      // queda como payload pendiente hasta que el admin apruebe.
+      let newReceiptFileId: string | undefined;
+      if (receiptFile) {
+        const uploaded = await this.storageService.uploadFile(receiptFile, {
+          entityType: 'payment',
+          entityId: paymentId,
+          userId,
+        });
+        newReceiptFileId = uploaded.id;
+      }
+
+      const request = await this.paymentEditApprovalsService.createRequest(
+        orderId,
+        paymentId,
+        userId,
+        {
+          amount: updatePaymentDto.amount,
+          paymentMethod: updatePaymentDto.paymentMethod,
+          paymentDate: updatePaymentDto.paymentDate,
+          reference: updatePaymentDto.reference,
+          notes: updatePaymentDto.notes,
+          reason: updatePaymentDto.reason,
+          oldReceiptFileId: payment.receiptFileId,
+          newReceiptFileId,
+        },
+      );
+      return {
+        status: 'PENDING_APPROVAL',
+        approvalId: request?.id,
+        message:
+          approvalCheck.reason ??
+          'La edición del pago fue enviada para aprobación del administrador',
+      };
+    }
+
+    // Usuario con permiso: aplicar el cambio directamente
+    await this.prisma.$transaction(async (tx) => {
+      const paymentData: Prisma.PaymentUpdateInput = {};
+      if (updatePaymentDto.amount !== undefined)
+        paymentData.amount = new Prisma.Decimal(updatePaymentDto.amount);
+      if (updatePaymentDto.paymentMethod !== undefined)
+        paymentData.paymentMethod = updatePaymentDto.paymentMethod;
+      if (updatePaymentDto.paymentDate !== undefined)
+        paymentData.paymentDate = new Date(updatePaymentDto.paymentDate);
+      if (updatePaymentDto.reference !== undefined)
+        paymentData.reference = updatePaymentDto.reference;
+      if (updatePaymentDto.notes !== undefined)
+        paymentData.notes = updatePaymentDto.notes;
+
+      const updated = await tx.payment.update({
+        where: { id: paymentId },
+        data: paymentData,
+        select: {
+          id: true,
+          amount: true,
+          paymentMethod: true,
+          cashMovementId: true,
+        },
+      });
+
+      // Ajustar movimiento de caja vinculado
+      if (updated.cashMovementId) {
+        await tx.cashMovement.update({
+          where: { id: updated.cashMovementId },
+          data: {
+            amount: updated.amount,
+            paymentMethod: updated.paymentMethod,
+          },
+        });
+      }
+
+      // Recalcular paidAmount/balance (el total de la orden no cambia)
+      const payments = await tx.payment.findMany({
+        where: { orderId },
+        select: { amount: true },
+      });
+      let paidAmount = new Prisma.Decimal(0);
+      for (const p of payments) {
+        paidAmount = paidAmount.add(p.amount);
+      }
+      const total = new Prisma.Decimal(order.total);
+      await tx.order.update({
+        where: { id: orderId },
+        data: { paidAmount, balance: total.sub(paidAmount) },
+      });
+    });
+
+    // Reemplazar el comprobante si se adjuntó uno nuevo (fuera de la txn)
+    if (receiptFile) {
+      if (payment.receiptFileId) {
+        await this.storageService.deleteFile(payment.receiptFileId, userId);
+      }
+      const uploaded = await this.storageService.uploadFile(receiptFile, {
+        entityType: 'payment',
+        entityId: paymentId,
+        userId,
+      });
+      await this.prisma.payment.update({
+        where: { id: paymentId },
+        data: { receiptFileId: uploaded.id },
+      });
+    }
+
+    return this.prisma.payment.findUnique({
+      where: { id: paymentId },
+      select: {
+        id: true,
+        amount: true,
+        paymentMethod: true,
+        paymentDate: true,
+        reference: true,
+        notes: true,
+        receiptFileId: true,
+        createdAt: true,
+        receivedBy: {
+          select: { id: true, email: true, firstName: true, lastName: true },
+        },
+      },
+    });
   }
 
   // ========== PRIVATE HELPERS ==========
