@@ -43,9 +43,9 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
           alignItems: 'center',
           justifyContent: 'center',
           gap: 0.5,
-          px: { xs: 1.5, sm: 2, md: 3 },
-          py: { xs: 1, sm: 1.25 },
-          minWidth: { xs: 50, sm: 80, md: 100 },
+          px: { xs: 1, sm: 1.25, md: 1.5, lg: 2 },
+          py: { xs: 0.75, sm: 1 },
+          minWidth: { xs: 50, sm: 66, md: 74, lg: 86 },
           height: '100%',
           border: 'none',
           background: 'transparent',
@@ -70,7 +70,7 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: { xs: '1.2rem', sm: '1.4rem' },
+            fontSize: { xs: '1.2rem', sm: '1.25rem', md: '1.3rem', lg: '1.4rem' },
             '& svg': { fontSize: 'inherit' }
           }}
         >
@@ -82,7 +82,7 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
               variant="caption"
               sx={{
                 fontWeight: 600,
-                fontSize: { sm: '0.7rem', md: '0.75rem' },
+                fontSize: { sm: '0.62rem', md: '0.65rem', lg: '0.72rem' },
                 textTransform: 'uppercase',
                 letterSpacing: '0.02em',
                 lineHeight: 1.2,
@@ -95,7 +95,7 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = ({
               <Typography
                 variant="caption"
                 sx={{
-                  fontSize: '0.65rem',
+                  fontSize: { sm: '0.58rem', md: '0.6rem', lg: '0.63rem' } as any,
                   opacity: 0.8,
                   display: 'block',
                   lineHeight: 1,

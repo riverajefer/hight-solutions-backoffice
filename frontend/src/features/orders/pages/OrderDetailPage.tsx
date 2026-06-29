@@ -831,7 +831,7 @@ export const OrderDetailPage: React.FC = () => {
           direction="row"
           spacing={0}
           alignItems="stretch"
-          sx={{ flexWrap: 'wrap', gap: { xs: 0.5, sm: 0 } }}
+          sx={{ flexWrap: { xs: 'wrap', md: 'nowrap' }, gap: { xs: 0.5, sm: 0 }, minWidth: 0 }}
           divider={
             <Divider
               orientation="vertical"
