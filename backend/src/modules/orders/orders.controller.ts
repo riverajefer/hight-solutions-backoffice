@@ -338,8 +338,8 @@ export class OrdersController {
   }
 
   @Delete(':orderId/payments/:paymentId/receipt')
-  @RequirePermissions('delete_files')
-  @ApiOperation({ summary: 'Delete payment receipt (admin only)' })
+  @RequirePermissions('delete_payment_receipts')
+  @ApiOperation({ summary: 'Delete payment receipt (requires delete_payment_receipts)' })
   @ApiParam({ name: 'orderId', description: 'Order ID' })
   @ApiParam({ name: 'paymentId', description: 'Payment ID' })
   @ApiResponse({ status: 200, description: 'Receipt deleted successfully' })

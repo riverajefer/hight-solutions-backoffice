@@ -322,6 +322,9 @@ export const OrderFormPage: React.FC = () => {
   const isEdit = !!id;
   const { orderQuery, updateOrderMutation } = useOrder(id || '');
   const { createOrderMutation } = useOrders();
+  // Las órdenes provenientes de DTF se identifican por la nota "[DTF] ...".
+  // En ellas el abono se edita desde este formulario (no por el flujo dedicado).
+  const isDtfOrder = orderQuery.data?.notes?.startsWith('[DTF]') ?? false;
   const { activePermissionQuery } = useEditRequests(id || '');
   const isAdmin = user?.role?.name === 'admin';
 
@@ -595,6 +598,18 @@ export const OrderFormPage: React.FC = () => {
 
   // ── Submit ───────────────────────────────────────────────────────────────────
 
+  // En edición, si la única validación que falla es la del abono (`payments`),
+  // se permite guardar igualmente: el abono no se edita aquí (órdenes no-DTF) o
+  // puede ser $0 (órdenes DTF). El resto de errores sí bloquean.
+  const onInvalid = (validationErrors: Record<string, unknown>) => {
+    const onlyPaymentsError = Object.keys(validationErrors).every(
+      (key) => key === 'payments',
+    );
+    if (isEdit && onlyPaymentsError) {
+      void onSubmit(getValues());
+    }
+  };
+
   const onSubmit: SubmitHandler<OrderFormData> = async (data) => {
     setIsSubmitting(true);
     try {
@@ -647,20 +662,38 @@ export const OrderFormPage: React.FC = () => {
           sampleImageId: item.sampleImageId ?? undefined,
           productionAreaIds: item.productionAreaIds,
         })),
-        // En EDICIÓN no se tocan los pagos desde el formulario de la orden:
-        // los abonos se editan únicamente por el flujo dedicado "Historial de Pagos"
-        // (con autorización del admin). Esto evita sobrescribir el primer pago e
-        // inflar el saldo, y evita saltarse el flujo de aprobación.
-        // En creación enviamos todos como initialPayments para que el backend los cree en una sola transacción.
-        initialPayment: undefined,
+        // En EDICIÓN, por defecto NO se tocan los pagos desde el formulario:
+        // los abonos se editan por el flujo dedicado "Historial de Pagos" (con
+        // autorización del admin), evitando sobrescribir el primer pago/inflar saldo.
+        // EXCEPCIÓN: órdenes provenientes de DTF, donde el abono se edita aquí
+        // (comportamiento previo). En creación se usan initialPayments.
+        initialPayment: isEdit && isDtfOrder && data.payments[0]?.amount > 0 ? {
+          amount: data.payments[0].amount,
+          paymentMethod: data.payments[0].paymentMethod,
+          reference: data.payments[0].reference,
+          notes: data.payments[0].notes,
+        } : undefined,
         initialPayments: initialPaymentsPayload,
         commercialChannelId: data.commercialChannelId,
       };
 
       if (isEdit) {
-        await updateOrderMutation.mutateAsync(orderDto);
-        // Nota: en edición no se modifican pagos ni comprobantes desde este formulario.
-        // Para editar un abono o su comprobante usar "Historial de Pagos" en el detalle.
+        const updatedOrder = await updateOrderMutation.mutateAsync(orderDto);
+
+        // Solo en órdenes DTF se edita el abono/comprobante desde este formulario.
+        // Para el resto, los pagos se gestionan en "Historial de Pagos".
+        if (isDtfOrder) {
+          const newPaymentId = updatedOrder?.payments?.[0]?.id;
+          if (data.payments[0] && data.payments[0].receiptFile && newPaymentId) {
+            try {
+              await ordersApi.uploadPaymentReceipt(id!, newPaymentId, data.payments[0].receiptFile);
+            } catch (e: any) {
+              console.error('Error al subir comprobante en edición:', e);
+              enqueueSnackbar('Orden actualizada, pero hubo un error subiendo el comprobante', { variant: 'warning' });
+            }
+          }
+        }
+
         navigate(`/orders/${id}`);
       } else {
         const newOrder = await createOrderMutation.mutateAsync(orderDto);
@@ -695,6 +728,15 @@ export const OrderFormPage: React.FC = () => {
       }
     }
   };
+
+  // ── Save gate ────────────────────────────────────────────────────────────────
+  // En EDICIÓN los errores de `payments` no deben bloquear "Guardar Cambios":
+  //  - órdenes no-DTF: el paso de pago está deshabilitado y el abono no se envía.
+  //  - órdenes DTF: el abono puede ser $0 legítimamente (aún sin registrar) y el
+  //    usuario podría estar editando otra cosa (item, fecha, etc.).
+  // La validación de pago en creación sí se mantiene (canSave = isValid).
+  const hasNonPaymentErrors = Object.keys(errors).some((key) => key !== 'payments');
+  const canSave = isEdit ? !hasNonPaymentErrors : isValid;
 
   // ── Loading ──────────────────────────────────────────────────────────────────
 
@@ -1246,7 +1288,7 @@ export const OrderFormPage: React.FC = () => {
         </Card>
       )}
 
-      {isEdit && (
+      {isEdit && !isDtfOrder && (
         <Alert severity="info">
           Los abonos no se editan desde aquí. Para corregir un pago o su comprobante
           usa <strong>Historial de Pagos</strong> en el detalle de la orden (requiere
@@ -1263,7 +1305,7 @@ export const OrderFormPage: React.FC = () => {
             values={paymentsField.value}
             onEnabledChange={() => {}}
             onChange={paymentsField.onChange}
-            disabled={!isClientSelected || isEdit}
+            disabled={!isClientSelected || (isEdit && !isDtfOrder)}
             required={true}
             creditBalance={saldoAFavor}
           />
@@ -1572,8 +1614,8 @@ export const OrderFormPage: React.FC = () => {
                   variant="contained"
                   color="success"
                   startIcon={<SaveIcon />}
-                  disabled={isSubmitting || !isValid}
-                  onClick={handleSubmit(onSubmit)}
+                  disabled={isSubmitting || !canSave}
+                  onClick={handleSubmit(onSubmit, onInvalid)}
                 >
                   {isSubmitting ? 'Guardando...' : isEdit ? 'Guardar Cambios' : 'Crear Orden'}
                 </Button>
