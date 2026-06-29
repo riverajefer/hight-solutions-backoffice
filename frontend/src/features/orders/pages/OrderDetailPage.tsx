@@ -227,6 +227,8 @@ export const OrderDetailPage: React.FC = () => {
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const receiptFileInputRef = React.useRef<HTMLInputElement | null>(null);
   const [deletingReceipt, setDeletingReceipt] = useState<string | null>(null);
+  // Pago cuyo comprobante se va a eliminar (controla el modal de confirmación)
+  const [receiptToDelete, setReceiptToDelete] = useState<string | null>(null);
 
   const handleReceiptPaste = (e: React.ClipboardEvent) => {
     const clipItems = e.clipboardData?.items;
@@ -673,6 +675,7 @@ export const OrderDetailPage: React.FC = () => {
       enqueueSnackbar('Error al eliminar el comprobante', { variant: 'error' });
     } finally {
       setDeletingReceipt(null);
+      setReceiptToDelete(null);
     }
   };
 
@@ -1500,7 +1503,7 @@ export const OrderDetailPage: React.FC = () => {
                                   {canDeleteReceipt && (
                                     <IconButton
                                       size="small"
-                                      onClick={() => handleDeleteReceipt(payment.id)}
+                                      onClick={() => setReceiptToDelete(payment.id)}
                                       color="error"
                                       disabled={deletingReceipt === payment.id}
                                       title="Eliminar comprobante"
@@ -2279,6 +2282,18 @@ export const OrderDetailPage: React.FC = () => {
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(false)}
         isLoading={deleteOrderMutation.isPending}
+      />
+
+      {/* Confirmar eliminación de comprobante de pago */}
+      <ConfirmDialog
+        open={!!receiptToDelete}
+        title="Eliminar comprobante"
+        message="¿Estás seguro que deseas eliminar este comprobante? Esta acción eliminará el comprobante de forma permanente y no podrás recuperarlo."
+        confirmText="Eliminar"
+        severity="error"
+        onConfirm={() => receiptToDelete && handleDeleteReceipt(receiptToDelete)}
+        onCancel={() => setReceiptToDelete(null)}
+        isLoading={!!deletingReceipt}
       />
 
       {/* Dialog: Aplicar Descuento */}
