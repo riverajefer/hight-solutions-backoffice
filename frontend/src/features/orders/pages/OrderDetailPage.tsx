@@ -333,6 +333,8 @@ export const OrderDetailPage: React.FC = () => {
   // Usuario que puede aplicar la edición sin solicitud de aprobación
   const canApprovePaymentEdit =
     isAdmin || permissions.includes('approve_payment_edits');
+  const canDeleteReceipt =
+    isAdmin || permissions.includes('delete_payment_receipts');
   // Quién puede ver el historial/estado de solicitudes de edición de pago
   const canSeePaymentEdits =
     permissions.includes('edit_order_payments') || canApprovePaymentEdit;
@@ -1495,13 +1497,13 @@ export const OrderDetailPage: React.FC = () => {
                                   >
                                     <DownloadIcon fontSize="small" />
                                   </IconButton>
-                                  {isAdmin && (
+                                  {canDeleteReceipt && (
                                     <IconButton
                                       size="small"
                                       onClick={() => handleDeleteReceipt(payment.id)}
                                       color="error"
                                       disabled={deletingReceipt === payment.id}
-                                      title="Eliminar comprobante (solo admin)"
+                                      title="Eliminar comprobante"
                                     >
                                       <DeleteIcon fontSize="small" />
                                     </IconButton>
