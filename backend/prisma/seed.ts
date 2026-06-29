@@ -267,6 +267,7 @@ async function main() {
     // Payment Edit Approvals (edición de pagos en órdenes)
     { name: 'edit_order_payments', description: 'Solicitar edición de un pago en una orden' },
     { name: 'approve_payment_edits', description: 'Aprobar/rechazar ediciones de pagos en órdenes (autoriza sin solicitud)' },
+    { name: 'delete_payment_receipts', description: 'Eliminar el comprobante de un pago en una orden' },
 
     // Discount Approvals
     { name: 'approve_discounts', description: 'Aprobar o rechazar descuentos en órdenes' },
@@ -526,6 +527,7 @@ async function main() {
     'approve_advance_payments',
     'approve_payment_edits',
     'edit_order_payments',
+    'delete_payment_receipts',
     'approve_refunds',
     'read_orders',
     'read_clients',
