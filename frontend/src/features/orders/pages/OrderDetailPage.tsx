@@ -223,6 +223,8 @@ export const OrderDetailPage: React.FC = () => {
   });
   // Edición de pago: id del pago en edición (null = modo "agregar")
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
+  // Monto original del pago antes de editar (para calcular correctamente el saldo disponible)
+  const [originalPaymentAmount, setOriginalPaymentAmount] = useState<number>(0);
   const [editReason, setEditReason] = useState('');
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const receiptFileInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -473,6 +475,7 @@ export const OrderDetailPage: React.FC = () => {
   const resetPaymentDialog = () => {
     setPaymentDialogOpen(false);
     setEditingPaymentId(null);
+    setOriginalPaymentAmount(0);
     setEditReason('');
     setPaymentData({
       amount: 0,
@@ -484,6 +487,7 @@ export const OrderDetailPage: React.FC = () => {
 
   const handleOpenEditPayment = (payment: Payment) => {
     setEditingPaymentId(payment.id);
+    setOriginalPaymentAmount(parseFloat(payment.amount));
     setEditReason('');
     setReceiptFile(null);
     setPaymentData({
@@ -2044,7 +2048,7 @@ export const OrderDetailPage: React.FC = () => {
                   amount,
                 });
               }}
-                color={(paymentData.amount || 0) > parseFloat(order.balance) ? 'warning' : 'primary'}
+                color={(paymentData.amount || 0) > parseFloat(order.balance) + (editingPaymentId ? originalPaymentAmount : 0) ? 'warning' : 'primary'}
                 InputProps={{
                   startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>,
                 }}
@@ -2052,14 +2056,14 @@ export const OrderDetailPage: React.FC = () => {
                   style: { textAlign: 'right' },
                 }}
                 helperText={
-                  (paymentData.amount || 0) > parseFloat(order.balance)
-                    ? `Quedará un saldo a favor al cliente de ${formatCurrency((paymentData.amount || 0) - parseFloat(order.balance))}`
-                    : `Saldo pendiente: ${formatCurrency(order.balance)}`
+                  (paymentData.amount || 0) > parseFloat(order.balance) + (editingPaymentId ? originalPaymentAmount : 0)
+                    ? `Quedará un saldo a favor al cliente de ${formatCurrency((paymentData.amount || 0) - (parseFloat(order.balance) + (editingPaymentId ? originalPaymentAmount : 0)))}`
+                    : `Saldo pendiente: ${formatCurrency(parseFloat(order.balance) + (editingPaymentId ? originalPaymentAmount : 0))}`
                 }
                 FormHelperTextProps={{
                   sx: {
-                    color: (paymentData.amount || 0) > parseFloat(order.balance) ? 'warning.main' : 'text.secondary',
-                    fontWeight: (paymentData.amount || 0) > parseFloat(order.balance) ? 600 : 400
+                    color: (paymentData.amount || 0) > parseFloat(order.balance) + (editingPaymentId ? originalPaymentAmount : 0) ? 'warning.main' : 'text.secondary',
+                    fontWeight: (paymentData.amount || 0) > parseFloat(order.balance) + (editingPaymentId ? originalPaymentAmount : 0) ? 600 : 400
                   }
                 }}
               />
