@@ -4,6 +4,7 @@ import {
   AlertTitle,
   Box,
   Button,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -73,6 +74,9 @@ export const RequestPaymentDialog: React.FC<Props> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const balance = Number(accountPayable.balance);
+  // El input solo acepta enteros; el máximo pagable es el floor del saldo real
+  const maxPayable = Math.floor(balance);
+  const hasBalanceCents = balance % 1 !== 0;
 
   const {
     control,
@@ -93,8 +97,9 @@ export const RequestPaymentDialog: React.FC<Props> = ({
   });
 
   const watchedAmount = watch('amount');
-  const watchedAmountNum = watchedAmount ? parseInt(watchedAmount.replace(/\D/g, '')) : 0;
+  const watchedAmountNum = watchedAmount ? parseInt(watchedAmount.replace(/\D/g, ''), 10) : 0;
   const afterBalance = balance - watchedAmountNum;
+  const exceedsBalance = watchedAmountNum > maxPayable;
 
   const handleClose = () => {
     if (!loading) {
@@ -160,13 +165,13 @@ export const RequestPaymentDialog: React.FC<Props> = ({
         </Alert>
 
         <Stack spacing={2}>
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
             <Typography variant="body2" color="text.secondary">
               <strong>CP:</strong> {accountPayable.apNumber}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               <strong>Saldo:</strong>{' '}
-              {balance.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}
+              {balance.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </Typography>
           </Box>
 
@@ -174,23 +179,41 @@ export const RequestPaymentDialog: React.FC<Props> = ({
             name="amount"
             control={control}
             render={({ field }) => (
-              <TextField
-                {...field}
-                label="Monto del pago"
-                fullWidth
-                required
-                error={!!errors.amount}
-                helperText={
-                  errors.amount?.message ||
-                  (watchedAmountNum > 0
-                    ? `Saldo restante: ${afterBalance.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}`
-                    : undefined)
-                }
-                InputProps={{
-                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                }}
-                onChange={(e) => field.onChange(formatCurrencyInput(e.target.value))}
-              />
+              <Box>
+                <TextField
+                  {...field}
+                  label="Monto del pago"
+                  fullWidth
+                  required
+                  error={!!errors.amount || exceedsBalance}
+                  helperText={
+                    errors.amount?.message ||
+                    (exceedsBalance
+                      ? `El monto supera el saldo. El máximo a ingresar es ${maxPayable.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}${
+                          hasBalanceCents ? ` (el saldo incluye centavos: ${balance.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 2 })})` : ''
+                        }`
+                      : watchedAmountNum > 0
+                        ? `Saldo restante: ${Math.max(0, afterBalance).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        : undefined)
+                  }
+                  FormHelperTextProps={exceedsBalance ? { sx: { color: 'error.main', fontWeight: 600 } } : undefined}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                  }}
+                  onChange={(e) => field.onChange(formatCurrencyInput(e.target.value))}
+                />
+                {/* Atajo: pagar el saldo total */}
+                <Box sx={{ mt: 0.5 }}>
+                  <Chip
+                    label={`Pagar total: ${maxPayable.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}`}
+                    size="small"
+                    variant="outlined"
+                    color="primary"
+                    onClick={() => field.onChange(new Intl.NumberFormat('es-CO').format(maxPayable))}
+                    sx={{ cursor: 'pointer', fontSize: '0.72rem' }}
+                  />
+                </Box>
+              </Box>
             )}
           />
 
@@ -281,7 +304,7 @@ export const RequestPaymentDialog: React.FC<Props> = ({
         <Button
           variant="contained"
           onClick={handleSubmit(handleFormSubmit)}
-          disabled={isBusy}
+          disabled={isBusy || exceedsBalance}
           startIcon={isBusy ? <CircularProgress size={16} /> : undefined}
         >
           {uploadingReceipt ? 'Subiendo comprobante...' : 'Enviar solicitud'}
