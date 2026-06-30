@@ -75,6 +75,7 @@ import { StatusHighlight } from '../../../components/common/StatusHighlight';
 import { DocumentTypeBanner } from '../../../components/common/DocumentTypeBanner';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
+import { TruncatedText } from '../../../components/common/TruncatedText';
 import {
   useOrder,
   useOrderPayments,
@@ -1077,18 +1078,19 @@ export const OrderDetailPage: React.FC = () => {
                             <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
                               Razón del cambio:
                             </Typography>
-                            <Typography
+                            <TruncatedText
                               variant="body2"
                               color="text.primary"
+                              maxLines={3}
+                              text={`"${order.deliveryDateReason}"`}
+                              tooltipTitle={order.deliveryDateReason}
                               sx={{
                                 bgcolor: 'background.paper',
                                 p: 1.5,
                                 borderRadius: 1,
                                 fontStyle: 'italic',
                               }}
-                            >
-                              "{order.deliveryDateReason}"
-                            </Typography>
+                            />
                           </Box>
 
                           {/* Footer con fecha y usuario de modificación */}
@@ -1168,17 +1170,21 @@ export const OrderDetailPage: React.FC = () => {
                               )}
                             </TableCell>
                           )}
-                          <TableCell>
+                          <TableCell sx={{ maxWidth: 260 }}>
                             {item.product && (
                               <Chip
                                 label={item.product.name}
                                 size="small"
-                                sx={{ mr: 1, mb: 0.5 }}
+                                sx={{ mr: 1, mb: 0.5, maxWidth: '100%' }}
                               />
                             )}
-                            <Typography variant="body2">
-                              {item.description}
-                            </Typography>
+                            {item.description && (
+                              <TruncatedText
+                                variant="body2"
+                                maxLines={2}
+                                text={item.description}
+                              />
+                            )}
                           </TableCell>
                           <TableCell>
                             {item.productionAreas && item.productionAreas.length > 0 ? (
@@ -1187,8 +1193,10 @@ export const OrderDetailPage: React.FC = () => {
                                   <Chip
                                     key={pa.productionArea.id}
                                     label={pa.productionArea.name}
+                                    title={pa.productionArea.name}
                                     size="small"
                                     variant="outlined"
+                                    sx={{ maxWidth: 140 }}
                                   />
                                 ))}
                               </Box>
@@ -1294,14 +1302,14 @@ export const OrderDetailPage: React.FC = () => {
                         {formatCurrency(parseFloat(order.paidAmount))}
                       </Typography>
                     </Box>
-                    <Box display="flex" justifyContent="space-between" mt={1}>
-                      <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+                    <Box display="flex" justifyContent="space-between" alignItems="baseline" gap={1} mt={1}>
+                      <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' }, minWidth: 0 }}>
                         {parseFloat(order.balance) < 0 ? 'Saldo a favor del cliente:' : 'Saldo a cobrar:'}
                       </Typography>
                       <Typography
                         variant="h6"
                         color={parseFloat(order.balance) < 0 ? 'warning.main' : parseFloat(order.balance) > 0 ? 'error.main' : 'success.main'}
-                        sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
+                        sx={{ fontSize: { xs: '1rem', sm: '1.25rem' }, whiteSpace: 'nowrap', flexShrink: 0 }}
                       >
                         {parseFloat(order.balance) < 0 
                           ? formatCurrency(Math.abs(parseFloat(order.balance))) 
@@ -1475,15 +1483,23 @@ export const OrderDetailPage: React.FC = () => {
                                 size="small"
                               />
                             </TableCell>
-                            <TableCell>{payment.reference || '-'}</TableCell>
+                            <TableCell sx={{ maxWidth: 180 }}>
+                              <TruncatedText
+                                variant="body2"
+                                text={payment.reference || '-'}
+                                showTooltip={!!payment.reference}
+                              />
+                            </TableCell>
                             <TableCell align="right">
                               <Typography fontWeight={500}>
                                 {formatCurrency(payment.amount)}
                               </Typography>
                             </TableCell>
-                            <TableCell>
-                              {payment.receivedBy.firstName}{' '}
-                              {payment.receivedBy.lastName}
+                            <TableCell sx={{ maxWidth: 160 }}>
+                              <TruncatedText
+                                variant="body2"
+                                text={`${payment.receivedBy.firstName} ${payment.receivedBy.lastName}`}
+                              />
                             </TableCell>
                             <TableCell align="center">
                               {payment.receiptFileId ? (
@@ -1796,14 +1812,18 @@ export const OrderDetailPage: React.FC = () => {
                   <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Cliente</Typography>
                 </Stack>
                 <Divider sx={{ mb: 2 }} />
-                <Stack spacing={1}>
-                  <Typography variant="subtitle1" fontWeight={600}>
-                    {order.client.name}
-                  </Typography>
+                <Stack spacing={1} sx={{ minWidth: 0 }}>
+                  <TruncatedText
+                    text={order.client.name}
+                    variant="subtitle1"
+                    fontWeight={600}
+                  />
                   {order.client.email && (
-                    <Typography variant="body2" color="textSecondary">
-                      {order.client.email}
-                    </Typography>
+                    <TruncatedText
+                      text={order.client.email}
+                      variant="body2"
+                      color="textSecondary"
+                    />
                   )}
                   {order.client.phone && (() => {
                     const { country, local } = parsePhoneValue(order.client.phone);
@@ -1863,11 +1883,14 @@ export const OrderDetailPage: React.FC = () => {
                     <Typography variant="body2" color="textSecondary">
                       Creado por
                     </Typography>
-                    <Typography variant="body2">
-                      {order.createdBy.firstName && order.createdBy.lastName
-                        ? `${order.createdBy.firstName} ${order.createdBy.lastName}`
-                        : order.createdBy.email}
-                    </Typography>
+                    <TruncatedText
+                      variant="body2"
+                      text={
+                        order.createdBy.firstName && order.createdBy.lastName
+                          ? `${order.createdBy.firstName} ${order.createdBy.lastName}`
+                          : order.createdBy.email
+                      }
+                    />
                   </Box>
                   <Box>
                     <Typography variant="body2" color="textSecondary">
@@ -1881,9 +1904,11 @@ export const OrderDetailPage: React.FC = () => {
                     <Typography variant="body2" color="textSecondary">
                       Canal de Venta
                     </Typography>
-                    <Typography variant="body2" fontWeight={600}>
-                      {order.commercialChannel?.name || 'No especificado'}
-                    </Typography>
+                    <TruncatedText
+                      variant="body2"
+                      fontWeight={600}
+                      text={order.commercialChannel?.name || 'No especificado'}
+                    />
                   </Box>
                   <Box>
                     <Typography variant="body2" color="textSecondary">
@@ -1901,7 +1926,7 @@ export const OrderDetailPage: React.FC = () => {
                           N° Factura Electrónica
                         </Typography>
                       </Stack>
-                      <Typography variant="body2" fontWeight={600} color="info.dark" fontFamily="monospace">
+                      <Typography variant="body2" fontWeight={600} color="info.dark" fontFamily="monospace" sx={{ wordBreak: 'break-all' }}>
                         {order.electronicInvoiceNumber}
                       </Typography>
                     </Box>
