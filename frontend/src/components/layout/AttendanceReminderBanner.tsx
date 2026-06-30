@@ -133,11 +133,23 @@ export const AttendanceReminderBanner: React.FC = () => {
             ? alpha(theme.palette.warning.main, 0.12)
             : alpha(theme.palette.warning.main, 0.08),
           alignItems: 'center',
+          // En mobile permitimos que el botón (action) baje a una segunda
+          // línea a ancho completo; en sm+ queda alineado a la derecha.
+          flexWrap: { xs: 'wrap', sm: 'nowrap' },
           '& .MuiAlert-message': {
             display: 'flex',
             alignItems: 'center',
             gap: 2,
             flexWrap: 'wrap',
+            minWidth: 0,
+          },
+          '& .MuiAlert-action': {
+            pt: 0,
+            pl: { xs: 0, sm: 2 },
+            ml: { xs: 0, sm: 'auto' },
+            mr: { xs: 0, sm: -1 },
+            mt: { xs: 1.5, sm: 0 },
+            width: { xs: '100%', sm: 'auto' },
           },
         }}
         action={
@@ -154,7 +166,7 @@ export const AttendanceReminderBanner: React.FC = () => {
             }
             disabled={clockInMutation.isPending}
             onClick={handleClockIn}
-            sx={{ whiteSpace: 'nowrap', mr: 1 }}
+            sx={{ whiteSpace: 'nowrap', width: { xs: '100%', sm: 'auto' } }}
           >
             Marcar Entrada
           </Button>
