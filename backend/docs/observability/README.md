@@ -41,6 +41,39 @@ agregar:
 > Si un entorno productivo no tiene `LOKI_*`, los logs salen como JSON a stdout (Railway
 > los captura igual, sin push a Loki).
 
+## 2.1. Separar staging y producción
+
+Ambos ambientes pueden empujar al **mismo** Loki/stack de Grafana; se distinguen por la
+etiqueta `env` (derivada de `NODE_ENV`). En Grafana:
+
+```logql
+{app="backoffice-backend", env="staging"}      # solo staging
+{app="backoffice-backend", env="production"}   # solo producción
+```
+
+> ⚠️ **Importante — start command por ambiente.** Los scripts fijan `NODE_ENV` en línea:
+> `start:prod` → `production`, `start:staging` → `staging`. El `startCommand` por defecto de
+> `railway.toml` usa `start:prod`, así que **staging quedaría etiquetado como
+> `env="production"`** si no se sobrescribe.
+>
+> La solución está versionada en [`../../railway.toml`](../../railway.toml) usando un
+> override por ambiente de Railway:
+>
+> ```toml
+> [deploy]
+> startCommand = "npx prisma migrate deploy && npm run start:prod"        # producción
+>
+> [environments.staging.deploy]
+> startCommand = "npx prisma migrate deploy && npm run start:staging"     # staging
+> ```
+>
+> El nombre `staging` debe coincidir con el nombre del ambiente en Railway. No basta con
+> poner `NODE_ENV=staging` como variable: el script lo re-fija en la misma línea de comando,
+> por eso se cambia el `startCommand`.
+
+Para organizar en Grafana: un solo dashboard con la variable **Ambiente** (incluida en
+`grafana-dashboard.json`), o dashboards/carpetas separados por ambiente.
+
 ## 3. Importar el dashboard
 
 En Grafana: **Dashboards → New → Import** → subir

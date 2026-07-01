@@ -5,12 +5,19 @@
 builder = "RAILPACK"
 
 [deploy]
-# Start command for production
+# Start command por defecto (aplica al ambiente de producción)
+# Fija NODE_ENV=production -> los logs se etiquetan con env="production" en Grafana/Loki
 startCommand = "npx prisma migrate deploy && npm run start:prod"
 
 # Restart policy
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
+
+# Override por ambiente: en STAGING se usa start:staging (NODE_ENV=staging)
+# para que los logs se etiqueten con env="staging" y NO se mezclen con producción.
+# El nombre "staging" debe coincidir con el nombre del ambiente en Railway.
+[environments.staging.deploy]
+startCommand = "npx prisma migrate deploy && npm run start:staging"
 
 # Health check configuration (optional)
 # Uncomment and configure if you have a health check endpoint
