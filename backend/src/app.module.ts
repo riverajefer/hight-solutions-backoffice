@@ -1,6 +1,8 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { LoggerModule } from 'nestjs-pino';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { buildLoggerConfig } from './common/logger/logger.config';
 import { CustomThrottlerGuard } from './common/guards';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule } from './config/config.module';
@@ -65,6 +67,10 @@ import { DtfModule } from './modules/dtf/dtf.module';
 
 @Module({
   imports: [
+    // Logging estructurado (nestjs-pino) — push a Grafana Cloud Loki en staging/prod
+    LoggerModule.forRootAsync({
+      useFactory: buildLoggerConfig,
+    }),
     // Rate limiting global
     ThrottlerModule.forRoot([
       {
