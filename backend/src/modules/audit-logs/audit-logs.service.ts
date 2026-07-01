@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma';
 
@@ -8,6 +8,8 @@ import { Prisma } from '../../generated/prisma';
  */
 @Injectable()
 export class AuditLogsService {
+  private readonly logger = new Logger(AuditLogsService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   /**
@@ -31,7 +33,10 @@ export class AuditLogsService {
       });
     } catch (error) {
       // No fallar la operación principal si falla el audit log
-      console.error('Error creating audit log:', error);
+      this.logger.error(
+        { err: error, model, recordId, action: 'CREATE' },
+        'Error creating audit log',
+      );
     }
   }
 
@@ -58,7 +63,10 @@ export class AuditLogsService {
       });
     } catch (error) {
       // No fallar la operación principal si falla el audit log
-      console.error('Error creating audit log:', error);
+      this.logger.error(
+        { err: error, model, recordId, action: 'UPDATE' },
+        'Error creating audit log',
+      );
     }
   }
 
@@ -78,7 +86,10 @@ export class AuditLogsService {
       });
     } catch (error) {
       // No fallar la operación principal si falla el audit log
-      console.error('Error creating audit log:', error);
+      this.logger.error(
+        { err: error, model, recordId, action: 'DELETE' },
+        'Error creating audit log',
+      );
     }
   }
 
@@ -140,7 +151,10 @@ export class AuditLogsService {
         });
       } catch (error) {
         // No fallar la operación principal si falla el audit log
-        console.error('Error creating order audit log:', error);
+        this.logger.error(
+          { err: error, model: 'Order', recordId, action },
+          'Error creating order audit log',
+        );
       }
     });
   }
