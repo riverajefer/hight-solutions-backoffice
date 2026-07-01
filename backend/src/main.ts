@@ -2,10 +2,14 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder, SwaggerDocumentOptions } from '@nestjs/swagger';
+import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { rawBody: true });
+  const app = await NestFactory.create(AppModule, { rawBody: true, bufferLogs: true });
+
+  // Usar el logger estructurado (nestjs-pino) para todos los logs de NestJS
+  app.useLogger(app.get(Logger));
 
   const config = new DocumentBuilder()
     .setTitle('BackOffice example')
@@ -74,8 +78,10 @@ async function bootstrap() {
   const port = configService.get<number>('PORT', 3000);
 
   await app.listen(port);
-  console.log(`🚀 Application is running on: http://localhost:${port}/api/v1`);
-  console.log(`❤️  Health check available at: http://localhost:${port}/health`);
+
+  const logger = app.get(Logger);
+  logger.log(`🚀 Application is running on: http://localhost:${port}/api/v1`);
+  logger.log(`❤️  Health check available at: http://localhost:${port}/health`);
 }
 
 bootstrap();
