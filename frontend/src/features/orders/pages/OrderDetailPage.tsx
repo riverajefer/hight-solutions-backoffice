@@ -686,6 +686,16 @@ export const OrderDetailPage: React.FC = () => {
 
   const balance = parseFloat(order.balance);
 
+  // Diálogo de pago (registrar/editar): saldo disponible contra el que se compara
+  // el monto ingresado. En edición se "devuelve" el monto original del pago para
+  // razonar como si ese pago aún no existiera.
+  const paymentEntered = paymentData.amount || 0;
+  const availableForPayment =
+    parseFloat(order.balance) + (editingPaymentId ? originalPaymentAmount : 0);
+  const isPaymentOverpay = paymentEntered > availableForPayment;
+  // Saldo pendiente que quedará tras aplicar el monto (negativo = saldo a favor)
+  const saldoDespues = availableForPayment - paymentEntered;
+
   // Saldo a favor (overpayment) = paidAmount - total
   const overpayment = Math.max(
     0,
@@ -2073,7 +2083,7 @@ export const OrderDetailPage: React.FC = () => {
                   amount,
                 });
               }}
-                color={(paymentData.amount || 0) > parseFloat(order.balance) + (editingPaymentId ? originalPaymentAmount : 0) ? 'warning' : 'primary'}
+                color={isPaymentOverpay ? 'warning' : 'primary'}
                 InputProps={{
                   startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>,
                 }}
@@ -2081,15 +2091,38 @@ export const OrderDetailPage: React.FC = () => {
                   style: { textAlign: 'right' },
                 }}
                 helperText={
-                  (paymentData.amount || 0) > parseFloat(order.balance) + (editingPaymentId ? originalPaymentAmount : 0)
-                    ? `Quedará un saldo a favor al cliente de ${formatCurrency((paymentData.amount || 0) - (parseFloat(order.balance) + (editingPaymentId ? originalPaymentAmount : 0)))}`
-                    : `Saldo pendiente: ${formatCurrency(parseFloat(order.balance) + (editingPaymentId ? originalPaymentAmount : 0))}`
+                  editingPaymentId ? (
+                    <>
+                      <Box component="span" sx={{ display: 'block' }}>
+                        Saldo pendiente antes: {formatCurrency(order.balance)}
+                      </Box>
+                      <Box
+                        component="span"
+                        sx={{
+                          display: 'block',
+                          color: isPaymentOverpay ? 'warning.main' : 'success.main',
+                          fontWeight: 600,
+                        }}
+                      >
+                        {isPaymentOverpay
+                          ? `Saldo a favor después: ${formatCurrency(-saldoDespues)}`
+                          : `Saldo pendiente después: ${formatCurrency(saldoDespues)}`}
+                      </Box>
+                    </>
+                  ) : isPaymentOverpay ? (
+                    `Quedará un saldo a favor al cliente de ${formatCurrency(paymentEntered - availableForPayment)}`
+                  ) : (
+                    `Saldo pendiente: ${formatCurrency(availableForPayment)}`
+                  )
                 }
                 FormHelperTextProps={{
                   sx: {
-                    color: (paymentData.amount || 0) > parseFloat(order.balance) + (editingPaymentId ? originalPaymentAmount : 0) ? 'warning.main' : 'text.secondary',
-                    fontWeight: (paymentData.amount || 0) > parseFloat(order.balance) + (editingPaymentId ? originalPaymentAmount : 0) ? 600 : 400
-                  }
+                    color:
+                      !editingPaymentId && isPaymentOverpay
+                        ? 'warning.main'
+                        : 'text.secondary',
+                    fontWeight: !editingPaymentId && isPaymentOverpay ? 600 : 400,
+                  },
                 }}
               />
 
