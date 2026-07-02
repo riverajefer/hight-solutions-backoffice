@@ -76,6 +76,8 @@ export const PERMISSIONS = {
   REGISTER_ORDER_PAYMENTS: 'register_order_payments',
   READ_PENDING_ORDERS: 'read_pending_orders',
   APPROVE_ADVANCE_PAYMENTS: 'approve_advance_payments',
+  APPLY_DISCOUNTS: 'apply_discounts',
+  APPROVE_DISCOUNTS: 'approve_discounts',
   APPROVE_CLIENT_OWNERSHIP_AUTH: 'approve_client_ownership_auth',
   CREATE_REFUND_REQUESTS: 'create_refund_requests',
   APPROVE_REFUNDS: 'approve_refunds',

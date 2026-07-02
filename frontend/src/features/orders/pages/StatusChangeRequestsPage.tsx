@@ -31,6 +31,7 @@ import PaymentIcon from '@mui/icons-material/Payment';
 import BadgeIcon from '@mui/icons-material/Badge';
 import BlockIcon from '@mui/icons-material/Block';
 import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange';
+import PercentIcon from '@mui/icons-material/Percent';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -40,6 +41,7 @@ import { orderStatusChangeRequestsApi } from '../../../api/order-status-change-r
 import { editRequestsApi } from '../../../api/edit-requests.api';
 import { expenseOrderAuthRequestsApi } from '../../../api/expense-order-auth-requests.api';
 import { advancePaymentApprovalsApi } from '../../../api/advance-payment-approvals.api';
+import { discountApprovalsApi } from '../../../api/discount-approvals.api';
 import { paymentEditApprovalsApi } from '../../../api/payment-edit-approvals.api';
 import { ORDER_STATUS_CONFIG, PAYMENT_METHOD_LABELS, type OrderStatus, type PaymentEditApproval } from '../../../types/order.types';
 import { EXPENSE_ORDER_STATUS_CONFIG, ExpenseOrderStatus } from '../../../types/expense-order.types';
@@ -47,6 +49,7 @@ import type { OrderStatusChangeRequest } from '../../../types/order-status-chang
 import type { OrderEditRequest } from '../../../types/edit-request.types';
 import type { ExpenseOrderAuthRequest } from '../../../types/expense-order-auth-request.types';
 import type { AdvancePaymentApproval } from '../../../types/advance-payment-approval.types';
+import type { DiscountApproval } from '../../../types/discount-approval.types';
 import { clientOwnershipAuthRequestsApi } from '../../../api/client-ownership-auth-requests.api';
 import type { ClientOwnershipAuthRequest } from '../../../types/client-ownership-auth-request.types';
 import { voidRequestsApi } from '../../../api/void-requests.api';
@@ -101,6 +104,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const isAdmin = user?.role?.name === 'admin';
   const canApproveOrders = hasPermission('approve_orders') || isAdmin;
   const canApproveAdvancePayments = hasPermission('approve_advance_payments') || isAdmin;
+  const canApproveDiscounts = hasPermission('approve_discounts') || isAdmin;
   const canApprovePaymentEdits = hasPermission('approve_payment_edits') || isAdmin;
   const canApproveClientOwnership = hasPermission('approve_client_ownership_auth') || isAdmin;
   const canApproveExpenseOrders = hasPermission('approve_expense_orders') || isAdmin;
@@ -134,7 +138,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   }, [navWidth]);
 
   const [tabValue, setTabValue] = useState<string>(
-    canApproveOrders ? 'status' : canApproveAdvancePayments ? 'advance' : canApprovePaymentEdits ? 'payment-edit' : canApproveClientOwnership ? 'ownership' : canApproveExpenseOrders ? 'og' : canApproveVoidRequests ? 'void' : canApproveRefunds ? 'refund' : canApproveAccountsPayable ? 'ap' : canGerenciaApproveReversal ? 'ap-reversal' : 'status',
+    canApproveOrders ? 'status' : canApproveAdvancePayments ? 'advance' : canApproveDiscounts ? 'discount' : canApprovePaymentEdits ? 'payment-edit' : canApproveClientOwnership ? 'ownership' : canApproveExpenseOrders ? 'og' : canApproveVoidRequests ? 'void' : canApproveRefunds ? 'refund' : canApproveAccountsPayable ? 'ap' : canGerenciaApproveReversal ? 'ap-reversal' : 'status',
   );
   
   const [viewMode, setViewMode] = useState<'pending' | 'history'>('pending');
@@ -170,6 +174,14 @@ export const StatusChangeRequestsPage: React.FC = () => {
     action: 'approve' | 'reject' | null;
   }>({ open: false, request: null, action: null });
   const [advanceReviewNotes, setAdvanceReviewNotes] = useState('');
+
+  // --- Discount Approvals ---
+  const [discountReviewDialog, setDiscountReviewDialog] = useState<{
+    open: boolean;
+    request: DiscountApproval | null;
+    action: 'approve' | 'reject' | null;
+  }>({ open: false, request: null, action: null });
+  const [discountReviewNotes, setDiscountReviewNotes] = useState('');
 
   // --- Payment Edit Approvals ---
   const [paymentEditReviewDialog, setPaymentEditReviewDialog] = useState<{
@@ -258,6 +270,14 @@ export const StatusChangeRequestsPage: React.FC = () => {
     enabled: canApproveAdvancePayments,
   });
 
+  const { data: discountRequestsData, isLoading: discountLoading } = useQuery({
+    queryKey: ['discountApprovals', viewMode],
+    queryFn: () => viewMode === 'pending'
+      ? discountApprovalsApi.findPending()
+      : discountApprovalsApi.findAll(),
+    enabled: canApproveDiscounts,
+  });
+
   const { data: paymentEditRequestsData, isLoading: paymentEditLoading } = useQuery({
     queryKey: ['paymentEditApprovals', viewMode],
     queryFn: () => viewMode === 'pending'
@@ -318,6 +338,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const editRequests = viewMode === 'history' ? editRequestsData?.filter(r => r.status !== 'PENDING') : editRequestsData;
   const ogAuthRequests = viewMode === 'history' ? ogAuthRequestsData?.filter(r => r.status !== 'PENDING') : ogAuthRequestsData;
   const advancePaymentRequests = viewMode === 'history' ? advancePaymentRequestsData?.filter(r => r.status !== 'PENDING') : advancePaymentRequestsData;
+  const discountRequests = viewMode === 'history' ? discountRequestsData?.filter(r => r.status !== 'PENDING') : discountRequestsData;
   const paymentEditRequests = viewMode === 'history' ? paymentEditRequestsData?.filter(r => r.status !== 'PENDING') : paymentEditRequestsData;
   const ownershipRequests = viewMode === 'history' ? ownershipRequestsData?.filter(r => r.status !== 'PENDING') : ownershipRequestsData;
   const voidRequests = viewMode === 'history' ? voidRequestsData?.filter(r => r.status !== 'PENDING') : voidRequestsData;
@@ -469,6 +490,44 @@ export const StatusChangeRequestsPage: React.FC = () => {
     onError: (error: any) => {
       enqueueSnackbar(
         error.response?.data?.message || 'Error al rechazar anticipo',
+        { variant: 'error' }
+      );
+    },
+  });
+
+  // ============================================================
+  // DISCOUNT APPROVAL MUTATIONS
+  // ============================================================
+
+  const approveDiscountMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
+      discountApprovalsApi.approve(id, notes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['discountApprovals'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      enqueueSnackbar('Descuento aprobado exitosamente', { variant: 'success' });
+      handleCloseDiscountReviewDialog();
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(
+        error.response?.data?.message || 'Error al aprobar descuento',
+        { variant: 'error' }
+      );
+    },
+  });
+
+  const rejectDiscountMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes: string }) =>
+      discountApprovalsApi.reject(id, notes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['discountApprovals'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      enqueueSnackbar('Descuento rechazado', { variant: 'info' });
+      handleCloseDiscountReviewDialog();
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(
+        error.response?.data?.message || 'Error al rechazar descuento',
         { variant: 'error' }
       );
     },
@@ -870,6 +929,45 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const handleCloseAdvanceReviewDialog = () => {
     setAdvanceReviewDialog({ open: false, request: null, action: null });
     setAdvanceReviewNotes('');
+  };
+
+  // ============================================================
+  // HANDLERS - DISCOUNT APPROVAL
+  // ============================================================
+
+  const handleApproveDiscount = (request: DiscountApproval) => {
+    setDiscountReviewDialog({ open: true, request, action: 'approve' });
+    setDiscountReviewNotes('');
+  };
+
+  const handleRejectDiscount = (request: DiscountApproval) => {
+    setDiscountReviewDialog({ open: true, request, action: 'reject' });
+    setDiscountReviewNotes('');
+  };
+
+  const handleConfirmDiscountReview = () => {
+    if (!discountReviewDialog.request) return;
+
+    if (discountReviewDialog.action === 'approve') {
+      approveDiscountMutation.mutate({
+        id: discountReviewDialog.request.id,
+        notes: discountReviewNotes || undefined,
+      });
+    } else if (discountReviewDialog.action === 'reject') {
+      if (!discountReviewNotes.trim()) {
+        enqueueSnackbar('Debe proporcionar una razón para rechazar', { variant: 'warning' });
+        return;
+      }
+      rejectDiscountMutation.mutate({
+        id: discountReviewDialog.request.id,
+        notes: discountReviewNotes,
+      });
+    }
+  };
+
+  const handleCloseDiscountReviewDialog = () => {
+    setDiscountReviewDialog({ open: false, request: null, action: null });
+    setDiscountReviewNotes('');
   };
 
   // ============================================================
@@ -1478,6 +1576,105 @@ export const StatusChangeRequestsPage: React.FC = () => {
   ];
 
   // ============================================================
+  // COLUMNAS - DISCOUNT APPROVALS
+  // ============================================================
+
+  const discountColumns: GridColDef<DiscountApproval>[] = [
+    {
+      field: 'orderNumber',
+      headerName: 'Nº Orden',
+      width: 150,
+      valueGetter: (_, row) => row.order?.orderNumber || '-',
+      renderCell: (params) => (
+        <Box
+          sx={{ fontWeight: 600, color: 'primary.main', cursor: 'pointer' }}
+          onClick={() => params.row.order && handleViewOrder(params.row.order.id)}
+        >
+          {params.value}
+        </Box>
+      ),
+    },
+    {
+      field: 'discountAmount',
+      headerName: 'Descuento',
+      width: 150,
+      valueGetter: (_, row) => row.discount?.amount || '0',
+      renderCell: (params) => {
+        const amount = parseFloat(params.value);
+        return (
+          <Typography variant="body2" fontWeight={600}>
+            {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(amount)}
+          </Typography>
+        );
+      },
+    },
+    {
+      field: 'discountReason',
+      headerName: 'Motivo',
+      width: 220,
+      valueGetter: (_, row) => row.discount?.reason || '-',
+      renderCell: (params) => (
+        <Typography variant="body2" noWrap title={params.value || ''}>
+          {params.value || '-'}
+        </Typography>
+      ),
+    },
+    {
+      field: 'requestedBy',
+      headerName: 'Solicitado por',
+      width: 200,
+      valueGetter: (_, row) => getUserName(row.requestedBy),
+    },
+    {
+      field: 'status',
+      headerName: 'Estado Solicitud',
+      width: 130,
+      renderCell: (params) => {
+        const statusConfig = STATUS_LABELS[params.value] || { label: params.value, color: 'default' };
+        return (
+          <Chip
+            label={statusConfig.label}
+            color={statusConfig.color}
+            size="small"
+          />
+        );
+      },
+    },
+    {
+      field: 'createdAt',
+      headerName: 'Fecha Solicitud',
+      width: 150,
+      valueFormatter: (value) => formatDateTime(value),
+    },
+    {
+      field: 'actions',
+      type: 'actions' as const,
+      headerName: 'Acciones',
+      width: 120,
+      getActions: (params: any) => {
+        if (params.row.status !== 'PENDING') {
+          return [];
+        }
+
+        return [
+          <GridActionsCellItem
+            icon={<CheckCircleIcon sx={{ color: 'success.main' }} />}
+            label="Aprobar"
+            onClick={() => handleApproveDiscount(params.row)}
+            showInMenu={false}
+          />,
+          <GridActionsCellItem
+            icon={<CancelIcon sx={{ color: 'error.main' }} />}
+            label="Rechazar"
+            onClick={() => handleRejectDiscount(params.row)}
+            showInMenu={false}
+          />,
+        ];
+      },
+    },
+  ];
+
+  // ============================================================
   // COLUMNAS - PAYMENT EDIT APPROVALS
   // ============================================================
 
@@ -2059,6 +2256,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const editCount = editRequests?.length || 0;
   const ogAuthCount = ogAuthRequests?.length || 0;
   const advanceCount = advancePaymentRequests?.length || 0;
+  const discountCount = discountRequests?.length || 0;
   const paymentEditCount = paymentEditRequests?.length || 0;
   const ownershipCount = ownershipRequests?.length || 0;
   const voidCount = voidRequests?.length || 0;
@@ -2125,6 +2323,13 @@ export const StatusChangeRequestsPage: React.FC = () => {
                 <ListItemIcon sx={{ minWidth: 36 }}><PaymentIcon fontSize="small" /></ListItemIcon>
                 <ListItemText primary="Anticipo OP" primaryTypographyProps={{ variant: 'body2' }} />
                 {advanceCount > 0 && <Badge badgeContent={advanceCount} color="warning" sx={{ mr: 1 }} />}
+              </ListItemButton>
+            )}
+            {canApproveDiscounts && (
+              <ListItemButton selected={tabValue === 'discount'} onClick={() => setTabValue('discount')} sx={{ borderRadius: 1, mx: 1 }}>
+                <ListItemIcon sx={{ minWidth: 36 }}><PercentIcon fontSize="small" /></ListItemIcon>
+                <ListItemText primary="Descuentos" primaryTypographyProps={{ variant: 'body2' }} />
+                {discountCount > 0 && <Badge badgeContent={discountCount} color="warning" sx={{ mr: 1 }} />}
               </ListItemButton>
             )}
             {canApprovePaymentEdits && (
@@ -2243,6 +2448,9 @@ export const StatusChangeRequestsPage: React.FC = () => {
           )}
           {tabValue === 'advance' && canApproveAdvancePayments && (
             <DataTable rows={advancePaymentRequests || []} columns={advanceColumns} loading={advanceLoading} getRowId={(row) => row.id} pageSize={25} />
+          )}
+          {tabValue === 'discount' && canApproveDiscounts && (
+            <DataTable rows={discountRequests || []} columns={discountColumns} loading={discountLoading} getRowId={(row) => row.id} pageSize={25} />
           )}
           {tabValue === 'payment-edit' && canApprovePaymentEdits && (
             <DataTable rows={paymentEditRequests || []} columns={paymentEditColumns} loading={paymentEditLoading} getRowId={(row) => row.id} pageSize={25} />
@@ -2438,6 +2646,67 @@ export const StatusChangeRequestsPage: React.FC = () => {
       </Dialog>
 
       {/* Dialog: Revisión de Anticipo OP */}
+      <Dialog open={discountReviewDialog.open} onClose={handleCloseDiscountReviewDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {discountReviewDialog.action === 'approve'
+            ? 'Aprobar Descuento'
+            : 'Rechazar Descuento'}
+        </DialogTitle>
+        <DialogContent>
+          {discountReviewDialog.request && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                <strong>Orden:</strong> {discountReviewDialog.request.order?.orderNumber}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Descuento:</strong>{' '}
+                {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(
+                  parseFloat(discountReviewDialog.request.discount?.amount || '0')
+                )}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Motivo:</strong>{' '}
+                {discountReviewDialog.request.discount?.reason || '-'}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Solicitado por:</strong> {getUserName(discountReviewDialog.request.requestedBy)}
+              </Typography>
+            </Box>
+          )}
+
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            label={discountReviewDialog.action === 'approve' ? 'Notas (opcional)' : 'Razón del rechazo *'}
+            value={discountReviewNotes}
+            onChange={(e) => setDiscountReviewNotes(e.target.value)}
+            placeholder={
+              discountReviewDialog.action === 'approve'
+                ? 'Agregue notas adicionales...'
+                : 'Explique por qué se rechaza el descuento...'
+            }
+            required={discountReviewDialog.action === 'reject'}
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDiscountReviewDialog}>Cancelar</Button>
+          <Button
+            onClick={handleConfirmDiscountReview}
+            variant="contained"
+            color={discountReviewDialog.action === 'approve' ? 'success' : 'error'}
+            disabled={
+              approveDiscountMutation.isPending ||
+              rejectDiscountMutation.isPending ||
+              (discountReviewDialog.action === 'reject' && !discountReviewNotes.trim())
+            }
+          >
+            {discountReviewDialog.action === 'approve' ? 'Aprobar' : 'Rechazar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog open={advanceReviewDialog.open} onClose={handleCloseAdvanceReviewDialog} maxWidth="sm" fullWidth>
         <DialogTitle>
           {advanceReviewDialog.action === 'approve'
