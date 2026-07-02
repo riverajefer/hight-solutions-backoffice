@@ -222,11 +222,24 @@ describe('OrdersService', () => {
       expect(mockOrdersRepository.findAllWithFilters).toHaveBeenCalledWith({
         status: OrderStatus.CONFIRMED,
         clientId: 'client-1',
-        orderDateFrom: new Date('2026-01-01'),
-        orderDateTo: new Date('2026-01-31'),
+        orderDateFrom: new Date('2026-01-01T00:00:00.000Z'),
+        orderDateTo: new Date('2026-01-31T23:59:59.999Z'),
         page: 2,
         limit: 10,
       });
+    });
+
+    it('should make same-day range inclusive by using end-of-day for orderDateTo', async () => {
+      mockOrdersRepository.findAllWithFilters.mockResolvedValue({ data: [], meta: {} });
+
+      await service.findAll({ orderDateFrom: '2026-07-01', orderDateTo: '2026-07-01' });
+
+      expect(mockOrdersRepository.findAllWithFilters).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderDateFrom: new Date('2026-07-01T00:00:00.000Z'),
+          orderDateTo: new Date('2026-07-01T23:59:59.999Z'),
+        }),
+      );
     });
 
     it('should pass undefined dates when not provided in filters', async () => {
