@@ -41,6 +41,23 @@ agregar:
 > Si un entorno productivo no tiene `LOKI_*`, los logs salen como JSON a stdout (Railway
 > los captura igual, sin push a Loki).
 
+### `LOG_LEVEL` — nivel mínimo de severidad
+
+Controla el nivel mínimo que se emite. Pino solo registra ese nivel **hacia arriba**:
+`trace` < `debug` < `info` < `warn` < `error` < `fatal`. Con `info` se ven
+`info`/`warn`/`error`/`fatal`, pero **no** `debug`/`trace`.
+
+| Ambiente | Valor recomendado | Motivo |
+|----------|-------------------|--------|
+| **production** | `info` | Requests, éxitos, warnings y errores; sin el ruido/volumen de `debug`. |
+| **staging** | `info` (o `debug` temporal) | Igual que prod; subir a `debug` solo al investigar algo puntual. |
+| **development** | `info` (o `debug`) | Salida `pino-pretty` local. |
+
+> ⚠️ No dejar `debug` fijo en producción: genera mucho volumen (ej. el *payload* completo
+> a Meta) y consume la cuota de ingesta de Grafana Cloud. Actívalo temporalmente y regresa
+> a `info`. Con `warn` se silencian los requests exitosos, perdiendo trazabilidad — por eso
+> `info` es el default recomendado.
+
 ## 2.1. Separar staging y producción
 
 Ambos ambientes pueden empujar al **mismo** Loki/stack de Grafana; se distinguen por la
