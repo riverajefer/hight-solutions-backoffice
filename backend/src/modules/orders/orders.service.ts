@@ -34,6 +34,7 @@ import { InitialPaymentDto } from './dto/create-order.dto';
 import { EditRequestStatus, OrderStatus, Prisma } from '../../generated/prisma';
 import { isValidTransition, getValidNextStatuses } from './order-status-transitions';
 import { PrismaService } from '../../database/prisma.service';
+import { startOfDay, endOfDay } from '../../common/utils/date-range.util';
 
 /** Redondeo comercial colombiano al múltiplo de 100 más cercano según regla de denominaciones. */
 function applyColombianRounding(value: Prisma.Decimal): Prisma.Decimal {
@@ -68,8 +69,8 @@ export class OrdersService {
       status,
       search,
       clientId,
-      orderDateFrom: orderDateFrom ? new Date(orderDateFrom) : undefined,
-      orderDateTo: orderDateTo ? new Date(orderDateTo) : undefined,
+      orderDateFrom: startOfDay(orderDateFrom),
+      orderDateTo: endOfDay(orderDateTo),
       page,
       limit,
       excludeWithWorkOrder,
@@ -91,8 +92,8 @@ export class OrdersService {
     if (createdById) where.createdById = createdById;
     if (orderDateFrom || orderDateTo) {
       where.orderDate = {};
-      if (orderDateFrom) where.orderDate.gte = new Date(orderDateFrom);
-      if (orderDateTo) where.orderDate.lte = new Date(orderDateTo);
+      if (orderDateFrom) where.orderDate.gte = startOfDay(orderDateFrom);
+      if (orderDateTo) where.orderDate.lte = endOfDay(orderDateTo);
     }
     if (search) {
       where.OR = [
@@ -2088,8 +2089,8 @@ export class OrdersService {
     const { orders, total } = await this.ordersRepository.getProfitabilityList({
       search: filters.search,
       status: filters.status,
-      orderDateFrom: filters.orderDateFrom ? new Date(filters.orderDateFrom) : undefined,
-      orderDateTo: filters.orderDateTo ? new Date(filters.orderDateTo) : undefined,
+      orderDateFrom: startOfDay(filters.orderDateFrom),
+      orderDateTo: endOfDay(filters.orderDateTo),
       page,
       limit,
     });
