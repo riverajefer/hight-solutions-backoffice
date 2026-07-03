@@ -80,18 +80,20 @@ axiosInstance.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
+        // refreshAccessToken() es single-flight: si varios requests reciben 401
+        // a la vez, todos esperan al MISMO refresh y reutilizan el token nuevo,
+        // evitando invalidarse entre sí por la rotación del refresh token.
         const authStore = useAuthStore.getState();
         await authStore.refreshAccessToken();
 
-        // Reintentar la solicitud original
+        // Reintentar la solicitud original con el token ya refrescado
         const newToken = useAuthStore.getState().accessToken;
         if (newToken && originalRequest.headers) {
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
         }
         return axiosInstance(originalRequest);
       } catch (refreshError) {
-        // Si falla el refresh, desloguear
-        useAuthStore.getState().logout();
+        // El store ya ejecutó logout() al fallar el refresh; solo propagamos.
         return Promise.reject(refreshError);
       }
     }
