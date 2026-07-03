@@ -82,15 +82,6 @@ export class ExpenseOrdersService {
       }
     }
 
-    // Validate: productionAreaIds only allowed when workOrderId is provided
-    for (const item of dto.items) {
-      if (item.productionAreaIds?.length && !dto.workOrderId) {
-        throw new BadRequestException(
-          'Las áreas de producción en los ítems solo se permiten cuando la OG está asociada a una OT',
-        );
-      }
-    }
-
     // Validate ExpenseType and Subcategory belong to each other
     const subcategory = await this.prisma.expenseSubcategory.findFirst({
       where: {
@@ -207,24 +198,12 @@ export class ExpenseOrdersService {
     }
 
     // Validate new workOrderId if changed
-    const workOrderId = dto.workOrderId !== undefined ? dto.workOrderId : expenseOrder.workOrder?.id;
     if (dto.workOrderId) {
       const workOrder = await this.prisma.workOrder.findUnique({
         where: { id: dto.workOrderId },
       });
       if (!workOrder) {
         throw new NotFoundException(`OT con id ${dto.workOrderId} no encontrada`);
-      }
-    }
-
-    // Validate items' productionAreaIds
-    if (dto.items) {
-      for (const item of dto.items) {
-        if (item.productionAreaIds?.length && !workOrderId) {
-          throw new BadRequestException(
-            'Las áreas de producción en los ítems solo se permiten cuando la OG está asociada a una OT',
-          );
-        }
       }
     }
 
@@ -296,13 +275,6 @@ export class ExpenseOrdersService {
     if (!EDITABLE_STATUSES.includes(expenseOrder.status as ExpenseOrderStatus)) {
       throw new BadRequestException(
         `No se puede agregar ítems a una OG en estado ${expenseOrder.status}. Solo se permite en estados DRAFT o CREATED.`,
-      );
-    }
-
-    // Validate: productionAreaIds only allowed when OG has a workOrder
-    if (dto.productionAreaIds?.length && !expenseOrder.workOrder) {
-      throw new BadRequestException(
-        'Las áreas de producción en los ítems solo se permiten cuando la OG está asociada a una OT',
       );
     }
 

@@ -49,7 +49,7 @@ export class CreateExpenseItemDto {
   @IsEnum(PaymentMethod)
   paymentMethod: PaymentMethod;
 
-  @ApiPropertyOptional({ type: [String], description: 'IDs de áreas de producción (solo si hay OT)' })
+  @ApiPropertyOptional({ type: [String], description: 'IDs de áreas de producción del ítem' })
   @IsArray()
   @IsUUID('all', { each: true })
   @IsOptional()
