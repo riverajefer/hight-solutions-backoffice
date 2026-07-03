@@ -222,23 +222,23 @@ export class WhatsappService {
 
   /**
    * Retorna el nombre de la plantilla de aprobación según el ambiente.
-   * - production  → solicitud_aprobacion_prod_v1
+   * - production  → solicitud_aprobacion_general_prod_v2
    * - dev/staging → solicitud_aprobacion_v1
    */
   private getApprovalTemplateName(): string {
     return isProduction()
-      ? 'solicitud_aprobacion_prod_v1'
+      ? 'solicitud_aprobacion_general_prod_v2'
       : 'solicitud_aprobacion_v1';
   }
 
   /**
    * Retorna el nombre de la plantilla de edición de OP según el ambiente.
-   * - production  → solicitud_edicion_op_v2_prod
+   * - production  → solicitud_edicion_op_v4_prod
    * - dev/staging → solicitud_edicion_op_v2
    */
   private getEdicionOpTemplateName(): string {
     return isProduction()
-      ? 'solicitud_edicion_op_v2_prod'
+      ? 'solicitud_edicion_op_v4_prod'
       : 'solicitud_edicion_op_v2';
   }
 
