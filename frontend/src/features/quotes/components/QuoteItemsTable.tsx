@@ -69,11 +69,29 @@ const formatCurrency = (value: number): string => {
   }).format(value);
 };
 
+// El valor `raw` se almacena con punto como separador decimal (ej: "1234.5").
+// En pantalla se muestra formato es-CO: punto para miles y coma para decimales.
 const formatCurrencyInput = (value: string): string => {
-  const numericValue = value.replace(/\D/g, '');
-  if (!numericValue) return '';
-  const number = parseInt(numericValue, 10);
-  return new Intl.NumberFormat('es-CO').format(number);
+  if (!value) return '';
+  const [intPart, decPart] = value.split('.');
+  const numericInt = intPart.replace(/\D/g, '');
+  if (!numericInt && decPart === undefined) return '';
+  const formattedInt = numericInt
+    ? new Intl.NumberFormat('es-CO').format(parseInt(numericInt, 10))
+    : '0';
+  return decPart !== undefined ? `${formattedInt},${decPart}` : formattedInt;
+};
+
+// Convierte lo que el usuario escribe (con miles y coma decimal) al valor `raw`
+// con punto decimal, permitiendo un solo separador y hasta 2 decimales.
+const parseCurrencyInput = (value: string): string => {
+  let raw = value.replace(/\./g, '').replace(',', '.').replace(/[^\d.]/g, '');
+  const firstDot = raw.indexOf('.');
+  if (firstDot !== -1) {
+    const decimals = raw.slice(firstDot + 1).replace(/\./g, '').slice(0, 2);
+    raw = raw.slice(0, firstDot + 1) + decimals;
+  }
+  return raw;
 };
 
 export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
@@ -554,7 +572,7 @@ export const QuoteItemsTable: React.FC<QuoteItemsTableProps> = ({
                       size="small"
                       value={item.unitPrice ? formatCurrencyInput(item.unitPrice) : ''}
                       onChange={(e) => {
-                        const rawValue = e.target.value.replace(/\D/g, '');
+                        const rawValue = parseCurrencyInput(e.target.value);
                         handleFieldChange(item.id, 'unitPrice', rawValue);
                       }}
                       error={!!itemErrors.unitPrice}
