@@ -162,6 +162,13 @@ export const useAuthStore = create<AuthState>()(
 
           try {
             const response: AuthResponse = await authApi.refresh(user.id, refreshToken);
+
+            // Guard anti-resurrección: si el usuario cerró sesión mientras el
+            // refresh estaba en vuelo, NO restaurar tokens ni sesión.
+            if (!get().isAuthenticated) {
+              return;
+            }
+
             set({
               accessToken: response.accessToken,
               refreshToken: response.refreshToken,
@@ -172,6 +179,10 @@ export const useAuthStore = create<AuthState>()(
             // Recargar permisos después de refrescar el token
             try {
               const profileData = await authApi.me();
+              // Mismo guard: pudo cerrar sesión durante la carga de permisos.
+              if (!get().isAuthenticated) {
+                return;
+              }
               set({
                 permissions: profileData.permissions || [],
               });

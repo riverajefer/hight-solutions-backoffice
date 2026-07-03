@@ -59,6 +59,18 @@ Como solo hay **un** `refreshToken` por fila de usuario:
 
 ---
 
+## Estado de implementación (2026-07-02)
+
+Todo en `frontend/src/store/authStore.ts` (+ comentario en `frontend/src/api/axios.ts`):
+
+- ✅ **Single-flight intra-pestaña** (puntos 1 y 2): `refreshInFlight` comparte una única promesa; el interceptor delega en `refreshAccessToken()`.
+- ✅ **Caso A — multipestaña mismo navegador**: refresh serializado con `navigator.locks.request('auth-refresh', ...)` (con fallback); al obtener el lock se re-hidrata el token de `localStorage` y, si otra pestaña ya lo rotó, se adopta sin refrescar. Listener `storage` sincroniza el token nuevo y propaga el logout entre pestañas.
+- ✅ **Guard anti-resurrección de sesión** (security-high): tras `authApi.refresh()` y tras `authApi.me()` se verifica `if (!get().isAuthenticated) return;` antes de cada `set`. Evita que un refresh en vuelo que resuelve **después** de un logout reescriba tokens y reviva la sesión (funciona porque `logout()` pone `isAuthenticated: false` de forma síncrona antes de su `await`).
+- ⏳ **Pendiente — multi-dispositivo** (punto 3): requiere backend con tabla `refresh_tokens` (N por usuario) en vez de la columna única `user.refreshToken`. No resoluble solo en cliente (no comparten `localStorage` ni Web Locks).
+- ⏳ **Pendiente — mitigaciones** (puntos 4 y 5): `refetchOnWindowFocus` / `staleTime` y `JWT_ACCESS_EXPIRATION`.
+
+---
+
 ## Archivos clave
 - `frontend/src/api/axios.ts` — interceptor 401 sin single-flight (fix principal aquí).
 - `frontend/src/store/authStore.ts` — `refreshAccessToken()` / `logout()`.
