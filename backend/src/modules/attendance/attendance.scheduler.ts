@@ -10,7 +10,8 @@ export class AttendanceScheduler {
   constructor(private readonly attendanceService: AttendanceService) {}
 
   /**
-   * Cada 15 minutos: cierra registros de usuarios sin actividad en los últimos 30 min
+   * Cada 15 minutos: cierra registros de usuarios sin actividad en los últimos 60 min
+   * (red de seguridad relajada; ver autoCloseInactiveRecords en el service)
    */
   @Cron('0 */15 * * * *')
   async handleInactivityClose() {

@@ -71,6 +71,25 @@ Todo en `frontend/src/store/authStore.ts` (+ comentario en `frontend/src/api/axi
 
 ---
 
+## Actualización (2026-07-03): el "deslogueo" restante NO era de auth
+
+Con el fix de auth desplegado, la evidencia de Network en `pruebas.crmhighsolutions.com` mostró:
+- `POST /auth/refresh` → **200 OK** (auth sano, el refresh se recupera solo).
+- `POST /attendance/heartbeat` → 401 solo como request previo al refresh; se reintenta y pasa.
+
+El usuario confirmó que **sigue autenticado** (no vuelve al login): lo que ve es el banner **"Marcar Entrada"**. O sea, la asistencia se **auto-cerraba por inactividad**, no la sesión.
+
+**Causa:** `autoCloseInactiveRecords()` cerraba registros con >30 min sin actividad. En un backoffice la pestaña suele quedar en segundo plano mientras el usuario trabaja en otra ventana; ahí el heartbeat del frontend se saltaba (`visibilityState`) y React Query pausaba el polling → 30 min sin requests → registro cerrado.
+
+**Fix (regla "pestaña abierta = presente"):**
+- `frontend/src/hooks/useHeartbeat.ts`: envía heartbeat también en segundo plano + catch-up inmediato en `visibilitychange`/`focus`.
+- `backend/.../attendance.service.ts`: `INACTIVITY_MINUTES` 30 → 60 (red de seguridad relajada; el cierre de fin de día 23:59 es el tope). Comentario del scheduler actualizado.
+- La jornada se cierra por marcar salida, logout (`closeOpenRecordOnLogout`) o fin de día.
+
+Tests: frontend `authStore.spec.ts` 9/9; backend asistencia 43/43.
+
+---
+
 ## Archivos clave
 - `frontend/src/api/axios.ts` — interceptor 401 sin single-flight (fix principal aquí).
 - `frontend/src/store/authStore.ts` — `refreshAccessToken()` / `logout()`.

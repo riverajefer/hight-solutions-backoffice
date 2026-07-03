@@ -128,12 +128,19 @@ export class AttendanceService {
   }
 
   /**
-   * Cierra automáticamente los registros de usuarios inactivos (> 30 min sin heartbeat).
+   * Cierra automáticamente los registros de usuarios inactivos (sin heartbeat).
    * Llamado por el cron job cada 15 minutos.
+   *
+   * Regla de negocio "pestaña abierta = presente": el frontend envía heartbeats
+   * también en segundo plano, así que este auto-cierre es solo una RED DE
+   * SEGURIDAD para sesiones realmente abandonadas (navegador cerrado / equipo
+   * suspendido). Umbral relajado a 60 min para absorber el throttling/freezing
+   * de timers en pestañas ocultas y no cerrar a usuarios presentes. El cierre de
+   * fin de día (23:59) es el tope final.
    * Retorna el número de registros cerrados.
    */
   async autoCloseInactiveRecords(): Promise<number> {
-    const INACTIVITY_MINUTES = 30;
+    const INACTIVITY_MINUTES = 60;
     const inactive = await this.repository.findOpenRecordsInactiveFor(INACTIVITY_MINUTES);
 
     for (const record of inactive) {
