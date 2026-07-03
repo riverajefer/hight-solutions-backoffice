@@ -332,10 +332,9 @@ export const ExpenseOrderDetailPage = () => {
       description: itemForm.description || undefined,
       paymentMethod: itemForm.paymentMethod,
       supplierId: itemForm.supplierId || undefined,
-      productionAreaIds:
-        og?.workOrder && itemForm.productionAreaIds.length
-          ? itemForm.productionAreaIds
-          : undefined,
+      productionAreaIds: itemForm.productionAreaIds.length
+        ? itemForm.productionAreaIds
+        : undefined,
       receiptFileId,
       referenceFileId,
     };
@@ -795,7 +794,7 @@ export const ExpenseOrderDetailPage = () => {
                     <TableCell align="right">Total</TableCell>
                     <TableCell>Método de Pago</TableCell>
                     <TableCell>Proveedor</TableCell>
-                    {og.workOrder && <TableCell>Áreas</TableCell>}
+                    <TableCell>Área de Producción</TableCell>
                     <TableCell align="center">Comprobante</TableCell>
                     <TableCell align="center">Referencia</TableCell>
                   </TableRow>
@@ -826,15 +825,13 @@ export const ExpenseOrderDetailPage = () => {
                         />
                       </TableCell>
                       <TableCell>{item.supplier?.name ?? '—'}</TableCell>
-                      {og.workOrder && (
-                        <TableCell>
-                          {item.productionAreas.length > 0
-                            ? item.productionAreas
-                                .map((pa) => pa.productionArea.name)
-                                .join(', ')
-                            : '—'}
-                        </TableCell>
-                      )}
+                      <TableCell>
+                        {item.productionAreas.length > 0
+                          ? item.productionAreas
+                              .map((pa) => pa.productionArea.name)
+                              .join(', ')
+                          : '—'}
+                      </TableCell>
                       <TableCell align="center">
                         {item.receiptFileId ? (
                           <Tooltip title="Ver comprobante">
@@ -898,7 +895,7 @@ export const ExpenseOrderDetailPage = () => {
                             {formatCurrency(subtotalAmount)}
                           </Typography>
                         </TableCell>
-                        <TableCell colSpan={og.workOrder ? 5 : 4} />
+                        <TableCell colSpan={5} />
                       </TableRow>
                       <TableRow>
                         <TableCell colSpan={3} align="right">
@@ -911,7 +908,7 @@ export const ExpenseOrderDetailPage = () => {
                             {formatCurrency(ivaAmount)}
                           </Typography>
                         </TableCell>
-                        <TableCell colSpan={og.workOrder ? 5 : 4} />
+                        <TableCell colSpan={5} />
                       </TableRow>
                     </>
                   )}
@@ -928,7 +925,7 @@ export const ExpenseOrderDetailPage = () => {
                         {formatCurrency(totalAmount)}
                       </Typography>
                     </TableCell>
-                    <TableCell colSpan={og.workOrder ? 5 : 4} />
+                    <TableCell colSpan={5} />
                   </TableRow>
                 </TableBody>
               </Table>
@@ -1200,32 +1197,31 @@ export const ExpenseOrderDetailPage = () => {
               </TextField>
             </Stack>
 
-            {/* Production areas (only if OG has workOrder) */}
-            {og.workOrder && (
-              <TextField
-                select
-                label="Áreas de producción"
-                value={itemForm.productionAreaIds}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setItemForm((f) => ({
-                    ...f,
-                    productionAreaIds: typeof value === 'string' ? value.split(',') : value as string[],
-                  }));
-                }}
-                SelectProps={{ multiple: true }}
-                helperText="Solo disponible cuando hay OT asociada"
-                fullWidth
-              >
-                {productionAreas
-                  .filter((pa) => pa.isActive !== false)
-                  .map((pa) => (
-                    <MenuItem key={pa.id} value={pa.id}>
-                      {pa.name}
-                    </MenuItem>
-                  ))}
-              </TextField>
-            )}
+            {/* Área de producción */}
+            <TextField
+              select
+              label="Área de producción"
+              value={itemForm.productionAreaIds[0] ?? ''}
+              onChange={(e) => {
+                const value = e.target.value;
+                setItemForm((f) => ({
+                  ...f,
+                  productionAreaIds: value ? [value] : [],
+                }));
+              }}
+              fullWidth
+            >
+              <MenuItem value="">
+                <em>Sin área</em>
+              </MenuItem>
+              {productionAreas
+                .filter((pa) => pa.isActive !== false)
+                .map((pa) => (
+                  <MenuItem key={pa.id} value={pa.id}>
+                    {pa.name}
+                  </MenuItem>
+                ))}
+            </TextField>
 
             {/* Images section */}
             <Box>
