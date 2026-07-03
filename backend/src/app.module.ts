@@ -1,8 +1,9 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
-import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { buildLoggerConfig } from './common/logger/logger.config';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { CustomThrottlerGuard } from './common/guards';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule } from './config/config.module';
@@ -176,6 +177,10 @@ import { DtfModule } from './modules/dtf/dtf.module';
     DtfModule,
   ],
   providers: [
+    {
+      provide: APP_FILTER,
+      useClass: AllExceptionsFilter,
+    },
     {
       provide: APP_GUARD,
       useClass: CustomThrottlerGuard,
