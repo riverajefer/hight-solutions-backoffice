@@ -136,6 +136,26 @@ así que su actividad ya llega a Loki. El dashboard incluye una sección **Whats
 > `LOG_LEVEL=info` (default) **no se ve**. Para inspeccionarlo, poner `LOG_LEVEL=debug`
 > en Railway temporalmente (genera bastante volumen).
 
+## Errores del backend (5xx)
+
+Además del log de request de `pino-http`, un **filtro de excepciones global**
+([`../../src/common/filters/all-exceptions.filter.ts`](../../src/common/filters/all-exceptions.filter.ts))
+registra cada error 5xx con el **stack real** de la excepción y contexto
+(`userId`, `ip`, `method`, `url`), con el mensaje `Unhandled exception: <método> <ruta>`.
+Esto es lo que permite diagnosticar la causa real — el log de `pino-http` solo trae un
+error sintético `"request errored"` sin la traza verdadera.
+
+El nivel del log de request se asigna por status vía `customLogLevel`
+([`../../src/common/logger/logger.config.ts`](../../src/common/logger/logger.config.ts)):
+**5xx → `error`**, **4xx → `warn`**, resto → `info`. Los 4xx no se re-registran en el
+filtro (evita ruido) y las respuestas HTTP de validación se preservan (se delega en el
+filtro base de NestJS).
+
+```logql
+# Errores 5xx con el stack real y el usuario afectado
+{app="backoffice-backend", env="production"} | json | context="ExceptionsFilter"
+```
+
 ## Seguridad
 
 El logger **redacta** automáticamente datos sensibles antes de enviarlos a Loki:

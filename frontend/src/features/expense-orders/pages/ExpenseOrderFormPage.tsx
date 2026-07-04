@@ -321,7 +321,6 @@ export const ExpenseOrderFormPage = () => {
   const selectedType = expenseTypes.find((t) => t.id === expenseTypeId);
   const subcategories = selectedType?.subcategories ?? [];
   const isProduccionType = selectedType?.name?.toLowerCase() === 'producción';
-  const hasWorkOrder = !!workOrderId;
 
   const normalizeText = (value: string) =>
     value
@@ -551,7 +550,7 @@ export const ExpenseOrderFormPage = () => {
       supplierId: item.supplierId || undefined,
       unitPrice: parseFloat(item.unitPrice),
       paymentMethod: item.paymentMethod,
-      productionAreaIds: hasWorkOrder && item.productionAreaIds.length
+      productionAreaIds: item.productionAreaIds.length
         ? item.productionAreaIds
         : undefined,
       receiptFileId: resolvedReceiptIds[index],
@@ -865,31 +864,26 @@ export const ExpenseOrderFormPage = () => {
                 </Box>
               </Stack>
 
-              {hasWorkOrder && (
-                <Autocomplete
-                  multiple
-                  options={productionAreas.filter((pa) => pa.isActive !== false)}
-                  getOptionLabel={(pa) => pa.name}
-                  value={productionAreas.filter((pa) =>
+              <Autocomplete
+                options={productionAreas.filter((pa) => pa.isActive !== false)}
+                getOptionLabel={(pa) => pa.name}
+                value={
+                  productionAreas.find((pa) =>
                     item.productionAreaIds.includes(pa.id),
-                  )}
-                  onChange={(_, val) =>
-                    updateItem(
-                      index,
-                      'productionAreaIds',
-                      val.map((pa) => pa.id),
-                    )
-                  }
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Áreas de producción"
-                      placeholder="Seleccionar áreas..."
-                      helperText="Solo disponible cuando hay OT asociada"
-                    />
-                  )}
-                />
-              )}
+                  ) ?? null
+                }
+                onChange={(_, val) =>
+                  updateItem(index, 'productionAreaIds', val ? [val.id] : [])
+                }
+                isOptionEqualToValue={(option, val) => option.id === val.id}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Área de producción"
+                    placeholder="Seleccionar área de producción..."
+                  />
+                )}
+              />
 
               {/* ── Imágenes ── */}
               <Box>
