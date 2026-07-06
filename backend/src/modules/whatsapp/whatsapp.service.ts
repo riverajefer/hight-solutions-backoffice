@@ -87,7 +87,8 @@ export class WhatsappService {
       `Sending WhatsApp template "${templateName}" to ${normalizedTo} (original: ${to})`,
     );
 
-    // Sanitizar parámetros: Meta rechaza null/undefined/empty con error #132018
+    // Sanitizar parámetros: Meta rechaza con #132018 los params vacíos/null y
+    // también los que contienen saltos de línea, tabs o >4 espacios seguidos.
     const sanitizedParams = params.map((value) => {
       if (value === null || value === undefined || value === '') {
         this.logger.warn(
@@ -95,7 +96,15 @@ export class WhatsappService {
         );
         return '-';
       }
-      return String(value);
+      // Colapsar saltos de línea, tabs y espacios múltiples en un solo espacio
+      const normalized = String(value).replace(/\s+/g, ' ').trim();
+      if (normalized === '') {
+        this.logger.warn(
+          `Template "${templateName}": body param became empty after normalizing whitespace, replacing with "-"`,
+        );
+        return '-';
+      }
+      return normalized;
     });
 
     const components: Record<string, unknown>[] = [
@@ -149,8 +158,13 @@ export class WhatsappService {
 
       if (!response.ok) {
         const metaError = data?.error?.message || response.statusText;
+        // error_data.details contiene la causa exacta del rechazo de Meta
+        // (p. ej. qué parámetro/botón falla en #132018)
+        const metaDetails = data?.error?.error_data?.details;
         this.logger.error(
-          `Failed to send WhatsApp template "${templateName}" to ${normalizedTo}: ${metaError}`,
+          `Failed to send WhatsApp template "${templateName}" to ${normalizedTo}: ${metaError}${
+            metaDetails ? ` — details: ${metaDetails}` : ''
+          }`,
         );
         return null;
       }
