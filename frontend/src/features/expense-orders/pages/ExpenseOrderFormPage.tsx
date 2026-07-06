@@ -51,6 +51,7 @@ import { useWorkOrders } from '../../work-orders/hooks';
 import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
 import { useSuppliers } from '../../suppliers/hooks/useSuppliers';
 import { CreateSupplierModal } from '../../suppliers/components/CreateSupplierModal';
+import { CreateProductionAreaModal } from '../../production-areas/components/CreateProductionAreaModal';
 import { storageApi } from '../../../api/storage.api';
 import { ROUTES } from '../../../utils/constants';
 import {
@@ -235,6 +236,20 @@ export const ExpenseOrderFormPage = () => {
     }
     setSupplierModalOpen(false);
     setSupplierModalTargetIndex(null);
+  };
+
+  // ─── Create Production Area Modal ───────────────────────────────────────────
+  const [productionAreaModalOpen, setProductionAreaModalOpen] = useState(false);
+  const [productionAreaModalTargetIndex, setProductionAreaModalTargetIndex] = useState<
+    number | null
+  >(null);
+
+  const handleCreateProductionAreaSuccess = (newArea: { id: string; name: string }) => {
+    if (productionAreaModalTargetIndex !== null) {
+      updateItem(productionAreaModalTargetIndex, 'productionAreaIds', [newArea.id]);
+    }
+    setProductionAreaModalOpen(false);
+    setProductionAreaModalTargetIndex(null);
   };
 
   // ─── Step 1: Type & OT ──────────────────────────────────────────────────────
@@ -864,26 +879,40 @@ export const ExpenseOrderFormPage = () => {
                 </Box>
               </Stack>
 
-              <Autocomplete
-                options={productionAreas.filter((pa) => pa.isActive !== false)}
-                getOptionLabel={(pa) => pa.name}
-                value={
-                  productionAreas.find((pa) =>
-                    item.productionAreaIds.includes(pa.id),
-                  ) ?? null
-                }
-                onChange={(_, val) =>
-                  updateItem(index, 'productionAreaIds', val ? [val.id] : [])
-                }
-                isOptionEqualToValue={(option, val) => option.id === val.id}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Área de producción"
-                    placeholder="Seleccionar área de producción..."
-                  />
-                )}
-              />
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Autocomplete
+                  options={productionAreas.filter((pa) => pa.isActive !== false)}
+                  getOptionLabel={(pa) => pa.name}
+                  value={
+                    productionAreas.find((pa) =>
+                      item.productionAreaIds.includes(pa.id),
+                    ) ?? null
+                  }
+                  onChange={(_, val) =>
+                    updateItem(index, 'productionAreaIds', val ? [val.id] : [])
+                  }
+                  isOptionEqualToValue={(option, val) => option.id === val.id}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Área de producción"
+                      placeholder="Seleccionar área de producción..."
+                    />
+                  )}
+                  sx={{ flexGrow: 1 }}
+                />
+                <Button
+                  variant="outlined"
+                  sx={{ minWidth: '120px' }}
+                  onClick={() => {
+                    setProductionAreaModalTargetIndex(index);
+                    setProductionAreaModalOpen(true);
+                  }}
+                  startIcon={<AddIcon />}
+                >
+                  Nuevo
+                </Button>
+              </Box>
 
               {/* ── Imágenes ── */}
               <Box>
@@ -1339,6 +1368,16 @@ export const ExpenseOrderFormPage = () => {
           setSupplierModalTargetIndex(null);
         }}
         onSuccess={handleCreateSupplierSuccess}
+      />
+
+      {/* ── Create Production Area modal ─────────────────────────────────────── */}
+      <CreateProductionAreaModal
+        open={productionAreaModalOpen}
+        onClose={() => {
+          setProductionAreaModalOpen(false);
+          setProductionAreaModalTargetIndex(null);
+        }}
+        onSuccess={handleCreateProductionAreaSuccess}
       />
 
       {/* ── Post-creation informational dialog ───────────────────────────────── */}
