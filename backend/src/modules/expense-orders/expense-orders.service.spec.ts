@@ -7,6 +7,7 @@ import { ExpenseOrderAuthRequestsService } from '../expense-order-auth-requests/
 import { ExpenseOrderStatus } from '../../generated/prisma';
 import { NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { CreateExpenseOrderDto, UpdateExpenseOrderDto } from './dto';
+import { AccountsPayableService } from '../accounts-payable/accounts-payable.service';
 
 describe('ExpenseOrdersService', () => {
   let service: ExpenseOrdersService;
@@ -60,6 +61,7 @@ describe('ExpenseOrdersService', () => {
         { provide: ConsecutivesService, useValue: consecutivesService },
         { provide: PrismaService, useValue: prisma },
         { provide: ExpenseOrderAuthRequestsService, useValue: authRequestsService },
+        { provide: AccountsPayableService, useValue: { createFromExpenseOrder: jest.fn(), findByExpenseOrderId: jest.fn(), syncFromExpenseOrder: jest.fn() } },
       ],
     }).compile();
 
@@ -89,14 +91,14 @@ describe('ExpenseOrdersService', () => {
 
     it('should create an expense order successfully without work order', async () => {
       (prisma.expenseSubcategory.findFirst as jest.Mock).mockResolvedValue({ id: 'sub-id' } as any);
-      (repository.create as jest.Mock).mockResolvedValue({ id: 'order-1', ogNumber: 'OG-001' } as any);
+      (repository.create as jest.Mock).mockResolvedValue({ id: 'order-1', ogNumber: 'OG-001', items: [{ total: 20 }] } as any);
 
       const result = await service.create(createDto, createdById);
 
       expect(prisma.expenseSubcategory.findFirst).toHaveBeenCalled();
       expect(consecutivesService.generateNumber).toHaveBeenCalledWith('EXPENSE');
       expect(repository.create).toHaveBeenCalled();
-      expect(result).toEqual({ id: 'order-1', ogNumber: 'OG-001' });
+      expect(result).toEqual({ id: 'order-1', ogNumber: 'OG-001', items: [{ total: 20 }] });
     });
 
     it('should throw BadRequestException if subcategory not found', async () => {

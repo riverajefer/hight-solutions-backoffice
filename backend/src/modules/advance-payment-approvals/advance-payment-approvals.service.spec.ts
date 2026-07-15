@@ -6,6 +6,7 @@ import { ApprovalRequestRegistry } from '../whatsapp/approval-request-registry';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { EditRequestStatus, NotificationType, Prisma } from '../../generated/prisma';
+import { WsEventsGateway } from '../ws-events/ws-events.gateway';
 
 describe('AdvancePaymentApprovalsService', () => {
   let service: AdvancePaymentApprovalsService;
@@ -47,6 +48,7 @@ describe('AdvancePaymentApprovalsService', () => {
         { provide: NotificationsService, useValue: notificationsService },
         { provide: ApprovalRequestRegistry, useValue: { register: jest.fn() } },
         { provide: WhatsappService, useValue: { sendApprovalNotification: jest.fn() } },
+        { provide: WsEventsGateway, useValue: { emitApprovalCreated: jest.fn(), emitApprovalUpdated: jest.fn() } },
       ],
     }).compile();
 
@@ -93,7 +95,7 @@ describe('AdvancePaymentApprovalsService', () => {
       expect(prisma.advancePaymentApproval.create).toHaveBeenCalled();
       expect(prisma.order.update).toHaveBeenCalledWith({
         where: { id: 'o1' },
-        data: { advancePaymentStatus: EditRequestStatus.PENDING },
+        data: { advancePaymentStatus: EditRequestStatus.PENDING, advancePaymentRejectedReason: null },
       });
       expect(notificationsService.notifyUsersWithPermission).toHaveBeenCalled();
       expect(result.id).toBe('req1');
@@ -170,6 +172,7 @@ describe('AdvancePaymentApprovalsService', () => {
       expect(prisma.order.update).toHaveBeenCalledWith({
         where: { id: 'o1' },
         data: {
+          advancePaymentRejectedReason: 'No',
           advancePaymentStatus: EditRequestStatus.REJECTED,
           paidAmount: new Prisma.Decimal(0),
           balance: new Prisma.Decimal(1000),
