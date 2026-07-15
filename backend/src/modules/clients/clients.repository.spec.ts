@@ -17,6 +17,7 @@ const mockClient = {
   isActive: true,
   department: { id: 'dept-1', name: 'Cundinamarca', code: '25' },
   city: { id: 'city-1', name: 'Bogotá' },
+  saldoAFavor: 0,
 };
 
 // ---------------------------------------------------------------------------

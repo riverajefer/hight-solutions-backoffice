@@ -56,20 +56,53 @@ const formatCurrency = (value: number): string => {
     style: 'currency',
     currency: 'COP',
     minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(value);
 };
 
-// Formatear moneda mientras se escribe (con separadores de miles)
+// Formatear moneda mientras se escribe: miles con punto y decimales con coma (es-CO)
+// Recibe el valor crudo ("4565.5") y devuelve el valor mostrado ("4.565,5")
 const formatCurrencyInput = (value: string): string => {
-  // Remover todo excepto números
-  const numericValue = value.replace(/\D/g, '');
+  if (!value) return '';
 
-  if (!numericValue) return '';
+  const [integerPart, decimalPart] = value.split('.');
+  const integerNumber = parseInt(integerPart || '0', 10);
+  const formattedInteger = new Intl.NumberFormat('es-CO').format(
+    isNaN(integerNumber) ? 0 : integerNumber
+  );
 
-  // Convertir a número y formatear con separadores de miles
-  const number = parseInt(numericValue, 10);
-  return new Intl.NumberFormat('es-CO').format(number);
+  if (decimalPart === undefined) return integerPart ? formattedInteger : '';
+  return `${formattedInteger},${decimalPart}`;
+};
+
+// Convertir el valor digitado al valor crudo ("4.565,5" -> "4565.5")
+// La coma siempre es decimal. El punto es separador de miles, salvo que vaya
+// seguido de 0, 1 o 2 dígitos al final (los miles siempre agrupan de a 3).
+const parseCurrencyInput = (value: string): string => {
+  const cleaned = value.replace(/[^\d.,]/g, '');
+  const lastComma = cleaned.lastIndexOf(',');
+
+  let integerPart: string;
+  let decimalPart: string | undefined;
+
+  if (lastComma !== -1) {
+    integerPart = cleaned.slice(0, lastComma);
+    decimalPart = cleaned.slice(lastComma + 1);
+  } else {
+    const trailingDecimal = cleaned.match(/\.(\d{0,2})$/);
+    if (trailingDecimal) {
+      integerPart = cleaned.slice(0, cleaned.length - trailingDecimal[0].length);
+      decimalPart = trailingDecimal[1];
+    } else {
+      integerPart = cleaned;
+    }
+  }
+
+  integerPart = integerPart.replace(/\D/g, '');
+  if (decimalPart === undefined) return integerPart;
+
+  decimalPart = decimalPart.replace(/\D/g, '').slice(0, 2);
+  return `${integerPart || '0'}.${decimalPart}`;
 };
 
 
@@ -674,8 +707,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                       size="small"
                       value={item.unitPrice ? formatCurrencyInput(item.unitPrice) : ''}
                       onChange={(e) => {
-                        const rawValue = e.target.value.replace(/\D/g, '');
-                        handleFieldChange(item.id, 'unitPrice', rawValue);
+                        handleFieldChange(item.id, 'unitPrice', parseCurrencyInput(e.target.value));
                       }}
                       error={!!itemErrors.unitPrice}
                       disabled={disabled}
