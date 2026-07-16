@@ -9,6 +9,7 @@ import { DtfRepository, DtfFilters } from './dtf.repository';
 import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { StorageService } from '../storage/storage.service';
 import { OrdersService } from '../orders/orders.service';
+import { AdvancePaymentApprovalsService } from '../advance-payment-approvals/advance-payment-approvals.service';
 import { CreateDtfRecordDto, BulkCreateDtfDto } from './dto/create-dtf-record.dto';
 import { UpdateDtfRecordDto } from './dto/update-dtf-record.dto';
 import { ChangeDtfStatusDto } from './dto/change-dtf-status.dto';
@@ -23,6 +24,7 @@ export class DtfService {
     private readonly consecutivesService: ConsecutivesService,
     private readonly storageService: StorageService,
     private readonly ordersService: OrdersService,
+    private readonly advancePaymentApprovalsService: AdvancePaymentApprovalsService,
   ) {}
 
   async findAll(filters: DtfFilters) {
@@ -258,6 +260,19 @@ export class DtfService {
           where: { id: payment.id },
           data: { receiptFileId: dtfComprobante.id },
         });
+      }
+
+      // El anticipo debe ser aprobado por Caja, igual que al crear una OP desde
+      // el módulo de Órdenes (se omite si el usuario ya tiene permiso de Caja).
+      const approvalCheck =
+        await this.advancePaymentApprovalsService.requiresApproval(userId);
+      if (approvalCheck.required) {
+        await this.advancePaymentApprovalsService.createFromOrderCreation(
+          userId,
+          order.id,
+          payment.id,
+          'anticipo',
+        );
       }
     }
 

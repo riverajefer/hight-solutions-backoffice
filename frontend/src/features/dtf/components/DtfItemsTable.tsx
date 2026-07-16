@@ -22,6 +22,7 @@ import {
   Paper,
   Grid,
   Divider,
+  Alert,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
@@ -32,7 +33,11 @@ import NotesIcon from '@mui/icons-material/Notes';
 import {
   CloudUpload as UploadIcon,
   Close as CloseIcon,
+  WarningAmber as WarningAmberIcon,
+  ContentPaste as ContentPasteIcon,
 } from '@mui/icons-material';
+import { useSnackbar } from 'notistack';
+import { useAuthStore } from '../../../store/authStore';
 import { DtfQuickPreviewModal } from './DtfQuickPreviewModal';
 import { useProducts } from '../../portfolio/products/hooks/useProducts';
 import { useClients } from '../../clients/hooks/useClients';
@@ -115,6 +120,10 @@ export const DtfItemsTable = ({
 }: DtfItemsTableProps) => {
   const { productsQuery } = useProducts();
   const { clientsQuery } = useClients();
+  const { user } = useAuthStore();
+  const { enqueueSnackbar } = useSnackbar();
+  const isAdmin = user?.role?.name === 'admin';
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const [quantityInputs, setQuantityInputs] = useState<Record<string, string>>({});
   const [abonoInputs, setAbonoInputs] = useState<Record<string, string>>({});
   const [unitPriceInputs, setUnitPriceInputs] = useState<Record<string, string>>({});
@@ -152,6 +161,15 @@ export const DtfItemsTable = ({
         if (patch.productId !== undefined || patch.quantity !== undefined || patch.unitPrice !== undefined) {
           updated.value = updated.unitPrice * ((updated.quantity || 0) / 100);
         }
+        // El comprobante solo aplica a transferencias: si se cambia el método de pago
+        // o se anula el abono, se descarta el archivo cargado.
+        if (patch.abono !== undefined || patch.abonoPaymentMethod !== undefined) {
+          const isTransfer = updated.abono > 0 && updated.abonoPaymentMethod === 'TRANSFER';
+          if (!isTransfer) {
+            updated.comprobanteFile = null;
+            updated.comprobantePreviewUrl = null;
+          }
+        }
         return updated;
       }),
     );
@@ -168,6 +186,12 @@ export const DtfItemsTable = ({
     else updateItem(localId, { comprobanteFile: null, comprobantePreviewUrl: null });
   };
 
+  const fileFromBlob = (blob: Blob): File => {
+    const ext = blob.type.split('/')[1] || 'png';
+    return new File([blob], `pegado-${Date.now()}.${ext}`, { type: blob.type });
+  };
+
+  // Ctrl+V estando el área enfocada
   const handlePaste = (localId: string, field: FileField, e: React.ClipboardEvent) => {
     const clipItems = e.clipboardData?.items;
     if (!clipItems) return;
@@ -175,9 +199,7 @@ export const DtfItemsTable = ({
       if (clipItems[i].type.indexOf('image') !== -1) {
         const file = clipItems[i].getAsFile();
         if (file && ALLOWED_IMAGE_TYPES.includes(file.type)) {
-          const ext = file.type.split('/')[1] || 'png';
-          const named = new File([file], `pasted-${Date.now()}.${ext}`, { type: file.type });
-          handleFileSelect(localId, field, named);
+          handleFileSelect(localId, field, fileFromBlob(file));
           e.preventDefault();
           break;
         }
@@ -185,16 +207,70 @@ export const DtfItemsTable = ({
     }
   };
 
+  // Botón "Pegar": lee el portapapeles directamente, sin depender del foco.
+  const handlePasteFromClipboard = async (localId: string, field: FileField) => {
+    if (!navigator.clipboard?.read) {
+      enqueueSnackbar(
+        'Tu navegador no permite leer el portapapeles. Arrastra la imagen o usa Ctrl+V sobre el área.',
+        { variant: 'info' },
+      );
+      return;
+    }
+    try {
+      const clipboardItems = await navigator.clipboard.read();
+      for (const clipItem of clipboardItems) {
+        const imageType = clipItem.types.find((t) => ALLOWED_IMAGE_TYPES.includes(t));
+        if (imageType) {
+          const blob = await clipItem.getType(imageType);
+          handleFileSelect(localId, field, fileFromBlob(blob));
+          return;
+        }
+      }
+      enqueueSnackbar('No hay ninguna imagen en el portapapeles.', { variant: 'warning' });
+    } catch {
+      enqueueSnackbar(
+        'No se pudo leer el portapapeles. Permite el acceso al portapapeles o arrastra la imagen.',
+        { variant: 'warning' },
+      );
+    }
+  };
+
+  const handleDrop = (localId: string, field: FileField, e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverKey(null);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      enqueueSnackbar('Formato no admitido. Usa JPG, PNG, GIF o WEBP.', { variant: 'warning' });
+      return;
+    }
+    handleFileSelect(localId, field, file);
+  };
+
   const isSaved = (item: DtfFormItem) => !!item.id;
   const isItemSaving = (item: DtfFormItem) => savingItemId === item._localId;
+
+  // El cliente pertenece a otro asesor → al convertir en OP requerirá autorización.
+  // Misma regla que ClientSelector del módulo de Órdenes.
+  const getForeignAdvisorName = (clientId: string): string | null => {
+    if (isAdmin || !clientId) return null;
+    const client = allClients.find((c) => c.id === clientId);
+    if (!client?.advisorId || client.advisorId === user?.id) return null;
+    return client.advisor?.firstName && client.advisor?.lastName
+      ? `${client.advisor.firstName} ${client.advisor.lastName}`
+      : client.advisor?.email || 'desconocido';
+  };
   const canSaveItem = (item: DtfFormItem) =>
     !isSaved(item) && !!item.productId && !!item.clientId && item.quantity > 0;
 
   // Zona de carga (imagen o comprobante) para pantalla de creación, tamaño tarjeta.
-  const renderDropzone = (item: DtfFormItem, field: FileField) => {
+  // `lockedReason` deshabilita la carga y muestra el motivo (ej. comprobante solo en transferencia).
+  const renderDropzone = (item: DtfFormItem, field: FileField, lockedReason?: string) => {
     const previewUrl = field === 'image' ? item.imagePreviewUrl : item.comprobantePreviewUrl;
     const inputId = `dtf-${field}-${item._localId}`;
     const title = field === 'image' ? 'Imagen de referencia' : 'Comprobante';
+    const locked = !!lockedReason;
+    const uploadDisabled = disabled || locked;
 
     if (previewUrl) {
       return (
@@ -229,27 +305,52 @@ export const DtfItemsTable = ({
       );
     }
 
+    const dragKey = `${item._localId}-${field}`;
+    const isDragOver = dragOverKey === dragKey;
+
     return (
       <Box
-        tabIndex={0}
-        onPaste={(e) => !disabled && handlePaste(item._localId, field, e)}
-        onClick={() => { if (!disabled) document.getElementById(inputId)?.click(); }}
+        tabIndex={locked ? -1 : 0}
+        onPaste={(e) => !uploadDisabled && handlePaste(item._localId, field, e)}
+        onClick={() => { if (!uploadDisabled) document.getElementById(inputId)?.click(); }}
+        onDragOver={(e) => {
+          if (uploadDisabled) return;
+          e.preventDefault();
+          setDragOverKey(dragKey);
+        }}
+        onDragLeave={() => setDragOverKey(null)}
+        onDrop={(e) => { if (!uploadDisabled) handleDrop(item._localId, field, e); }}
         sx={{
           border: '2px dashed',
-          borderColor: 'grey.400',
+          borderColor: isDragOver ? 'primary.main' : 'grey.400',
+          bgcolor: isDragOver ? 'action.hover' : 'transparent',
           borderRadius: 1,
-          py: 1.5,
+          py: 1,
           px: 1,
           textAlign: 'center',
-          cursor: disabled ? 'default' : 'pointer',
-          transition: 'border-color 0.2s, background-color 0.2s',
-          '&:hover, &:focus': disabled ? {} : { borderColor: 'primary.main', bgcolor: 'action.hover' },
+          opacity: locked ? 0.5 : 1,
+          cursor: uploadDisabled ? 'default' : 'pointer',
+          transition: 'border-color 0.2s, background-color 0.2s, opacity 0.2s',
+          '&:hover, &:focus': uploadDisabled ? {} : { borderColor: 'primary.main', bgcolor: 'action.hover' },
         }}
       >
-        <UploadIcon sx={{ fontSize: 22, color: 'grey.500' }} />
-        <Typography variant="caption" color="text.secondary" display="block">
-          Subir o pegar
+        <UploadIcon sx={{ fontSize: 20, color: 'grey.500' }} />
+        <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.3 }}>
+          {lockedReason ?? 'Arrastra o haz clic para buscar'}
         </Typography>
+        {!uploadDisabled && (
+          <Button
+            size="small"
+            startIcon={<ContentPasteIcon sx={{ fontSize: '0.9rem !important' }} />}
+            onClick={(e) => {
+              e.stopPropagation();
+              handlePasteFromClipboard(item._localId, field);
+            }}
+            sx={{ mt: 0.25, py: 0, minHeight: 24, fontSize: '0.7rem' }}
+          >
+            Pegar
+          </Button>
+        )}
         <input
           id={inputId}
           type="file"
@@ -326,6 +427,7 @@ export const DtfItemsTable = ({
   const renderFormCard = (item: DtfFormItem, index: number) => {
     const saving = isItemSaving(item);
     const abono = item.abono;
+    const foreignAdvisorName = getForeignAdvisorName(item.clientId);
 
     return (
       <Paper key={item._localId} variant="outlined" sx={{ p: { xs: 1.25, sm: 1.5 }, borderRadius: 2 }}>
@@ -422,6 +524,15 @@ export const DtfItemsTable = ({
             </Stack>
           </Grid>
         </Grid>
+
+        {/* Cliente de otro asesor → requerirá autorización al convertir en OP */}
+        {foreignAdvisorName && (
+          <Alert severity="warning" icon={<WarningAmberIcon />} sx={{ mt: 1.5, py: 0.25 }}>
+            <strong>Cliente de otro asesor.</strong>{' '}
+            Este cliente pertenece al asesor {foreignAdvisorName}. Al momento de convertir esta DTF
+            en OP requerirá autorización de administración.
+          </Alert>
+        )}
 
         {/* Cantidad + Precio + Valor */}
         <Grid container spacing={1.5} sx={{ mt: 0 }} alignItems="flex-end">
@@ -584,7 +695,13 @@ export const DtfItemsTable = ({
           </Grid>
           <Grid item xs={12} sm={6}>
             <Typography component="label" sx={fieldLabelSx}>Comprobante</Typography>
-            {renderDropzone(item, 'comprobante')}
+            {renderDropzone(
+              item,
+              'comprobante',
+              abono > 0 && item.abonoPaymentMethod === 'TRANSFER'
+                ? undefined
+                : 'Solo para transferencia',
+            )}
           </Grid>
         </Grid>
 
