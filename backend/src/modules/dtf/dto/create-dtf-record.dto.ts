@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsUUID, IsNotEmpty, IsNumber, IsPositive, IsOptional, IsString, IsArray, ValidateNested, ArrayMinSize } from 'class-validator';
+import { IsUUID, IsNotEmpty, IsNumber, IsPositive, IsOptional, IsString, IsArray, ValidateNested, ArrayMinSize, Min, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
+import { PaymentMethod } from '../../../generated/prisma';
 
 export class CreateDtfRecordDto {
   @ApiProperty({ description: 'ID del producto DTF', example: 'uuid-product' })
@@ -23,6 +24,22 @@ export class CreateDtfRecordDto {
   @IsNumber()
   @IsPositive()
   unitPrice?: number;
+
+  @ApiPropertyOptional({ description: 'Abono / anticipo del cliente en pesos (COP)', example: 50000 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  abono?: number;
+
+  @ApiPropertyOptional({ description: 'Método de pago del abono', enum: PaymentMethod, example: 'TRANSFER' })
+  @IsOptional()
+  @IsEnum(PaymentMethod)
+  abonoPaymentMethod?: PaymentMethod;
+
+  @ApiPropertyOptional({ description: 'Notas del abono' })
+  @IsOptional()
+  @IsString()
+  abonoNotes?: string;
 
   @ApiPropertyOptional({ description: 'Notas u observaciones' })
   @IsOptional()

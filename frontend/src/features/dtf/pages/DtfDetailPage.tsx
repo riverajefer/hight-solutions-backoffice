@@ -36,7 +36,8 @@ import { PATHS } from '../../../router/paths';
 import { formatCurrency, formatDate } from '../../../utils/formatters';
 import { useSnackbar } from 'notistack';
 import axiosInstance from '../../../api/axios';
-import type { DtfStatus } from '../../../types/dtf.types';
+import type { DtfStatus, DtfPaymentMethod } from '../../../types/dtf.types';
+import { DTF_PAYMENT_METHOD_LABELS } from '../../../types/dtf.types';
 
 const NEXT_STATUSES: Record<DtfStatus, DtfStatus[]> = {
   BORRADOR: ['ENVIADA'],
@@ -372,6 +373,35 @@ export const DtfDetailPage = () => {
                     </Typography>
                   }
                 />
+                <Row
+                  label="Abono"
+                  value={
+                    <Typography
+                      fontWeight={600}
+                      variant="body2"
+                      color={Number(record.abono) > 0 ? 'success.main' : 'text.disabled'}
+                    >
+                      {formatCurrency(Number(record.abono ?? 0))}
+                    </Typography>
+                  }
+                />
+                <Row
+                  label="Saldo pendiente"
+                  value={
+                    <Typography fontWeight={600} variant="body2" color="warning.main">
+                      {formatCurrency(Number(record.value) - Number(record.abono ?? 0))}
+                    </Typography>
+                  }
+                />
+                {Number(record.abono) > 0 && record.abonoPaymentMethod && (
+                  <Row
+                    label="Método de pago"
+                    value={DTF_PAYMENT_METHOD_LABELS[record.abonoPaymentMethod as DtfPaymentMethod]}
+                  />
+                )}
+                {Number(record.abono) > 0 && record.abonoNotes && (
+                  <Row label="Notas del abono" value={record.abonoNotes} />
+                )}
               </Stack>
             </CardContent>
           </Card>

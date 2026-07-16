@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
-import { DtfStatus, Prisma } from '../../generated/prisma';
+import { DtfStatus, PaymentMethod, Prisma } from '../../generated/prisma';
 
 const selectFields = {
   id: true,
@@ -8,6 +8,9 @@ const selectFields = {
   quantity: true,
   unitPrice: true,
   value: true,
+  abono: true,
+  abonoPaymentMethod: true,
+  abonoNotes: true,
   status: true,
   notes: true,
   createdAt: true,
@@ -80,6 +83,9 @@ export class DtfRepository {
     quantity: Prisma.Decimal;
     unitPrice: Prisma.Decimal;
     value: Prisma.Decimal;
+    abono?: Prisma.Decimal;
+    abonoPaymentMethod?: PaymentMethod | null;
+    abonoNotes?: string | null;
     createdById: string;
     notes?: string;
   }) {
@@ -94,6 +100,9 @@ export class DtfRepository {
     quantity?: Prisma.Decimal;
     unitPrice?: Prisma.Decimal;
     value?: Prisma.Decimal;
+    abono?: Prisma.Decimal;
+    abonoPaymentMethod?: PaymentMethod | null;
+    abonoNotes?: string | null;
     notes?: string;
   }) {
     return this.prisma.dtfRecord.update({

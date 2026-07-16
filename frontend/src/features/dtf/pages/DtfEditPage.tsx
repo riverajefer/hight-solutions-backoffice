@@ -12,6 +12,8 @@ import {
   Divider,
   Grid,
   IconButton,
+  InputAdornment,
+  MenuItem,
   Stack,
   TextField,
   Typography,
@@ -24,6 +26,31 @@ import { PageHeader } from '../../../components/common/PageHeader';
 import { useDtfDetail, useDtfFiles, useDtfMutations } from '../hooks/useDtf';
 import { PATHS } from '../../../router/paths';
 import axiosInstance from '../../../api/axios';
+import { DTF_PAYMENT_METHOD_LABELS } from '../../../types/dtf.types';
+import type { DtfPaymentMethod } from '../../../types/dtf.types';
+
+// Formatea un valor numérico (como string) a pesos con separador de miles (es-CO)
+const formatCurrencyInput = (value: string): string => {
+  if (!value) return '';
+  const [intPart, decPart] = value.split('.');
+  const numericInt = intPart.replace(/\D/g, '');
+  if (!numericInt && decPart === undefined) return '';
+  const formattedInt = numericInt
+    ? new Intl.NumberFormat('es-CO').format(parseInt(numericInt, 10))
+    : '0';
+  return decPart !== undefined ? `${formattedInt},${decPart}` : formattedInt;
+};
+
+// Convierte lo que el usuario escribe (miles con punto, coma decimal) a `raw` con punto decimal
+const parseCurrencyInput = (value: string): string => {
+  let raw = value.replace(/\./g, '').replace(',', '.').replace(/[^\d.]/g, '');
+  const firstDot = raw.indexOf('.');
+  if (firstDot !== -1) {
+    const decimals = raw.slice(firstDot + 1).replace(/\./g, '').slice(0, 2);
+    raw = raw.slice(0, firstDot + 1) + decimals;
+  }
+  return raw;
+};
 
 export const DtfEditPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -37,6 +64,9 @@ export const DtfEditPage = () => {
   const record = detailQuery.data;
 
   const [quantity, setQuantity] = useState<string>('');
+  const [abono, setAbono] = useState<string>('');
+  const [abonoPaymentMethod, setAbonoPaymentMethod] = useState<DtfPaymentMethod | ''>('');
+  const [abonoNotes, setAbonoNotes] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [initialized, setInitialized] = useState(false);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
@@ -46,6 +76,9 @@ export const DtfEditPage = () => {
 
   if (record && !initialized) {
     setQuantity(String(Number(record.quantity)));
+    setAbono(Number(record.abono) > 0 ? formatCurrencyInput(String(Number(record.abono))) : '');
+    setAbonoPaymentMethod((record.abonoPaymentMethod as DtfPaymentMethod) ?? '');
+    setAbonoNotes(record.abonoNotes ?? '');
     setNotes(record.notes ?? '');
     setInitialized(true);
   }
@@ -84,10 +117,15 @@ export const DtfEditPage = () => {
   }
 
   const handleSave = async () => {
+    const abonoRaw = parseCurrencyInput(abono);
+    const abonoValue = abonoRaw === '' ? 0 : Number(abonoRaw);
     await update.mutateAsync({
       id: id!,
       dto: {
         quantity: Number(quantity),
+        abono: abonoValue,
+        abonoPaymentMethod: abonoValue > 0 && abonoPaymentMethod ? abonoPaymentMethod : undefined,
+        abonoNotes: abonoValue > 0 ? (abonoNotes || undefined) : undefined,
         notes: notes || undefined,
       },
     });
@@ -135,6 +173,47 @@ export const DtfEditPage = () => {
                   disabled={isSaving}
                   fullWidth
                 />
+                <TextField
+                  label="Abono"
+                  size="small"
+                  value={abono}
+                  onChange={(e) => setAbono(formatCurrencyInput(parseCurrencyInput(e.target.value)))}
+                  placeholder="0"
+                  disabled={isSaving}
+                  fullWidth
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                  }}
+                  inputProps={{ inputMode: 'decimal' }}
+                />
+                {parseCurrencyInput(abono) !== '' && Number(parseCurrencyInput(abono)) > 0 && (
+                  <>
+                    <TextField
+                      select
+                      label="Método de pago"
+                      size="small"
+                      value={abonoPaymentMethod}
+                      onChange={(e) => setAbonoPaymentMethod(e.target.value as DtfPaymentMethod)}
+                      disabled={isSaving}
+                      fullWidth
+                    >
+                      {(Object.entries(DTF_PAYMENT_METHOD_LABELS) as [DtfPaymentMethod, string][]).map(
+                        ([method, label]) => (
+                          <MenuItem key={method} value={method}>{label}</MenuItem>
+                        ),
+                      )}
+                    </TextField>
+                    <TextField
+                      label="Notas del abono"
+                      size="small"
+                      value={abonoNotes}
+                      onChange={(e) => setAbonoNotes(e.target.value)}
+                      placeholder="Ej: Anticipo por transferencia"
+                      disabled={isSaving}
+                      fullWidth
+                    />
+                  </>
+                )}
                 <TextField
                   label="Notas"
                   size="small"
