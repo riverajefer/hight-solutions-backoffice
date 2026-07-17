@@ -59,11 +59,25 @@ describe('ClientsRepository', () => {
     it('should return all clients including inactive when includeInactive=true', async () => {
       prisma.client.findMany.mockResolvedValue([mockClient]);
 
-      await repository.findAll(true);
+      await repository.findAll({ includeInactive: true });
 
       const callArg = prisma.client.findMany.mock.calls[0][0];
       // where should be {} (not filtering by isActive)
       expect(callArg.where).toEqual({});
+    });
+
+    it('should filter by the createdAt range when provided', async () => {
+      prisma.client.findMany.mockResolvedValue([mockClient]);
+      const createdAtFrom = new Date('2026-01-01T00:00:00.000Z');
+      const createdAtTo = new Date('2026-01-31T23:59:59.999Z');
+
+      await repository.findAll({ createdAtFrom, createdAtTo });
+
+      const callArg = prisma.client.findMany.mock.calls[0][0];
+      expect(callArg.where).toEqual({
+        isActive: true,
+        createdAt: { gte: createdAtFrom, lte: createdAtTo },
+      });
     });
 
     it('should order results by name asc', async () => {

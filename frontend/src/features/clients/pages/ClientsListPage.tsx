@@ -14,6 +14,7 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import PersonSearchIcon from '@mui/icons-material/PersonSearch';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
 /* import UploadFileIcon from '@mui/icons-material/UploadFile';
  */ import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
@@ -29,12 +30,16 @@ import { PERMISSIONS } from '../../../utils/constants';
 import { formatCurrency } from '../../../utils/formatters';
 import { useResponsiveColumns } from '../../../hooks';
 import type { ResponsiveGridColDef } from '../../../hooks';
+import { ExportDialog } from '../../../components/common/ExportDialog';
+import { CLIENT_EXPORT_COLUMNS } from '../utils/clientExportColumns';
+import { clientsApi } from '../../../api/clients.api';
 
 const ClientsListPage: React.FC = () => {
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
   const { hasPermission } = useAuthStore();
   const [confirmDelete, setConfirmDelete] = useState<Client | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [filterSaldoAFavor, setFilterSaldoAFavor] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -44,6 +49,7 @@ const ClientsListPage: React.FC = () => {
   const clients = clientsQuery.data || [];
 
   const hasBrowse = hasPermission(PERMISSIONS.BROWSE_CLIENTS);
+  const canExport = hasPermission(PERMISSIONS.EXPORT_CLIENTS);
   const hasSearch = hasPermission(PERMISSIONS.SEARCH_CLIENTS);
 
   const matchesQuery = (client: Client, q: string) => {
@@ -220,17 +226,15 @@ const ClientsListPage: React.FC = () => {
         title='Clientes'
         subtitle='Gestiona los clientes de la organización'
         action={
-          hasPermission(PERMISSIONS.CREATE_CLIENTS) ? (
-            <>
-              {/*               <Button
-                variant='outlined'
-                color='primary'
-                startIcon={<UploadFileIcon />}
-                onClick={() => setUploadModalOpen(true)}
-              >
-                Subida Masiva
-              </Button> */}
-            </>
+          canExport ? (
+            <Button
+              variant='outlined'
+              color='success'
+              startIcon={<FileDownloadIcon />}
+              onClick={() => setExportOpen(true)}
+            >
+              Exportar a Excel
+            </Button>
           ) : undefined
         }
       />
@@ -436,6 +440,30 @@ const ClientsListPage: React.FC = () => {
           return result;
         }}
       />
+
+      {/* Export to Excel Dialog */}
+      {canExport && (
+        <ExportDialog<Client>
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          title='Exportar Clientes a Excel'
+          entityLabel='clientes'
+          fileNamePrefix='Clientes'
+          sheetName='Clientes'
+          columns={CLIENT_EXPORT_COLUMNS}
+          storageKey='clients_export_columns'
+          dateRangeLabel='Rango de fechas (fecha de creación)'
+          helperText='Se incluyen los clientes activos e inactivos creados en el rango.'
+          fetchRows={async ({ from, to }) => {
+            // El endpoint de clientes no pagina: devuelve el array completo.
+            return clientsApi.getAll({
+              includeInactive: true,
+              createdAtFrom: from.toISOString(),
+              createdAtTo: to.toISOString(),
+            });
+          }}
+        />
+      )}
     </Box>
   );
 };

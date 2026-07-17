@@ -10,7 +10,10 @@ import {
 } from '@mui/material';
 import { GridRenderCellParams } from '@mui/x-data-grid';
 import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../hooks';
-import { Add as AddIcon } from '@mui/icons-material';
+import {
+  Add as AddIcon,
+  FileDownload as FileDownloadIcon,
+} from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { DataTable } from '../../../components/common/DataTable';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
@@ -24,6 +27,10 @@ import {
   type ExpenseOrder,
   type FilterExpenseOrdersDto,
 } from '../../../types/expense-order.types';
+import { ExportDialog } from '../../../components/common/ExportDialog';
+import { EXPORT_LIMIT } from '../../../utils/excelExport';
+import { EXPENSE_ORDER_EXPORT_COLUMNS } from '../utils/expenseOrderExportColumns';
+import { expenseOrdersApi } from '../../../api/expense-orders.api';
 
 const formatDate = (date: string): string =>
   new Intl.DateTimeFormat('es-CO', {
@@ -58,6 +65,8 @@ export const ExpenseOrdersListPage = () => {
   const canCreate = hasPermission(PERMISSIONS.CREATE_EXPENSE_ORDERS);
   const canUpdate = hasPermission(PERMISSIONS.UPDATE_EXPENSE_ORDERS);
   const canDelete = hasPermission(PERMISSIONS.DELETE_EXPENSE_ORDERS);
+  const canExport = hasPermission(PERMISSIONS.EXPORT_EXPENSE_ORDERS);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const handleFilterChange = (key: keyof FilterExpenseOrdersDto, value: unknown) => {
     setFilters((prev) => ({ ...prev, [key]: value || undefined, page: 1 }));
@@ -176,15 +185,27 @@ export const ExpenseOrdersListPage = () => {
         title="Órdenes de Gastos"
         subtitle="Gestión de gastos de la empresa"
         action={
-          canCreate ? (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => navigate(ROUTES.EXPENSE_ORDERS_CREATE)}
-            >
-              Nueva OG
-            </Button>
-          ) : undefined
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {canExport && (
+              <Button
+                variant="outlined"
+                color="success"
+                startIcon={<FileDownloadIcon />}
+                onClick={() => setExportOpen(true)}
+              >
+                Exportar a Excel
+              </Button>
+            )}
+            {canCreate && (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => navigate(ROUTES.EXPENSE_ORDERS_CREATE)}
+              >
+                Nueva OG
+              </Button>
+            )}
+          </Box>
         }
       />
 
@@ -230,6 +251,39 @@ export const ExpenseOrdersListPage = () => {
         onCancel={() => setConfirmDelete(null)}
         isLoading={deleteExpenseOrderMutation.isPending}
       />
+
+      {/* Export to Excel Dialog */}
+      {canExport && (
+        <ExportDialog<ExpenseOrder>
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          title="Exportar Órdenes de Gasto a Excel"
+          entityLabel="órdenes de gasto"
+          fileNamePrefix="Ordenes_Gasto"
+          sheetName="Órdenes de Gasto"
+          columns={EXPENSE_ORDER_EXPORT_COLUMNS}
+          storageKey="expense_orders_export_columns"
+          dateRangeLabel="Rango de fechas (fecha de creación)"
+          helperText="Se respetan los filtros activos de la pantalla (estado, tipo de gasto y búsqueda)."
+          defaultDateFrom={
+            filters.createdAtFrom ? new Date(filters.createdAtFrom) : undefined
+          }
+          defaultDateTo={
+            filters.createdAtTo ? new Date(filters.createdAtTo) : undefined
+          }
+          fetchRows={async ({ from, to }) => {
+            const { page, limit, ...activeFilters } = filters;
+            const response = await expenseOrdersApi.getAll({
+              ...activeFilters,
+              createdAtFrom: from.toISOString(),
+              createdAtTo: to.toISOString(),
+              page: 1,
+              limit: EXPORT_LIMIT,
+            });
+            return response.data ?? [];
+          }}
+        />
+      )}
     </Box>
   );
 };

@@ -35,6 +35,7 @@ export const PERMISSIONS = {
   DELETE_SUPPLIERS: 'delete_suppliers',
   CREATE_CLIENTS: 'create_clients',
   READ_CLIENTS: 'read_clients',
+  EXPORT_CLIENTS: 'export_clients',
   BROWSE_CLIENTS: 'browse_clients',
   UPDATE_CLIENTS: 'update_clients',
   DELETE_CLIENTS: 'delete_clients',
@@ -69,6 +70,8 @@ export const PERMISSIONS = {
   CREATE_ORDERS: 'create_orders',
   READ_ORDERS: 'read_orders',
   EXPORT_ORDERS: 'export_orders',
+  EXPORT_PENDING_PAYMENT_ORDERS: 'export_pending_payment_orders',
+  EXPORT_PROFITABILITY: 'export_profitability',
   UPDATE_ORDERS: 'update_orders',
   DELETE_ORDERS: 'delete_orders',
   APPROVE_ORDERS: 'approve_orders',
@@ -89,6 +92,7 @@ export const PERMISSIONS = {
   // Quotes
   CREATE_QUOTES: 'create_quotes',
   READ_QUOTES: 'read_quotes',
+  EXPORT_QUOTES: 'export_quotes',
   UPDATE_QUOTES: 'update_quotes',
   DELETE_QUOTES: 'delete_quotes',
   CONVERT_QUOTES: 'convert_quotes',
@@ -100,6 +104,7 @@ export const PERMISSIONS = {
   // Work Orders
   CREATE_WORK_ORDERS: 'create_work_orders',
   READ_WORK_ORDERS: 'read_work_orders',
+  EXPORT_WORK_ORDERS: 'export_work_orders',
   UPDATE_WORK_ORDERS: 'update_work_orders',
   DELETE_WORK_ORDERS: 'delete_work_orders',
   // Expense Types
@@ -110,6 +115,7 @@ export const PERMISSIONS = {
   // Expense Orders
   CREATE_EXPENSE_ORDERS: 'create_expense_orders',
   READ_EXPENSE_ORDERS: 'read_expense_orders',
+  EXPORT_EXPENSE_ORDERS: 'export_expense_orders',
   UPDATE_EXPENSE_ORDERS: 'update_expense_orders',
   DELETE_EXPENSE_ORDERS: 'delete_expense_orders',
   APPROVE_EXPENSE_ORDERS: 'approve_expense_orders',
@@ -163,6 +169,7 @@ export const PERMISSIONS = {
   // Cuentas por Pagar
   CREATE_ACCOUNTS_PAYABLE: 'create_accounts_payable',
   READ_ACCOUNTS_PAYABLE: 'read_accounts_payable',
+  EXPORT_ACCOUNTS_PAYABLE: 'export_accounts_payable',
   UPDATE_ACCOUNTS_PAYABLE: 'update_accounts_payable',
   DELETE_ACCOUNTS_PAYABLE: 'delete_accounts_payable',
   REGISTER_AP_PAYMENT: 'register_ap_payment',
@@ -175,12 +182,14 @@ export const PERMISSIONS = {
   READ_FINANCIAL_DASHBOARD: 'read_financial_dashboard',
   // DTF
   READ_DTF: 'read_dtf',
+  EXPORT_DTF: 'export_dtf',
   CREATE_DTF: 'create_dtf',
   UPDATE_DTF: 'update_dtf',
   CHANGE_DTF_STATUS: 'change_dtf_status',
   CONVERT_DTF_TO_ORDER: 'convert_dtf_to_order',
   // Ventas por Asesor / Metas
   READ_SALES_BY_ADVISOR: 'read_sales_by_advisor',
+  EXPORT_SALES_BY_ADVISOR: 'export_sales_by_advisor',
   MANAGE_SALES_GOALS: 'manage_sales_goals',
 };
 

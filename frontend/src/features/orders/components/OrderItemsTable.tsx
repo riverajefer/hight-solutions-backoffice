@@ -76,33 +76,23 @@ const formatCurrencyInput = (value: string): string => {
 };
 
 // Convertir el valor digitado al valor crudo ("4.565,5" -> "4565.5")
-// La coma siempre es decimal. El punto es separador de miles, salvo que vaya
-// seguido de 0, 1 o 2 dígitos al final (los miles siempre agrupan de a 3).
+// En la configuración es-CO el punto (.) es separador de miles (lo inserta el
+// formateador automáticamente) y la coma (,) es el único separador decimal.
+// Eliminamos los puntos y tratamos solo la coma como decimal para evitar
+// ambigüedades al escribir en tiempo real.
 const parseCurrencyInput = (value: string): string => {
-  const cleaned = value.replace(/[^\d.,]/g, '');
-  const lastComma = cleaned.lastIndexOf(',');
+  if (!value) return '';
 
-  let integerPart: string;
-  let decimalPart: string | undefined;
+  const noDots = value.replace(/\./g, '');
+  const lastComma = noDots.lastIndexOf(',');
 
   if (lastComma !== -1) {
-    integerPart = cleaned.slice(0, lastComma);
-    decimalPart = cleaned.slice(lastComma + 1);
-  } else {
-    const trailingDecimal = cleaned.match(/\.(\d{0,2})$/);
-    if (trailingDecimal) {
-      integerPart = cleaned.slice(0, cleaned.length - trailingDecimal[0].length);
-      decimalPart = trailingDecimal[1];
-    } else {
-      integerPart = cleaned;
-    }
+    const integerPart = noDots.slice(0, lastComma).replace(/\D/g, '');
+    const decimalPart = noDots.slice(lastComma + 1).replace(/\D/g, '').slice(0, 2);
+    return `${integerPart || '0'}.${decimalPart}`;
   }
 
-  integerPart = integerPart.replace(/\D/g, '');
-  if (decimalPart === undefined) return integerPart;
-
-  decimalPart = decimalPart.replace(/\D/g, '').slice(0, 2);
-  return `${integerPart || '0'}.${decimalPart}`;
+  return noDots.replace(/\D/g, '');
 };
 
 

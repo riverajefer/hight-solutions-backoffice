@@ -21,6 +21,7 @@ import {
   Visibility as VisibilityIcon,
   BarChart as SalesIcon,
   EmojiEvents as GoalsIcon,
+  FileDownload as FileDownloadIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -31,8 +32,16 @@ import { useClients } from '../../clients/hooks/useClients';
 import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
 import { useUsers } from '../../users/hooks/useUsers';
 import { OrderStatusChip, SalesGoalsSection } from '../components';
-import { ROUTES } from '../../../utils/constants';
-import type { FilterOrdersDto, OrderStatus } from '../../../types/order.types';
+import { ExportDialog } from '../../../components/common/ExportDialog';
+import { EXPORT_LIMIT } from '../../../utils/excelExport';
+import { ORDER_EXPORT_COLUMNS } from '../utils/orderExportColumns';
+import { useAuthStore } from '../../../store/authStore';
+import { PERMISSIONS, ROUTES } from '../../../utils/constants';
+import type {
+  FilterOrdersDto,
+  Order,
+  OrderStatus,
+} from '../../../types/order.types';
 import type { Client } from '../../../types/client.types';
 
 const ORDER_STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
@@ -108,6 +117,9 @@ export const SalesByAdvisorPage: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState(0);
   const [filters, setFilters] = useState<FilterOrdersDto>({ page: 1, limit: 20 });
+  const [exportOpen, setExportOpen] = useState(false);
+  const { hasPermission } = useAuthStore();
+  const canExport = hasPermission(PERMISSIONS.EXPORT_SALES_BY_ADVISOR);
 
   const { ordersQuery } = useOrders(filters);
   const summaryQuery = useSalesSummary(filters);
@@ -261,6 +273,19 @@ export const SalesByAdvisorPage: React.FC = () => {
       <PageHeader
         title="Ventas por Asesor"
         breadcrumbs={[{ label: 'Comercial' }, { label: 'Ventas por Asesor' }]}
+        action={
+          canExport &&
+          activeTab === 0 && (
+            <Button
+              variant="outlined"
+              color="success"
+              startIcon={<FileDownloadIcon />}
+              onClick={() => setExportOpen(true)}
+            >
+              Exportar a Excel
+            </Button>
+          )
+        }
       />
 
       {/* Tabs */}
@@ -448,6 +473,39 @@ export const SalesByAdvisorPage: React.FC = () => {
       {/* Tab 1 — Metas de Ventas */}
       {activeTab === 1 && (
         <SalesGoalsSection advisors={advisors} />
+      )}
+
+      {/* Export to Excel Dialog */}
+      {canExport && (
+        <ExportDialog<Order>
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          title="Exportar Ventas por Asesor a Excel"
+          entityLabel="órdenes"
+          fileNamePrefix="Ventas_Por_Asesor"
+          sheetName="Ventas por Asesor"
+          columns={ORDER_EXPORT_COLUMNS}
+          storageKey="sales_by_advisor_export_columns"
+          dateRangeLabel="Rango de fechas (fecha de orden)"
+          helperText="Se respetan los filtros activos de la pantalla (estado, cliente, asesor y búsqueda)."
+          defaultDateFrom={
+            filters.orderDateFrom ? new Date(filters.orderDateFrom) : undefined
+          }
+          defaultDateTo={
+            filters.orderDateTo ? new Date(filters.orderDateTo) : undefined
+          }
+          fetchRows={async ({ from, to }) => {
+            const { page, limit, ...activeFilters } = filters;
+            const response = await ordersApi.getAll({
+              ...activeFilters,
+              orderDateFrom: from.toISOString(),
+              orderDateTo: to.toISOString(),
+              page: 1,
+              limit: EXPORT_LIMIT,
+            });
+            return response.data ?? [];
+          }}
+        />
       )}
     </Box>
   );

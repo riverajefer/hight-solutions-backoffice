@@ -100,8 +100,22 @@ export class ExpenseOrdersRepository {
     },
   };
 
-  async findAll(filters: FilterExpenseOrdersDto) {
-    const { status, workOrderId, expenseTypeId, search, page = 1, limit = 20 } = filters;
+  async findAll(
+    filters: Omit<FilterExpenseOrdersDto, 'createdAtFrom' | 'createdAtTo'> & {
+      createdAtFrom?: Date;
+      createdAtTo?: Date;
+    },
+  ) {
+    const {
+      status,
+      workOrderId,
+      expenseTypeId,
+      search,
+      createdAtFrom,
+      createdAtTo,
+      page = 1,
+      limit = 20,
+    } = filters;
     const skip = (page - 1) * limit;
 
     const where: Record<string, unknown> = {};
@@ -109,6 +123,13 @@ export class ExpenseOrdersRepository {
     if (status) where.status = status;
     if (workOrderId) where.workOrderId = workOrderId;
     if (expenseTypeId) where.expenseTypeId = expenseTypeId;
+
+    if (createdAtFrom || createdAtTo) {
+      const createdAt: Record<string, Date> = {};
+      if (createdAtFrom) createdAt.gte = createdAtFrom;
+      if (createdAtTo) createdAt.lte = createdAtTo;
+      where.createdAt = createdAt;
+    }
 
     if (search) {
       where.OR = [

@@ -180,6 +180,33 @@ async function main() {
       name: 'export_orders',
       description: 'Exportar órdenes de pedido a Excel',
     },
+    {
+      name: 'export_pending_payment_orders',
+      description: 'Exportar órdenes pendientes por cobrar a Excel',
+    },
+    {
+      name: 'export_profitability',
+      description: 'Exportar rentabilidad por orden a Excel',
+    },
+    {
+      name: 'export_sales_by_advisor',
+      description: 'Exportar ventas por asesor a Excel',
+    },
+    {
+      name: 'export_accounts_payable',
+      description: 'Exportar cuentas por pagar a Excel',
+    },
+    {
+      name: 'export_expense_orders',
+      description: 'Exportar órdenes de gasto a Excel',
+    },
+    { name: 'export_quotes', description: 'Exportar cotizaciones a Excel' },
+    {
+      name: 'export_work_orders',
+      description: 'Exportar órdenes de trabajo a Excel',
+    },
+    { name: 'export_clients', description: 'Exportar clientes a Excel' },
+    { name: 'export_dtf', description: 'Exportar registros DTF a Excel' },
     { name: 'update_orders', description: 'Actualizar órdenes de pedido' },
     { name: 'delete_orders', description: 'Eliminar órdenes de pedido' },
     {

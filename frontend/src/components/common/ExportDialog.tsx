@@ -17,23 +17,41 @@ import {
 import { FileDownload as FileDownloadIcon } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { useSnackbar } from 'notistack';
-import { ordersApi } from '../../../api/orders.api';
-import type { FilterOrdersDto } from '../../../types/order.types';
-import {
-  ORDER_EXPORT_COLUMNS,
-  type OrderExportColumn,
-} from '../utils/orderExportColumns';
-import { exportOrdersToExcel } from '../utils/exportOrders';
+import { exportToExcel, type ExportColumn } from '../../utils/excelExport';
 
-const STORAGE_KEY = 'orders_export_columns';
-// Límite alto para traer todos los registros del rango sin paginar
-const EXPORT_LIMIT = 100000;
+/** Rango de fechas ya normalizado a inicio y fin de día. */
+export interface DateRange {
+  from: Date;
+  to: Date;
+}
 
-interface ExportOrdersDialogProps {
+export interface ExportDialogProps<T> {
   open: boolean;
   onClose: () => void;
-  /** Filtros activos de la pantalla (estado, cliente, asesor, área, búsqueda). */
-  currentFilters: FilterOrdersDto;
+  /** Título del modal, ej. "Exportar Órdenes a Excel". */
+  title: string;
+  /** Nombre plural de la entidad para los mensajes, ej. "órdenes". */
+  entityLabel: string;
+  /** Prefijo del archivo; se le añade el rango de fechas y `.xlsx`. */
+  fileNamePrefix: string;
+  /** Nombre de la hoja de Excel. */
+  sheetName?: string;
+  /** Columnas disponibles para exportar. */
+  columns: ExportColumn<T>[];
+  /** Clave de localStorage para persistir las columnas elegidas (única por módulo). */
+  storageKey: string;
+  /** Título de la sección de fechas, ej. "Rango de fechas (fecha de orden)". */
+  dateRangeLabel?: string;
+  /** Nota al pie de las fechas, ej. qué filtros de pantalla se respetan. */
+  helperText?: string;
+  defaultDateFrom?: Date;
+  defaultDateTo?: Date;
+  /**
+   * Trae las filas a exportar para el rango dado. Cada módulo resuelve aquí su
+   * propia forma de respuesta, el nombre de sus campos de fecha y cualquier
+   * filtro adicional. Las fechas llegan normalizadas a inicio/fin de día.
+   */
+  fetchRows: (range: DateRange) => Promise<T[]>;
 }
 
 const toDateStart = (d: Date): Date => {
@@ -48,9 +66,18 @@ const toDateEnd = (d: Date): Date => {
   return date;
 };
 
-const loadSavedColumns = (): Set<string> => {
+const oneMonthAgo = (): Date => {
+  const d = new Date();
+  d.setMonth(d.getMonth() - 1);
+  return d;
+};
+
+const loadSavedColumns = <T,>(
+  storageKey: string,
+  columns: ExportColumn<T>[],
+): Set<string> => {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey);
     if (raw) {
       const keys = JSON.parse(raw) as string[];
       if (Array.isArray(keys) && keys.length > 0) return new Set(keys);
@@ -58,34 +85,32 @@ const loadSavedColumns = (): Set<string> => {
   } catch {
     // ignorar JSON inválido
   }
-  return new Set(
-    ORDER_EXPORT_COLUMNS.filter((c) => c.defaultVisible).map((c) => c.key),
-  );
+  return new Set(columns.filter((c) => c.defaultVisible).map((c) => c.key));
 };
 
-export const ExportOrdersDialog: React.FC<ExportOrdersDialogProps> = ({
+export function ExportDialog<T>({
   open,
   onClose,
-  currentFilters,
-}) => {
+  title,
+  entityLabel,
+  fileNamePrefix,
+  sheetName,
+  columns,
+  storageKey,
+  dateRangeLabel = 'Rango de fechas',
+  helperText,
+  defaultDateFrom,
+  defaultDateTo,
+  fetchRows,
+}: ExportDialogProps<T>): React.ReactElement {
   const { enqueueSnackbar } = useSnackbar();
 
-  // Rango por defecto: último mes (hoy - 1 mes → hoy), respetando filtros activos
-  const defaultFrom = currentFilters.orderDateFrom
-    ? new Date(currentFilters.orderDateFrom)
-    : (() => {
-        const d = new Date();
-        d.setMonth(d.getMonth() - 1);
-        return d;
-      })();
-  const defaultTo = currentFilters.orderDateTo
-    ? new Date(currentFilters.orderDateTo)
-    : new Date();
-
-  const [dateFrom, setDateFrom] = useState<Date | null>(defaultFrom);
-  const [dateTo, setDateTo] = useState<Date | null>(defaultTo);
-  const [selectedColumns, setSelectedColumns] = useState<Set<string>>(
-    loadSavedColumns,
+  const [dateFrom, setDateFrom] = useState<Date | null>(
+    defaultDateFrom ?? oneMonthAgo,
+  );
+  const [dateTo, setDateTo] = useState<Date | null>(defaultDateTo ?? new Date());
+  const [selectedColumns, setSelectedColumns] = useState<Set<string>>(() =>
+    loadSavedColumns(storageKey, columns),
   );
   const [isExporting, setIsExporting] = useState(false);
 
@@ -112,10 +137,8 @@ export const ExportOrdersDialog: React.FC<ExportOrdersDialogProps> = ({
       return;
     }
 
-    const columns: OrderExportColumn[] = ORDER_EXPORT_COLUMNS.filter((c) =>
-      selectedColumns.has(c.key),
-    );
-    if (columns.length === 0) {
+    const selected = columns.filter((c) => selectedColumns.has(c.key));
+    if (selected.length === 0) {
       enqueueSnackbar('Selecciona al menos una columna para exportar', {
         variant: 'warning',
       });
@@ -126,41 +149,32 @@ export const ExportOrdersDialog: React.FC<ExportOrdersDialogProps> = ({
     try {
       // Persistir columnas elegidas
       localStorage.setItem(
-        STORAGE_KEY,
+        storageKey,
         JSON.stringify(Array.from(selectedColumns)),
       );
 
-      // Traer todos los registros del rango + filtros activos (sin paginar).
-      // Se descartan page/limit de la pantalla para usar los del export.
-      const activeFilters: FilterOrdersDto = { ...currentFilters };
-      delete activeFilters.page;
-      delete activeFilters.limit;
-      const response = await ordersApi.getAll({
-        ...activeFilters,
-        orderDateFrom: toDateStart(dateFrom).toISOString(),
-        orderDateTo: toDateEnd(dateTo).toISOString(),
-        page: 1,
-        limit: EXPORT_LIMIT,
+      const rows = await fetchRows({
+        from: toDateStart(dateFrom),
+        to: toDateEnd(dateTo),
       });
 
-      const orders = response.data ?? [];
-      if (orders.length === 0) {
+      if (rows.length === 0) {
         enqueueSnackbar(
-          'No se encontraron órdenes con los filtros seleccionados',
+          `No se encontraron ${entityLabel} con los filtros seleccionados`,
           { variant: 'info' },
         );
         return;
       }
 
       const fmt = (d: Date) => d.toISOString().slice(0, 10);
-      const fileName = `Ordenes_Pedido_${fmt(dateFrom)}_${fmt(dateTo)}.xlsx`;
+      const fileName = `${fileNamePrefix}_${fmt(dateFrom)}_${fmt(dateTo)}.xlsx`;
 
-      exportOrdersToExcel(orders, columns, fileName);
-      enqueueSnackbar(`Se exportaron ${orders.length} órdenes`, {
+      exportToExcel(rows, selected, fileName, sheetName);
+      enqueueSnackbar(`Se exportaron ${rows.length} ${entityLabel}`, {
         variant: 'success',
       });
       onClose();
-    } catch (error) {
+    } catch {
       enqueueSnackbar('Ocurrió un error al generar el archivo Excel', {
         variant: 'error',
       });
@@ -169,10 +183,10 @@ export const ExportOrdersDialog: React.FC<ExportOrdersDialogProps> = ({
     }
   };
 
-  const visibleCols = ORDER_EXPORT_COLUMNS.filter((c) => c.defaultVisible);
-  const extraCols = ORDER_EXPORT_COLUMNS.filter((c) => !c.defaultVisible);
+  const visibleCols = columns.filter((c) => c.defaultVisible);
+  const extraCols = columns.filter((c) => !c.defaultVisible);
 
-  const renderColumnGroup = (cols: OrderExportColumn[]) => (
+  const renderColumnGroup = (cols: ExportColumn<T>[]) => (
     <FormGroup
       sx={{
         display: 'grid',
@@ -197,12 +211,12 @@ export const ExportOrdersDialog: React.FC<ExportOrdersDialogProps> = ({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth='sm' fullWidth>
-      <DialogTitle>Exportar Órdenes a Excel</DialogTitle>
+      <DialogTitle>{title}</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={3}>
           <Box>
             <Typography variant='subtitle2' gutterBottom>
-              Rango de fechas (fecha de orden)
+              {dateRangeLabel}
             </Typography>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
               <DatePicker
@@ -222,10 +236,11 @@ export const ExportOrdersDialog: React.FC<ExportOrdersDialogProps> = ({
                 }}
               />
             </Stack>
-            <Typography variant='caption' color='text.secondary'>
-              Se respetan los filtros activos de la pantalla (estado, cliente,
-              asesor, área y búsqueda).
-            </Typography>
+            {helperText && (
+              <Typography variant='caption' color='text.secondary'>
+                {helperText}
+              </Typography>
+            )}
           </Box>
 
           <Box>
@@ -235,14 +250,17 @@ export const ExportOrdersDialog: React.FC<ExportOrdersDialogProps> = ({
             {renderColumnGroup(visibleCols)}
           </Box>
 
-          <Divider />
-
-          <Box>
-            <Typography variant='subtitle2' gutterBottom>
-              Columnas adicionales
-            </Typography>
-            {renderColumnGroup(extraCols)}
-          </Box>
+          {extraCols.length > 0 && (
+            <>
+              <Divider />
+              <Box>
+                <Typography variant='subtitle2' gutterBottom>
+                  Columnas adicionales
+                </Typography>
+                {renderColumnGroup(extraCols)}
+              </Box>
+            </>
+          )}
         </Stack>
       </DialogContent>
       <DialogActions>
@@ -266,4 +284,4 @@ export const ExportOrdersDialog: React.FC<ExportOrdersDialogProps> = ({
       </DialogActions>
     </Dialog>
   );
-};
+}

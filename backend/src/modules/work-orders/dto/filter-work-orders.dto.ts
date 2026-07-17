@@ -1,4 +1,4 @@
-import { IsEnum, IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { IsDateString, IsEnum, IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { WorkOrderStatus } from '../../../generated/prisma';
@@ -18,6 +18,16 @@ export class FilterWorkOrdersDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional({ description: 'Fecha de creación desde (ISO 8601)' })
+  @IsOptional()
+  @IsDateString()
+  createdAtFrom?: string;
+
+  @ApiPropertyOptional({ description: 'Fecha de creación hasta (ISO 8601)' })
+  @IsOptional()
+  @IsDateString()
+  createdAtTo?: string;
 
   @ApiPropertyOptional({ description: 'Página', default: 1 })
   @IsOptional()

@@ -19,7 +19,10 @@ import {
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { GridRenderCellParams } from '@mui/x-data-grid';
-import { Add as AddIcon } from '@mui/icons-material';
+import {
+  Add as AddIcon,
+  FileDownload as FileDownloadIcon,
+} from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { DataTable } from '../../../components/common/DataTable';
 import { ActionsCell } from '../../../components/common/DataTable/ActionsCell';
@@ -36,6 +39,10 @@ import { useExpenseTypes } from '../../expense-orders/hooks/useExpenseOrders';
 import { AccountPayableStatusChip } from '../components/AccountPayableStatusChip';
 import { AccountPayableSummaryCards } from '../components/AccountPayableSummaryCards';
 import { useAccountsPayable } from '../hooks/useAccountsPayable';
+import { ExportDialog } from '../../../components/common/ExportDialog';
+import { EXPORT_LIMIT } from '../../../utils/excelExport';
+import { ACCOUNT_PAYABLE_EXPORT_COLUMNS } from '../utils/accountPayableExportColumns';
+import { accountsPayableApi } from '../../../api/accounts-payable.api';
 
 const isDueDateWarning = (dueDate: string, status: AccountPayableStatus): string | null => {
   if (status === AccountPayableStatus.PAID || status === AccountPayableStatus.CANCELLED) return null;
@@ -63,6 +70,8 @@ export default function AccountsPayableListPage() {
   const canCreate = hasPermission(PERMISSIONS.CREATE_ACCOUNTS_PAYABLE);
   const canUpdate = hasPermission(PERMISSIONS.UPDATE_ACCOUNTS_PAYABLE);
   const canDelete = hasPermission(PERMISSIONS.DELETE_ACCOUNTS_PAYABLE);
+  const canExport = hasPermission(PERMISSIONS.EXPORT_ACCOUNTS_PAYABLE);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const handleView = (ap: AccountPayable) => {
     navigate(ROUTES.ACCOUNTS_PAYABLE_DETAIL.replace(':id', ap.id));
@@ -254,15 +263,27 @@ export default function AccountsPayableListPage() {
         title="Cuentas por Pagar"
         subtitle="Gestión de obligaciones financieras de la empresa"
         action={
-          canCreate ? (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => navigate(ROUTES.ACCOUNTS_PAYABLE_NEW)}
-            >
-              Nueva Cuenta
-            </Button>
-          ) : null
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {canExport && (
+              <Button
+                variant="outlined"
+                color="success"
+                startIcon={<FileDownloadIcon />}
+                onClick={() => setExportOpen(true)}
+              >
+                Exportar a Excel
+              </Button>
+            )}
+            {canCreate && (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => navigate(ROUTES.ACCOUNTS_PAYABLE_NEW)}
+              >
+                Nueva Cuenta
+              </Button>
+            )}
+          </Box>
         }
       />
 
@@ -460,6 +481,39 @@ export default function AccountsPayableListPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Export to Excel Dialog */}
+      {canExport && (
+        <ExportDialog<AccountPayable>
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          title="Exportar Cuentas por Pagar a Excel"
+          entityLabel="cuentas por pagar"
+          fileNamePrefix="Cuentas_Por_Pagar"
+          sheetName="Cuentas por Pagar"
+          columns={ACCOUNT_PAYABLE_EXPORT_COLUMNS}
+          storageKey="accounts_payable_export_columns"
+          dateRangeLabel="Rango de fechas (fecha de vencimiento)"
+          helperText="Se respetan los filtros activos de la pantalla (estado, proveedor, tipo de gasto y búsqueda)."
+          defaultDateFrom={
+            filters.dueDateFrom ? new Date(filters.dueDateFrom) : undefined
+          }
+          defaultDateTo={
+            filters.dueDateTo ? new Date(filters.dueDateTo) : undefined
+          }
+          fetchRows={async ({ from, to }) => {
+            const { page, limit, ...activeFilters } = filters;
+            const response = await accountsPayableApi.getAll({
+              ...activeFilters,
+              dueDateFrom: from.toISOString(),
+              dueDateTo: to.toISOString(),
+              page: 1,
+              limit: EXPORT_LIMIT,
+            });
+            return response.data ?? [];
+          }}
+        />
+      )}
     </Box>
   );
 }
