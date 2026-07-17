@@ -30,6 +30,7 @@ import { RequirePermissions } from '../../common/decorators/require-permissions.
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ClientsService } from './clients.service';
 import { CreateClientDto, UpdateClientDto, UpdateSpecialConditionDto, UploadClientsResponseDto } from './dto';
+import { FilterClientsDto } from './dto/filter-clients.dto';
 
 @ApiTags('clients')
 @ApiBearerAuth('JWT-auth')
@@ -47,12 +48,24 @@ export class ClientsController {
     type: Boolean,
     description: 'Incluir clientes inactivos',
   })
+  @ApiQuery({
+    name: 'createdAtFrom',
+    required: false,
+    type: String,
+    description: 'Fecha de creación desde (ISO 8601)',
+  })
+  @ApiQuery({
+    name: 'createdAtTo',
+    required: false,
+    type: String,
+    description: 'Fecha de creación hasta (ISO 8601)',
+  })
   @ApiResponse({
     status: 200,
     description: 'Lista de clientes con información de ubicación',
   })
-  findAll(@Query('includeInactive') includeInactive?: string) {
-    return this.clientsService.findAll(includeInactive === 'true');
+  findAll(@Query() filters: FilterClientsDto) {
+    return this.clientsService.findAll(filters);
   }
 
   @Get(':id/stats')

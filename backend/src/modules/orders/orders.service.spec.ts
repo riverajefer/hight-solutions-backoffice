@@ -392,6 +392,29 @@ describe('OrdersService', () => {
       expect(Number(callArg.balance.toString())).toBe(69);
     });
 
+    it('should require Caja approval for a CREDIT-only order even when paidAmount is 0', async () => {
+      // Pago a crédito entra con monto 0 → no suma a paidAmount, pero debe pasar por Caja
+      mockAdvancePaymentApprovalsService.requiresApproval.mockResolvedValueOnce({
+        required: true,
+      });
+      mockPrisma.payment.findMany.mockResolvedValue([
+        { id: 'pay-credit', paymentMethod: PaymentMethod.CREDIT, cashMovementId: null },
+      ]);
+      mockOrdersRepository.findById.mockResolvedValue(mockOrder);
+
+      await service.create(
+        {
+          ...baseCreateDto,
+          initialPayments: [{ amount: 0, paymentMethod: PaymentMethod.CREDIT }],
+        },
+        'user-1',
+      );
+
+      expect(
+        mockAdvancePaymentApprovalsService.createFromOrderCreation,
+      ).toHaveBeenCalledWith('user-1', 'order-1', 'pay-credit', 'crédito');
+    });
+
     it('should include commercialChannel connect when commercialChannelId is provided', async () => {
       await service.create(
         { ...baseCreateDto, commercialChannelId: 'channel-1' },

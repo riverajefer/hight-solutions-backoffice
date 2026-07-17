@@ -23,7 +23,7 @@ import { DtfService } from './dtf.service';
 import { BulkCreateDtfDto } from './dto/create-dtf-record.dto';
 import { UpdateDtfRecordDto } from './dto/update-dtf-record.dto';
 import { ChangeDtfStatusDto } from './dto/change-dtf-status.dto';
-import { DtfStatus } from '../../generated/prisma';
+import { FilterDtfDto } from './dto/filter-dtf.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
@@ -39,20 +39,8 @@ export class DtfController {
   @RequirePermissions('read_dtf')
   @ApiOperation({ summary: 'Listar registros DTF' })
   @ApiResponse({ status: 200, description: 'Lista de registros DTF' })
-  findAll(
-    @Query('status') status?: DtfStatus,
-    @Query('productId') productId?: string,
-    @Query('clientId') clientId?: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-  ) {
-    return this.dtfService.findAll({
-      status,
-      productId,
-      clientId,
-      page: page ? Number(page) : undefined,
-      limit: limit ? Number(limit) : undefined,
-    });
+  findAll(@Query() filters: FilterDtfDto) {
+    return this.dtfService.findAll(filters);
   }
 
   @Get(':id/status-history')

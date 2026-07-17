@@ -20,6 +20,7 @@ import {
   SwapHoriz as SwapHorizIcon,
   TableRows as TableRowsIcon,
   ViewKanban as ViewKanbanIcon,
+  FileDownload as FileDownloadIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -34,6 +35,12 @@ import { QuoteStatusChip, ChangeQuoteStatusDialog } from '../components';
 import { QuoteKanbanBoard } from '../components/kanban/QuoteKanbanBoard';
 import type { Quote, QuoteStatus, FilterQuotesDto } from '../../../types/quote.types';
 import { QuoteStatus as QStatus } from '../../../types/quote.types';
+import { ExportDialog } from '../../../components/common/ExportDialog';
+import { EXPORT_LIMIT } from '../../../utils/excelExport';
+import { QUOTE_EXPORT_COLUMNS } from '../utils/quoteExportColumns';
+import { quotesApi } from '../../../api/quotes.api';
+import { useAuthStore } from '../../../store/authStore';
+import { PERMISSIONS } from '../../../utils/constants';
 
 const formatCurrency = (value: string | number): string => {
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
@@ -90,6 +97,10 @@ export const QuotesListPage: React.FC = () => {
   const [confirmDelete, setConfirmDelete] = useState<Quote | null>(null);
   const [confirmConvert, setConfirmConvert] = useState<Quote | null>(null);
   const [changeStatusQuote, setChangeStatusQuote] = useState<Quote | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+
+  const { hasPermission } = useAuthStore();
+  const canExport = hasPermission(PERMISSIONS.EXPORT_QUOTES);
 
   const { quotesQuery, deleteQuoteMutation, convertToOrderMutation, updateQuoteMutation } = useQuotes(filters);
   const { clientsQuery } = useClients({ includeInactive: false });
@@ -293,6 +304,16 @@ export const QuotesListPage: React.FC = () => {
                 </Tooltip>
               </ToggleButton>
             </ToggleButtonGroup>
+            {canExport && viewMode === 'list' && (
+              <Button
+                variant="outlined"
+                color="success"
+                startIcon={<FileDownloadIcon />}
+                onClick={() => setExportOpen(true)}
+              >
+                Exportar a Excel
+              </Button>
+            )}
             <Button
               variant="outlined"
               startIcon={<PostAddIcon />}
@@ -407,6 +428,37 @@ export const QuotesListPage: React.FC = () => {
         onConfirm={handleChangeStatus}
         isLoading={updateQuoteMutation.isPending}
       />
+
+      {/* Export to Excel Dialog */}
+      {canExport && (
+        <ExportDialog<Quote>
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          title="Exportar Cotizaciones a Excel"
+          entityLabel="cotizaciones"
+          fileNamePrefix="Cotizaciones"
+          sheetName="Cotizaciones"
+          columns={QUOTE_EXPORT_COLUMNS}
+          storageKey="quotes_export_columns"
+          dateRangeLabel="Rango de fechas (fecha de cotización)"
+          helperText="Se respetan los filtros activos de la pantalla (estado, cliente, asesor y búsqueda)."
+          defaultDateFrom={
+            filters.dateFrom ? new Date(filters.dateFrom) : undefined
+          }
+          defaultDateTo={filters.dateTo ? new Date(filters.dateTo) : undefined}
+          fetchRows={async ({ from, to }) => {
+            const { page, limit, ...activeFilters } = filters;
+            const response = await quotesApi.findAll({
+              ...activeFilters,
+              dateFrom: from.toISOString(),
+              dateTo: to.toISOString(),
+              page: 1,
+              limit: EXPORT_LIMIT,
+            });
+            return response.data ?? [];
+          }}
+        />
+      )}
     </Box>
   );
 };

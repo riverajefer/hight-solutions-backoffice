@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
-import { DtfRepository, DtfFilters } from './dtf.repository';
+import { DtfRepository } from './dtf.repository';
 import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { StorageService } from '../storage/storage.service';
 import { OrdersService } from '../orders/orders.service';
@@ -13,8 +13,10 @@ import { AdvancePaymentApprovalsService } from '../advance-payment-approvals/adv
 import { CreateDtfRecordDto, BulkCreateDtfDto } from './dto/create-dtf-record.dto';
 import { UpdateDtfRecordDto } from './dto/update-dtf-record.dto';
 import { ChangeDtfStatusDto } from './dto/change-dtf-status.dto';
+import { FilterDtfDto } from './dto/filter-dtf.dto';
 import { DtfStatus, PaymentMethod, Prisma } from '../../generated/prisma';
 import { isValidDtfTransition } from './dtf-status-transitions';
+import { startOfDay, endOfDay } from '../../common/utils/date-range.util';
 
 @Injectable()
 export class DtfService {
@@ -27,8 +29,13 @@ export class DtfService {
     private readonly advancePaymentApprovalsService: AdvancePaymentApprovalsService,
   ) {}
 
-  async findAll(filters: DtfFilters) {
-    return this.dtfRepository.findAllWithFilters(filters);
+  async findAll(filters: FilterDtfDto) {
+    const { createdAtFrom, createdAtTo, ...rest } = filters;
+    return this.dtfRepository.findAllWithFilters({
+      ...rest,
+      createdAtFrom: startOfDay(createdAtFrom),
+      createdAtTo: endOfDay(createdAtTo),
+    });
   }
 
   async findOne(id: string) {

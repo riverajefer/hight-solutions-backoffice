@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
+  Button,
   Chip,
   IconButton,
   MenuItem,
@@ -16,6 +17,7 @@ import {
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import ClearIcon from '@mui/icons-material/Clear';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import { DatePicker } from '@mui/x-date-pickers';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { GridColDef } from '@mui/x-data-grid';
@@ -25,6 +27,12 @@ import { OrderStatusChip } from '../components';
 import { useProfitabilityList } from '../hooks';
 import type { FilterProfitabilityDto, OrderProfitabilityListItem } from '../../../types/order.types';
 import { neonColors } from '../../../theme';
+import { ExportDialog } from '../../../components/common/ExportDialog';
+import { EXPORT_LIMIT } from '../../../utils/excelExport';
+import { PROFITABILITY_EXPORT_COLUMNS } from '../utils/profitabilityExportColumns';
+import { ordersApi } from '../../../api/orders.api';
+import { useAuthStore } from '../../../store/authStore';
+import { PERMISSIONS } from '../../../utils/constants';
 
 // ============================================================
 // UTILIDADES
@@ -57,6 +65,10 @@ export const ProfitabilityPage: React.FC = () => {
   const [monthDate, setMonthDate] = useState<Date | null>(null);
   const [dateFrom,  setDateFrom]  = useState<Date | null>(null);
   const [dateTo,    setDateTo]    = useState<Date | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+
+  const { hasPermission } = useAuthStore();
+  const canExport = hasPermission(PERMISSIONS.EXPORT_PROFITABILITY);
 
   const handleMonthChange = (date: Date | null) => {
     setMonthDate(date);
@@ -233,6 +245,18 @@ export const ProfitabilityPage: React.FC = () => {
           { label: 'Órdenes', path: '/orders' },
           { label: 'Rentabilidad' },
         ]}
+        action={
+          canExport && (
+            <Button
+              variant="outlined"
+              color="success"
+              startIcon={<FileDownloadIcon />}
+              onClick={() => setExportOpen(true)}
+            >
+              Exportar a Excel
+            </Button>
+          )
+        }
       />
 
       {/* ── Summary card ── */}
@@ -383,6 +407,35 @@ export const ProfitabilityPage: React.FC = () => {
         onRowClick={handleRowClick}
         emptyMessage="No hay órdenes con datos de rentabilidad"
       />
+
+      {/* Export to Excel Dialog */}
+      {canExport && (
+        <ExportDialog<OrderProfitabilityListItem>
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          title="Exportar Rentabilidad a Excel"
+          entityLabel="órdenes"
+          fileNamePrefix="Rentabilidad_Por_Orden"
+          sheetName="Rentabilidad"
+          columns={PROFITABILITY_EXPORT_COLUMNS}
+          storageKey="profitability_export_columns"
+          dateRangeLabel="Rango de fechas (fecha de orden)"
+          helperText="Se respetan los filtros activos de la pantalla (estado y búsqueda)."
+          defaultDateFrom={dateFrom ?? undefined}
+          defaultDateTo={dateTo ?? undefined}
+          fetchRows={async ({ from, to }) => {
+            const { page, limit, ...activeFilters } = filters;
+            const response = await ordersApi.getProfitabilityList({
+              ...activeFilters,
+              orderDateFrom: from.toISOString(),
+              orderDateTo: to.toISOString(),
+              page: 1,
+              limit: EXPORT_LIMIT,
+            });
+            return response.data ?? [];
+          }}
+        />
+      )}
     </Box>
   );
 };

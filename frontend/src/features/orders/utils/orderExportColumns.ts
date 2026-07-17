@@ -7,20 +7,10 @@ import {
   ORDER_STATUS_CONFIG,
   PAYMENT_METHOD_LABELS,
 } from '../../../types/order.types';
+import type { ExportColumn } from '../../../utils/excelExport';
 import { formatDate, formatDateTime, getDaysSince } from './orderFormatters';
 
-export interface OrderExportColumn {
-  /** Clave estable (se persiste en localStorage). */
-  key: string;
-  /** Encabezado en español para la hoja de Excel. */
-  label: string;
-  /** Si aparece marcada por defecto (espejo de las columnas visibles de la tabla). */
-  defaultVisible: boolean;
-  /** Si es numérica: el valor se exporta como número y se suma en la fila de totales. */
-  numeric?: boolean;
-  /** Obtiene el valor de la celda para una orden. */
-  getValue: (order: Order) => string | number;
-}
+export type OrderExportColumn = ExportColumn<Order>;
 
 const num = (value: string | null | undefined): number => {
   const n = parseFloat(value ?? '');

@@ -9,9 +9,24 @@ export class ClientsRepository {
   /**
    * Find all clients with department and city info
    */
-  async findAll(includeInactive = false) {
+  async findAll(
+    filters: {
+      includeInactive?: boolean;
+      createdAtFrom?: Date;
+      createdAtTo?: Date;
+    } = {},
+  ) {
+    const { includeInactive = false, createdAtFrom, createdAtTo } = filters;
     const clients = await this.prisma.client.findMany({
-      where: includeInactive ? {} : { isActive: true },
+      where: {
+        ...(includeInactive ? {} : { isActive: true }),
+        ...((createdAtFrom || createdAtTo) && {
+          createdAt: {
+            ...(createdAtFrom && { gte: createdAtFrom }),
+            ...(createdAtTo && { lte: createdAtTo }),
+          },
+        }),
+      },
       select: {
         id: true,
         name: true,

@@ -31,7 +31,7 @@ import {
   FilterSalesGoalsDto,
 } from './dto';
 import { InitialPaymentDto } from './dto/create-order.dto';
-import { EditRequestStatus, OrderStatus, Prisma } from '../../generated/prisma';
+import { EditRequestStatus, OrderStatus, PaymentMethod, Prisma } from '../../generated/prisma';
 import { isValidTransition, getValidNextStatuses } from './order-status-transitions';
 import { PrismaService } from '../../database/prisma.service';
 import { startOfDay, endOfDay } from '../../common/utils/date-range.util';
@@ -460,8 +460,18 @@ export class OrdersService {
     // aunque una de ellas sea verdadera (evitar early-return que omita la otra)
     let needsRefetch = false;
 
-    // Verificar si el anticipo requiere aprobación (usuario no-admin/no-caja)
-    if (newOrder && allInitialPayments.length > 0 && paidAmount.greaterThan(0)) {
+    // Verificar si el anticipo requiere aprobación (usuario no-admin/no-caja).
+    // Todos los pagos deben ser autorizados por Caja, incluido CRÉDITO: un pago
+    // a crédito normalmente entra con monto 0 (no suma a paidAmount), por lo que
+    // debe considerarse explícitamente además del monto pagado.
+    const hasCreditInitialPayment = allInitialPayments.some(
+      (p) => p.paymentMethod === PaymentMethod.CREDIT,
+    );
+    if (
+      newOrder &&
+      allInitialPayments.length > 0 &&
+      (paidAmount.greaterThan(0) || hasCreditInitialPayment)
+    ) {
       const approvalCheck = await this.advancePaymentApprovalsService.requiresApproval(createdById);
 
       if (approvalCheck.required) {
@@ -473,8 +483,10 @@ export class OrdersService {
 
         // Crear una solicitud de aprobación + notificación WA por cada anticipo
         for (let idx = 0; idx < createdPayments.length; idx++) {
+          const isCredit = createdPayments[idx].paymentMethod === PaymentMethod.CREDIT;
+          const base = isCredit ? 'crédito' : 'anticipo';
           const paymentLabel =
-            createdPayments.length > 1 ? `anticipo ${idx + 1}` : 'anticipo';
+            createdPayments.length > 1 ? `${base} ${idx + 1}` : base;
 
           await this.advancePaymentApprovalsService.createFromOrderCreation(
             createdById,
@@ -769,9 +781,12 @@ export class OrdersService {
         `oldAdvanceStatus: ${oldOrder.advancePaymentStatus}`,
       );
 
+      // Crédito también debe ser autorizado por Caja aunque no sume monto pagado
+      const isCreditInitialPayment =
+        updateOrderDto.initialPayment?.paymentMethod === PaymentMethod.CREDIT;
       if (
         updateOrderDto.initialPayment &&
-        newPaymentAmount.greaterThan(0) &&
+        (newPaymentAmount.greaterThan(0) || isCreditInitialPayment) &&
         hadNoPreviousPayment &&
         hasNoPendingApproval
       ) {

@@ -14,7 +14,7 @@ import {
   CircularProgress,
   Tooltip,
 } from '@mui/material';
-import { Add as AddIcon, Close as CloseIcon, Collections as CollectionsIcon } from '@mui/icons-material';
+import { Add as AddIcon, Close as CloseIcon, Collections as CollectionsIcon, FileDownload as FileDownloadIcon } from '@mui/icons-material';
 import { GridRenderCellParams } from '@mui/x-data-grid';
 import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../hooks';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -29,6 +29,9 @@ import { formatCurrency, formatDate } from '../../../utils/formatters';
 import { dtfApi } from '../../../api/dtf.api';
 import axiosInstance from '../../../api/axios';
 import type { DtfRecord, DtfStatus, DtfListFilters, DtfFiles } from '../../../types/dtf.types';
+import { ExportDialog } from '../../../components/common/ExportDialog';
+import { EXPORT_LIMIT } from '../../../utils/excelExport';
+import { DTF_EXPORT_COLUMNS } from '../utils/dtfExportColumns';
 
 const STATUS_OPTIONS: { value: DtfStatus | ''; label: string }[] = [
   { value: '', label: 'Todos' },
@@ -50,6 +53,8 @@ export const DtfListPage = () => {
   const navigate = useNavigate();
   const { hasPermission } = useAuthStore();
   const [filters, setFilters] = useState<DtfListFilters>({ limit: 50 });
+  const [exportOpen, setExportOpen] = useState(false);
+  const canExport = hasPermission(PERMISSIONS.EXPORT_DTF);
   const { changeStatus, convertToOrder } = useDtfMutations();
   const [filesDialog, setFilesDialog] = useState<FilesDialogState>({
     open: false,
@@ -207,15 +212,27 @@ export const DtfListPage = () => {
         subtitle="Gestión de solicitudes DTF"
         breadcrumbs={[{ label: 'DTF' }]}
         action={
-          hasPermission(PERMISSIONS.CREATE_DTF) ? (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => navigate(PATHS.DTF_CREATE)}
-            >
-              Crear DTF
-            </Button>
-          ) : undefined
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {canExport && (
+              <Button
+                variant="outlined"
+                color="success"
+                startIcon={<FileDownloadIcon />}
+                onClick={() => setExportOpen(true)}
+              >
+                Exportar a Excel
+              </Button>
+            )}
+            {hasPermission(PERMISSIONS.CREATE_DTF) && (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => navigate(PATHS.DTF_CREATE)}
+              >
+                Crear DTF
+              </Button>
+            )}
+          </Box>
         }
       />
 
@@ -360,6 +377,39 @@ export const DtfListPage = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Export to Excel Dialog */}
+      {canExport && (
+        <ExportDialog<DtfRecord>
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          title="Exportar DTF a Excel"
+          entityLabel="registros DTF"
+          fileNamePrefix="DTF"
+          sheetName="DTF"
+          columns={DTF_EXPORT_COLUMNS}
+          storageKey="dtf_export_columns"
+          dateRangeLabel="Rango de fechas (fecha de creación)"
+          helperText="Se respetan los filtros activos de la pantalla (estado, producto y cliente)."
+          defaultDateFrom={
+            filters.createdAtFrom ? new Date(filters.createdAtFrom) : undefined
+          }
+          defaultDateTo={
+            filters.createdAtTo ? new Date(filters.createdAtTo) : undefined
+          }
+          fetchRows={async ({ from, to }) => {
+            const { page, limit, ...activeFilters } = filters;
+            const response = await dtfApi.getAll({
+              ...activeFilters,
+              createdAtFrom: from.toISOString(),
+              createdAtTo: to.toISOString(),
+              page: 1,
+              limit: EXPORT_LIMIT,
+            });
+            return response.data ?? [];
+          }}
+        />
+      )}
     </Box>
   );
 };

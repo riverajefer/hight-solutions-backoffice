@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString, IsUUID, IsInt, Min } from 'class-validator';
+import { IsDateString, IsEnum, IsOptional, IsString, IsUUID, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ExpenseOrderStatus } from '../../../generated/prisma';
 
@@ -23,6 +23,16 @@ export class FilterExpenseOrdersDto {
   @IsString()
   @IsOptional()
   search?: string;
+
+  @ApiPropertyOptional({ description: 'Fecha de creación desde (ISO 8601)' })
+  @IsDateString()
+  @IsOptional()
+  createdAtFrom?: string;
+
+  @ApiPropertyOptional({ description: 'Fecha de creación hasta (ISO 8601)' })
+  @IsDateString()
+  @IsOptional()
+  createdAtTo?: string;
 
   @ApiPropertyOptional({ default: 1, description: 'Página' })
   @Type(() => Number)

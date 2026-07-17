@@ -5,6 +5,14 @@ export type DtfStatus =
   | 'COMPLETADA'
   | 'CONVERTIDA_EN_OP';
 
+export const DTF_STATUS_LABELS: Record<DtfStatus, string> = {
+  BORRADOR: 'Borrador',
+  ENVIADA: 'Enviada',
+  EN_IMPRESION: 'En Impresión',
+  COMPLETADA: 'Completada',
+  CONVERTIDA_EN_OP: 'Convertida en OP',
+};
+
 export type DtfPaymentMethod = 'CASH' | 'TRANSFER';
 
 export const DTF_PAYMENT_METHOD_LABELS: Record<DtfPaymentMethod, string> = {
@@ -86,6 +94,10 @@ export interface DtfListFilters {
   status?: DtfStatus;
   productId?: string;
   clientId?: string;
+  /** Fecha de creación desde (ISO 8601). */
+  createdAtFrom?: string;
+  /** Fecha de creación hasta (ISO 8601). */
+  createdAtTo?: string;
   page?: number;
   limit?: number;
 }

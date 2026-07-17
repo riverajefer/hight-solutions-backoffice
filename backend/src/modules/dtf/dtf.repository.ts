@@ -37,6 +37,8 @@ export interface DtfFilters {
   status?: DtfStatus;
   productId?: string;
   clientId?: string;
+  createdAtFrom?: Date;
+  createdAtTo?: Date;
   page?: number;
   limit?: number;
 }
@@ -46,13 +48,27 @@ export class DtfRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAllWithFilters(filters: DtfFilters) {
-    const { status, productId, clientId, page = 1, limit = 50 } = filters;
+    const {
+      status,
+      productId,
+      clientId,
+      createdAtFrom,
+      createdAtTo,
+      page = 1,
+      limit = 50,
+    } = filters;
     const skip = (page - 1) * limit;
 
     const where: Prisma.DtfRecordWhereInput = {
       ...(status && { status }),
       ...(productId && { productId }),
       ...(clientId && { clientId }),
+      ...((createdAtFrom || createdAtTo) && {
+        createdAt: {
+          ...(createdAtFrom && { gte: createdAtFrom }),
+          ...(createdAtTo && { lte: createdAtTo }),
+        },
+      }),
     };
 
     const [data, total] = await Promise.all([
