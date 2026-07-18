@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { commercialChannelsApi } from '../../../api/commercialChannels.api';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -37,6 +37,8 @@ import { QuoteItemsTable } from '../components/QuoteItemsTable';
 import { OrderTotals } from '../../orders/components/OrderTotals';
 import type { Client } from '../../../types/client.types';
 import { quotesApi } from '../../../api/quotes.api';
+import { prospectsApi } from '../../../api/prospects.api';
+import { clientsApi } from '../../../api/clients.api';
 import { storageApi } from '../../../api/storage.api';
 import { useSnackbar } from 'notistack';
 import { useAuthStore } from '../../../store/authStore';
@@ -223,6 +225,8 @@ const StepHeader: React.FC<StepHeaderProps> = ({ index, config, status, compact 
 export const QuoteFormPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  // `clientId` y `prospectId` los pone el Pipeline de Ventas al convertir.
+  const [searchParams] = useSearchParams();
   const isEdit = !!id;
   const { enqueueSnackbar } = useSnackbar();
   const queryClient = useQueryClient();
@@ -288,6 +292,21 @@ export const QuoteFormPage: React.FC = () => {
       setValue('applyTax', selectedClient.personType === 'EMPRESA');
     }
   }, [selectedClient, setValue, isEdit]);
+
+  // Precargar el cliente cuando se llega convirtiendo un prospecto
+  useEffect(() => {
+    const clientId = searchParams.get('clientId');
+    if (isEdit || !clientId || selectedClient) return;
+
+    clientsApi
+      .getById(clientId)
+      .then((client) => setValue('client', client as any, { shouldValidate: true }))
+      .catch(() =>
+        enqueueSnackbar('No se pudo cargar el cliente del prospecto', {
+          variant: 'warning',
+        }),
+      );
+  }, [searchParams, isEdit, selectedClient, setValue, enqueueSnackbar]);
 
   // Load edit data
   useEffect(() => {
@@ -382,7 +401,22 @@ export const QuoteFormPage: React.FC = () => {
       if (isEdit) {
         await updateQuoteMutation.mutateAsync({ id: id!, data: quoteDto });
       } else {
-        await createQuoteMutation.mutateAsync(quoteDto);
+        const created = await createQuoteMutation.mutateAsync(quoteDto);
+
+        // Cuando se llega desde el Pipeline de Ventas, se enlaza la cotización
+        // de vuelta al prospecto para poder medir la conversión. Si esto falla,
+        // la cotización ya quedó creada: no se bloquea al usuario.
+        const prospectId = searchParams.get('prospectId');
+        if (prospectId && created?.id) {
+          try {
+            await prospectsApi.update(prospectId, { quoteId: created.id });
+          } catch {
+            enqueueSnackbar(
+              'La cotización se creó, pero no se pudo enlazar al prospecto.',
+              { variant: 'warning' },
+            );
+          }
+        }
       }
       navigate('/quotes');
     } catch (error) {

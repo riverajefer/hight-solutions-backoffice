@@ -36,6 +36,7 @@ import { PaymentEditApprovalsModule } from './modules/payment-edit-approvals/pay
 import { DiscountApprovalsModule } from './modules/discount-approvals/discount-approvals.module';
 import { ClientOwnershipAuthRequestsModule } from './modules/client-ownership-auth-requests/client-ownership-auth-requests.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
+import { ProspectsModule } from './modules/prospects/prospects.module';
 import { QuoteKanbanColumnsModule } from './modules/quote-kanban-columns/quote-kanban-columns.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { CompanyModule } from './modules/company/company.module';
@@ -110,6 +111,8 @@ import { DtfModule } from './modules/dtf/dtf.module';
     ConsecutivesModule,
     // Módulo de Cotizaciones
     QuotesModule,
+    // Módulo de Pipeline de Ventas (Prospectos)
+    ProspectsModule,
     // Módulo de Columnas del Tablero Kanban de Cotizaciones
     QuoteKanbanColumnsModule,
     // Módulo de Órdenes de Pedido

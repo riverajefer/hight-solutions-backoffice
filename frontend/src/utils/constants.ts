@@ -98,6 +98,15 @@ export const PERMISSIONS = {
   CONVERT_QUOTES: 'convert_quotes',
   MANAGE_QUOTE_COLUMNS: 'manage_quote_columns',
   READ_ALL_QUOTES: 'read_all_quotes',
+  // Sales Pipeline (Prospectos)
+  CREATE_PROSPECTS: 'create_prospects',
+  READ_PROSPECTS: 'read_prospects',
+  READ_ALL_PROSPECTS: 'read_all_prospects',
+  UPDATE_PROSPECTS: 'update_prospects',
+  DELETE_PROSPECTS: 'delete_prospects',
+  CONVERT_PROSPECTS: 'convert_prospects',
+  EXPORT_PROSPECTS: 'export_prospects',
+  READ_PROSPECT_METRICS: 'read_prospect_metrics',
   // Company
   READ_COMPANY: 'read_company',
   UPDATE_COMPANY: 'update_company',
@@ -263,6 +272,9 @@ export const ROUTES = {
   QUOTES_CREATE: '/quotes/new',
   QUOTES_EDIT: '/quotes/:id/edit',
   QUOTES_DETAIL: '/quotes/:id',
+  // Sales Pipeline (Prospectos)
+  PROSPECTS: '/prospects',
+  PROSPECT_METRICS: '/prospects/metrics',
   // Company
   COMPANY: '/company',
   // Work Orders
