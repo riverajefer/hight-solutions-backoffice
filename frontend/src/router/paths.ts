@@ -67,6 +67,9 @@ export const PATHS = {
   QUOTES_CREATE: '/quotes/new',
   QUOTES_EDIT: '/quotes/:id/edit',
   QUOTES_DETAIL: '/quotes/:id',
+  // Sales Pipeline (Prospectos)
+  PROSPECTS: '/prospects',
+  PROSPECT_METRICS: '/prospects/metrics',
   // Commercial Channels Routes
   COMMERCIAL_CHANNELS: '/commercial-channels',
   COMMERCIAL_CHANNELS_CREATE: '/commercial-channels/new',

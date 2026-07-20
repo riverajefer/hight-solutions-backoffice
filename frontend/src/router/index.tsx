@@ -62,6 +62,16 @@ const CommercialChannelsListPage = lazy(() => import('../features/commercial-cha
 const CommercialChannelFormPage = lazy(() => import('../features/commercial-channels/pages/CommercialChannelFormPage'));
 const CommercialChannelDetailPage = lazy(() => import('../features/commercial-channels/pages/CommercialChannelDetailPage'));
 // Quotes
+const ProspectsListPage = lazy(() =>
+  import('../features/prospects/pages/ProspectsListPage').then((m) => ({
+    default: m.ProspectsListPage,
+  })),
+);
+const ProspectMetricsPage = lazy(() =>
+  import('../features/prospects/pages/ProspectMetricsPage').then((m) => ({
+    default: m.ProspectMetricsPage,
+  })),
+);
 const QuotesListPage = lazy(() => import('../features/quotes/pages/QuotesListPage'));
 const QuoteFormPage = lazy(() => import('../features/quotes/pages/QuoteFormPage'));
 const QuoteDetailPage = lazy(() => import('../features/quotes/pages/QuoteDetailPage'));
@@ -768,6 +778,33 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.READ_ORDERS}>
                   <OrderFlowPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Sales Pipeline Routes */}
+        {/* /prospects/metrics va antes que /prospects para no ser capturada */}
+        <Route
+          path={PATHS.PROSPECT_METRICS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_PROSPECT_METRICS}>
+                  <ProspectMetricsPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PROSPECTS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_PROSPECTS}>
+                  <ProspectsListPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

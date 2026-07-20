@@ -102,6 +102,15 @@ export const PERMISSION_LABELS: Record<string, string> = {
   convert_quotes: 'Convertir Cotizaciones',
   manage_quote_columns: 'Gestionar Columnas de Cotización',
   read_all_quotes: 'Ver Todas las Cotizaciones',
+  // Pipeline de Ventas
+  create_prospects: 'Crear Prospectos',
+  read_prospects: 'Ver Prospectos',
+  read_all_prospects: 'Ver Prospectos de Todas las Vendedoras',
+  update_prospects: 'Actualizar Prospectos y Registrar Contactos',
+  delete_prospects: 'Eliminar Prospectos',
+  convert_prospects: 'Convertir Prospectos',
+  export_prospects: 'Exportar Prospectos a Excel',
+  read_prospect_metrics: 'Ver Métricas del Pipeline',
    // Órdenes
    create_orders: 'Crear Órdenes',
    read_orders: 'Ver Órdenes',

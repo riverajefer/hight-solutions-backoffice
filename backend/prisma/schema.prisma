@@ -92,6 +92,10 @@ model User {
   requestedApPaymentReversalRequests        AccountPayablePaymentReversalRequest[] @relation("RequestedApPaymentReversalRequests")
   gerenciaReviewedApPaymentReversalRequests AccountPayablePaymentReversalRequest[] @relation("GerenciaReviewedApPaymentReversalRequests")
   cajaReviewedApPaymentReversalRequests     AccountPayablePaymentReversalRequest[] @relation("CajaReviewedApPaymentReversalRequests")
+  // Pipeline de Ventas
+  advisedProspects                          Prospect[]                             @relation("ProspectAdvisor")
+  createdProspects                          Prospect[]                             @relation("ProspectCreatedBy")
+  registeredProspectContacts                ProspectContact[]                      @relation("ProspectContactCreatedBy")
 
   @@map("users")
 }
@@ -233,6 +237,7 @@ model Client {
   orders     Order[]
   quotes     Quote[]
   dtfRecords DtfRecord[]
+  prospects  Prospect[]
 
   @@map("clients")
 }
@@ -505,6 +510,7 @@ model Order {
 
   workOrders WorkOrder[]
   dtfRecords DtfRecord[]
+  prospects  Prospect[]
 
   @@index([clientId])
   @@index([createdById])
@@ -544,6 +550,9 @@ model Quote {
   // Referencia a la orden si se convirtió
   orderId String? @unique @map("order_id")
   order   Order?  @relation("QuoteToOrder", fields: [orderId], references: [id])
+
+  // Prospectos del pipeline que originaron esta cotización
+  prospects Prospect[]
 
   @@index([clientId])
   @@index([createdById])
@@ -2275,4 +2284,94 @@ model DtfStatusHistory {
 
   @@index([dtfId])
   @@map("dtf_status_history")
+}
+
+// ============================================
+// PIPELINE DE VENTAS (Prospectos)
+// ============================================
+
+enum ProspectStatus {
+  NUEVO
+  EN_SEGUIMIENTO
+  COTIZADO
+  CONVERTIDO
+  PERDIDO
+  NO_INTERESADO
+}
+
+enum ContactMedium {
+  WHATSAPP
+  LLAMADA
+  CORREO
+  PRESENCIAL
+  REDES
+  OTRO
+}
+
+enum ContactOutcome {
+  CONTESTO
+  NO_CONTESTO
+  SOLICITO_COTIZACION
+  NO_INTERESADO
+  REPROGRAMAR
+}
+
+/// Contacto comercial en seguimiento. Todos los datos de identificación son
+/// opcionales a propósito: la vendedora a veces solo tiene el celular.
+/// La regla "al menos uno de name/phone/email" se valida en el servicio.
+model Prospect {
+  id          String         @id @default(uuid())
+  name        String?
+  phone       String?
+  email       String?
+  observation String?
+  status      ProspectStatus @default(NUEVO)
+
+  advisorId String  @map("advisor_id")
+  clientId  String? @map("client_id")
+  quoteId   String? @map("quote_id")
+  orderId   String? @map("order_id")
+
+  // Denormalizado: se recalcula al crear/eliminar un contacto, en la misma
+  // transacción. Permite ordenar por "días sin contactar" sin subqueries.
+  lastContactAt DateTime? @map("last_contact_at")
+  contactCount  Int       @default(0) @map("contact_count")
+
+  createdById String   @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  advisor   User              @relation("ProspectAdvisor", fields: [advisorId], references: [id])
+  createdBy User              @relation("ProspectCreatedBy", fields: [createdById], references: [id])
+  client    Client?           @relation(fields: [clientId], references: [id])
+  quote     Quote?            @relation(fields: [quoteId], references: [id])
+  order     Order?            @relation(fields: [orderId], references: [id])
+  contacts  ProspectContact[]
+
+  @@index([advisorId])
+  @@index([status])
+  @@index([lastContactAt])
+  @@index([createdAt])
+  @@map("prospects")
+}
+
+/// Cada toque comercial hecho a un prospecto. Reemplaza las columnas fijas
+/// CONTACTO 1/2/3 de la hoja de cálculo: aquí no hay límite.
+model ProspectContact {
+  id          String          @id @default(uuid())
+  prospectId  String          @map("prospect_id")
+  contactDate DateTime        @map("contact_date")
+  medium      ContactMedium
+  outcome     ContactOutcome?
+  note        String?
+  createdById String          @map("created_by_id")
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  prospect  Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  createdBy User     @relation("ProspectContactCreatedBy", fields: [createdById], references: [id])
+
+  @@index([prospectId])
+  @@index([contactDate])
+  @@index([medium])
+  @@map("prospect_contacts")
 }
