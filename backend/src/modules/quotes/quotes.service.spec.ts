@@ -11,7 +11,7 @@ import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { StorageService } from '../storage/storage.service';
 import { PrismaService } from '../../database/prisma.service';
-import { QuoteStatus, OrderStatus, Prisma } from '../../generated/prisma';
+import { QuoteStatus, OrderStatus, ProspectStatus, Prisma } from '../../generated/prisma';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MOCKS
@@ -31,7 +31,13 @@ const mockQuotesRepository = {
 
 const mockConsecutivesService = {
   generateNumber: jest.fn(),
+  syncCounter: jest.fn(),
 };
+
+/** Error de Prisma por violación de restricción única, como el de `quote_number`. */
+const uniqueViolation = () => Object.assign(new Error('Unique constraint failed'), {
+  code: 'P2002',
+});
 
 const mockAuditLogsService = {
   create: jest.fn(),
@@ -60,6 +66,9 @@ const txMock = {
   },
   order: {
     create: jest.fn(),
+  },
+  prospect: {
+    updateMany: jest.fn(),
   },
 };
 
@@ -265,6 +274,53 @@ describe('QuotesService', () => {
       await expect(service.create({ ...createQuoteDto, items: [] }, 'user-1')).rejects.toThrow(
         BadRequestException,
       );
+    });
+
+    // El contador `consecutives` puede quedar por detrás de los datos reales y
+    // devolver un número ya usado. Antes esto reventaba con P2002 sin reintento.
+    it('should sync the counter and retry when quote_number is duplicated', async () => {
+      mockConsecutivesService.generateNumber
+        .mockResolvedValueOnce('COT-2026-0001') // ya existe
+        .mockResolvedValueOnce('COT-2026-0002'); // libre tras sincronizar
+      mockQuotesRepository.create
+        .mockRejectedValueOnce(uniqueViolation())
+        .mockResolvedValueOnce(mockQuote);
+
+      const result = await service.create(createQuoteDto, 'user-1');
+
+      expect(mockConsecutivesService.syncCounter).toHaveBeenCalledWith('QUOTE');
+      expect(mockConsecutivesService.generateNumber).toHaveBeenCalledTimes(2);
+      expect(mockQuotesRepository.create).toHaveBeenCalledTimes(2);
+      // El reintento debe usar el número nuevo, no repetir el que falló.
+      expect(mockQuotesRepository.create).toHaveBeenLastCalledWith(
+        expect.objectContaining({ quoteNumber: 'COT-2026-0002' }),
+      );
+      expect(result).toEqual(mockQuote);
+    });
+
+    it('should give up after 3 attempts and rethrow the unique violation', async () => {
+      mockConsecutivesService.generateNumber.mockResolvedValue('COT-2026-0001');
+      mockQuotesRepository.create.mockRejectedValue(uniqueViolation());
+
+      await expect(service.create(createQuoteDto, 'user-1')).rejects.toMatchObject({
+        code: 'P2002',
+      });
+
+      expect(mockQuotesRepository.create).toHaveBeenCalledTimes(3);
+      // No sincroniza tras el último intento fallido.
+      expect(mockConsecutivesService.syncCounter).toHaveBeenCalledTimes(2);
+    });
+
+    it('should not retry on errors other than a unique violation', async () => {
+      mockConsecutivesService.generateNumber.mockResolvedValue('COT-2026-0001');
+      mockQuotesRepository.create.mockRejectedValue(
+        Object.assign(new Error('FK violation'), { code: 'P2003' }),
+      );
+
+      await expect(service.create(createQuoteDto, 'user-1')).rejects.toThrow('FK violation');
+
+      expect(mockQuotesRepository.create).toHaveBeenCalledTimes(1);
+      expect(mockConsecutivesService.syncCounter).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException if items is undefined', async () => {
@@ -775,6 +831,21 @@ describe('QuotesService', () => {
           data: { status: QuoteStatus.CONVERTED, orderId: 'order-1' },
         }),
       );
+    });
+
+    // Cierra el ciclo del Pipeline de Ventas: sin esto el prospecto se queda en
+    // "Cotizado" aunque su cotización ya se haya vuelto una orden.
+    it('should mark the originating prospect as CONVERTIDO', async () => {
+      mockQuotesRepository.findById.mockResolvedValue(mockQuote);
+      mockConsecutivesService.generateNumber.mockResolvedValue('ORD-001');
+      txMock.order.create.mockResolvedValue({ id: 'order-1' });
+
+      await service.convertToOrder('quote-1', 'user-1');
+
+      expect(txMock.prospect.updateMany).toHaveBeenCalledWith({
+        where: { quoteId: 'quote-1' },
+        data: { orderId: 'order-1', status: ProspectStatus.CONVERTIDO },
+      });
     });
 
     it('should throw BadRequestException if already converted', async () => {

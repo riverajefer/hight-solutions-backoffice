@@ -21,7 +21,7 @@ import {
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { commercialChannelsApi } from '../../../api/commercialChannels.api';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useForm, Controller, type SubmitHandler, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -44,6 +44,7 @@ import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { useOrders, useOrder } from '../hooks';
 import { ordersApi } from '../../../api/orders.api';
+import { prospectsApi } from '../../../api/prospects.api';
 import { useEditRequests } from '../../../hooks/useEditRequests';
 import {
   ClientSelector,
@@ -317,6 +318,8 @@ const StepHeader: React.FC<StepHeaderProps> = ({ index, config, status, clickabl
 export const OrderFormPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  // `clientId` y `prospectId` los pone el Pipeline de Ventas al convertir.
+  const [searchParams] = useSearchParams();
   const { user } = useAuthStore();
 
   const isEdit = !!id;
@@ -713,6 +716,21 @@ export const OrderFormPage: React.FC = () => {
                 enqueueSnackbar('Orden creada, pero hubo un error subiendo un comprobante', { variant: 'warning' });
               }
             }
+          }
+        }
+
+        // Cuando se llega desde el Pipeline de Ventas, se enlaza la orden de
+        // vuelta al prospecto para marcarlo como convertido y poder medirlo.
+        // Si esto falla, la orden ya quedó creada: no se bloquea al usuario.
+        const prospectId = searchParams.get('prospectId');
+        if (prospectId) {
+          try {
+            await prospectsApi.update(prospectId, { orderId: newOrder.id });
+          } catch {
+            enqueueSnackbar(
+              'La orden se creó, pero no se pudo enlazar al prospecto.',
+              { variant: 'warning' },
+            );
           }
         }
 

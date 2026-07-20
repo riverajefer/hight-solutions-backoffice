@@ -10,6 +10,7 @@ import {
   Prospect,
   ProspectStatus,
 } from '../../../../types/prospect.types';
+import { ProspectDocumentCell } from '../ProspectDocumentCell';
 
 interface ProspectKanbanCardProps {
   prospect: Prospect;
@@ -90,14 +91,10 @@ export const ProspectKanbanCard: React.FC<ProspectKanbanCardProps> = ({
           </Typography>
         )}
 
-        {prospect.quote && (
-          <Chip
-            size="small"
-            color="info"
-            variant="outlined"
-            label={prospect.quote.quoteNumber}
-            sx={{ mt: 0.5 }}
-          />
+        {(prospect.quote || prospect.order) && (
+          <Box sx={{ mt: 0.5 }} onClick={(e) => e.stopPropagation()}>
+            <ProspectDocumentCell prospect={prospect} compact />
+          </Box>
         )}
 
         {!isOverlay && (canUpdate || canConvert) && (
