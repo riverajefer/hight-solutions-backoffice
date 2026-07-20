@@ -49,8 +49,6 @@ export class QuotesService {
       throw new BadRequestException('Quote must have at least one item');
     }
 
-    const quoteNumber = await this.consecutivesService.generateNumber('QUOTE');
-
     let subtotal = new Prisma.Decimal(0);
     const items = createQuoteDto.items.map((item, index) => {
       const itemTotal = new Prisma.Decimal(item.quantity).mul(item.unitPrice);
@@ -88,26 +86,55 @@ export class QuotesService {
     const tax = subtotal.mul(taxRate);
     const total = subtotal.add(tax);
 
-    const newQuote = await this.quotesRepository.create({
-      quoteNumber,
-      quoteDate: new Date(),
-      validUntil: createQuoteDto.validUntil ? new Date(createQuoteDto.validUntil) : undefined,
-      subtotal,
-      taxRate,
-      tax,
-      total,
-      notes: createQuoteDto.notes,
-      client: { connect: { id: createQuoteDto.clientId } },
-      createdBy: { connect: { id: createdById } },
-      ...(createQuoteDto.commercialChannelId && {
-        commercialChannel: { connect: { id: createQuoteDto.commercialChannelId } },
-      }),
-      items: {
-        create: items,
-      },
-    });
+    // Generar el consecutivo y crear, con reintento ante número duplicado.
+    // El contador `consecutives` puede quedar por detrás de los datos reales
+    // (p. ej. tras sembrar cotizaciones), y entonces `generateNumber` devuelve
+    // un número ya usado → P2002. Mismo patrón que órdenes, OT y DTF.
+    const MAX_RETRIES = 3;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      const quoteNumber = await this.consecutivesService.generateNumber('QUOTE');
 
-    return newQuote;
+      try {
+        return await this.quotesRepository.create({
+          quoteNumber,
+          quoteDate: new Date(),
+          validUntil: createQuoteDto.validUntil
+            ? new Date(createQuoteDto.validUntil)
+            : undefined,
+          subtotal,
+          taxRate,
+          tax,
+          total,
+          notes: createQuoteDto.notes,
+          client: { connect: { id: createQuoteDto.clientId } },
+          createdBy: { connect: { id: createdById } },
+          ...(createQuoteDto.commercialChannelId && {
+            commercialChannel: {
+              connect: { id: createQuoteDto.commercialChannelId },
+            },
+          }),
+          items: {
+            create: items,
+          },
+        });
+      } catch (error: any) {
+        // La única restricción única en `quotes` es `quote_number`, así que
+        // basta con el código de error, igual que en órdenes y OT.
+        const isUniqueViolation = error?.code === 'P2002';
+
+        if (isUniqueViolation && attempt < MAX_RETRIES - 1) {
+          // Realinea el contador con el máximo real de la tabla y reintenta.
+          await this.consecutivesService.syncCounter('QUOTE');
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    // Inalcanzable: el bucle retorna o lanza en el último intento.
+    throw new BadRequestException(
+      'No se pudo generar un número de cotización disponible',
+    );
   }
 
   async update(id: string, updateQuoteDto: UpdateQuoteDto, userId: string) {
