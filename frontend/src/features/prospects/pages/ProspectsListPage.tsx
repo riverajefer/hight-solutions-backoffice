@@ -49,6 +49,7 @@ import {
 } from '../hooks/useProspects';
 import { ProspectStatusChip } from '../components/ProspectStatusChip';
 import { EditableObservationCell } from '../components/EditableObservationCell';
+import { ProspectDocumentCell } from '../components/ProspectDocumentCell';
 import { ProspectFormDialog } from '../components/ProspectFormDialog';
 import { ProspectContactDialog } from '../components/ProspectContactDialog';
 import { ProspectDetailDrawer } from '../components/ProspectDetailDrawer';
@@ -211,6 +212,14 @@ export const ProspectsListPage: React.FC = () => {
             />
           );
         },
+      },
+      {
+        field: 'documento',
+        headerName: 'Documento',
+        flex: 0.9,
+        minWidth: 160,
+        sortable: false,
+        renderCell: (params) => <ProspectDocumentCell prospect={params.row} />,
       },
       {
         field: 'observation',

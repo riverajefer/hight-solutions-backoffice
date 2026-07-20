@@ -14,7 +14,7 @@ import {
   AddQuoteItemDto,
   UpdateQuoteItemDto,
 } from './dto';
-import { QuoteStatus, OrderStatus, Prisma } from '../../generated/prisma';
+import { QuoteStatus, OrderStatus, ProspectStatus, Prisma } from '../../generated/prisma';
 import { isValidQuoteTransition, getValidNextQuoteStatuses } from './quote-status-transitions';
 import { PrismaService } from '../../database/prisma.service';
 
@@ -365,10 +365,18 @@ export class QuotesService {
       // 3. Update Quote status
       await tx.quote.update({
         where: { id: quote.id },
-        data: { 
+        data: {
           status: QuoteStatus.CONVERTED,
-          orderId: newOrder.id 
+          orderId: newOrder.id
         },
+      });
+
+      // 4. Cerrar el ciclo del Pipeline de Ventas: si esta cotización nació de
+      // un prospecto, ese prospecto acaba de convertirse en venta. Sin esto se
+      // quedaría en "Cotizado" y el tablero contradiría a la orden ya creada.
+      await tx.prospect.updateMany({
+        where: { quoteId: quote.id },
+        data: { orderId: newOrder.id, status: ProspectStatus.CONVERTIDO },
       });
 
       return newOrder;

@@ -11,7 +11,7 @@ import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { StorageService } from '../storage/storage.service';
 import { PrismaService } from '../../database/prisma.service';
-import { QuoteStatus, OrderStatus, Prisma } from '../../generated/prisma';
+import { QuoteStatus, OrderStatus, ProspectStatus, Prisma } from '../../generated/prisma';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MOCKS
@@ -66,6 +66,9 @@ const txMock = {
   },
   order: {
     create: jest.fn(),
+  },
+  prospect: {
+    updateMany: jest.fn(),
   },
 };
 
@@ -828,6 +831,21 @@ describe('QuotesService', () => {
           data: { status: QuoteStatus.CONVERTED, orderId: 'order-1' },
         }),
       );
+    });
+
+    // Cierra el ciclo del Pipeline de Ventas: sin esto el prospecto se queda en
+    // "Cotizado" aunque su cotización ya se haya vuelto una orden.
+    it('should mark the originating prospect as CONVERTIDO', async () => {
+      mockQuotesRepository.findById.mockResolvedValue(mockQuote);
+      mockConsecutivesService.generateNumber.mockResolvedValue('ORD-001');
+      txMock.order.create.mockResolvedValue({ id: 'order-1' });
+
+      await service.convertToOrder('quote-1', 'user-1');
+
+      expect(txMock.prospect.updateMany).toHaveBeenCalledWith({
+        where: { quoteId: 'quote-1' },
+        data: { orderId: 'order-1', status: ProspectStatus.CONVERTIDO },
+      });
     });
 
     it('should throw BadRequestException if already converted', async () => {

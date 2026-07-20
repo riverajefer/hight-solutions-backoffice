@@ -95,14 +95,16 @@ export const PROSPECT_EXPORT_COLUMNS: ProspectExportColumn[] = [
   {
     key: 'quoteNumber',
     label: 'Nº Cotización',
-    defaultVisible: false,
+    defaultVisible: true,
     getValue: (p) => p.quote?.quoteNumber ?? '',
   },
   {
     key: 'orderNumber',
     label: 'Nº Orden',
-    defaultVisible: false,
-    getValue: (p) => p.order?.orderNumber ?? '',
+    defaultVisible: true,
+    // La orden puede venir directa del prospecto o derivada de su cotización;
+    // en el segundo caso no traemos el consecutivo, solo el id.
+    getValue: (p) => p.order?.orderNumber ?? (p.quote?.orderId ? 'Convertida' : ''),
   },
   {
     key: 'client',
