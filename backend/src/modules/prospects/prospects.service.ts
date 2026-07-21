@@ -197,6 +197,15 @@ export class ProspectsService {
   async convert(id: string, dto: ConvertProspectDto, userId: string) {
     const prospect = await this.findOne(id, userId);
 
+    // Un prospecto con documento asociado (cotización u orden) ya no se puede
+    // volver a convertir: hacerlo crearía una segunda cotización y sobrescribiría
+    // el enlace, inflando las métricas. Se rechaza aquí, no solo en la UI.
+    if (prospect.quoteId || prospect.orderId) {
+      throw new BadRequestException(
+        'Este prospecto ya tiene un documento asociado y no se puede volver a convertir',
+      );
+    }
+
     if (prospect.status === ProspectStatus.CONVERTIDO) {
       throw new BadRequestException(
         'Este prospecto ya fue convertido en una orden',

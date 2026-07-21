@@ -132,6 +132,15 @@ export interface Prospect {
   contacts?: ProspectContact[];
 }
 
+/**
+ * Un prospecto ya no se puede convertir cuando tiene un documento asociado:
+ * una cotización o una orden. Convertirlo de nuevo crearía una segunda
+ * cotización y sobrescribiría el enlace, inflando las métricas. Se usa para
+ * ocultar el botón "Convertir" en lista, kanban y detalle de forma consistente.
+ */
+export const prospectHasDocument = (p: Prospect): boolean =>
+  Boolean(p.quoteId || p.orderId || p.quote || p.order);
+
 export interface CreateProspectDto {
   name?: string;
   phone?: string;

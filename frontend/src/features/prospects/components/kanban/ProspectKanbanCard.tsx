@@ -8,7 +8,7 @@ import { formatDate } from '../../../../utils/formatters';
 import {
   CONTACT_MEDIUM_LABELS,
   Prospect,
-  ProspectStatus,
+  prospectHasDocument,
 } from '../../../../types/prospect.types';
 import { ProspectDocumentCell } from '../ProspectDocumentCell';
 
@@ -110,7 +110,7 @@ export const ProspectKanbanCard: React.FC<ProspectKanbanCardProps> = ({
                 </IconButton>
               </Tooltip>
             )}
-            {canConvert && prospect.status !== ProspectStatus.CONVERTIDO && (
+            {canConvert && !prospectHasDocument(prospect) && (
               <Tooltip title="Convertir">
                 <IconButton size="small" onClick={() => onConvert?.(prospect)}>
                   <RequestQuoteIcon fontSize="small" />
