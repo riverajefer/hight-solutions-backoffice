@@ -137,6 +137,64 @@ describe('AdvisorChangeRequestsService', () => {
     });
   });
 
+  describe('changeAdvisorDirectly (atajo admin)', () => {
+    it('reassigns immediately and records an auto-approved trail', async () => {
+      prisma.user.findUnique
+        .mockResolvedValueOnce(ADMIN) // assertAdmin
+        .mockResolvedValueOnce(NEW_ADVISOR); // target advisor
+      prisma.order.findUnique.mockResolvedValue(ORDER);
+      prisma.order.update.mockResolvedValue(ORDER);
+      prisma.advisorChangeRequest.create.mockResolvedValue({ id: 'direct-1', status: 'APPROVED' });
+
+      const result = await service.changeAdvisorDirectly('admin-1', {
+        orderId: 'order-1',
+        requestedAdvisorId: 'advisor-new',
+        reason: 'reasignación directa',
+      });
+
+      expect(prisma.order.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'order-1' },
+          data: { createdBy: { connect: { id: 'advisor-new' } } },
+        }),
+      );
+      expect(prisma.advisorChangeRequest.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'APPROVED',
+            reviewedById: 'admin-1',
+            currentAdvisorId: 'advisor-old',
+            requestedAdvisorId: 'advisor-new',
+          }),
+        }),
+      );
+      expect(result.status).toBe('APPROVED');
+    });
+
+    it('forbids non-admins', async () => {
+      prisma.user.findUnique.mockResolvedValueOnce(NON_ADMIN);
+      await expect(
+        service.changeAdvisorDirectly('requester-1', {
+          orderId: 'order-1',
+          requestedAdvisorId: 'advisor-new',
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('rejects reassigning to the same advisor', async () => {
+      prisma.user.findUnique
+        .mockResolvedValueOnce(ADMIN)
+        .mockResolvedValueOnce({ ...NEW_ADVISOR, id: 'advisor-old' });
+      prisma.order.findUnique.mockResolvedValue(ORDER);
+      await expect(
+        service.changeAdvisorDirectly('admin-1', {
+          orderId: 'order-1',
+          requestedAdvisorId: 'advisor-old',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
   describe('approve', () => {
     const PENDING_REQUEST = {
       id: 'req-1',

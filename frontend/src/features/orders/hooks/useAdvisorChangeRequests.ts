@@ -28,5 +28,18 @@ export const useAdvisorChangeRequest = (orderId?: string) => {
     },
   });
 
-  return { orderRequestQuery, createMutation };
+  const changeDirectlyMutation = useMutation({
+    mutationFn: (dto: CreateAdvisorChangeRequestDto) =>
+      advisorChangeRequestsApi.changeDirectly(dto),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ['advisor-change-requests', 'order', orderId],
+      });
+      queryClient.invalidateQueries({ queryKey: ADVISOR_CHANGE_PENDING_KEY });
+      // La OP cambió de dueño: refrescar el detalle y los listados
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    },
+  });
+
+  return { orderRequestQuery, createMutation, changeDirectlyMutation };
 };

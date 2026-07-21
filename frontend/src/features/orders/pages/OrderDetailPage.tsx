@@ -870,7 +870,8 @@ export const OrderDetailPage: React.FC = () => {
             orderStatus={order.status}
           />
 
-          {permissions.includes('request_advisor_change') && (
+          {(permissions.includes('request_advisor_change') ||
+            permissions.includes('approve_advisor_change')) && (
             <RequestAdvisorChangeButton
               orderId={id!}
               currentAdvisorId={order.createdBy.id}

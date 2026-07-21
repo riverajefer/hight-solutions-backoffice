@@ -50,7 +50,7 @@ export const RequestAdvisorChangeButton: React.FC<
   const [open, setOpen] = useState(false);
   const { user } = useAuthStore();
   const { enqueueSnackbar } = useSnackbar();
-  const { orderRequestQuery, createMutation } =
+  const { orderRequestQuery, createMutation, changeDirectlyMutation } =
     useAdvisorChangeRequest(orderId);
   const { usersQuery } = useUsers({ enabled: open });
 
@@ -64,11 +64,9 @@ export const RequestAdvisorChangeButton: React.FC<
     defaultValues: { requestedAdvisorId: '', reason: '' },
   });
 
+  // Los admins reasignan directamente; el resto crea una solicitud de autorización.
   const isAdmin = user?.role?.name === 'admin';
-  // Los admins reasignan aprobando la solicitud desde el panel, no crean solicitud.
-  if (isAdmin) {
-    return null;
-  }
+  const activeMutation = isAdmin ? changeDirectlyMutation : createMutation;
 
   const pendingRequest =
     orderRequestQuery.data && orderRequestQuery.data.status === 'PENDING'
@@ -83,20 +81,24 @@ export const RequestAdvisorChangeButton: React.FC<
 
   const onSubmit = async (data: FormData) => {
     try {
-      await createMutation.mutateAsync({
+      await activeMutation.mutateAsync({
         orderId,
         requestedAdvisorId: data.requestedAdvisorId,
         reason: data.reason,
       });
       enqueueSnackbar(
-        'Solicitud enviada. Espere la aprobación de un administrador.',
-        { variant: 'info' },
+        isAdmin
+          ? 'Asesor de la OP actualizado correctamente.'
+          : 'Solicitud enviada. Espere la aprobación de un administrador.',
+        { variant: isAdmin ? 'success' : 'info' },
       );
       handleClose();
     } catch (error: any) {
       enqueueSnackbar(
         error?.response?.data?.message ||
-          'No se pudo enviar la solicitud de cambio de asesor',
+          (isAdmin
+            ? 'No se pudo cambiar el asesor de la OP'
+            : 'No se pudo enviar la solicitud de cambio de asesor'),
         { variant: 'error' },
       );
     }
@@ -112,21 +114,26 @@ export const RequestAdvisorChangeButton: React.FC<
         icon={<SwapHorizIcon />}
         label="Cambiar asesor"
         onClick={handleOpen}
-        disabled={!!pendingRequest}
+        disabled={!isAdmin && !!pendingRequest}
         tooltip={
-          pendingRequest
+          !isAdmin && pendingRequest
             ? 'Cambio de asesor pendiente de aprobación'
-            : 'Solicitar cambio de asesor de la OP'
+            : isAdmin
+              ? 'Cambiar el asesor de la OP'
+              : 'Solicitar cambio de asesor de la OP'
         }
       />
 
       <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-        <DialogTitle>Solicitar cambio de asesor</DialogTitle>
+        <DialogTitle>
+          {isAdmin ? 'Cambiar asesor de la OP' : 'Solicitar cambio de asesor'}
+        </DialogTitle>
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogContent>
-            <Alert severity="info" sx={{ mb: 2 }}>
-              El cambio de asesor requiere aprobación de un administrador. Se
-              enviará una notificación (incluido WhatsApp) para su autorización.
+            <Alert severity={isAdmin ? 'warning' : 'info'} sx={{ mb: 2 }}>
+              {isAdmin
+                ? 'Como administrador, el cambio se aplicará de inmediato a la OP y quedará registrado en el historial.'
+                : 'El cambio de asesor requiere aprobación de un administrador. Se enviará una notificación (incluido WhatsApp) para su autorización.'}
             </Alert>
 
             <TextField
@@ -186,15 +193,21 @@ export const RequestAdvisorChangeButton: React.FC<
             </Box>
           </DialogContent>
           <DialogActions>
-            <Button onClick={handleClose} disabled={createMutation.isPending}>
+            <Button onClick={handleClose} disabled={activeMutation.isPending}>
               Cancelar
             </Button>
             <Button
               type="submit"
               variant="contained"
-              disabled={createMutation.isPending}
+              disabled={activeMutation.isPending}
             >
-              {createMutation.isPending ? 'Enviando...' : 'Enviar Solicitud'}
+              {activeMutation.isPending
+                ? isAdmin
+                  ? 'Guardando...'
+                  : 'Enviando...'
+                : isAdmin
+                  ? 'Cambiar Asesor'
+                  : 'Enviar Solicitud'}
             </Button>
           </DialogActions>
         </form>

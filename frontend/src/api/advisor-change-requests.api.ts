@@ -19,6 +19,17 @@ export const advisorChangeRequestsApi = {
   },
 
   /**
+   * Cambiar el asesor directamente (solo admins, sin solicitud)
+   */
+  changeDirectly: async (dto: CreateAdvisorChangeRequestDto) => {
+    const { data } = await axiosInstance.put<AdvisorChangeRequest>(
+      '/advisor-change-requests/direct',
+      dto,
+    );
+    return data;
+  },
+
+  /**
    * Obtener solicitudes pendientes (solo admins)
    */
   findPending: async (orderId?: string) => {

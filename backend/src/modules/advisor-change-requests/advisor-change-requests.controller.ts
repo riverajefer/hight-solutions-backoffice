@@ -50,6 +50,21 @@ export class AdvisorChangeRequestsController {
     return this.service.create(userId, dto);
   }
 
+  @Put('direct')
+  @RequirePermissions('approve_advisor_change')
+  @ApiOperation({
+    summary:
+      'Cambiar el asesor de una OP directamente (solo admin, sin solicitud)',
+  })
+  @ApiResponse({ status: 200, description: 'Asesor reasignado' })
+  @ApiResponse({ status: 403, description: 'Solo administradores' })
+  async changeDirectly(
+    @CurrentUser('id') adminId: string,
+    @Body() dto: CreateAdvisorChangeRequestDto,
+  ) {
+    return this.service.changeAdvisorDirectly(adminId, dto);
+  }
+
   @Get('pending')
   @RequirePermissions('approve_advisor_change')
   @ApiOperation({ summary: 'Listar solicitudes pendientes (solo admins)' })

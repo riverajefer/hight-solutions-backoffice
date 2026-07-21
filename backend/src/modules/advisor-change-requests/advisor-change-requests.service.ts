@@ -209,6 +209,80 @@ export class AdvisorChangeRequestsService
   }
 
   /**
+   * Atajo de administrador: reasigna el asesor de la OP inmediatamente,
+   * sin pasar por el flujo de solicitud/aprobación. Deja traza registrando
+   * la operación como una solicitud ya APROBADA (auto-aprobada).
+   */
+  async changeAdvisorDirectly(
+    adminId: string,
+    dto: CreateAdvisorChangeRequestDto,
+  ) {
+    await this.assertAdmin(adminId);
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: dto.orderId },
+      select: { id: true, orderNumber: true, createdById: true },
+    });
+
+    if (!order) {
+      throw new NotFoundException(`Order with id ${dto.orderId} not found`);
+    }
+
+    const newAdvisor = await this.prisma.user.findUnique({
+      where: { id: dto.requestedAdvisorId },
+      select: { ...userSelect, isActive: true },
+    });
+
+    if (!newAdvisor) {
+      throw new NotFoundException(
+        `User with id ${dto.requestedAdvisorId} not found`,
+      );
+    }
+
+    if (!newAdvisor.isActive) {
+      throw new BadRequestException(
+        'No se puede asignar como asesor a un usuario inactivo',
+      );
+    }
+
+    if (order.createdById === dto.requestedAdvisorId) {
+      throw new BadRequestException(
+        'El asesor seleccionado ya es el asesor actual de la orden',
+      );
+    }
+
+    const now = new Date();
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: order.id },
+        data: { createdBy: { connect: { id: dto.requestedAdvisorId } } },
+      });
+
+      return tx.advisorChangeRequest.create({
+        data: {
+          orderId: order.id,
+          requestedById: adminId,
+          currentAdvisorId: order.createdById,
+          requestedAdvisorId: dto.requestedAdvisorId,
+          reason: dto.reason,
+          status: EditRequestStatus.APPROVED,
+          reviewedById: adminId,
+          reviewedAt: now,
+          reviewNotes: 'Cambio directo realizado por un administrador',
+        },
+        include: {
+          requestedBy: { select: userSelect },
+          reviewedBy: { select: userSelect },
+          currentAdvisor: { select: userSelect },
+          requestedAdvisor: { select: userSelect },
+          order: { select: { id: true, orderNumber: true } },
+        },
+      });
+    });
+  }
+
+  /**
    * Aprobar solicitud (panel). Reasigna el asesor (createdById) de la OP.
    */
   async approve(
