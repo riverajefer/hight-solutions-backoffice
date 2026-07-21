@@ -93,6 +93,8 @@ import {
 import { generateOrderPdf } from '../utils/generateOrderPdf';
 import { ActivePermissionBanner } from '../components/ActivePermissionBanner';
 import { RequestEditPermissionButton } from '../components/RequestEditPermissionButton';
+import { RequestAdvisorChangeButton } from '../components/RequestAdvisorChangeButton';
+import { AdvisorChangeStatusAlert } from '../components/AdvisorChangeStatusAlert';
 import { EditRequestsList } from '../components/EditRequestsList';
 import { AdvancePaymentApprovalsList } from '../components/AdvancePaymentApprovalsList';
 import { StatusChangeAuthRequestDialog } from '../components/StatusChangeAuthRequestDialog';
@@ -808,6 +810,9 @@ export const OrderDetailPage: React.FC = () => {
         </Alert>
       )}
 
+      {/* Aviso de solicitud de cambio de asesor pendiente */}
+      <AdvisorChangeStatusAlert orderId={id!} />
+
       <StatusHighlight
         label={ORDER_STATUS_CONFIG[order.status].label}
         color={ORDER_STATUS_CONFIG[order.status].color}
@@ -864,6 +869,18 @@ export const OrderDetailPage: React.FC = () => {
             orderId={id!}
             orderStatus={order.status}
           />
+
+          {permissions.includes('request_advisor_change') && (
+            <RequestAdvisorChangeButton
+              orderId={id!}
+              currentAdvisorId={order.createdBy.id}
+              currentAdvisorName={
+                order.createdBy.firstName && order.createdBy.lastName
+                  ? `${order.createdBy.firstName} ${order.createdBy.lastName}`
+                  : order.createdBy.email
+              }
+            />
+          )}
 
           {canAddPayment && balance > 0 && (
             <ToolbarButton

@@ -222,6 +222,14 @@ async function main() {
       description: 'Cambiar el estado de una orden de pedido directamente',
     },
     {
+      name: 'request_advisor_change',
+      description: 'Solicitar el cambio de asesor de una orden de pedido',
+    },
+    {
+      name: 'approve_advisor_change',
+      description: 'Aprobar/rechazar solicitudes de cambio de asesor de órdenes',
+    },
+    {
       name: 'apply_discounts',
       description: 'Aplicar descuentos a órdenes',
     },
@@ -501,6 +509,7 @@ async function main() {
     'update_orders',
     'approve_orders',
     'change_order_status',
+    'request_advisor_change',
     'apply_discounts',
     'register_order_payments',
     'edit_order_payments',

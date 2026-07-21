@@ -76,6 +76,8 @@ export const PERMISSIONS = {
   DELETE_ORDERS: 'delete_orders',
   APPROVE_ORDERS: 'approve_orders',
   CHANGE_ORDER_STATUS: 'change_order_status',
+  REQUEST_ADVISOR_CHANGE: 'request_advisor_change',
+  APPROVE_ADVISOR_CHANGE: 'approve_advisor_change',
   REGISTER_ORDER_PAYMENTS: 'register_order_payments',
   READ_PENDING_ORDERS: 'read_pending_orders',
   APPROVE_ADVANCE_PAYMENTS: 'approve_advance_payments',
