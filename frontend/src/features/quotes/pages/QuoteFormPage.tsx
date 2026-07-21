@@ -426,30 +426,35 @@ export const QuoteFormPage: React.FC = () => {
 
   // ── Image handlers ────────────────────────────────────────────────────────────
 
+  // El ítem sólo tiene endpoint propio de imagen si ya existe en la BD. Los ítems
+  // recién agregados (cotización nueva, o ítem agregado a una existente todavía sin
+  // guardar) suben al storage genérico y viajan como sampleImageId dentro del DTO.
+  const isPersistedItem = (itemId: string) =>
+    isEdit && !!currentQuote?.items?.some(item => item.id === itemId);
+
+  const uploadImageToForm = async (itemId: string, file: File) => {
+    const currentItems = getValues('items');
+    const existingItem = currentItems.find(i => i.id === itemId);
+    if (existingItem?.sampleImageId) {
+      try { await storageApi.deleteFile(existingItem.sampleImageId); } catch (err) { /* ignore */ }
+    }
+    try {
+      const uploadedFile = await storageApi.uploadFile(file, { entityType: 'quote' });
+      setValue('items', currentItems.map((item) =>
+        item.id === itemId ? { ...item, sampleImageId: uploadedFile.id } : item
+      ));
+      enqueueSnackbar('Imagen subida exitosamente', { variant: 'success' });
+    } catch (error: any) {
+      enqueueSnackbar(error.response?.data?.message || 'Error al subir la imagen', { variant: 'error' });
+    }
+  };
+
   const handleImageUpload = async (itemId: string, file: File) => {
-    if (!isEdit) {
-      const currentItems = getValues('items');
-      const existingItem = currentItems.find(i => i.id === itemId);
-      if (existingItem?.sampleImageId) {
-        try { await storageApi.deleteFile(existingItem.sampleImageId); } catch (err) { /* ignore */ }
-      }
-      try {
-        const uploadedFile = await storageApi.uploadFile(file, { entityType: 'quote' });
-        setValue('items', currentItems.map((item) =>
-          item.id === itemId ? { ...item, sampleImageId: uploadedFile.id } : item
-        ));
-        enqueueSnackbar('Imagen subida exitosamente', { variant: 'success' });
-      } catch (error: any) {
-        enqueueSnackbar(error.response?.data?.message || 'Error al subir la imagen', { variant: 'error' });
-      }
+    if (!isPersistedItem(itemId)) {
+      await uploadImageToForm(itemId, file);
       return;
     }
 
-    const currentItem = currentQuote?.items?.find(item => item.id === itemId);
-    if (!currentItem) {
-      enqueueSnackbar('Guarda los cambios antes de subir imágenes a ítems nuevos', { variant: 'warning' });
-      return;
-    }
     try {
       const uploadedFile = await quotesApi.uploadItemSampleImage(id!, itemId, file);
       const currentItems = getValues('items');
@@ -464,7 +469,7 @@ export const QuoteFormPage: React.FC = () => {
   };
 
   const handleImageDelete = async (itemId: string) => {
-    if (!isEdit) {
+    if (!isPersistedItem(itemId)) {
       const currentItems = getValues('items');
       const item = currentItems.find(i => i.id === itemId);
       if (item?.sampleImageId) {
