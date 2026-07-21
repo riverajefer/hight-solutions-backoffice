@@ -19,6 +19,7 @@ import {
   ListItemIcon,
   ListItemText,
   Divider,
+  Alert,
 } from '@mui/material';
 import { GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -29,6 +30,7 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import PaymentIcon from '@mui/icons-material/Payment';
 import BadgeIcon from '@mui/icons-material/Badge';
+import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import BlockIcon from '@mui/icons-material/Block';
 import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange';
 import PercentIcon from '@mui/icons-material/Percent';
@@ -52,6 +54,8 @@ import type { AdvancePaymentApproval } from '../../../types/advance-payment-appr
 import type { DiscountApproval } from '../../../types/discount-approval.types';
 import { clientOwnershipAuthRequestsApi } from '../../../api/client-ownership-auth-requests.api';
 import type { ClientOwnershipAuthRequest } from '../../../types/client-ownership-auth-request.types';
+import { advisorChangeRequestsApi } from '../../../api/advisor-change-requests.api';
+import type { AdvisorChangeRequest } from '../../../types/advisor-change-request.types';
 import { voidRequestsApi } from '../../../api/void-requests.api';
 import type { CashMovementVoidRequest } from '../../../types/void-request.types';
 import { refundRequestsApi } from '../../../api/refund-requests.api';
@@ -107,6 +111,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const canApproveDiscounts = hasPermission('approve_discounts') || isAdmin;
   const canApprovePaymentEdits = hasPermission('approve_payment_edits') || isAdmin;
   const canApproveClientOwnership = hasPermission('approve_client_ownership_auth') || isAdmin;
+  const canApproveAdvisorChange = hasPermission('approve_advisor_change') || isAdmin;
   const canApproveExpenseOrders = hasPermission('approve_expense_orders') || isAdmin;
   const canApproveVoidRequests = hasPermission('approve_cash_movements') || isAdmin;
   const canApproveRefunds = hasPermission('approve_refunds') || isAdmin;
@@ -138,7 +143,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   }, [navWidth]);
 
   const [tabValue, setTabValue] = useState<string>(
-    canApproveOrders ? 'status' : canApproveAdvancePayments ? 'advance' : canApproveDiscounts ? 'discount' : canApprovePaymentEdits ? 'payment-edit' : canApproveClientOwnership ? 'ownership' : canApproveExpenseOrders ? 'og' : canApproveVoidRequests ? 'void' : canApproveRefunds ? 'refund' : canApproveAccountsPayable ? 'ap' : canGerenciaApproveReversal ? 'ap-reversal' : 'status',
+    canApproveOrders ? 'status' : canApproveAdvancePayments ? 'advance' : canApproveDiscounts ? 'discount' : canApprovePaymentEdits ? 'payment-edit' : canApproveClientOwnership ? 'ownership' : canApproveAdvisorChange ? 'advisor' : canApproveExpenseOrders ? 'og' : canApproveVoidRequests ? 'void' : canApproveRefunds ? 'refund' : canApproveAccountsPayable ? 'ap' : canGerenciaApproveReversal ? 'ap-reversal' : 'status',
   );
   
   const [viewMode, setViewMode] = useState<'pending' | 'history'>('pending');
@@ -198,6 +203,14 @@ export const StatusChangeRequestsPage: React.FC = () => {
     action: 'approve' | 'reject' | null;
   }>({ open: false, request: null, action: null });
   const [ownershipReviewNotes, setOwnershipReviewNotes] = useState('');
+
+  // --- Advisor Change Requests ---
+  const [advisorReviewDialog, setAdvisorReviewDialog] = useState<{
+    open: boolean;
+    request: AdvisorChangeRequest | null;
+    action: 'approve' | 'reject' | null;
+  }>({ open: false, request: null, action: null });
+  const [advisorReviewNotes, setAdvisorReviewNotes] = useState('');
 
   // --- Cash Movement Void Requests ---
   const [voidReviewDialog, setVoidReviewDialog] = useState<{
@@ -294,6 +307,14 @@ export const StatusChangeRequestsPage: React.FC = () => {
     enabled: canApproveClientOwnership,
   });
 
+  const { data: advisorRequestsData, isLoading: advisorLoading } = useQuery({
+    queryKey: ['advisorChangeRequests', viewMode],
+    queryFn: () => viewMode === 'pending'
+      ? advisorChangeRequestsApi.findPending()
+      : advisorChangeRequestsApi.findAll(),
+    enabled: canApproveAdvisorChange,
+  });
+
   const { data: voidRequestsData, isLoading: voidLoading } = useQuery({
     queryKey: ['voidRequests', viewMode],
     queryFn: () => viewMode === 'pending'
@@ -341,6 +362,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const discountRequests = viewMode === 'history' ? discountRequestsData?.filter(r => r.status !== 'PENDING') : discountRequestsData;
   const paymentEditRequests = viewMode === 'history' ? paymentEditRequestsData?.filter(r => r.status !== 'PENDING') : paymentEditRequestsData;
   const ownershipRequests = viewMode === 'history' ? ownershipRequestsData?.filter(r => r.status !== 'PENDING') : ownershipRequestsData;
+  const advisorRequests = viewMode === 'history' ? advisorRequestsData?.filter(r => r.status !== 'PENDING') : advisorRequestsData;
   const voidRequests = viewMode === 'history' ? voidRequestsData?.filter(r => r.status !== 'PENDING') : voidRequestsData;
   const refundRequests = viewMode === 'history' ? refundRequestsData?.filter(r => r.status !== 'PENDING') : refundRequestsData;
   const apAuthRequests = viewMode === 'history' ? apAuthRequestsData?.filter(r => r.status !== 'PENDING') : apAuthRequestsData;
@@ -598,6 +620,41 @@ export const StatusChangeRequestsPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       enqueueSnackbar('Autorización de propiedad rechazada', { variant: 'info' });
       handleCloseOwnershipReviewDialog();
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(
+        error.response?.data?.message || 'Error al rechazar la solicitud',
+        { variant: 'error' }
+      );
+    },
+  });
+
+  const approveAdvisorMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
+      advisorChangeRequestsApi.approve(id, { reviewNotes: notes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['advisorChangeRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['advisor-change-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      enqueueSnackbar('Cambio de asesor aprobado y aplicado a la OP', { variant: 'success' });
+      handleCloseAdvisorReviewDialog();
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(
+        error.response?.data?.message || 'Error al aprobar la solicitud',
+        { variant: 'error' }
+      );
+    },
+  });
+
+  const rejectAdvisorMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes: string }) =>
+      advisorChangeRequestsApi.reject(id, { reviewNotes: notes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['advisorChangeRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['advisor-change-requests'] });
+      enqueueSnackbar('Solicitud de cambio de asesor rechazada', { variant: 'info' });
+      handleCloseAdvisorReviewDialog();
     },
     onError: (error: any) => {
       enqueueSnackbar(
@@ -1054,6 +1111,45 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const handleCloseOwnershipReviewDialog = () => {
     setOwnershipReviewDialog({ open: false, request: null, action: null });
     setOwnershipReviewNotes('');
+  };
+
+  // ============================================================
+  // HANDLERS - ADVISOR CHANGE
+  // ============================================================
+
+  const handleApproveAdvisor = (request: AdvisorChangeRequest) => {
+    setAdvisorReviewDialog({ open: true, request, action: 'approve' });
+    setAdvisorReviewNotes('');
+  };
+
+  const handleRejectAdvisor = (request: AdvisorChangeRequest) => {
+    setAdvisorReviewDialog({ open: true, request, action: 'reject' });
+    setAdvisorReviewNotes('');
+  };
+
+  const handleConfirmAdvisorReview = () => {
+    if (!advisorReviewDialog.request || !advisorReviewDialog.action) return;
+
+    if (advisorReviewDialog.action === 'approve') {
+      approveAdvisorMutation.mutate({
+        id: advisorReviewDialog.request.id,
+        notes: advisorReviewNotes || undefined,
+      });
+    } else {
+      if (!advisorReviewNotes.trim()) {
+        enqueueSnackbar('Debe proporcionar una razón para rechazar', { variant: 'warning' });
+        return;
+      }
+      rejectAdvisorMutation.mutate({
+        id: advisorReviewDialog.request.id,
+        notes: advisorReviewNotes,
+      });
+    }
+  };
+
+  const handleCloseAdvisorReviewDialog = () => {
+    setAdvisorReviewDialog({ open: false, request: null, action: null });
+    setAdvisorReviewNotes('');
   };
 
   // ============================================================
@@ -1847,6 +1943,95 @@ export const StatusChangeRequestsPage: React.FC = () => {
   ];
 
   // ============================================================
+  // COLUMNAS - ADVISOR CHANGE
+  // ============================================================
+
+  const advisorColumns: GridColDef<AdvisorChangeRequest>[] = [
+    {
+      field: 'orderNumber',
+      headerName: 'Nº Orden',
+      width: 150,
+      valueGetter: (_, row) => row.order?.orderNumber || '-',
+      renderCell: (params) => (
+        <Box
+          sx={{ fontWeight: 600, color: 'primary.main', cursor: 'pointer' }}
+          onClick={() => params.row.order && handleViewOrder(params.row.order.id)}
+        >
+          {params.value}
+        </Box>
+      ),
+    },
+    {
+      field: 'requestedBy',
+      headerName: 'Solicitante',
+      width: 180,
+      valueGetter: (_, row) => getUserName(row.requestedBy),
+    },
+    {
+      field: 'currentAdvisor',
+      headerName: 'Asesor Actual',
+      width: 180,
+      valueGetter: (_, row) => getUserName(row.currentAdvisor),
+    },
+    {
+      field: 'requestedAdvisor',
+      headerName: 'Nuevo Asesor',
+      width: 180,
+      valueGetter: (_, row) => getUserName(row.requestedAdvisor),
+    },
+    {
+      field: 'reason',
+      headerName: 'Motivo',
+      width: 220,
+      valueGetter: (_, row) => row.reason || '-',
+    },
+    {
+      field: 'status',
+      headerName: 'Estado',
+      width: 130,
+      renderCell: (params) => {
+        const statusConfig = STATUS_LABELS[params.value] || { label: params.value, color: 'default' as const };
+        return (
+          <Chip
+            label={statusConfig.label}
+            color={statusConfig.color}
+            size="small"
+          />
+        );
+      },
+    },
+    {
+      field: 'createdAt',
+      headerName: 'Fecha Solicitud',
+      width: 150,
+      valueFormatter: (value) => formatDateTime(value),
+    },
+    {
+      field: 'actions',
+      type: 'actions' as const,
+      headerName: 'Acciones',
+      width: 120,
+      getActions: (params: any) => {
+        if (params.row.status !== 'PENDING') return [];
+        return [
+          <GridActionsCellItem
+            icon={<CheckCircleIcon sx={{ color: 'success.main' }} />}
+            label="Aprobar"
+            onClick={() => handleApproveAdvisor(params.row)}
+            showInMenu={false}
+          />,
+          <GridActionsCellItem
+            icon={<CancelIcon sx={{ color: 'error.main' }} />}
+            label="Rechazar"
+            onClick={() => handleRejectAdvisor(params.row)}
+            showInMenu={false}
+          />,
+        ];
+      },
+    },
+  ];
+
+  // ============================================================
   // COLUMNAS - VOID REQUESTS
   // ============================================================
 
@@ -2259,6 +2444,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const discountCount = discountRequests?.length || 0;
   const paymentEditCount = paymentEditRequests?.length || 0;
   const ownershipCount = ownershipRequests?.length || 0;
+  const advisorCount = advisorRequests?.length || 0;
   const voidCount = voidRequests?.length || 0;
   const refundCount = refundRequests?.length || 0;
   const apAuthCount = apAuthRequests?.length || 0;
@@ -2344,6 +2530,13 @@ export const StatusChangeRequestsPage: React.FC = () => {
                 <ListItemIcon sx={{ minWidth: 36 }}><BadgeIcon fontSize="small" /></ListItemIcon>
                 <ListItemText primary="Propiedad Cliente" primaryTypographyProps={{ variant: 'body2' }} />
                 {ownershipCount > 0 && <Badge badgeContent={ownershipCount} color="warning" sx={{ mr: 1 }} />}
+              </ListItemButton>
+            )}
+            {canApproveAdvisorChange && (
+              <ListItemButton selected={tabValue === 'advisor'} onClick={() => setTabValue('advisor')} sx={{ borderRadius: 1, mx: 1 }}>
+                <ListItemIcon sx={{ minWidth: 36 }}><ManageAccountsIcon fontSize="small" /></ListItemIcon>
+                <ListItemText primary="Cambio de Asesor" primaryTypographyProps={{ variant: 'body2' }} />
+                {advisorCount > 0 && <Badge badgeContent={advisorCount} color="warning" sx={{ mr: 1 }} />}
               </ListItemButton>
             )}
           </List>
@@ -2457,6 +2650,9 @@ export const StatusChangeRequestsPage: React.FC = () => {
           )}
           {tabValue === 'ownership' && canApproveClientOwnership && (
             <DataTable rows={ownershipRequests || []} columns={ownershipColumns} loading={ownershipLoading} getRowId={(row) => row.id} pageSize={25} />
+          )}
+          {tabValue === 'advisor' && canApproveAdvisorChange && (
+            <DataTable rows={advisorRequests || []} columns={advisorColumns} loading={advisorLoading} getRowId={(row) => row.id} pageSize={25} />
           )}
           {tabValue === 'void' && canApproveVoidRequests && (
             <DataTable rows={voidRequests || []} columns={voidColumns} loading={voidLoading} getRowId={(row) => row.id} pageSize={25} />
@@ -2956,6 +3152,68 @@ export const StatusChangeRequestsPage: React.FC = () => {
             }
           >
             {ownershipReviewDialog.action === 'approve' ? 'Aprobar' : 'Rechazar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog: Revisión de Cambio de Asesor */}
+      <Dialog open={advisorReviewDialog.open} onClose={handleCloseAdvisorReviewDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {advisorReviewDialog.action === 'approve'
+            ? 'Aprobar Cambio de Asesor'
+            : 'Rechazar Cambio de Asesor'}
+        </DialogTitle>
+        <DialogContent>
+          {advisorReviewDialog.request && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                <strong>Orden:</strong> {advisorReviewDialog.request.order?.orderNumber}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Solicitado por:</strong> {getUserName(advisorReviewDialog.request.requestedBy)}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Asesor actual:</strong> {getUserName(advisorReviewDialog.request.currentAdvisor)}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Nuevo asesor:</strong> {getUserName(advisorReviewDialog.request.requestedAdvisor)}
+              </Typography>
+              {advisorReviewDialog.request.reason && (
+                <Typography variant="body2" gutterBottom>
+                  <strong>Motivo:</strong> {advisorReviewDialog.request.reason}
+                </Typography>
+              )}
+              {advisorReviewDialog.action === 'approve' && (
+                <Alert severity="info" sx={{ mt: 1 }}>
+                  Al aprobar, la orden quedará reasignada al nuevo asesor.
+                </Alert>
+              )}
+            </Box>
+          )}
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            label={advisorReviewDialog.action === 'approve' ? 'Notas (opcional)' : 'Razón del rechazo *'}
+            value={advisorReviewNotes}
+            onChange={(e) => setAdvisorReviewNotes(e.target.value)}
+            required={advisorReviewDialog.action === 'reject'}
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseAdvisorReviewDialog}>Cancelar</Button>
+          <Button
+            onClick={handleConfirmAdvisorReview}
+            variant="contained"
+            color={advisorReviewDialog.action === 'approve' ? 'success' : 'error'}
+            disabled={
+              approveAdvisorMutation.isPending ||
+              rejectAdvisorMutation.isPending ||
+              (advisorReviewDialog.action === 'reject' && !advisorReviewNotes.trim())
+            }
+          >
+            {advisorReviewDialog.action === 'approve' ? 'Aprobar' : 'Rechazar'}
           </Button>
         </DialogActions>
       </Dialog>

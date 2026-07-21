@@ -25,6 +25,7 @@ import {
   CONTACT_OUTCOME_LABELS,
   ContactOutcome,
   Prospect,
+  prospectHasDocument,
 } from '../../../types/prospect.types';
 import { ProspectStatusChip } from './ProspectStatusChip';
 
@@ -164,7 +165,7 @@ export const ProspectDetailDrawer: React.FC<ProspectDetailDrawerProps> = ({
                 Registrar contacto
               </Button>
             )}
-            {canConvert && !prospect.quoteId && (
+            {canConvert && !prospectHasDocument(prospect) && (
               <Button
                 size="small"
                 variant="outlined"

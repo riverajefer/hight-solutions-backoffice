@@ -304,6 +304,32 @@ describe('ProspectsService', () => {
         service.convert('p-1', { clientId: 'cli-1', target: 'QUOTE' as never }, ADVISOR_ID),
       ).rejects.toThrow(BadRequestException);
     });
+
+    // Un prospecto en COTIZADO ya tiene su COT: reconvertirlo crearía una
+    // segunda cotización y sobrescribiría el enlace.
+    it('rechaza reconvertir un prospecto que ya tiene cotización', async () => {
+      repository.findById.mockResolvedValue({
+        ...baseProspect,
+        status: ProspectStatus.COTIZADO,
+        quoteId: 'q-1',
+      } as never);
+
+      await expect(
+        service.convert('p-1', { clientId: 'cli-1', target: 'QUOTE' as never }, ADVISOR_ID),
+      ).rejects.toThrow(BadRequestException);
+      expect(repository.update).not.toHaveBeenCalled();
+    });
+
+    it('rechaza reconvertir un prospecto que ya tiene orden', async () => {
+      repository.findById.mockResolvedValue({
+        ...baseProspect,
+        orderId: 'o-1',
+      } as never);
+
+      await expect(
+        service.convert('p-1', { clientId: 'cli-1', target: 'QUOTE' as never }, ADVISOR_ID),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 
   describe('getMetrics', () => {

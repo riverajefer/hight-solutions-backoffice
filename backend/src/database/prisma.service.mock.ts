@@ -91,6 +91,14 @@ export const createMockPrismaService = () => ({
     update: jest.fn(),
     delete: jest.fn(),
   },
+  advisorChangeRequest: {
+    findUnique: jest.fn(),
+    findFirst: jest.fn(),
+    findMany: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+  },
   notification: {
     findUnique: jest.fn(),
     findFirst: jest.fn(),

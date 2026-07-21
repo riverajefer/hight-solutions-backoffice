@@ -30,6 +30,7 @@ import { CommercialChannelsModule } from './modules/commercial-channels/commerci
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OrderEditRequestsModule } from './modules/order-edit-requests/order-edit-requests.module';
 import { OrderStatusChangeRequestsModule } from './modules/order-status-change-requests/order-status-change-requests.module';
+import { AdvisorChangeRequestsModule } from './modules/advisor-change-requests/advisor-change-requests.module';
 import { ExpenseOrderAuthRequestsModule } from './modules/expense-order-auth-requests/expense-order-auth-requests.module';
 import { AdvancePaymentApprovalsModule } from './modules/advance-payment-approvals/advance-payment-approvals.module';
 import { PaymentEditApprovalsModule } from './modules/payment-edit-approvals/payment-edit-approvals.module';
@@ -129,6 +130,7 @@ import { DtfModule } from './modules/dtf/dtf.module';
     OrderEditRequestsModule,
     // Módulo de Solicitudes de Cambio de Estado de Órdenes
     OrderStatusChangeRequestsModule,
+    AdvisorChangeRequestsModule,
     // Módulo de Almacenamiento (AWS S3)
     StorageModule,
     // Módulo de Información de la Compañía

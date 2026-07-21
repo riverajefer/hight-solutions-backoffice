@@ -42,6 +42,7 @@ import {
   Prospect,
   ProspectConversionTarget,
   ProspectStatus,
+  prospectHasDocument,
 } from '../../../types/prospect.types';
 import {
   useProspect,
@@ -286,7 +287,7 @@ export const ProspectsListPage: React.FC = () => {
                     },
                   ]
                 : []),
-              ...(canConvert && params.row.status !== ProspectStatus.CONVERTIDO
+              ...(canConvert && !prospectHasDocument(params.row)
                 ? [
                     {
                       icon: <RequestQuoteIcon fontSize="small" />,
