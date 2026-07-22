@@ -127,6 +127,15 @@ export const PERMISSION_LABELS: Record<string, string> = {
    apply_discounts: 'Aplicar Descuentos',
    delete_discounts: 'Eliminar Descuentos',
 
+  // Pagos de Órdenes
+  edit_order_payments: 'Editar Pagos de Órdenes',
+  approve_payment_edits: 'Aprobar Ediciones de Pagos',
+  delete_payment_receipts: 'Eliminar Comprobantes de Pago',
+
+  // Cambio de Asesor de Órdenes
+  request_advisor_change: 'Solicitar Cambio de Asesor',
+  approve_advisor_change: 'Aprobar Cambio de Asesor',
+
   // Archivos
   upload_files: 'Subir Archivos',
   read_files: 'Ver y Descargar Archivos',

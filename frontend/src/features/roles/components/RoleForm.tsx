@@ -33,15 +33,19 @@ export const RoleForm: React.FC<RoleFormProps> = ({
 }) => {
   const [selectedPermissions, setSelectedPermissions] = React.useState<string[]>([]);
 
-  React.useEffect(() => {
-    if (initialData?.permissions) {
+  // Línea base para restaurar. En creación queda vacía.
+  const initialPermissions = React.useMemo(
+    () =>
       // Si recibimos objetos de permiso, extraemos solo los IDs
-      const ids = initialData.permissions.map((p: any) => 
-        typeof p === 'string' ? p : p.id
-      );
-      setSelectedPermissions(ids);
-    }
-  }, [initialData]);
+      initialData?.permissions?.map((p: any) =>
+        typeof p === 'string' ? p : p.id,
+      ) ?? [],
+    [initialData],
+  );
+
+  React.useEffect(() => {
+    setSelectedPermissions(initialPermissions);
+  }, [initialPermissions]);
 
   const { control, handleSubmit, formState: { errors } } = useForm<RoleFormData>({
     resolver: zodResolver(roleSchema),
@@ -98,6 +102,7 @@ export const RoleForm: React.FC<RoleFormProps> = ({
             selectedPermissions={selectedPermissions}
             onSelectPermissions={setSelectedPermissions}
             disabled={isLoading}
+            initialPermissions={initialPermissions}
           />
 
           <Button variant="contained" type="submit" fullWidth disabled={isLoading} sx={{ mt: 2 }}>
