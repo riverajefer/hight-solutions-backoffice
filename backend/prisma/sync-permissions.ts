@@ -1,10 +1,10 @@
 /**
- * Publica en producción los permisos agregados entre el 2026-07-13 y el 2026-07-21.
+ * Sincroniza los permisos de la aplicación contra la base de datos.
  *
- * Grupos incluidos:
- *   1. Exportación a Excel        (commits 08d459f, 87fb4fb)
- *   2. Pipeline de Ventas         (commit  c939aeb)
- *   3. Cambio de asesor de una OP (commits 07f178a, 5ad6691)
+ * Este es el script canónico para publicar permisos en staging y producción.
+ * Cada vez que se cree un permiso nuevo en el código (`@RequirePermissions(...)`
+ * en el backend y `PERMISSIONS` en `frontend/src/utils/constants.ts`), hay que
+ * agregarlo también acá, en el grupo temático que corresponda.
  *
  * Es 100% idempotente y NO destructivo:
  *   - Hace `upsert` de cada permiso (crea o refresca la descripción).
@@ -15,13 +15,13 @@
  *
  * Uso:
  *   # Verificar sin escribir nada
- *   DRY_RUN=1 npm run prisma:seed:perms:2026-07
+ *   DRY_RUN=1 npm run prisma:sync:permissions
  *
  *   # Aplicar (usa el DATABASE_URL del ambiente cargado)
- *   npm run prisma:seed:perms:2026-07
+ *   npm run prisma:sync:permissions
  *
  *   # Apuntando explícitamente a producción
- *   DATABASE_URL="postgresql://..." npx ts-node prisma/seed-permissions-2026-07.ts
+ *   DATABASE_URL="postgresql://..." npx ts-node prisma/sync-permissions.ts
  */
 import { PrismaClient } from '../src/generated/prisma';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -117,7 +117,7 @@ const allPermissions = groups.flatMap((g) => g.permissions);
 
 async function main() {
   console.log(
-    `\n🔐 Publicando permisos (release 2026-07)${DRY_RUN ? ' — MODO DRY RUN, no se escribe nada' : ''}\n`,
+    `\n🔐 Sincronizando permisos${DRY_RUN ? ' — MODO DRY RUN, no se escribe nada' : ''}\n`,
   );
 
   const adminRole = await prisma.role.findUnique({ where: { name: 'admin' } });
