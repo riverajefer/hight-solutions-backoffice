@@ -328,6 +328,13 @@ export const OrderFormPage: React.FC = () => {
   // Las órdenes provenientes de DTF se identifican por la nota "[DTF] ...".
   // En ellas el abono se edita desde este formulario (no por el flujo dedicado).
   const isDtfOrder = orderQuery.data?.notes?.startsWith('[DTF]') ?? false;
+  // Si Caja rechazó el anticipo, el pago fue eliminado y la orden quedó sin abono.
+  // Se habilita de nuevo "Abono Inicial" aquí para que el asesor pueda corregirlo:
+  // es la única vía, ya que "Historial de Pagos" queda vacío y el cambio de estado
+  // está bloqueado mientras el anticipo esté rechazado.
+  const isAdvanceRejected = orderQuery.data?.advancePaymentStatus === 'REJECTED';
+  // En órdenes no-DTF el abono solo se edita aquí cuando hay que rehacer el rechazado.
+  const canEditPaymentHere = isDtfOrder || isAdvanceRejected;
   const { activePermissionQuery } = useEditRequests(id || '');
   const isAdmin = user?.role?.name === 'admin';
 
@@ -670,7 +677,7 @@ export const OrderFormPage: React.FC = () => {
         // autorización del admin), evitando sobrescribir el primer pago/inflar saldo.
         // EXCEPCIÓN: órdenes provenientes de DTF, donde el abono se edita aquí
         // (comportamiento previo). En creación se usan initialPayments.
-        initialPayment: isEdit && isDtfOrder && data.payments[0]?.amount > 0 ? {
+        initialPayment: isEdit && canEditPaymentHere && data.payments[0]?.amount > 0 ? {
           amount: data.payments[0].amount,
           paymentMethod: data.payments[0].paymentMethod,
           reference: data.payments[0].reference,
@@ -683,9 +690,10 @@ export const OrderFormPage: React.FC = () => {
       if (isEdit) {
         const updatedOrder = await updateOrderMutation.mutateAsync(orderDto);
 
-        // Solo en órdenes DTF se edita el abono/comprobante desde este formulario.
+        // El abono/comprobante solo se edita desde este formulario en órdenes DTF o
+        // cuando se está rehaciendo un anticipo rechazado por Caja.
         // Para el resto, los pagos se gestionan en "Historial de Pagos".
-        if (isDtfOrder) {
+        if (canEditPaymentHere) {
           const newPaymentId = updatedOrder?.payments?.[0]?.id;
           if (data.payments[0] && data.payments[0].receiptFile && newPaymentId) {
             try {
@@ -1311,7 +1319,20 @@ export const OrderFormPage: React.FC = () => {
         </Card>
       )}
 
-      {isEdit && !isDtfOrder && (
+      {isEdit && isAdvanceRejected && (
+        <Alert severity="warning">
+          <strong>El anticipo de esta orden fue rechazado por Caja</strong> y el pago
+          quedó revertido. Registra aquí el abono corregido: al guardar se enviará de
+          nuevo a Caja para su autorización.
+          {orderQuery.data?.advancePaymentRejectedReason && (
+            <>
+              {' '}Motivo del rechazo: <em>{orderQuery.data.advancePaymentRejectedReason}</em>
+            </>
+          )}
+        </Alert>
+      )}
+
+      {isEdit && !canEditPaymentHere && (
         <Alert severity="info">
           Los abonos no se editan desde aquí. Para corregir un pago o su comprobante
           usa <strong>Historial de Pagos</strong> en el detalle de la orden (requiere
@@ -1328,7 +1349,7 @@ export const OrderFormPage: React.FC = () => {
             values={paymentsField.value}
             onEnabledChange={() => {}}
             onChange={paymentsField.onChange}
-            disabled={!isClientSelected || (isEdit && !isDtfOrder)}
+            disabled={!isClientSelected || (isEdit && !canEditPaymentHere)}
             required={true}
             creditBalance={saldoAFavor}
           />
