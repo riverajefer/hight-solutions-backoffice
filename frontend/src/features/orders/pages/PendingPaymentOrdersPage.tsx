@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Paper, Typography, useTheme, alpha, Autocomplete, TextField } from '@mui/material';
+import { Box, Button, Paper, Typography, useTheme, alpha, Autocomplete, TextField } from '@mui/material';
 import { GridColDef } from '@mui/x-data-grid';
 import PaymentsIcon from '@mui/icons-material/Payments';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { DataTable } from '../../../components/common/DataTable';
 import { useOrders } from '../hooks';
@@ -11,6 +12,12 @@ import { OrderStatusChip } from '../components';
 import type { Order } from '../../../types/order.types';
 import type { Client } from '../../../types/client.types';
 import { neonColors } from '../../../theme';
+import { ExportDialog } from '../../../components/common/ExportDialog';
+import { EXPORT_LIMIT } from '../../../utils/excelExport';
+import { ORDER_EXPORT_COLUMNS } from '../utils/orderExportColumns';
+import { ordersApi } from '../../../api/orders.api';
+import { useAuthStore } from '../../../store/authStore';
+import { PERMISSIONS } from '../../../utils/constants';
 
 // ============================================================
 // UTILIDADES
@@ -53,6 +60,10 @@ export const PendingPaymentOrdersPage: React.FC = () => {
   const isDark = theme.palette.mode === 'dark';
 
   const [clientId, setClientId] = useState<string | undefined>(undefined);
+  const [exportOpen, setExportOpen] = useState(false);
+
+  const { hasPermission } = useAuthStore();
+  const canExport = hasPermission(PERMISSIONS.EXPORT_PENDING_PAYMENT_ORDERS);
 
   const { clientsQuery } = useClients({ includeInactive: false });
   const clients = clientsQuery.data || [];
@@ -194,6 +205,18 @@ export const PendingPaymentOrdersPage: React.FC = () => {
           { label: 'Órdenes', path: '/orders' },
           { label: 'Pendientes por cobrar' },
         ]}
+        action={
+          canExport && (
+            <Button
+              variant="outlined"
+              color="success"
+              startIcon={<FileDownloadIcon />}
+              onClick={() => setExportOpen(true)}
+            >
+              Exportar a Excel
+            </Button>
+          )
+        }
       />
 
       {/* ── Summary card: Total Pendiente por Cobrar ── */}
@@ -311,6 +334,37 @@ export const PendingPaymentOrdersPage: React.FC = () => {
         onRowClick={handleRowClick}
         emptyMessage="No hay órdenes pendientes por cobrar"
       />
+
+      {/* Export to Excel Dialog */}
+      {canExport && (
+        <ExportDialog<Order>
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          title="Exportar Pendientes por cobrar a Excel"
+          entityLabel="órdenes"
+          fileNamePrefix="Pendientes_Por_Cobrar"
+          sheetName="Pendientes por cobrar"
+          columns={ORDER_EXPORT_COLUMNS}
+          storageKey="pending_payment_orders_export_columns"
+          dateRangeLabel="Rango de fechas (fecha de orden)"
+          helperText="Se respeta el filtro de cliente y solo se incluyen órdenes activas con saldo pendiente."
+          fetchRows={async ({ from, to }) => {
+            const response = await ordersApi.getAll({
+              clientId,
+              orderDateFrom: from.toISOString(),
+              orderDateTo: to.toISOString(),
+              page: 1,
+              limit: EXPORT_LIMIT,
+            });
+            // Mismo filtro client-side que la tabla: estado activo + saldo > 0.
+            return (response.data ?? []).filter(
+              (order) =>
+                PENDING_PAYMENT_STATUSES.includes(order.status) &&
+                parseFloat(order.balance) > 0,
+            );
+          }}
+        />
+      )}
     </Box>
   );
 };

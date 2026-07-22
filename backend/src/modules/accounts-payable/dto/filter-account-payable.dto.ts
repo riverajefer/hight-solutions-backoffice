@@ -56,11 +56,13 @@ export class FilterAccountPayableDto {
   @IsOptional()
   page?: number = 1;
 
-  @ApiPropertyOptional({ description: 'Resultados por página', default: 20, minimum: 1, maximum: 100 })
+  // El tope alto habilita la exportación a Excel, que trae todo el rango sin
+  // paginar. El resto de listados del sistema no acota `limit`.
+  @ApiPropertyOptional({ description: 'Resultados por página', default: 20, minimum: 1, maximum: 100000 })
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(100)
+  @Max(100000)
   @IsOptional()
   limit?: number = 20;
 

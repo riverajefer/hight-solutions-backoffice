@@ -5,7 +5,6 @@ export { OrderItemsTable } from './OrderItemsTable';
 export { OrderTotals } from './OrderTotals';
 export { InitialPayment } from './InitialPayment';
 export { ChangeStatusDialog } from './ChangeStatusDialog';
-export { ExportOrdersDialog } from './ExportOrdersDialog';
 export { ActivePermissionBanner } from './ActivePermissionBanner';
 export { RequestEditPermissionButton } from './RequestEditPermissionButton';
 export { EditRequestsList } from './EditRequestsList';

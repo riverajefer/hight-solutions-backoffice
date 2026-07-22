@@ -118,16 +118,38 @@ describe('ClientsService', () => {
 
       const result = await service.findAll();
 
-      expect(mockClientsRepository.findAll).toHaveBeenCalledWith(false);
+      expect(mockClientsRepository.findAll).toHaveBeenCalledWith({
+        includeInactive: undefined,
+        createdAtFrom: undefined,
+        createdAtTo: undefined,
+      });
       expect(result).toEqual([mockClient]);
     });
 
     it('should pass includeInactive=true when requested', async () => {
       mockClientsRepository.findAll.mockResolvedValue([mockClient]);
 
-      await service.findAll(true);
+      await service.findAll({ includeInactive: true });
 
-      expect(mockClientsRepository.findAll).toHaveBeenCalledWith(true);
+      expect(mockClientsRepository.findAll).toHaveBeenCalledWith(
+        expect.objectContaining({ includeInactive: true }),
+      );
+    });
+
+    it('should normalize the date range to full-day bounds', async () => {
+      mockClientsRepository.findAll.mockResolvedValue([mockClient]);
+
+      await service.findAll({
+        createdAtFrom: '2026-01-01',
+        createdAtTo: '2026-01-01',
+      });
+
+      expect(mockClientsRepository.findAll).toHaveBeenCalledWith(
+        expect.objectContaining({
+          createdAtFrom: new Date('2026-01-01T00:00:00.000Z'),
+          createdAtTo: new Date('2026-01-01T23:59:59.999Z'),
+        }),
+      );
     });
   });
 

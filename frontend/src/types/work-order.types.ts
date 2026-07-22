@@ -203,6 +203,10 @@ export interface FilterWorkOrdersDto {
   status?: WorkOrderStatus;
   orderId?: string;
   search?: string;
+  /** Fecha de creación desde (ISO 8601). */
+  createdAtFrom?: string;
+  /** Fecha de creación hasta (ISO 8601). */
+  createdAtTo?: string;
   page?: number;
   limit?: number;
 }

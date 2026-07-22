@@ -9,6 +9,7 @@ import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { WorkOrdersRepository } from './work-orders.repository';
 import { InventoryService } from '../inventory/inventory.service';
 import { AuthenticatedUser } from '../../common/interfaces/auth.interface';
+import { startOfDay, endOfDay } from '../../common/utils/date-range.util';
 import {
   AddSupplyToItemDto,
   CreateWorkOrderDto,
@@ -131,7 +132,12 @@ export class WorkOrdersService {
   }
 
   async findAll(filters: FilterWorkOrdersDto) {
-    return this.workOrdersRepository.findAll(filters);
+    const { createdAtFrom, createdAtTo, ...rest } = filters;
+    return this.workOrdersRepository.findAll({
+      ...rest,
+      createdAtFrom: startOfDay(createdAtFrom),
+      createdAtTo: endOfDay(createdAtTo),
+    });
   }
 
   async findOne(id: string) {

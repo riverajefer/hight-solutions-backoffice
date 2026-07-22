@@ -30,12 +30,14 @@ import { CommercialChannelsModule } from './modules/commercial-channels/commerci
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OrderEditRequestsModule } from './modules/order-edit-requests/order-edit-requests.module';
 import { OrderStatusChangeRequestsModule } from './modules/order-status-change-requests/order-status-change-requests.module';
+import { AdvisorChangeRequestsModule } from './modules/advisor-change-requests/advisor-change-requests.module';
 import { ExpenseOrderAuthRequestsModule } from './modules/expense-order-auth-requests/expense-order-auth-requests.module';
 import { AdvancePaymentApprovalsModule } from './modules/advance-payment-approvals/advance-payment-approvals.module';
 import { PaymentEditApprovalsModule } from './modules/payment-edit-approvals/payment-edit-approvals.module';
 import { DiscountApprovalsModule } from './modules/discount-approvals/discount-approvals.module';
 import { ClientOwnershipAuthRequestsModule } from './modules/client-ownership-auth-requests/client-ownership-auth-requests.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
+import { ProspectsModule } from './modules/prospects/prospects.module';
 import { QuoteKanbanColumnsModule } from './modules/quote-kanban-columns/quote-kanban-columns.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { CompanyModule } from './modules/company/company.module';
@@ -110,6 +112,8 @@ import { DtfModule } from './modules/dtf/dtf.module';
     ConsecutivesModule,
     // Módulo de Cotizaciones
     QuotesModule,
+    // Módulo de Pipeline de Ventas (Prospectos)
+    ProspectsModule,
     // Módulo de Columnas del Tablero Kanban de Cotizaciones
     QuoteKanbanColumnsModule,
     // Módulo de Órdenes de Pedido
@@ -126,6 +130,7 @@ import { DtfModule } from './modules/dtf/dtf.module';
     OrderEditRequestsModule,
     // Módulo de Solicitudes de Cambio de Estado de Órdenes
     OrderStatusChangeRequestsModule,
+    AdvisorChangeRequestsModule,
     // Módulo de Almacenamiento (AWS S3)
     StorageModule,
     // Módulo de Información de la Compañía

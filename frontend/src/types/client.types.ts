@@ -81,6 +81,10 @@ export interface UpdateClientSpecialConditionDto {
 
 export interface ClientQueryParams {
   includeInactive?: boolean;
+  /** Fecha de creación desde (ISO 8601). */
+  createdAtFrom?: string;
+  /** Fecha de creación hasta (ISO 8601). */
+  createdAtTo?: string;
 }
 
 export type ClientListResponse = Client[];

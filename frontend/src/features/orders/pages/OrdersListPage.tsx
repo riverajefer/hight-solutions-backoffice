@@ -28,7 +28,11 @@ import { useOrders } from '../hooks';
 import { useClients } from '../../clients/hooks/useClients';
 import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
 import { useUsers } from '../../users/hooks/useUsers';
-import { OrderStatusChip, ChangeStatusDialog, ExportOrdersDialog } from '../components';
+import { OrderStatusChip, ChangeStatusDialog } from '../components';
+import { ExportDialog } from '../../../components/common/ExportDialog';
+import { EXPORT_LIMIT } from '../../../utils/excelExport';
+import { ORDER_EXPORT_COLUMNS } from '../utils/orderExportColumns';
+import { ordersApi } from '../../../api/orders.api';
 import {
   formatCurrency,
   formatDate,
@@ -714,10 +718,35 @@ export const OrdersListPage: React.FC = () => {
 
       {/* Export to Excel Dialog */}
       {canExport && (
-        <ExportOrdersDialog
+        <ExportDialog<Order>
           open={exportOpen}
           onClose={() => setExportOpen(false)}
-          currentFilters={filters}
+          title='Exportar Órdenes a Excel'
+          entityLabel='órdenes'
+          fileNamePrefix='Ordenes_Pedido'
+          sheetName='Órdenes de Pedido'
+          columns={ORDER_EXPORT_COLUMNS}
+          storageKey='orders_export_columns'
+          dateRangeLabel='Rango de fechas (fecha de orden)'
+          helperText='Se respetan los filtros activos de la pantalla (estado, cliente, asesor, área y búsqueda).'
+          defaultDateFrom={
+            filters.orderDateFrom ? new Date(filters.orderDateFrom) : undefined
+          }
+          defaultDateTo={
+            filters.orderDateTo ? new Date(filters.orderDateTo) : undefined
+          }
+          fetchRows={async ({ from, to }) => {
+            // Se descartan page/limit de la pantalla para usar los del export.
+            const { page, limit, ...activeFilters } = filters;
+            const response = await ordersApi.getAll({
+              ...activeFilters,
+              orderDateFrom: from.toISOString(),
+              orderDateTo: to.toISOString(),
+              page: 1,
+              limit: EXPORT_LIMIT,
+            });
+            return response.data ?? [];
+          }}
         />
       )}
     </Box>

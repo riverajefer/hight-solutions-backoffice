@@ -180,6 +180,33 @@ async function main() {
       name: 'export_orders',
       description: 'Exportar órdenes de pedido a Excel',
     },
+    {
+      name: 'export_pending_payment_orders',
+      description: 'Exportar órdenes pendientes por cobrar a Excel',
+    },
+    {
+      name: 'export_profitability',
+      description: 'Exportar rentabilidad por orden a Excel',
+    },
+    {
+      name: 'export_sales_by_advisor',
+      description: 'Exportar ventas por asesor a Excel',
+    },
+    {
+      name: 'export_accounts_payable',
+      description: 'Exportar cuentas por pagar a Excel',
+    },
+    {
+      name: 'export_expense_orders',
+      description: 'Exportar órdenes de gasto a Excel',
+    },
+    { name: 'export_quotes', description: 'Exportar cotizaciones a Excel' },
+    {
+      name: 'export_work_orders',
+      description: 'Exportar órdenes de trabajo a Excel',
+    },
+    { name: 'export_clients', description: 'Exportar clientes a Excel' },
+    { name: 'export_dtf', description: 'Exportar registros DTF a Excel' },
     { name: 'update_orders', description: 'Actualizar órdenes de pedido' },
     { name: 'delete_orders', description: 'Eliminar órdenes de pedido' },
     {
@@ -193,6 +220,14 @@ async function main() {
     {
       name: 'change_order_status',
       description: 'Cambiar el estado de una orden de pedido directamente',
+    },
+    {
+      name: 'request_advisor_change',
+      description: 'Solicitar el cambio de asesor de una orden de pedido',
+    },
+    {
+      name: 'approve_advisor_change',
+      description: 'Aprobar/rechazar solicitudes de cambio de asesor de órdenes',
     },
     {
       name: 'apply_discounts',
@@ -230,6 +265,16 @@ async function main() {
     { name: 'convert_quotes', description: 'Convertir cotizaciones a órdenes' },
     { name: 'manage_quote_columns', description: 'Administrar columnas del tablero Kanban de cotizaciones' },
     { name: 'read_all_quotes', description: 'Ver todas las cotizaciones en el tablero (no solo las propias)' },
+
+    // Sales Pipeline (Prospectos)
+    { name: 'create_prospects', description: 'Crear prospectos' },
+    { name: 'read_prospects', description: 'Ver prospectos' },
+    { name: 'read_all_prospects', description: 'Ver los prospectos de todas las vendedoras (no solo los propios)' },
+    { name: 'update_prospects', description: 'Actualizar prospectos y registrar contactos' },
+    { name: 'delete_prospects', description: 'Eliminar prospectos' },
+    { name: 'convert_prospects', description: 'Convertir prospectos a cotización u orden' },
+    { name: 'export_prospects', description: 'Exportar prospectos a Excel' },
+    { name: 'read_prospect_metrics', description: 'Ver métricas del pipeline de ventas por vendedora' },
 
     // Storage (File Upload/Management)
     { name: 'upload_files', description: 'Subir archivos al sistema' },
@@ -464,6 +509,7 @@ async function main() {
     'update_orders',
     'approve_orders',
     'change_order_status',
+    'request_advisor_change',
     'apply_discounts',
     'register_order_payments',
     'edit_order_payments',
@@ -474,6 +520,14 @@ async function main() {
     'update_quotes',
     'convert_quotes',
     'read_all_quotes',
+    // Sales Pipeline (Manager)
+    'create_prospects',
+    'read_prospects',
+    'read_all_prospects',
+    'update_prospects',
+    'convert_prospects',
+    'export_prospects',
+    'read_prospect_metrics',
     // Work Orders (Manager)
     'create_work_orders',
     'read_work_orders',

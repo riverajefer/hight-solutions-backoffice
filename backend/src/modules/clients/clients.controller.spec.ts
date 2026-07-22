@@ -32,15 +32,20 @@ describe('ClientsController', () => {
   afterEach(() => jest.clearAllMocks());
 
   describe('findAll', () => {
-    it('should call clientsService.findAll with false by default', async () => {
+    it('should pass the filters through to clientsService.findAll', async () => {
       mockClientsService.findAll.mockResolvedValue([]);
-      await controller.findAll(undefined);
-      expect(mockClientsService.findAll).toHaveBeenCalledWith(false);
+      await controller.findAll({});
+      expect(mockClientsService.findAll).toHaveBeenCalledWith({});
     });
-    it('should call clientsService.findAll with true when query is "true"', async () => {
+    it('should forward includeInactive and the date range', async () => {
       mockClientsService.findAll.mockResolvedValue([]);
-      await controller.findAll('true');
-      expect(mockClientsService.findAll).toHaveBeenCalledWith(true);
+      const filters = {
+        includeInactive: true,
+        createdAtFrom: '2026-01-01',
+        createdAtTo: '2026-01-31',
+      };
+      await controller.findAll(filters);
+      expect(mockClientsService.findAll).toHaveBeenCalledWith(filters);
     });
   });
 

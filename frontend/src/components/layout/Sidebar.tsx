@@ -156,6 +156,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
       menuKey: 'comercial',
       submenu: [
         {
+          label: 'Pipeline de Ventas',
+          icon: <TrendingUpIcon />,
+          path: ROUTES.PROSPECTS,
+          permission: PERMISSIONS.READ_PROSPECTS,
+        },
+        {
           label: 'Cotizaciones',
           icon: <PostAddIcon />,
           path: '/quotes',

@@ -40,16 +40,17 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   Cargos: ['create_cargos', 'read_cargos', 'update_cargos', 'delete_cargos'],
 
   // Comercial
-  Clientes: ['browse_clients', 'search_clients', 'create_clients', 'read_clients', 'update_clients', 'delete_clients', 'update_client_special_condition', 'approve_client_ownership_auth'],
-  Cotizaciones: ['create_quotes', 'read_quotes', 'update_quotes', 'delete_quotes', 'convert_quotes', 'manage_quote_columns', 'read_all_quotes'],
-  Órdenes: ['create_orders', 'read_orders', 'update_orders', 'delete_orders', 'approve_orders', 'change_order_status', 'register_order_payments', 'approve_discounts', 'apply_discounts', 'delete_discounts', 'read_pending_orders'],
+  Clientes: ['browse_clients', 'search_clients', 'create_clients', 'read_clients', 'update_clients', 'delete_clients', 'export_clients', 'update_client_special_condition', 'approve_client_ownership_auth'],
+  Cotizaciones: ['create_quotes', 'read_quotes', 'update_quotes', 'delete_quotes', 'export_quotes', 'convert_quotes', 'manage_quote_columns', 'read_all_quotes'],
+  'Pipeline de Ventas': ['create_prospects', 'read_prospects', 'read_all_prospects', 'update_prospects', 'delete_prospects', 'convert_prospects', 'export_prospects', 'read_prospect_metrics'],
+  Órdenes: ['create_orders', 'read_orders', 'update_orders', 'delete_orders', 'export_orders', 'export_pending_payment_orders', 'export_profitability', 'approve_orders', 'change_order_status', 'register_order_payments', 'approve_discounts', 'apply_discounts', 'delete_discounts', 'read_pending_orders'],
   'Canales Comerciales': ['create_commercial_channels', 'read_commercial_channels', 'update_commercial_channels', 'delete_commercial_channels'],
   Archivos: ['upload_files', 'read_files', 'delete_files', 'manage_storage'],
-  'Cuentas por Pagar': ['create_accounts_payable', 'read_accounts_payable', 'update_accounts_payable', 'delete_accounts_payable', 'register_ap_payment'],
+  'Cuentas por Pagar': ['create_accounts_payable', 'read_accounts_payable', 'update_accounts_payable', 'delete_accounts_payable', 'export_accounts_payable', 'register_ap_payment'],
   'Aprobaciones Cuentas por Pagar': ['approve_accounts_payable'],
   'Reversiones de Pago CP': ['request_ap_payment_reversal', 'gerencia_approve_ap_payment_reversal', 'caja_confirm_ap_payment_reversal'],
   'Reportes Financieros': ['read_financial_dashboard'],
-  'Ventas por Asesor': ['read_sales_by_advisor', 'manage_sales_goals'],
+  'Ventas por Asesor': ['read_sales_by_advisor', 'export_sales_by_advisor', 'manage_sales_goals'],
 
   // Inventario y Catálogos
   Movimientos: ['create_inventory_movements', 'read_inventory_movements', 'manage_inventory'],
@@ -62,15 +63,15 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   
   // Producción 
   'Áreas de Producción': ['create_production_areas', 'read_production_areas', 'update_production_areas', 'delete_production_areas'],
-  'Órdenes de Trabajo': ['create_work_orders', 'read_work_orders', 'update_work_orders', 'delete_work_orders'],
+  'Órdenes de Trabajo': ['create_work_orders', 'read_work_orders', 'update_work_orders', 'delete_work_orders', 'export_work_orders'],
   'Plantillas de Producto': ['read_product_templates', 'create_product_templates', 'update_product_templates', 'delete_product_templates'],
   'Etapas de Producción': ['read_step_definitions', 'create_step_definitions', 'update_step_definitions'],
   'Órdenes de Producción': ['read_production_orders', 'create_production_orders', 'update_production_orders'],
-  DTF: ['create_dtf', 'read_dtf', 'update_dtf', 'change_dtf_status', 'convert_dtf_to_order'],
+  DTF: ['create_dtf', 'read_dtf', 'update_dtf', 'export_dtf', 'change_dtf_status', 'convert_dtf_to_order'],
 
   // Gastos y Pagos
   'Tipos de Gasto': ['create_expense_types', 'read_expense_types', 'update_expense_types', 'delete_expense_types'],
-  'Órdenes de Gasto': ['create_expense_orders', 'read_expense_orders', 'update_expense_orders', 'delete_expense_orders', 'approve_expense_orders', 'caja_authorize_expense_orders'],
+  'Órdenes de Gasto': ['create_expense_orders', 'read_expense_orders', 'update_expense_orders', 'delete_expense_orders', 'export_expense_orders', 'approve_expense_orders', 'caja_authorize_expense_orders'],
   Anticipos: ['approve_advance_payments'],
   
   // Auditoría y Control

@@ -5,6 +5,21 @@ export type DtfStatus =
   | 'COMPLETADA'
   | 'CONVERTIDA_EN_OP';
 
+export const DTF_STATUS_LABELS: Record<DtfStatus, string> = {
+  BORRADOR: 'Borrador',
+  ENVIADA: 'Enviada',
+  EN_IMPRESION: 'En Impresión',
+  COMPLETADA: 'Completada',
+  CONVERTIDA_EN_OP: 'Convertida en OP',
+};
+
+export type DtfPaymentMethod = 'CASH' | 'TRANSFER';
+
+export const DTF_PAYMENT_METHOD_LABELS: Record<DtfPaymentMethod, string> = {
+  CASH: 'Efectivo',
+  TRANSFER: 'Transferencia',
+};
+
 export interface DtfProduct {
   id: string;
   name: string;
@@ -41,6 +56,9 @@ export interface DtfRecord {
   quantity: number;
   unitPrice: number;
   value: number;
+  abono: number;
+  abonoPaymentMethod?: DtfPaymentMethod | null;
+  abonoNotes?: string | null;
   status: DtfStatus;
   notes?: string | null;
   product: DtfProduct;
@@ -76,6 +94,10 @@ export interface DtfListFilters {
   status?: DtfStatus;
   productId?: string;
   clientId?: string;
+  /** Fecha de creación desde (ISO 8601). */
+  createdAtFrom?: string;
+  /** Fecha de creación hasta (ISO 8601). */
+  createdAtTo?: string;
   page?: number;
   limit?: number;
 }
@@ -85,6 +107,9 @@ export interface CreateDtfItemDto {
   clientId: string;
   quantity: number;
   unitPrice?: number;
+  abono?: number;
+  abonoPaymentMethod?: DtfPaymentMethod;
+  abonoNotes?: string;
   notes?: string;
 }
 
@@ -96,6 +121,9 @@ export interface UpdateDtfRecordDto {
   clientId?: string;
   quantity?: number;
   unitPrice?: number;
+  abono?: number;
+  abonoPaymentMethod?: DtfPaymentMethod;
+  abonoNotes?: string;
   notes?: string;
 }
 
@@ -128,6 +156,9 @@ export interface DtfFormItem {
   notes: string;
   unitPrice: number;
   value: number;
+  abono: number;
+  abonoPaymentMethod: DtfPaymentMethod | '';
+  abonoNotes: string;
   // files
   imageFile?: File | null;
   imagePreviewUrl?: string | null;

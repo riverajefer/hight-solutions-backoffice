@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
-import { DtfStatus, Prisma } from '../../generated/prisma';
+import { DtfStatus, PaymentMethod, Prisma } from '../../generated/prisma';
 
 const selectFields = {
   id: true,
@@ -8,6 +8,9 @@ const selectFields = {
   quantity: true,
   unitPrice: true,
   value: true,
+  abono: true,
+  abonoPaymentMethod: true,
+  abonoNotes: true,
   status: true,
   notes: true,
   createdAt: true,
@@ -34,6 +37,8 @@ export interface DtfFilters {
   status?: DtfStatus;
   productId?: string;
   clientId?: string;
+  createdAtFrom?: Date;
+  createdAtTo?: Date;
   page?: number;
   limit?: number;
 }
@@ -43,13 +48,27 @@ export class DtfRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAllWithFilters(filters: DtfFilters) {
-    const { status, productId, clientId, page = 1, limit = 50 } = filters;
+    const {
+      status,
+      productId,
+      clientId,
+      createdAtFrom,
+      createdAtTo,
+      page = 1,
+      limit = 50,
+    } = filters;
     const skip = (page - 1) * limit;
 
     const where: Prisma.DtfRecordWhereInput = {
       ...(status && { status }),
       ...(productId && { productId }),
       ...(clientId && { clientId }),
+      ...((createdAtFrom || createdAtTo) && {
+        createdAt: {
+          ...(createdAtFrom && { gte: createdAtFrom }),
+          ...(createdAtTo && { lte: createdAtTo }),
+        },
+      }),
     };
 
     const [data, total] = await Promise.all([
@@ -80,6 +99,9 @@ export class DtfRepository {
     quantity: Prisma.Decimal;
     unitPrice: Prisma.Decimal;
     value: Prisma.Decimal;
+    abono?: Prisma.Decimal;
+    abonoPaymentMethod?: PaymentMethod | null;
+    abonoNotes?: string | null;
     createdById: string;
     notes?: string;
   }) {
@@ -94,6 +116,9 @@ export class DtfRepository {
     quantity?: Prisma.Decimal;
     unitPrice?: Prisma.Decimal;
     value?: Prisma.Decimal;
+    abono?: Prisma.Decimal;
+    abonoPaymentMethod?: PaymentMethod | null;
+    abonoNotes?: string | null;
     notes?: string;
   }) {
     return this.prisma.dtfRecord.update({

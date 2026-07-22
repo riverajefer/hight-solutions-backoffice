@@ -5,15 +5,18 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
-import { DtfRepository, DtfFilters } from './dtf.repository';
+import { DtfRepository } from './dtf.repository';
 import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { StorageService } from '../storage/storage.service';
 import { OrdersService } from '../orders/orders.service';
+import { AdvancePaymentApprovalsService } from '../advance-payment-approvals/advance-payment-approvals.service';
 import { CreateDtfRecordDto, BulkCreateDtfDto } from './dto/create-dtf-record.dto';
 import { UpdateDtfRecordDto } from './dto/update-dtf-record.dto';
 import { ChangeDtfStatusDto } from './dto/change-dtf-status.dto';
+import { FilterDtfDto } from './dto/filter-dtf.dto';
 import { DtfStatus, PaymentMethod, Prisma } from '../../generated/prisma';
 import { isValidDtfTransition } from './dtf-status-transitions';
+import { startOfDay, endOfDay } from '../../common/utils/date-range.util';
 
 @Injectable()
 export class DtfService {
@@ -23,10 +26,16 @@ export class DtfService {
     private readonly consecutivesService: ConsecutivesService,
     private readonly storageService: StorageService,
     private readonly ordersService: OrdersService,
+    private readonly advancePaymentApprovalsService: AdvancePaymentApprovalsService,
   ) {}
 
-  async findAll(filters: DtfFilters) {
-    return this.dtfRepository.findAllWithFilters(filters);
+  async findAll(filters: FilterDtfDto) {
+    const { createdAtFrom, createdAtTo, ...rest } = filters;
+    return this.dtfRepository.findAllWithFilters({
+      ...rest,
+      createdAtFrom: startOfDay(createdAtFrom),
+      createdAtTo: endOfDay(createdAtTo),
+    });
   }
 
   async findOne(id: string) {
@@ -60,7 +69,6 @@ export class DtfService {
     }
 
     const consecutiveType = this.getConsecutiveType(product.name);
-    const consecutive = await this.consecutivesService.generateNumber(consecutiveType);
 
     const unitPrice = dto.unitPrice != null
       ? new Prisma.Decimal(dto.unitPrice)
@@ -69,16 +77,36 @@ export class DtfService {
     // Price is per 100 cm (per meter), so value = unitPrice × quantity / 100
     const value = unitPrice.mul(quantity).div(100);
 
-    return this.dtfRepository.create({
+    const buildData = (consecutive: string) => ({
       consecutive,
       productId: dto.productId,
       clientId: dto.clientId,
       quantity,
       unitPrice,
       value,
+      abono: dto.abono != null ? new Prisma.Decimal(dto.abono) : undefined,
+      abonoPaymentMethod: dto.abonoPaymentMethod ?? null,
+      abonoNotes: dto.abonoNotes ?? null,
       createdById: userId,
       notes: dto.notes,
     });
+
+    try {
+      const consecutive = await this.consecutivesService.generateNumber(consecutiveType);
+      return await this.dtfRepository.create(buildData(consecutive));
+    } catch (error) {
+      // El contador de consecutivos quedó desincronizado con los registros reales
+      // (p.ej. datos sembrados). Re-sincroniza desde la tabla y reintenta una vez.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        await this.consecutivesService.syncCounter(consecutiveType);
+        const consecutive = await this.consecutivesService.generateNumber(consecutiveType);
+        return await this.dtfRepository.create(buildData(consecutive));
+      }
+      throw error;
+    }
   }
 
   async update(id: string, dto: UpdateDtfRecordDto) {
@@ -94,6 +122,9 @@ export class DtfService {
 
     if (dto.clientId !== undefined) updates.clientId = dto.clientId;
     if (dto.notes !== undefined) updates.notes = dto.notes;
+    if (dto.abono !== undefined) updates.abono = new Prisma.Decimal(dto.abono);
+    if (dto.abonoPaymentMethod !== undefined) updates.abonoPaymentMethod = dto.abonoPaymentMethod ?? null;
+    if (dto.abonoNotes !== undefined) updates.abonoNotes = dto.abonoNotes ?? null;
 
     if (dto.unitPrice !== undefined) {
       updates.unitPrice = new Prisma.Decimal(dto.unitPrice);
@@ -197,18 +228,22 @@ export class DtfService {
       });
     }
 
-    // Transfer comprobante → create advance payment + attach receipt file
-    // Done directly via Prisma to avoid cash-session / receipt_number machinery
-    if (dtfComprobante && order?.id) {
-      const dtfValue = new Prisma.Decimal(Number(record.value));
+    // Create advance payment from the DTF abono (client's down payment), not the
+    // full value. Attach the comprobante as receipt if one was uploaded.
+    // Done directly via Prisma to avoid cash-session / receipt_number machinery.
+    const abonoAmount = Number(record.abono);
+    if (abonoAmount > 0 && order?.id) {
+      const abonoDecimal = new Prisma.Decimal(abonoAmount);
 
       const payment = await this.prisma.payment.create({
         data: {
           orderId: order.id,
-          amount: dtfValue,
-          paymentMethod: PaymentMethod.TRANSFER,
+          amount: abonoDecimal,
+          paymentMethod: record.abonoPaymentMethod ?? PaymentMethod.TRANSFER,
           reference: record.consecutive,
-          notes: `Anticipo DTF ${record.consecutive}`,
+          notes: record.abonoNotes?.trim()
+            ? record.abonoNotes
+            : `Anticipo DTF ${record.consecutive}`,
           receivedById: userId,
         },
       });
@@ -217,20 +252,35 @@ export class DtfService {
       await this.prisma.order.update({
         where: { id: order.id },
         data: {
-          paidAmount: { increment: dtfValue },
-          balance: { decrement: dtfValue },
+          paidAmount: { increment: abonoDecimal },
+          balance: { decrement: abonoDecimal },
         },
       });
 
-      // Reassign the comprobante file to the new payment
-      await this.prisma.uploadedFile.update({
-        where: { id: dtfComprobante.id },
-        data: { entityType: 'payment', entityId: payment.id },
-      });
-      await this.prisma.payment.update({
-        where: { id: payment.id },
-        data: { receiptFileId: dtfComprobante.id },
-      });
+      // Reassign the comprobante file to the new payment (if present)
+      if (dtfComprobante) {
+        await this.prisma.uploadedFile.update({
+          where: { id: dtfComprobante.id },
+          data: { entityType: 'payment', entityId: payment.id },
+        });
+        await this.prisma.payment.update({
+          where: { id: payment.id },
+          data: { receiptFileId: dtfComprobante.id },
+        });
+      }
+
+      // El anticipo debe ser aprobado por Caja, igual que al crear una OP desde
+      // el módulo de Órdenes (se omite si el usuario ya tiene permiso de Caja).
+      const approvalCheck =
+        await this.advancePaymentApprovalsService.requiresApproval(userId);
+      if (approvalCheck.required) {
+        await this.advancePaymentApprovalsService.createFromOrderCreation(
+          userId,
+          order.id,
+          payment.id,
+          'anticipo',
+        );
+      }
     }
 
     await this.dtfRepository.updateStatus(id, DtfStatus.CONVERTIDA_EN_OP, order?.id);

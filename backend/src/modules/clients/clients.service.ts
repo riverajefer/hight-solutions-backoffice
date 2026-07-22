@@ -6,7 +6,9 @@ import {
 import { ClientsRepository } from './clients.repository';
 import { LocationsService } from '../locations/locations.service';
 import { CreateClientDto, UpdateClientDto } from './dto';
+import { FilterClientsDto } from './dto/filter-clients.dto';
 import { PersonType } from '../../generated/prisma';
+import { startOfDay, endOfDay } from '../../common/utils/date-range.util';
 
 @Injectable()
 export class ClientsService {
@@ -18,8 +20,13 @@ export class ClientsService {
   /**
    * Get all clients
    */
-  async findAll(includeInactive = false) {
-    return this.clientsRepository.findAll(includeInactive);
+  async findAll(filters: FilterClientsDto = {}) {
+    const { createdAtFrom, createdAtTo, includeInactive } = filters;
+    return this.clientsRepository.findAll({
+      includeInactive,
+      createdAtFrom: startOfDay(createdAtFrom),
+      createdAtTo: endOfDay(createdAtTo),
+    });
   }
 
   /**

@@ -1,4 +1,6 @@
 export { ConfirmDialog } from './ConfirmDialog';
+export { ExportDialog } from './ExportDialog';
+export type { ExportDialogProps, DateRange } from './ExportDialog';
 export { DataTable } from './DataTable';
 export { LoadingSpinner } from './LoadingSpinner';
 export { SearchInput } from './SearchInput';

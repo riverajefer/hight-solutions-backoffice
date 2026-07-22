@@ -14,6 +14,7 @@ import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../hooks'
 import {
   Add as AddIcon,
   ReceiptLong as ReceiptLongIcon,
+  FileDownload as FileDownloadIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { DataTable } from '../../../components/common/DataTable';
@@ -25,6 +26,10 @@ import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS, ROUTES } from '../../../utils/constants';
 import { WorkOrderStatus } from '../../../types/work-order.types';
 import type { WorkOrder, FilterWorkOrdersDto } from '../../../types/work-order.types';
+import { ExportDialog } from '../../../components/common/ExportDialog';
+import { EXPORT_LIMIT } from '../../../utils/excelExport';
+import { WORK_ORDER_EXPORT_COLUMNS } from '../utils/workOrderExportColumns';
+import { workOrdersApi } from '../../../api/work-orders.api';
 
 const formatDate = (date: string): string => {
   return new Intl.DateTimeFormat('es-CO', {
@@ -76,6 +81,8 @@ export const WorkOrdersListPage = () => {
   const canCreate = hasPermission(PERMISSIONS.CREATE_WORK_ORDERS);
   const canUpdate = hasPermission(PERMISSIONS.UPDATE_WORK_ORDERS);
   const canDelete = hasPermission(PERMISSIONS.DELETE_WORK_ORDERS);
+  const canExport = hasPermission(PERMISSIONS.EXPORT_WORK_ORDERS);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const handleFilterChange = (key: keyof FilterWorkOrdersDto, value: unknown) => {
     setFilters((prev) => ({ ...prev, [key]: value || undefined, page: 1 }));
@@ -224,15 +231,27 @@ export const WorkOrdersListPage = () => {
         title="Órdenes de Trabajo"
         subtitle="Gestión de órdenes de trabajo para producción"
         action={
-          canCreate ? (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => navigate(ROUTES.WORK_ORDERS_CREATE)}
-            >
-              Nueva OT
-            </Button>
-          ) : undefined
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {canExport && (
+              <Button
+                variant="outlined"
+                color="success"
+                startIcon={<FileDownloadIcon />}
+                onClick={() => setExportOpen(true)}
+              >
+                Exportar a Excel
+              </Button>
+            )}
+            {canCreate && (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => navigate(ROUTES.WORK_ORDERS_CREATE)}
+              >
+                Nueva OT
+              </Button>
+            )}
+          </Box>
         }
       />
 
@@ -273,6 +292,39 @@ export const WorkOrdersListPage = () => {
         onCancel={() => setConfirmDelete(null)}
         isLoading={deleteWorkOrderMutation.isPending}
       />
+
+      {/* Export to Excel Dialog */}
+      {canExport && (
+        <ExportDialog<WorkOrder>
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          title="Exportar Órdenes de Trabajo a Excel"
+          entityLabel="órdenes de trabajo"
+          fileNamePrefix="Ordenes_Trabajo"
+          sheetName="Órdenes de Trabajo"
+          columns={WORK_ORDER_EXPORT_COLUMNS}
+          storageKey="work_orders_export_columns"
+          dateRangeLabel="Rango de fechas (fecha de creación)"
+          helperText="Se respetan los filtros activos de la pantalla (estado y búsqueda)."
+          defaultDateFrom={
+            filters.createdAtFrom ? new Date(filters.createdAtFrom) : undefined
+          }
+          defaultDateTo={
+            filters.createdAtTo ? new Date(filters.createdAtTo) : undefined
+          }
+          fetchRows={async ({ from, to }) => {
+            const { page, limit, ...activeFilters } = filters;
+            const response = await workOrdersApi.getAll({
+              ...activeFilters,
+              createdAtFrom: from.toISOString(),
+              createdAtTo: to.toISOString(),
+              page: 1,
+              limit: EXPORT_LIMIT,
+            });
+            return response.data ?? [];
+          }}
+        />
+      )}
     </Box>
   );
 };

@@ -78,11 +78,13 @@ export class ConsecutivesRepository {
     const safeTable = tableName.replace(/[^a-z0-9_]/gi, '');
     const safeColumn = columnName.replace(/[^a-z0-9_]/gi, '');
 
-    // Find max number used in the actual table
+    // Find max number used in the actual table.
+    // Extrae los dígitos finales del consecutivo (el número), en vez de una posición
+    // fija por guiones — así funciona aun con prefijos que contienen guión (ej. "DTF-TEXTIL").
     const maxResult = await this.prisma.$queryRawUnsafe<
       Array<{ max_num: number | null }>
     >(
-      `SELECT MAX(CAST(SPLIT_PART("${safeColumn}", '-', 3) AS INTEGER)) as max_num
+      `SELECT MAX(CAST(SUBSTRING("${safeColumn}" FROM '([0-9]+)$') AS INTEGER)) as max_num
        FROM "${safeTable}"
        WHERE "${safeColumn}" LIKE $1`,
       pattern,

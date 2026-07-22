@@ -46,6 +46,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   read_clients: 'Ver Clientes',
   update_clients: 'Actualizar Clientes',
   delete_clients: 'Eliminar Clientes',
+  export_clients: 'Exportar Clientes a Excel',
   update_client_special_condition: 'Editar Condición Especial',
   approve_client_ownership_auth: 'Aprobar Propiedad de Cliente',
 
@@ -97,14 +98,27 @@ export const PERMISSION_LABELS: Record<string, string> = {
   read_quotes: 'Ver Cotizaciones',
   update_quotes: 'Actualizar Cotizaciones',
   delete_quotes: 'Eliminar Cotizaciones',
+  export_quotes: 'Exportar Cotizaciones a Excel',
   convert_quotes: 'Convertir Cotizaciones',
   manage_quote_columns: 'Gestionar Columnas de Cotización',
   read_all_quotes: 'Ver Todas las Cotizaciones',
+  // Pipeline de Ventas
+  create_prospects: 'Crear Prospectos',
+  read_prospects: 'Ver Prospectos',
+  read_all_prospects: 'Ver Prospectos de Todas las Vendedoras',
+  update_prospects: 'Actualizar Prospectos y Registrar Contactos',
+  delete_prospects: 'Eliminar Prospectos',
+  convert_prospects: 'Convertir Prospectos',
+  export_prospects: 'Exportar Prospectos a Excel',
+  read_prospect_metrics: 'Ver Métricas del Pipeline',
    // Órdenes
    create_orders: 'Crear Órdenes',
    read_orders: 'Ver Órdenes',
    update_orders: 'Actualizar Órdenes',
    delete_orders: 'Eliminar Órdenes',
+   export_orders: 'Exportar Órdenes a Excel',
+   export_pending_payment_orders: 'Exportar Órdenes Pendientes por Cobrar a Excel',
+   export_profitability: 'Exportar Rentabilidad por Orden a Excel',
    approve_orders: 'Aprobar Órdenes',
    change_order_status: 'Cambiar Estado de Órdenes',
    register_order_payments: 'Agrega pago en OP',
@@ -124,6 +138,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   read_work_orders: 'Ver Órdenes de Trabajo',
   update_work_orders: 'Actualizar Órdenes de Trabajo',
   delete_work_orders: 'Eliminar Órdenes de Trabajo',
+  export_work_orders: 'Exportar Órdenes de Trabajo a Excel',
 
   // Tipos de gasto
   create_expense_types: 'Crear Tipos de Gasto',
@@ -136,6 +151,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   read_expense_orders: 'Ver Órdenes de Gasto',
   update_expense_orders: 'Actualizar Órdenes de Gasto',
   delete_expense_orders: 'Eliminar Órdenes de Gasto',
+  export_expense_orders: 'Exportar Órdenes de Gasto a Excel',
   approve_expense_orders: 'Aprobar Órdenes de Gasto',
 
   // Anticipos
@@ -185,6 +201,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   create_dtf: 'Crear DTF',
   read_dtf: 'Ver DTF',
   update_dtf: 'Actualizar DTF',
+  export_dtf: 'Exportar DTF a Excel',
   change_dtf_status: 'Cambiar Estado de DTF',
   convert_dtf_to_order: 'Convertir DTF a Orden',
 
@@ -216,6 +233,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   read_accounts_payable: 'Ver Cuentas por Pagar',
   update_accounts_payable: 'Actualizar Cuentas por Pagar',
   delete_accounts_payable: 'Eliminar Cuentas por Pagar',
+  export_accounts_payable: 'Exportar Cuentas por Pagar a Excel',
   register_ap_payment: 'Registrar Pago de Cuenta por Pagar',
   approve_accounts_payable: 'Aprobar Pago de CP (Admin)',
   caja_authorize_ap_payment: 'Autorizar Pago de CP en Caja',
@@ -228,6 +246,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
 
   // Ventas por Asesor
   read_sales_by_advisor: 'Ver Ventas por Asesor',
+  export_sales_by_advisor: 'Exportar Ventas por Asesor a Excel',
   manage_sales_goals: 'Gestionar Metas de Ventas',
 };
 

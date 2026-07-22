@@ -19,6 +19,7 @@ import {
   UpdateExpenseOrderStatusDto,
 } from './dto';
 import { AuthenticatedUser } from '../../common/interfaces/auth.interface';
+import { startOfDay, endOfDay } from '../../common/utils/date-range.util';
 import { ExpenseOrderAuthRequestsService } from '../expense-order-auth-requests/expense-order-auth-requests.service';
 import { AccountsPayableService } from '../accounts-payable/accounts-payable.service';
 
@@ -174,7 +175,12 @@ export class ExpenseOrdersService {
   }
 
   async findAll(filters: FilterExpenseOrdersDto) {
-    return this.repository.findAll(filters);
+    const { createdAtFrom, createdAtTo, ...rest } = filters;
+    return this.repository.findAll({
+      ...rest,
+      createdAtFrom: startOfDay(createdAtFrom),
+      createdAtTo: endOfDay(createdAtTo),
+    });
   }
 
   async findOne(id: string) {

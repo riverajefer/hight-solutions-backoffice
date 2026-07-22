@@ -21,7 +21,7 @@ import {
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { commercialChannelsApi } from '../../../api/commercialChannels.api';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useForm, Controller, type SubmitHandler, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -44,6 +44,7 @@ import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { useOrders, useOrder } from '../hooks';
 import { ordersApi } from '../../../api/orders.api';
+import { prospectsApi } from '../../../api/prospects.api';
 import { useEditRequests } from '../../../hooks/useEditRequests';
 import {
   ClientSelector,
@@ -317,6 +318,8 @@ const StepHeader: React.FC<StepHeaderProps> = ({ index, config, status, clickabl
 export const OrderFormPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  // `clientId` y `prospectId` los pone el Pipeline de Ventas al convertir.
+  const [searchParams] = useSearchParams();
   const { user } = useAuthStore();
 
   const isEdit = !!id;
@@ -325,6 +328,13 @@ export const OrderFormPage: React.FC = () => {
   // Las órdenes provenientes de DTF se identifican por la nota "[DTF] ...".
   // En ellas el abono se edita desde este formulario (no por el flujo dedicado).
   const isDtfOrder = orderQuery.data?.notes?.startsWith('[DTF]') ?? false;
+  // Si Caja rechazó el anticipo, el pago fue eliminado y la orden quedó sin abono.
+  // Se habilita de nuevo "Abono Inicial" aquí para que el asesor pueda corregirlo:
+  // es la única vía, ya que "Historial de Pagos" queda vacío y el cambio de estado
+  // está bloqueado mientras el anticipo esté rechazado.
+  const isAdvanceRejected = orderQuery.data?.advancePaymentStatus === 'REJECTED';
+  // En órdenes no-DTF el abono solo se edita aquí cuando hay que rehacer el rechazado.
+  const canEditPaymentHere = isDtfOrder || isAdvanceRejected;
   const { activePermissionQuery } = useEditRequests(id || '');
   const isAdmin = user?.role?.name === 'admin';
 
@@ -667,7 +677,7 @@ export const OrderFormPage: React.FC = () => {
         // autorización del admin), evitando sobrescribir el primer pago/inflar saldo.
         // EXCEPCIÓN: órdenes provenientes de DTF, donde el abono se edita aquí
         // (comportamiento previo). En creación se usan initialPayments.
-        initialPayment: isEdit && isDtfOrder && data.payments[0]?.amount > 0 ? {
+        initialPayment: isEdit && canEditPaymentHere && data.payments[0]?.amount > 0 ? {
           amount: data.payments[0].amount,
           paymentMethod: data.payments[0].paymentMethod,
           reference: data.payments[0].reference,
@@ -680,9 +690,10 @@ export const OrderFormPage: React.FC = () => {
       if (isEdit) {
         const updatedOrder = await updateOrderMutation.mutateAsync(orderDto);
 
-        // Solo en órdenes DTF se edita el abono/comprobante desde este formulario.
+        // El abono/comprobante solo se edita desde este formulario en órdenes DTF o
+        // cuando se está rehaciendo un anticipo rechazado por Caja.
         // Para el resto, los pagos se gestionan en "Historial de Pagos".
-        if (isDtfOrder) {
+        if (canEditPaymentHere) {
           const newPaymentId = updatedOrder?.payments?.[0]?.id;
           if (data.payments[0] && data.payments[0].receiptFile && newPaymentId) {
             try {
@@ -713,6 +724,21 @@ export const OrderFormPage: React.FC = () => {
                 enqueueSnackbar('Orden creada, pero hubo un error subiendo un comprobante', { variant: 'warning' });
               }
             }
+          }
+        }
+
+        // Cuando se llega desde el Pipeline de Ventas, se enlaza la orden de
+        // vuelta al prospecto para marcarlo como convertido y poder medirlo.
+        // Si esto falla, la orden ya quedó creada: no se bloquea al usuario.
+        const prospectId = searchParams.get('prospectId');
+        if (prospectId) {
+          try {
+            await prospectsApi.update(prospectId, { orderId: newOrder.id });
+          } catch {
+            enqueueSnackbar(
+              'La orden se creó, pero no se pudo enlazar al prospecto.',
+              { variant: 'warning' },
+            );
           }
         }
 
@@ -868,30 +894,35 @@ export const OrderFormPage: React.FC = () => {
 
   // ── Image handlers ──────────────────────────────────────────────────────────
 
+  // El ítem sólo tiene endpoint propio de imagen si ya existe en la BD. Los ítems
+  // recién agregados (orden nueva, o ítem agregado a una existente todavía sin
+  // guardar) suben al storage genérico y viajan como sampleImageId dentro del DTO.
+  const isPersistedItem = (itemId: string) =>
+    isEdit && !!orderQuery.data?.items?.some((item: any) => item.id === itemId);
+
+  const uploadImageToForm = async (itemId: string, file: File) => {
+    const currentItems = getValues('items');
+    const existingItem = currentItems.find(i => i.id === itemId);
+    if (existingItem?.sampleImageId) {
+      try { await storageApi.deleteFile(existingItem.sampleImageId); } catch { /* ignore */ }
+    }
+    try {
+      const uploadedFile = await storageApi.uploadFile(file, { entityType: 'order' });
+      setValue('items', currentItems.map((item) =>
+        item.id === itemId ? { ...item, sampleImageId: uploadedFile.id } : item
+      ));
+      enqueueSnackbar('Imagen subida exitosamente', { variant: 'success' });
+    } catch (error: any) {
+      enqueueSnackbar(error.response?.data?.message || 'Error al subir la imagen', { variant: 'error' });
+    }
+  };
+
   const handleImageUpload = async (itemId: string, file: File) => {
-    if (!isEdit) {
-      const currentItems = getValues('items');
-      const existingItem = currentItems.find(i => i.id === itemId);
-      if (existingItem?.sampleImageId) {
-        try { await storageApi.deleteFile(existingItem.sampleImageId); } catch { /* ignore */ }
-      }
-      try {
-        const uploadedFile = await storageApi.uploadFile(file, { entityType: 'order' });
-        setValue('items', currentItems.map((item) =>
-          item.id === itemId ? { ...item, sampleImageId: uploadedFile.id } : item
-        ));
-        enqueueSnackbar('Imagen subida exitosamente', { variant: 'success' });
-      } catch (error: any) {
-        enqueueSnackbar(error.response?.data?.message || 'Error al subir la imagen', { variant: 'error' });
-      }
+    if (!isPersistedItem(itemId)) {
+      await uploadImageToForm(itemId, file);
       return;
     }
 
-    const currentItem = orderQuery.data?.items?.find((item: any) => item.id === itemId);
-    if (!currentItem) {
-      enqueueSnackbar('Guarda los cambios antes de subir imágenes a ítems nuevos', { variant: 'warning' });
-      return;
-    }
     try {
       const uploadedFile = await ordersApi.uploadItemSampleImage(id!, itemId, file);
       const currentItems = getValues('items');
@@ -906,7 +937,7 @@ export const OrderFormPage: React.FC = () => {
   };
 
   const handleImageDelete = async (itemId: string) => {
-    if (!isEdit) {
+    if (!isPersistedItem(itemId)) {
       const currentItems = getValues('items');
       const item = currentItems.find(i => i.id === itemId);
       if (item?.sampleImageId) {
@@ -1288,7 +1319,20 @@ export const OrderFormPage: React.FC = () => {
         </Card>
       )}
 
-      {isEdit && !isDtfOrder && (
+      {isEdit && isAdvanceRejected && (
+        <Alert severity="warning">
+          <strong>El anticipo de esta orden fue rechazado por Caja</strong> y el pago
+          quedó revertido. Registra aquí el abono corregido: al guardar se enviará de
+          nuevo a Caja para su autorización.
+          {orderQuery.data?.advancePaymentRejectedReason && (
+            <>
+              {' '}Motivo del rechazo: <em>{orderQuery.data.advancePaymentRejectedReason}</em>
+            </>
+          )}
+        </Alert>
+      )}
+
+      {isEdit && !canEditPaymentHere && (
         <Alert severity="info">
           Los abonos no se editan desde aquí. Para corregir un pago o su comprobante
           usa <strong>Historial de Pagos</strong> en el detalle de la orden (requiere
@@ -1305,7 +1349,7 @@ export const OrderFormPage: React.FC = () => {
             values={paymentsField.value}
             onEnabledChange={() => {}}
             onChange={paymentsField.onChange}
-            disabled={!isClientSelected || (isEdit && !isDtfOrder)}
+            disabled={!isClientSelected || (isEdit && !canEditPaymentHere)}
             required={true}
             creditBalance={saldoAFavor}
           />
