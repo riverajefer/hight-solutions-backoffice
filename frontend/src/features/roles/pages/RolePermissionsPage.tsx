@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Card, CardContent, Button } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
@@ -21,11 +21,15 @@ const RolePermissionsPage: React.FC = () => {
   
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
 
+  // Línea base para restaurar: lo que el rol tiene guardado.
+  const initialPermissions = useMemo(
+    () => role?.permissions?.map(p => p.id) ?? [],
+    [role],
+  );
+
   useEffect(() => {
-    if (role?.permissions) {
-      setSelectedPermissions(role.permissions.map(p => p.id));
-    }
-  }, [role]);
+    setSelectedPermissions(initialPermissions);
+  }, [initialPermissions]);
 
   const handleSave = async () => {
     if (!id) return;
@@ -61,6 +65,7 @@ const RolePermissionsPage: React.FC = () => {
             selectedPermissions={selectedPermissions}
             onSelectPermissions={setSelectedPermissions}
             disabled={setPermissionsMutation.isPending}
+            initialPermissions={initialPermissions}
           />
 
           <Box sx={{ mt: 3, display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
