@@ -111,6 +111,24 @@ const groups: PermissionGroup[] = [
       },
     ],
   },
+  {
+    label: '💳 Pagos de órdenes',
+    permissions: [
+      {
+        name: 'edit_order_payments',
+        description: 'Solicitar edición de un pago en una orden',
+      },
+      {
+        name: 'approve_payment_edits',
+        description:
+          'Aprobar/rechazar ediciones de pagos en órdenes (autoriza sin solicitud)',
+      },
+      {
+        name: 'delete_payment_receipts',
+        description: 'Eliminar el comprobante de un pago en una orden',
+      },
+    ],
+  },
 ];
 
 const allPermissions = groups.flatMap((g) => g.permissions);
