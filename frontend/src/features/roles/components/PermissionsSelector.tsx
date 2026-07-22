@@ -484,7 +484,19 @@ export const PermissionsSelector: React.FC<PermissionsSelectorProps> = ({
                         sx={{
                           height: 18,
                           fontSize: '0.65rem',
+                          fontWeight: 700,
                           '& .MuiChip-label': { px: 0.75 },
+                          // El theme pinta los chips primary con un gradiente que va
+                          // de cyan claro a azul oscuro: el texto blanco queda en 1.8:1
+                          // sobre el extremo claro. Fondo sólido + texto oscuro da 8.9:1.
+                          // El `&&` duplica la clase para ganarle en especificidad al
+                          // selector `.MuiChip-filled.MuiChip-colorPrimary` del theme.
+                          '&&.MuiChip-filled.MuiChip-colorPrimary': {
+                            background: theme.palette.primary.main,
+                            color: theme.palette.getContrastText(
+                              theme.palette.primary.main,
+                            ),
+                          },
                         }}
                       />
                     </Box>
