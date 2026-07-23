@@ -91,12 +91,14 @@ import {
   RefundRequestDialog,
 } from '../components';
 import { generateOrderPdf } from '../utils/generateOrderPdf';
+import { getPendingAdvanceInfo } from '../utils/pendingAdvance';
 import { ActivePermissionBanner } from '../components/ActivePermissionBanner';
 import { RequestEditPermissionButton } from '../components/RequestEditPermissionButton';
 import { RequestAdvisorChangeButton } from '../components/RequestAdvisorChangeButton';
 import { AdvisorChangeStatusAlert } from '../components/AdvisorChangeStatusAlert';
 import { EditRequestsList } from '../components/EditRequestsList';
 import { AdvancePaymentApprovalsList } from '../components/AdvancePaymentApprovalsList';
+import { AdvancePaymentApprovalBadge } from '../components/AdvancePaymentApprovalBadge';
 import { StatusChangeAuthRequestDialog } from '../components/StatusChangeAuthRequestDialog';
 import { OrderChangeHistoryTab } from '../components/OrderChangeHistoryTab';
 import { ordersApi } from '../../../api/orders.api';
@@ -111,6 +113,7 @@ import type {
   ApplyDiscountDto,
   ExpenseOrderSummary,
   Payment,
+  AdvancePaymentApproval,
 } from '../../../types/order.types';
 import {
   ORDER_STATUS_CONFIG,
@@ -280,6 +283,22 @@ export const OrderDetailPage: React.FC = () => {
     }
     return map;
   }, [paymentEditApprovals]);
+
+  // Mapa paymentId -> autorización de anticipo más reciente (badge con detalle
+  // de la aprobación en el historial de pagos).
+  const advanceApprovalByPayment = React.useMemo(() => {
+    const map: Record<string, AdvancePaymentApproval> = {};
+    for (const approval of order?.advancePaymentApprovals || []) {
+      // paymentId es null cuando el pago fue eliminado por un rechazo: esa
+      // solicitud vive en el historial de autorizaciones, no en esta tabla.
+      if (!approval.paymentId) continue;
+      const current = map[approval.paymentId];
+      if (!current || new Date(approval.createdAt) > new Date(current.createdAt)) {
+        map[approval.paymentId] = approval;
+      }
+    }
+    return map;
+  }, [order?.advancePaymentApprovals]);
 
   // Cargar URL firmada de la imagen de observaciones
   useEffect(() => {
@@ -688,6 +707,19 @@ export const OrderDetailPage: React.FC = () => {
 
   const balance = parseFloat(order.balance);
 
+  // Abonos registrados pero aún no aprobados por Caja: no deben mostrarse como
+  // aplicados al total (el backend sí los suma a paidAmount desde el registro).
+  const pendingAdvance = getPendingAdvanceInfo(order);
+
+  // Solicitud de anticipo rechazada más reciente (su pago ya no existe)
+  const rejectedAdvance = [...(order.advancePaymentApprovals || [])]
+    .filter((approval) => approval.status === 'REJECTED')
+    .sort(
+      (a, b) =>
+        new Date(b.reviewedAt ?? b.createdAt).getTime() -
+        new Date(a.reviewedAt ?? a.createdAt).getTime(),
+    )[0];
+
   // Diálogo de pago (registrar/editar): saldo disponible contra el que se compara
   // el monto ingresado. En edición se "devuelve" el monto original del pago para
   // razonar como si ese pago aún no existiera.
@@ -698,11 +730,9 @@ export const OrderDetailPage: React.FC = () => {
   // Saldo pendiente que quedará tras aplicar el monto (negativo = saldo a favor)
   const saldoDespues = availableForPayment - paymentEntered;
 
-  // Saldo a favor (overpayment) = paidAmount - total
-  const overpayment = Math.max(
-    0,
-    parseFloat(order.paidAmount) - parseFloat(order.total),
-  );
+  // Saldo a favor (overpayment) = abono aplicado - total. Los abonos pendientes
+  // de aprobación no cuentan hasta que Caja los apruebe.
+  const overpayment = Math.max(0, -pendingAdvance.effectiveBalance);
   const hasOverpayment = overpayment > 0;
   const pendingRefund = order.refundRequests?.find(
     (r) => r.status === 'PENDING',
@@ -748,14 +778,38 @@ export const OrderDetailPage: React.FC = () => {
       {order.advancePaymentStatus === 'PENDING' && (
         <Alert severity="warning" icon={<WarningIcon />} sx={{ mt: 2 }}>
           <strong>Pago pendiente de aprobación.</strong> El pago registrado en esta orden está siendo revisado por Caja. No se puede cambiar el estado hasta que sea aprobado.
+          {pendingAdvance.hasPendingAdvance && (
+            <Box sx={{ mt: 0.5 }}>
+              El abono de <strong>{formatCurrency(pendingAdvance.pendingAmount)}</strong>{' '}
+              aún no se descuenta del total: se aplicará al saldo cuando Caja lo apruebe.
+            </Box>
+          )}
         </Alert>
       )}
       {order.advancePaymentStatus === 'REJECTED' && (
         <Alert severity="error" sx={{ mt: 2 }}>
-          <strong>Pago rechazado.</strong> El pago registrado en esta orden fue rechazado por Caja. El pago ha sido revertido.
+          <strong>Pago rechazado.</strong>{' '}
+          {rejectedAdvance?.paymentAmount ? (
+            <>
+              El pago de{' '}
+              <strong>{formatCurrency(rejectedAdvance.paymentAmount)}</strong> fue
+              rechazado por Caja y eliminado del historial de pagos.
+            </>
+          ) : (
+            <>
+              El pago registrado en esta orden fue rechazado por Caja. El pago ha sido
+              revertido.
+            </>
+          )}
           {order.advancePaymentRejectedReason && (
             <Box sx={{ mt: 0.5 }}>
               <strong>Motivo del rechazo:</strong> {order.advancePaymentRejectedReason}
+            </Box>
+          )}
+          {pendingAdvance.appliedPaidAmount > 0 && (
+            <Box sx={{ mt: 0.5 }}>
+              Los demás abonos de esta orden ({formatCurrency(pendingAdvance.appliedPaidAmount)}
+              ) siguen aplicados al saldo.
             </Box>
           )}
         </Alert>
@@ -1327,23 +1381,64 @@ export const OrderDetailPage: React.FC = () => {
                     <Box display="flex" justifyContent="space-between">
                       <Typography>Abono:</Typography>
                       <Typography fontWeight={500} color="success.main">
-                        {formatCurrency(parseFloat(order.paidAmount))}
+                        {formatCurrency(pendingAdvance.appliedPaidAmount)}
                       </Typography>
                     </Box>
+                    {pendingAdvance.hasPendingAdvance && (
+                      <Box
+                        display="flex"
+                        justifyContent="space-between"
+                        alignItems="center"
+                        gap={1}
+                      >
+                        <Stack
+                          direction="row"
+                          spacing={0.75}
+                          alignItems="center"
+                          flexWrap="wrap"
+                          sx={{ minWidth: 0 }}
+                        >
+                          <Typography color="warning.main">Abono por aprobar:</Typography>
+                          <Chip
+                            icon={<HourglassEmptyIcon />}
+                            label="Pendiente de aprobación"
+                            color="warning"
+                            size="small"
+                            variant="outlined"
+                          />
+                        </Stack>
+                        <Typography
+                          fontWeight={500}
+                          color="warning.main"
+                          sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
+                        >
+                          {formatCurrency(pendingAdvance.pendingAmount)}
+                        </Typography>
+                      </Box>
+                    )}
                     <Box display="flex" justifyContent="space-between" alignItems="baseline" gap={1} mt={1}>
                       <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' }, minWidth: 0 }}>
-                        {parseFloat(order.balance) < 0 ? 'Saldo a favor del cliente:' : 'Saldo a cobrar:'}
+                        {pendingAdvance.effectiveBalance < 0 ? 'Saldo a favor del cliente:' : 'Saldo a cobrar:'}
                       </Typography>
                       <Typography
                         variant="h6"
-                        color={parseFloat(order.balance) < 0 ? 'warning.main' : parseFloat(order.balance) > 0 ? 'error.main' : 'success.main'}
+                        color={pendingAdvance.effectiveBalance < 0 ? 'warning.main' : pendingAdvance.effectiveBalance > 0 ? 'error.main' : 'success.main'}
                         sx={{ fontSize: { xs: '1rem', sm: '1.25rem' }, whiteSpace: 'nowrap', flexShrink: 0 }}
                       >
-                        {parseFloat(order.balance) < 0 
-                          ? formatCurrency(Math.abs(parseFloat(order.balance))) 
-                          : formatCurrency(parseFloat(order.balance))}
+                        {formatCurrency(Math.abs(pendingAdvance.effectiveBalance))}
                       </Typography>
                     </Box>
+                    {pendingAdvance.hasPendingAdvance && (
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ display: 'block', textAlign: 'right' }}
+                      >
+                        No incluye el abono de{' '}
+                        {formatCurrency(pendingAdvance.pendingAmount)}: se aplicará
+                        cuando Caja lo apruebe.
+                      </Typography>
+                    )}
                   </Stack>
                 </Box>
               </CardContent>
@@ -1519,9 +1614,23 @@ export const OrderDetailPage: React.FC = () => {
                               />
                             </TableCell>
                             <TableCell align="right">
-                              <Typography fontWeight={500}>
+                              <Typography
+                                fontWeight={500}
+                                color={
+                                  pendingAdvance.pendingPaymentIds.includes(payment.id)
+                                    ? 'warning.main'
+                                    : undefined
+                                }
+                              >
                                 {formatCurrency(payment.amount)}
                               </Typography>
+                              {advanceApprovalByPayment[payment.id] && (
+                                <Box>
+                                  <AdvancePaymentApprovalBadge
+                                    approval={advanceApprovalByPayment[payment.id]}
+                                  />
+                                </Box>
+                              )}
                             </TableCell>
                             <TableCell sx={{ maxWidth: 160 }}>
                               <TruncatedText
