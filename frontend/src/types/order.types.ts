@@ -22,7 +22,11 @@ export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'CREDIT' | 'CREDIT_BA
 export interface AdvancePaymentApproval {
   id: string;
   orderId: string;
-  paymentId: string;
+  /** null cuando el pago fue eliminado al rechazar la solicitud */
+  paymentId: string | null;
+  /** Snapshot del pago: sobrevive aunque el pago se elimine */
+  paymentAmount: string | null;
+  paymentMethod: PaymentMethod | null;
   requestedById: string;
   reason: string | null;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';

@@ -44,6 +44,54 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
     this.approvalRegistry.register('ADVANCE_PAYMENT', this);
   }
 
+  /**
+   * Elimina el pago rechazado y recalcula los totales de la orden a partir de
+   * los pagos que sobreviven.
+   *
+   * No se puede asumir que la orden queda en cero: puede tener otros pagos ya
+   * aprobados o abonos registrados por Caja posteriormente, y esos deben seguir
+   * descontándose del saldo.
+   */
+  private async deleteRejectedPaymentAndRecalculate(
+    orderId: string,
+    paymentId: string | null,
+    rejectedReason: string | null,
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      // El pago queda en null si la solicitud ya había sido procesada antes.
+      if (paymentId) {
+        await tx.payment.delete({ where: { id: paymentId } });
+      }
+
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        select: { total: true },
+      });
+      if (!order) return;
+
+      const remainingPayments = await tx.payment.findMany({
+        where: { orderId },
+        select: { amount: true },
+      });
+
+      const paidAmount = remainingPayments.reduce(
+        (sum, payment) => sum.add(payment.amount),
+        new Prisma.Decimal(0),
+      );
+      const total = new Prisma.Decimal(order.total);
+
+      await tx.order.update({
+        where: { id: orderId },
+        data: {
+          advancePaymentStatus: EditRequestStatus.REJECTED,
+          advancePaymentRejectedReason: rejectedReason,
+          paidAmount,
+          balance: total.sub(paidAmount),
+        },
+      });
+    });
+  }
+
   // ─── ApprovalRequestHandler interface ───
 
   async findPendingRequest(requestId: string): Promise<ApprovalRequestInfo | null> {
@@ -111,20 +159,11 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
     });
 
     // Eliminar pago y revertir montos
-    await this.prisma.payment.delete({
-      where: { id: request.paymentId },
-    });
-
-    const orderTotal = new Prisma.Decimal(request.order.total);
-    await this.prisma.order.update({
-      where: { id: request.orderId },
-      data: {
-        advancePaymentStatus: EditRequestStatus.REJECTED,
-        advancePaymentRejectedReason: 'Rechazado vía WhatsApp',
-        paidAmount: new Prisma.Decimal(0),
-        balance: orderTotal,
-      },
-    });
+    await this.deleteRejectedPaymentAndRecalculate(
+      request.orderId,
+      request.paymentId,
+      'Rechazado vía WhatsApp',
+    );
 
     await this.notificationsService.create({
       userId: request.requestedById,
@@ -230,6 +269,10 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       data: {
         orderId,
         paymentId,
+        // Snapshot: el pago se elimina si la solicitud es rechazada, pero el
+        // historial debe seguir mostrando de cuánto era el anticipo.
+        paymentAmount: payment?.amount ?? null,
+        paymentMethod: payment?.paymentMethod ?? null,
         requestedById: userId,
         status: EditRequestStatus.PENDING,
       },
@@ -420,21 +463,12 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       },
     });
 
-    // 4. Eliminar el pago y revertir montos en la orden
-    await this.prisma.payment.delete({
-      where: { id: request.paymentId },
-    });
-
-    const orderTotal = new Prisma.Decimal(request.order.total);
-    await this.prisma.order.update({
-      where: { id: request.orderId },
-      data: {
-        advancePaymentStatus: EditRequestStatus.REJECTED,
-        advancePaymentRejectedReason: dto.reviewNotes ?? null,
-        paidAmount: new Prisma.Decimal(0),
-        balance: orderTotal,
-      },
-    });
+    // 4. Eliminar el pago y recalcular montos en la orden
+    await this.deleteRejectedPaymentAndRecalculate(
+      request.orderId,
+      request.paymentId,
+      dto.reviewNotes ?? null,
+    );
 
     // 5. Notificar al solicitante
     const rejectReason = dto.reviewNotes ? ` Motivo: ${dto.reviewNotes}` : '';
