@@ -247,6 +247,16 @@ export const dataGridStyles: SxProps<Theme> = {
     backdropFilter: 'blur(4px)',
   },
 
+  // Overlay de carga: fondo opaco y por encima de las filas para que no se
+  // vean registros montados unos sobre otros mientras cambia de página
+  '& .MuiDataGrid-overlayWrapper': {
+    zIndex: 4,
+    backgroundColor: 'background.paper',
+  },
+  '& .MuiDataGrid-overlayWrapperInner': {
+    backgroundColor: 'background.paper',
+  },
+
   // Virtual scroller
   '& .MuiDataGrid-virtualScroller': {
     backgroundColor: 'background.paper',

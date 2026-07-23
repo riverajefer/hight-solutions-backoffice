@@ -197,15 +197,40 @@ export function DataTable<T extends GridValidRowModel>({
     }
   };
 
+  // Altura aproximada de fila según la densidad del DataGrid
+  const rowHeight = density === 'compact' ? 36 : density === 'comfortable' ? 67 : 52;
+  const skeletonRowCount = Math.max(3, Math.min(paginationModel.pageSize, 10));
+  // Reservamos la altura del overlay para que, con autoHeight, el skeleton
+  // no se superponga ni recorte el contenido de la grilla
+  const overlayHeight = skeletonRowCount * rowHeight + 16;
+
   const renderLoadingSkeleton = () => (
-    <Box sx={{ width: '100%', px: 2, pt: 1 }}>
-      {[...Array(Math.min(paginationModel.pageSize, 8))].map((_, index) => (
-        <Box key={index} sx={{ display: 'flex', gap: 1, mb: '2px', alignItems: 'center' }}>
-          <Skeleton variant="rectangular" width={60} height={48} sx={{ borderRadius: 1, flexShrink: 0 }} />
-          <Skeleton variant="rectangular" height={48} sx={{ borderRadius: 1, flex: 1 }} />
-          <Skeleton variant="rectangular" height={48} sx={{ borderRadius: 1, flex: 2 }} />
-          <Skeleton variant="rectangular" height={48} sx={{ borderRadius: 1, flex: 1.5 }} />
-          <Skeleton variant="rectangular" height={48} sx={{ borderRadius: 1, flex: 2 }} />
+    <Box
+      sx={{
+        width: '100%',
+        height: '100%',
+        px: 2,
+        pt: 1,
+        // Fondo opaco: evita que se transparenten filas antiguas debajo
+        backgroundColor: 'background.paper',
+      }}
+    >
+      {[...Array(skeletonRowCount)].map((_, index) => (
+        <Box
+          key={index}
+          sx={{
+            display: 'flex',
+            gap: 1,
+            mb: '2px',
+            alignItems: 'center',
+            height: rowHeight,
+          }}
+        >
+          <Skeleton variant="rectangular" width={60} height={rowHeight - 8} sx={{ borderRadius: 1, flexShrink: 0 }} />
+          <Skeleton variant="rectangular" height={rowHeight - 8} sx={{ borderRadius: 1, flex: 1 }} />
+          <Skeleton variant="rectangular" height={rowHeight - 8} sx={{ borderRadius: 1, flex: 2 }} />
+          <Skeleton variant="rectangular" height={rowHeight - 8} sx={{ borderRadius: 1, flex: 1.5 }} />
+          <Skeleton variant="rectangular" height={rowHeight - 8} sx={{ borderRadius: 1, flex: 2 }} />
         </Box>
       ))}
     </Box>
@@ -259,7 +284,10 @@ export function DataTable<T extends GridValidRowModel>({
 
       <DataGrid
         density={density}
-        rows={filteredRows}
+        // Mientras carga no renderizamos las filas anteriores: con `autoHeight`
+        // el overlay de carga se dibuja encima y las filas viejas se transparentan
+        // dando la sensación de registros montados unos sobre otros.
+        rows={loading ? [] : filteredRows}
         columns={columnsWithRowNumber}
         loading={loading}
         paginationModel={paginationModel}
@@ -275,7 +303,11 @@ export function DataTable<T extends GridValidRowModel>({
         autoHeight
         disableVirtualization
         localeText={esES.components.MuiDataGrid.defaultProps.localeText}
-        sx={dataGridStyles as any}
+        sx={[
+          dataGridStyles as any,
+          // Reserva el alto del overlay mientras carga para que no colapse la grilla
+          loading ? { '--DataGrid-overlayHeight': `${overlayHeight}px` } : null,
+        ]}
         slots={{
           noRowsOverlay: CustomNoRowsOverlay,
           loadingOverlay: renderLoadingSkeleton,
