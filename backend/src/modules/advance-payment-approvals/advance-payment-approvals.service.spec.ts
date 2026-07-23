@@ -33,8 +33,14 @@ describe('AdvancePaymentApprovalsService', () => {
       payment: {
         delete: jest.fn(),
         findUnique: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
       },
+      $transaction: jest.fn(),
     } as any;
+    // tx === prisma, así los mocks del modelo controlan lo que ocurre dentro
+    (prisma.$transaction as unknown as jest.Mock).mockImplementation((fn: any) =>
+      fn(prisma),
+    );
 
     notificationsService = {
       notifyUsersWithPermission: jest.fn(),
@@ -164,6 +170,8 @@ describe('AdvancePaymentApprovalsService', () => {
         role: { permissions: [{ permission: { name: 'approve_advance_payments' } }] },
       } as any);
       (prisma.advancePaymentApproval.findUnique as jest.Mock).mockResolvedValue({ id: 'req1', status: EditRequestStatus.REJECTED } as any);
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue({ total: 1000 } as any);
+      (prisma.payment.findMany as jest.Mock).mockResolvedValue([] as any);
 
       const result = await service.reject('req1', 'rev1', { reviewNotes: 'No' });
 
@@ -180,6 +188,35 @@ describe('AdvancePaymentApprovalsService', () => {
       });
       expect(notificationsService.create).toHaveBeenCalled();
       expect(result?.status).toBe(EditRequestStatus.REJECTED);
+    });
+
+    it('should keep the remaining payments applied to the balance', async () => {
+      (prisma.advancePaymentApproval.findFirst as jest.Mock).mockResolvedValue({
+        id: 'req1',
+        orderId: 'o1',
+        paymentId: 'pay1',
+        requestedById: 'u1',
+        order: { orderNumber: '123', total: 630000 },
+      } as any);
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        role: { permissions: [{ permission: { name: 'approve_advance_payments' } }] },
+      } as any);
+      (prisma.advancePaymentApproval.findUnique as jest.Mock).mockResolvedValue({
+        id: 'req1',
+        status: EditRequestStatus.REJECTED,
+      } as any);
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue({ total: 630000 } as any);
+      // Sobreviven un anticipo aprobado y un abono posterior de Caja
+      (prisma.payment.findMany as jest.Mock).mockResolvedValue([
+        { amount: new Prisma.Decimal(100000) },
+        { amount: new Prisma.Decimal(50000) },
+      ] as any);
+
+      await service.reject('req1', 'rev1', { reviewNotes: 'error en el comprobante' });
+
+      const updateArgs = (prisma.order.update as jest.Mock).mock.calls[0][0];
+      expect(Number(updateArgs.data.paidAmount.toString())).toBe(150000);
+      expect(Number(updateArgs.data.balance.toString())).toBe(480000);
     });
 
     it('should throw NotFoundException if request not found', async () => {

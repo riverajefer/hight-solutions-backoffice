@@ -1336,9 +1336,18 @@ model AccountPayableAuthRequest {
 // =============================================================================
 
 model AdvancePaymentApproval {
-  id            String            @id @default(uuid())
-  orderId       String            @map("order_id")
-  paymentId     String            @unique @map("payment_id")
+  id String @id @default(uuid())
+
+  orderId String @map("order_id")
+
+  // Nullable a propósito: al rechazar se elimina el pago, y la solicitud debe
+  // sobrevivir como registro de auditoría (ON DELETE SET NULL).
+  paymentId String? @unique @map("payment_id")
+
+  // Snapshot del pago solicitado. Se conserva aunque el pago sea eliminado.
+  paymentAmount Decimal?       @map("payment_amount")
+  paymentMethod PaymentMethod? @map("payment_method")
+
   requestedById String            @map("requested_by_id")
   reason        String?
   status        EditRequestStatus @default(PENDING)
@@ -1348,9 +1357,9 @@ model AdvancePaymentApproval {
   createdAt     DateTime          @default(now()) @map("created_at")
   updatedAt     DateTime          @updatedAt @map("updated_at")
 
-  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  payment     Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  requestedBy User    @relation("RequestedAdvancePaymentApprovals", fields: [requestedById], references: [id])
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  payment     Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  requestedBy User     @relation("RequestedAdvancePaymentApprovals", fields: [requestedById], references: [id])
   reviewedBy  User?   @relation("ReviewedAdvancePaymentApprovals", fields: [reviewedById], references: [id])
 
   @@index([orderId])
