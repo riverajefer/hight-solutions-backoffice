@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
 import {
   Box,
@@ -54,6 +54,8 @@ import {
   Block as BlockIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { ApprovalQueueBar } from '../../../components/common/ApprovalQueueBar';
+import { useApprovalQueue } from '../../../hooks/useApprovalQueue';
 import { StatusHighlight } from '../../../components/common/StatusHighlight';
 
 import { DocumentTypeBanner } from '../../../components/common/DocumentTypeBanner';
@@ -61,7 +63,8 @@ import { ToolbarButton } from '../../orders/components/ToolbarButton';
 import { ExpenseOrderAuthRequestDialog } from '../components/ExpenseOrderAuthRequestDialog';
 import { expenseOrderAuthRequestsApi } from '../../../api/expense-order-auth-requests.api';
 import { ExpenseOrderPdfButton } from '../components/ExpenseOrderPdfButton';
-import { useExpenseOrder } from '../hooks';
+import { useExpenseOrder, expenseOrdersKeys } from '../hooks';
+import { expenseOrdersApi } from '../../../api/expense-orders.api';
 import { useSuppliers } from '../../suppliers/hooks/useSuppliers';
 import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
 import { useAuthStore } from '../../../store/authStore';
@@ -218,10 +221,30 @@ export const ExpenseOrderDetailPage = () => {
 
   const og = expenseOrderQuery.data;
 
+  // ── Cola de aprobación ("revisar y siguiente") ────────────────────────────────
+  const queryClient = useQueryClient();
+  const buildQueuePath = useCallback((ogId: string) => `/expense-orders/${ogId}`, []);
+  const approvalQueue = useApprovalQueue({
+    currentId: id,
+    buildPath: buildQueuePath,
+    enabled: canApprove || canCajaAuthorize,
+  });
+
+  // Precarga la siguiente OG para que el avance se sienta instantáneo
+  const nextQueueId = approvalQueue.nextItem?.id;
+  useEffect(() => {
+    if (!nextQueueId) return;
+    queryClient.prefetchQuery({
+      queryKey: expenseOrdersKeys.detail(nextQueueId),
+      queryFn: () => expenseOrdersApi.getById(nextQueueId),
+    });
+  }, [nextQueueId, queryClient]);
+
   // ── Caja authorize ───────────────────────────────────────────────────────────
   const handleCajaAuthorize = async () => {
     if (!id) return;
     await cajaAuthorizeMutation.mutateAsync(id);
+    approvalQueue.markProcessedAndNext();
   };
 
   // ── Status change ────────────────────────────────────────────────────────────
@@ -231,6 +254,10 @@ export const ExpenseOrderDetailPage = () => {
       await updateStatusMutation.mutateAsync({ id, dto: { status: newStatus as ExpenseOrderStatus } });
       setStatusDialogOpen(false);
       setNewStatus('');
+      // Si venimos de la bandeja de pendientes, saltar directo a la siguiente OG
+      if (newStatus === ExpenseOrderStatus.ADMIN_AUTHORIZED || newStatus === ExpenseOrderStatus.AUTHORIZED) {
+        approvalQueue.markProcessedAndNext();
+      }
     } catch (error: any) {
       if (error?.response?.status === 403) {
         const message = error.response?.data?.message || '';
@@ -446,6 +473,12 @@ export const ExpenseOrderDetailPage = () => {
           { label: 'Costos directos de la O.T', path: ROUTES.EXPENSE_ORDERS },
           { label: og.ogNumber },
         ]}
+      />
+
+      <ApprovalQueueBar
+        queue={approvalQueue}
+        nouns={['OG', 'OGs']}
+        nextLabel={approvalQueue.nextItem?.label}
       />
 
       {/* Banner orden de pedido ANULADA */}

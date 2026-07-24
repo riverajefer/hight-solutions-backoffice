@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import {
   Alert,
@@ -69,6 +70,11 @@ import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { ApprovalQueueBar } from '../../../components/common/ApprovalQueueBar';
+import { QueueReviewActions } from '../../../components/common/QueueReviewActions';
+import { useApprovalQueue } from '../../../hooks/useApprovalQueue';
+import { editRequestsApi } from '../../../api/edit-requests.api';
+import { clientOwnershipAuthRequestsApi } from '../../../api/client-ownership-auth-requests.api';
 import { parsePhoneValue } from '../../../components/common/PhoneInputWithCountry';
 import { StatusHighlight } from '../../../components/common/StatusHighlight';
 
@@ -270,6 +276,60 @@ export const OrderDetailPage: React.FC = () => {
   const [invoiceLoading, setInvoiceLoading] = useState(false);
   const [statusAuthDialogOpen, setStatusAuthDialogOpen] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<OrderStatus | null>(null);
+
+  // ── Cola de aprobación ("revisar y siguiente") ────────────────────────────
+  // Las bandejas de Edición de Orden y Propiedad Cliente no tienen botón de
+  // aprobación en esta página, así que la resolución vive en la propia barra.
+  const queryClient = useQueryClient();
+  const buildQueuePath = useCallback((orderId: string) => `/orders/${orderId}`, []);
+  const isAdminUser = user?.role?.name === 'admin';
+  const canReviewEditRequests = isAdminUser || permissions.includes('approve_orders');
+  const canReviewOwnership =
+    isAdminUser || permissions.includes('approve_client_ownership_auth');
+
+  const approvalQueue = useApprovalQueue({
+    currentId: id,
+    buildPath: buildQueuePath,
+    enabled: canReviewEditRequests || canReviewOwnership,
+  });
+
+  const queueRequestId = approvalQueue.currentItem?.requestId;
+  const queueKey = approvalQueue.queueKey;
+  const canResolveQueue =
+    !!queueRequestId &&
+    ((queueKey === 'order-edit' && canReviewEditRequests) ||
+      (queueKey === 'client-ownership' && canReviewOwnership));
+
+  const reviewQueueMutation = useMutation({
+    mutationFn: async ({ action, notes }: { action: 'approve' | 'reject'; notes?: string }) => {
+      if (!queueRequestId) throw new Error('Solicitud no disponible');
+
+      if (queueKey === 'order-edit') {
+        return action === 'approve'
+          ? editRequestsApi.approveGlobal(queueRequestId, { reviewNotes: notes })
+          : editRequestsApi.rejectGlobal(queueRequestId, { reviewNotes: notes });
+      }
+      return action === 'approve'
+        ? clientOwnershipAuthRequestsApi.approve(queueRequestId, { reviewNotes: notes })
+        : clientOwnershipAuthRequestsApi.reject(queueRequestId, { reviewNotes: notes ?? '' });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['editRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['clientOwnershipAuthRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      enqueueSnackbar(
+        variables.action === 'approve' ? 'Solicitud aprobada' : 'Solicitud rechazada',
+        { variant: 'success' },
+      );
+      approvalQueue.markProcessedAndNext();
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(
+        error?.response?.data?.message || 'Error al procesar la solicitud',
+        { variant: 'error' },
+      );
+    },
+  });
 
   const order = orderQuery.data;
   const payments = paymentsQuery.data || [];
@@ -754,6 +814,31 @@ export const OrderDetailPage: React.FC = () => {
           { label: 'Órdenes', path: '/orders' },
           { label: order.orderNumber },
         ]}
+      />
+
+      <ApprovalQueueBar
+        queue={approvalQueue}
+        nouns={['orden', 'órdenes']}
+        nextLabel={approvalQueue.nextItem?.label}
+        actions={
+          canResolveQueue ? (
+            <QueueReviewActions
+              title={
+                queueKey === 'order-edit'
+                  ? `Solicitud de edición de la orden ${order.orderNumber}`
+                  : `Solicitud de propiedad de cliente de la orden ${order.orderNumber}`
+              }
+              isPending={reviewQueueMutation.isPending}
+              isProcessed={approvalQueue.isCurrentProcessed}
+              onApprove={async (notes) => {
+                await reviewQueueMutation.mutateAsync({ action: 'approve', notes });
+              }}
+              onReject={async (notes) => {
+                await reviewQueueMutation.mutateAsync({ action: 'reject', notes });
+              }}
+            />
+          ) : undefined
+        }
       />
 
       {/* Banner de permiso activo */}
