@@ -39,6 +39,8 @@ import { useSnackbar } from 'notistack';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { DataTable } from '../../../components/common/DataTable';
 import { useAuthStore } from '../../../store/authStore';
+import { startApprovalQueue, type ApprovalQueueItem } from '../../../hooks/useApprovalQueue';
+import { ROUTES } from '../../../utils/constants';
 import { orderStatusChangeRequestsApi } from '../../../api/order-status-change-requests.api';
 import { editRequestsApi } from '../../../api/edit-requests.api';
 import { expenseOrderAuthRequestsApi } from '../../../api/expense-order-auth-requests.api';
@@ -1066,12 +1068,116 @@ export const StatusChangeRequestsPage: React.FC = () => {
     setPaymentEditReviewNotes('');
   };
 
+  /**
+   * Abre el detalle de una entidad congelando la cola de revisión de su
+   * bandeja, para poder resolver las solicitudes una tras otra sin devolverse a
+   * esta lista.
+   *
+   * En modo `pending` las consultas ya traen solo solicitudes pendientes, así
+   * que basta con mapear las filas visibles. Si la cola tiene un solo elemento
+   * se navega sin cola (no hay nada que recorrer).
+   */
+  const openWithQueue = <T,>(config: {
+    queueKey: string;
+    rows: T[] | undefined;
+    canApprove: boolean;
+    toItem: (row: T) => ApprovalQueueItem | null;
+    buildPath: (id: string) => string;
+    targetId: string;
+  }) => {
+    const { queueKey, rows, canApprove, toItem, buildPath, targetId } = config;
+
+    const items =
+      viewMode === 'pending' && canApprove
+        ? (rows ?? [])
+            .map(toItem)
+            .filter((item): item is ApprovalQueueItem => !!item)
+        : [];
+
+    if (items.length > 1 && items.some((item) => item.id === targetId)) {
+      navigate(
+        startApprovalQueue({
+          queueKey,
+          items,
+          returnPath: ROUTES.STATUS_CHANGE_REQUESTS,
+          startId: targetId,
+          buildPath,
+        }),
+      );
+      return;
+    }
+
+    navigate(buildPath(targetId));
+  };
+
+  const buildOrderPath = (orderId: string) => `/orders/${orderId}`;
+  const buildExpenseOrderPath = (ogId: string) => `/expense-orders/${ogId}`;
+  const buildAccountPayablePath = (apId: string) => `/accounts-payable/${apId}`;
+
   const handleViewOrder = (orderId: string) => {
-    navigate(`/orders/${orderId}`);
+    navigate(buildOrderPath(orderId));
   };
 
   const handleViewExpenseOrder = (expenseOrderId: string) => {
-    navigate(`/expense-orders/${expenseOrderId}`);
+    openWithQueue({
+      queueKey: 'og-auth',
+      rows: ogAuthRequests,
+      canApprove: canApproveExpenseOrders,
+      toItem: (request) =>
+        request.expenseOrder
+          ? { id: request.expenseOrder.id, label: request.expenseOrder.ogNumber }
+          : null,
+      buildPath: buildExpenseOrderPath,
+      targetId: expenseOrderId,
+    });
+  };
+
+  /** Edición de Orden — la aprobación se resuelve desde la barra de la cola. */
+  const handleViewEditRequestOrder = (request: OrderEditRequest) => {
+    openWithQueue({
+      queueKey: 'order-edit',
+      rows: editRequests,
+      canApprove: canApproveOrders,
+      toItem: (row) =>
+        row.orderId
+          ? { id: row.orderId, label: row.order?.orderNumber || '-', requestId: row.id }
+          : null,
+      buildPath: buildOrderPath,
+      targetId: request.orderId,
+    });
+  };
+
+  /** Propiedad Cliente — la aprobación se resuelve desde la barra de la cola. */
+  const handleViewOwnershipOrder = (request: ClientOwnershipAuthRequest) => {
+    openWithQueue({
+      queueKey: 'client-ownership',
+      rows: ownershipRequests,
+      canApprove: canApproveClientOwnership,
+      toItem: (row) =>
+        row.order
+          ? { id: row.order.id, label: row.order.orderNumber, requestId: row.id }
+          : null,
+      buildPath: buildOrderPath,
+      targetId: request.order.id,
+    });
+  };
+
+  /** Autorización CxP y Caja CxP — ambas abren el detalle de la cuenta por pagar. */
+  const handleViewAccountPayable = (
+    accountPayableId: string,
+    step: 'admin' | 'caja',
+  ) => {
+    openWithQueue({
+      queueKey: step === 'admin' ? 'ap-auth' : 'ap-caja',
+      rows: step === 'admin' ? apAuthRequests : cajaApRequests,
+      canApprove: step === 'admin' ? canApproveAccountsPayable : canCajaAuthorizeAp,
+      toItem: (row) =>
+        row.accountPayableId
+          ? { id: row.accountPayableId, label: row.accountPayable?.apNumber || '-' }
+          : null,
+      buildPath: buildAccountPayablePath,
+      targetId: accountPayableId,
+    });
   };
 
   // ============================================================
@@ -1395,7 +1501,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
       renderCell: (params) => (
         <Box
           sx={{ fontWeight: 600, color: 'primary.main', cursor: 'pointer' }}
-          onClick={() => params.row.orderId && handleViewOrder(params.row.orderId)}
+          onClick={() => params.row.orderId && handleViewEditRequestOrder(params.row)}
         >
           {params.value}
         </Box>
@@ -1878,7 +1984,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
       renderCell: (params) => (
         <Box
           sx={{ fontWeight: 600, color: 'primary.main', cursor: 'pointer' }}
-          onClick={() => params.row.order && handleViewOrder(params.row.order.id)}
+          onClick={() => params.row.order && handleViewOwnershipOrder(params.row)}
         >
           {params.value}
         </Box>
@@ -2272,7 +2378,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
       renderCell: (params) => (
         <Box
           sx={{ fontWeight: 600, color: 'primary.main', cursor: 'pointer' }}
-          onClick={() => navigate(`/accounts-payable/${params.row.accountPayableId}`)}
+          onClick={() => handleViewAccountPayable(params.row.accountPayableId, 'admin')}
         >
           {params.value}
         </Box>
@@ -2365,7 +2471,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
       renderCell: (params) => (
         <Box
           sx={{ fontWeight: 600, color: 'primary.main', cursor: 'pointer' }}
-          onClick={() => navigate(`/accounts-payable/${params.row.accountPayableId}`)}
+          onClick={() => handleViewAccountPayable(params.row.accountPayableId, 'caja')}
         >
           {params.value}
         </Box>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
 import {
   Alert,
@@ -31,6 +31,8 @@ import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CloseIcon from '@mui/icons-material/Close';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { ApprovalQueueBar } from '../../../components/common/ApprovalQueueBar';
+import { useApprovalQueue } from '../../../hooks/useApprovalQueue';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS, ROUTES } from '../../../utils/constants';
 import { formatCurrency, formatDate, formatDateTime } from '../../../utils/formatters';
@@ -145,6 +147,14 @@ export default function AccountsPayableDetailPage() {
     setCancelReason('');
   };
 
+  // ── Cola de aprobación ("revisar y siguiente") ──────────────────────────────
+  const buildQueuePath = useCallback((apId: string) => `/accounts-payable/${apId}`, []);
+  const approvalQueue = useApprovalQueue({
+    currentId: id,
+    buildPath: buildQueuePath,
+    enabled: canAdminApprove || canCajaAuthorize,
+  });
+
   const handleAdminAction = async () => {
     if (!adminActionRequest) return;
     if (adminAction === 'approve') {
@@ -161,6 +171,8 @@ export default function AccountsPayableDetailPage() {
     setAdminActionRequest(null);
     setAdminAction(null);
     setAdminNotes('');
+    // Si venimos de la bandeja de pendientes, saltar directo a la siguiente CxP
+    approvalQueue.markProcessedAndNext();
   };
 
   const openAdminAction = (req: AccountPayablePaymentAuthRequest, action: 'approve' | 'reject') => {
@@ -237,6 +249,12 @@ export default function AccountsPayableDetailPage() {
             )}
           </Stack>
         }
+      />
+
+      <ApprovalQueueBar
+        queue={approvalQueue}
+        nouns={['CxP', 'CxP']}
+        nextLabel={approvalQueue.nextItem?.label}
       />
 
       {/* Contextual banners */}
@@ -735,10 +753,12 @@ export default function AccountsPayableDetailPage() {
           onApprove={async () => {
             await cajaApproveMutation.mutateAsync(cajaRequest.id);
             setCajaRequest(null);
+            approvalQueue.markProcessedAndNext();
           }}
           onReject={async (reason) => {
             await cajaRejectMutation.mutateAsync({ id: cajaRequest.id, dto: { reason } });
             setCajaRequest(null);
+            approvalQueue.markProcessedAndNext();
           }}
           loading={cajaApproveMutation.isPending || cajaRejectMutation.isPending}
         />
