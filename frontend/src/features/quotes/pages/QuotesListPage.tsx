@@ -378,7 +378,7 @@ export const QuotesListPage: React.FC = () => {
               slotProps={{ textField: { size: 'small' } }}
             />
 
-            {(filters.status || filters.clientId || filters.dateFrom || filters.dateTo) && (
+            {(filters.status || filters.clientId || filters.createdById || filters.dateFrom || filters.dateTo || filters.search) && (
               <Button variant="outlined" onClick={handleClearFilters} size="small">Limpiar</Button>
             )}
           </Stack>
@@ -386,9 +386,24 @@ export const QuotesListPage: React.FC = () => {
           <DataTable
             rows={quotes}
             columns={columns}
-            loading={quotesQuery.isLoading}
+            loading={quotesQuery.isLoading || quotesQuery.isFetching}
             getRowId={(row) => row.id}
             onRowClick={(row) => navigate(`/quotes/${row.id}`)}
+            pageSize={filters.limit ?? 20}
+            pageSizeOptions={[20, 50, 100]}
+            rowCount={quotesQuery.data?.meta.total ?? 0}
+            currentPage={(filters.page ?? 1) - 1}
+            onPaginationModelChange={(model) =>
+              setFilters((prev) => ({
+                ...prev,
+                page: model.page + 1,
+                limit: model.pageSize,
+              }))
+            }
+            searchValue={filters.search || ''}
+            onSearchChange={(value) => handleFilterChange('search', value)}
+            serverSideSearch
+            searchPlaceholder="Buscar por número o cliente..."
             emptyMessage="No se encontraron cotizaciones"
           />
         </>
