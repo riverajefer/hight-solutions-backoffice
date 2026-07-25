@@ -1022,7 +1022,7 @@ export const OrderDetailPage: React.FC = () => {
             />
           )}
 
-          {canAddPayment && balance > 0 && (
+          {canAddPayment && (
             <ToolbarButton
               icon={<PaymentIcon />}
               label="Pago"
