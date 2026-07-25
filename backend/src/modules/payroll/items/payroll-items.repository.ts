@@ -2,6 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { Prisma } from '../../../generated/prisma';
 
+export interface ExtraShiftInput {
+  shiftDate: string;
+  description?: string;
+  amount: number;
+}
+
 const itemSelect = {
   id: true,
   periodId: true,
@@ -24,6 +30,15 @@ const itemSelect = {
   observations: true,
   createdAt: true,
   updatedAt: true,
+  extraShifts: {
+    select: {
+      id: true,
+      shiftDate: true,
+      description: true,
+      amount: true,
+    },
+    orderBy: { shiftDate: 'asc' as const },
+  },
   employee: {
     select: {
       id: true,
@@ -64,19 +79,47 @@ export class PayrollItemsRepository {
     });
   }
 
-  async create(data: Prisma.PayrollItemCreateInput) {
-    return this.prisma.payrollItem.create({
-      data,
-      select: itemSelect,
+  async create(
+    data: Prisma.PayrollItemCreateInput,
+    extraShifts?: ExtraShiftInput[],
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const item = await tx.payrollItem.create({ data, select: { id: true } });
+      if (extraShifts?.length) {
+        await tx.payrollExtraShift.createMany({
+          data: this.mapShifts(item.id, extraShifts),
+        });
+      }
+      return tx.payrollItem.findUniqueOrThrow({ where: { id: item.id }, select: itemSelect });
     });
   }
 
-  async update(id: string, data: Prisma.PayrollItemUpdateInput) {
-    return this.prisma.payrollItem.update({
-      where: { id },
-      data,
-      select: itemSelect,
+  async update(
+    id: string,
+    data: Prisma.PayrollItemUpdateInput,
+    extraShifts?: ExtraShiftInput[],
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.payrollItem.update({ where: { id }, data, select: { id: true } });
+      if (extraShifts !== undefined) {
+        await tx.payrollExtraShift.deleteMany({ where: { payrollItemId: id } });
+        if (extraShifts.length) {
+          await tx.payrollExtraShift.createMany({
+            data: this.mapShifts(id, extraShifts),
+          });
+        }
+      }
+      return tx.payrollItem.findUniqueOrThrow({ where: { id }, select: itemSelect });
     });
+  }
+
+  private mapShifts(payrollItemId: string, shifts: ExtraShiftInput[]) {
+    return shifts.map((s) => ({
+      payrollItemId,
+      shiftDate: new Date(s.shiftDate),
+      description: s.description ?? null,
+      amount: s.amount,
+    }));
   }
 
   async delete(id: string) {
