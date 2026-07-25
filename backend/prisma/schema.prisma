@@ -1559,8 +1559,10 @@ model PayrollPeriod {
   endDate               DateTime
   periodType            PayrollPeriodType
   status                PayrollPeriodStatus @default(DRAFT)
-  overtimeDaytimeRate   Decimal?            @db.Decimal(10, 2)
-  overtimeNighttimeRate Decimal?            @db.Decimal(10, 2)
+  overtimeDaytimeRate        Decimal?            @db.Decimal(10, 2)
+  overtimeNighttimeRate      Decimal?            @db.Decimal(10, 2)
+  overtimeDaytimeFestiveRate   Decimal?            @db.Decimal(10, 2)
+  overtimeNighttimeFestiveRate Decimal?            @db.Decimal(10, 2)
   notes                 String?
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
