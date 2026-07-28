@@ -58,7 +58,7 @@ model User {
   discountApprovalReviews                   DiscountApproval[]                     @relation("DiscountApprovalReviews")
   requestedPaymentEditApprovals             PaymentEditApproval[]                  @relation("RequestedPaymentEditApprovals")
   reviewedPaymentEditApprovals              PaymentEditApproval[]                  @relation("ReviewedPaymentEditApprovals")
-  advisedClients                            Client[]                               @relation("ClientAdvisor")
+  advisedClients                            ClientAdvisor[]                        @relation("ClientAdvisor")
   requestedClientOwnershipAuthRequests      ClientOwnershipAuthRequest[]           @relation("RequestedClientOwnershipAuthRequests")
   advisedClientOwnershipAuthRequests        ClientOwnershipAuthRequest[]           @relation("AdvisedClientOwnershipAuthRequests")
   reviewedClientOwnershipAuthRequests       ClientOwnershipAuthRequest[]           @relation("ReviewedClientOwnershipAuthRequests")
@@ -231,19 +231,33 @@ model Client {
   cedula           String?
   specialCondition String?    @map("special_condition")
   isActive         Boolean    @default(true) @map("is_active")
-  advisorId        String?    @map("advisor_id")
   createdAt        DateTime   @default(now()) @map("created_at")
   updatedAt        DateTime   @updatedAt @map("updated_at")
 
-  department Department  @relation(fields: [departmentId], references: [id])
-  city       City        @relation(fields: [cityId], references: [id])
-  advisor    User?       @relation("ClientAdvisor", fields: [advisorId], references: [id])
+  department Department      @relation(fields: [departmentId], references: [id])
+  city       City            @relation(fields: [cityId], references: [id])
+  advisors   ClientAdvisor[]
   orders     Order[]
   quotes     Quote[]
   dtfRecords DtfRecord[]
   prospects  Prospect[]
 
   @@map("clients")
+}
+
+/// Tabla de unión: un cliente puede pertenecer a varios asesores (co-propiedad).
+model ClientAdvisor {
+  id        String   @id @default(uuid())
+  clientId  String   @map("client_id")
+  advisorId String   @map("advisor_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  client  Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  advisor User   @relation("ClientAdvisor", fields: [advisorId], references: [id])
+
+  @@unique([clientId, advisorId])
+  @@index([advisorId])
+  @@map("client_advisors")
 }
 
 model Supplier {

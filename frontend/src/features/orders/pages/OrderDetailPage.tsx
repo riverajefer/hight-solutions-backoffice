@@ -765,7 +765,7 @@ export const OrderDetailPage: React.FC = () => {
     }
   };
 
-  const balance = parseFloat(order.balance);
+  // const balance = parseFloat(order.balance);
 
   // Abonos registrados pero aún no aprobados por Caja: no deben mostrarse como
   // aplicados al total (el backend sí los suma a paidAmount desde el registro).

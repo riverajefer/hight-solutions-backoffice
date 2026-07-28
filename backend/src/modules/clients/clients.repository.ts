@@ -43,13 +43,16 @@ export class ClientsRepository {
         landlinePhone: true,
         specialCondition: true,
         isActive: true,
-        advisorId: true,
-        advisor: {
+        advisors: {
           select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
+            advisor: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
           },
         },
         createdAt: true,
@@ -107,13 +110,16 @@ export class ClientsRepository {
         landlinePhone: true,
         specialCondition: true,
         isActive: true,
-        advisorId: true,
-        advisor: {
+        advisors: {
           select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
+            advisor: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
           },
         },
         createdAt: true,
@@ -192,13 +198,16 @@ export class ClientsRepository {
         landlinePhone: true,
         specialCondition: true,
         isActive: true,
-        advisorId: true,
-        advisor: {
+        advisors: {
           select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
+            advisor: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
           },
         },
         createdAt: true,
@@ -243,13 +252,16 @@ export class ClientsRepository {
         landlinePhone: true,
         specialCondition: true,
         isActive: true,
-        advisorId: true,
-        advisor: {
+        advisors: {
           select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
+            advisor: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
           },
         },
         createdAt: true,
