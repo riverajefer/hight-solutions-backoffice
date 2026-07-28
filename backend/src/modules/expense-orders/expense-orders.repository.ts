@@ -15,6 +15,7 @@ export class ExpenseOrdersRepository {
     areaOrMachine: true,
     applyIva: true,
     ivaRate: true,
+    electronicInvoiceNumber: true,
     createdAt: true,
     updatedAt: true,
     expenseType: {
@@ -134,6 +135,7 @@ export class ExpenseOrdersRepository {
     if (search) {
       where.OR = [
         { ogNumber: { contains: search, mode: 'insensitive' } },
+        { electronicInvoiceNumber: { contains: search, mode: 'insensitive' } },
         { authorizedTo: { firstName: { contains: search, mode: 'insensitive' } } },
         { authorizedTo: { lastName: { contains: search, mode: 'insensitive' } } },
         { createdBy: { firstName: { contains: search, mode: 'insensitive' } } },
@@ -374,6 +376,14 @@ export class ExpenseOrdersRepository {
         ...(fields?.cajaRejectedAt       !== undefined && { cajaRejectedAt:       fields.cajaRejectedAt }),
         ...(fields?.cajaRejectionReason  !== undefined && { cajaRejectionReason:  fields.cajaRejectionReason }),
       },
+      select: this.selectFields,
+    });
+  }
+
+  async registerElectronicInvoice(id: string, electronicInvoiceNumber: string) {
+    return this.prisma.expenseOrder.update({
+      where: { id },
+      data: { electronicInvoiceNumber },
       select: this.selectFields,
     });
   }

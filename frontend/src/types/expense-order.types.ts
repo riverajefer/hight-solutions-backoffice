@@ -96,6 +96,7 @@ export interface ExpenseOrder {
   areaOrMachine?: string | null;
   applyIva: boolean;
   ivaRate: string;
+  electronicInvoiceNumber?: string | null;
   createdAt: string;
   updatedAt: string;
   expenseType: {

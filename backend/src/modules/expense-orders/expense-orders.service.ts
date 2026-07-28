@@ -461,6 +461,24 @@ export class ExpenseOrdersService {
     });
   }
 
+  // ─── Factura electrónica ──────────────────────────────────────────────────────
+  // Registra/actualiza el número de factura electrónica del proveedor asociado a la
+  // compra. Disponible en cualquier OG ya creada (no en DRAFT).
+  async registerElectronicInvoice(id: string, electronicInvoiceNumber: string) {
+    const expenseOrder = await this.repository.findById(id);
+    if (!expenseOrder) {
+      throw new NotFoundException(`OG con id ${id} no encontrada`);
+    }
+
+    if (expenseOrder.status === ExpenseOrderStatus.DRAFT) {
+      throw new BadRequestException(
+        'No se puede registrar una factura electrónica en una OG en estado BORRADOR.',
+      );
+    }
+
+    return this.repository.registerElectronicInvoice(id, electronicInvoiceNumber);
+  }
+
   async remove(id: string) {
     const expenseOrder = await this.repository.findById(id);
     if (!expenseOrder) {

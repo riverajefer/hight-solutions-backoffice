@@ -1259,6 +1259,9 @@ model ExpenseOrder {
   ivaRate              Decimal            @default(0.19) @map("iva_rate")
   status               ExpenseOrderStatus @default(DRAFT)
 
+  // Número de factura electrónica del proveedor asociado a la compra (máx 30 chars)
+  electronicInvoiceNumber String? @map("electronic_invoice_number")
+
   // Auditoría
   createdById String   @map("created_by_id")
   createdAt   DateTime @default(now()) @map("created_at")
