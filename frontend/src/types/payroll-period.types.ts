@@ -12,6 +12,8 @@ export interface PayrollPeriod {
   status: PayrollPeriodStatus;
   overtimeDaytimeRate: string | null;
   overtimeNighttimeRate: string | null;
+  overtimeDaytimeFestiveRate: string | null;
+  overtimeNighttimeFestiveRate: string | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
@@ -25,6 +27,8 @@ export interface CreatePayrollPeriodDto {
   periodType: PayrollPeriodType;
   overtimeDaytimeRate?: number;
   overtimeNighttimeRate?: number;
+  overtimeDaytimeFestiveRate?: number;
+  overtimeNighttimeFestiveRate?: number;
   notes?: string;
 }
 
@@ -36,6 +40,8 @@ export interface UpdatePayrollPeriodDto {
   status?: PayrollPeriodStatus;
   overtimeDaytimeRate?: number;
   overtimeNighttimeRate?: number;
+  overtimeDaytimeFestiveRate?: number;
+  overtimeNighttimeFestiveRate?: number;
   notes?: string;
 }
 

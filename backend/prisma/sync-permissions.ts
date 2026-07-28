@@ -112,6 +112,19 @@ const groups: PermissionGroup[] = [
     ],
   },
   {
+    label: '👥 Asignación de asesor a cliente',
+    permissions: [
+      {
+        name: 'request_client_advisor',
+        description: 'Solicitar la asignación de un asesor a un cliente',
+      },
+      {
+        name: 'approve_client_advisor',
+        description: 'Aprobar/rechazar solicitudes de asignación de asesor a cliente',
+      },
+    ],
+  },
+  {
     label: '💳 Pagos de órdenes',
     permissions: [
       {

@@ -11,6 +11,8 @@ const periodSelect = {
   status: true,
   overtimeDaytimeRate: true,
   overtimeNighttimeRate: true,
+  overtimeDaytimeFestiveRate: true,
+  overtimeNighttimeFestiveRate: true,
   notes: true,
   createdAt: true,
   updatedAt: true,

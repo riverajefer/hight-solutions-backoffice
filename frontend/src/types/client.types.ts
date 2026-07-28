@@ -4,6 +4,18 @@
 
 export type PersonType = 'NATURAL' | 'EMPRESA';
 
+export interface ClientAdvisorUser {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
+}
+
+/** Fila de la tabla de unión cliente↔asesor. */
+export interface ClientAdvisor {
+  advisor: ClientAdvisorUser;
+}
+
 export interface Client {
   id: string;
   name: string;
@@ -20,13 +32,8 @@ export interface Client {
   cedula?: string;
   specialCondition?: string | null;
   isActive: boolean;
-  advisorId?: string | null;
-  advisor?: {
-    id: string;
-    firstName: string | null;
-    lastName: string | null;
-    email: string;
-  } | null;
+  /** Asesores dueños del cliente (co-propiedad). */
+  advisors?: ClientAdvisor[];
   createdAt: string;
   updatedAt: string;
   department?: {
@@ -55,6 +62,8 @@ export interface CreateClientDto {
   nit?: string;
   cedula?: string;
   specialCondition?: string;
+  /** IDs de asesores dueños (solo aplicable para administradores). */
+  advisorIds?: string[];
 }
 
 export interface UpdateClientDto {
@@ -72,7 +81,8 @@ export interface UpdateClientDto {
   cedula?: string;
   isActive?: boolean;
   specialCondition?: string;
-  advisorId?: string | null;
+  /** IDs de asesores dueños (reemplaza el conjunto completo; solo admin). */
+  advisorIds?: string[];
 }
 
 export interface UpdateClientSpecialConditionDto {

@@ -324,6 +324,10 @@ async function main() {
     // Client Ownership Authorization
     { name: 'approve_client_ownership_auth', description: 'Aprobar solicitudes de autorización de propiedad de cliente en órdenes' },
 
+    // Client Advisor Assignment (Solicitud de asignación de asesor a cliente)
+    { name: 'request_client_advisor', description: 'Solicitar la asignación de un asesor a un cliente' },
+    { name: 'approve_client_advisor', description: 'Aprobar/rechazar solicitudes de asignación de asesor a cliente' },
+
     // Payroll Employees (Nómina)
     { name: 'create_payroll_employees', description: 'Agregar usuarios a nómina' },
     { name: 'read_payroll_employees', description: 'Ver empleados de nómina' },
@@ -510,6 +514,7 @@ async function main() {
     'approve_orders',
     'change_order_status',
     'request_advisor_change',
+    'request_client_advisor',
     'apply_discounts',
     'register_order_payments',
     'edit_order_payments',

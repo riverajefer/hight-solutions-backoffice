@@ -142,16 +142,18 @@ const ClientsListPage: React.FC = () => {
           value?.name || '-',
       },
       {
-        field: 'advisor',
-        headerName: 'Creado por',
-        width: 180,
+        field: 'advisors',
+        headerName: 'Asesores',
+        width: 200,
         responsive: 'md',
         valueGetter: (_: any, row: Client) => {
-          if (!row.advisor) return '-';
-          const firstName = row.advisor.firstName || '';
-          const lastName = row.advisor.lastName || '';
-          if (firstName || lastName) return `${firstName} ${lastName}`.trim();
-          return row.advisor.email || '-';
+          if (!row.advisors || row.advisors.length === 0) return '-';
+          return row.advisors
+            .map(({ advisor }) => {
+              const name = `${advisor.firstName || ''} ${advisor.lastName || ''}`.trim();
+              return name || advisor.email || '-';
+            })
+            .join(', ');
         },
       },
       {

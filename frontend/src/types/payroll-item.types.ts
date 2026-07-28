@@ -1,3 +1,16 @@
+export interface PayrollExtraShift {
+  id: string;
+  shiftDate: string; // ISO
+  description: string | null;
+  amount: string; // Decimal como string
+}
+
+export interface PayrollExtraShiftInput {
+  shiftDate: string; // ISO
+  description?: string;
+  amount: number;
+}
+
 export interface PayrollItem {
   id: string;
   periodId: string;
@@ -18,6 +31,7 @@ export interface PayrollItem {
   epsAndPensionDiscount: string | null;
   totalPayment: string;
   observations: string | null;
+  extraShifts?: PayrollExtraShift[];
   createdAt: string;
   updatedAt: string;
   employee: {
@@ -61,6 +75,7 @@ export interface CreatePayrollItemDto {
   epsAndPensionDiscount?: number;
   totalPayment: number;
   observations?: string;
+  extraShifts?: PayrollExtraShiftInput[];
 }
 
 export interface UpdatePayrollItemDto {
@@ -80,4 +95,5 @@ export interface UpdatePayrollItemDto {
   epsAndPensionDiscount?: number;
   totalPayment?: number;
   observations?: string;
+  extraShifts?: PayrollExtraShiftInput[];
 }

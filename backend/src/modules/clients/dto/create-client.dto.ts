@@ -5,9 +5,9 @@ import {
   IsEmail,
   IsUUID,
   IsEnum,
+  IsArray,
   MinLength,
   MaxLength,
-  ValidateIf,
 } from 'class-validator';
 import { PersonType } from '../../../generated/prisma';
 
@@ -138,4 +138,15 @@ export class CreateClientDto {
   @IsOptional()
   @MaxLength(500, { message: 'La condición especial no puede exceder 500 caracteres' })
   specialCondition?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'IDs de los asesores dueños del cliente (co-propiedad). Solo aplicable para administradores; los asesores quedan como dueño automáticamente al crear.',
+    example: ['550e8400-e29b-41d4-a716-446655440000'],
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true, message: 'Cada asesor debe ser un UUID válido' })
+  advisorIds?: string[];
 }

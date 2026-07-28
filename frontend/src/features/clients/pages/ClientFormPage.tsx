@@ -84,8 +84,9 @@ const ClientFormPage: React.FC = () => {
   const canEditSpecialCondition = hasPermission(PERMISSIONS.UPDATE_CLIENT_SPECIAL_CONDITION);
   const canAssignAdvisor = isAdmin || hasPermission(PERMISSIONS.APPROVE_CLIENT_OWNERSHIP_AUTH);
 
-  // Advisor state (managed outside Zod schema — admin-only field)
-  const [selectedAdvisorId, setSelectedAdvisorId] = useState<string | null | undefined>(undefined);
+  // Advisor state (managed outside Zod schema — admin-only field).
+  // Co-propiedad: un cliente puede tener varios asesores. `undefined` = aún no cargado.
+  const [selectedAdvisorIds, setSelectedAdvisorIds] = useState<string[] | undefined>(undefined);
 
   const isEdit = !!id;
   const { data: client, isLoading: isLoadingClient } = useClient(id || '');
@@ -186,8 +187,8 @@ const ClientFormPage: React.FC = () => {
         cedula: client.cedula || '',
         specialCondition: client.specialCondition || '',
       });
-      // Pre-populate advisor state
-      setSelectedAdvisorId(client.advisorId ?? null);
+      // Pre-populate advisor set
+      setSelectedAdvisorIds(client.advisors?.map((a) => a.advisor.id) ?? []);
     }
   }, [client, isEdit, reset]);
 
@@ -212,9 +213,9 @@ const ClientFormPage: React.FC = () => {
       if (isEdit && id) {
         const updatePayload: UpdateClientDto = {
           ...(cleanedData as UpdateClientDto),
-          // Include advisorId only if admin/authorized and it was explicitly set
-          ...(canAssignAdvisor && selectedAdvisorId !== undefined
-            ? { advisorId: selectedAdvisorId }
+          // Include advisorIds only if admin/authorized and the set was loaded
+          ...(canAssignAdvisor && selectedAdvisorIds !== undefined
+            ? { advisorIds: selectedAdvisorIds }
             : {}),
         };
         await updateClientMutation.mutateAsync({
@@ -230,7 +231,14 @@ const ClientFormPage: React.FC = () => {
         }
         enqueueSnackbar('Cliente actualizado correctamente', { variant: 'success' });
       } else {
-        const created = await createClientMutation.mutateAsync(cleanedData as CreateClientDto);
+        const createPayload: CreateClientDto = {
+          ...(cleanedData as CreateClientDto),
+          // Admin may assign co-owner advisors at creation time
+          ...(canAssignAdvisor && selectedAdvisorIds && selectedAdvisorIds.length > 0
+            ? { advisorIds: selectedAdvisorIds }
+            : {}),
+        };
+        const created = await createClientMutation.mutateAsync(createPayload);
         // Set special condition on new client if user has permission and value is provided
         if (canEditSpecialCondition && specialCondition) {
           await updateSpecialConditionMutation.mutateAsync({
@@ -561,26 +569,30 @@ const ClientFormPage: React.FC = () => {
                 </Grid>
               )}
 
-              {/* Asesor responsable — solo visible para admin */}
+              {/* Asesores dueños (co-propiedad) — solo visible para admin */}
               {canAssignAdvisor && (
                 <Grid item xs={12} md={6}>
                   <Autocomplete
+                    multiple
+                    disableCloseOnSelect
                     options={users}
                     getOptionLabel={(option) =>
                       option.firstName && option.lastName
                         ? `${option.firstName} ${option.lastName} (${option.email})`
                         : option.email ?? ''
                     }
-                    value={users.find((u) => u.id === selectedAdvisorId) || null}
+                    value={users.filter((u) =>
+                      (selectedAdvisorIds ?? []).includes(u.id),
+                    )}
                     onChange={(_, newValue) => {
-                      setSelectedAdvisorId(newValue?.id ?? null);
+                      setSelectedAdvisorIds(newValue.map((u) => u.id));
                     }}
                     loading={usersQuery.isLoading}
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        label="Asesor responsable"
-                        helperText="Asesor dueño de este cliente. Dejar vacío para sin asignar."
+                        label="Asesores dueños"
+                        helperText="Asesores que pueden crear OPs de este cliente sin autorización. Dejar vacío para sin asignar."
                         InputProps={{
                           ...params.InputProps,
                           endAdornment: (
@@ -596,7 +608,6 @@ const ClientFormPage: React.FC = () => {
                     )}
                     isOptionEqualToValue={(option, value) => option.id === value.id}
                     noOptionsText="No se encontraron usuarios"
-                    clearText="Quitar asesor"
                   />
                 </Grid>
               )}

@@ -129,12 +129,20 @@ export const ClientSelector: React.FC<ClientSelectorProps> = ({
           </CardContent>
         </Card>
 
-        {/* Advertencia cuando el cliente pertenece a otro asesor */}
-        {value.advisorId && value.advisorId !== currentUserId && !isAdmin && (() => {
+        {/* Advertencia cuando el cliente pertenece a otro(s) asesor(es) */}
+        {value.advisors &&
+          value.advisors.length > 0 &&
+          !value.advisors.some((a) => a.advisor.id === currentUserId) &&
+          !isAdmin &&
+          (() => {
           const advisorName =
-            value.advisor?.firstName && value.advisor?.lastName
-              ? `${value.advisor.firstName} ${value.advisor.lastName}`
-              : value.advisor?.email || 'desconocido';
+            value.advisors
+              .map((a) =>
+                a.advisor.firstName && a.advisor.lastName
+                  ? `${a.advisor.firstName} ${a.advisor.lastName}`
+                  : a.advisor.email,
+              )
+              .join(', ') || 'desconocido';
           const docArticle =
             documentType === 'orden' ? 'a' : documentType === 'cotización' ? 'a' : 'e';
 

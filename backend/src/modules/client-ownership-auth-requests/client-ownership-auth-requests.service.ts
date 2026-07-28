@@ -141,25 +141,27 @@ export class ClientOwnershipAuthRequestsService implements OnModuleInit, Approva
 
   /**
    * Verifica si el creador de la orden necesita autorización para asociar el cliente.
-   * No requiere auth si:
-   *   - El cliente no tiene asesor asignado
-   *   - El creador es el mismo asesor del cliente
+   * Un cliente puede pertenecer a varios asesores (co-propiedad). No requiere auth si:
+   *   - El cliente no tiene ningún asesor asignado
+   *   - El creador es uno de los asesores del cliente
    *   - El creador tiene el permiso `approve_client_ownership_auth` (admin)
    */
   async requiresAuth(
     creatorId: string,
     clientId: string,
   ): Promise<{ required: boolean; advisorId?: string; reason?: string }> {
-    const client = await this.prisma.client.findUnique({
-      where: { id: clientId },
+    const advisors = await this.prisma.clientAdvisor.findMany({
+      where: { clientId },
       select: { advisorId: true },
     });
 
-    if (!client?.advisorId) {
+    // Cliente sin asesores → cualquiera puede crear la orden
+    if (advisors.length === 0) {
       return { required: false };
     }
 
-    if (client.advisorId === creatorId) {
+    // El creador ya es uno de los asesores dueños del cliente
+    if (advisors.some((a) => a.advisorId === creatorId)) {
       return { required: false };
     }
 
@@ -184,8 +186,10 @@ export class ClientOwnershipAuthRequestsService implements OnModuleInit, Approva
 
     return {
       required: true,
-      advisorId: client.advisorId,
-      reason: 'Este cliente pertenece a otro asesor. Se requiere autorización de un administrador.',
+      // Asesor representativo (informativo para la notificación/solicitud)
+      advisorId: advisors[0].advisorId,
+      reason:
+        'Este cliente pertenece a otro(s) asesor(es). Se requiere autorización de un administrador.',
     };
   }
 

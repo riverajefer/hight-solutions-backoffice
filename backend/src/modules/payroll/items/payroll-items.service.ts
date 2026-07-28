@@ -53,26 +53,29 @@ export class PayrollItemsService {
       );
     }
 
-    return this.itemsRepository.create({
-      daysWorked: dto.daysWorked,
-      baseSalary: dto.baseSalary,
-      overtimeDaytimeHours: dto.overtimeDaytimeHours,
-      overtimeNighttimeHours: dto.overtimeNighttimeHours,
-      overtimeDaytimeValue: dto.overtimeDaytimeValue,
-      overtimeNighttimeValue: dto.overtimeNighttimeValue,
-      commissions: dto.commissions,
-      restDayValue: dto.restDayValue,
-      transportAllowance: dto.transportAllowance,
-      workdayDiscount: dto.workdayDiscount,
-      loans: dto.loans,
-      advances: dto.advances,
-      nonPaidDays: dto.nonPaidDays,
-      epsAndPensionDiscount: dto.epsAndPensionDiscount,
-      totalPayment: dto.totalPayment,
-      observations: dto.observations,
-      period: { connect: { id: periodId } },
-      employee: { connect: { id: dto.employeeId } },
-    });
+    return this.itemsRepository.create(
+      {
+        daysWorked: dto.daysWorked,
+        baseSalary: dto.baseSalary,
+        overtimeDaytimeHours: dto.overtimeDaytimeHours,
+        overtimeNighttimeHours: dto.overtimeNighttimeHours,
+        overtimeDaytimeValue: dto.overtimeDaytimeValue,
+        overtimeNighttimeValue: dto.overtimeNighttimeValue,
+        commissions: dto.commissions,
+        restDayValue: dto.restDayValue,
+        transportAllowance: dto.transportAllowance,
+        workdayDiscount: dto.workdayDiscount,
+        loans: dto.loans,
+        advances: dto.advances,
+        nonPaidDays: dto.nonPaidDays,
+        epsAndPensionDiscount: dto.epsAndPensionDiscount,
+        totalPayment: dto.totalPayment,
+        observations: dto.observations,
+        period: { connect: { id: periodId } },
+        employee: { connect: { id: dto.employeeId } },
+      },
+      dto.extraShifts,
+    );
   }
 
   async update(periodId: string, itemId: string, dto: UpdatePayrollItemDto) {
@@ -81,7 +84,8 @@ export class PayrollItemsService {
     if (item.periodId !== periodId) {
       throw new BadRequestException('El registro no pertenece al periodo indicado');
     }
-    return this.itemsRepository.update(itemId, dto);
+    const { extraShifts, ...itemData } = dto;
+    return this.itemsRepository.update(itemId, itemData, extraShifts);
   }
 
   async remove(periodId: string, itemId: string) {

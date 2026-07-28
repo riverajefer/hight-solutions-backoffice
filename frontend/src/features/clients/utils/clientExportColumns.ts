@@ -54,11 +54,15 @@ export const CLIENT_EXPORT_COLUMNS: ClientExportColumn[] = [
     getValue: (c) => c.department?.name ?? '',
   },
   {
-    key: 'advisor',
-    label: 'Creado por',
+    key: 'advisors',
+    label: 'Asesores',
     defaultVisible: true,
     getValue: (c) =>
-      `${c.advisor?.firstName ?? ''} ${c.advisor?.lastName ?? ''}`.trim(),
+      (c.advisors ?? [])
+        .map(({ advisor }) =>
+          `${advisor.firstName ?? ''} ${advisor.lastName ?? ''}`.trim() || advisor.email,
+        )
+        .join(', '),
   },
   {
     key: 'isActive',

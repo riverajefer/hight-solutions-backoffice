@@ -1,6 +1,13 @@
-import { IsNumber, IsOptional, IsString } from 'class-validator';
+import {
+  IsArray,
+  IsNumber,
+  IsOptional,
+  IsString,
+  ValidateNested,
+} from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
+import { PayrollExtraShiftDto } from './payroll-extra-shift.dto';
 
 export class UpdatePayrollItemDto {
   @ApiPropertyOptional({ description: 'Días trabajados', example: 15 })
@@ -97,4 +104,11 @@ export class UpdatePayrollItemDto {
   @IsString()
   @IsOptional()
   observations?: string;
+
+  @ApiPropertyOptional({ type: [PayrollExtraShiftDto], description: 'Turnos extras negociados' })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PayrollExtraShiftDto)
+  extraShifts?: PayrollExtraShiftDto[];
 }

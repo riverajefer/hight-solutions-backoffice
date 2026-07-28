@@ -109,7 +109,7 @@ describe('PayrollItemsService', () => {
       itemsRepository.update.mockResolvedValue({ id: 'i1', baseSalary: 2000 } as any);
 
       const result = await service.update('p1', 'i1', { baseSalary: 2000 });
-      expect(itemsRepository.update).toHaveBeenCalledWith('i1', { baseSalary: 2000 });
+      expect(itemsRepository.update).toHaveBeenCalledWith('i1', { baseSalary: 2000 }, undefined);
       expect(result.baseSalary).toBe(2000);
     });
 
