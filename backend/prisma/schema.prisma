@@ -59,6 +59,9 @@ model User {
   requestedPaymentEditApprovals             PaymentEditApproval[]                  @relation("RequestedPaymentEditApprovals")
   reviewedPaymentEditApprovals              PaymentEditApproval[]                  @relation("ReviewedPaymentEditApprovals")
   advisedClients                            ClientAdvisor[]                        @relation("ClientAdvisor")
+  requestedClientAdvisorRequests            ClientAdvisorRequest[]                 @relation("ClientAdvisorRequestRequestedBy")
+  advisedClientAdvisorRequests              ClientAdvisorRequest[]                 @relation("ClientAdvisorRequestAdvisor")
+  reviewedClientAdvisorRequests             ClientAdvisorRequest[]                 @relation("ClientAdvisorRequestReviewer")
   requestedClientOwnershipAuthRequests      ClientOwnershipAuthRequest[]           @relation("RequestedClientOwnershipAuthRequests")
   advisedClientOwnershipAuthRequests        ClientOwnershipAuthRequest[]           @relation("AdvisedClientOwnershipAuthRequests")
   reviewedClientOwnershipAuthRequests       ClientOwnershipAuthRequest[]           @relation("ReviewedClientOwnershipAuthRequests")
@@ -236,11 +239,12 @@ model Client {
 
   department Department      @relation(fields: [departmentId], references: [id])
   city       City            @relation(fields: [cityId], references: [id])
-  advisors   ClientAdvisor[]
-  orders     Order[]
-  quotes     Quote[]
-  dtfRecords DtfRecord[]
-  prospects  Prospect[]
+  advisors        ClientAdvisor[]
+  advisorRequests ClientAdvisorRequest[]
+  orders          Order[]
+  quotes          Quote[]
+  dtfRecords      DtfRecord[]
+  prospects       Prospect[]
 
   @@map("clients")
 }
@@ -258,6 +262,32 @@ model ClientAdvisor {
   @@unique([clientId, advisorId])
   @@index([advisorId])
   @@map("client_advisors")
+}
+
+/// Solicitud (sujeta a aprobación del admin) de asignar un asesor a un cliente.
+/// Al aprobar se crea la fila ClientAdvisor correspondiente.
+model ClientAdvisorRequest {
+  id                 String            @id @default(uuid())
+  clientId           String            @map("client_id")
+  requestedById      String            @map("requested_by_id")
+  requestedAdvisorId String            @map("requested_advisor_id")
+  reason             String?
+  status             EditRequestStatus @default(PENDING)
+  reviewedById       String?           @map("reviewed_by_id")
+  reviewedAt         DateTime?         @map("reviewed_at")
+  reviewNotes        String?           @map("review_notes")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+
+  client           Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  requestedBy      User   @relation("ClientAdvisorRequestRequestedBy", fields: [requestedById], references: [id])
+  requestedAdvisor User   @relation("ClientAdvisorRequestAdvisor", fields: [requestedAdvisorId], references: [id])
+  reviewedBy       User?  @relation("ClientAdvisorRequestReviewer", fields: [reviewedById], references: [id])
+
+  @@index([clientId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("client_advisor_requests")
 }
 
 model Supplier {
@@ -784,6 +814,7 @@ enum ApprovalRequestType {
   AP_AUTH
   AP_PAYMENT_AUTH
   ADVISOR_CHANGE
+  CLIENT_ADVISOR_ASSIGNMENT
 }
 
 enum NotificationType {
@@ -835,6 +866,9 @@ enum NotificationType {
   ADVISOR_CHANGE_REQUEST_PENDING // Nueva solicitud de cambio de asesor de OP
   ADVISOR_CHANGE_REQUEST_APPROVED // Solicitud de cambio de asesor aprobada
   ADVISOR_CHANGE_REQUEST_REJECTED // Solicitud de cambio de asesor rechazada
+  CLIENT_ADVISOR_REQUEST_PENDING // Nueva solicitud de asignación de asesor a cliente
+  CLIENT_ADVISOR_REQUEST_APPROVED // Solicitud de asignación de asesor a cliente aprobada
+  CLIENT_ADVISOR_REQUEST_REJECTED // Solicitud de asignación de asesor a cliente rechazada
 }
 
 enum ApPaymentAuthRequestStatus {

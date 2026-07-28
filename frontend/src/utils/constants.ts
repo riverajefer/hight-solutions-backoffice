@@ -84,6 +84,8 @@ export const PERMISSIONS = {
   APPLY_DISCOUNTS: 'apply_discounts',
   APPROVE_DISCOUNTS: 'approve_discounts',
   APPROVE_CLIENT_OWNERSHIP_AUTH: 'approve_client_ownership_auth',
+  REQUEST_CLIENT_ADVISOR: 'request_client_advisor',
+  APPROVE_CLIENT_ADVISOR: 'approve_client_advisor',
   CREATE_REFUND_REQUESTS: 'create_refund_requests',
   APPROVE_REFUNDS: 'approve_refunds',
   //READ_COMMERCIAL_CHANNELS
