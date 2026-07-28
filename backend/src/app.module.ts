@@ -36,6 +36,7 @@ import { AdvancePaymentApprovalsModule } from './modules/advance-payment-approva
 import { PaymentEditApprovalsModule } from './modules/payment-edit-approvals/payment-edit-approvals.module';
 import { DiscountApprovalsModule } from './modules/discount-approvals/discount-approvals.module';
 import { ClientOwnershipAuthRequestsModule } from './modules/client-ownership-auth-requests/client-ownership-auth-requests.module';
+import { ClientAdvisorRequestsModule } from './modules/client-advisor-requests/client-advisor-requests.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
 import { ProspectsModule } from './modules/prospects/prospects.module';
 import { QuoteKanbanColumnsModule } from './modules/quote-kanban-columns/quote-kanban-columns.module';
@@ -152,6 +153,7 @@ import { DtfModule } from './modules/dtf/dtf.module';
     RefundRequestsModule,
     // Módulo de Autorización de Propiedad de Cliente
     ClientOwnershipAuthRequestsModule,
+    ClientAdvisorRequestsModule,
     // Módulo de Trazabilidad de Órdenes
     OrderTimelineModule,
     // Módulo de Nómina

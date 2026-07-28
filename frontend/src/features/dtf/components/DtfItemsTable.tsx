@@ -255,10 +255,19 @@ export const DtfItemsTable = ({
   const getForeignAdvisorName = (clientId: string): string | null => {
     if (isAdmin || !clientId) return null;
     const client = allClients.find((c) => c.id === clientId);
-    if (!client?.advisorId || client.advisorId === user?.id) return null;
-    return client.advisor?.firstName && client.advisor?.lastName
-      ? `${client.advisor.firstName} ${client.advisor.lastName}`
-      : client.advisor?.email || 'desconocido';
+    const advisors = client?.advisors ?? [];
+    if (advisors.length === 0 || advisors.some((a) => a.advisor.id === user?.id)) {
+      return null;
+    }
+    return (
+      advisors
+        .map((a) =>
+          a.advisor.firstName && a.advisor.lastName
+            ? `${a.advisor.firstName} ${a.advisor.lastName}`
+            : a.advisor.email,
+        )
+        .join(', ') || 'desconocido'
+    );
   };
   const canSaveItem = (item: DtfFormItem) =>
     !isSaved(item) && !!item.productId && !!item.clientId && item.quantity > 0;

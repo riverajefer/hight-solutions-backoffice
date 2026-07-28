@@ -58,6 +58,8 @@ import { clientOwnershipAuthRequestsApi } from '../../../api/client-ownership-au
 import type { ClientOwnershipAuthRequest } from '../../../types/client-ownership-auth-request.types';
 import { advisorChangeRequestsApi } from '../../../api/advisor-change-requests.api';
 import type { AdvisorChangeRequest } from '../../../types/advisor-change-request.types';
+import { clientAdvisorRequestsApi } from '../../../api/client-advisor-requests.api';
+import type { ClientAdvisorRequest } from '../../../types/client-advisor-request.types';
 import { voidRequestsApi } from '../../../api/void-requests.api';
 import type { CashMovementVoidRequest } from '../../../types/void-request.types';
 import { refundRequestsApi } from '../../../api/refund-requests.api';
@@ -114,6 +116,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const canApprovePaymentEdits = hasPermission('approve_payment_edits') || isAdmin;
   const canApproveClientOwnership = hasPermission('approve_client_ownership_auth') || isAdmin;
   const canApproveAdvisorChange = hasPermission('approve_advisor_change') || isAdmin;
+  const canApproveClientAdvisor = hasPermission('approve_client_advisor') || isAdmin;
   const canApproveExpenseOrders = hasPermission('approve_expense_orders') || isAdmin;
   const canApproveVoidRequests = hasPermission('approve_cash_movements') || isAdmin;
   const canApproveRefunds = hasPermission('approve_refunds') || isAdmin;
@@ -145,7 +148,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   }, [navWidth]);
 
   const [tabValue, setTabValue] = useState<string>(
-    canApproveOrders ? 'status' : canApproveAdvancePayments ? 'advance' : canApproveDiscounts ? 'discount' : canApprovePaymentEdits ? 'payment-edit' : canApproveClientOwnership ? 'ownership' : canApproveAdvisorChange ? 'advisor' : canApproveExpenseOrders ? 'og' : canApproveVoidRequests ? 'void' : canApproveRefunds ? 'refund' : canApproveAccountsPayable ? 'ap' : canGerenciaApproveReversal ? 'ap-reversal' : 'status',
+    canApproveOrders ? 'status' : canApproveAdvancePayments ? 'advance' : canApproveDiscounts ? 'discount' : canApprovePaymentEdits ? 'payment-edit' : canApproveClientOwnership ? 'ownership' : canApproveAdvisorChange ? 'advisor' : canApproveClientAdvisor ? 'client-advisor' : canApproveExpenseOrders ? 'og' : canApproveVoidRequests ? 'void' : canApproveRefunds ? 'refund' : canApproveAccountsPayable ? 'ap' : canGerenciaApproveReversal ? 'ap-reversal' : 'status',
   );
   
   const [viewMode, setViewMode] = useState<'pending' | 'history'>('pending');
@@ -213,6 +216,14 @@ export const StatusChangeRequestsPage: React.FC = () => {
     action: 'approve' | 'reject' | null;
   }>({ open: false, request: null, action: null });
   const [advisorReviewNotes, setAdvisorReviewNotes] = useState('');
+
+  // --- Client Advisor Assignment Requests ---
+  const [clientAdvisorReviewDialog, setClientAdvisorReviewDialog] = useState<{
+    open: boolean;
+    request: ClientAdvisorRequest | null;
+    action: 'approve' | 'reject' | null;
+  }>({ open: false, request: null, action: null });
+  const [clientAdvisorReviewNotes, setClientAdvisorReviewNotes] = useState('');
 
   // --- Cash Movement Void Requests ---
   const [voidReviewDialog, setVoidReviewDialog] = useState<{
@@ -317,6 +328,14 @@ export const StatusChangeRequestsPage: React.FC = () => {
     enabled: canApproveAdvisorChange,
   });
 
+  const { data: clientAdvisorRequestsData, isLoading: clientAdvisorLoading } = useQuery({
+    queryKey: ['clientAdvisorRequests', viewMode],
+    queryFn: () => viewMode === 'pending'
+      ? clientAdvisorRequestsApi.findPending()
+      : clientAdvisorRequestsApi.findAll(),
+    enabled: canApproveClientAdvisor,
+  });
+
   const { data: voidRequestsData, isLoading: voidLoading } = useQuery({
     queryKey: ['voidRequests', viewMode],
     queryFn: () => viewMode === 'pending'
@@ -365,6 +384,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const paymentEditRequests = viewMode === 'history' ? paymentEditRequestsData?.filter(r => r.status !== 'PENDING') : paymentEditRequestsData;
   const ownershipRequests = viewMode === 'history' ? ownershipRequestsData?.filter(r => r.status !== 'PENDING') : ownershipRequestsData;
   const advisorRequests = viewMode === 'history' ? advisorRequestsData?.filter(r => r.status !== 'PENDING') : advisorRequestsData;
+  const clientAdvisorRequests = viewMode === 'history' ? clientAdvisorRequestsData?.filter(r => r.status !== 'PENDING') : clientAdvisorRequestsData;
   const voidRequests = viewMode === 'history' ? voidRequestsData?.filter(r => r.status !== 'PENDING') : voidRequestsData;
   const refundRequests = viewMode === 'history' ? refundRequestsData?.filter(r => r.status !== 'PENDING') : refundRequestsData;
   const apAuthRequests = viewMode === 'history' ? apAuthRequestsData?.filter(r => r.status !== 'PENDING') : apAuthRequestsData;
@@ -657,6 +677,45 @@ export const StatusChangeRequestsPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['advisor-change-requests'] });
       enqueueSnackbar('Solicitud de cambio de asesor rechazada', { variant: 'info' });
       handleCloseAdvisorReviewDialog();
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(
+        error.response?.data?.message || 'Error al rechazar la solicitud',
+        { variant: 'error' }
+      );
+    },
+  });
+
+  // ============================================================
+  // CLIENT ADVISOR ASSIGNMENT MUTATIONS
+  // ============================================================
+
+  const approveClientAdvisorMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
+      clientAdvisorRequestsApi.approve(id, { reviewNotes: notes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clientAdvisorRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['client-advisor-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      enqueueSnackbar('Asignación de asesor aprobada y aplicada al cliente', { variant: 'success' });
+      handleCloseClientAdvisorReviewDialog();
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(
+        error.response?.data?.message || 'Error al aprobar la solicitud',
+        { variant: 'error' }
+      );
+    },
+  });
+
+  const rejectClientAdvisorMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes: string }) =>
+      clientAdvisorRequestsApi.reject(id, { reviewNotes: notes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clientAdvisorRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['client-advisor-requests'] });
+      enqueueSnackbar('Solicitud de asignación de asesor rechazada', { variant: 'info' });
+      handleCloseClientAdvisorReviewDialog();
     },
     onError: (error: any) => {
       enqueueSnackbar(
@@ -1256,6 +1315,41 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const handleCloseAdvisorReviewDialog = () => {
     setAdvisorReviewDialog({ open: false, request: null, action: null });
     setAdvisorReviewNotes('');
+  };
+
+  const handleApproveClientAdvisor = (request: ClientAdvisorRequest) => {
+    setClientAdvisorReviewDialog({ open: true, request, action: 'approve' });
+    setClientAdvisorReviewNotes('');
+  };
+
+  const handleRejectClientAdvisor = (request: ClientAdvisorRequest) => {
+    setClientAdvisorReviewDialog({ open: true, request, action: 'reject' });
+    setClientAdvisorReviewNotes('');
+  };
+
+  const handleConfirmClientAdvisorReview = () => {
+    if (!clientAdvisorReviewDialog.request || !clientAdvisorReviewDialog.action) return;
+
+    if (clientAdvisorReviewDialog.action === 'approve') {
+      approveClientAdvisorMutation.mutate({
+        id: clientAdvisorReviewDialog.request.id,
+        notes: clientAdvisorReviewNotes || undefined,
+      });
+    } else {
+      if (!clientAdvisorReviewNotes.trim()) {
+        enqueueSnackbar('Debe proporcionar una razón para rechazar', { variant: 'warning' });
+        return;
+      }
+      rejectClientAdvisorMutation.mutate({
+        id: clientAdvisorReviewDialog.request.id,
+        notes: clientAdvisorReviewNotes,
+      });
+    }
+  };
+
+  const handleCloseClientAdvisorReviewDialog = () => {
+    setClientAdvisorReviewDialog({ open: false, request: null, action: null });
+    setClientAdvisorReviewNotes('');
   };
 
   // ============================================================
@@ -2138,6 +2232,81 @@ export const StatusChangeRequestsPage: React.FC = () => {
   ];
 
   // ============================================================
+  // COLUMNAS - CLIENT ADVISOR ASSIGNMENT
+  // ============================================================
+
+  const clientAdvisorColumns: GridColDef<ClientAdvisorRequest>[] = [
+    {
+      field: 'client',
+      headerName: 'Cliente',
+      width: 200,
+      valueGetter: (_, row) => row.client?.name || '-',
+    },
+    {
+      field: 'requestedBy',
+      headerName: 'Solicitante',
+      width: 180,
+      valueGetter: (_, row) => getUserName(row.requestedBy),
+    },
+    {
+      field: 'requestedAdvisor',
+      headerName: 'Asesor a Asignar',
+      width: 180,
+      valueGetter: (_, row) => getUserName(row.requestedAdvisor),
+    },
+    {
+      field: 'reason',
+      headerName: 'Motivo',
+      width: 220,
+      valueGetter: (_, row) => row.reason || '-',
+    },
+    {
+      field: 'status',
+      headerName: 'Estado',
+      width: 130,
+      renderCell: (params) => {
+        const statusConfig = STATUS_LABELS[params.value] || { label: params.value, color: 'default' as const };
+        return (
+          <Chip
+            label={statusConfig.label}
+            color={statusConfig.color}
+            size="small"
+          />
+        );
+      },
+    },
+    {
+      field: 'createdAt',
+      headerName: 'Fecha Solicitud',
+      width: 150,
+      valueFormatter: (value) => formatDateTime(value),
+    },
+    {
+      field: 'actions',
+      type: 'actions' as const,
+      headerName: 'Acciones',
+      width: 120,
+      getActions: (params: any) => {
+        if (params.row.status !== 'PENDING') return [];
+        return [
+          <GridActionsCellItem
+            icon={<CheckCircleIcon sx={{ color: 'success.main' }} />}
+            label="Aprobar"
+            onClick={() => handleApproveClientAdvisor(params.row)}
+            showInMenu={false}
+          />,
+          <GridActionsCellItem
+            icon={<CancelIcon sx={{ color: 'error.main' }} />}
+            label="Rechazar"
+            onClick={() => handleRejectClientAdvisor(params.row)}
+            showInMenu={false}
+          />,
+        ];
+      },
+    },
+  ];
+
+  // ============================================================
   // COLUMNAS - VOID REQUESTS
   // ============================================================
 
@@ -2551,6 +2720,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const paymentEditCount = paymentEditRequests?.length || 0;
   const ownershipCount = ownershipRequests?.length || 0;
   const advisorCount = advisorRequests?.length || 0;
+  const clientAdvisorCount = clientAdvisorRequests?.length || 0;
   const voidCount = voidRequests?.length || 0;
   const refundCount = refundRequests?.length || 0;
   const apAuthCount = apAuthRequests?.length || 0;
@@ -2643,6 +2813,13 @@ export const StatusChangeRequestsPage: React.FC = () => {
                 <ListItemIcon sx={{ minWidth: 36 }}><ManageAccountsIcon fontSize="small" /></ListItemIcon>
                 <ListItemText primary="Cambio de Asesor" primaryTypographyProps={{ variant: 'body2' }} />
                 {advisorCount > 0 && <Badge badgeContent={advisorCount} color="warning" sx={{ mr: 1 }} />}
+              </ListItemButton>
+            )}
+            {canApproveClientAdvisor && (
+              <ListItemButton selected={tabValue === 'client-advisor'} onClick={() => setTabValue('client-advisor')} sx={{ borderRadius: 1, mx: 1 }}>
+                <ListItemIcon sx={{ minWidth: 36 }}><ManageAccountsIcon fontSize="small" /></ListItemIcon>
+                <ListItemText primary="Asignar Asesor a Cliente" primaryTypographyProps={{ variant: 'body2' }} />
+                {clientAdvisorCount > 0 && <Badge badgeContent={clientAdvisorCount} color="warning" sx={{ mr: 1 }} />}
               </ListItemButton>
             )}
           </List>
@@ -2759,6 +2936,9 @@ export const StatusChangeRequestsPage: React.FC = () => {
           )}
           {tabValue === 'advisor' && canApproveAdvisorChange && (
             <DataTable rows={advisorRequests || []} columns={advisorColumns} loading={advisorLoading} getRowId={(row) => row.id} pageSize={25} />
+          )}
+          {tabValue === 'client-advisor' && canApproveClientAdvisor && (
+            <DataTable rows={clientAdvisorRequests || []} columns={clientAdvisorColumns} loading={clientAdvisorLoading} getRowId={(row) => row.id} pageSize={25} />
           )}
           {tabValue === 'void' && canApproveVoidRequests && (
             <DataTable rows={voidRequests || []} columns={voidColumns} loading={voidLoading} getRowId={(row) => row.id} pageSize={25} />
@@ -3320,6 +3500,65 @@ export const StatusChangeRequestsPage: React.FC = () => {
             }
           >
             {advisorReviewDialog.action === 'approve' ? 'Aprobar' : 'Rechazar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog: Revisión de Asignación de Asesor a Cliente */}
+      <Dialog open={clientAdvisorReviewDialog.open} onClose={handleCloseClientAdvisorReviewDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {clientAdvisorReviewDialog.action === 'approve'
+            ? 'Aprobar Asignación de Asesor'
+            : 'Rechazar Asignación de Asesor'}
+        </DialogTitle>
+        <DialogContent>
+          {clientAdvisorReviewDialog.request && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                <strong>Cliente:</strong> {clientAdvisorReviewDialog.request.client?.name}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Solicitado por:</strong> {getUserName(clientAdvisorReviewDialog.request.requestedBy)}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Asesor a asignar:</strong> {getUserName(clientAdvisorReviewDialog.request.requestedAdvisor)}
+              </Typography>
+              {clientAdvisorReviewDialog.request.reason && (
+                <Typography variant="body2" gutterBottom>
+                  <strong>Motivo:</strong> {clientAdvisorReviewDialog.request.reason}
+                </Typography>
+              )}
+              {clientAdvisorReviewDialog.action === 'approve' && (
+                <Alert severity="info" sx={{ mt: 1 }}>
+                  Al aprobar, el asesor quedará asignado como co-dueño del cliente.
+                </Alert>
+              )}
+            </Box>
+          )}
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            label={clientAdvisorReviewDialog.action === 'approve' ? 'Notas (opcional)' : 'Razón del rechazo *'}
+            value={clientAdvisorReviewNotes}
+            onChange={(e) => setClientAdvisorReviewNotes(e.target.value)}
+            required={clientAdvisorReviewDialog.action === 'reject'}
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseClientAdvisorReviewDialog}>Cancelar</Button>
+          <Button
+            onClick={handleConfirmClientAdvisorReview}
+            variant="contained"
+            color={clientAdvisorReviewDialog.action === 'approve' ? 'success' : 'error'}
+            disabled={
+              approveClientAdvisorMutation.isPending ||
+              rejectClientAdvisorMutation.isPending ||
+              (clientAdvisorReviewDialog.action === 'reject' && !clientAdvisorReviewNotes.trim())
+            }
+          >
+            {clientAdvisorReviewDialog.action === 'approve' ? 'Aprobar' : 'Rechazar'}
           </Button>
         </DialogActions>
       </Dialog>

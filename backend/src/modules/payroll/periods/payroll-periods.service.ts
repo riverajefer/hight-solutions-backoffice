@@ -41,6 +41,8 @@ export class PayrollPeriodsService {
       periodType: dto.periodType,
       overtimeDaytimeRate: dto.overtimeDaytimeRate,
       overtimeNighttimeRate: dto.overtimeNighttimeRate,
+      overtimeDaytimeFestiveRate: dto.overtimeDaytimeFestiveRate,
+      overtimeNighttimeFestiveRate: dto.overtimeNighttimeFestiveRate,
       notes: dto.notes,
     });
   }

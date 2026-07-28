@@ -43,6 +43,8 @@ const schema = z
     status: z.enum(['DRAFT', 'CALCULATED', 'PAID']).optional(),
     overtimeDaytimeRate: z.string().optional(),
     overtimeNighttimeRate: z.string().optional(),
+    overtimeDaytimeFestiveRate: z.string().optional(),
+    overtimeNighttimeFestiveRate: z.string().optional(),
     notes: z.string().optional(),
   })
   .superRefine((data, ctx) => {
@@ -77,7 +79,9 @@ const PayrollPeriodFormPage: React.FC = () => {
       status: 'DRAFT',
       overtimeDaytimeRate: '9950',
       overtimeNighttimeRate: '13900',
-      notes: '',
+      overtimeDaytimeFestiveRate: '17927',
+      overtimeNighttimeFestiveRate: '22096',
+      notes: ''
     },
   });
 
@@ -96,7 +100,13 @@ const PayrollPeriodFormPage: React.FC = () => {
         overtimeNighttimeRate: p.overtimeNighttimeRate
           ? Math.round(Number(p.overtimeNighttimeRate)).toString()
           : '13900',
-        notes: p.notes ?? '',
+        overtimeDaytimeFestiveRate: p.overtimeDaytimeFestiveRate
+          ? Math.round(Number(p.overtimeDaytimeFestiveRate)).toString()
+          : '17927',
+        overtimeNighttimeFestiveRate: p.overtimeNighttimeFestiveRate
+          ? Math.round(Number(p.overtimeNighttimeFestiveRate)).toString()
+          : '22096',
+        notes: p.notes ?? ''
       });
     }
   }, [isEdit, periodQuery.data, reset]);
@@ -112,6 +122,12 @@ const PayrollPeriodFormPage: React.FC = () => {
       const nighttimeRate = values.overtimeNighttimeRate
         ? Number(values.overtimeNighttimeRate.replace(/\D/g, ''))
         : undefined;
+      const daytimeFestiveRate = values.overtimeDaytimeFestiveRate
+        ? Number(values.overtimeDaytimeFestiveRate.replace(/\D/g, ''))
+        : undefined;
+      const nighttimeFestiveRate = values.overtimeNighttimeFestiveRate
+        ? Number(values.overtimeNighttimeFestiveRate.replace(/\D/g, ''))
+        : undefined;
 
       if (isEdit && id) {
         const payload: UpdatePayrollPeriodDto = {
@@ -122,6 +138,8 @@ const PayrollPeriodFormPage: React.FC = () => {
           status: values.status,
           overtimeDaytimeRate: daytimeRate,
           overtimeNighttimeRate: nighttimeRate,
+          overtimeDaytimeFestiveRate: daytimeFestiveRate,
+          overtimeNighttimeFestiveRate: nighttimeFestiveRate,
           notes: values.notes || undefined,
         };
         await updateMutation.mutateAsync({ id, data: payload });
@@ -134,6 +152,8 @@ const PayrollPeriodFormPage: React.FC = () => {
           periodType: values.periodType,
           overtimeDaytimeRate: daytimeRate,
           overtimeNighttimeRate: nighttimeRate,
+          overtimeDaytimeFestiveRate: daytimeFestiveRate,
+          overtimeNighttimeFestiveRate: nighttimeFestiveRate,
           notes: values.notes || undefined,
         };
         await createMutation.mutateAsync(payload);
@@ -299,6 +319,56 @@ const PayrollPeriodFormPage: React.FC = () => {
                     fullWidth
                     label="Tarifa hora extra nocturna"
                     helperText="Valor por hora extra nocturna"
+                    value={field.value ? formatCurrencyInput(field.value) : ''}
+                    onChange={(e) => field.onChange(e.target.value.replace(/\D/g, ''))}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Typography sx={{ color: 'text.secondary', fontWeight: 500 }}>$</Typography>
+                        </InputAdornment>
+                      ),
+                      inputProps: { style: { textAlign: 'right' } },
+                    }}
+                  />
+                )}
+              />
+            </Grid>
+
+            {/* Tarifa extra diurna festiva — COP */}
+            <Grid item xs={12} md={6}>
+              <Controller
+                name="overtimeDaytimeFestiveRate"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    fullWidth
+                    label="Tarifa hora extra diurna festiva"
+                    helperText="Valor por hora extra diurna en día festivo"
+                    value={field.value ? formatCurrencyInput(field.value) : ''}
+                    onChange={(e) => field.onChange(e.target.value.replace(/\D/g, ''))}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Typography sx={{ color: 'text.secondary', fontWeight: 500 }}>$</Typography>
+                        </InputAdornment>
+                      ),
+                      inputProps: { style: { textAlign: 'right' } },
+                    }}
+                  />
+                )}
+              />
+            </Grid>
+
+            {/* Tarifa extra nocturna festiva — COP */}
+            <Grid item xs={12} md={6}>
+              <Controller
+                name="overtimeNighttimeFestiveRate"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    fullWidth
+                    label="Tarifa hora extra nocturna festiva"
+                    helperText="Valor por hora extra nocturna en día festivo"
                     value={field.value ? formatCurrencyInput(field.value) : ''}
                     onChange={(e) => field.onChange(e.target.value.replace(/\D/g, ''))}
                     InputProps={{

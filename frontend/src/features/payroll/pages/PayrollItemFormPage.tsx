@@ -1,16 +1,24 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Divider,
   Grid,
+  IconButton,
   InputAdornment,
   Paper,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import AddPayrollEmployeeDialog from '../components/AddPayrollEmployeeDialog';
+import { DatePicker } from '@mui/x-date-pickers';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import { useForm, Controller } from 'react-hook-form';
@@ -18,10 +26,18 @@ import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { usePayrollItems } from '../hooks/usePayrollItems';
 import { usePayrollPeriods } from '../hooks/usePayrollPeriods';
+import { usePayrollEmployees } from '../hooks/usePayrollEmployees';
 import { payrollItemsApi } from '../../../api/payroll-items.api';
 import { useQuery } from '@tanstack/react-query';
-import type { UpdatePayrollItemDto } from '../../../types';
+import type { CreatePayrollItemDto, UpdatePayrollItemDto } from '../../../types';
 import { PATHS } from '../../../router/paths';
+
+// ─── Extra shift row (managed outside RHF, which is Record<string,string>) ─────
+interface ExtraShiftRow {
+  shiftDate: Date | null;
+  description: string;
+  amount: string; // raw digits
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type FieldName =
@@ -54,18 +70,45 @@ const formatCOP = (value: number): string =>
 const rawNum = (v: string | undefined): number => Number(v?.replace(/\D/g, '') ?? 0);
 
 // ─── Total calculation (reads raw digit strings) ──────────────────────────────
-const calcTotal = (v: Partial<FormValues>): number =>
+const calcTotal = (v: Partial<FormValues>, extraShiftsTotal = 0): number =>
   rawNum(v.baseSalary) +
   rawNum(v.overtimeDaytimeValue) +
   rawNum(v.overtimeNighttimeValue) +
   rawNum(v.commissions) +
   rawNum(v.restDayValue) +
-  rawNum(v.transportAllowance) -
+  rawNum(v.transportAllowance) +
+  extraShiftsTotal -
   rawNum(v.workdayDiscount) -
   rawNum(v.loans) -
   rawNum(v.advances) -
   rawNum(v.nonPaidDays) -
   rawNum(v.epsAndPensionDiscount);
+
+// Sum of extra-shift amounts (raw digits)
+const sumShifts = (rows: ExtraShiftRow[]): number =>
+  rows.reduce((acc, r) => acc + rawNum(r.amount), 0);
+
+// ─── Salario base proporcional (convención colombiana: mes = 30 días) ─────────
+// REGULAR: (salarioMensual / 30) × díasTrabajados; sin días → periodo completo
+//   (quincena = salario/2, mes = salario completo).
+// TEMPORAL: tarifaDiaria × díasTrabajados.
+const computeBaseSalary = (
+  emp: { employeeType?: string; monthlySalary?: string | null; dailyRate?: string | null } | undefined,
+  periodType: string | undefined,
+  daysWorkedStr: string,
+): number | null => {
+  if (!emp) return null;
+  const days = daysWorkedStr ? Number(daysWorkedStr) : null;
+  if (emp.employeeType === 'TEMPORARY') {
+    const rate = emp.dailyRate ? Number(emp.dailyRate) : 0;
+    return Math.round(rate * (days ?? 0));
+  }
+  const monthly = emp.monthlySalary ? Number(emp.monthlySalary) : 0;
+  if (days == null) {
+    return Math.round(periodType === 'BIWEEKLY' ? monthly / 2 : monthly);
+  }
+  return Math.round((monthly / 30) * days);
+};
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -152,7 +195,21 @@ const PayrollItemFormPage: React.FC = () => {
     enabled: !isNew && !!itemId,
   });
 
-  const { createMutation, updateMutation } = usePayrollItems(periodId!);
+  const { createMutation, updateMutation, itemsQuery } = usePayrollItems(periodId!);
+  const { employeesQuery } = usePayrollEmployees();
+
+  // Empleado a agregar (solo modo nuevo)
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+  const [addEmployeeOpen, setAddEmployeeOpen] = useState(false);
+  // Días trabajados cargados desde el registro (para no recalcular la base al abrir en edición)
+  const loadedDaysRef = useRef<string | null>(null);
+  const existingEmployeeIds = new Set((itemsQuery.data ?? []).map((i) => i.employeeId));
+  const availableEmployees = (employeesQuery.data ?? []).filter(
+    (e) => !existingEmployeeIds.has(e.id),
+  );
+  const existingUserIds = (employeesQuery.data ?? []).map((e) => e.userId);
+  const employeeLabel = (e: (typeof availableEmployees)[number]) =>
+    `${e.user?.firstName ?? ''} ${e.user?.lastName ?? ''}`.trim() || e.user?.email || 'Empleado';
 
   const defaultValues: FormValues = {
     daysWorked: '', baseSalary: '',
@@ -165,6 +222,17 @@ const PayrollItemFormPage: React.FC = () => {
 
   const { control, watch, setValue, handleSubmit, reset } = useForm<FormValues>({ defaultValues });
   const values = watch();
+
+  // Extra shifts (managed outside RHF)
+  const [shifts, setShifts] = useState<ExtraShiftRow[]>([]);
+  const extraShiftsTotal = sumShifts(shifts);
+
+  const addShift = () =>
+    setShifts((prev) => [...prev, { shiftDate: null, description: '', amount: '' }]);
+  const updateShift = (idx: number, patch: Partial<ExtraShiftRow>) =>
+    setShifts((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  const removeShift = (idx: number) =>
+    setShifts((prev) => prev.filter((_, i) => i !== idx));
 
   // Auto-calc: horas extra diurnas → valor
   useEffect(() => {
@@ -182,15 +250,37 @@ const PayrollItemFormPage: React.FC = () => {
     }
   }, [values.overtimeNighttimeHours, period?.overtimeNighttimeRate]);
 
+  // Auto-calc base proporcional al crear: al elegir empleado o cambiar días (editable)
+  useEffect(() => {
+    if (!isNew || !selectedEmployeeId) return;
+    const emp = availableEmployees.find((e) => e.id === selectedEmployeeId);
+    if (!emp) return;
+    const base = computeBaseSalary(emp, period?.periodType, values.daysWorked);
+    if (base != null) setValue('baseSalary', base.toString());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNew, selectedEmployeeId, values.daysWorked, period?.periodType, employeesQuery.data]);
+
+  // Auto-calc base proporcional al editar: solo cuando el usuario cambia los días
+  // (no al cargar el registro, para respetar el valor guardado).
+  useEffect(() => {
+    if (isNew || loadedDaysRef.current === null) return;
+    if (values.daysWorked === loadedDaysRef.current) return;
+    const emp = itemQuery.data?.employee;
+    if (!emp) return;
+    const base = computeBaseSalary(emp, period?.periodType, values.daysWorked);
+    if (base != null) setValue('baseSalary', base.toString());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNew, values.daysWorked, period?.periodType, itemQuery.data]);
+
   // Auto-calc total
   useEffect(() => {
-    const total = calcTotal(values);
+    const total = calcTotal(values, extraShiftsTotal);
     setValue('totalPayment', Math.round(total).toString());
   }, [
     values.baseSalary, values.overtimeDaytimeValue, values.overtimeNighttimeValue,
     values.commissions, values.restDayValue, values.transportAllowance,
     values.workdayDiscount, values.loans, values.advances, values.nonPaidDays,
-    values.epsAndPensionDiscount,
+    values.epsAndPensionDiscount, extraShiftsTotal,
   ]);
 
   // Load existing item
@@ -199,6 +289,7 @@ const PayrollItemFormPage: React.FC = () => {
       const item = itemQuery.data;
       // Strip decimals from Prisma Decimal strings for COP integer storage
       const toRaw = (v: any) => v != null ? Math.round(Number(v)).toString() : '';
+      loadedDaysRef.current = item.daysWorked?.toString() ?? '';
       reset({
         daysWorked: item.daysWorked?.toString() ?? '',
         baseSalary: toRaw(item.baseSalary),
@@ -217,6 +308,13 @@ const PayrollItemFormPage: React.FC = () => {
         totalPayment: toRaw(item.totalPayment),
         observations: item.observations ?? '',
       });
+      setShifts(
+        (item.extraShifts ?? []).map((s) => ({
+          shiftDate: s.shiftDate ? new Date(s.shiftDate) : null,
+          description: s.description ?? '',
+          amount: s.amount != null ? Math.round(Number(s.amount)).toString() : '',
+        })),
+      );
     }
   }, [isNew, itemQuery.data, reset]);
 
@@ -228,31 +326,50 @@ const PayrollItemFormPage: React.FC = () => {
   const onSubmit = async (vals: FormValues) => {
     setServerError(null);
     const num = (k: FieldName) => vals[k] ? Number(vals[k].replace(/\D/g, '')) : undefined;
+    const fields = {
+      daysWorked: vals.daysWorked ? Number(vals.daysWorked) : undefined,
+      baseSalary: num('baseSalary'),
+      overtimeDaytimeHours: vals.overtimeDaytimeHours ? Number(vals.overtimeDaytimeHours) : undefined,
+      overtimeNighttimeHours: vals.overtimeNighttimeHours ? Number(vals.overtimeNighttimeHours) : undefined,
+      overtimeDaytimeValue: num('overtimeDaytimeValue'),
+      overtimeNighttimeValue: num('overtimeNighttimeValue'),
+      commissions: num('commissions'),
+      restDayValue: num('restDayValue'),
+      transportAllowance: num('transportAllowance'),
+      workdayDiscount: num('workdayDiscount'),
+      loans: num('loans'),
+      advances: num('advances'),
+      nonPaidDays: num('nonPaidDays'),
+      epsAndPensionDiscount: num('epsAndPensionDiscount'),
+      totalPayment: num('totalPayment'),
+      observations: vals.observations || undefined,
+      extraShifts: shifts
+        .filter((r) => r.shiftDate && rawNum(r.amount) > 0)
+        .map((r) => ({
+          shiftDate: r.shiftDate!.toISOString(),
+          description: r.description.trim() || undefined,
+          amount: rawNum(r.amount),
+        })),
+    };
     try {
       if (isNew) {
-        enqueueSnackbar('Para agregar un nuevo registro, usa el botón en el detalle del periodo', { variant: 'info' });
+        if (!selectedEmployeeId) {
+          setServerError('Selecciona un empleado para el registro');
+          enqueueSnackbar('Selecciona un empleado', { variant: 'warning' });
+          return;
+        }
+        const createPayload: CreatePayrollItemDto = {
+          employeeId: selectedEmployeeId,
+          ...fields,
+          baseSalary: fields.baseSalary ?? 0,
+          totalPayment: fields.totalPayment ?? 0,
+        };
+        await createMutation.mutateAsync(createPayload);
+        enqueueSnackbar('Registro de nómina creado', { variant: 'success' });
         navigate(PATHS.PAYROLL_PERIODS_DETAIL.replace(':id', periodId!));
         return;
       }
-      const payload: UpdatePayrollItemDto = {
-        daysWorked: vals.daysWorked ? Number(vals.daysWorked) : undefined,
-        baseSalary: num('baseSalary'),
-        overtimeDaytimeHours: vals.overtimeDaytimeHours ? Number(vals.overtimeDaytimeHours) : undefined,
-        overtimeNighttimeHours: vals.overtimeNighttimeHours ? Number(vals.overtimeNighttimeHours) : undefined,
-        overtimeDaytimeValue: num('overtimeDaytimeValue'),
-        overtimeNighttimeValue: num('overtimeNighttimeValue'),
-        commissions: num('commissions'),
-        restDayValue: num('restDayValue'),
-        transportAllowance: num('transportAllowance'),
-        workdayDiscount: num('workdayDiscount'),
-        loans: num('loans'),
-        advances: num('advances'),
-        nonPaidDays: num('nonPaidDays'),
-        epsAndPensionDiscount: num('epsAndPensionDiscount'),
-        totalPayment: num('totalPayment'),
-        observations: vals.observations || undefined,
-      };
-      await updateMutation.mutateAsync({ itemId: itemId!, data: payload });
+      await updateMutation.mutateAsync({ itemId: itemId!, data: fields as UpdatePayrollItemDto });
       enqueueSnackbar('Registro de nómina actualizado', { variant: 'success' });
       navigate(PATHS.PAYROLL_PERIODS_DETAIL.replace(':id', periodId!));
     } catch (err: any) {
@@ -264,17 +381,17 @@ const PayrollItemFormPage: React.FC = () => {
 
   if (!isNew && itemQuery.isLoading) return <LoadingSpinner />;
   const isLoading = updateMutation.isPending || createMutation.isPending;
-  const totalValue = calcTotal(values);
+  const totalValue = calcTotal(values, extraShiftsTotal);
 
   return (
     <Box>
       <PageHeader
-        title={`Registro de Nómina — ${employeeName}`}
+        title={isNew ? 'Nuevo Registro de Nómina' : `Registro de Nómina — ${employeeName}`}
         subtitle={period?.name ?? ''}
         breadcrumbs={[
           { label: 'Periodos', path: PATHS.PAYROLL_PERIODS },
           { label: period?.name ?? 'Periodo', path: PATHS.PAYROLL_PERIODS_DETAIL.replace(':id', periodId!) },
-          { label: employeeName },
+          { label: isNew ? 'Nuevo' : employeeName },
         ]}
       />
 
@@ -282,8 +399,54 @@ const PayrollItemFormPage: React.FC = () => {
         {serverError && <Alert severity="error" sx={{ mb: 2 }}>{serverError}</Alert>}
 
         <form onSubmit={handleSubmit(onSubmit)}>
+          {/* ── EMPLEADO (solo al crear) ───────────────────────────────── */}
+          {isNew && (
+            <>
+              <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Empleado</Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={6}>
+                  <Stack direction="row" spacing={1} alignItems="flex-start">
+                    <Autocomplete
+                      sx={{ flexGrow: 1 }}
+                      options={availableEmployees}
+                      getOptionLabel={employeeLabel}
+                      loading={employeesQuery.isLoading || itemsQuery.isLoading}
+                      value={availableEmployees.find((e) => e.id === selectedEmployeeId) ?? null}
+                      onChange={(_, value) => setSelectedEmployeeId(value?.id ?? '')}
+                      isOptionEqualToValue={(opt, val) => opt.id === val.id}
+                      noOptionsText="No hay empleados disponibles para agregar"
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          size="small"
+                          label="Selecciona un empleado *"
+                          helperText="Solo se muestran empleados que aún no están en este periodo"
+                        />
+                      )}
+                    />
+                    <Tooltip title="Registrar un nuevo empleado en nómina">
+                      <IconButton
+                        color="primary"
+                        onClick={() => setAddEmployeeOpen(true)}
+                        aria-label="Agregar empleado a nómina"
+                        sx={{ mt: 0.5 }}
+                      >
+                        <PersonAddAlt1Icon />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
+                </Grid>
+              </Grid>
+              <Divider sx={{ my: 3 }} />
+            </>
+          )}
+
           {/* ── INGRESOS ───────────────────────────────────────────────── */}
           <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Ingresos</Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+            El salario base se calcula automáticamente desde el salario del empleado y los días
+            trabajados (mes = 30 días). Puedes ajustarlo manualmente si lo necesitas.
+          </Typography>
           <Grid container spacing={2}>
             <Grid item xs={6} md={3}>
               <NumberField control={control} name="daysWorked" label="Días trabajados" />
@@ -313,6 +476,81 @@ const PayrollItemFormPage: React.FC = () => {
               <CurrencyField control={control} name="transportAllowance" label="Auxilio de transporte" />
             </Grid>
           </Grid>
+
+          <Divider sx={{ my: 3 }} />
+
+          {/* ── TURNOS EXTRAS ──────────────────────────────────────────── */}
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+            <Box>
+              <Typography variant="subtitle1" fontWeight="bold">Turnos extras</Typography>
+              <Typography variant="caption" color="text.secondary">
+                Turnos acordados con pago fijo (ej. domingo completo). Se suman al total.
+              </Typography>
+            </Box>
+            <Button size="small" startIcon={<AddIcon />} onClick={addShift}>
+              Agregar turno
+            </Button>
+          </Stack>
+
+          {shifts.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+              Sin turnos extras registrados.
+            </Typography>
+          ) : (
+            <Stack spacing={2}>
+              {shifts.map((row, idx) => (
+                <Grid container spacing={2} alignItems="center" key={idx}>
+                  <Grid item xs={12} sm={4} md={3}>
+                    <DatePicker
+                      label="Fecha del turno"
+                      value={row.shiftDate}
+                      onChange={(d) => updateShift(idx, { shiftDate: d as Date | null })}
+                      slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={5} md={6}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Descripción"
+                      value={row.description}
+                      onChange={(e) => updateShift(idx, { description: e.target.value })}
+                    />
+                  </Grid>
+                  <Grid item xs={9} sm={2} md={2}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Valor acordado"
+                      value={row.amount ? formatCurrencyInput(row.amount) : ''}
+                      onChange={(e) => updateShift(idx, { amount: e.target.value.replace(/\D/g, '') })}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Typography sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.875rem' }}>$</Typography>
+                          </InputAdornment>
+                        ),
+                        inputProps: { style: { textAlign: 'right' } },
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={3} sm={1} md={1} sx={{ textAlign: 'center' }}>
+                    <IconButton color="error" onClick={() => removeShift(idx)} aria-label="Eliminar turno">
+                      <DeleteOutlineIcon />
+                    </IconButton>
+                  </Grid>
+                </Grid>
+              ))}
+              <Box sx={{ textAlign: 'right', pr: 1 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Subtotal turnos extras:{' '}
+                  <Typography component="span" fontWeight="bold" color="text.primary">
+                    {formatCOP(extraShiftsTotal)}
+                  </Typography>
+                </Typography>
+              </Box>
+            </Stack>
+          )}
 
           <Divider sx={{ my: 3 }} />
 
@@ -377,6 +615,15 @@ const PayrollItemFormPage: React.FC = () => {
           </Stack>
         </form>
       </Paper>
+
+      {isNew && (
+        <AddPayrollEmployeeDialog
+          open={addEmployeeOpen}
+          onClose={() => setAddEmployeeOpen(false)}
+          existingUserIds={existingUserIds}
+          onCreated={(employee) => setSelectedEmployeeId(employee.id)}
+        />
+      )}
     </Box>
   );
 };

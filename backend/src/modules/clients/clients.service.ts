@@ -98,15 +98,17 @@ export class ClientsService {
     const nit = createClientDto.personType === PersonType.NATURAL ? null : createClientDto.nit;
     const cedula = createClientDto.personType === PersonType.EMPRESA ? null : createClientDto.cedula;
 
-    // Determine advisorId: non-admin users become the advisor of the client
-    let advisorConnect: { connect: { id: string } } | undefined;
+    // Determine advisor set:
+    //   - non-admin users become an advisor of the client automatically
+    //   - admins may pass an explicit list of advisorIds (or none)
     const creator = await this.clientsRepository.findUserWithPermissions(creatorId);
     const isAdmin = creator?.role?.permissions?.some(
       (rp) => rp.permission.name === 'approve_client_ownership_auth',
     );
-    if (!isAdmin) {
-      advisorConnect = { connect: { id: creatorId } };
-    }
+
+    const advisorIds = isAdmin
+      ? [...new Set(createClientDto.advisorIds ?? [])]
+      : [creatorId];
 
     return this.clientsRepository.create({
       name: createClientDto.name,
@@ -121,7 +123,13 @@ export class ClientsService {
       cedula,
       department: { connect: { id: createClientDto.departmentId } },
       city: { connect: { id: createClientDto.cityId } },
-      ...(advisorConnect && { advisor: advisorConnect }),
+      ...(advisorIds.length > 0 && {
+        advisors: {
+          create: advisorIds.map((advisorId) => ({
+            advisor: { connect: { id: advisorId } },
+          })),
+        },
+      }),
     });
   }
 
@@ -215,13 +223,16 @@ export class ClientsService {
       updateData.city = { connect: { id: updateClientDto.cityId } };
     }
 
-    // Handle advisor assignment / removal
-    if (updateClientDto.advisorId !== undefined) {
-      if (updateClientDto.advisorId === null) {
-        updateData.advisor = { disconnect: true };
-      } else {
-        updateData.advisor = { connect: { id: updateClientDto.advisorId } };
-      }
+    // Handle advisor set (co-ownership): replace the full set with the provided list.
+    // Only admins reach this branch — the controller/frontend gate the field.
+    if (updateClientDto.advisorIds !== undefined) {
+      const advisorIds = [...new Set(updateClientDto.advisorIds)];
+      updateData.advisors = {
+        deleteMany: {},
+        create: advisorIds.map((advisorId) => ({
+          advisor: { connect: { id: advisorId } },
+        })),
+      };
     }
 
     return this.clientsRepository.update(id, updateData);

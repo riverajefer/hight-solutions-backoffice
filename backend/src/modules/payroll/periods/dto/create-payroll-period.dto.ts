@@ -50,6 +50,20 @@ export class CreatePayrollPeriodDto {
   @IsOptional()
   overtimeNighttimeRate?: number;
 
+  @ApiPropertyOptional({ description: 'Tarifa hora extra diurna festiva (COP)', example: 11938 })
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  @IsOptional()
+  overtimeDaytimeFestiveRate?: number;
+
+  @ApiPropertyOptional({ description: 'Tarifa hora extra nocturna festiva (COP)', example: 15913 })
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  @IsOptional()
+  overtimeNighttimeFestiveRate?: number;
+
   @ApiPropertyOptional({ description: 'Notas del periodo' })
   @IsString()
   @IsOptional()

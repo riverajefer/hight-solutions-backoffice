@@ -78,13 +78,16 @@ export class OrdersRepository {
         name: true,
         email: true,
         phone: true,
-        advisorId: true,
-        advisor: {
+        advisors: {
           select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
+            advisor: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
           },
         },
         orders: {
@@ -289,9 +292,15 @@ export class OrdersRepository {
       data: orders.map(order => {
         let processedClient: any = order.client;
         if (order.client) {
-          const { orders, ...clientRest } = order.client as any;
+          const { orders, advisors, ...clientRest } = order.client as any;
           const saldoAFavor = orders?.reduce((sum: number, o: any) => sum + Math.abs(Number(o.balance)), 0) || 0;
-          processedClient = { ...clientRest, saldoAFavor };
+          processedClient = {
+            ...clientRest,
+            advisors,
+            advisorId: advisors?.[0]?.advisor?.id ?? null,
+            advisor: advisors?.[0]?.advisor ?? null,
+            saldoAFavor,
+          };
         }
         return { ...order, client: processedClient };
       }),
@@ -314,9 +323,15 @@ export class OrdersRepository {
 
     let processedClient: any = order.client;
     if (order.client) {
-      const { orders, ...clientRest } = order.client as any;
+      const { orders, advisors, ...clientRest } = order.client as any;
       const saldoAFavor = orders?.reduce((sum: number, o: any) => sum + Math.abs(Number(o.balance)), 0) || 0;
-      processedClient = { ...clientRest, saldoAFavor };
+      processedClient = {
+        ...clientRest,
+        advisors,
+        advisorId: advisors?.[0]?.advisor?.id ?? null,
+        advisor: advisors?.[0]?.advisor ?? null,
+        saldoAFavor,
+      };
     }
 
     // Si hay información de cambio de fecha, buscar el usuario que lo hizo
@@ -351,9 +366,15 @@ export class OrdersRepository {
 
     let processedClient: any = order.client;
     if (order.client) {
-      const { orders, ...clientRest } = order.client as any;
+      const { orders, advisors, ...clientRest } = order.client as any;
       const saldoAFavor = orders?.reduce((sum: number, o: any) => sum + Math.abs(Number(o.balance)), 0) || 0;
-      processedClient = { ...clientRest, saldoAFavor };
+      processedClient = {
+        ...clientRest,
+        advisors,
+        advisorId: advisors?.[0]?.advisor?.id ?? null,
+        advisor: advisors?.[0]?.advisor ?? null,
+        saldoAFavor,
+      };
     }
 
     return { ...order, client: processedClient };

@@ -6,9 +6,9 @@ import {
   IsUUID,
   IsEnum,
   IsBoolean,
+  IsArray,
   MinLength,
   MaxLength,
-  ValidateIf,
 } from 'class-validator';
 import { PersonType } from '../../../generated/prisma';
 
@@ -154,12 +154,13 @@ export class UpdateClientDto {
   specialCondition?: string;
 
   @ApiPropertyOptional({
-    description: 'ID del asesor responsable del cliente (null para quitar el asesor)',
-    example: '550e8400-e29b-41d4-a716-446655440000',
-    nullable: true,
+    description:
+      'IDs de los asesores dueños del cliente (co-propiedad). Reemplaza el conjunto completo. Solo editable por administradores.',
+    example: ['550e8400-e29b-41d4-a716-446655440000'],
+    type: [String],
   })
   @IsOptional()
-  @ValidateIf((o) => o.advisorId !== null)
-  @IsUUID('4', { message: 'El asesor debe ser un UUID válido' })
-  advisorId?: string | null;
+  @IsArray()
+  @IsUUID('4', { each: true, message: 'Cada asesor debe ser un UUID válido' })
+  advisorIds?: string[];
 }

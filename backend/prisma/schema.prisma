@@ -58,7 +58,10 @@ model User {
   discountApprovalReviews                   DiscountApproval[]                     @relation("DiscountApprovalReviews")
   requestedPaymentEditApprovals             PaymentEditApproval[]                  @relation("RequestedPaymentEditApprovals")
   reviewedPaymentEditApprovals              PaymentEditApproval[]                  @relation("ReviewedPaymentEditApprovals")
-  advisedClients                            Client[]                               @relation("ClientAdvisor")
+  advisedClients                            ClientAdvisor[]                        @relation("ClientAdvisor")
+  requestedClientAdvisorRequests            ClientAdvisorRequest[]                 @relation("ClientAdvisorRequestRequestedBy")
+  advisedClientAdvisorRequests              ClientAdvisorRequest[]                 @relation("ClientAdvisorRequestAdvisor")
+  reviewedClientAdvisorRequests             ClientAdvisorRequest[]                 @relation("ClientAdvisorRequestReviewer")
   requestedClientOwnershipAuthRequests      ClientOwnershipAuthRequest[]           @relation("RequestedClientOwnershipAuthRequests")
   advisedClientOwnershipAuthRequests        ClientOwnershipAuthRequest[]           @relation("AdvisedClientOwnershipAuthRequests")
   reviewedClientOwnershipAuthRequests       ClientOwnershipAuthRequest[]           @relation("ReviewedClientOwnershipAuthRequests")
@@ -231,19 +234,60 @@ model Client {
   cedula           String?
   specialCondition String?    @map("special_condition")
   isActive         Boolean    @default(true) @map("is_active")
-  advisorId        String?    @map("advisor_id")
   createdAt        DateTime   @default(now()) @map("created_at")
   updatedAt        DateTime   @updatedAt @map("updated_at")
 
-  department Department  @relation(fields: [departmentId], references: [id])
-  city       City        @relation(fields: [cityId], references: [id])
-  advisor    User?       @relation("ClientAdvisor", fields: [advisorId], references: [id])
-  orders     Order[]
-  quotes     Quote[]
-  dtfRecords DtfRecord[]
-  prospects  Prospect[]
+  department Department      @relation(fields: [departmentId], references: [id])
+  city       City            @relation(fields: [cityId], references: [id])
+  advisors        ClientAdvisor[]
+  advisorRequests ClientAdvisorRequest[]
+  orders          Order[]
+  quotes          Quote[]
+  dtfRecords      DtfRecord[]
+  prospects       Prospect[]
 
   @@map("clients")
+}
+
+/// Tabla de unión: un cliente puede pertenecer a varios asesores (co-propiedad).
+model ClientAdvisor {
+  id        String   @id @default(uuid())
+  clientId  String   @map("client_id")
+  advisorId String   @map("advisor_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  client  Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  advisor User   @relation("ClientAdvisor", fields: [advisorId], references: [id])
+
+  @@unique([clientId, advisorId])
+  @@index([advisorId])
+  @@map("client_advisors")
+}
+
+/// Solicitud (sujeta a aprobación del admin) de asignar un asesor a un cliente.
+/// Al aprobar se crea la fila ClientAdvisor correspondiente.
+model ClientAdvisorRequest {
+  id                 String            @id @default(uuid())
+  clientId           String            @map("client_id")
+  requestedById      String            @map("requested_by_id")
+  requestedAdvisorId String            @map("requested_advisor_id")
+  reason             String?
+  status             EditRequestStatus @default(PENDING)
+  reviewedById       String?           @map("reviewed_by_id")
+  reviewedAt         DateTime?         @map("reviewed_at")
+  reviewNotes        String?           @map("review_notes")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+
+  client           Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  requestedBy      User   @relation("ClientAdvisorRequestRequestedBy", fields: [requestedById], references: [id])
+  requestedAdvisor User   @relation("ClientAdvisorRequestAdvisor", fields: [requestedAdvisorId], references: [id])
+  reviewedBy       User?  @relation("ClientAdvisorRequestReviewer", fields: [reviewedById], references: [id])
+
+  @@index([clientId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("client_advisor_requests")
 }
 
 model Supplier {
@@ -770,6 +814,7 @@ enum ApprovalRequestType {
   AP_AUTH
   AP_PAYMENT_AUTH
   ADVISOR_CHANGE
+  CLIENT_ADVISOR_ASSIGNMENT
 }
 
 enum NotificationType {
@@ -821,6 +866,9 @@ enum NotificationType {
   ADVISOR_CHANGE_REQUEST_PENDING // Nueva solicitud de cambio de asesor de OP
   ADVISOR_CHANGE_REQUEST_APPROVED // Solicitud de cambio de asesor aprobada
   ADVISOR_CHANGE_REQUEST_REJECTED // Solicitud de cambio de asesor rechazada
+  CLIENT_ADVISOR_REQUEST_PENDING // Nueva solicitud de asignación de asesor a cliente
+  CLIENT_ADVISOR_REQUEST_APPROVED // Solicitud de asignación de asesor a cliente aprobada
+  CLIENT_ADVISOR_REQUEST_REJECTED // Solicitud de asignación de asesor a cliente rechazada
 }
 
 enum ApPaymentAuthRequestStatus {
@@ -1559,8 +1607,10 @@ model PayrollPeriod {
   endDate               DateTime
   periodType            PayrollPeriodType
   status                PayrollPeriodStatus @default(DRAFT)
-  overtimeDaytimeRate   Decimal?            @db.Decimal(10, 2)
-  overtimeNighttimeRate Decimal?            @db.Decimal(10, 2)
+  overtimeDaytimeRate        Decimal?            @db.Decimal(10, 2)
+  overtimeNighttimeRate      Decimal?            @db.Decimal(10, 2)
+  overtimeDaytimeFestiveRate   Decimal?            @db.Decimal(10, 2)
+  overtimeNighttimeFestiveRate Decimal?            @db.Decimal(10, 2)
   notes                 String?
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
@@ -1593,11 +1643,27 @@ model PayrollItem {
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 
-  period   PayrollPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
-  employee Employee      @relation(fields: [employeeId], references: [id])
+  period      PayrollPeriod       @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  employee    Employee            @relation(fields: [employeeId], references: [id])
+  extraShifts PayrollExtraShift[]
 
   @@unique([periodId, employeeId])
   @@map("payroll_items")
+}
+
+model PayrollExtraShift {
+  id            String   @id @default(uuid())
+  payrollItemId String
+  shiftDate     DateTime @db.Date
+  description   String?
+  amount        Decimal  @db.Decimal(12, 2)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  payrollItem PayrollItem @relation(fields: [payrollItemId], references: [id], onDelete: Cascade)
+
+  @@index([payrollItemId])
+  @@map("payroll_extra_shifts")
 }
 
 // ──────────────────────────────────────────

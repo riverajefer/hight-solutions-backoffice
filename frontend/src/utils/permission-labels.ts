@@ -49,6 +49,8 @@ export const PERMISSION_LABELS: Record<string, string> = {
   export_clients: 'Exportar Clientes a Excel',
   update_client_special_condition: 'Editar Condición Especial',
   approve_client_ownership_auth: 'Aprobar Propiedad de Cliente',
+  request_client_advisor: 'Solicitar Asignación de Asesor',
+  approve_client_advisor: 'Aprobar Asignación de Asesor',
 
   // Proveedores
   create_suppliers: 'Crear Proveedores',

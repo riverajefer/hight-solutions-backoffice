@@ -51,7 +51,7 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   ],
 
   // Clientes y Ventas
-  Clientes: ['browse_clients', 'search_clients', 'create_clients', 'read_clients', 'update_clients', 'delete_clients', 'export_clients', 'update_client_special_condition', 'approve_client_ownership_auth'],
+  Clientes: ['browse_clients', 'search_clients', 'create_clients', 'read_clients', 'update_clients', 'delete_clients', 'export_clients', 'update_client_special_condition', 'approve_client_ownership_auth', 'request_client_advisor', 'approve_client_advisor'],
   'Pipeline de Ventas': ['create_prospects', 'read_prospects', 'read_all_prospects', 'update_prospects', 'delete_prospects', 'convert_prospects', 'export_prospects', 'read_prospect_metrics'],
   Cotizaciones: ['create_quotes', 'read_quotes', 'update_quotes', 'delete_quotes', 'export_quotes', 'convert_quotes', 'manage_quote_columns', 'read_all_quotes'],
   'Ventas por Asesor': ['read_sales_by_advisor', 'export_sales_by_advisor', 'manage_sales_goals'],

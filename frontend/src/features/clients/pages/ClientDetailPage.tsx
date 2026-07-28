@@ -37,6 +37,7 @@ import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { DataTable } from '../../../components/common/DataTable';
 import { useClient, useClientStats } from '../hooks/useClients';
+import { RequestClientAdvisorButton } from '../components/RequestClientAdvisorButton';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
 import { formatCurrency, formatDate } from '../../../utils/formatters';
@@ -117,7 +118,8 @@ const KpiCard: React.FC<KpiCardProps> = ({
 const ClientDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { hasPermission } = useAuthStore();
+  const { hasPermission, user } = useAuthStore();
+  const isAdmin = user?.role?.name === 'admin';
   const { data: client, isLoading, error } = useClient(id || '');
   const { data: stats, isLoading: statsLoading } = useClientStats(id || '');
   const [orderFilter, setOrderFilter] = React.useState<'all' | 'pending' | 'paid'>('all');
@@ -278,16 +280,27 @@ const ClientDetailPage: React.FC = () => {
                 gap={1}
               >
                 <Typography variant='h6'>Información del Cliente</Typography>
-                {hasPermission(PERMISSIONS.UPDATE_CLIENTS) && (
-                  <Button
-                    variant='outlined'
-                    size='small'
-                    startIcon={<EditIcon />}
-                    onClick={() => navigate(`/clients/${id}/edit`)}
-                  >
-                    Editar
-                  </Button>
-                )}
+                <Stack direction='row' spacing={1} flexWrap='wrap' useFlexGap>
+                  {!isAdmin &&
+                    hasPermission(PERMISSIONS.REQUEST_CLIENT_ADVISOR) && (
+                      <RequestClientAdvisorButton
+                        clientId={id || ''}
+                        existingAdvisorIds={
+                          client?.advisors?.map((a) => a.advisor.id) ?? []
+                        }
+                      />
+                    )}
+                  {hasPermission(PERMISSIONS.UPDATE_CLIENTS) && (
+                    <Button
+                      variant='outlined'
+                      size='small'
+                      startIcon={<EditIcon />}
+                      onClick={() => navigate(`/clients/${id}/edit`)}
+                    >
+                      Editar
+                    </Button>
+                  )}
+                </Stack>
               </Stack>
 
               <Divider sx={{ mb: 3 }} />

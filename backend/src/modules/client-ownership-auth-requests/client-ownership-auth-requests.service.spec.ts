@@ -28,6 +28,9 @@ describe('ClientOwnershipAuthRequestsService', () => {
     client: {
       findUnique: jest.fn(),
     },
+    clientAdvisor: {
+      findMany: jest.fn(),
+    },
     user: {
       findUnique: jest.fn(),
       findFirst: jest.fn(),
@@ -198,20 +201,25 @@ describe('ClientOwnershipAuthRequestsService', () => {
   // ─── Domain methods ───
 
   describe('requiresAuth', () => {
-    it('should return required false if client has no advisor', async () => {
-      mockPrisma.client.findUnique.mockResolvedValue({ advisorId: null });
+    it('should return required false if client has no advisors', async () => {
+      mockPrisma.clientAdvisor.findMany.mockResolvedValue([]);
       const result = await service.requiresAuth('creator1', 'client1');
       expect(result).toEqual({ required: false });
     });
 
-    it('should return required false if creator is the advisor', async () => {
-      mockPrisma.client.findUnique.mockResolvedValue({ advisorId: 'creator1' });
+    it('should return required false if creator is one of the advisors', async () => {
+      mockPrisma.clientAdvisor.findMany.mockResolvedValue([
+        { advisorId: 'other-advisor' },
+        { advisorId: 'creator1' },
+      ]);
       const result = await service.requiresAuth('creator1', 'client1');
       expect(result).toEqual({ required: false });
     });
 
     it('should return required false if creator has admin bypass permission', async () => {
-      mockPrisma.client.findUnique.mockResolvedValue({ advisorId: 'other-advisor' });
+      mockPrisma.clientAdvisor.findMany.mockResolvedValue([
+        { advisorId: 'other-advisor' },
+      ]);
       mockPrisma.user.findUnique.mockResolvedValue({
         id: 'creator1',
         role: {
@@ -224,8 +232,10 @@ describe('ClientOwnershipAuthRequestsService', () => {
       expect(result).toEqual({ required: false });
     });
 
-    it('should return required true if different advisor and no admin bypass', async () => {
-      mockPrisma.client.findUnique.mockResolvedValue({ advisorId: 'other-advisor' });
+    it('should return required true if creator is not an advisor and has no admin bypass', async () => {
+      mockPrisma.clientAdvisor.findMany.mockResolvedValue([
+        { advisorId: 'other-advisor' },
+      ]);
       mockPrisma.user.findUnique.mockResolvedValue({
         id: 'creator1',
         role: {
@@ -238,7 +248,8 @@ describe('ClientOwnershipAuthRequestsService', () => {
       expect(result).toEqual({
         required: true,
         advisorId: 'other-advisor',
-        reason: 'Este cliente pertenece a otro asesor. Se requiere autorización de un administrador.',
+        reason:
+          'Este cliente pertenece a otro(s) asesor(es). Se requiere autorización de un administrador.',
       });
     });
   });
