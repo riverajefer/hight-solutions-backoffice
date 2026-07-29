@@ -351,3 +351,39 @@ export const DEFAULT_PAGINATION = {
   PAGE: 1,
   LIMIT: 10,
 };
+
+/**
+ * Entidades bancarias / billeteras disponibles como origen de un pago
+ * por transferencia. Se usan en el BankSelector de todos los formularios de pago.
+ */
+export const BANKS: string[] = [
+  'Bancolombia',
+  'Nequi',
+  'Davivienda',
+  'Daviplata',
+  'Banco de Bogotá',
+  'BBVA Colombia',
+  'Banco de Occidente',
+  'Banco AV Villas',
+  'Banco Popular',
+  'Banco Caja Social',
+  'Banco Agrario',
+  'Banco Falabella',
+  'Banco Itaú',
+  'Bancamía',
+  'Banco W',
+  'Banco Mundo Mujer',
+  'Banco Serfinanza',
+  'Banco Finandina',
+  'Banco Contactar',
+  'Banco Unión',
+  'Banco Sudameris',
+  'BAN100',
+  'Lulo Bank',
+  'Nu Colombia (Nubank)',
+  'RappiPay',
+  'Ualá',
+  'Movii',
+  'Dale!',
+  'Coink',
+];

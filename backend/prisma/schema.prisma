@@ -743,6 +743,7 @@ model Payment {
   paymentDate   DateTime      @default(now()) @map("payment_date")
   reference     String? // Número de referencia/comprobante
   notes         String? // Observaciones del pago
+  bankEntity    String?       @map("bank_entity") // Entidad bancaria de origen (solo transferencias)
   receiptFileId String?       @map("receipt_file_id") // ID del archivo de comprobante (relación con UploadedFile)
 
   // Auditoría
@@ -1311,6 +1312,7 @@ model ExpenseOrderItem {
   unitPrice       Decimal       @map("unit_price")
   total           Decimal // quantity * unitPrice
   paymentMethod   PaymentMethod @default(CASH) @map("payment_method")
+  bankEntity      String?       @map("bank_entity") // Entidad bancaria de origen (solo transferencias)
   receiptFileId   String?       @map("receipt_file_id") // Comprobante de pago
   referenceFileId String?       @map("reference_file_id") // Imagen de referencia
 
@@ -1464,6 +1466,7 @@ model PaymentEditApproval {
   oldPaymentDate   DateTime      @map("old_payment_date")
   oldReference     String?       @map("old_reference")
   oldNotes         String?       @map("old_notes")
+  oldBankEntity    String?       @map("old_bank_entity")
   oldReceiptFileId String?       @map("old_receipt_file_id")
 
   // Payload pendiente: valores solicitados (null = sin cambio)
@@ -1472,6 +1475,7 @@ model PaymentEditApproval {
   newPaymentDate   DateTime?      @map("new_payment_date")
   newReference     String?        @map("new_reference")
   newNotes         String?        @map("new_notes")
+  newBankEntity    String?        @map("new_bank_entity")
   // Comprobante propuesto (ya subido a storage, sin enlazar al pago hasta aprobar)
   newReceiptFileId String?        @map("new_receipt_file_id")
 
@@ -2073,6 +2077,7 @@ model RefundRequest {
   orderId       String            @map("order_id")
   refundAmount  Decimal           @map("refund_amount")
   paymentMethod PaymentMethod     @map("payment_method")
+  bankEntity    String?           @map("bank_entity") // Entidad bancaria de origen (solo transferencias)
   observation   String
   status        EditRequestStatus @default(PENDING)
 
@@ -2182,6 +2187,7 @@ model AccountPayablePayment {
   paymentMethod    PaymentMethod @default(CASH) @map("payment_method")
   reference        String?
   notes            String?
+  bankEntity       String?       @map("bank_entity") // Entidad bancaria de origen (solo transferencias)
   receiptFileId    String?       @map("receipt_file_id")
   cashMovementId   String?       @unique @map("cash_movement_id")
 
@@ -2254,6 +2260,7 @@ model AccountPayablePaymentAuthRequest {
   paymentDate   DateTime      @map("payment_date")
   reference     String?
   notes         String?
+  bankEntity    String?       @map("bank_entity") // Entidad bancaria de origen (solo transferencias)
   receiptFileId String?       @map("receipt_file_id")
   reason        String? // Justificación del pago
 
@@ -2352,6 +2359,7 @@ model DtfRecord {
   value              Decimal        @db.Decimal(12, 2)
   abono              Decimal        @default(0) @db.Decimal(12, 2) // Abono / anticipo del cliente
   abonoPaymentMethod PaymentMethod? @map("abono_payment_method") // Método de pago del abono
+  abonoBankEntity    String?        @map("abono_bank_entity") // Entidad bancaria de origen del abono (solo transferencias)
   abonoNotes         String?        @map("abono_notes") // Notas del abono
   status             DtfStatus      @default(BORRADOR)
   orderId            String?        @map("order_id")

@@ -88,6 +88,7 @@ export interface Order {
     id: string;
     refundAmount: string;
     paymentMethod: 'CASH' | 'TRANSFER' | 'CARD';
+    bankEntity?: string | null;
     observation: string;
     status: 'PENDING' | 'APPROVED' | 'REJECTED';
     requestedAt: string;
@@ -177,6 +178,7 @@ export interface Payment {
   paymentDate: string;
   reference: string | null;
   notes: string | null;
+  bankEntity: string | null;
   receiptFileId: string | null;
   createdAt: string;
   receivedBy: {
@@ -209,6 +211,7 @@ export interface InitialPaymentDto {
   paymentMethod: PaymentMethod;
   reference?: string;
   notes?: string;
+  bankEntity?: string | null;
 }
 
 export interface CreateOrderItemDto {
@@ -285,6 +288,7 @@ export interface CreatePaymentDto {
   paymentDate?: string; // ISO date string
   reference?: string;
   notes?: string;
+  bankEntity?: string | null;
   receiptFileId?: string;
 }
 
@@ -294,6 +298,7 @@ export interface UpdatePaymentDto {
   paymentDate?: string; // ISO date string
   reference?: string;
   notes?: string;
+  bankEntity?: string | null;
   reason?: string; // Motivo de la edición (para la solicitud de aprobación)
 }
 
@@ -407,6 +412,7 @@ export interface InitialPaymentData {
   paymentMethod: PaymentMethod;
   reference?: string;
   notes?: string;
+  bankEntity?: string | null;
   receiptFile?: File | null;
   receiptFileUrl?: string | null;
   existingReceiptFileId?: string | null;

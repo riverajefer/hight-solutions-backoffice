@@ -45,6 +45,7 @@ import { useDtfDetail } from '../hooks/useDtf';
 import { formatCurrency } from '../../../utils/formatters';
 import { DtfStatusChip } from './DtfStatusChip';
 import { CreateClientModal } from '../../orders/components/CreateClientModal';
+import { BankSelector } from '../../../components/common/BankSelector';
 import type { DtfFormItem, DtfPaymentMethod } from '../../../types/dtf.types';
 import { DTF_PAYMENT_METHOD_LABELS } from '../../../types/dtf.types';
 import type { Client } from '../../../types/client.types';
@@ -95,6 +96,7 @@ const emptyItem = (): DtfFormItem => ({
   value: 0,
   abono: 0,
   abonoPaymentMethod: '',
+  abonoBankEntity: '',
   abonoNotes: '',
   imageFile: null,
   imagePreviewUrl: null,
@@ -168,6 +170,7 @@ export const DtfItemsTable = ({
           if (!isTransfer) {
             updated.comprobanteFile = null;
             updated.comprobantePreviewUrl = null;
+            updated.abonoBankEntity = '';
           }
         }
         return updated;
@@ -682,6 +685,18 @@ export const DtfItemsTable = ({
                   )}
                 </Select>
               </FormControl>
+            </Grid>
+          )}
+          {abono > 0 && item.abonoPaymentMethod === 'TRANSFER' && (
+            <Grid item xs={12} sm={4}>
+              <Typography component="label" sx={fieldLabelSx}>Banco de origen</Typography>
+              <BankSelector
+                value={item.abonoBankEntity ?? null}
+                onChange={(val) => updateItem(item._localId, { abonoBankEntity: val ?? '' })}
+                disabled={disabled || saving}
+                size="small"
+                label=""
+              />
             </Grid>
           )}
           {abono > 0 && (

@@ -45,6 +45,7 @@ import {
   OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { BankSelector } from '../../../components/common/BankSelector';
 import { useExpenseOrders, useExpenseOrder, useExpenseTypes } from '../hooks';
 import { useUsers } from '../../users/hooks/useUsers';
 import { useWorkOrders } from '../../work-orders/hooks';
@@ -73,6 +74,7 @@ interface ExpenseItemForm {
   supplierLabel: string;
   unitPrice: string;
   paymentMethod: PaymentMethod;
+  bankEntity: string | null;
   productionAreaIds: string[];
   receiptFileId: string;
   referenceFileId: string;
@@ -86,6 +88,7 @@ const defaultItem = (): ExpenseItemForm => ({
   supplierLabel: '',
   unitPrice: '',
   paymentMethod: PaymentMethod.CASH,
+  bankEntity: null,
   productionAreaIds: [],
   receiptFileId: '',
   referenceFileId: '',
@@ -314,6 +317,7 @@ export const ExpenseOrderFormPage = () => {
             supplierLabel: item.supplier?.name ?? '',
             unitPrice: item.unitPrice,
             paymentMethod: item.paymentMethod,
+            bankEntity: item.bankEntity ?? null,
             productionAreaIds: item.productionAreas.map((pa) => pa.productionArea.id),
             receiptFileId: item.receiptFileId ?? '',
             referenceFileId: item.referenceFileId ?? '',
@@ -565,6 +569,7 @@ export const ExpenseOrderFormPage = () => {
       supplierId: item.supplierId || undefined,
       unitPrice: parseFloat(item.unitPrice),
       paymentMethod: item.paymentMethod,
+      bankEntity: item.paymentMethod === PaymentMethod.TRANSFER ? item.bankEntity ?? null : null,
       productionAreaIds: item.productionAreaIds.length
         ? item.productionAreaIds
         : undefined,
@@ -834,9 +839,13 @@ export const ExpenseOrderFormPage = () => {
                   select
                   label="Método de pago"
                   value={item.paymentMethod}
-                  onChange={(e) =>
-                    updateItem(index, 'paymentMethod', e.target.value as PaymentMethod)
-                  }
+                  onChange={(e) => {
+                    const method = e.target.value as PaymentMethod;
+                    updateItem(index, 'paymentMethod', method);
+                    if (method !== PaymentMethod.TRANSFER) {
+                      updateItem(index, 'bankEntity', null);
+                    }
+                  }}
                   sx={{ flex: 1 }}
                 >
                   {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => (
@@ -845,6 +854,15 @@ export const ExpenseOrderFormPage = () => {
                     </MenuItem>
                   ))}
                 </TextField>
+
+                {item.paymentMethod === PaymentMethod.TRANSFER && (
+                  <Box sx={{ flex: 1 }}>
+                    <BankSelector
+                      value={item.bankEntity ?? null}
+                      onChange={(val) => updateItem(index, 'bankEntity', val)}
+                    />
+                  </Box>
+                )}
 
                 <Box sx={{ flex: 2, display: 'flex', gap: 1 }}>
                   <Autocomplete

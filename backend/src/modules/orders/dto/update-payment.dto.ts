@@ -57,6 +57,14 @@ export class UpdatePaymentDto {
   notes?: string;
 
   @ApiPropertyOptional({
+    description: 'Entidad bancaria de origen (solo aplica a transferencias)',
+    example: 'Bancolombia',
+  })
+  @IsOptional()
+  @IsString()
+  bankEntity?: string;
+
+  @ApiPropertyOptional({
     description: 'Motivo de la edición (se incluye en la solicitud de aprobación)',
     example: 'El valor consignado fue $107.000, no $258.000',
   })

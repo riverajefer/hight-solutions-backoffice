@@ -58,6 +58,7 @@ export interface DtfRecord {
   value: number;
   abono: number;
   abonoPaymentMethod?: DtfPaymentMethod | null;
+  abonoBankEntity?: string | null;
   abonoNotes?: string | null;
   status: DtfStatus;
   notes?: string | null;
@@ -109,6 +110,7 @@ export interface CreateDtfItemDto {
   unitPrice?: number;
   abono?: number;
   abonoPaymentMethod?: DtfPaymentMethod;
+  abonoBankEntity?: string | null;
   abonoNotes?: string;
   notes?: string;
 }
@@ -123,6 +125,7 @@ export interface UpdateDtfRecordDto {
   unitPrice?: number;
   abono?: number;
   abonoPaymentMethod?: DtfPaymentMethod;
+  abonoBankEntity?: string | null;
   abonoNotes?: string;
   notes?: string;
 }
@@ -158,6 +161,7 @@ export interface DtfFormItem {
   value: number;
   abono: number;
   abonoPaymentMethod: DtfPaymentMethod | '';
+  abonoBankEntity: string;
   abonoNotes: string;
   // files
   imageFile?: File | null;

@@ -28,6 +28,7 @@ import { PATHS } from '../../../router/paths';
 import axiosInstance from '../../../api/axios';
 import { DTF_PAYMENT_METHOD_LABELS } from '../../../types/dtf.types';
 import type { DtfPaymentMethod } from '../../../types/dtf.types';
+import { BankSelector } from '../../../components/common/BankSelector';
 
 // Formatea un valor numérico (como string) a pesos con separador de miles (es-CO)
 const formatCurrencyInput = (value: string): string => {
@@ -66,6 +67,7 @@ export const DtfEditPage = () => {
   const [quantity, setQuantity] = useState<string>('');
   const [abono, setAbono] = useState<string>('');
   const [abonoPaymentMethod, setAbonoPaymentMethod] = useState<DtfPaymentMethod | ''>('');
+  const [abonoBankEntity, setAbonoBankEntity] = useState<string | null>(null);
   const [abonoNotes, setAbonoNotes] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [initialized, setInitialized] = useState(false);
@@ -78,6 +80,7 @@ export const DtfEditPage = () => {
     setQuantity(String(Number(record.quantity)));
     setAbono(Number(record.abono) > 0 ? formatCurrencyInput(String(Number(record.abono))) : '');
     setAbonoPaymentMethod((record.abonoPaymentMethod as DtfPaymentMethod) ?? '');
+    setAbonoBankEntity(record.abonoBankEntity ?? null);
     setAbonoNotes(record.abonoNotes ?? '');
     setNotes(record.notes ?? '');
     setInitialized(true);
@@ -125,6 +128,8 @@ export const DtfEditPage = () => {
         quantity: Number(quantity),
         abono: abonoValue,
         abonoPaymentMethod: abonoValue > 0 && abonoPaymentMethod ? abonoPaymentMethod : undefined,
+        abonoBankEntity:
+          abonoValue > 0 && abonoPaymentMethod === 'TRANSFER' ? abonoBankEntity ?? null : null,
         abonoNotes: abonoValue > 0 ? (abonoNotes || undefined) : undefined,
         notes: notes || undefined,
       },
@@ -193,7 +198,11 @@ export const DtfEditPage = () => {
                       label="Método de pago"
                       size="small"
                       value={abonoPaymentMethod}
-                      onChange={(e) => setAbonoPaymentMethod(e.target.value as DtfPaymentMethod)}
+                      onChange={(e) => {
+                        const method = e.target.value as DtfPaymentMethod;
+                        setAbonoPaymentMethod(method);
+                        if (method !== 'TRANSFER') setAbonoBankEntity(null);
+                      }}
                       disabled={isSaving}
                       fullWidth
                     >
@@ -203,6 +212,14 @@ export const DtfEditPage = () => {
                         ),
                       )}
                     </TextField>
+                    {abonoPaymentMethod === 'TRANSFER' && (
+                      <BankSelector
+                        value={abonoBankEntity}
+                        onChange={setAbonoBankEntity}
+                        disabled={isSaving}
+                        size="small"
+                      />
+                    )}
                     <TextField
                       label="Notas del abono"
                       size="small"

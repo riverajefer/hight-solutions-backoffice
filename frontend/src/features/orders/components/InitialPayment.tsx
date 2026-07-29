@@ -36,6 +36,7 @@ import type {
 } from '../../../types/order.types';
 import { PAYMENT_METHOD_LABELS } from '../../../types/order.types';
 import { useAuthStore } from '../../../store/authStore';
+import { BankSelector } from '../../../components/common/BankSelector';
 
 const MAX_PAYMENTS = 3;
 
@@ -72,6 +73,7 @@ const EMPTY_PAYMENT = (): InitialPaymentData => ({
   paymentMethod: 'TRANSFER',
   reference: '',
   notes: '',
+  bankEntity: null,
   receiptFile: null,
 });
 
@@ -123,6 +125,10 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
       const updatedPayment = { ...p, [field]: newValue };
       if (field === 'paymentMethod' && newValue === 'CREDIT') {
         updatedPayment.amount = p.amount || 0;
+      }
+      // Limpiar banco de origen si deja de ser transferencia
+      if (field === 'paymentMethod' && newValue !== 'TRANSFER') {
+        updatedPayment.bankEntity = null;
       }
       return updatedPayment;
     });
@@ -282,6 +288,17 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
                       }}
                     />
                   </Grid>
+
+                  {/* Banco de origen (solo transferencias) */}
+                  {payment.paymentMethod === 'TRANSFER' && (
+                    <Grid item xs={12} sm={6}>
+                      <BankSelector
+                        value={payment.bankEntity ?? null}
+                        onChange={(val) => handleFieldChange(index, 'bankEntity', val)}
+                        disabled={disabled}
+                      />
+                    </Grid>
+                  )}
 
                   {/* Notas */}
                   <Grid item xs={12}>

@@ -127,6 +127,7 @@ import {
   ALLOWED_TRANSITIONS,
 } from '../../../types/order.types';
 import { CommentSection } from '../../comments';
+import { BankSelector } from '../../../components/common/BankSelector';
 
 const formatCurrency = (value: string | number): string => {
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
@@ -578,6 +579,7 @@ export const OrderDetailPage: React.FC = () => {
       paymentDate: payment.paymentDate,
       reference: payment.reference ?? undefined,
       notes: payment.notes ?? undefined,
+      bankEntity: payment.bankEntity ?? null,
     });
     setPaymentDialogOpen(true);
   };
@@ -595,6 +597,7 @@ export const OrderDetailPage: React.FC = () => {
           paymentDate: paymentData.paymentDate,
           reference: paymentData.reference,
           notes: paymentData.notes,
+          bankEntity: paymentData.paymentMethod === 'TRANSFER' ? paymentData.bankEntity ?? null : null,
           reason: editReason || undefined,
         },
         file: receiptFile ?? undefined,
@@ -920,6 +923,9 @@ export const OrderDetailPage: React.FC = () => {
           {PAYMENT_METHOD_LABELS[
             pendingRefund.paymentMethod as PaymentMethod
           ] ?? pendingRefund.paymentMethod}
+          {pendingRefund.paymentMethod === 'TRANSFER' && pendingRefund.bankEntity
+            ? ` · ${pendingRefund.bankEntity}`
+            : ''}
         </Alert>
       )}
       {hasOverpayment && !hasPendingRefund && (
@@ -1670,6 +1676,7 @@ export const OrderDetailPage: React.FC = () => {
                         <TableRow>
                           <TableCell>Fecha</TableCell>
                           <TableCell>Método</TableCell>
+                          <TableCell>Banco de origen</TableCell>
                           <TableCell>Referencia</TableCell>
                           <TableCell align="right">Monto</TableCell>
                           <TableCell>Recibido por</TableCell>
@@ -1690,6 +1697,11 @@ export const OrderDetailPage: React.FC = () => {
                                 label={PAYMENT_METHOD_LABELS[payment.paymentMethod]}
                                 size="small"
                               />
+                            </TableCell>
+                            <TableCell>
+                              {payment.paymentMethod === 'TRANSFER'
+                                ? payment.bankEntity || '-'
+                                : '-'}
                             </TableCell>
                             <TableCell sx={{ maxWidth: 180 }}>
                               <TruncatedText
@@ -2342,12 +2354,15 @@ export const OrderDetailPage: React.FC = () => {
                 <InputLabel>Método de Pago</InputLabel>
                 <Select
                   value={paymentData.paymentMethod}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const method = e.target.value as import('../../../types/order.types').PaymentMethod;
                     setPaymentData({
                       ...paymentData,
-                      paymentMethod: e.target.value as import('../../../types/order.types').PaymentMethod,
-                    })
-                  }
+                      paymentMethod: method,
+                      // Limpiar banco de origen si deja de ser transferencia
+                      bankEntity: method === 'TRANSFER' ? paymentData.bankEntity ?? null : null,
+                    });
+                  }}
                 >
                 {(
                   Object.entries(PAYMENT_METHOD_LABELS) as [PaymentMethod, string][]
@@ -2358,6 +2373,13 @@ export const OrderDetailPage: React.FC = () => {
                 ))}
               </Select>
             </FormControl>
+
+            {paymentData.paymentMethod === 'TRANSFER' && (
+              <BankSelector
+                value={paymentData.bankEntity ?? null}
+                onChange={(val) => setPaymentData({ ...paymentData, bankEntity: val })}
+              />
+            )}
 
             <DatePicker
               label="Fecha de Pago"

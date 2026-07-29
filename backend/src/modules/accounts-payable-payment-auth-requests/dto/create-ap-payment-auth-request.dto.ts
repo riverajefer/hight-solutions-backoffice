@@ -43,6 +43,14 @@ export class CreateApPaymentAuthRequestDto {
   @IsOptional()
   notes?: string;
 
+  @ApiPropertyOptional({
+    description: 'Entidad bancaria de origen (solo aplica a transferencias)',
+    example: 'Bancolombia',
+  })
+  @IsString()
+  @IsOptional()
+  bankEntity?: string;
+
   @ApiPropertyOptional({ description: 'ID del archivo de comprobante' })
   @IsString()
   @IsOptional()

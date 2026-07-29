@@ -306,6 +306,7 @@ export class OrdersService {
           paymentDate: new Date(),
           reference: p.reference,
           notes: p.notes,
+          bankEntity: p.bankEntity ?? null,
           receivedBy: { connect: { id: createdById } },
         };
 
@@ -737,6 +738,7 @@ export class OrdersService {
             paymentMethod: updateOrderDto.initialPayment.paymentMethod,
             reference: updateOrderDto.initialPayment.reference,
             notes: updateOrderDto.initialPayment.notes,
+            bankEntity: updateOrderDto.initialPayment.bankEntity ?? null,
             receivedById: userId,
           };
 
@@ -1367,6 +1369,7 @@ export class OrdersService {
             : new Date(),
           reference: createPaymentDto.reference,
           notes: createPaymentDto.notes,
+          bankEntity: createPaymentDto.bankEntity ?? null,
           receiptFileId: createPaymentDto.receiptFileId,
           receivedById,
           cashMovementId, // Vincular movimiento de caja si se creó
@@ -1403,6 +1406,7 @@ export class OrdersService {
         paymentDate: true,
         reference: true,
         notes: true,
+        bankEntity: true,
         receiptFileId: true,
         createdAt: true,
         receivedBy: {
@@ -1517,6 +1521,8 @@ export class OrdersService {
         paymentData.reference = updatePaymentDto.reference;
       if (updatePaymentDto.notes !== undefined)
         paymentData.notes = updatePaymentDto.notes;
+      if (updatePaymentDto.bankEntity !== undefined)
+        paymentData.bankEntity = updatePaymentDto.bankEntity;
 
       const updated = await tx.payment.update({
         where: { id: paymentId },
@@ -1581,6 +1587,7 @@ export class OrdersService {
         paymentDate: true,
         reference: true,
         notes: true,
+        bankEntity: true,
         receiptFileId: true,
         createdAt: true,
         receivedBy: {

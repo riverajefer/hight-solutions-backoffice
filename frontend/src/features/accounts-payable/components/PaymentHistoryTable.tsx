@@ -75,6 +75,7 @@ export const PaymentHistoryTable: React.FC<PaymentHistoryTableProps> = ({
             <TableCell>Fecha</TableCell>
             <TableCell align="right">Monto</TableCell>
             <TableCell>Método</TableCell>
+            <TableCell>Banco de origen</TableCell>
             <TableCell>Referencia</TableCell>
             <TableCell>Registrado por</TableCell>
             <TableCell align="center">Comprobante</TableCell>
@@ -101,6 +102,11 @@ export const PaymentHistoryTable: React.FC<PaymentHistoryTableProps> = ({
                   size="small"
                   variant="outlined"
                 />
+              </TableCell>
+              <TableCell>
+                <Typography variant="body2" color="text.secondary">
+                  {payment.paymentMethod === 'TRANSFER' ? payment.bankEntity || '—' : '—'}
+                </Typography>
               </TableCell>
               <TableCell>
                 <Typography variant="body2" color="text.secondary">

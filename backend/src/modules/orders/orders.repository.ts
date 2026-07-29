@@ -47,6 +47,7 @@ export class OrdersRepository {
         id: true,
         refundAmount: true,
         paymentMethod: true,
+        bankEntity: true,
         observation: true,
         status: true,
         requestedAt: true,
@@ -143,6 +144,7 @@ export class OrdersRepository {
         paymentDate: true,
         reference: true,
         notes: true,
+        bankEntity: true,
         receiptFileId: true,
         createdAt: true,
         receivedBy: {
@@ -485,6 +487,7 @@ export class OrdersRepository {
         paymentDate: true,
         reference: true,
         notes: true,
+        bankEntity: true,
         createdAt: true,
         receivedBy: {
           select: {
@@ -508,6 +511,7 @@ export class OrdersRepository {
         paymentDate: true,
         reference: true,
         notes: true,
+        bankEntity: true,
         receiptFileId: true,
         createdAt: true,
         receivedBy: {

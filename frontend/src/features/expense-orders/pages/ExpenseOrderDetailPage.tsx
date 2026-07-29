@@ -55,6 +55,7 @@ import {
   Block as BlockIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { BankSelector } from '../../../components/common/BankSelector';
 import { ApprovalQueueBar } from '../../../components/common/ApprovalQueueBar';
 import { useApprovalQueue } from '../../../hooks/useApprovalQueue';
 import { StatusHighlight } from '../../../components/common/StatusHighlight';
@@ -135,6 +136,7 @@ interface ItemForm {
   unitPrice: string;
   description: string;
   paymentMethod: PaymentMethod;
+  bankEntity: string | null;
   supplierId: string;
   productionAreaIds: string[];
 }
@@ -145,6 +147,7 @@ const defaultItemForm = (): ItemForm => ({
   unitPrice: '',
   description: '',
   paymentMethod: PaymentMethod.CASH,
+  bankEntity: null,
   supplierId: '',
   productionAreaIds: [],
 });
@@ -394,6 +397,7 @@ export const ExpenseOrderDetailPage = () => {
       unitPrice: parseFloat(itemForm.unitPrice),
       description: itemForm.description || undefined,
       paymentMethod: itemForm.paymentMethod,
+      bankEntity: itemForm.paymentMethod === PaymentMethod.TRANSFER ? itemForm.bankEntity ?? null : null,
       supplierId: itemForm.supplierId || undefined,
       productionAreaIds: itemForm.productionAreaIds.length
         ? itemForm.productionAreaIds
@@ -922,6 +926,11 @@ export const ExpenseOrderDetailPage = () => {
                           size="small"
                           variant="outlined"
                         />
+                        {item.paymentMethod === PaymentMethod.TRANSFER && item.bankEntity && (
+                          <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                            {item.bankEntity}
+                          </Typography>
+                        )}
                       </TableCell>
                       <TableCell>{item.supplier?.name ?? '—'}</TableCell>
                       <TableCell>
@@ -1317,9 +1326,14 @@ export const ExpenseOrderDetailPage = () => {
                 select
                 label="Método de pago"
                 value={itemForm.paymentMethod}
-                onChange={(e) =>
-                  setItemForm((f) => ({ ...f, paymentMethod: e.target.value as PaymentMethod }))
-                }
+                onChange={(e) => {
+                  const method = e.target.value as PaymentMethod;
+                  setItemForm((f) => ({
+                    ...f,
+                    paymentMethod: method,
+                    bankEntity: method === PaymentMethod.TRANSFER ? f.bankEntity : null,
+                  }));
+                }}
                 sx={{ flex: 1 }}
               >
                 {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => (
@@ -1328,6 +1342,15 @@ export const ExpenseOrderDetailPage = () => {
                   </MenuItem>
                 ))}
               </TextField>
+
+              {itemForm.paymentMethod === PaymentMethod.TRANSFER && (
+                <Box sx={{ flex: 1 }}>
+                  <BankSelector
+                    value={itemForm.bankEntity ?? null}
+                    onChange={(val) => setItemForm((f) => ({ ...f, bankEntity: val }))}
+                  />
+                </Box>
+              )}
 
               <TextField
                 select
