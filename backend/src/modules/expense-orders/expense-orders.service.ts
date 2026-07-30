@@ -105,6 +105,7 @@ export class ExpenseOrdersService {
       unitPrice: item.unitPrice,
       total: item.quantity * item.unitPrice,
       paymentMethod: item.paymentMethod,
+      bankEntity: item.bankEntity,
       receiptFileId: item.receiptFileId,
       referenceFileId: item.referenceFileId,
       productionAreaIds: item.productionAreaIds,
@@ -242,6 +243,7 @@ export class ExpenseOrdersService {
         unitPrice: item.unitPrice ?? 0,
         total: (item.quantity ?? 1) * (item.unitPrice ?? 0),
         paymentMethod: item.paymentMethod ?? 'CASH',
+        bankEntity: item.bankEntity,
         receiptFileId: item.receiptFileId,
         referenceFileId: item.referenceFileId,
         productionAreaIds: item.productionAreaIds,
@@ -295,6 +297,7 @@ export class ExpenseOrdersService {
       unitPrice: dto.unitPrice,
       total: dto.quantity * dto.unitPrice,
       paymentMethod: dto.paymentMethod,
+      bankEntity: dto.bankEntity,
       receiptFileId: dto.receiptFileId,
       referenceFileId: dto.referenceFileId,
       productionAreaIds: dto.productionAreaIds,
@@ -459,6 +462,24 @@ export class ExpenseOrdersService {
       cajaRejectedAt: new Date(),
       cajaRejectionReason: dto.reason,
     });
+  }
+
+  // ─── Factura electrónica ──────────────────────────────────────────────────────
+  // Registra/actualiza el número de factura electrónica del proveedor asociado a la
+  // compra. Disponible en cualquier OG ya creada (no en DRAFT).
+  async registerElectronicInvoice(id: string, electronicInvoiceNumber: string) {
+    const expenseOrder = await this.repository.findById(id);
+    if (!expenseOrder) {
+      throw new NotFoundException(`OG con id ${id} no encontrada`);
+    }
+
+    if (expenseOrder.status === ExpenseOrderStatus.DRAFT) {
+      throw new BadRequestException(
+        'No se puede registrar una factura electrónica en una OG en estado BORRADOR.',
+      );
+    }
+
+    return this.repository.registerElectronicInvoice(id, electronicInvoiceNumber);
   }
 
   async remove(id: string) {

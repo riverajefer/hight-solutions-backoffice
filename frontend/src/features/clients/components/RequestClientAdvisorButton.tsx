@@ -112,7 +112,7 @@ export const RequestClientAdvisorButton: React.FC<
         startIcon={<PersonAddIcon />}
         onClick={handleOpen}
       >
-        Solicitar asesor
+        Asignar asesor
       </Button>
 
       <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>

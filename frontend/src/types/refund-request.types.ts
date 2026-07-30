@@ -32,6 +32,7 @@ export interface RefundRequest {
   orderId: string;
   refundAmount: string;
   paymentMethod: RefundPaymentMethod;
+  bankEntity?: string | null;
   observation: string;
   status: RefundRequestStatus;
 
@@ -58,6 +59,7 @@ export interface CreateRefundRequestDto {
   orderId: string;
   refundAmount: number;
   paymentMethod: RefundPaymentMethod;
+  bankEntity?: string | null;
   observation: string;
 }
 

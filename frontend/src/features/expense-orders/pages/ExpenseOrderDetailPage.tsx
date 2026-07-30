@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
+import { useSnackbar } from 'notistack';
 import {
   Box,
   Stack,
@@ -54,6 +55,7 @@ import {
   Block as BlockIcon,
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { BankSelector } from '../../../components/common/BankSelector';
 import { ApprovalQueueBar } from '../../../components/common/ApprovalQueueBar';
 import { useApprovalQueue } from '../../../hooks/useApprovalQueue';
 import { StatusHighlight } from '../../../components/common/StatusHighlight';
@@ -134,6 +136,7 @@ interface ItemForm {
   unitPrice: string;
   description: string;
   paymentMethod: PaymentMethod;
+  bankEntity: string | null;
   supplierId: string;
   productionAreaIds: string[];
 }
@@ -144,6 +147,7 @@ const defaultItemForm = (): ItemForm => ({
   unitPrice: '',
   description: '',
   paymentMethod: PaymentMethod.CASH,
+  bankEntity: null,
   supplierId: '',
   productionAreaIds: [],
 });
@@ -164,6 +168,7 @@ export const ExpenseOrderDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const theme = useTheme();
+  const { enqueueSnackbar } = useSnackbar();
   const { hasPermission } = useAuthStore();
 
   const { expenseOrderQuery, updateStatusMutation, addExpenseItemMutation, cajaAuthorizeMutation } = useExpenseOrder(id);
@@ -215,6 +220,11 @@ export const ExpenseOrderDetailPage = () => {
   }>({ open: false, url: '', mimeType: '', originalName: '', fileId: '' });
   const [loadingReferenceId, setLoadingReferenceId] = useState<string | null>(null);
 
+  // ── Electronic invoice dialog ─────────────────────────────────────────────────
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
+
   const canUpdate = hasPermission(PERMISSIONS.UPDATE_EXPENSE_ORDERS);
   const canApprove = hasPermission(PERMISSIONS.APPROVE_EXPENSE_ORDERS);
   const canCajaAuthorize = hasPermission(PERMISSIONS.CAJA_AUTHORIZE_EXPENSE_ORDERS);
@@ -245,6 +255,35 @@ export const ExpenseOrderDetailPage = () => {
     if (!id) return;
     await cajaAuthorizeMutation.mutateAsync(id);
     approvalQueue.markProcessedAndNext();
+  };
+
+  // ── Electronic invoice ─────────────────────────────────────────────────────────
+  const handleOpenInvoiceDialog = () => {
+    setInvoiceNumber(og?.electronicInvoiceNumber || '');
+    setInvoiceDialogOpen(true);
+  };
+
+  const handleCloseInvoiceDialog = () => {
+    setInvoiceDialogOpen(false);
+    setInvoiceNumber('');
+  };
+
+  const handleRegisterInvoice = async () => {
+    if (!id || !invoiceNumber.trim()) return;
+    setInvoiceLoading(true);
+    try {
+      await expenseOrdersApi.registerElectronicInvoice(id, invoiceNumber.trim());
+      await expenseOrderQuery.refetch();
+      enqueueSnackbar('Número de factura electrónica registrado correctamente', { variant: 'success' });
+      handleCloseInvoiceDialog();
+    } catch (error: any) {
+      enqueueSnackbar(
+        error?.response?.data?.message || 'Error al registrar la factura electrónica',
+        { variant: 'error' },
+      );
+    } finally {
+      setInvoiceLoading(false);
+    }
   };
 
   // ── Status change ────────────────────────────────────────────────────────────
@@ -358,6 +397,7 @@ export const ExpenseOrderDetailPage = () => {
       unitPrice: parseFloat(itemForm.unitPrice),
       description: itemForm.description || undefined,
       paymentMethod: itemForm.paymentMethod,
+      bankEntity: itemForm.paymentMethod === PaymentMethod.TRANSFER ? itemForm.bankEntity ?? null : null,
       supplierId: itemForm.supplierId || undefined,
       productionAreaIds: itemForm.productionAreaIds.length
         ? itemForm.productionAreaIds
@@ -453,6 +493,8 @@ export const ExpenseOrderDetailPage = () => {
   const isEditable =
     !isParentOrderAnulado &&
     (og.status === ExpenseOrderStatus.DRAFT || og.status === ExpenseOrderStatus.CREATED);
+  const canRegisterInvoice =
+    !isParentOrderAnulado && canUpdate && og.status !== ExpenseOrderStatus.DRAFT;
 
   const availableTransitions = isParentOrderAnulado
     ? []
@@ -710,6 +752,17 @@ export const ExpenseOrderDetailPage = () => {
             />
           )}
 
+          {canRegisterInvoice && (
+            <ToolbarButton
+              icon={<ReceiptIcon />}
+              label="Factura"
+              secondaryLabel={og.electronicInvoiceNumber ? 'Actualizar' : 'Registrar'}
+              onClick={handleOpenInvoiceDialog}
+              color={theme.palette.info.main}
+              tooltip={og.electronicInvoiceNumber ? 'Actualizar Factura Electrónica' : 'Registrar Factura Electrónica'}
+            />
+          )}
+
           <ToolbarButton
             icon={<AccountTreeIcon />}
             label="Trazabilidad"
@@ -777,6 +830,23 @@ export const ExpenseOrderDetailPage = () => {
                   <Grid item xs={6} sm={3}>
                     <Typography variant="caption" color="text.secondary">Autorizado por (Caja)</Typography>
                     <Typography variant="body2">{userName(og.cajaAuthorizedBy)}</Typography>
+                  </Grid>
+                )}
+                {og.electronicInvoiceNumber && (
+                  <Grid item xs={6} sm={3}>
+                    <Stack direction="row" spacing={0.5} alignItems="center">
+                      <ReceiptIcon sx={{ fontSize: 14 }} color="info" />
+                      <Typography variant="caption" color="text.secondary">N° Factura Electrónica</Typography>
+                    </Stack>
+                    <Typography
+                      variant="body2"
+                      fontWeight={600}
+                      color="info.main"
+                      fontFamily="monospace"
+                      sx={{ wordBreak: 'break-all' }}
+                    >
+                      {og.electronicInvoiceNumber}
+                    </Typography>
                   </Grid>
                 )}
               </Grid>
@@ -856,6 +926,11 @@ export const ExpenseOrderDetailPage = () => {
                           size="small"
                           variant="outlined"
                         />
+                        {item.paymentMethod === PaymentMethod.TRANSFER && item.bankEntity && (
+                          <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                            {item.bankEntity}
+                          </Typography>
+                        )}
                       </TableCell>
                       <TableCell>{item.supplier?.name ?? '—'}</TableCell>
                       <TableCell>
@@ -1130,6 +1205,57 @@ export const ExpenseOrderDetailPage = () => {
         </DialogActions>
       </Dialog>
 
+      {/* ── Electronic invoice dialog ────────────────────────────────────────── */}
+      <Dialog open={invoiceDialogOpen} onClose={handleCloseInvoiceDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <ReceiptIcon color="info" />
+            <span>{og.electronicInvoiceNumber ? 'Actualizar Factura Electrónica' : 'Registrar Factura Electrónica'}</span>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              Ingrese el número de factura electrónica del proveedor asociado a esta compra. Es
+              alfanumérico y admite un máximo de 30 caracteres.
+            </Typography>
+            <TextField
+              fullWidth
+              label="Número de Factura Electrónica"
+              value={invoiceNumber}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^a-zA-Z0-9\-_./]/g, '');
+                if (val.length <= 30) setInvoiceNumber(val);
+              }}
+              inputProps={{ maxLength: 30 }}
+              helperText={`${invoiceNumber.length}/30 caracteres. Solo se permiten letras, números y los símbolos - _ . /`}
+              disabled={invoiceLoading}
+              autoFocus
+              placeholder="Ej: FE-2026-00123"
+            />
+            {og.electronicInvoiceNumber && (
+              <Typography variant="caption" color="text.secondary">
+                Número actual: <strong>{og.electronicInvoiceNumber}</strong>
+              </Typography>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseInvoiceDialog} disabled={invoiceLoading}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleRegisterInvoice}
+            variant="contained"
+            color="info"
+            disabled={invoiceLoading || !invoiceNumber.trim()}
+            startIcon={invoiceLoading ? <CircularProgress size={16} /> : <ReceiptIcon />}
+          >
+            {invoiceLoading ? 'Guardando...' : 'Guardar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* ── Add item dialog ──────────────────────────────────────────────────── */}
       <Dialog open={itemDialogOpen} onClose={handleCloseItemDialog} maxWidth="sm" fullWidth>
         <DialogTitle>Agregar Ítem de Gasto</DialogTitle>
@@ -1200,9 +1326,14 @@ export const ExpenseOrderDetailPage = () => {
                 select
                 label="Método de pago"
                 value={itemForm.paymentMethod}
-                onChange={(e) =>
-                  setItemForm((f) => ({ ...f, paymentMethod: e.target.value as PaymentMethod }))
-                }
+                onChange={(e) => {
+                  const method = e.target.value as PaymentMethod;
+                  setItemForm((f) => ({
+                    ...f,
+                    paymentMethod: method,
+                    bankEntity: method === PaymentMethod.TRANSFER ? f.bankEntity : null,
+                  }));
+                }}
                 sx={{ flex: 1 }}
               >
                 {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => (
@@ -1211,6 +1342,15 @@ export const ExpenseOrderDetailPage = () => {
                   </MenuItem>
                 ))}
               </TextField>
+
+              {itemForm.paymentMethod === PaymentMethod.TRANSFER && (
+                <Box sx={{ flex: 1 }}>
+                  <BankSelector
+                    value={itemForm.bankEntity ?? null}
+                    onChange={(val) => setItemForm((f) => ({ ...f, bankEntity: val }))}
+                  />
+                </Box>
+              )}
 
               <TextField
                 select

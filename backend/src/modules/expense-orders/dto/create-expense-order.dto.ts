@@ -49,6 +49,14 @@ export class CreateExpenseItemDto {
   @IsEnum(PaymentMethod)
   paymentMethod: PaymentMethod;
 
+  @ApiPropertyOptional({
+    description: 'Entidad bancaria de origen (solo aplica a transferencias)',
+    example: 'Bancolombia',
+  })
+  @IsString()
+  @IsOptional()
+  bankEntity?: string;
+
   @ApiPropertyOptional({ type: [String], description: 'IDs de áreas de producción del ítem' })
   @IsArray()
   @IsUUID('all', { each: true })

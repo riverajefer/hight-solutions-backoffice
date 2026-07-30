@@ -2,12 +2,13 @@ import {
   IsEnum,
   IsNotEmpty,
   IsNumber,
+  IsOptional,
   IsString,
   IsUUID,
   MinLength,
   Min,
 } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PaymentMethod } from '../../../generated/prisma';
 
 export class CreateRefundRequestDto {
@@ -26,6 +27,14 @@ export class CreateRefundRequestDto {
   })
   @IsEnum(PaymentMethod)
   paymentMethod: PaymentMethod;
+
+  @ApiPropertyOptional({
+    description: 'Entidad bancaria de origen (solo aplica a transferencias)',
+    example: 'Bancolombia',
+  })
+  @IsString()
+  @IsOptional()
+  bankEntity?: string;
 
   @ApiProperty({
     description: 'Observación obligatoria (mínimo 5 caracteres)',

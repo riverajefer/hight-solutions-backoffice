@@ -13,6 +13,7 @@ import {
 import { useSnackbar } from 'notistack';
 import { useCreateRefundRequest } from '../hooks/useRefundRequests';
 import type { RefundPaymentMethod } from '../../../types/refund-request.types';
+import { BankSelector } from '../../../components/common/BankSelector';
 
 interface RefundRequestDialogProps {
   open: boolean;
@@ -56,6 +57,7 @@ export const RefundRequestDialog: React.FC<RefundRequestDialogProps> = ({
   const [amount, setAmount] = useState<string>('');
   const [paymentMethod, setPaymentMethod] =
     useState<RefundPaymentMethod>('CASH');
+  const [bankEntity, setBankEntity] = useState<string | null>(null);
   const [observation, setObservation] = useState<string>('');
 
   const loading = createMutation.isPending;
@@ -63,6 +65,7 @@ export const RefundRequestDialog: React.FC<RefundRequestDialogProps> = ({
   const resetAndClose = () => {
     setAmount('');
     setPaymentMethod('CASH');
+    setBankEntity(null);
     setObservation('');
     onClose();
   };
@@ -98,6 +101,7 @@ export const RefundRequestDialog: React.FC<RefundRequestDialogProps> = ({
         orderId,
         refundAmount: numericAmount,
         paymentMethod,
+        bankEntity: paymentMethod === 'TRANSFER' ? bankEntity ?? null : null,
         observation: observation.trim(),
       });
       resetAndClose();
@@ -134,9 +138,11 @@ export const RefundRequestDialog: React.FC<RefundRequestDialogProps> = ({
             select
             label="Método de pago de la devolución"
             value={paymentMethod}
-            onChange={(e) =>
-              setPaymentMethod(e.target.value as RefundPaymentMethod)
-            }
+            onChange={(e) => {
+              const method = e.target.value as RefundPaymentMethod;
+              setPaymentMethod(method);
+              if (method !== 'TRANSFER') setBankEntity(null);
+            }}
             fullWidth
             required
           >
@@ -146,6 +152,10 @@ export const RefundRequestDialog: React.FC<RefundRequestDialogProps> = ({
               </MenuItem>
             ))}
           </TextField>
+
+          {paymentMethod === 'TRANSFER' && (
+            <BankSelector value={bankEntity} onChange={setBankEntity} />
+          )}
 
           <TextField
             label="Observación / Motivo"

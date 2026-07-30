@@ -24,6 +24,7 @@ const newItem = (): DtfFormItem => ({
   value: 0,
   abono: 0,
   abonoPaymentMethod: '',
+  abonoBankEntity: '',
   abonoNotes: '',
   imageFile: null,
   imagePreviewUrl: null,
@@ -110,6 +111,10 @@ export const DtfFormPage = () => {
           unitPrice: item.unitPrice || undefined,
           abono: item.abono || undefined,
           abonoPaymentMethod: item.abono && item.abonoPaymentMethod ? item.abonoPaymentMethod : undefined,
+          abonoBankEntity:
+            item.abono && item.abonoPaymentMethod === 'TRANSFER' && item.abonoBankEntity
+              ? item.abonoBankEntity
+              : undefined,
           abonoNotes: item.abono && item.abonoNotes ? item.abonoNotes : undefined,
           notes: item.notes || undefined,
         }],

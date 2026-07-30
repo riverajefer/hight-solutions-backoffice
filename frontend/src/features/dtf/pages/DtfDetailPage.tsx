@@ -399,6 +399,11 @@ export const DtfDetailPage = () => {
                     value={DTF_PAYMENT_METHOD_LABELS[record.abonoPaymentMethod as DtfPaymentMethod]}
                   />
                 )}
+                {Number(record.abono) > 0 &&
+                  record.abonoPaymentMethod === 'TRANSFER' &&
+                  record.abonoBankEntity && (
+                    <Row label="Banco de origen" value={record.abonoBankEntity} />
+                  )}
                 {Number(record.abono) > 0 && record.abonoNotes && (
                   <Row label="Notas del abono" value={record.abonoNotes} />
                 )}

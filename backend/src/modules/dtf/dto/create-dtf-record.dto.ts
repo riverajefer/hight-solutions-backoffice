@@ -36,6 +36,11 @@ export class CreateDtfRecordDto {
   @IsEnum(PaymentMethod)
   abonoPaymentMethod?: PaymentMethod;
 
+  @ApiPropertyOptional({ description: 'Entidad bancaria de origen del abono (solo transferencias)', example: 'Bancolombia' })
+  @IsOptional()
+  @IsString()
+  abonoBankEntity?: string;
+
   @ApiPropertyOptional({ description: 'Notas del abono' })
   @IsOptional()
   @IsString()

@@ -37,6 +37,7 @@ import type { AccountPayable, RegisterPaymentDto } from '../../../types/accounts
 import { PaymentMethod, PAYMENT_METHOD_LABELS } from '../../../types/expense-order.types';
 import { formatCurrency } from '../../../utils/formatters';
 import { storageApi } from '../../../api/storage.api';
+import { BankSelector } from '../../../components/common/BankSelector';
 
 const schema = z.object({
   amount: z.string().min(1, 'Ingresa el monto del pago'),
@@ -44,6 +45,7 @@ const schema = z.object({
   paymentDate: z.date({ required_error: 'Selecciona la fecha de pago' }),
   reference: z.string().optional(),
   notes: z.string().optional(),
+  bankEntity: z.string().nullable().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -85,6 +87,7 @@ export const RegisterPaymentDialog: React.FC<RegisterPaymentDialogProps> = ({
   });
 
   const watchedAmount = watch('amount');
+  const watchedMethod = watch('paymentMethod');
   const watchedAmountNum = watchedAmount ? Number(watchedAmount.replace(/\D/g, '')) : 0;
   const afterBalance = balance - watchedAmountNum;
 
@@ -129,6 +132,7 @@ export const RegisterPaymentDialog: React.FC<RegisterPaymentDialogProps> = ({
       paymentDate: values.paymentDate.toISOString(),
       reference: values.reference || undefined,
       notes: values.notes || undefined,
+      bankEntity: values.paymentMethod === PaymentMethod.TRANSFER ? values.bankEntity ?? null : null,
       receiptFileId,
     });
   };
@@ -244,6 +248,17 @@ export const RegisterPaymentDialog: React.FC<RegisterPaymentDialogProps> = ({
               </FormControl>
             )}
           />
+
+          {/* Banco de origen (solo transferencias) */}
+          {watchedMethod === PaymentMethod.TRANSFER && (
+            <Controller
+              name="bankEntity"
+              control={control}
+              render={({ field }) => (
+                <BankSelector value={field.value ?? null} onChange={field.onChange} />
+              )}
+            />
+          )}
 
           {/* Fecha de pago */}
           <Controller

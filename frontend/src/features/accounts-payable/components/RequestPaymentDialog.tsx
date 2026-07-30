@@ -29,6 +29,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { storageApi } from '../../../api/storage.api';
 import type { AccountPayable, CreateApPaymentAuthRequestDto } from '../../../types/accounts-payable.types';
+import { BankSelector } from '../../../components/common/BankSelector';
 
 const formatCurrencyInput = (value: string): string => {
   const digits = value.replace(/\D/g, '');
@@ -49,6 +50,7 @@ const schema = z.object({
   paymentDate: z.date({ required_error: 'La fecha es requerida' }).nullable(),
   reference: z.string().optional(),
   notes: z.string().optional(),
+  bankEntity: z.string().nullable().optional(),
   reason: z.string().optional(),
 });
 
@@ -92,11 +94,13 @@ export const RequestPaymentDialog: React.FC<Props> = ({
       paymentDate: new Date(),
       reference: '',
       notes: '',
+      bankEntity: null,
       reason: '',
     },
   });
 
   const watchedAmount = watch('amount');
+  const watchedMethod = watch('paymentMethod');
   const watchedAmountNum = watchedAmount ? parseInt(watchedAmount.replace(/\D/g, ''), 10) : 0;
   const afterBalance = balance - watchedAmountNum;
   const exceedsBalance = watchedAmountNum > maxPayable;
@@ -145,6 +149,7 @@ export const RequestPaymentDialog: React.FC<Props> = ({
       paymentDate: values.paymentDate!.toISOString(),
       reference: values.reference || undefined,
       notes: values.notes || undefined,
+      bankEntity: values.paymentMethod === 'TRANSFER' ? values.bankEntity ?? null : null,
       receiptFileId,
       reason: values.reason || undefined,
     });
@@ -234,6 +239,16 @@ export const RequestPaymentDialog: React.FC<Props> = ({
               </FormControl>
             )}
           />
+
+          {watchedMethod === 'TRANSFER' && (
+            <Controller
+              name="bankEntity"
+              control={control}
+              render={({ field }) => (
+                <BankSelector value={field.value ?? null} onChange={field.onChange} />
+              )}
+            />
+          )}
 
           <Controller
             name="paymentDate"

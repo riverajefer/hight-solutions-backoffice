@@ -25,6 +25,7 @@ import {
   CreateExpenseItemDto,
   CreateExpenseOrderDto,
   FilterExpenseOrdersDto,
+  RegisterExpenseElectronicInvoiceDto,
   UpdateExpenseOrderDto,
   UpdateExpenseOrderStatusDto,
 } from './dto';
@@ -154,6 +155,20 @@ export class ExpenseOrdersController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.service.cajaReject(id, dto, user);
+  }
+
+  @Patch(':id/electronic-invoice')
+  @RequirePermissions('update_expense_orders')
+  @ApiOperation({ summary: 'Registrar/actualizar el número de factura electrónica del proveedor (no disponible en DRAFT)' })
+  @ApiParam({ name: 'id', description: 'ID de la OG' })
+  @ApiResponse({ status: 200, description: 'Factura electrónica registrada correctamente' })
+  @ApiResponse({ status: 400, description: 'La OG está en estado BORRADOR' })
+  @ApiResponse({ status: 404, description: 'OG no encontrada' })
+  registerElectronicInvoice(
+    @Param('id') id: string,
+    @Body() dto: RegisterExpenseElectronicInvoiceDto,
+  ) {
+    return this.service.registerElectronicInvoice(id, dto.electronicInvoiceNumber);
   }
 
   @Delete(':id')
