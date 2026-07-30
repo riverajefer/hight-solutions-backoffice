@@ -1268,217 +1268,537 @@ export const OrderDetailPage: React.FC = () => {
 
       <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ mt: 1 }}>
         {/* Info General */}
-        <Grid item xs={12} sm={12} md={8}>
+        <Grid item xs={12} sm={12} md={12}>
           <Stack spacing={{ xs: 2, sm: 2.5, md: 3 }}>
-            {/* Estado y Fechas */}
-            <Card>
-              <CardContent sx={{ p: { xs: 2, sm: 2.5, md: 3 } }}>
-                <Grid container spacing={{ xs: 2, sm: 3 }}>
-                  {/* Estado */}
-                  <Grid item xs={12} sm={4}>
-                    <Typography
-                      variant='body2'
-                      color='textSecondary'
-                      gutterBottom
-                    >
-                      Estado
-                    </Typography>
-                    <Box sx={{ mt: 1 }}>
-                      <OrderStatusChip
-                        status={order.status}
-                        size='medium'
-                        variant='outlined'
-                      />
-                    </Box>
-                  </Grid>
+            {/* Estado y Fechas y Cliente/Info Adicional */}
+            <Card variant='outlined'>
+              <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
+                <Grid container spacing={{ xs: 1.5, sm: 2 }} alignItems="flex-start">
+                  {/* Columna Izquierda: Estado y Fechas */}
+                  <Grid item xs={12} md={5}>
+                    <Stack spacing={1.25}>
+                      <Stack direction='row' spacing={1} alignItems='center'>
+                        <CalendarIcon color='primary' sx={{ fontSize: '1.1rem' }} />
+                        <Typography
+                          variant='caption'
+                          color='text.secondary'
+                          fontWeight={700}
+                          textTransform='uppercase'
+                          letterSpacing={0.5}
+                        >
+                          Estado y fechas
+                        </Typography>
+                      </Stack>
+                      <Divider />
+                    <Grid container spacing={{ xs: 2, sm: 3 }}>
+                      {/* Estado */}
+                      <Grid item xs={12} sm={3}>
+                        <Typography
+                          variant='caption'
+                          color='textSecondary'
+                          fontWeight={600}
+                          textTransform="uppercase"
+                          letterSpacing={0.5}
+                          gutterBottom
+                          sx={{ display: 'block' }}
+                        >
+                          Estado
+                        </Typography>
+                        <Box sx={{ mt: 0.5 }}>
+                          <OrderStatusChip
+                            status={order.status}
+                            size='medium'
+                            variant='outlined'
+                          />
+                        </Box>
+                      </Grid>
 
-                  {/* Fecha de Orden */}
-                  <Grid item xs={12} sm={4}>
-                    <Typography
-                      variant='body2'
-                      color='textSecondary'
-                      gutterBottom
-                    >
-                      Fecha de Orden
-                    </Typography>
-                    <Stack
-                      direction='row'
-                      spacing={1}
-                      alignItems='center'
-                      sx={{ mt: 1 }}
-                    >
-                      <CalendarIcon fontSize='small' color='action' />
-                      <Typography variant='body1' fontWeight={500}>
-                        {formatDateTime(order.orderDate)}
-                      </Typography>
-                    </Stack>
-                  </Grid>
+                      {/* Fecha de Orden */}
+                      <Grid item xs={12} sm={5}>
+                        <Typography
+                          variant='caption'
+                          color='textSecondary'
+                          fontWeight={600}
+                          textTransform="uppercase"
+                          letterSpacing={0.5}
+                          gutterBottom
+                          sx={{ display: 'block' }}
+                        >
+                          Fecha de creación
+                        </Typography>
+                        <Stack
+                          direction='row'
+                          spacing={1}
+                          alignItems='flex-start'
+                          sx={{ mt: 0.5 }}
+                        >
+                          <CalendarIcon
+                            fontSize='small'
+                            color='action'
+                            sx={{ fontSize: '1rem' }}
+                          />
+                          <Typography variant='body2' fontWeight={300}>
+                            {formatDateTime(order.orderDate)}
+                          </Typography>
+                        </Stack>
+                      </Grid>
 
-                  {/* Fecha de Entrega */}
-                  <Grid item xs={12} sm={4}>
-                    <Typography
-                      variant='body2'
-                      color='textSecondary'
-                      gutterBottom
-                    >
-                      Fecha de Entrega
-                    </Typography>
-                    <Stack
-                      direction='row'
-                      spacing={1}
-                      alignItems='center'
-                      sx={{ mt: 1 }}
-                    >
-                      <CalendarIcon fontSize='small' color='action' />
-                      <Typography variant='body1' fontWeight={500}>
-                        {order.deliveryDate
-                          ? formatDate(order.deliveryDate)
-                          : 'No especificada'}
-                      </Typography>
-                    </Stack>
-                  </Grid>
+                      {/* Fecha de Entrega */}
+                      <Grid item xs={12} sm={4}>
+                        <Typography
+                          variant='caption'
+                          color='textSecondary'
+                          fontWeight={600}
+                          textTransform="uppercase"
+                          letterSpacing={0.5}
+                          gutterBottom
+                          sx={{ display: 'block' }}
+                        >
+                          Fecha de Entrega
+                        </Typography>
+                        <Stack
+                          direction='row'
+                          spacing={1}
+                          alignItems='flex-start'
+                          sx={{ mt: 0.5 }}
+                        >
+                          <CalendarIcon
+                            fontSize='small'
+                            color='action'
+                            sx={{ fontSize: '1rem' }}
+                          />
+                          <Typography variant='body2' fontWeight={300}>
+                            {order.deliveryDate
+                              ? formatDate(order.deliveryDate)
+                              : 'No especificada'}
+                          </Typography>
+                        </Stack>
+                      </Grid>
 
-                  {/* Información de cambio de fecha (si existe) */}
-                  {order.deliveryDateReason && (
-                    <Grid item xs={12}>
-                      <Divider sx={{ my: 1 }} />
-                      <Paper
-                        elevation={0}
-                        sx={{
-                          mt: 2,
-                          p: 2.5,
-                          bgcolor: 'warning.lighter',
-                          border: '1px solid',
-                          borderColor: 'warning.light',
-                          borderRadius: 2,
-                        }}
-                      >
-                        <Stack spacing={1.5}>
-                          {/* Header con ícono */}
-                          <Stack
-                            direction='row'
-                            spacing={1}
-                            alignItems='center'
+                      {/* Información de cambio de fecha (si existe) */}
+                      {order.deliveryDateReason && (
+                        <Grid item xs={12}>
+                          <Paper
+                            elevation={0}
+                            sx={{
+                              mt: 1,
+                              p: 2,
+                              bgcolor: 'warning.lighter',
+                              border: '1px solid',
+                              borderColor: 'warning.light',
+                              borderRadius: 2,
+                            }}
                           >
-                            <CalendarIcon fontSize='small' color='warning' />
-                            <Typography
-                              variant='subtitle2'
-                              color='warning.dark'
-                              fontWeight={600}
-                            >
-                              Historial de Cambio de Fecha
-                            </Typography>
-                          </Stack>
-
-                          {/* Fechas anterior y nueva */}
-                          <Grid container spacing={2}>
-                            <Grid item xs={12} sm={6}>
-                              <Typography
-                                variant='caption'
-                                color='text.secondary'
-                                display='block'
+                            <Stack spacing={1}>
+                              {/* Header con ícono */}
+                              <Stack
+                                direction='row'
+                                spacing={1}
+                                alignItems='center'
                               >
-                                Fecha anterior:
-                              </Typography>
-                              <Typography
-                                variant='body2'
-                                fontWeight={500}
-                                color='text.primary'
-                              >
-                                {order.previousDeliveryDate
-                                  ? formatDate(order.previousDeliveryDate)
-                                  : '-'}
-                              </Typography>
-                            </Grid>
-                            <Grid item xs={12} sm={6}>
-                              <Typography
-                                variant='caption'
-                                color='text.secondary'
-                                display='block'
-                              >
-                                Nueva fecha:
-                              </Typography>
-                              <Typography
-                                variant='body2'
-                                fontWeight={500}
-                                color='text.primary'
-                              >
-                                {order.deliveryDate
-                                  ? formatDate(order.deliveryDate)
-                                  : '-'}
-                              </Typography>
-                            </Grid>
-                          </Grid>
-
-                          <Divider sx={{ borderStyle: 'dashed' }} />
-
-                          {/* Razón del cambio */}
-                          <Box>
-                            <Typography
-                              variant='caption'
-                              color='text.secondary'
-                              display='block'
-                              gutterBottom
-                            >
-                              Razón del cambio:
-                            </Typography>
-                            <TruncatedText
-                              variant='body2'
-                              color='text.primary'
-                              maxLines={3}
-                              text={`"${order.deliveryDateReason}"`}
-                              tooltipTitle={order.deliveryDateReason}
-                              sx={{
-                                bgcolor: 'background.paper',
-                                p: 1.5,
-                                borderRadius: 1,
-                                fontStyle: 'italic',
-                              }}
-                            />
-                          </Box>
-
-                          {/* Footer con fecha y usuario de modificación */}
-                          {order.deliveryDateChangedAt && (
-                            <Stack
-                              direction={{ xs: 'column', sm: 'row' }}
-                              spacing={1}
-                              alignItems={{ xs: 'flex-start', sm: 'center' }}
-                              justifyContent='space-between'
-                              sx={{ pt: 0.5 }}
-                            >
-                              {order.deliveryDateChangedByUser && (
-                                <Stack
-                                  direction='row'
-                                  spacing={0.5}
-                                  alignItems='center'
+                                <CalendarIcon fontSize='small' color='warning' sx={{ fontSize: '1rem' }} />
+                                <Typography
+                                  variant='caption'
+                                  color='warning.dark'
+                                  fontWeight={700}
+                                  textTransform="uppercase"
+                                  letterSpacing={0.5}
                                 >
+                                  Historial de Cambio de Fecha
+                                </Typography>
+                              </Stack>
+
+                              {/* Fechas anterior y nueva */}
+                              <Grid container spacing={2}>
+                                <Grid item xs={12} sm={6}>
                                   <Typography
                                     variant='caption'
                                     color='text.secondary'
-                                    style={{ fontStyle: 'italic' }}
+                                    display='block'
+                                    sx={{ fontSize: '0.7rem' }}
                                   >
-                                    Modificada por:{' '}
-                                    {order.deliveryDateChangedByUser
-                                      .firstName ||
-                                    order.deliveryDateChangedByUser.lastName
-                                      ? `${order.deliveryDateChangedByUser.firstName || ''} ${order.deliveryDateChangedByUser.lastName || ''}`.trim()
-                                      : order.deliveryDateChangedByUser.email}
+                                    Fecha anterior:
+                                  </Typography>
+                                  <Typography
+                                    variant='body2'
+                                    fontWeight={600}
+                                    color='text.primary'
+                                  >
+                                    {order.previousDeliveryDate
+                                      ? formatDate(order.previousDeliveryDate)
+                                      : '-'}
+                                  </Typography>
+                                </Grid>
+                                <Grid item xs={12} sm={6}>
+                                  <Typography
+                                    variant='caption'
+                                    color='text.secondary'
+                                    display='block'
+                                    sx={{ fontSize: '0.7rem' }}
+                                  >
+                                    Nueva fecha:
+                                  </Typography>
+                                  <Typography
+                                    variant='body2'
+                                    fontWeight={600}
+                                    color='text.primary'
+                                  >
+                                    {order.deliveryDate
+                                      ? formatDate(order.deliveryDate)
+                                      : '-'}
+                                  </Typography>
+                                </Grid>
+                              </Grid>
+
+                              {/* Razón del cambio */}
+                              <Box>
+                                <Typography
+                                  variant='caption'
+                                  color='text.secondary'
+                                  display='block'
+                                  gutterBottom
+                                  sx={{ fontSize: '0.7rem' }}
+                                >
+                                  Razón del cambio:
+                                </Typography>
+                                <TruncatedText
+                                  variant='caption'
+                                  color='text.primary'
+                                  maxLines={2}
+                                  text={`"${order.deliveryDateReason}"`}
+                                  tooltipTitle={order.deliveryDateReason}
+                                  sx={{
+                                    bgcolor: 'background.paper',
+                                    p: 1,
+                                    borderRadius: 1,
+                                    fontStyle: 'italic',
+                                  }}
+                                />
+                              </Box>
+
+                              {/* Footer con fecha y usuario de modificación */}
+                              {order.deliveryDateChangedAt && (
+                                <Stack
+                                  direction={{ xs: 'column', sm: 'row' }}
+                                  spacing={1}
+                                  alignItems={{ xs: 'flex-start', sm: 'center' }}
+                                  justifyContent='space-between'
+                                  sx={{ pt: 0.5, borderTop: '1px dashed', borderColor: 'warning.light' }}
+                                >
+                                  {order.deliveryDateChangedByUser && (
+                                    <Typography
+                                      variant='caption'
+                                      color='text.secondary'
+                                      sx={{ fontSize: '0.65rem' }}
+                                    >
+                                      Modificada por:{' '}
+                                      {order.deliveryDateChangedByUser
+                                        .firstName ||
+                                      order.deliveryDateChangedByUser.lastName
+                                        ? `${order.deliveryDateChangedByUser.firstName || ''} ${order.deliveryDateChangedByUser.lastName || ''}`.trim()
+                                        : order.deliveryDateChangedByUser.email}
+                                    </Typography>
+                                  )}
+                                  <Typography
+                                    variant='caption'
+                                    color='text.secondary'
+                                    sx={{ fontSize: '0.65rem' }}
+                                  >
+                                    El: {formatDate(order.deliveryDateChangedAt)}
                                   </Typography>
                                 </Stack>
                               )}
-                              <Typography
-                                variant='caption'
-                                color='text.secondary'
-                                style={{ fontStyle: 'italic' }}
-                              >
-                                El: {formatDate(order.deliveryDateChangedAt)}
-                              </Typography>
                             </Stack>
-                          )}
-                        </Stack>
-                      </Paper>
+                          </Paper>
+                        </Grid>
+                      )}
                     </Grid>
-                  )}
+                    </Stack>
+                  </Grid>
+
+                  <Grid item xs={12} sx={{ display: { xs: 'block', md: 'none' }, py: 0 }}>
+                    <Divider />
+                  </Grid>
+
+                  {/* Separador Vertical (Oculto en móvil) */}
+                  <Grid 
+                    item 
+                    xs={false} 
+                    md={0.5} 
+                    sx={{ 
+                      display: { xs: 'none', md: 'flex' }, 
+                      justifyContent: 'center',
+                      alignItems: 'stretch',
+                      alignSelf: 'stretch',
+                    }}
+                  >
+                    <Divider
+                      orientation='vertical'
+                      flexItem
+                      sx={{ borderColor: 'divider', borderRightWidth: 1.5, opacity: 0.8 }}
+                    />
+                  </Grid>
+
+                  {/* Columna Centro: Cliente */}
+                  <Grid item xs={12} md={3.5}>
+                    <Stack spacing={1.25}>
+                        <Stack
+                          direction='row'
+                          spacing={1}
+                          alignItems='center'
+                        >
+                          <PersonIcon color='primary' sx={{ fontSize: '1.1rem' }} />
+                          <Typography
+                            variant='caption'
+                            color='text.secondary'
+                            fontWeight={700}
+                            textTransform='uppercase'
+                            letterSpacing={0.5}
+                          >
+                            Cliente
+                          </Typography>
+                        </Stack>
+                        <Divider />
+                        <Stack spacing={0.5} sx={{ minWidth: 0 }}>
+                          <TruncatedText
+                            text={order.client.name}
+                            variant='body2'
+                            fontWeight={700}
+                          />
+                          {order.client.email && (
+                            <TruncatedText
+                              text={order.client.email}
+                              variant='caption'
+                              color='textSecondary'
+                            />
+                          )}
+                          {order.client.phone &&
+                            (() => {
+                              const { country, local } = parsePhoneValue(
+                                order.client.phone,
+                              );
+                              const waNumber = `${country.dialCode}${local}`;
+                              return (
+                                <Stack
+                                  direction='row'
+                                  spacing={1}
+                                  alignItems='center'
+                                  flexWrap='wrap'
+                                  sx={{ mt: 0.5 }}
+                                >
+                                  <Stack
+                                    direction='row'
+                                    spacing={0.5}
+                                    alignItems='center'
+                                  >
+                                    <span
+                                      title={country.name}
+                                      style={{ fontSize: '0.85rem', lineHeight: 1 }}
+                                    >
+                                      {country.flag}
+                                    </span>
+                                    <Typography variant='caption' color='textSecondary' fontWeight={500}>
+                                      +{country.dialCode} {local}
+                                    </Typography>
+                                  </Stack>
+                                  <Tooltip title='Escribirle al cliente por WhatsApp'>
+                                    <Button
+                                      size='small'
+                                      variant='outlined'
+                                      href={`https://wa.me/${waNumber}`}
+                                      target='_blank'
+                                      rel='noopener noreferrer'
+                                      startIcon={
+                                        <WhatsAppIcon
+                                          sx={{ fontSize: '0.8rem !important' }}
+                                        />
+                                      }
+                                      sx={{
+                                        borderColor: '#25D366',
+                                        color: '#25D366',
+                                        fontSize: '0.6rem',
+                                        py: 0.1,
+                                        px: 0.5,
+                                        minHeight: '20px',
+                                        lineHeight: 1,
+                                        borderRadius: 1,
+                                        '&:hover': {
+                                          borderColor: '#128C7E',
+                                          backgroundColor: 'rgba(37,211,102,0.08)',
+                                          color: '#128C7E',
+                                        },
+                                      }}
+                                    >
+                                      Escribir
+                                    </Button>
+                                  </Tooltip>
+                                </Stack>
+                              );
+                            })()}
+                        </Stack>
+                    </Stack>
+                  </Grid>
+
+                  <Grid item xs={12} sx={{ display: { xs: 'block', md: 'none' }, py: 0 }}>
+                    <Divider />
+                  </Grid>
+
+                  {/* Separador Vertical (Oculto en móvil) */}
+                  <Grid 
+                    item 
+                    xs={false} 
+                    md={0.5} 
+                    sx={{ 
+                      display: { xs: 'none', md: 'flex' }, 
+                      justifyContent: 'center',
+                      alignItems: 'stretch',
+                      alignSelf: 'stretch',
+                    }}
+                  >
+                    <Divider
+                      orientation='vertical'
+                      flexItem
+                      sx={{ borderColor: 'divider', borderRightWidth: 1.5, opacity: 0.8 }}
+                    />
+                  </Grid>
+
+                  {/* Columna Derecha: Info Adicional */}
+                  <Grid item xs={12} md={2.5}>
+                    <Stack spacing={1.25}>
+                      <Stack direction='row' spacing={1} alignItems='center'>
+                        <ReceiptIcon color='primary' sx={{ fontSize: '1.1rem' }} />
+                         <Typography
+                            variant='caption'
+                            color='text.secondary'
+                            fontWeight={700}
+                            textTransform='uppercase'
+                            letterSpacing={0.5}
+                          >
+                            Información Adicional
+                          </Typography>
+                      </Stack>
+                      <Divider />
+                          <Stack spacing={1}>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                                <Typography variant='caption' color='textSecondary' sx={{ fontSize: '0.65rem' }}>
+                                  Creado por:
+                                </Typography>
+                                <TruncatedText
+                                  variant='caption'
+                                  fontWeight={500}
+                                  text={
+                                    order.createdBy.firstName && order.createdBy.lastName
+                                      ? `${order.createdBy.firstName} ${order.createdBy.lastName}`
+                                      : order.createdBy.email
+                                  }
+                                />
+                              </Box>
+                            
+                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                                <Typography variant='caption' color='textSecondary' sx={{ fontSize: '0.65rem' }}>
+                                  Canal de Venta:
+                                </Typography>
+                                <TruncatedText
+                                  variant='caption'
+                                  fontWeight={600}
+                                  text={order.commercialChannel?.name || 'No especificado'}
+                                />
+                              </Box>
+                            
+                            {(order.electronicInvoiceNumber || true) && (
+                              <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 0.5 }}>
+                                {/* Orden de Trabajo vinculada */}
+                                <BuildIcon
+                                  color={order.workOrders?.[0] ? 'action' : 'disabled'}
+                                  sx={{ fontSize: '0.8rem' }}
+                                />
+                                  <Typography variant='caption' color='textSecondary' sx={{ fontSize: '0.65rem' }}>
+                                    OT:
+                                  </Typography>
+                                  {order.workOrders?.[0] ? (
+                                    <Box>
+                                      <Chip
+                                        icon={
+                                          <OpenInNewIcon
+                                            sx={{ fontSize: '0.7rem !important' }}
+                                          />
+                                        }
+                                        label={order.workOrders[0].workOrderNumber}
+                                        size='small'
+                                        variant='outlined'
+                                        color='primary'
+                                        onClick={() =>
+                                          navigate(
+                                            ROUTES.WORK_ORDERS_DETAIL.replace(
+                                              ':id',
+                                              order.workOrders![0].id,
+                                            ),
+                                          )
+                                        }
+                                        sx={{
+                                          cursor: 'pointer',
+                                          fontWeight: 600,
+                                          fontSize: '0.65rem',
+                                          height: 20
+                                        }}
+                                      />
+                                    </Box>
+                                  ) : (
+                                    <Stack direction='row' spacing={1} alignItems='center'>
+                                      <Typography variant='caption' color='text.disabled' sx={{ fontSize: '0.7rem' }}>
+                                        Sin OT
+                                      </Typography>
+                                      {['CONFIRMED', 'IN_PRODUCTION', 'READY'].includes(
+                                        order.status,
+                                      ) &&
+                                        permissions.includes('create_work_orders') && (
+                                          <Chip
+                                            icon={
+                                              <BuildIcon
+                                                sx={{ fontSize: '0.7rem !important' }}
+                                              />
+                                            }
+                                            label='Crear OT'
+                                            size='small'
+                                            variant='outlined'
+                                            color='info'
+                                            onClick={() =>
+                                              navigate(
+                                                `${ROUTES.WORK_ORDERS_CREATE}?orderId=${id}`,
+                                              )
+                                            }
+                                            sx={{
+                                              cursor: 'pointer',
+                                              fontWeight: 600,
+                                              fontSize: '0.65rem',
+                                              height: 20
+                                            }}
+                                          />
+                                        )}
+                                    </Stack>
+                                  )}
+                                </Box>
+                            )}
+                            
+                            {order.electronicInvoiceNumber && (
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                                  <Typography variant='caption' color='textSecondary' sx={{ fontSize: '0.65rem' }}>
+                                    Factura Electrónica:
+                                  </Typography>
+                                  <Typography
+                                    variant='caption'
+                                    fontWeight={600}
+                                    color='info.dark'
+                                    fontFamily='monospace'
+                                    sx={{ wordBreak: 'break-all' }}
+                                  >
+                                    {order.electronicInvoiceNumber}
+                                  </Typography>
+                                </Box>
+                            )}
+                          </Stack>
+                    </Stack>
+                  </Grid>
                 </Grid>
               </CardContent>
             </Card>
@@ -2438,261 +2758,6 @@ export const OrderDetailPage: React.FC = () => {
                 </CardContent>
               </Card>
             )}
-          </Stack>
-        </Grid>
-
-        {/* Sidebar */}
-        <Grid item xs={12} sm={12} md={4}>
-          <Stack spacing={{ xs: 2, sm: 2.5, md: 3 }}>
-            {/* Cliente */}
-            <Card>
-              <CardContent>
-                <Stack
-                  direction='row'
-                  spacing={1}
-                  alignItems='center'
-                  sx={{ mb: 2 }}
-                >
-                  <PersonIcon color='primary' />
-                  <Typography
-                    variant='h6'
-                    sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
-                  >
-                    Cliente
-                  </Typography>
-                </Stack>
-                <Divider sx={{ mb: 2 }} />
-                <Stack spacing={1} sx={{ minWidth: 0 }}>
-                  <TruncatedText
-                    text={order.client.name}
-                    variant='subtitle1'
-                    fontWeight={600}
-                  />
-                  {order.client.email && (
-                    <TruncatedText
-                      text={order.client.email}
-                      variant='body2'
-                      color='textSecondary'
-                    />
-                  )}
-                  {order.client.phone &&
-                    (() => {
-                      const { country, local } = parsePhoneValue(
-                        order.client.phone,
-                      );
-                      const waNumber = `${country.dialCode}${local}`;
-                      return (
-                        <Stack
-                          direction='row'
-                          spacing={1}
-                          alignItems='center'
-                          flexWrap='wrap'
-                        >
-                          <Stack
-                            direction='row'
-                            spacing={0.75}
-                            alignItems='center'
-                          >
-                            <span
-                              title={country.name}
-                              style={{ fontSize: '1.1rem', lineHeight: 1 }}
-                            >
-                              {country.flag}
-                            </span>
-                            <Typography variant='body2' color='textSecondary'>
-                              +{country.dialCode} {local}
-                            </Typography>
-                          </Stack>
-                          <Tooltip title='Escribirle al cliente por WhatsApp'>
-                            <Button
-                              size='small'
-                              variant='outlined'
-                              href={`https://wa.me/${waNumber}`}
-                              target='_blank'
-                              rel='noopener noreferrer'
-                              startIcon={
-                                <WhatsAppIcon
-                                  sx={{ fontSize: '1rem !important' }}
-                                />
-                              }
-                              sx={{
-                                borderColor: '#25D366',
-                                color: '#25D366',
-                                fontSize: '0.7rem',
-                                py: 0.25,
-                                px: 1,
-                                minHeight: 'unset',
-                                lineHeight: 1.5,
-                                '&:hover': {
-                                  borderColor: '#128C7E',
-                                  backgroundColor: 'rgba(37,211,102,0.08)',
-                                  color: '#128C7E',
-                                },
-                              }}
-                            >
-                              Escribir
-                            </Button>
-                          </Tooltip>
-                        </Stack>
-                      );
-                    })()}
-                </Stack>
-              </CardContent>
-            </Card>
-
-            {/* Información Adicional */}
-            <Card>
-              <CardContent>
-                <Typography
-                  variant='h6'
-                  gutterBottom
-                  sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
-                >
-                  Información Adicional
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                <Stack spacing={2}>
-                  <Box>
-                    <Typography variant='body2' color='textSecondary'>
-                      Creado por
-                    </Typography>
-                    <TruncatedText
-                      variant='body2'
-                      text={
-                        order.createdBy.firstName && order.createdBy.lastName
-                          ? `${order.createdBy.firstName} ${order.createdBy.lastName}`
-                          : order.createdBy.email
-                      }
-                    />
-                  </Box>
-                  <Box>
-                    <Typography variant='body2' color='textSecondary'>
-                      Fecha de creación
-                    </Typography>
-                    <Typography variant='body2'>
-                      {formatDateTime(order.createdAt)}
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant='body2' color='textSecondary'>
-                      Canal de Venta
-                    </Typography>
-                    <TruncatedText
-                      variant='body2'
-                      fontWeight={600}
-                      text={order.commercialChannel?.name || 'No especificado'}
-                    />
-                  </Box>
-                  <Box>
-                    <Typography variant='body2' color='textSecondary'>
-                      Última actualización
-                    </Typography>
-                    <Typography variant='body2'>
-                      {formatDateTime(order.updatedAt)}
-                    </Typography>
-                  </Box>
-                  {order.electronicInvoiceNumber && (
-                    <Box>
-                      <Stack
-                        direction='row'
-                        spacing={0.75}
-                        alignItems='center'
-                        sx={{ mb: 0.5 }}
-                      >
-                        <ReceiptIcon fontSize='small' color='info' />
-                        <Typography variant='body2' color='textSecondary'>
-                          N° Factura Electrónica
-                        </Typography>
-                      </Stack>
-                      <Typography
-                        variant='body2'
-                        fontWeight={600}
-                        color='info.dark'
-                        fontFamily='monospace'
-                        sx={{ wordBreak: 'break-all' }}
-                      >
-                        {order.electronicInvoiceNumber}
-                      </Typography>
-                    </Box>
-                  )}
-                  {/* Orden de Trabajo vinculada */}
-                  <Box>
-                    <Stack
-                      direction='row'
-                      spacing={0.75}
-                      alignItems='center'
-                      sx={{ mb: 0.5 }}
-                    >
-                      <BuildIcon
-                        fontSize='small'
-                        color={order.workOrders?.[0] ? 'primary' : 'disabled'}
-                      />
-                      <Typography variant='body2' color='textSecondary'>
-                        Orden de Trabajo
-                      </Typography>
-                    </Stack>
-                    {order.workOrders?.[0] ? (
-                      <Chip
-                        icon={
-                          <OpenInNewIcon
-                            sx={{ fontSize: '0.85rem !important' }}
-                          />
-                        }
-                        label={order.workOrders[0].workOrderNumber}
-                        size='small'
-                        variant='outlined'
-                        color='primary'
-                        onClick={() =>
-                          navigate(
-                            ROUTES.WORK_ORDERS_DETAIL.replace(
-                              ':id',
-                              order.workOrders![0].id,
-                            ),
-                          )
-                        }
-                        sx={{
-                          cursor: 'pointer',
-                          fontWeight: 600,
-                          fontSize: '0.8rem',
-                        }}
-                      />
-                    ) : (
-                      <Stack direction='row' spacing={1} alignItems='center'>
-                        <Typography variant='body2' color='text.disabled'>
-                          Sin OT asignada
-                        </Typography>
-                        {['CONFIRMED', 'IN_PRODUCTION', 'READY'].includes(
-                          order.status,
-                        ) &&
-                          permissions.includes('create_work_orders') && (
-                            <Chip
-                              icon={
-                                <BuildIcon
-                                  sx={{ fontSize: '0.85rem !important' }}
-                                />
-                              }
-                              label='Crear OT'
-                              size='small'
-                              variant='outlined'
-                              color='info'
-                              onClick={() =>
-                                navigate(
-                                  `${ROUTES.WORK_ORDERS_CREATE}?orderId=${id}`,
-                                )
-                              }
-                              sx={{
-                                cursor: 'pointer',
-                                fontWeight: 600,
-                                fontSize: '0.8rem',
-                              }}
-                            />
-                          )}
-                      </Stack>
-                    )}
-                  </Box>
-                </Stack>
-              </CardContent>
-            </Card>
           </Stack>
         </Grid>
       </Grid>
