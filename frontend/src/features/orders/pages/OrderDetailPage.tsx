@@ -1268,7 +1268,7 @@ export const OrderDetailPage: React.FC = () => {
 
       <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ mt: 1 }}>
         {/* Info General */}
-        <Grid item xs={12} sm={12} md={10}>
+        <Grid item xs={12} sm={12} md={8}>
           <Stack spacing={{ xs: 2, sm: 2.5, md: 3 }}>
             {/* Estado y Fechas */}
             <Card>
@@ -2442,7 +2442,7 @@ export const OrderDetailPage: React.FC = () => {
         </Grid>
 
         {/* Sidebar */}
-        <Grid item xs={12} sm={12} md={2}>
+        <Grid item xs={12} sm={12} md={4}>
           <Stack spacing={{ xs: 2, sm: 2.5, md: 3 }}>
             {/* Cliente */}
             <Card>
