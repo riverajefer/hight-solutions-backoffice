@@ -39,6 +39,14 @@ export class RegisterPaymentDto {
   @IsOptional()
   notes?: string;
 
+  @ApiPropertyOptional({
+    description: 'Entidad bancaria de origen (solo aplica a transferencias)',
+    example: 'Bancolombia',
+  })
+  @IsString()
+  @IsOptional()
+  bankEntity?: string;
+
   @ApiPropertyOptional({ description: 'ID del archivo de comprobante de pago' })
   @IsString()
   @IsOptional()

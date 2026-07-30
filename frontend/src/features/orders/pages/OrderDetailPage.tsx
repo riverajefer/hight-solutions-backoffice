@@ -127,6 +127,7 @@ import {
   ALLOWED_TRANSITIONS,
 } from '../../../types/order.types';
 import { CommentSection } from '../../comments';
+import { BankSelector } from '../../../components/common/BankSelector';
 
 const formatCurrency = (value: string | number): string => {
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
@@ -208,7 +209,7 @@ export const OrderDetailPage: React.FC = () => {
   const theme = useTheme();
 
   const { orderQuery, updateStatusMutation, deleteOrderMutation } = useOrder(
-    id!
+    id!,
   );
   const { paymentsQuery, addPaymentMutation, updatePaymentMutation } =
     useOrderPayments(id!);
@@ -252,7 +253,11 @@ export const OrderDetailPage: React.FC = () => {
         const file = clipItems[i].getAsFile();
         if (file) {
           const extension = file.type.split('/')[1] || 'png';
-          const newFile = new File([file], `pasted-receipt-${Date.now()}.${extension}`, { type: file.type });
+          const newFile = new File(
+            [file],
+            `pasted-receipt-${Date.now()}.${extension}`,
+            { type: file.type },
+          );
           setReceiptFile(newFile);
           e.preventDefault();
           break;
@@ -281,9 +286,13 @@ export const OrderDetailPage: React.FC = () => {
   // Las bandejas de Edición de Orden y Propiedad Cliente no tienen botón de
   // aprobación en esta página, así que la resolución vive en la propia barra.
   const queryClient = useQueryClient();
-  const buildQueuePath = useCallback((orderId: string) => `/orders/${orderId}`, []);
+  const buildQueuePath = useCallback(
+    (orderId: string) => `/orders/${orderId}`,
+    [],
+  );
   const isAdminUser = user?.role?.name === 'admin';
-  const canReviewEditRequests = isAdminUser || permissions.includes('approve_orders');
+  const canReviewEditRequests =
+    isAdminUser || permissions.includes('approve_orders');
   const canReviewOwnership =
     isAdminUser || permissions.includes('approve_client_ownership_auth');
 
@@ -301,24 +310,42 @@ export const OrderDetailPage: React.FC = () => {
       (queueKey === 'client-ownership' && canReviewOwnership));
 
   const reviewQueueMutation = useMutation({
-    mutationFn: async ({ action, notes }: { action: 'approve' | 'reject'; notes?: string }) => {
+    mutationFn: async ({
+      action,
+      notes,
+    }: {
+      action: 'approve' | 'reject';
+      notes?: string;
+    }) => {
       if (!queueRequestId) throw new Error('Solicitud no disponible');
 
       if (queueKey === 'order-edit') {
         return action === 'approve'
-          ? editRequestsApi.approveGlobal(queueRequestId, { reviewNotes: notes })
-          : editRequestsApi.rejectGlobal(queueRequestId, { reviewNotes: notes });
+          ? editRequestsApi.approveGlobal(queueRequestId, {
+              reviewNotes: notes,
+            })
+          : editRequestsApi.rejectGlobal(queueRequestId, {
+              reviewNotes: notes,
+            });
       }
       return action === 'approve'
-        ? clientOwnershipAuthRequestsApi.approve(queueRequestId, { reviewNotes: notes })
-        : clientOwnershipAuthRequestsApi.reject(queueRequestId, { reviewNotes: notes ?? '' });
+        ? clientOwnershipAuthRequestsApi.approve(queueRequestId, {
+            reviewNotes: notes,
+          })
+        : clientOwnershipAuthRequestsApi.reject(queueRequestId, {
+            reviewNotes: notes ?? '',
+          });
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['editRequests'] });
-      queryClient.invalidateQueries({ queryKey: ['clientOwnershipAuthRequests'] });
+      queryClient.invalidateQueries({
+        queryKey: ['clientOwnershipAuthRequests'],
+      });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       enqueueSnackbar(
-        variables.action === 'approve' ? 'Solicitud aprobada' : 'Solicitud rechazada',
+        variables.action === 'approve'
+          ? 'Solicitud aprobada'
+          : 'Solicitud rechazada',
         { variant: 'success' },
       );
       approvalQueue.markProcessedAndNext();
@@ -353,7 +380,10 @@ export const OrderDetailPage: React.FC = () => {
       // solicitud vive en el historial de autorizaciones, no en esta tabla.
       if (!approval.paymentId) continue;
       const current = map[approval.paymentId];
-      if (!current || new Date(approval.createdAt) > new Date(current.createdAt)) {
+      if (
+        !current ||
+        new Date(approval.createdAt) > new Date(current.createdAt)
+      ) {
         map[approval.paymentId] = approval;
       }
     }
@@ -396,22 +426,40 @@ export const OrderDetailPage: React.FC = () => {
   }
 
   const isAnulado = order.status === 'ANULADO';
-  const canEdit = !isAnulado && ['DRAFT', 'CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'WARRANTY'].includes(
-    order.status
-  );
+  const canEdit =
+    !isAnulado &&
+    [
+      'DRAFT',
+      'CONFIRMED',
+      'IN_PRODUCTION',
+      'READY',
+      'DELIVERED',
+      'WARRANTY',
+    ].includes(order.status);
   const canAddPayment =
     !isAnulado &&
     permissions.includes('register_order_payments') &&
-    ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'DELIVERED_ON_CREDIT', 'PAID'].includes(
-      order.status
-    );
+    [
+      'CONFIRMED',
+      'IN_PRODUCTION',
+      'READY',
+      'DELIVERED',
+      'DELIVERED_ON_CREDIT',
+      'PAID',
+    ].includes(order.status);
   const isAdmin = user?.role?.name === 'admin';
   const canApplyDiscount =
     !isAnulado &&
     permissions.includes('apply_discounts') &&
-    ['CONFIRMED', 'IN_PRODUCTION', 'READY', 'DELIVERED', 'DELIVERED_ON_CREDIT', 'PAID', 'WARRANTY'].includes(
-      order.status
-    );
+    [
+      'CONFIRMED',
+      'IN_PRODUCTION',
+      'READY',
+      'DELIVERED',
+      'DELIVERED_ON_CREDIT',
+      'PAID',
+      'WARRANTY',
+    ].includes(order.status);
   const canDeleteDiscount =
     !isAnulado && permissions.includes('delete_discounts');
   const canEditPayment =
@@ -426,8 +474,12 @@ export const OrderDetailPage: React.FC = () => {
     permissions.includes('edit_order_payments') || canApprovePaymentEdit;
   const hasIva = parseFloat(order.tax) > 0;
   const canRegisterInvoice =
-    !isAnulado && hasIva && order.status !== 'DRAFT' && permissions.includes('update_orders');
-  const canChangeStatus = !isAnulado && (isAdmin || permissions.includes('change_order_status'));
+    !isAnulado &&
+    hasIva &&
+    order.status !== 'DRAFT' &&
+    permissions.includes('update_orders');
+  const canChangeStatus =
+    !isAnulado && (isAdmin || permissions.includes('change_order_status'));
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -527,13 +579,16 @@ export const OrderDetailPage: React.FC = () => {
           await ordersApi.uploadPaymentReceipt(id!, payment.id, receiptFile);
           await paymentsQuery.refetch();
           enqueueSnackbar('Pago registrado con comprobante exitosamente', {
-            variant: 'success'
+            variant: 'success',
           });
         } catch (error) {
           console.error('Error uploading receipt:', error);
-          enqueueSnackbar('Pago registrado pero hubo un error al subir el comprobante', {
-            variant: 'warning'
-          });
+          enqueueSnackbar(
+            'Pago registrado pero hubo un error al subir el comprobante',
+            {
+              variant: 'warning',
+            },
+          );
         }
       } else {
         enqueueSnackbar('Pago registrado exitosamente', { variant: 'success' });
@@ -578,6 +633,7 @@ export const OrderDetailPage: React.FC = () => {
       paymentDate: payment.paymentDate,
       reference: payment.reference ?? undefined,
       notes: payment.notes ?? undefined,
+      bankEntity: payment.bankEntity ?? null,
     });
     setPaymentDialogOpen(true);
   };
@@ -595,6 +651,10 @@ export const OrderDetailPage: React.FC = () => {
           paymentDate: paymentData.paymentDate,
           reference: paymentData.reference,
           notes: paymentData.notes,
+          bankEntity:
+            paymentData.paymentMethod === 'TRANSFER'
+              ? (paymentData.bankEntity ?? null)
+              : null,
           reason: editReason || undefined,
         },
         file: receiptFile ?? undefined,
@@ -659,12 +719,15 @@ export const OrderDetailPage: React.FC = () => {
     try {
       await ordersApi.registerElectronicInvoice(id!, invoiceNumber.trim());
       await orderQuery.refetch();
-      enqueueSnackbar('Número de factura electrónica registrado exitosamente', { variant: 'success' });
+      enqueueSnackbar('Número de factura electrónica registrado exitosamente', {
+        variant: 'success',
+      });
       handleCloseInvoiceDialog();
     } catch (error: any) {
       enqueueSnackbar(
-        error?.response?.data?.message || 'Error al registrar la factura electrónica',
-        { variant: 'error' }
+        error?.response?.data?.message ||
+          'Error al registrar la factura electrónica',
+        { variant: 'error' },
       );
     } finally {
       setInvoiceLoading(false);
@@ -688,7 +751,9 @@ export const OrderDetailPage: React.FC = () => {
 
       if (contentDisposition) {
         // Primero intentar con filename* (RFC 5987) que soporta UTF-8
-        const rfc5987Match = /filename\*=UTF-8''([^;\n]+)/i.exec(contentDisposition);
+        const rfc5987Match = /filename\*=UTF-8''([^;\n]+)/i.exec(
+          contentDisposition,
+        );
         if (rfc5987Match && rfc5987Match[1]) {
           fileName = decodeURIComponent(rfc5987Match[1]);
           console.log('Filename from RFC 5987:', fileName);
@@ -723,7 +788,9 @@ export const OrderDetailPage: React.FC = () => {
       enqueueSnackbar('Archivo descargado', { variant: 'success' });
     } catch (error) {
       console.error('Error downloading receipt:', error);
-      enqueueSnackbar('Error al descargar el comprobante', { variant: 'error' });
+      enqueueSnackbar('Error al descargar el comprobante', {
+        variant: 'error',
+      });
     }
   };
 
@@ -743,7 +810,7 @@ export const OrderDetailPage: React.FC = () => {
     } catch (error: any) {
       enqueueSnackbar(
         error.response?.data?.message || 'Error al eliminar descuento',
-        { variant: 'error' }
+        { variant: 'error' },
       );
     } finally {
       setDeletingDiscount(false);
@@ -755,7 +822,9 @@ export const OrderDetailPage: React.FC = () => {
       setDeletingReceipt(paymentId);
       await ordersApi.deletePaymentReceipt(id!, paymentId);
       await paymentsQuery.refetch();
-      enqueueSnackbar('Comprobante eliminado exitosamente', { variant: 'success' });
+      enqueueSnackbar('Comprobante eliminado exitosamente', {
+        variant: 'success',
+      });
     } catch (error) {
       console.error('Error deleting receipt:', error);
       enqueueSnackbar('Error al eliminar el comprobante', { variant: 'error' });
@@ -806,7 +875,7 @@ export const OrderDetailPage: React.FC = () => {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
-      <DocumentTypeBanner type="OP" documentNumber={order.orderNumber} />
+      <DocumentTypeBanner type='OP' documentNumber={order.orderNumber} />
       <PageHeader
         title={`Orden ${order.orderNumber}`}
         hideTitle
@@ -831,10 +900,16 @@ export const OrderDetailPage: React.FC = () => {
               isPending={reviewQueueMutation.isPending}
               isProcessed={approvalQueue.isCurrentProcessed}
               onApprove={async (notes) => {
-                await reviewQueueMutation.mutateAsync({ action: 'approve', notes });
+                await reviewQueueMutation.mutateAsync({
+                  action: 'approve',
+                  notes,
+                });
               }}
               onReject={async (notes) => {
-                await reviewQueueMutation.mutateAsync({ action: 'reject', notes });
+                await reviewQueueMutation.mutateAsync({
+                  action: 'reject',
+                  notes,
+                });
               }}
             />
           ) : undefined
@@ -846,7 +921,7 @@ export const OrderDetailPage: React.FC = () => {
 
       {/* Banner de origen DTF */}
       {order.notes?.startsWith('[DTF]') && (
-        <Alert severity="info" sx={{ mt: 2, mb: 1 }}>
+        <Alert severity='info' sx={{ mt: 2, mb: 1 }}>
           Esta orden fue generada desde el registro DTF{' '}
           <strong>{order.notes.replace('[DTF] ', '')}</strong>.
         </Alert>
@@ -854,47 +929,55 @@ export const OrderDetailPage: React.FC = () => {
 
       {/* Banner de orden ANULADA */}
       {isAnulado && (
-        <Alert severity="error" icon={<WarningIcon />} sx={{ mt: 2, mb: 1 }}>
-          <strong>Orden Anulada.</strong> Esta orden ha sido anulada definitivamente. No se pueden realizar modificaciones, pagos ni cambios de estado.
+        <Alert severity='error' icon={<WarningIcon />} sx={{ mt: 2, mb: 1 }}>
+          <strong>Orden Anulada.</strong> Esta orden ha sido anulada
+          definitivamente. No se pueden realizar modificaciones, pagos ni
+          cambios de estado.
         </Alert>
       )}
 
       {/* Alertas de anticipo */}
       {order.advancePaymentStatus === 'PENDING' && (
-        <Alert severity="warning" icon={<WarningIcon />} sx={{ mt: 2 }}>
-          <strong>Pago pendiente de aprobación.</strong> El pago registrado en esta orden está siendo revisado por Caja. No se puede cambiar el estado hasta que sea aprobado.
+        <Alert severity='warning' icon={<WarningIcon />} sx={{ mt: 2 }}>
+          <strong>Pago pendiente de aprobación.</strong> El pago registrado en
+          esta orden está siendo revisado por Caja. No se puede cambiar el
+          estado hasta que sea aprobado.
           {pendingAdvance.hasPendingAdvance && (
             <Box sx={{ mt: 0.5 }}>
-              El abono de <strong>{formatCurrency(pendingAdvance.pendingAmount)}</strong>{' '}
-              aún no se descuenta del total: se aplicará al saldo cuando Caja lo apruebe.
+              El abono de{' '}
+              <strong>{formatCurrency(pendingAdvance.pendingAmount)}</strong>{' '}
+              aún no se descuenta del total: se aplicará al saldo cuando Caja lo
+              apruebe.
             </Box>
           )}
         </Alert>
       )}
       {order.advancePaymentStatus === 'REJECTED' && (
-        <Alert severity="error" sx={{ mt: 2 }}>
+        <Alert severity='error' sx={{ mt: 2 }}>
           <strong>Pago rechazado.</strong>{' '}
           {rejectedAdvance?.paymentAmount ? (
             <>
               El pago de{' '}
-              <strong>{formatCurrency(rejectedAdvance.paymentAmount)}</strong> fue
-              rechazado por Caja y eliminado del historial de pagos.
+              <strong>{formatCurrency(rejectedAdvance.paymentAmount)}</strong>{' '}
+              fue rechazado por Caja y eliminado del historial de pagos.
             </>
           ) : (
             <>
-              El pago registrado en esta orden fue rechazado por Caja. El pago ha sido
-              revertido.
+              El pago registrado en esta orden fue rechazado por Caja. El pago
+              ha sido revertido.
             </>
           )}
           {order.advancePaymentRejectedReason && (
             <Box sx={{ mt: 0.5 }}>
-              <strong>Motivo del rechazo:</strong> {order.advancePaymentRejectedReason}
+              <strong>Motivo del rechazo:</strong>{' '}
+              {order.advancePaymentRejectedReason}
             </Box>
           )}
           {pendingAdvance.appliedPaidAmount > 0 && (
             <Box sx={{ mt: 0.5 }}>
-              Los demás abonos de esta orden ({formatCurrency(pendingAdvance.appliedPaidAmount)}
-              ) siguen aplicados al saldo.
+              Los demás abonos de esta orden (
+              {formatCurrency(pendingAdvance.appliedPaidAmount)}) siguen
+              aplicados al saldo.
             </Box>
           )}
         </Alert>
@@ -902,46 +985,58 @@ export const OrderDetailPage: React.FC = () => {
 
       {/* Alertas de descuento */}
       {order.discountApprovalStatus === 'PENDING' && (
-        <Alert severity="warning" icon={<WarningIcon />} sx={{ mt: 2 }}>
-          <strong>Descuento pendiente de aprobación.</strong> El descuento aplicado en esta orden está siendo revisado. No se puede cambiar el estado hasta que sea aprobado o rechazado.
+        <Alert severity='warning' icon={<WarningIcon />} sx={{ mt: 2 }}>
+          <strong>Descuento pendiente de aprobación.</strong> El descuento
+          aplicado en esta orden está siendo revisado. No se puede cambiar el
+          estado hasta que sea aprobado o rechazado.
         </Alert>
       )}
       {order.discountApprovalStatus === 'REJECTED' && (
-        <Alert severity="error" sx={{ mt: 2 }}>
-          <strong>Descuento rechazado.</strong> El descuento aplicado en esta orden fue rechazado. Verifique con administración.
+        <Alert severity='error' sx={{ mt: 2 }}>
+          <strong>Descuento rechazado.</strong> El descuento aplicado en esta
+          orden fue rechazado. Verifique con administración.
         </Alert>
       )}
 
       {/* Alertas de devolución (saldo a favor) */}
       {hasPendingRefund && pendingRefund && (
-        <Alert severity="warning" icon={<HourglassEmptyIcon />} sx={{ mt: 2 }}>
+        <Alert severity='warning' icon={<HourglassEmptyIcon />} sx={{ mt: 2 }}>
           <strong>Devolución pendiente de aprobación.</strong> Monto:{' '}
           {formatCurrency(pendingRefund.refundAmount)} ·{' '}
           {PAYMENT_METHOD_LABELS[
             pendingRefund.paymentMethod as PaymentMethod
           ] ?? pendingRefund.paymentMethod}
+          {pendingRefund.paymentMethod === 'TRANSFER' &&
+          pendingRefund.bankEntity
+            ? ` · ${pendingRefund.bankEntity}`
+            : ''}
         </Alert>
       )}
       {hasOverpayment && !hasPendingRefund && (
-        <Alert severity="info" sx={{ mt: 2 }}>
-          <strong>Saldo a favor:</strong> {formatCurrency(overpayment.toString())}.
-          Puede registrar una devolución al cliente.
+        <Alert severity='info' sx={{ mt: 2 }}>
+          <strong>Saldo a favor:</strong>{' '}
+          {formatCurrency(overpayment.toString())}. Puede registrar una
+          devolución al cliente.
         </Alert>
       )}
 
       {/* Alertas de propiedad de cliente */}
       {order.clientOwnershipAuthStatus === 'PENDING' && (
-        <Alert severity="warning" icon={<WarningIcon />} sx={{ mt: 2 }}>
-          <strong>Autorización de propiedad pendiente.</strong> El cliente de esta orden pertenece a otro asesor. La orden está en revisión por administración y no se puede cambiar el estado hasta que sea aprobada.
+        <Alert severity='warning' icon={<WarningIcon />} sx={{ mt: 2 }}>
+          <strong>Autorización de propiedad pendiente.</strong> El cliente de
+          esta orden pertenece a otro asesor. La orden está en revisión por
+          administración y no se puede cambiar el estado hasta que sea aprobada.
         </Alert>
       )}
       {order.clientOwnershipAuthStatus === 'REJECTED' && (
-        <Alert severity="error" sx={{ mt: 2 }}>
-          <strong>Autorización de propiedad rechazada.</strong> La solicitud para crear esta orden con el cliente de otro asesor fue rechazada. No se puede modificar el estado de la orden.
+        <Alert severity='error' sx={{ mt: 2 }}>
+          <strong>Autorización de propiedad rechazada.</strong> La solicitud
+          para crear esta orden con el cliente de otro asesor fue rechazada. No
+          se puede modificar el estado de la orden.
         </Alert>
       )}
       {order.client?.advisor && (
-        <Alert severity="info" icon={<PersonIcon />} sx={{ mt: 2 }}>
+        <Alert severity='info' icon={<PersonIcon />} sx={{ mt: 2 }}>
           <strong>Asesor del cliente:</strong>{' '}
           {order.client.advisor.firstName && order.client.advisor.lastName
             ? `${order.client.advisor.firstName} ${order.client.advisor.lastName}`
@@ -983,24 +1078,32 @@ export const OrderDetailPage: React.FC = () => {
         }}
       >
         <Stack
-          direction="row"
+          direction='row'
           spacing={0}
-          alignItems="stretch"
-          sx={{ flexWrap: { xs: 'wrap', md: 'nowrap' }, gap: { xs: 0.5, sm: 0 }, minWidth: 0 }}
+          alignItems='stretch'
+          sx={{
+            flexWrap: { xs: 'wrap', md: 'nowrap' },
+            gap: { xs: 0.5, sm: 0 },
+            minWidth: 0,
+          }}
           divider={
             <Divider
-              orientation="vertical"
+              orientation='vertical'
               flexItem
-              sx={{ my: 1.5, opacity: 0.5, display: { xs: 'none', sm: 'block' } }}
+              sx={{
+                my: 1.5,
+                opacity: 0.5,
+                display: { xs: 'none', sm: 'block' },
+              }}
             />
           }
         >
           {canEdit && (
             <ToolbarButton
               icon={<EditIcon />}
-              label="Editar"
+              label='Editar'
               onClick={() => navigate(`/orders/${id}/edit`)}
-              tooltip="Editar Orden"
+              tooltip='Editar Orden'
             />
           )}
 
@@ -1025,29 +1128,29 @@ export const OrderDetailPage: React.FC = () => {
           {canAddPayment && (
             <ToolbarButton
               icon={<PaymentIcon />}
-              label="Pago"
-              secondaryLabel="Registrar"
+              label='Pago'
+              secondaryLabel='Registrar'
               onClick={() => setPaymentDialogOpen(true)}
               color={theme.palette.success.main}
-              tooltip="Registrar Pago"
+              tooltip='Registrar Pago'
             />
           )}
 
           {canApplyDiscount && (
             <ToolbarButton
               icon={<DiscountIcon />}
-              label="Descuento"
+              label='Descuento'
               onClick={() => setDiscountDialogOpen(true)}
               color={theme.palette.warning.main}
-              tooltip="Aplicar Descuento"
+              tooltip='Aplicar Descuento'
             />
           )}
 
           {canCreateRefund && (
             <ToolbarButton
               icon={<CurrencyExchangeIcon />}
-              label="Devolución"
-              secondaryLabel="Registrar"
+              label='Devolución'
+              secondaryLabel='Registrar'
               onClick={() => setRefundDialogOpen(true)}
               color={theme.palette.warning.main}
               tooltip={`Registrar devolución al cliente (saldo a favor: ${formatCurrency(overpayment.toString())})`}
@@ -1057,18 +1160,24 @@ export const OrderDetailPage: React.FC = () => {
           {canRegisterInvoice && (
             <ToolbarButton
               icon={<ReceiptIcon />}
-              label="Factura"
-              secondaryLabel={order.electronicInvoiceNumber ? 'Actualizar' : 'Registrar'}
+              label='Factura'
+              secondaryLabel={
+                order.electronicInvoiceNumber ? 'Actualizar' : 'Registrar'
+              }
               onClick={handleOpenInvoiceDialog}
               color={theme.palette.info.main}
-              tooltip={order.electronicInvoiceNumber ? 'Actualizar Factura Electrónica' : 'Registrar Factura Electrónica'}
+              tooltip={
+                order.electronicInvoiceNumber
+                  ? 'Actualizar Factura Electrónica'
+                  : 'Registrar Factura Electrónica'
+              }
             />
           )}
 
           {canChangeStatus && (
             <ToolbarButton
               icon={<RefreshIcon />}
-              label="Estado"
+              label='Estado'
               onClick={handleMenuOpen}
               disabled={
                 updateStatusMutation.isPending ||
@@ -1089,21 +1198,26 @@ export const OrderDetailPage: React.FC = () => {
 
           <ToolbarButton
             icon={<WhatsAppIcon />}
-            label="WhatsApp"
-            secondaryLabel="Compartir"
+            label='WhatsApp'
+            secondaryLabel='Compartir'
             onClick={handleShareWhatsApp}
             disabled={isGeneratingPdf}
             color={theme.palette.success.main}
-            tooltip="Compartir por WhatsApp"
+            tooltip='Compartir por WhatsApp'
           />
 
           {order.workOrders?.[0] ? (
             <ToolbarButton
               icon={<OpenInNewIcon />}
-              label="OT"
-              secondaryLabel="Ver"
+              label='OT'
+              secondaryLabel='Ver'
               onClick={() =>
-                navigate(ROUTES.WORK_ORDERS_DETAIL.replace(':id', order.workOrders![0].id))
+                navigate(
+                  ROUTES.WORK_ORDERS_DETAIL.replace(
+                    ':id',
+                    order.workOrders![0].id,
+                  ),
+                )
               }
               color={theme.palette.info.main}
               tooltip={`Ver Orden de Trabajo ${order.workOrders[0].workOrderNumber}`}
@@ -1112,17 +1226,19 @@ export const OrderDetailPage: React.FC = () => {
             permissions.includes('create_work_orders') ? (
             <ToolbarButton
               icon={<BuildIcon />}
-              label="OT"
-              secondaryLabel="Crear"
-              onClick={() => navigate(`${ROUTES.WORK_ORDERS_CREATE}?orderId=${id}`)}
+              label='OT'
+              secondaryLabel='Crear'
+              onClick={() =>
+                navigate(`${ROUTES.WORK_ORDERS_CREATE}?orderId=${id}`)
+              }
               color={theme.palette.info.main}
-              tooltip="Crear Orden de Trabajo"
+              tooltip='Crear Orden de Trabajo'
             />
           ) : (
             <ToolbarButton
               icon={<BuildIcon />}
-              label="OT"
-              secondaryLabel="No disponible"
+              label='OT'
+              secondaryLabel='No disponible'
               onClick={() => {}}
               disabled
               color={theme.palette.info.main}
@@ -1136,152 +1252,553 @@ export const OrderDetailPage: React.FC = () => {
 
           <ToolbarButton
             icon={<AccountTreeIcon />}
-            label="Trazabilidad"
+            label='Trazabilidad'
             onClick={() => navigate(`/orders/flow/order/${id}`)}
-            tooltip="Ver Trazabilidad"
+            tooltip='Ver Trazabilidad'
           />
 
           <ToolbarButton
             icon={<AddIcon />}
-            label="Nueva"
+            label='Nueva'
             onClick={() => navigate('/orders/new')}
-            tooltip="Nueva Orden"
+            tooltip='Nueva Orden'
           />
         </Stack>
       </Paper>
 
       <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ mt: 1 }}>
         {/* Info General */}
-        <Grid item xs={12} sm={12} md={8}>
+        <Grid item xs={12} sm={12} md={12}>
           <Stack spacing={{ xs: 2, sm: 2.5, md: 3 }}>
-            {/* Estado y Fechas */}
-            <Card>
-              <CardContent sx={{ p: { xs: 2, sm: 2.5, md: 3 } }}>
-                <Grid container spacing={{ xs: 2, sm: 3 }}>
-                  {/* Estado */}
-                  <Grid item xs={12} sm={4}>
-                    <Typography variant="body2" color="textSecondary" gutterBottom>
-                      Estado
-                    </Typography>
-                    <Box sx={{ mt: 1 }}>
-                      <OrderStatusChip status={order.status} size="medium" variant="outlined" />
-                    </Box>
-                  </Grid>
+            {/* Estado y Fechas y Cliente/Info Adicional */}
+            <Card variant='outlined'>
+              <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
+                <Grid container spacing={{ xs: 1.5, sm: 2 }} alignItems="flex-start">
+                  {/* Columna Izquierda: Estado y Fechas */}
+                  <Grid item xs={12} md={5}>
+                    <Stack spacing={1.25}>
+                      <Stack direction='row' spacing={1} alignItems='center'>
+                        <CalendarIcon color='primary' sx={{ fontSize: '1.1rem' }} />
+                        <Typography
+                          variant='caption'
+                          color='text.secondary'
+                          fontWeight={700}
+                          textTransform='uppercase'
+                          letterSpacing={0.5}
+                        >
+                          Estado y fechas
+                        </Typography>
+                      </Stack>
+                      <Divider />
+                    <Grid container spacing={{ xs: 2, sm: 3 }}>
+                      {/* Estado */}
+                      <Grid item xs={12} sm={3}>
+                        <Typography
+                          variant='caption'
+                          color='textSecondary'
+                          fontWeight={600}
+                          textTransform="uppercase"
+                          letterSpacing={0.5}
+                          gutterBottom
+                          sx={{ display: 'block' }}
+                        >
+                          Estado
+                        </Typography>
+                        <Box sx={{ mt: 0.5 }}>
+                          <OrderStatusChip
+                            status={order.status}
+                            size='medium'
+                            variant='outlined'
+                          />
+                        </Box>
+                      </Grid>
 
-                  {/* Fecha de Orden */}
-                  <Grid item xs={12} sm={4}>
-                    <Typography variant="body2" color="textSecondary" gutterBottom>
-                      Fecha de Orden
-                    </Typography>
-                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
-                      <CalendarIcon fontSize="small" color="action" />
-                      <Typography variant="body1" fontWeight={500}>
-                        {formatDateTime(order.orderDate)}
-                      </Typography>
-                    </Stack>
-                  </Grid>
+                      {/* Fecha de Orden */}
+                      <Grid item xs={12} sm={5}>
+                        <Typography
+                          variant='caption'
+                          color='textSecondary'
+                          fontWeight={600}
+                          textTransform="uppercase"
+                          letterSpacing={0.5}
+                          gutterBottom
+                          sx={{ display: 'block' }}
+                        >
+                          Fecha de creación
+                        </Typography>
+                        <Stack
+                          direction='row'
+                          spacing={1}
+                          alignItems='flex-start'
+                          sx={{ mt: 0.5 }}
+                        >
+                          <CalendarIcon
+                            fontSize='small'
+                            color='action'
+                            sx={{ fontSize: '1rem' }}
+                          />
+                          <Typography variant='body2' fontWeight={300}>
+                            {formatDateTime(order.orderDate)}
+                          </Typography>
+                        </Stack>
+                      </Grid>
 
-                  {/* Fecha de Entrega */}
-                  <Grid item xs={12} sm={4}>
-                    <Typography variant="body2" color="textSecondary" gutterBottom>
-                      Fecha de Entrega
-                    </Typography>
-                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
-                      <CalendarIcon fontSize="small" color="action" />
-                      <Typography variant="body1" fontWeight={500}>
-                        {order.deliveryDate ? formatDate(order.deliveryDate) : 'No especificada'}
-                      </Typography>
-                    </Stack>
-                  </Grid>
+                      {/* Fecha de Entrega */}
+                      <Grid item xs={12} sm={4}>
+                        <Typography
+                          variant='caption'
+                          color='textSecondary'
+                          fontWeight={600}
+                          textTransform="uppercase"
+                          letterSpacing={0.5}
+                          gutterBottom
+                          sx={{ display: 'block' }}
+                        >
+                          Fecha de Entrega
+                        </Typography>
+                        <Stack
+                          direction='row'
+                          spacing={1}
+                          alignItems='flex-start'
+                          sx={{ mt: 0.5 }}
+                        >
+                          <CalendarIcon
+                            fontSize='small'
+                            color='action'
+                            sx={{ fontSize: '1rem' }}
+                          />
+                          <Typography variant='body2' fontWeight={300}>
+                            {order.deliveryDate
+                              ? formatDate(order.deliveryDate)
+                              : 'No especificada'}
+                          </Typography>
+                        </Stack>
+                      </Grid>
 
-                  {/* Información de cambio de fecha (si existe) */}
-                  {order.deliveryDateReason && (
-                    <Grid item xs={12}>
-                      <Divider sx={{ my: 1 }} />
-                      <Paper
-                        elevation={0}
-                        sx={{
-                          mt: 2,
-                          p: 2.5,
-                          bgcolor: 'warning.lighter',
-                          border: '1px solid',
-                          borderColor: 'warning.light',
-                          borderRadius: 2,
-                        }}
-                      >
-                        <Stack spacing={1.5}>
-                          {/* Header con ícono */}
-                          <Stack direction="row" spacing={1} alignItems="center">
-                            <CalendarIcon fontSize="small" color="warning" />
-                            <Typography variant="subtitle2" color="warning.dark" fontWeight={600}>
-                              Historial de Cambio de Fecha
-                            </Typography>
-                          </Stack>
+                      {/* Información de cambio de fecha (si existe) */}
+                      {order.deliveryDateReason && (
+                        <Grid item xs={12}>
+                          <Paper
+                            elevation={0}
+                            sx={{
+                              mt: 1,
+                              p: 2,
+                              bgcolor: 'warning.lighter',
+                              border: '1px solid',
+                              borderColor: 'warning.light',
+                              borderRadius: 2,
+                            }}
+                          >
+                            <Stack spacing={1}>
+                              {/* Header con ícono */}
+                              <Stack
+                                direction='row'
+                                spacing={1}
+                                alignItems='center'
+                              >
+                                <CalendarIcon fontSize='small' color='warning' sx={{ fontSize: '1rem' }} />
+                                <Typography
+                                  variant='caption'
+                                  color='warning.dark'
+                                  fontWeight={700}
+                                  textTransform="uppercase"
+                                  letterSpacing={0.5}
+                                >
+                                  Historial de Cambio de Fecha
+                                </Typography>
+                              </Stack>
 
-                          {/* Fechas anterior y nueva */}
-                          <Grid container spacing={2}>
-                            <Grid item xs={12} sm={6}>
-                              <Typography variant="caption" color="text.secondary" display="block">
-                                Fecha anterior:
-                              </Typography>
-                              <Typography variant="body2" fontWeight={500} color="text.primary">
-                                {order.previousDeliveryDate ? formatDate(order.previousDeliveryDate) : '-'}
-                              </Typography>
-                            </Grid>
-                            <Grid item xs={12} sm={6}>
-                              <Typography variant="caption" color="text.secondary" display="block">
-                                Nueva fecha:
-                              </Typography>
-                              <Typography variant="body2" fontWeight={500} color="text.primary">
-                                {order.deliveryDate ? formatDate(order.deliveryDate) : '-'}
-                              </Typography>
-                            </Grid>
-                          </Grid>
+                              {/* Fechas anterior y nueva */}
+                              <Grid container spacing={2}>
+                                <Grid item xs={12} sm={6}>
+                                  <Typography
+                                    variant='caption'
+                                    color='text.secondary'
+                                    display='block'
+                                    sx={{ fontSize: '0.7rem' }}
+                                  >
+                                    Fecha anterior:
+                                  </Typography>
+                                  <Typography
+                                    variant='body2'
+                                    fontWeight={600}
+                                    color='text.primary'
+                                  >
+                                    {order.previousDeliveryDate
+                                      ? formatDate(order.previousDeliveryDate)
+                                      : '-'}
+                                  </Typography>
+                                </Grid>
+                                <Grid item xs={12} sm={6}>
+                                  <Typography
+                                    variant='caption'
+                                    color='text.secondary'
+                                    display='block'
+                                    sx={{ fontSize: '0.7rem' }}
+                                  >
+                                    Nueva fecha:
+                                  </Typography>
+                                  <Typography
+                                    variant='body2'
+                                    fontWeight={600}
+                                    color='text.primary'
+                                  >
+                                    {order.deliveryDate
+                                      ? formatDate(order.deliveryDate)
+                                      : '-'}
+                                  </Typography>
+                                </Grid>
+                              </Grid>
 
-                          <Divider sx={{ borderStyle: 'dashed' }} />
+                              {/* Razón del cambio */}
+                              <Box>
+                                <Typography
+                                  variant='caption'
+                                  color='text.secondary'
+                                  display='block'
+                                  gutterBottom
+                                  sx={{ fontSize: '0.7rem' }}
+                                >
+                                  Razón del cambio:
+                                </Typography>
+                                <TruncatedText
+                                  variant='caption'
+                                  color='text.primary'
+                                  maxLines={2}
+                                  text={`"${order.deliveryDateReason}"`}
+                                  tooltipTitle={order.deliveryDateReason}
+                                  sx={{
+                                    bgcolor: 'background.paper',
+                                    p: 1,
+                                    borderRadius: 1,
+                                    fontStyle: 'italic',
+                                  }}
+                                />
+                              </Box>
 
-                          {/* Razón del cambio */}
-                          <Box>
-                            <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-                              Razón del cambio:
-                            </Typography>
-                            <TruncatedText
-                              variant="body2"
-                              color="text.primary"
-                              maxLines={3}
-                              text={`"${order.deliveryDateReason}"`}
-                              tooltipTitle={order.deliveryDateReason}
-                              sx={{
-                                bgcolor: 'background.paper',
-                                p: 1.5,
-                                borderRadius: 1,
-                                fontStyle: 'italic',
-                              }}
-                            />
-                          </Box>
-
-                          {/* Footer con fecha y usuario de modificación */}
-                          {order.deliveryDateChangedAt && (
-                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" sx={{ pt: 0.5 }}>
-                              {order.deliveryDateChangedByUser && (
-                                <Stack direction="row" spacing={0.5} alignItems="center">
-                                  <Typography variant="caption" color="text.secondary" style={{ fontStyle: "italic" }}>
-                                    Modificada por:{" "}
-                                    {order.deliveryDateChangedByUser.firstName || order.deliveryDateChangedByUser.lastName
-                                      ? `${order.deliveryDateChangedByUser.firstName || ''} ${order.deliveryDateChangedByUser.lastName || ''}`.trim()
-                                      : order.deliveryDateChangedByUser.email}
+                              {/* Footer con fecha y usuario de modificación */}
+                              {order.deliveryDateChangedAt && (
+                                <Stack
+                                  direction={{ xs: 'column', sm: 'row' }}
+                                  spacing={1}
+                                  alignItems={{ xs: 'flex-start', sm: 'center' }}
+                                  justifyContent='space-between'
+                                  sx={{ pt: 0.5, borderTop: '1px dashed', borderColor: 'warning.light' }}
+                                >
+                                  {order.deliveryDateChangedByUser && (
+                                    <Typography
+                                      variant='caption'
+                                      color='text.secondary'
+                                      sx={{ fontSize: '0.65rem' }}
+                                    >
+                                      Modificada por:{' '}
+                                      {order.deliveryDateChangedByUser
+                                        .firstName ||
+                                      order.deliveryDateChangedByUser.lastName
+                                        ? `${order.deliveryDateChangedByUser.firstName || ''} ${order.deliveryDateChangedByUser.lastName || ''}`.trim()
+                                        : order.deliveryDateChangedByUser.email}
+                                    </Typography>
+                                  )}
+                                  <Typography
+                                    variant='caption'
+                                    color='text.secondary'
+                                    sx={{ fontSize: '0.65rem' }}
+                                  >
+                                    El: {formatDate(order.deliveryDateChangedAt)}
                                   </Typography>
                                 </Stack>
                               )}
-                              <Typography variant="caption" color="text.secondary" style={{ fontStyle: "italic" }}>
-                                El: {formatDate(order.deliveryDateChangedAt)}
-                              </Typography>
                             </Stack>
-                          )}
-                        </Stack>
-                      </Paper>
+                          </Paper>
+                        </Grid>
+                      )}
                     </Grid>
-                  )}
+                    </Stack>
+                  </Grid>
+
+                  <Grid item xs={12} sx={{ display: { xs: 'block', md: 'none' }, py: 0 }}>
+                    <Divider />
+                  </Grid>
+
+                  {/* Separador Vertical (Oculto en móvil) */}
+                  <Grid 
+                    item 
+                    xs={false} 
+                    md={0.5} 
+                    sx={{ 
+                      display: { xs: 'none', md: 'flex' }, 
+                      justifyContent: 'center',
+                      alignItems: 'stretch',
+                      alignSelf: 'stretch',
+                    }}
+                  >
+                    <Divider
+                      orientation='vertical'
+                      flexItem
+                      sx={{ borderColor: 'divider', borderRightWidth: 1.5, opacity: 0.8 }}
+                    />
+                  </Grid>
+
+                  {/* Columna Centro: Cliente */}
+                  <Grid item xs={12} md={3.5}>
+                    <Stack spacing={1.25}>
+                        <Stack
+                          direction='row'
+                          spacing={1}
+                          alignItems='center'
+                        >
+                          <PersonIcon color='primary' sx={{ fontSize: '1.1rem' }} />
+                          <Typography
+                            variant='caption'
+                            color='text.secondary'
+                            fontWeight={700}
+                            textTransform='uppercase'
+                            letterSpacing={0.5}
+                          >
+                            Cliente
+                          </Typography>
+                        </Stack>
+                        <Divider />
+                        <Stack spacing={0.5} sx={{ minWidth: 0 }}>
+                          <TruncatedText
+                            text={order.client.name}
+                            variant='body2'
+                            fontWeight={700}
+                          />
+                          {order.client.email && (
+                            <TruncatedText
+                              text={order.client.email}
+                              variant='caption'
+                              color='textSecondary'
+                            />
+                          )}
+                          {order.client.phone &&
+                            (() => {
+                              const { country, local } = parsePhoneValue(
+                                order.client.phone,
+                              );
+                              const waNumber = `${country.dialCode}${local}`;
+                              return (
+                                <Stack
+                                  direction='row'
+                                  spacing={1}
+                                  alignItems='center'
+                                  flexWrap='wrap'
+                                  sx={{ mt: 0.5 }}
+                                >
+                                  <Stack
+                                    direction='row'
+                                    spacing={0.5}
+                                    alignItems='center'
+                                  >
+                                    <span
+                                      title={country.name}
+                                      style={{ fontSize: '0.85rem', lineHeight: 1 }}
+                                    >
+                                      {country.flag}
+                                    </span>
+                                    <Typography variant='caption' color='textSecondary' fontWeight={500}>
+                                      +{country.dialCode} {local}
+                                    </Typography>
+                                  </Stack>
+                                  <Tooltip title='Escribirle al cliente por WhatsApp'>
+                                    <Button
+                                      size='small'
+                                      variant='outlined'
+                                      href={`https://wa.me/${waNumber}`}
+                                      target='_blank'
+                                      rel='noopener noreferrer'
+                                      startIcon={
+                                        <WhatsAppIcon
+                                          sx={{ fontSize: '0.8rem !important' }}
+                                        />
+                                      }
+                                      sx={{
+                                        borderColor: '#25D366',
+                                        color: '#25D366',
+                                        fontSize: '0.6rem',
+                                        py: 0.1,
+                                        px: 0.5,
+                                        minHeight: '20px',
+                                        lineHeight: 1,
+                                        borderRadius: 1,
+                                        '&:hover': {
+                                          borderColor: '#128C7E',
+                                          backgroundColor: 'rgba(37,211,102,0.08)',
+                                          color: '#128C7E',
+                                        },
+                                      }}
+                                    >
+                                      Escribir
+                                    </Button>
+                                  </Tooltip>
+                                </Stack>
+                              );
+                            })()}
+                        </Stack>
+                    </Stack>
+                  </Grid>
+
+                  <Grid item xs={12} sx={{ display: { xs: 'block', md: 'none' }, py: 0 }}>
+                    <Divider />
+                  </Grid>
+
+                  {/* Separador Vertical (Oculto en móvil) */}
+                  <Grid 
+                    item 
+                    xs={false} 
+                    md={0.5} 
+                    sx={{ 
+                      display: { xs: 'none', md: 'flex' }, 
+                      justifyContent: 'center',
+                      alignItems: 'stretch',
+                      alignSelf: 'stretch',
+                    }}
+                  >
+                    <Divider
+                      orientation='vertical'
+                      flexItem
+                      sx={{ borderColor: 'divider', borderRightWidth: 1.5, opacity: 0.8 }}
+                    />
+                  </Grid>
+
+                  {/* Columna Derecha: Info Adicional */}
+                  <Grid item xs={12} md={2.5}>
+                    <Stack spacing={1.25}>
+                      <Stack direction='row' spacing={1} alignItems='center'>
+                        <ReceiptIcon color='primary' sx={{ fontSize: '1.1rem' }} />
+                         <Typography
+                            variant='caption'
+                            color='text.secondary'
+                            fontWeight={700}
+                            textTransform='uppercase'
+                            letterSpacing={0.5}
+                          >
+                            Información Adicional
+                          </Typography>
+                      </Stack>
+                      <Divider />
+                          <Stack spacing={1}>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                                <Typography variant='caption' color='textSecondary' sx={{ fontSize: '0.65rem' }}>
+                                  Creado por:
+                                </Typography>
+                                <TruncatedText
+                                  variant='caption'
+                                  fontWeight={500}
+                                  text={
+                                    order.createdBy.firstName && order.createdBy.lastName
+                                      ? `${order.createdBy.firstName} ${order.createdBy.lastName}`
+                                      : order.createdBy.email
+                                  }
+                                />
+                              </Box>
+                            
+                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                                <Typography variant='caption' color='textSecondary' sx={{ fontSize: '0.65rem' }}>
+                                  Canal de Venta:
+                                </Typography>
+                                <TruncatedText
+                                  variant='caption'
+                                  fontWeight={600}
+                                  text={order.commercialChannel?.name || 'No especificado'}
+                                />
+                              </Box>
+                            
+                            {(order.electronicInvoiceNumber || true) && (
+                              <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 0.5 }}>
+                                {/* Orden de Trabajo vinculada */}
+                                <BuildIcon
+                                  color={order.workOrders?.[0] ? 'action' : 'disabled'}
+                                  sx={{ fontSize: '0.8rem' }}
+                                />
+                                  <Typography variant='caption' color='textSecondary' sx={{ fontSize: '0.65rem' }}>
+                                    OT:
+                                  </Typography>
+                                  {order.workOrders?.[0] ? (
+                                    <Box>
+                                      <Chip
+                                        icon={
+                                          <OpenInNewIcon
+                                            sx={{ fontSize: '0.7rem !important' }}
+                                          />
+                                        }
+                                        label={order.workOrders[0].workOrderNumber}
+                                        size='small'
+                                        variant='outlined'
+                                        color='primary'
+                                        onClick={() =>
+                                          navigate(
+                                            ROUTES.WORK_ORDERS_DETAIL.replace(
+                                              ':id',
+                                              order.workOrders![0].id,
+                                            ),
+                                          )
+                                        }
+                                        sx={{
+                                          cursor: 'pointer',
+                                          fontWeight: 600,
+                                          fontSize: '0.65rem',
+                                          height: 20
+                                        }}
+                                      />
+                                    </Box>
+                                  ) : (
+                                    <Stack direction='row' spacing={1} alignItems='center'>
+                                      <Typography variant='caption' color='text.disabled' sx={{ fontSize: '0.7rem' }}>
+                                        Sin OT
+                                      </Typography>
+                                      {['CONFIRMED', 'IN_PRODUCTION', 'READY'].includes(
+                                        order.status,
+                                      ) &&
+                                        permissions.includes('create_work_orders') && (
+                                          <Chip
+                                            icon={
+                                              <BuildIcon
+                                                sx={{ fontSize: '0.7rem !important' }}
+                                              />
+                                            }
+                                            label='Crear OT'
+                                            size='small'
+                                            variant='outlined'
+                                            color='info'
+                                            onClick={() =>
+                                              navigate(
+                                                `${ROUTES.WORK_ORDERS_CREATE}?orderId=${id}`,
+                                              )
+                                            }
+                                            sx={{
+                                              cursor: 'pointer',
+                                              fontWeight: 600,
+                                              fontSize: '0.65rem',
+                                              height: 20
+                                            }}
+                                          />
+                                        )}
+                                    </Stack>
+                                  )}
+                                </Box>
+                            )}
+                            
+                            {order.electronicInvoiceNumber && (
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                                  <Typography variant='caption' color='textSecondary' sx={{ fontSize: '0.65rem' }}>
+                                    Factura Electrónica:
+                                  </Typography>
+                                  <Typography
+                                    variant='caption'
+                                    fontWeight={600}
+                                    color='info.dark'
+                                    fontFamily='monospace'
+                                    sx={{ wordBreak: 'break-all' }}
+                                  >
+                                    {order.electronicInvoiceNumber}
+                                  </Typography>
+                                </Box>
+                            )}
+                          </Stack>
+                    </Stack>
+                  </Grid>
                 </Grid>
               </CardContent>
             </Card>
@@ -1289,12 +1806,16 @@ export const OrderDetailPage: React.FC = () => {
             {/* Items */}
             <Card>
               <CardContent sx={{ p: { xs: 2, sm: 2.5, md: 3 } }}>
-                <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+                <Typography
+                  variant='h6'
+                  gutterBottom
+                  sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
+                >
                   Items de la Orden
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
-                <TableContainer 
-                  sx={{ 
+                <TableContainer
+                  sx={{
                     overflowX: 'auto',
                     '&::-webkit-scrollbar': {
                       height: 8,
@@ -1305,34 +1826,41 @@ export const OrderDetailPage: React.FC = () => {
                     '&::-webkit-scrollbar-thumb': {
                       backgroundColor: 'rgba(0,0,0,0.1)',
                       borderRadius: 4,
-                    }
+                    },
                   }}
                 >
-                  <Table size="small" sx={{ minWidth: { xs: 600, sm: 'auto' } }}>
+                  <Table
+                    size='small'
+                    sx={{ minWidth: { xs: 600, sm: 'auto' } }}
+                  >
                     <TableHead>
                       <TableRow>
                         {order.items?.some((i) => i.sampleImageId) && (
-                          <TableCell width="60px" align="center">Imagen</TableCell>
+                          <TableCell width='60px' align='center'>
+                            Imagen
+                          </TableCell>
                         )}
                         <TableCell>Descripción</TableCell>
                         <TableCell>Áreas de Producción</TableCell>
-                        <TableCell align="right">Cantidad</TableCell>
-                        <TableCell align="right">Precio Unit.</TableCell>
-                        <TableCell align="right">Total</TableCell>
+                        <TableCell align='right'>Cantidad</TableCell>
+                        <TableCell align='right'>Precio Unit.</TableCell>
+                        <TableCell align='right'>Total</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {order.items.map((item) => (
                         <TableRow key={item.id}>
                           {order.items?.some((i) => i.sampleImageId) && (
-                            <TableCell align="center">
+                            <TableCell align='center'>
                               {item.sampleImageId && (
                                 <IconButton
-                                  size="small"
-                                  onClick={() => handleViewSampleImage(item.sampleImageId!)}
-                                  color="primary"
+                                  size='small'
+                                  onClick={() =>
+                                    handleViewSampleImage(item.sampleImageId!)
+                                  }
+                                  color='primary'
                                 >
-                                  <VisibilityIcon fontSize="small" />
+                                  <VisibilityIcon fontSize='small' />
                                 </IconButton>
                               )}
                             </TableCell>
@@ -1341,41 +1869,50 @@ export const OrderDetailPage: React.FC = () => {
                             {item.product && (
                               <Chip
                                 label={item.product.name}
-                                size="small"
+                                size='small'
                                 sx={{ mr: 1, mb: 0.5, maxWidth: '100%' }}
                               />
                             )}
                             {item.description && (
                               <TruncatedText
-                                variant="body2"
+                                variant='body2'
                                 maxLines={2}
                                 text={item.description}
                               />
                             )}
                           </TableCell>
                           <TableCell>
-                            {item.productionAreas && item.productionAreas.length > 0 ? (
-                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                            {item.productionAreas &&
+                            item.productionAreas.length > 0 ? (
+                              <Box
+                                sx={{
+                                  display: 'flex',
+                                  flexWrap: 'wrap',
+                                  gap: 0.5,
+                                }}
+                              >
                                 {item.productionAreas.map((pa) => (
                                   <Chip
                                     key={pa.productionArea.id}
                                     label={pa.productionArea.name}
                                     title={pa.productionArea.name}
-                                    size="small"
-                                    variant="outlined"
+                                    size='small'
+                                    variant='outlined'
                                     sx={{ maxWidth: 140 }}
                                   />
                                 ))}
                               </Box>
                             ) : (
-                              <Typography variant="body2" color="text.disabled">—</Typography>
+                              <Typography variant='body2' color='text.disabled'>
+                                —
+                              </Typography>
                             )}
                           </TableCell>
-                          <TableCell align="right">{item.quantity}</TableCell>
-                          <TableCell align="right">
+                          <TableCell align='right'>{item.quantity}</TableCell>
+                          <TableCell align='right'>
                             {formatCurrency(item.unitPrice)}
                           </TableCell>
-                          <TableCell align="right">
+                          <TableCell align='right'>
                             <Typography fontWeight={500}>
                               {formatCurrency(item.total)}
                             </Typography>
@@ -1390,34 +1927,50 @@ export const OrderDetailPage: React.FC = () => {
                 <Box sx={{ mt: 3 }}>
                   <Divider sx={{ mb: 2 }} />
                   <Stack spacing={1}>
-                    <Box display="flex" justifyContent="space-between">
+                    <Box display='flex' justifyContent='space-between'>
                       <Typography>Subtotal:</Typography>
                       <Typography fontWeight={500}>
                         {formatCurrency(parseFloat(order.subtotal))}
                       </Typography>
                     </Box>
                     {parseFloat(order.retefuenteRate) > 0 && (
-                      <Box display="flex" justifyContent="space-between">
-                        <Typography color="error.main">
-                          Retefuente ({(parseFloat(order.retefuenteRate) * 100).toFixed(3).replace(/\.?0+$/, '')}%):
+                      <Box display='flex' justifyContent='space-between'>
+                        <Typography color='error.main'>
+                          Retefuente (
+                          {(parseFloat(order.retefuenteRate) * 100)
+                            .toFixed(3)
+                            .replace(/\.?0+$/, '')}
+                          %):
                         </Typography>
-                        <Typography fontWeight={500} color="error.main">
-                          -{formatCurrency(parseFloat(order.subtotal) * parseFloat(order.retefuenteRate))}
+                        <Typography fontWeight={500} color='error.main'>
+                          -
+                          {formatCurrency(
+                            parseFloat(order.subtotal) *
+                              parseFloat(order.retefuenteRate),
+                          )}
                         </Typography>
                       </Box>
                     )}
                     {parseFloat(order.reteICARate) > 0 && (
-                      <Box display="flex" justifyContent="space-between">
-                        <Typography color="error.main">
-                          ReteICA ({(parseFloat(order.reteICARate) * 100).toFixed(3).replace(/\.?0+$/, '')}%):
+                      <Box display='flex' justifyContent='space-between'>
+                        <Typography color='error.main'>
+                          ReteICA (
+                          {(parseFloat(order.reteICARate) * 100)
+                            .toFixed(3)
+                            .replace(/\.?0+$/, '')}
+                          %):
                         </Typography>
-                        <Typography fontWeight={500} color="error.main">
-                          -{formatCurrency(parseFloat(order.subtotal) * parseFloat(order.reteICARate))}
+                        <Typography fontWeight={500} color='error.main'>
+                          -
+                          {formatCurrency(
+                            parseFloat(order.subtotal) *
+                              parseFloat(order.reteICARate),
+                          )}
                         </Typography>
                       </Box>
                     )}
                     {parseFloat(order.tax) > 0 && (
-                      <Box display="flex" justifyContent="space-between">
+                      <Box display='flex' justifyContent='space-between'>
                         <Typography>
                           IVA ({(parseFloat(order.taxRate) * 100).toFixed(1)}%):
                         </Typography>
@@ -1426,102 +1979,144 @@ export const OrderDetailPage: React.FC = () => {
                         </Typography>
                       </Box>
                     )}
-                    {parseFloat(order.reteIVARate) > 0 && parseFloat(order.tax) > 0 && (
-                      <Box display="flex" justifyContent="space-between">
-                        <Typography color="error.main">
-                          ReteIVA ({(parseFloat(order.reteIVARate) * 100).toFixed(0)}%):
-                        </Typography>
-                        <Typography fontWeight={500} color="error.main">
-                          -{formatCurrency(parseFloat(order.tax) * parseFloat(order.reteIVARate))}
-                        </Typography>
-                      </Box>
-                    )}
+                    {parseFloat(order.reteIVARate) > 0 &&
+                      parseFloat(order.tax) > 0 && (
+                        <Box display='flex' justifyContent='space-between'>
+                          <Typography color='error.main'>
+                            ReteIVA (
+                            {(parseFloat(order.reteIVARate) * 100).toFixed(0)}
+                            %):
+                          </Typography>
+                          <Typography fontWeight={500} color='error.main'>
+                            -
+                            {formatCurrency(
+                              parseFloat(order.tax) *
+                                parseFloat(order.reteIVARate),
+                            )}
+                          </Typography>
+                        </Box>
+                      )}
                     {order.requiresColorProof && (
-                      <Box display="flex" justifyContent="space-between">
-                        <Typography>
-                          Prueba de Color:
-                        </Typography>
+                      <Box display='flex' justifyContent='space-between'>
+                        <Typography>Prueba de Color:</Typography>
                         <Typography fontWeight={500}>
-                          {formatCurrency(parseFloat(order.colorProofPrice as any || 0))}
+                          {formatCurrency(
+                            parseFloat((order.colorProofPrice as any) || 0),
+                          )}
                         </Typography>
                       </Box>
                     )}
                     {parseFloat(order.discountAmount) > 0 && (
-                      <Box display="flex" justifyContent="space-between">
-                        <Typography color="error.main">
-                          Descuentos:
-                        </Typography>
-                        <Typography fontWeight={500} color="error.main">
+                      <Box display='flex' justifyContent='space-between'>
+                        <Typography color='error.main'>Descuentos:</Typography>
+                        <Typography fontWeight={500} color='error.main'>
                           -{formatCurrency(parseFloat(order.discountAmount))}
                         </Typography>
                       </Box>
                     )}
                     <Divider />
-                    <Box display="flex" justifyContent="space-between">
-                      <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Total:</Typography>
-                      <Typography variant="h6" color="primary.main" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+                    <Box display='flex' justifyContent='space-between'>
+                      <Typography
+                        variant='h6'
+                        sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
+                      >
+                        Total:
+                      </Typography>
+                      <Typography
+                        variant='h6'
+                        color='primary.main'
+                        sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
+                      >
                         {formatCurrency(parseFloat(order.total))}
                       </Typography>
                     </Box>
-                    <Box display="flex" justifyContent="space-between">
+                    <Box display='flex' justifyContent='space-between'>
                       <Typography>Abono:</Typography>
-                      <Typography fontWeight={500} color="success.main">
+                      <Typography fontWeight={500} color='success.main'>
                         {formatCurrency(pendingAdvance.appliedPaidAmount)}
                       </Typography>
                     </Box>
                     {pendingAdvance.hasPendingAdvance && (
                       <Box
-                        display="flex"
-                        justifyContent="space-between"
-                        alignItems="center"
+                        display='flex'
+                        justifyContent='space-between'
+                        alignItems='center'
                         gap={1}
                       >
                         <Stack
-                          direction="row"
+                          direction='row'
                           spacing={0.75}
-                          alignItems="center"
-                          flexWrap="wrap"
+                          alignItems='center'
+                          flexWrap='wrap'
                           sx={{ minWidth: 0 }}
                         >
-                          <Typography color="warning.main">Abono por aprobar:</Typography>
+                          <Typography color='warning.main'>
+                            Abono por aprobar:
+                          </Typography>
                           <Chip
                             icon={<HourglassEmptyIcon />}
-                            label="Pendiente de aprobación"
-                            color="warning"
-                            size="small"
-                            variant="outlined"
+                            label='Pendiente de aprobación'
+                            color='warning'
+                            size='small'
+                            variant='outlined'
                           />
                         </Stack>
                         <Typography
                           fontWeight={500}
-                          color="warning.main"
+                          color='warning.main'
                           sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
                         >
                           {formatCurrency(pendingAdvance.pendingAmount)}
                         </Typography>
                       </Box>
                     )}
-                    <Box display="flex" justifyContent="space-between" alignItems="baseline" gap={1} mt={1}>
-                      <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' }, minWidth: 0 }}>
-                        {pendingAdvance.effectiveBalance < 0 ? 'Saldo a favor del cliente:' : 'Saldo a cobrar:'}
+                    <Box
+                      display='flex'
+                      justifyContent='space-between'
+                      alignItems='baseline'
+                      gap={1}
+                      mt={1}
+                    >
+                      <Typography
+                        variant='h6'
+                        sx={{
+                          fontSize: { xs: '1rem', sm: '1.25rem' },
+                          minWidth: 0,
+                        }}
+                      >
+                        {pendingAdvance.effectiveBalance < 0
+                          ? 'Saldo a favor del cliente:'
+                          : 'Saldo a cobrar:'}
                       </Typography>
                       <Typography
-                        variant="h6"
-                        color={pendingAdvance.effectiveBalance < 0 ? 'warning.main' : pendingAdvance.effectiveBalance > 0 ? 'error.main' : 'success.main'}
-                        sx={{ fontSize: { xs: '1rem', sm: '1.25rem' }, whiteSpace: 'nowrap', flexShrink: 0 }}
+                        variant='h6'
+                        color={
+                          pendingAdvance.effectiveBalance < 0
+                            ? 'warning.main'
+                            : pendingAdvance.effectiveBalance > 0
+                              ? 'error.main'
+                              : 'success.main'
+                        }
+                        sx={{
+                          fontSize: { xs: '1rem', sm: '1.25rem' },
+                          whiteSpace: 'nowrap',
+                          flexShrink: 0,
+                        }}
                       >
-                        {formatCurrency(Math.abs(pendingAdvance.effectiveBalance))}
+                        {formatCurrency(
+                          Math.abs(pendingAdvance.effectiveBalance),
+                        )}
                       </Typography>
                     </Box>
                     {pendingAdvance.hasPendingAdvance && (
                       <Typography
-                        variant="caption"
-                        color="text.secondary"
+                        variant='caption'
+                        color='text.secondary'
                         sx={{ display: 'block', textAlign: 'right' }}
                       >
                         No incluye el abono de{' '}
-                        {formatCurrency(pendingAdvance.pendingAmount)}: se aplicará
-                        cuando Caja lo apruebe.
+                        {formatCurrency(pendingAdvance.pendingAmount)}: se
+                        aplicará cuando Caja lo apruebe.
                       </Typography>
                     )}
                   </Stack>
@@ -1529,124 +2124,15 @@ export const OrderDetailPage: React.FC = () => {
               </CardContent>
             </Card>
 
-            {/* Resumen Financiero / Rentabilidad */}
-            <Accordion
-              defaultExpanded={false}
-              variant="outlined"
-              sx={{ borderRadius: '12px !important', '&:before': { display: 'none' } }}
-            >
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  {profitabilityData && profitabilityData.utility >= 0 ? (
-                    <TrendingUpIcon sx={{ color: 'success.main' }} />
-                  ) : (
-                    <TrendingDownIcon sx={{ color: profitabilityData ? 'error.main' : 'text.disabled' }} />
-                  )}
-                  <Typography variant="subtitle1" fontWeight={600}>
-                    Resumen Financiero
-                  </Typography>
-                </Stack>
-              </AccordionSummary>
-              <AccordionDetails>
-                {profitabilityLoading ? (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-                    <CircularProgress size={24} />
-                  </Box>
-                ) : profitabilityData ? (
-                  <Stack spacing={2}>
-                    {/* KPI boxes */}
-                    <Grid container spacing={2}>
-                      {[
-                        {
-                          label: 'Total OP',
-                          value: formatCurrency(profitabilityData.orderTotal.toString()),
-                          color: 'text.primary',
-                        },
-                        {
-                          label: 'Total Gastos',
-                          value: formatCurrency(profitabilityData.totalExpenses.toString()),
-                          color: 'warning.main',
-                        },
-                        {
-                          label: 'Utilidad',
-                          value: formatCurrency(profitabilityData.utility.toString()),
-                          color: profitabilityData.utility >= 0 ? 'success.main' : 'error.main',
-                        },
-                        {
-                          label: 'Margen %',
-                          value: `${profitabilityData.utilityPercentage.toFixed(1)}%`,
-                          color: profitabilityData.utilityPercentage >= 0 ? 'success.main' : 'error.main',
-                        },
-                      ].map((kpi) => (
-                        <Grid item xs={6} sm={3} key={kpi.label}>
-                          <Box
-                            sx={{
-                              textAlign: 'center',
-                              p: 1.5,
-                              borderRadius: 2,
-                              bgcolor: 'action.hover',
-                            }}
-                          >
-                            <Typography variant="caption" color="text.secondary" display="block">
-                              {kpi.label}
-                            </Typography>
-                            <Typography variant="body1" fontWeight={700} color={kpi.color}>
-                              {kpi.value}
-                            </Typography>
-                          </Box>
-                        </Grid>
-                      ))}
-                    </Grid>
-
-                    {/* Linked expense orders */}
-                    {profitabilityData.expenseOrders.length > 0 ? (
-                      <>
-                        <Divider />
-                        <Typography variant="body2" color="text.secondary" fontWeight={600}>
-                          Órdenes de Gasto Vinculadas
-                        </Typography>
-                        <TableContainer>
-                          <Table size="small">
-                            <TableHead>
-                              <TableRow>
-                                <TableCell>OG</TableCell>
-                                <TableCell>OT</TableCell>
-                                <TableCell>Estado</TableCell>
-                                <TableCell align="right">Total</TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {profitabilityData.expenseOrders.map((eg: ExpenseOrderSummary) => (
-                                <TableRow key={eg.id}>
-                                  <TableCell sx={{ fontWeight: 600 }}>{eg.ogNumber}</TableCell>
-                                  <TableCell>{eg.workOrderNumber ?? '—'}</TableCell>
-                                  <TableCell>
-                                    <Chip label={eg.status} size="small" variant="outlined" />
-                                  </TableCell>
-                                  <TableCell align="right">
-                                    {formatCurrency(eg.itemsTotal.toString())}
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </TableContainer>
-                      </>
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">
-                        No hay órdenes de gasto vinculadas a esta OP.
-                      </Typography>
-                    )}
-                  </Stack>
-                ) : null}
-              </AccordionDetails>
-            </Accordion>
-
             {/* Historial de Pagos */}
             {payments.length > 0 && (
               <Card>
                 <CardContent>
-                  <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+                  <Typography
+                    variant='h6'
+                    gutterBottom
+                    sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
+                  >
                     Historial de Pagos
                   </Typography>
                   <Divider sx={{ mb: 2 }} />
@@ -1662,47 +2148,76 @@ export const OrderDetailPage: React.FC = () => {
                       '&::-webkit-scrollbar-thumb': {
                         backgroundColor: 'rgba(0,0,0,0.1)',
                         borderRadius: 4,
-                      }
+                      },
                     }}
                   >
-                    <Table size="small" sx={{ minWidth: { xs: 800, sm: 'auto' } }}>
+                    <Table
+                      size='small'
+                      sx={{ width: '100%', minWidth: { xs: 560, md: 0 } }}
+                    >
                       <TableHead>
                         <TableRow>
                           <TableCell>Fecha</TableCell>
                           <TableCell>Método</TableCell>
-                          <TableCell>Referencia</TableCell>
-                          <TableCell align="right">Monto</TableCell>
+                          <TableCell align='right'>Monto</TableCell>
                           <TableCell>Recibido por</TableCell>
-                          <TableCell align="center">Comprobante</TableCell>
+                          <TableCell align='center'>Comprobante</TableCell>
                           {canEditPayment && (
-                            <TableCell align="center">Acciones</TableCell>
+                            <TableCell align='center'>Acciones</TableCell>
                           )}
                         </TableRow>
                       </TableHead>
                       <TableBody>
                         {payments.map((payment) => (
                           <TableRow key={payment.id}>
-                            <TableCell>
-                              {formatDateTime(payment.paymentDate)}
+                            <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                              {(() => {
+                                const [datePart, timePart] = formatDateTime(
+                                  payment.paymentDate,
+                                ).split(', ');
+                                return (
+                                  <>
+                                    <Typography variant='body2'>
+                                      {datePart}
+                                    </Typography>
+                                    {timePart && (
+                                      <Typography
+                                        variant='caption'
+                                        color='text.secondary'
+                                      >
+                                        {timePart}
+                                      </Typography>
+                                    )}
+                                  </>
+                                );
+                              })()}
                             </TableCell>
                             <TableCell>
                               <Chip
-                                label={PAYMENT_METHOD_LABELS[payment.paymentMethod]}
-                                size="small"
+                                label={
+                                  PAYMENT_METHOD_LABELS[payment.paymentMethod]
+                                }
+                                size='small'
                               />
+                              {payment.paymentMethod === 'TRANSFER' &&
+                                payment.bankEntity && (
+                                  <Typography
+                                    variant='caption'
+                                    color='text.secondary'
+                                    display='block'
+                                    sx={{ mt: 0.5, whiteSpace: 'nowrap' }}
+                                  >
+                                    {payment.bankEntity}
+                                  </Typography>
+                                )}
                             </TableCell>
-                            <TableCell sx={{ maxWidth: 180 }}>
-                              <TruncatedText
-                                variant="body2"
-                                text={payment.reference || '-'}
-                                showTooltip={!!payment.reference}
-                              />
-                            </TableCell>
-                            <TableCell align="right">
+                            <TableCell align='right'>
                               <Typography
                                 fontWeight={500}
                                 color={
-                                  pendingAdvance.pendingPaymentIds.includes(payment.id)
+                                  pendingAdvance.pendingPaymentIds.includes(
+                                    payment.id,
+                                  )
                                     ? 'warning.main'
                                     : undefined
                                 }
@@ -1712,71 +2227,90 @@ export const OrderDetailPage: React.FC = () => {
                               {advanceApprovalByPayment[payment.id] && (
                                 <Box>
                                   <AdvancePaymentApprovalBadge
-                                    approval={advanceApprovalByPayment[payment.id]}
+                                    approval={
+                                      advanceApprovalByPayment[payment.id]
+                                    }
                                   />
                                 </Box>
                               )}
                             </TableCell>
                             <TableCell sx={{ maxWidth: 160 }}>
                               <TruncatedText
-                                variant="body2"
+                                variant='body2'
                                 text={`${payment.receivedBy.firstName} ${payment.receivedBy.lastName}`}
                               />
                             </TableCell>
-                            <TableCell align="center">
+                            <TableCell align='center'>
                               {payment.receiptFileId ? (
-                                <Stack direction="row" spacing={0.5} justifyContent="center">
+                                <Stack
+                                  direction='row'
+                                  spacing={0.5}
+                                  justifyContent='center'
+                                >
                                   <IconButton
-                                    size="small"
-                                    onClick={() => handleViewReceipt(payment.receiptFileId!)}
-                                    color="info"
-                                    title="Ver comprobante"
+                                    size='small'
+                                    onClick={() =>
+                                      handleViewReceipt(payment.receiptFileId!)
+                                    }
+                                    color='info'
+                                    title='Ver comprobante'
                                   >
-                                    <VisibilityIcon fontSize="small" />
+                                    <VisibilityIcon fontSize='small' />
                                   </IconButton>
                                   <IconButton
-                                    size="small"
-                                    onClick={() => handleDownloadReceipt(payment.receiptFileId!)}
-                                    color="primary"
-                                    title="Descargar comprobante"
+                                    size='small'
+                                    onClick={() =>
+                                      handleDownloadReceipt(
+                                        payment.receiptFileId!,
+                                      )
+                                    }
+                                    color='primary'
+                                    title='Descargar comprobante'
                                   >
-                                    <DownloadIcon fontSize="small" />
+                                    <DownloadIcon fontSize='small' />
                                   </IconButton>
                                   {canDeleteReceipt && (
                                     <IconButton
-                                      size="small"
-                                      onClick={() => setReceiptToDelete(payment.id)}
-                                      color="error"
+                                      size='small'
+                                      onClick={() =>
+                                        setReceiptToDelete(payment.id)
+                                      }
+                                      color='error'
                                       disabled={deletingReceipt === payment.id}
-                                      title="Eliminar comprobante"
+                                      title='Eliminar comprobante'
                                     >
-                                      <DeleteIcon fontSize="small" />
+                                      <DeleteIcon fontSize='small' />
                                     </IconButton>
                                   )}
                                 </Stack>
                               ) : (
-                                <Typography variant="body2" color="text.secondary">
+                                <Typography
+                                  variant='body2'
+                                  color='text.secondary'
+                                >
                                   -
                                 </Typography>
                               )}
                             </TableCell>
                             {canEditPayment && (
-                              <TableCell align="center">
+                              <TableCell align='center'>
                                 {pendingEditByPayment[payment.id] ? (
                                   <Chip
-                                    label="Edición pendiente"
-                                    color="warning"
-                                    size="small"
-                                    variant="outlined"
+                                    label='Edición pendiente'
+                                    color='warning'
+                                    size='small'
+                                    variant='outlined'
                                   />
                                 ) : (
                                   <IconButton
-                                    size="small"
-                                    onClick={() => handleOpenEditPayment(payment)}
-                                    color="primary"
-                                    title="Editar pago"
+                                    size='small'
+                                    onClick={() =>
+                                      handleOpenEditPayment(payment)
+                                    }
+                                    color='primary'
+                                    title='Editar pago'
                                   >
-                                    <EditIcon fontSize="small" />
+                                    <EditIcon fontSize='small' />
                                   </IconButton>
                                 )}
                               </TableCell>
@@ -1795,7 +2329,7 @@ export const OrderDetailPage: React.FC = () => {
               <Card>
                 <CardContent>
                   <Typography
-                    variant="h6"
+                    variant='h6'
                     gutterBottom
                     sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
                   >
@@ -1804,7 +2338,9 @@ export const OrderDetailPage: React.FC = () => {
                   <Divider sx={{ mb: 2 }} />
                   <Stack spacing={2}>
                     {paymentEditApprovals.map((req) => {
-                      const statusCfg = PAYMENT_EDIT_STATUS_CONFIG[req.status] ?? {
+                      const statusCfg = PAYMENT_EDIT_STATUS_CONFIG[
+                        req.status
+                      ] ?? {
                         label: req.status,
                         color: 'default' as const,
                       };
@@ -1830,19 +2366,22 @@ export const OrderDetailPage: React.FC = () => {
                           }}
                         >
                           <Stack
-                            direction="row"
-                            alignItems="center"
-                            justifyContent="space-between"
+                            direction='row'
+                            alignItems='center'
+                            justifyContent='space-between'
                             sx={{ mb: 1 }}
                           >
                             <Chip
                               label={statusCfg.label}
                               color={statusCfg.color}
-                              size="small"
+                              size='small'
                             />
-                            <Typography variant="caption" color="text.secondary">
-                              Solicitado por{' '}
-                              {req.requestedBy?.firstName} {req.requestedBy?.lastName} ·{' '}
+                            <Typography
+                              variant='caption'
+                              color='text.secondary'
+                            >
+                              Solicitado por {req.requestedBy?.firstName}{' '}
+                              {req.requestedBy?.lastName} ·{' '}
                               {formatDateTime(req.createdAt)}
                             </Typography>
                           </Stack>
@@ -1850,42 +2389,45 @@ export const OrderDetailPage: React.FC = () => {
                           {/* Cambios solicitados: antes → después */}
                           <Stack spacing={0.25}>
                             {req.newAmount != null && (
-                              <Typography variant="body2">
+                              <Typography variant='body2'>
                                 <strong>Monto:</strong>{' '}
                                 {formatCurrency(req.oldAmount)} →{' '}
                                 <strong>{formatCurrency(req.newAmount)}</strong>
                               </Typography>
                             )}
                             {req.newPaymentMethod != null && (
-                              <Typography variant="body2">
+                              <Typography variant='body2'>
                                 <strong>Método:</strong>{' '}
                                 {PAYMENT_METHOD_LABELS[req.oldPaymentMethod]} →{' '}
-                                <strong>{PAYMENT_METHOD_LABELS[req.newPaymentMethod]}</strong>
+                                <strong>
+                                  {PAYMENT_METHOD_LABELS[req.newPaymentMethod]}
+                                </strong>
                               </Typography>
                             )}
                             {req.newPaymentDate != null && (
-                              <Typography variant="body2">
+                              <Typography variant='body2'>
                                 <strong>Fecha:</strong>{' '}
                                 {formatDateTime(req.oldPaymentDate)} →{' '}
-                                <strong>{formatDateTime(req.newPaymentDate)}</strong>
+                                <strong>
+                                  {formatDateTime(req.newPaymentDate)}
+                                </strong>
                               </Typography>
                             )}
                             {req.newReference != null && (
-                              <Typography variant="body2">
+                              <Typography variant='body2'>
                                 <strong>Referencia:</strong>{' '}
                                 {req.oldReference || '—'} →{' '}
                                 <strong>{req.newReference || '—'}</strong>
                               </Typography>
                             )}
                             {req.newNotes != null && (
-                              <Typography variant="body2">
-                                <strong>Notas:</strong>{' '}
-                                {req.oldNotes || '—'} →{' '}
+                              <Typography variant='body2'>
+                                <strong>Notas:</strong> {req.oldNotes || '—'} →{' '}
                                 <strong>{req.newNotes || '—'}</strong>
                               </Typography>
                             )}
                             {req.newReceiptFileId != null && (
-                              <Typography variant="body2" color="info.main">
+                              <Typography variant='body2' color='info.main'>
                                 Incluye un nuevo comprobante
                                 {req.status === 'PENDING'
                                   ? ' (se aplicará al aprobar).'
@@ -1898,8 +2440,8 @@ export const OrderDetailPage: React.FC = () => {
 
                           {req.reason && (
                             <Typography
-                              variant="body2"
-                              color="text.secondary"
+                              variant='body2'
+                              color='text.secondary'
                               sx={{ mt: 0.5 }}
                             >
                               Motivo: {req.reason}
@@ -1909,55 +2451,71 @@ export const OrderDetailPage: React.FC = () => {
                           {/* Resolución */}
                           {req.status !== 'PENDING' && (
                             <Typography
-                              variant="caption"
-                              color="text.secondary"
+                              variant='caption'
+                              color='text.secondary'
                               sx={{ display: 'block', mt: 1 }}
                             >
-                              {req.status === 'APPROVED' ? 'Aprobada' : 'Rechazada'}
+                              {req.status === 'APPROVED'
+                                ? 'Aprobada'
+                                : 'Rechazada'}
                               {reviewer ? ` por ${reviewer}` : ''}
-                              {req.reviewedAt ? ` · ${formatDateTime(req.reviewedAt)}` : ''}
+                              {req.reviewedAt
+                                ? ` · ${formatDateTime(req.reviewedAt)}`
+                                : ''}
                               {req.reviewNotes ? ` — ${req.reviewNotes}` : ''}
                             </Typography>
                           )}
 
                           {/* Acciones de aprobación (solo aprobadores, solo pendientes) */}
-                          {req.status === 'PENDING' && canApprovePaymentEdit && (
-                            <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
-                              <Button
-                                size="small"
-                                variant="contained"
-                                color="success"
-                                disabled={approvePaymentEditMutation.isPending}
-                                onClick={() =>
-                                  approvePaymentEditMutation.mutate({ id: req.id })
-                                }
+                          {req.status === 'PENDING' &&
+                            canApprovePaymentEdit && (
+                              <Stack
+                                direction='row'
+                                spacing={1}
+                                sx={{ mt: 1.5 }}
                               >
-                                Autorizar
-                              </Button>
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                color="error"
-                                disabled={rejectPaymentEditMutation.isPending}
-                                onClick={() =>
-                                  rejectPaymentEditMutation.mutate({ id: req.id })
-                                }
-                              >
-                                Rechazar
-                              </Button>
-                            </Stack>
-                          )}
+                                <Button
+                                  size='small'
+                                  variant='contained'
+                                  color='success'
+                                  disabled={
+                                    approvePaymentEditMutation.isPending
+                                  }
+                                  onClick={() =>
+                                    approvePaymentEditMutation.mutate({
+                                      id: req.id,
+                                    })
+                                  }
+                                >
+                                  Autorizar
+                                </Button>
+                                <Button
+                                  size='small'
+                                  variant='outlined'
+                                  color='error'
+                                  disabled={rejectPaymentEditMutation.isPending}
+                                  onClick={() =>
+                                    rejectPaymentEditMutation.mutate({
+                                      id: req.id,
+                                    })
+                                  }
+                                >
+                                  Rechazar
+                                </Button>
+                              </Stack>
+                            )}
 
                           {/* Aviso para el solicitante cuando está pendiente */}
-                          {req.status === 'PENDING' && !canApprovePaymentEdit && (
-                            <Typography
-                              variant="caption"
-                              color="warning.main"
-                              sx={{ display: 'block', mt: 1 }}
-                            >
-                              Pendiente de autorización del administrador.
-                            </Typography>
-                          )}
+                          {req.status === 'PENDING' &&
+                            !canApprovePaymentEdit && (
+                              <Typography
+                                variant='caption'
+                                color='warning.main'
+                                sx={{ display: 'block', mt: 1 }}
+                              >
+                                Pendiente de autorización del administrador.
+                              </Typography>
+                            )}
                         </Box>
                       );
                     })}
@@ -1973,33 +2531,213 @@ export const OrderDetailPage: React.FC = () => {
               onDelete={handleRemoveDiscount}
               isDeleting={deletingDiscount}
             />
+            {/* Resumen Financiero / Rentabilidad */}
+            <Accordion
+              defaultExpanded={false}
+              variant='outlined'
+              sx={{
+                borderRadius: '12px !important',
+                '&:before': { display: 'none' },
+              }}
+            >
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Stack direction='row' spacing={1} alignItems='center'>
+                  {profitabilityData && profitabilityData.utility >= 0 ? (
+                    <TrendingUpIcon sx={{ color: 'success.main' }} />
+                  ) : (
+                    <TrendingDownIcon
+                      sx={{
+                        color: profitabilityData
+                          ? 'error.main'
+                          : 'text.disabled',
+                      }}
+                    />
+                  )}
+                  <Typography variant='subtitle1' fontWeight={600}>
+                    Resumen Financiero
+                  </Typography>
+                </Stack>
+              </AccordionSummary>
+              <AccordionDetails>
+                {profitabilityLoading ? (
+                  <Box
+                    sx={{ display: 'flex', justifyContent: 'center', py: 2 }}
+                  >
+                    <CircularProgress size={24} />
+                  </Box>
+                ) : profitabilityData ? (
+                  <Stack spacing={2}>
+                    {/* KPI boxes */}
+                    <Grid container spacing={2}>
+                      {[
+                        {
+                          label: 'Total OP',
+                          value: formatCurrency(
+                            profitabilityData.orderTotal.toString(),
+                          ),
+                          color: 'text.primary',
+                        },
+                        {
+                          label: 'Total Gastos',
+                          value: formatCurrency(
+                            profitabilityData.totalExpenses.toString(),
+                          ),
+                          color: 'warning.main',
+                        },
+                        {
+                          label: 'Utilidad',
+                          value: formatCurrency(
+                            profitabilityData.utility.toString(),
+                          ),
+                          color:
+                            profitabilityData.utility >= 0
+                              ? 'success.main'
+                              : 'error.main',
+                        },
+                        {
+                          label: 'Margen %',
+                          value: `${profitabilityData.utilityPercentage.toFixed(1)}%`,
+                          color:
+                            profitabilityData.utilityPercentage >= 0
+                              ? 'success.main'
+                              : 'error.main',
+                        },
+                      ].map((kpi) => (
+                        <Grid item xs={6} sm={3} key={kpi.label}>
+                          <Box
+                            sx={{
+                              textAlign: 'center',
+                              p: 1.5,
+                              borderRadius: 2,
+                              bgcolor: 'action.hover',
+                            }}
+                          >
+                            <Typography
+                              variant='caption'
+                              color='text.secondary'
+                              display='block'
+                            >
+                              {kpi.label}
+                            </Typography>
+                            <Typography
+                              variant='body1'
+                              fontWeight={700}
+                              color={kpi.color}
+                            >
+                              {kpi.value}
+                            </Typography>
+                          </Box>
+                        </Grid>
+                      ))}
+                    </Grid>
+
+                    {/* Linked expense orders */}
+                    {profitabilityData.expenseOrders.length > 0 ? (
+                      <>
+                        <Divider />
+                        <Typography
+                          variant='body2'
+                          color='text.secondary'
+                          fontWeight={600}
+                        >
+                          Órdenes de Gasto Vinculadas
+                        </Typography>
+                        <TableContainer>
+                          <Table size='small'>
+                            <TableHead>
+                              <TableRow>
+                                <TableCell>OG</TableCell>
+                                <TableCell>OT</TableCell>
+                                <TableCell>Estado</TableCell>
+                                <TableCell align='right'>Total</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {profitabilityData.expenseOrders.map(
+                                (eg: ExpenseOrderSummary) => (
+                                  <TableRow key={eg.id}>
+                                    <TableCell sx={{ fontWeight: 600 }}>
+                                      {eg.ogNumber}
+                                    </TableCell>
+                                    <TableCell>
+                                      {eg.workOrderNumber ?? '—'}
+                                    </TableCell>
+                                    <TableCell>
+                                      <Chip
+                                        label={eg.status}
+                                        size='small'
+                                        variant='outlined'
+                                      />
+                                    </TableCell>
+                                    <TableCell align='right'>
+                                      {formatCurrency(eg.itemsTotal.toString())}
+                                    </TableCell>
+                                  </TableRow>
+                                ),
+                              )}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      </>
+                    ) : (
+                      <Typography variant='body2' color='text.secondary'>
+                        No hay órdenes de gasto vinculadas a esta OP.
+                      </Typography>
+                    )}
+                  </Stack>
+                ) : null}
+              </AccordionDetails>
+            </Accordion>
             {/* Notas y Detalles Adicionales */}
-            {((order.notes && !order.notes.startsWith('[DTF]')) || order.requiresColorProof || order.notesImageId) && (
+            {((order.notes && !order.notes.startsWith('[DTF]')) ||
+              order.requiresColorProof ||
+              order.notesImageId) && (
               <Card>
                 <CardContent>
-                  <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+                  <Typography
+                    variant='h6'
+                    gutterBottom
+                    sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
+                  >
                     Observaciones y Detalles
                   </Typography>
                   <Divider sx={{ mb: 2 }} />
                   {order.requiresColorProof && (
-                    <Typography variant="body2" sx={{ mb: order.notes ? 1 : 0, fontWeight: 500, color: 'primary.main' }}>
+                    <Typography
+                      variant='body2'
+                      sx={{
+                        mb: order.notes ? 1 : 0,
+                        fontWeight: 500,
+                        color: 'primary.main',
+                      }}
+                    >
                       ✓ Requiere prueba de color
                     </Typography>
                   )}
                   {order.notes && (
-                    <Typography variant="body2">{order.notes}</Typography>
+                    <Typography variant='body2'>{order.notes}</Typography>
                   )}
                   {order.notesImageId && (
-                    <Box sx={{ mt: order.notes || order.requiresColorProof ? 2 : 0 }}>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                    <Box
+                      sx={{
+                        mt: order.notes || order.requiresColorProof ? 2 : 0,
+                      }}
+                    >
+                      <Typography
+                        variant='caption'
+                        color='text.secondary'
+                        sx={{ display: 'block', mb: 0.5 }}
+                      >
                         Imagen de referencia
                       </Typography>
                       {notesImageUrl ? (
                         <Box
-                          component="img"
+                          component='img'
                           src={notesImageUrl}
-                          alt="Imagen de observaciones"
-                          onClick={() => handleViewSampleImage(order.notesImageId!)}
+                          alt='Imagen de observaciones'
+                          onClick={() =>
+                            handleViewSampleImage(order.notesImageId!)
+                          }
                           sx={{
                             width: 120,
                             height: 120,
@@ -2022,212 +2760,39 @@ export const OrderDetailPage: React.FC = () => {
             )}
           </Stack>
         </Grid>
-
-        {/* Sidebar */}
-        <Grid item xs={12} sm={12} md={4}>
-          <Stack spacing={{ xs: 2, sm: 2.5, md: 3 }}>
-            {/* Cliente */}
-            <Card>
-              <CardContent>
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-                  <PersonIcon color="primary" />
-                  <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Cliente</Typography>
-                </Stack>
-                <Divider sx={{ mb: 2 }} />
-                <Stack spacing={1} sx={{ minWidth: 0 }}>
-                  <TruncatedText
-                    text={order.client.name}
-                    variant="subtitle1"
-                    fontWeight={600}
-                  />
-                  {order.client.email && (
-                    <TruncatedText
-                      text={order.client.email}
-                      variant="body2"
-                      color="textSecondary"
-                    />
-                  )}
-                  {order.client.phone && (() => {
-                    const { country, local } = parsePhoneValue(order.client.phone);
-                    const waNumber = `${country.dialCode}${local}`;
-                    return (
-                      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                        <Stack direction="row" spacing={0.75} alignItems="center">
-                          <span title={country.name} style={{ fontSize: '1.1rem', lineHeight: 1 }}>
-                            {country.flag}
-                          </span>
-                          <Typography variant="body2" color="textSecondary">
-                            +{country.dialCode} {local}
-                          </Typography>
-                        </Stack>
-                        <Tooltip title="Escribirle al cliente por WhatsApp">
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            href={`https://wa.me/${waNumber}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            startIcon={<WhatsAppIcon sx={{ fontSize: '1rem !important' }} />}
-                            sx={{
-                              borderColor: '#25D366',
-                              color: '#25D366',
-                              fontSize: '0.7rem',
-                              py: 0.25,
-                              px: 1,
-                              minHeight: 'unset',
-                              lineHeight: 1.5,
-                              '&:hover': {
-                                borderColor: '#128C7E',
-                                backgroundColor: 'rgba(37,211,102,0.08)',
-                                color: '#128C7E',
-                              },
-                            }}
-                          >
-                            Escribir
-                          </Button>
-                        </Tooltip>
-                      </Stack>
-                    );
-                  })()}
-                </Stack>
-              </CardContent>
-            </Card>
-
-            {/* Información Adicional */}
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
-                  Información Adicional
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                <Stack spacing={2}>
-                  <Box>
-                    <Typography variant="body2" color="textSecondary">
-                      Creado por
-                    </Typography>
-                    <TruncatedText
-                      variant="body2"
-                      text={
-                        order.createdBy.firstName && order.createdBy.lastName
-                          ? `${order.createdBy.firstName} ${order.createdBy.lastName}`
-                          : order.createdBy.email
-                      }
-                    />
-                  </Box>
-                  <Box>
-                    <Typography variant="body2" color="textSecondary">
-                      Fecha de creación
-                    </Typography>
-                    <Typography variant="body2">
-                      {formatDateTime(order.createdAt)}
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="body2" color="textSecondary">
-                      Canal de Venta
-                    </Typography>
-                    <TruncatedText
-                      variant="body2"
-                      fontWeight={600}
-                      text={order.commercialChannel?.name || 'No especificado'}
-                    />
-                  </Box>
-                  <Box>
-                    <Typography variant="body2" color="textSecondary">
-                      Última actualización
-                    </Typography>
-                    <Typography variant="body2">
-                      {formatDateTime(order.updatedAt)}
-                    </Typography>
-                  </Box>
-                  {order.electronicInvoiceNumber && (
-                    <Box>
-                      <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.5 }}>
-                        <ReceiptIcon fontSize="small" color="info" />
-                        <Typography variant="body2" color="textSecondary">
-                          N° Factura Electrónica
-                        </Typography>
-                      </Stack>
-                      <Typography variant="body2" fontWeight={600} color="info.dark" fontFamily="monospace" sx={{ wordBreak: 'break-all' }}>
-                        {order.electronicInvoiceNumber}
-                      </Typography>
-                    </Box>
-                  )}
-                  {/* Orden de Trabajo vinculada */}
-                  <Box>
-                    <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.5 }}>
-                      <BuildIcon fontSize="small" color={order.workOrders?.[0] ? 'primary' : 'disabled'} />
-                      <Typography variant="body2" color="textSecondary">
-                        Orden de Trabajo
-                      </Typography>
-                    </Stack>
-                    {order.workOrders?.[0] ? (
-                      <Chip
-                        icon={<OpenInNewIcon sx={{ fontSize: '0.85rem !important' }} />}
-                        label={order.workOrders[0].workOrderNumber}
-                        size="small"
-                        variant="outlined"
-                        color="primary"
-                        onClick={() => navigate(ROUTES.WORK_ORDERS_DETAIL.replace(':id', order.workOrders![0].id))}
-                        sx={{ cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
-                      />
-                    ) : (
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Typography variant="body2" color="text.disabled">
-                          Sin OT asignada
-                        </Typography>
-                        {['CONFIRMED', 'IN_PRODUCTION', 'READY'].includes(order.status) &&
-                          permissions.includes('create_work_orders') && (
-                            <Chip
-                              icon={<BuildIcon sx={{ fontSize: '0.85rem !important' }} />}
-                              label="Crear OT"
-                              size="small"
-                              variant="outlined"
-                              color="info"
-                              onClick={() => navigate(`${ROUTES.WORK_ORDERS_CREATE}?orderId=${id}`)}
-                              sx={{ cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
-                            />
-                          )}
-                      </Stack>
-                    )}
-                  </Box>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Stack>
-        </Grid>
       </Grid>
 
       {/* Solicitudes de Edición e Historial de Cambios */}
       <Box sx={{ mt: 4 }}>
         <Tabs value={tabValue} onChange={handleTabChange} sx={{ mb: 2 }}>
-          <Tab label="Solicitudes de Edición" />
-          <Tab label="Historial de Cambios" />
+          <Tab label='Solicitudes de Edición' />
+          <Tab label='Historial de Cambios' />
         </Tabs>
 
         <TabPanel value={tabValue} index={0}>
           <EditRequestsList orderId={id!} />
-          <AdvancePaymentApprovalsList approvals={order.advancePaymentApprovals} />
+          <AdvancePaymentApprovalsList
+            approvals={order.advancePaymentApprovals}
+          />
         </TabPanel>
 
         <TabPanel value={tabValue} index={1}>
-          <OrderChangeHistoryTab orderId={id!} orderNumber={order.orderNumber} />
+          <OrderChangeHistoryTab
+            orderId={id!}
+            orderNumber={order.orderNumber}
+          />
         </TabPanel>
       </Box>
 
       {/* Comentarios */}
-      <CommentSection entityType="ORDER" entityId={order.id} />
+      <CommentSection entityType='ORDER' entityId={order.id} />
 
       {/* Menu de Acciones */}
-      <Menu
-        anchorEl={anchorEl}
-        open={openMenu}
-        onClose={handleMenuClose}
-      >
+      <Menu anchorEl={anchorEl} open={openMenu} onClose={handleMenuClose}>
         <MenuItem disabled>
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction='row' spacing={1} alignItems='center'>
             {updateStatusMutation.isPending && <CircularProgress size={14} />}
-            <Typography variant="caption" color="textSecondary">
+            <Typography variant='caption' color='textSecondary'>
               {updateStatusMutation.isPending
                 ? 'Actualizando estado...'
                 : 'Cambiar Estado de la Orden'}
@@ -2247,18 +2812,23 @@ export const OrderDetailPage: React.FC = () => {
               <Chip
                 label={config.label}
                 color={isCurrentStatus || isAllowed ? config.color : 'default'}
-                size="small"
-                variant={isCurrentStatus ? 'filled' : isAllowed ? 'outlined' : 'filled'}
+                size='small'
+                variant={
+                  isCurrentStatus ? 'filled' : isAllowed ? 'outlined' : 'filled'
+                }
                 sx={{
                   mr: 1,
-                  ...((!isAllowed && !isCurrentStatus) && { opacity: 0.4 }),
-                  ...(isCurrentStatus && { fontWeight: 'bold', border: '2px solid' }),
+                  ...(!isAllowed && !isCurrentStatus && { opacity: 0.4 }),
+                  ...(isCurrentStatus && {
+                    fontWeight: 'bold',
+                    border: '2px solid',
+                  }),
                 }}
               />
             </MenuItem>
           );
         })}
-{/*         <Divider />
+        {/*         <Divider />
         {canDelete && (
           <MenuItem onClick={() => setConfirmDelete(true)} sx={{ color: 'error.main' }}>
             <DeleteIcon sx={{ mr: 1 }} fontSize="small" />
@@ -2275,7 +2845,7 @@ export const OrderDetailPage: React.FC = () => {
             resetPaymentDialog();
           }
         }}
-        maxWidth="sm"
+        maxWidth='sm'
         fullWidth
       >
         <DialogTitle>
@@ -2285,8 +2855,12 @@ export const OrderDetailPage: React.FC = () => {
           <Stack spacing={3} sx={{ mt: 2 }}>
             <TextField
               fullWidth
-              label="Monto"
-              value={paymentData.amount ? formatCurrencyInput(paymentData.amount) : ''}
+              label='Monto'
+              value={
+                paymentData.amount
+                  ? formatCurrencyInput(paymentData.amount)
+                  : ''
+              }
               onChange={(e) => {
                 const rawValue = e.target.value.replace(/\D/g, '');
                 const amount = rawValue ? parseInt(rawValue, 10) : 0;
@@ -2295,62 +2869,74 @@ export const OrderDetailPage: React.FC = () => {
                   amount,
                 });
               }}
-                color={isPaymentOverpay ? 'warning' : 'primary'}
-                InputProps={{
-                  startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>,
-                }}
-                inputProps={{
-                  style: { textAlign: 'right' },
-                }}
-                helperText={
-                  editingPaymentId ? (
-                    <>
-                      <Box component="span" sx={{ display: 'block' }}>
-                        Saldo pendiente antes: {formatCurrency(order.balance)}
-                      </Box>
-                      <Box
-                        component="span"
-                        sx={{
-                          display: 'block',
-                          color: isPaymentOverpay ? 'warning.main' : 'success.main',
-                          fontWeight: 600,
-                        }}
-                      >
-                        {isPaymentOverpay
-                          ? `Saldo a favor después: ${formatCurrency(-saldoDespues)}`
-                          : `Saldo pendiente después: ${formatCurrency(saldoDespues)}`}
-                      </Box>
-                    </>
-                  ) : isPaymentOverpay ? (
-                    `Quedará un saldo a favor al cliente de ${formatCurrency(paymentEntered - availableForPayment)}`
-                  ) : (
-                    `Saldo pendiente: ${formatCurrency(availableForPayment)}`
-                  )
-                }
-                FormHelperTextProps={{
-                  sx: {
-                    color:
-                      !editingPaymentId && isPaymentOverpay
-                        ? 'warning.main'
-                        : 'text.secondary',
-                    fontWeight: !editingPaymentId && isPaymentOverpay ? 600 : 400,
-                  },
-                }}
-              />
+              color={isPaymentOverpay ? 'warning' : 'primary'}
+              InputProps={{
+                startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>,
+              }}
+              inputProps={{
+                style: { textAlign: 'right' },
+              }}
+              helperText={
+                editingPaymentId ? (
+                  <>
+                    <Box component='span' sx={{ display: 'block' }}>
+                      Saldo pendiente antes: {formatCurrency(order.balance)}
+                    </Box>
+                    <Box
+                      component='span'
+                      sx={{
+                        display: 'block',
+                        color: isPaymentOverpay
+                          ? 'warning.main'
+                          : 'success.main',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {isPaymentOverpay
+                        ? `Saldo a favor después: ${formatCurrency(-saldoDespues)}`
+                        : `Saldo pendiente después: ${formatCurrency(saldoDespues)}`}
+                    </Box>
+                  </>
+                ) : isPaymentOverpay ? (
+                  `Quedará un saldo a favor al cliente de ${formatCurrency(paymentEntered - availableForPayment)}`
+                ) : (
+                  `Saldo pendiente: ${formatCurrency(availableForPayment)}`
+                )
+              }
+              FormHelperTextProps={{
+                sx: {
+                  color:
+                    !editingPaymentId && isPaymentOverpay
+                      ? 'warning.main'
+                      : 'text.secondary',
+                  fontWeight: !editingPaymentId && isPaymentOverpay ? 600 : 400,
+                },
+              }}
+            />
 
-              <FormControl fullWidth>
-                <InputLabel>Método de Pago</InputLabel>
-                <Select
-                  value={paymentData.paymentMethod}
-                  onChange={(e) =>
-                    setPaymentData({
-                      ...paymentData,
-                      paymentMethod: e.target.value as import('../../../types/order.types').PaymentMethod,
-                    })
-                  }
-                >
+            <FormControl fullWidth>
+              <InputLabel>Método de Pago</InputLabel>
+              <Select
+                value={paymentData.paymentMethod}
+                onChange={(e) => {
+                  const method = e.target
+                    .value as import('../../../types/order.types').PaymentMethod;
+                  setPaymentData({
+                    ...paymentData,
+                    paymentMethod: method,
+                    // Limpiar banco de origen si deja de ser transferencia
+                    bankEntity:
+                      method === 'TRANSFER'
+                        ? (paymentData.bankEntity ?? null)
+                        : null,
+                  });
+                }}
+              >
                 {(
-                  Object.entries(PAYMENT_METHOD_LABELS) as [PaymentMethod, string][]
+                  Object.entries(PAYMENT_METHOD_LABELS) as [
+                    PaymentMethod,
+                    string,
+                  ][]
                 ).map(([method, label]) => (
                   <MenuItem key={method} value={method}>
                     {label}
@@ -2359,8 +2945,17 @@ export const OrderDetailPage: React.FC = () => {
               </Select>
             </FormControl>
 
+            {paymentData.paymentMethod === 'TRANSFER' && (
+              <BankSelector
+                value={paymentData.bankEntity ?? null}
+                onChange={(val) =>
+                  setPaymentData({ ...paymentData, bankEntity: val })
+                }
+              />
+            )}
+
             <DatePicker
-              label="Fecha de Pago"
+              label='Fecha de Pago'
               value={new Date(paymentData.paymentDate || new Date())}
               onChange={(date) =>
                 setPaymentData({
@@ -2377,7 +2972,7 @@ export const OrderDetailPage: React.FC = () => {
               fullWidth
               multiline
               rows={3}
-              label="Notas"
+              label='Notas'
               value={paymentData.notes || ''}
               onChange={(e) =>
                 setPaymentData({ ...paymentData, notes: e.target.value })
@@ -2388,8 +2983,8 @@ export const OrderDetailPage: React.FC = () => {
               <>
                 <TextField
                   fullWidth
-                  label="Motivo de la edición"
-                  placeholder="Ej: El valor consignado fue $107.000, no $258.000"
+                  label='Motivo de la edición'
+                  placeholder='Ej: El valor consignado fue $107.000, no $258.000'
                   value={editReason}
                   onChange={(e) => setEditReason(e.target.value)}
                 />
@@ -2408,9 +3003,9 @@ export const OrderDetailPage: React.FC = () => {
                   : 'Comprobante de Pago (Opcional)'}
               </FormLabel>
               <input
-                type="file"
+                type='file'
                 hidden
-                accept="image/jpeg,image/png,image/gif,image/webp,.pdf"
+                accept='image/jpeg,image/png,image/gif,image/webp,.pdf'
                 ref={receiptFileInputRef}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -2422,9 +3017,9 @@ export const OrderDetailPage: React.FC = () => {
               {!receiptFile ? (
                 <Stack spacing={1}>
                   <Button
-                    variant="outlined"
+                    variant='outlined'
                     startIcon={<AttachFileIcon />}
-                    size="small"
+                    size='small'
                     onClick={() => receiptFileInputRef.current?.click()}
                     sx={{ textTransform: 'none', alignSelf: 'flex-start' }}
                   >
@@ -2447,8 +3042,14 @@ export const OrderDetailPage: React.FC = () => {
                       },
                     }}
                   >
-                    <ImageIcon sx={{ fontSize: 28, color: 'grey.400', mb: 0.5 }} />
-                    <Typography variant="caption" color="text.secondary" display="block">
+                    <ImageIcon
+                      sx={{ fontSize: 28, color: 'grey.400', mb: 0.5 }}
+                    />
+                    <Typography
+                      variant='caption'
+                      color='text.secondary'
+                      display='block'
+                    >
                       O pega una imagen aquí (Ctrl+V / ⌘+V)
                     </Typography>
                   </Box>
@@ -2469,9 +3070,9 @@ export const OrderDetailPage: React.FC = () => {
                       }}
                     >
                       <Box
-                        component="img"
+                        component='img'
                         src={URL.createObjectURL(receiptFile)}
-                        alt="Vista previa"
+                        alt='Vista previa'
                         sx={{
                           display: 'block',
                           maxWidth: 200,
@@ -2479,31 +3080,40 @@ export const OrderDetailPage: React.FC = () => {
                           objectFit: 'contain',
                         }}
                         onLoad={(e) => {
-                          URL.revokeObjectURL((e.target as HTMLImageElement).src);
+                          URL.revokeObjectURL(
+                            (e.target as HTMLImageElement).src,
+                          );
                         }}
                       />
                     </Box>
                   )}
-                  <Stack direction="row" alignItems="center" spacing={1}>
+                  <Stack direction='row' alignItems='center' spacing={1}>
                     <Chip
-                      icon={receiptFile.type.startsWith('image/') ? <ImageIcon /> : <AttachFileIcon />}
+                      icon={
+                        receiptFile.type.startsWith('image/') ? (
+                          <ImageIcon />
+                        ) : (
+                          <AttachFileIcon />
+                        )
+                      }
                       label={`${receiptFile.name} (${(receiptFile.size / 1024).toFixed(1)} KB)`}
-                      color="primary"
-                      variant="outlined"
-                      size="small"
+                      color='primary'
+                      variant='outlined'
+                      size='small'
                       onDelete={() => {
                         setReceiptFile(null);
-                        if (receiptFileInputRef.current) receiptFileInputRef.current.value = '';
+                        if (receiptFileInputRef.current)
+                          receiptFileInputRef.current.value = '';
                       }}
                       deleteIcon={<CloseIcon />}
                       sx={{ maxWidth: 320 }}
                     />
                     <IconButton
-                      size="small"
+                      size='small'
                       onClick={() => receiptFileInputRef.current?.click()}
-                      title="Cambiar archivo"
+                      title='Cambiar archivo'
                     >
-                      <AttachFileIcon fontSize="small" />
+                      <AttachFileIcon fontSize='small' />
                     </IconButton>
                   </Stack>
                 </Stack>
@@ -2512,16 +3122,13 @@ export const OrderDetailPage: React.FC = () => {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button
-            onClick={resetPaymentDialog}
-            disabled={paymentSubmitting}
-          >
+          <Button onClick={resetPaymentDialog} disabled={paymentSubmitting}>
             Cancelar
           </Button>
           {editingPaymentId ? (
             <Button
               onClick={handleUpdatePayment}
-              variant="contained"
+              variant='contained'
               disabled={
                 paymentSubmitting ||
                 updatePaymentMutation.isPending ||
@@ -2537,9 +3144,11 @@ export const OrderDetailPage: React.FC = () => {
           ) : (
             <Button
               onClick={handleAddPayment}
-              variant="contained"
+              variant='contained'
               disabled={
-                paymentSubmitting || addPaymentMutation.isPending || paymentData.amount <= 0
+                paymentSubmitting ||
+                addPaymentMutation.isPending ||
+                paymentData.amount <= 0
               }
             >
               {paymentSubmitting ? 'Registrando...' : 'Registrar Pago'}
@@ -2551,7 +3160,7 @@ export const OrderDetailPage: React.FC = () => {
       {/* Confirm Delete */}
       <ConfirmDialog
         open={confirmDelete}
-        title="Eliminar Orden"
+        title='Eliminar Orden'
         message={`¿Está seguro que desea eliminar la orden ${order.orderNumber}? Esta acción no se puede deshacer.`}
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(false)}
@@ -2561,11 +3170,13 @@ export const OrderDetailPage: React.FC = () => {
       {/* Confirmar eliminación de comprobante de pago */}
       <ConfirmDialog
         open={!!receiptToDelete}
-        title="Eliminar comprobante"
-        message="¿Estás seguro que deseas eliminar este comprobante? Esta acción eliminará el comprobante de forma permanente y no podrás recuperarlo."
-        confirmText="Eliminar"
-        severity="error"
-        onConfirm={() => receiptToDelete && handleDeleteReceipt(receiptToDelete)}
+        title='Eliminar comprobante'
+        message='¿Estás seguro que deseas eliminar este comprobante? Esta acción eliminará el comprobante de forma permanente y no podrás recuperarlo.'
+        confirmText='Eliminar'
+        severity='error'
+        onConfirm={() =>
+          receiptToDelete && handleDeleteReceipt(receiptToDelete)
+        }
         onCancel={() => setReceiptToDelete(null)}
         isLoading={!!deletingReceipt}
       />
@@ -2591,7 +3202,7 @@ export const OrderDetailPage: React.FC = () => {
       <Dialog
         open={viewReceiptDialog.open}
         onClose={handleCloseViewReceipt}
-        maxWidth="md"
+        maxWidth='md'
         fullWidth
       >
         <DialogTitle>
@@ -2622,9 +3233,9 @@ export const OrderDetailPage: React.FC = () => {
           >
             {viewReceiptDialog.mimeType.startsWith('image/') ? (
               <Box
-                component="img"
+                component='img'
                 src={viewReceiptDialog.url}
-                alt="Comprobante de pago"
+                alt='Comprobante de pago'
                 sx={{
                   maxWidth: '100%',
                   maxHeight: '70vh',
@@ -2634,7 +3245,7 @@ export const OrderDetailPage: React.FC = () => {
             ) : viewReceiptDialog.mimeType === 'application/pdf' ? (
               <iframe
                 src={viewReceiptDialog.url}
-                title="Comprobante de pago PDF"
+                title='Comprobante de pago PDF'
                 style={{
                   width: '100%',
                   height: '70vh',
@@ -2642,7 +3253,7 @@ export const OrderDetailPage: React.FC = () => {
                 }}
               />
             ) : (
-              <Typography color="text.secondary">
+              <Typography color='text.secondary'>
                 No se puede visualizar este tipo de archivo
               </Typography>
             )}
@@ -2657,23 +3268,28 @@ export const OrderDetailPage: React.FC = () => {
       <Dialog
         open={invoiceDialogOpen}
         onClose={handleCloseInvoiceDialog}
-        maxWidth="sm"
+        maxWidth='sm'
         fullWidth
       >
         <DialogTitle>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <ReceiptIcon color="info" />
-            <span>{order.electronicInvoiceNumber ? 'Actualizar Factura Electrónica' : 'Registrar Factura Electrónica'}</span>
+          <Stack direction='row' spacing={1} alignItems='center'>
+            <ReceiptIcon color='info' />
+            <span>
+              {order.electronicInvoiceNumber
+                ? 'Actualizar Factura Electrónica'
+                : 'Registrar Factura Electrónica'}
+            </span>
           </Stack>
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              Ingrese el número de factura electrónica asociado a esta orden. Este número es alfanumérico y tiene un máximo de 30 caracteres.
+            <Typography variant='body2' color='text.secondary'>
+              Ingrese el número de factura electrónica asociado a esta orden.
+              Este número es alfanumérico y tiene un máximo de 30 caracteres.
             </Typography>
             <TextField
               fullWidth
-              label="Número de Factura Electrónica"
+              label='Número de Factura Electrónica'
               value={invoiceNumber}
               onChange={(e) => {
                 const val = e.target.value.replace(/[^a-zA-Z0-9\-_./]/g, '');
@@ -2683,10 +3299,10 @@ export const OrderDetailPage: React.FC = () => {
               helperText={`${invoiceNumber.length}/30 caracteres. Solo se permiten letras, números y los símbolos - _ . /`}
               disabled={invoiceLoading}
               autoFocus
-              placeholder="Ej: FE-2026-00123"
+              placeholder='Ej: FE-2026-00123'
             />
             {order.electronicInvoiceNumber && (
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant='caption' color='text.secondary'>
                 Número actual: <strong>{order.electronicInvoiceNumber}</strong>
               </Typography>
             )}
@@ -2698,8 +3314,8 @@ export const OrderDetailPage: React.FC = () => {
           </Button>
           <Button
             onClick={handleRegisterInvoice}
-            variant="contained"
-            color="info"
+            variant='contained'
+            color='info'
             disabled={invoiceLoading || !invoiceNumber.trim()}
             startIcon={<ReceiptIcon />}
           >
@@ -2711,22 +3327,36 @@ export const OrderDetailPage: React.FC = () => {
       <Dialog
         open={viewSampleImageDialog.open}
         onClose={() => setViewSampleImageDialog({ open: false, url: '' })}
-        maxWidth="md"
+        maxWidth='md'
         fullWidth
       >
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
           Imagen de Muestra
-          <IconButton onClick={() => setViewSampleImageDialog({ open: false, url: '' })} sx={{ position: 'absolute', right: 8, top: 8 }}>
+          <IconButton
+            onClick={() => setViewSampleImageDialog({ open: false, url: '' })}
+            sx={{ position: 'absolute', right: 8, top: 8 }}
+          >
             <CloseIcon />
           </IconButton>
         </DialogTitle>
         <DialogContent>
           {viewSampleImageDialog.url && (
             <Box
-              component="img"
+              component='img'
               src={viewSampleImageDialog.url}
-              alt="Imagen de muestra"
-              sx={{ width: '100%', height: 'auto', maxHeight: '70vh', objectFit: 'contain' }}
+              alt='Imagen de muestra'
+              sx={{
+                width: '100%',
+                height: 'auto',
+                maxHeight: '70vh',
+                objectFit: 'contain',
+              }}
             />
           )}
         </DialogContent>

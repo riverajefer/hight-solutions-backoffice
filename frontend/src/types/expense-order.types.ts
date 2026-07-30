@@ -77,6 +77,7 @@ export interface ExpenseOrderItem {
   unitPrice: string;
   total: string;
   paymentMethod: PaymentMethod;
+  bankEntity?: string | null;
   receiptFileId?: string | null;
   referenceFileId?: string | null;
   sortOrder: number;
@@ -96,6 +97,7 @@ export interface ExpenseOrder {
   areaOrMachine?: string | null;
   applyIva: boolean;
   ivaRate: string;
+  electronicInvoiceNumber?: string | null;
   createdAt: string;
   updatedAt: string;
   expenseType: {
@@ -205,6 +207,7 @@ export interface CreateExpenseItemDto {
   supplierId?: string;
   unitPrice: number;
   paymentMethod: PaymentMethod;
+  bankEntity?: string | null;
   productionAreaIds?: string[];
   receiptFileId?: string;
   referenceFileId?: string;
@@ -231,6 +234,7 @@ export interface UpdateExpenseItemDto {
   supplierId?: string;
   unitPrice?: number;
   paymentMethod?: PaymentMethod;
+  bankEntity?: string | null;
   productionAreaIds?: string[];
   receiptFileId?: string;
   referenceFileId?: string;

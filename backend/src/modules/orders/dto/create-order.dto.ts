@@ -49,6 +49,14 @@ export class InitialPaymentDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({
+    description: 'Entidad bancaria de origen (solo aplica a transferencias)',
+    example: 'Bancolombia',
+  })
+  @IsOptional()
+  @IsString()
+  bankEntity?: string;
 }
 
 export class CreateOrderItemDto {

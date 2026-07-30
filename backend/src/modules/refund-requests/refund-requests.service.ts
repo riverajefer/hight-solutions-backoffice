@@ -177,6 +177,7 @@ export class RefundRequestsService
         orderId: dto.orderId,
         refundAmount,
         paymentMethod: dto.paymentMethod,
+        bankEntity: dto.bankEntity,
         observation: dto.observation,
         status: EditRequestStatus.PENDING,
         requestedById: userId,

@@ -86,6 +86,7 @@ export class DtfService {
       value,
       abono: dto.abono != null ? new Prisma.Decimal(dto.abono) : undefined,
       abonoPaymentMethod: dto.abonoPaymentMethod ?? null,
+      abonoBankEntity: dto.abonoBankEntity ?? null,
       abonoNotes: dto.abonoNotes ?? null,
       createdById: userId,
       notes: dto.notes,
@@ -124,6 +125,7 @@ export class DtfService {
     if (dto.notes !== undefined) updates.notes = dto.notes;
     if (dto.abono !== undefined) updates.abono = new Prisma.Decimal(dto.abono);
     if (dto.abonoPaymentMethod !== undefined) updates.abonoPaymentMethod = dto.abonoPaymentMethod ?? null;
+    if (dto.abonoBankEntity !== undefined) updates.abonoBankEntity = dto.abonoBankEntity ?? null;
     if (dto.abonoNotes !== undefined) updates.abonoNotes = dto.abonoNotes ?? null;
 
     if (dto.unitPrice !== undefined) {
@@ -240,6 +242,7 @@ export class DtfService {
           orderId: order.id,
           amount: abonoDecimal,
           paymentMethod: record.abonoPaymentMethod ?? PaymentMethod.TRANSFER,
+          bankEntity: record.abonoBankEntity ?? null,
           reference: record.consecutive,
           notes: record.abonoNotes?.trim()
             ? record.abonoNotes

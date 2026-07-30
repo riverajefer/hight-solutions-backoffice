@@ -9,3 +9,4 @@ export { DocumentTypeBadge } from './DocumentTypeBadge';
 export { DocumentTypeBanner } from './DocumentTypeBanner';
 export { ApprovalQueueBar } from './ApprovalQueueBar';
 export { QueueReviewActions } from './QueueReviewActions';
+export { BankSelector } from './BankSelector';

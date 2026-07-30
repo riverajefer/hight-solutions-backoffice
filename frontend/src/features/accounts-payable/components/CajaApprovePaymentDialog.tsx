@@ -81,6 +81,9 @@ export const CajaApprovePaymentDialog: React.FC<Props> = ({
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
             <InfoItem label="Monto" value={formatCurrency(request.amount)} />
             <InfoItem label="Método de pago" value={methodLabel} />
+            {request.paymentMethod === 'TRANSFER' && request.bankEntity && (
+              <InfoItem label="Banco de origen" value={request.bankEntity} />
+            )}
             <InfoItem label="Fecha de pago" value={formatDate(request.paymentDate)} />
             {request.reference && (
               <InfoItem label="Referencia / Comprobante" value={request.reference} />

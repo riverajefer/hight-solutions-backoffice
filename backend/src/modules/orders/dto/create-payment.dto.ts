@@ -55,6 +55,14 @@ export class CreatePaymentDto {
   notes?: string;
 
   @ApiPropertyOptional({
+    description: 'Entidad bancaria de origen (solo aplica a transferencias)',
+    example: 'Bancolombia',
+  })
+  @IsOptional()
+  @IsString()
+  bankEntity?: string;
+
+  @ApiPropertyOptional({
     description: 'ID del archivo de comprobante de pago',
     example: 'uuid-del-archivo',
   })

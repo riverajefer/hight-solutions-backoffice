@@ -82,6 +82,7 @@ const initialPaymentSchema = z
     paymentMethod: z.enum(['CASH', 'TRANSFER', 'CARD', 'CREDIT', 'CREDIT_BALANCE']),
     reference: z.string().optional(),
     notes: z.string().optional(),
+    bankEntity: z.string().nullable().optional(),
     receiptFile: z.any().optional(),
     receiptFileUrl: z.any().optional(),
     existingReceiptFileId: z.string().nullable().optional(),
@@ -394,6 +395,7 @@ export const OrderFormPage: React.FC = () => {
           paymentMethod: 'CASH',
           reference: '',
           notes: '',
+          bankEntity: null,
         },
       ],
       commercialChannelId: '',
@@ -569,6 +571,7 @@ export const OrderFormPage: React.FC = () => {
         paymentMethod: firstPayment?.paymentMethod || 'CASH',
         reference: firstPayment?.reference || '',
         notes: firstPayment?.notes || '',
+        bankEntity: firstPayment?.bankEntity || null,
         existingReceiptFileId: firstPayment?.receiptFileId || null,
       }]);
       setValue('commercialChannelId', order.commercialChannelId || '');
@@ -634,6 +637,7 @@ export const OrderFormPage: React.FC = () => {
         paymentMethod: p.paymentMethod,
         reference: p.reference,
         notes: p.notes,
+        bankEntity: p.paymentMethod === 'TRANSFER' ? p.bankEntity ?? null : null,
       })) as any[] : undefined;
 
       if (!isEdit && creditBalUsed > 0) {
@@ -682,6 +686,7 @@ export const OrderFormPage: React.FC = () => {
           paymentMethod: data.payments[0].paymentMethod,
           reference: data.payments[0].reference,
           notes: data.payments[0].notes,
+          bankEntity: data.payments[0].paymentMethod === 'TRANSFER' ? data.payments[0].bankEntity ?? null : null,
         } : undefined,
         initialPayments: initialPaymentsPayload,
         commercialChannelId: data.commercialChannelId,

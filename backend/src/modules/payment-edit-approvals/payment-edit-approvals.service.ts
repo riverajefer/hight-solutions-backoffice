@@ -44,6 +44,7 @@ export interface PaymentEditPayload {
   paymentDate?: string;
   reference?: string;
   notes?: string;
+  bankEntity?: string;
   reason?: string;
   /** Comprobante actual del pago (para revertir/limpiar al aplicar). */
   oldReceiptFileId?: string | null;
@@ -179,6 +180,7 @@ export class PaymentEditApprovalsService
           paymentDate: true,
           reference: true,
           notes: true,
+          bankEntity: true,
         },
       }),
     ]);
@@ -217,6 +219,7 @@ export class PaymentEditApprovalsService
         oldPaymentDate: payment.paymentDate,
         oldReference: payment.reference,
         oldNotes: payment.notes,
+        oldBankEntity: payment.bankEntity,
         oldReceiptFileId: payload.oldReceiptFileId ?? null,
         // Payload pendiente
         newAmount:
@@ -229,6 +232,7 @@ export class PaymentEditApprovalsService
           : null,
         newReference: payload.reference ?? null,
         newNotes: payload.notes ?? null,
+        newBankEntity: payload.bankEntity ?? null,
         newReceiptFileId: payload.newReceiptFileId ?? null,
         status: EditRequestStatus.PENDING,
       },
@@ -392,6 +396,8 @@ export class PaymentEditApprovalsService
       if (request.newReference !== null)
         paymentData.reference = request.newReference;
       if (request.newNotes !== null) paymentData.notes = request.newNotes;
+      if (request.newBankEntity !== null)
+        paymentData.bankEntity = request.newBankEntity;
       // Comprobante propuesto: enlazar el nuevo archivo al pago
       if (request.newReceiptFileId !== null)
         paymentData.receiptFileId = request.newReceiptFileId;

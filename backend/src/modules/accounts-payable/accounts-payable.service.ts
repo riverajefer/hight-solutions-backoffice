@@ -174,7 +174,7 @@ export class AccountsPayableService {
 
   async registerPaymentFromAuthRequest(
     id: string,
-    dto: Pick<RegisterPaymentDto, 'amount' | 'paymentMethod' | 'paymentDate' | 'reference' | 'notes' | 'receiptFileId'>,
+    dto: Pick<RegisterPaymentDto, 'amount' | 'paymentMethod' | 'paymentDate' | 'reference' | 'notes' | 'bankEntity' | 'receiptFileId'>,
     registeredById: string,
     paymentAuthRequestId: string,
   ) {
@@ -216,7 +216,7 @@ export class AccountsPayableService {
     apNumber: string,
     paidAmount: unknown,
     totalAmount: unknown,
-    dto: Pick<RegisterPaymentDto, 'amount' | 'paymentMethod' | 'paymentDate' | 'reference' | 'notes' | 'receiptFileId'> & { cashSessionId?: string },
+    dto: Pick<RegisterPaymentDto, 'amount' | 'paymentMethod' | 'paymentDate' | 'reference' | 'notes' | 'bankEntity' | 'receiptFileId'> & { cashSessionId?: string },
     registeredById: string,
     cashSessionId?: string,
     paymentAuthRequestId?: string,
@@ -261,6 +261,7 @@ export class AccountsPayableService {
       paymentDate: new Date(dto.paymentDate),
       reference: dto.reference,
       notes: dto.notes,
+      bankEntity: dto.bankEntity,
       receiptFileId: dto.receiptFileId,
       accountPayable: { connect: { id } },
       registeredBy: { connect: { id: registeredById } },

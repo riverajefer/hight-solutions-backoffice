@@ -10,6 +10,7 @@ const selectFields = {
   value: true,
   abono: true,
   abonoPaymentMethod: true,
+  abonoBankEntity: true,
   abonoNotes: true,
   status: true,
   notes: true,
@@ -101,6 +102,7 @@ export class DtfRepository {
     value: Prisma.Decimal;
     abono?: Prisma.Decimal;
     abonoPaymentMethod?: PaymentMethod | null;
+    abonoBankEntity?: string | null;
     abonoNotes?: string | null;
     createdById: string;
     notes?: string;
@@ -118,6 +120,7 @@ export class DtfRepository {
     value?: Prisma.Decimal;
     abono?: Prisma.Decimal;
     abonoPaymentMethod?: PaymentMethod | null;
+    abonoBankEntity?: string | null;
     abonoNotes?: string | null;
     notes?: string;
   }) {

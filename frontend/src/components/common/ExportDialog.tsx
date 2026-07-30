@@ -17,7 +17,11 @@ import {
 import { FileDownload as FileDownloadIcon } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { useSnackbar } from 'notistack';
-import { exportToExcel, type ExportColumn } from '../../utils/excelExport';
+import {
+  exportToExcel,
+  type ExportColumn,
+  type DetailSheet,
+} from '../../utils/excelExport';
 
 /** Rango de fechas ya normalizado a inicio y fin de día. */
 export interface DateRange {
@@ -25,7 +29,21 @@ export interface DateRange {
   to: Date;
 }
 
-export interface ExportDialogProps<T> {
+/**
+ * Hoja de detalle opcional (relación uno-a-muchos). Si se define, el modal
+ * muestra un checkbox para incluir una segunda hoja con una fila por hijo
+ * (ej. una fila por ítem de gasto). Las columnas del detalle son fijas.
+ */
+export interface ExportDetailSheetConfig<T, C> extends DetailSheet<T, C> {
+  /** Etiqueta del checkbox, ej. "Incluir detalle de ítems". */
+  toggleLabel: string;
+  /** Clave de localStorage para recordar si se incluye el detalle. */
+  storageKey: string;
+  /** Si el checkbox arranca marcado la primera vez (por defecto: false). */
+  defaultChecked?: boolean;
+}
+
+export interface ExportDialogProps<T, C = unknown> {
   open: boolean;
   onClose: () => void;
   /** Título del modal, ej. "Exportar Órdenes a Excel". */
@@ -52,6 +70,8 @@ export interface ExportDialogProps<T> {
    * filtro adicional. Las fechas llegan normalizadas a inicio/fin de día.
    */
   fetchRows: (range: DateRange) => Promise<T[]>;
+  /** Hoja de detalle opcional (relación uno-a-muchos). */
+  detailSheet?: ExportDetailSheetConfig<T, C>;
 }
 
 const toDateStart = (d: Date): Date => {
@@ -88,7 +108,20 @@ const loadSavedColumns = <T,>(
   return new Set(columns.filter((c) => c.defaultVisible).map((c) => c.key));
 };
 
-export function ExportDialog<T>({
+const loadDetailIncluded = (
+  storageKey: string,
+  defaultChecked: boolean,
+): boolean => {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (raw !== null) return raw === 'true';
+  } catch {
+    // ignorar acceso inválido
+  }
+  return defaultChecked;
+};
+
+export function ExportDialog<T, C = unknown>({
   open,
   onClose,
   title,
@@ -102,7 +135,8 @@ export function ExportDialog<T>({
   defaultDateFrom,
   defaultDateTo,
   fetchRows,
-}: ExportDialogProps<T>): React.ReactElement {
+  detailSheet,
+}: ExportDialogProps<T, C>): React.ReactElement {
   const { enqueueSnackbar } = useSnackbar();
 
   const [dateFrom, setDateFrom] = useState<Date | null>(
@@ -111,6 +145,11 @@ export function ExportDialog<T>({
   const [dateTo, setDateTo] = useState<Date | null>(defaultDateTo ?? new Date());
   const [selectedColumns, setSelectedColumns] = useState<Set<string>>(() =>
     loadSavedColumns(storageKey, columns),
+  );
+  const [includeDetail, setIncludeDetail] = useState<boolean>(() =>
+    detailSheet
+      ? loadDetailIncluded(detailSheet.storageKey, detailSheet.defaultChecked ?? false)
+      : false,
   );
   const [isExporting, setIsExporting] = useState(false);
 
@@ -152,6 +191,10 @@ export function ExportDialog<T>({
         storageKey,
         JSON.stringify(Array.from(selectedColumns)),
       );
+      // Persistir preferencia de incluir hoja de detalle
+      if (detailSheet) {
+        localStorage.setItem(detailSheet.storageKey, String(includeDetail));
+      }
 
       const rows = await fetchRows({
         from: toDateStart(dateFrom),
@@ -169,7 +212,13 @@ export function ExportDialog<T>({
       const fmt = (d: Date) => d.toISOString().slice(0, 10);
       const fileName = `${fileNamePrefix}_${fmt(dateFrom)}_${fmt(dateTo)}.xlsx`;
 
-      exportToExcel(rows, selected, fileName, sheetName);
+      exportToExcel(
+        rows,
+        selected,
+        fileName,
+        sheetName,
+        detailSheet && includeDetail ? detailSheet : undefined,
+      );
       enqueueSnackbar(`Se exportaron ${rows.length} ${entityLabel}`, {
         variant: 'success',
       });
@@ -258,6 +307,33 @@ export function ExportDialog<T>({
                   Columnas adicionales
                 </Typography>
                 {renderColumnGroup(extraCols)}
+              </Box>
+            </>
+          )}
+
+          {detailSheet && (
+            <>
+              <Divider />
+              <Box>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      size='small'
+                      checked={includeDetail}
+                      onChange={(e) => setIncludeDetail(e.target.checked)}
+                    />
+                  }
+                  label={detailSheet.toggleLabel}
+                />
+                <Typography
+                  variant='caption'
+                  color='text.secondary'
+                  display='block'
+                  sx={{ ml: 4 }}
+                >
+                  Agrega la hoja «{detailSheet.sheetName}» con:{' '}
+                  {detailSheet.columns.map((c) => c.label).join(', ')}.
+                </Typography>
               </Box>
             </>
           )}

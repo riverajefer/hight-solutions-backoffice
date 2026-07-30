@@ -81,6 +81,17 @@ export const expenseOrdersApi = {
     return response.data;
   },
 
+  registerElectronicInvoice: async (
+    id: string,
+    electronicInvoiceNumber: string,
+  ): Promise<ExpenseOrder> => {
+    const response = await axiosInstance.patch<ExpenseOrder>(
+      `/expense-orders/${id}/electronic-invoice`,
+      { electronicInvoiceNumber },
+    );
+    return response.data;
+  },
+
   delete: async (id: string): Promise<void> => {
     await axiosInstance.delete(`/expense-orders/${id}`);
   },
