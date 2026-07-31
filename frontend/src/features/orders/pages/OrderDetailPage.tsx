@@ -1565,6 +1565,24 @@ export const OrderDetailPage: React.FC = () => {
                             variant='body2'
                             fontWeight={700}
                           />
+                          {(() => {
+                            const docLabel =
+                              order.client.personType === 'EMPRESA'
+                                ? 'NIT'
+                                : 'C.C.';
+                            const docValue =
+                              order.client.personType === 'EMPRESA'
+                                ? order.client.nit
+                                : order.client.cedula;
+                            if (!docValue) return null;
+                            return (
+                              <TruncatedText
+                                text={`${docLabel}: ${docValue}`}
+                                variant='caption'
+                                color='textSecondary'
+                              />
+                            );
+                          })()}
                           {order.client.email && (
                             <TruncatedText
                               text={order.client.email}
