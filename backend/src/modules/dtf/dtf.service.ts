@@ -88,6 +88,7 @@ export class DtfService {
       abonoPaymentMethod: dto.abonoPaymentMethod ?? null,
       abonoBankEntity: dto.abonoBankEntity ?? null,
       abonoNotes: dto.abonoNotes ?? null,
+      applyIva: dto.applyIva ?? false,
       createdById: userId,
       notes: dto.notes,
     });
@@ -127,6 +128,7 @@ export class DtfService {
     if (dto.abonoPaymentMethod !== undefined) updates.abonoPaymentMethod = dto.abonoPaymentMethod ?? null;
     if (dto.abonoBankEntity !== undefined) updates.abonoBankEntity = dto.abonoBankEntity ?? null;
     if (dto.abonoNotes !== undefined) updates.abonoNotes = dto.abonoNotes ?? null;
+    if (dto.applyIva !== undefined) updates.applyIva = dto.applyIva;
 
     if (dto.unitPrice !== undefined) {
       updates.unitPrice = new Prisma.Decimal(dto.unitPrice);
@@ -212,7 +214,8 @@ export class DtfService {
             ...(productionArea && { productionAreaIds: [productionArea.id] }),
           },
         ],
-        taxRate: 0,
+        // Traslada el IVA de la DTF a la OP (19% si aplica, 0 si no)
+        taxRate: record.applyIva ? 0.19 : 0,
       },
       userId,
     );

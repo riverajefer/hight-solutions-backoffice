@@ -374,6 +374,17 @@ export const DtfDetailPage = () => {
                   }
                 />
                 <Row
+                  label="IVA"
+                  value={
+                    <Typography
+                      variant="body2"
+                      color={record.applyIva ? 'text.primary' : 'text.disabled'}
+                    >
+                      {record.applyIva ? 'Aplica (19%) — se traslada a la OP' : 'No aplica'}
+                    </Typography>
+                  }
+                />
+                <Row
                   label="Abono"
                   value={
                     <Typography

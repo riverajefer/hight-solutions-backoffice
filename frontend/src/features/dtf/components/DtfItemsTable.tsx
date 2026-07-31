@@ -23,6 +23,8 @@ import {
   Grid,
   Divider,
   Alert,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
@@ -98,6 +100,7 @@ const emptyItem = (): DtfFormItem => ({
   abonoPaymentMethod: '',
   abonoBankEntity: '',
   abonoNotes: '',
+  applyIva: false,
   imageFile: null,
   imagePreviewUrl: null,
   comprobanteFile: null,
@@ -419,6 +422,9 @@ export const DtfItemsTable = ({
               Abono {formatCurrency(item.abono)}
             </Typography>
           )}
+          {item.applyIva && (
+            <Chip label="IVA 19%" size="small" variant="outlined" sx={{ fontSize: '0.65rem', height: 20 }} />
+          )}
           <Box sx={{ flexGrow: 1 }} />
           <Tooltip title="Vista rápida">
             <IconButton size="small" color="info" onClick={() => setPreviewId(item.id!)}>
@@ -629,6 +635,27 @@ export const DtfItemsTable = ({
             </Box>
           </Grid>
         </Grid>
+
+        {/* IVA (opcional) — se traslada a la OP al convertir */}
+        <FormControlLabel
+          sx={{ mt: 1 }}
+          control={
+            <Checkbox
+              size="small"
+              checked={item.applyIva}
+              onChange={(e) => updateItem(item._localId, { applyIva: e.target.checked })}
+              disabled={disabled || saving}
+            />
+          }
+          label={
+            <Typography variant="body2">
+              Aplicar IVA (19%){' '}
+              <Typography component="span" variant="caption" color="text.secondary">
+                — se traslada a la OP
+              </Typography>
+            </Typography>
+          }
+        />
 
         <Divider sx={{ my: 1.5 }} />
 

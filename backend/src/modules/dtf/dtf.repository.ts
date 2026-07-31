@@ -12,6 +12,7 @@ const selectFields = {
   abonoPaymentMethod: true,
   abonoBankEntity: true,
   abonoNotes: true,
+  applyIva: true,
   status: true,
   notes: true,
   createdAt: true,
@@ -104,6 +105,7 @@ export class DtfRepository {
     abonoPaymentMethod?: PaymentMethod | null;
     abonoBankEntity?: string | null;
     abonoNotes?: string | null;
+    applyIva?: boolean;
     createdById: string;
     notes?: string;
   }) {
@@ -122,6 +124,7 @@ export class DtfRepository {
     abonoPaymentMethod?: PaymentMethod | null;
     abonoBankEntity?: string | null;
     abonoNotes?: string | null;
+    applyIva?: boolean;
     notes?: string;
   }) {
     return this.prisma.dtfRecord.update({
