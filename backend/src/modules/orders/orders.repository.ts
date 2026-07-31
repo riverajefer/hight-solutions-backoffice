@@ -79,6 +79,9 @@ export class OrdersRepository {
         name: true,
         email: true,
         phone: true,
+        personType: true,
+        nit: true,
+        cedula: true,
         advisors: {
           select: {
             advisor: {

@@ -111,6 +111,9 @@ export interface Order {
     name: string;
     email: string | null;
     phone: string | null;
+    personType?: 'NATURAL' | 'EMPRESA' | null;
+    nit?: string | null;
+    cedula?: string | null;
     advisorId?: string | null;
     advisor?: {
       id: string;
