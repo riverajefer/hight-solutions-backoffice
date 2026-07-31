@@ -22,6 +22,8 @@ export enum ContactOutcome {
   SOLICITO_COTIZACION = 'SOLICITO_COTIZACION',
   NO_INTERESADO = 'NO_INTERESADO',
   REPROGRAMAR = 'REPROGRAMAR',
+  REUNION_FISICA = 'REUNION_FISICA',
+  REUNION_VIRTUAL = 'REUNION_VIRTUAL',
 }
 
 export const PROSPECT_STATUS_LABELS: Record<ProspectStatus, string> = {
@@ -61,6 +63,8 @@ export const CONTACT_OUTCOME_LABELS: Record<ContactOutcome, string> = {
   [ContactOutcome.SOLICITO_COTIZACION]: 'Solicitó cotización',
   [ContactOutcome.NO_INTERESADO]: 'No interesado',
   [ContactOutcome.REPROGRAMAR]: 'Reprogramar',
+  [ContactOutcome.REUNION_FISICA]: 'Reunión Física',
+  [ContactOutcome.REUNION_VIRTUAL]: 'Reunión Virtual',
 };
 
 /**

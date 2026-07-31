@@ -43,7 +43,7 @@ export interface ExportDetailSheetConfig<T, C> extends DetailSheet<T, C> {
   defaultChecked?: boolean;
 }
 
-export interface ExportDialogProps<T, C = unknown> {
+export interface ExportDialogProps<T> {
   open: boolean;
   onClose: () => void;
   /** Título del modal, ej. "Exportar Órdenes a Excel". */
@@ -70,8 +70,11 @@ export interface ExportDialogProps<T, C = unknown> {
    * filtro adicional. Las fechas llegan normalizadas a inicio/fin de día.
    */
   fetchRows: (range: DateRange) => Promise<T[]>;
-  /** Hoja de detalle opcional (relación uno-a-muchos). */
-  detailSheet?: ExportDetailSheetConfig<T, C>;
+  /**
+   * Hojas de detalle opcionales (relaciones uno-a-muchos). Cada una se muestra
+   * con su propio checkbox y, si se marca, se agrega como una hoja aparte.
+   */
+  detailSheets?: ExportDetailSheetConfig<T, any>[];
 }
 
 const toDateStart = (d: Date): Date => {
@@ -121,7 +124,7 @@ const loadDetailIncluded = (
   return defaultChecked;
 };
 
-export function ExportDialog<T, C = unknown>({
+export function ExportDialog<T>({
   open,
   onClose,
   title,
@@ -135,8 +138,8 @@ export function ExportDialog<T, C = unknown>({
   defaultDateFrom,
   defaultDateTo,
   fetchRows,
-  detailSheet,
-}: ExportDialogProps<T, C>): React.ReactElement {
+  detailSheets,
+}: ExportDialogProps<T>): React.ReactElement {
   const { enqueueSnackbar } = useSnackbar();
 
   const [dateFrom, setDateFrom] = useState<Date | null>(
@@ -146,11 +149,18 @@ export function ExportDialog<T, C = unknown>({
   const [selectedColumns, setSelectedColumns] = useState<Set<string>>(() =>
     loadSavedColumns(storageKey, columns),
   );
-  const [includeDetail, setIncludeDetail] = useState<boolean>(() =>
-    detailSheet
-      ? loadDetailIncluded(detailSheet.storageKey, detailSheet.defaultChecked ?? false)
-      : false,
-  );
+  const [includedDetails, setIncludedDetails] = useState<
+    Record<string, boolean>
+  >(() => {
+    const initial: Record<string, boolean> = {};
+    (detailSheets ?? []).forEach((d) => {
+      initial[d.storageKey] = loadDetailIncluded(
+        d.storageKey,
+        d.defaultChecked ?? false,
+      );
+    });
+    return initial;
+  });
   const [isExporting, setIsExporting] = useState(false);
 
   const toggleColumn = (key: string) => {
@@ -160,6 +170,13 @@ export function ExportDialog<T, C = unknown>({
       else next.add(key);
       return next;
     });
+  };
+
+  const toggleDetail = (storageKey: string) => {
+    setIncludedDetails((prev) => ({
+      ...prev,
+      [storageKey]: !prev[storageKey],
+    }));
   };
 
   const handleExport = async () => {
@@ -191,10 +208,13 @@ export function ExportDialog<T, C = unknown>({
         storageKey,
         JSON.stringify(Array.from(selectedColumns)),
       );
-      // Persistir preferencia de incluir hoja de detalle
-      if (detailSheet) {
-        localStorage.setItem(detailSheet.storageKey, String(includeDetail));
-      }
+      // Persistir preferencia de incluir cada hoja de detalle
+      (detailSheets ?? []).forEach((d) => {
+        localStorage.setItem(
+          d.storageKey,
+          String(includedDetails[d.storageKey] ?? false),
+        );
+      });
 
       const rows = await fetchRows({
         from: toDateStart(dateFrom),
@@ -212,13 +232,10 @@ export function ExportDialog<T, C = unknown>({
       const fmt = (d: Date) => d.toISOString().slice(0, 10);
       const fileName = `${fileNamePrefix}_${fmt(dateFrom)}_${fmt(dateTo)}.xlsx`;
 
-      exportToExcel(
-        rows,
-        selected,
-        fileName,
-        sheetName,
-        detailSheet && includeDetail ? detailSheet : undefined,
+      const activeDetails = (detailSheets ?? []).filter(
+        (d) => includedDetails[d.storageKey],
       );
+      exportToExcel(rows, selected, fileName, sheetName, activeDetails);
       enqueueSnackbar(`Se exportaron ${rows.length} ${entityLabel}`, {
         variant: 'success',
       });
@@ -311,29 +328,38 @@ export function ExportDialog<T, C = unknown>({
             </>
           )}
 
-          {detailSheet && (
+          {detailSheets && detailSheets.length > 0 && (
             <>
               <Divider />
               <Box>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      size='small'
-                      checked={includeDetail}
-                      onChange={(e) => setIncludeDetail(e.target.checked)}
-                    />
-                  }
-                  label={detailSheet.toggleLabel}
-                />
-                <Typography
-                  variant='caption'
-                  color='text.secondary'
-                  display='block'
-                  sx={{ ml: 4 }}
-                >
-                  Agrega la hoja «{detailSheet.sheetName}» con:{' '}
-                  {detailSheet.columns.map((c) => c.label).join(', ')}.
+                <Typography variant='subtitle2' gutterBottom>
+                  Hojas adicionales
                 </Typography>
+                <Stack spacing={1}>
+                  {detailSheets.map((d) => (
+                    <Box key={d.storageKey}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            size='small'
+                            checked={!!includedDetails[d.storageKey]}
+                            onChange={() => toggleDetail(d.storageKey)}
+                          />
+                        }
+                        label={d.toggleLabel}
+                      />
+                      <Typography
+                        variant='caption'
+                        color='text.secondary'
+                        display='block'
+                        sx={{ ml: 4 }}
+                      >
+                        Agrega la hoja «{d.sheetName}» con:{' '}
+                        {d.columns.map((c) => c.label).join(', ')}.
+                      </Typography>
+                    </Box>
+                  ))}
+                </Stack>
               </Box>
             </>
           )}

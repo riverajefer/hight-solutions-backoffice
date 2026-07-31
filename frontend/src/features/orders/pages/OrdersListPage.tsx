@@ -32,6 +32,11 @@ import { OrderStatusChip, ChangeStatusDialog } from '../components';
 import { ExportDialog } from '../../../components/common/ExportDialog';
 import { EXPORT_LIMIT } from '../../../utils/excelExport';
 import { ORDER_EXPORT_COLUMNS } from '../utils/orderExportColumns';
+import {
+  ORDER_ITEM_EXPORT_COLUMNS,
+  explodeOrderItems,
+} from '../utils/orderItemExportColumns';
+import { ORDER_FLAT_EXPORT_COLUMNS } from '../utils/orderFlatExportColumns';
 import { ordersApi } from '../../../api/orders.api';
 import {
   formatCurrency,
@@ -747,6 +752,25 @@ export const OrdersListPage: React.FC = () => {
             });
             return response.data ?? [];
           }}
+          detailSheets={[
+            {
+              toggleLabel: 'Incluir detalle de productos (hoja «Items»)',
+              sheetName: 'Items',
+              columns: ORDER_ITEM_EXPORT_COLUMNS,
+              explode: explodeOrderItems,
+              storageKey: 'orders_export_include_items',
+              defaultChecked: true,
+            },
+            {
+              toggleLabel:
+                'Incluir hoja aplanada (orden + producto por fila)',
+              sheetName: 'Aplanado',
+              columns: ORDER_FLAT_EXPORT_COLUMNS,
+              explode: explodeOrderItems,
+              storageKey: 'orders_export_include_flat',
+              defaultChecked: false,
+            },
+          ]}
         />
       )}
     </Box>

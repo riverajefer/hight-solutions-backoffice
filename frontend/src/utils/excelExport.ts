@@ -69,15 +69,16 @@ function buildSheet<R>(rows: R[], columns: ExportColumn<R>[]): XLSX.WorkSheet {
  * columnas numéricas. Los valores numéricos se exportan como número (no string)
  * para que las sumas/filtros nativos de Excel funcionen.
  *
- * Si se pasa `detailSheet`, agrega una segunda hoja con una fila por cada hijo
- * (ej. una fila por ítem de gasto), útil para relaciones uno-a-muchos.
+ * Si se pasan `detailSheets`, agrega una hoja adicional por cada uno, con una
+ * fila por cada hijo (ej. una fila por ítem de gasto), útil para relaciones
+ * uno-a-muchos. Cada hoja de detalle puede tener sus propias columnas.
  */
-export function exportToExcel<T, C = unknown>(
+export function exportToExcel<T>(
   rows: T[],
   columns: ExportColumn<T>[],
   fileName: string,
   sheetName = 'Datos',
-  detailSheet?: DetailSheet<T, C>,
+  detailSheets: DetailSheet<T, any>[] = [],
 ): void {
   const wb = XLSX.utils.book_new();
 
@@ -88,12 +89,12 @@ export function exportToExcel<T, C = unknown>(
     sheetName.slice(0, 31),
   );
 
-  if (detailSheet) {
-    const childRows = rows.flatMap((row) => detailSheet.explode(row));
+  for (const detail of detailSheets) {
+    const childRows = rows.flatMap((row) => detail.explode(row));
     XLSX.utils.book_append_sheet(
       wb,
-      buildSheet(childRows, detailSheet.columns),
-      detailSheet.sheetName.slice(0, 31),
+      buildSheet(childRows, detail.columns),
+      detail.sheetName.slice(0, 31),
     );
   }
 
