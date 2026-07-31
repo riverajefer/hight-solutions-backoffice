@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsUUID, IsNotEmpty, IsNumber, IsPositive, IsOptional, IsString, IsArray, ValidateNested, ArrayMinSize, Min, IsEnum } from 'class-validator';
+import { IsUUID, IsNotEmpty, IsNumber, IsPositive, IsOptional, IsString, IsArray, ValidateNested, ArrayMinSize, Min, IsEnum, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaymentMethod } from '../../../generated/prisma';
 
@@ -45,6 +45,11 @@ export class CreateDtfRecordDto {
   @IsOptional()
   @IsString()
   abonoNotes?: string;
+
+  @ApiPropertyOptional({ description: 'Aplicar IVA (19%). Se traslada a la OP al convertir', example: false })
+  @IsOptional()
+  @IsBoolean()
+  applyIva?: boolean;
 
   @ApiPropertyOptional({ description: 'Notas u observaciones' })
   @IsOptional()

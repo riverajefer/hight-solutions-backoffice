@@ -2361,6 +2361,7 @@ model DtfRecord {
   abonoPaymentMethod PaymentMethod? @map("abono_payment_method") // Método de pago del abono
   abonoBankEntity    String?        @map("abono_bank_entity") // Entidad bancaria de origen del abono (solo transferencias)
   abonoNotes         String?        @map("abono_notes") // Notas del abono
+  applyIva           Boolean        @default(false) @map("apply_iva") // ¿Aplica IVA (19%)? Se traslada a la OP al convertir
   status             DtfStatus      @default(BORRADOR)
   orderId            String?        @map("order_id")
   createdById        String         @map("created_by_id")
@@ -2439,6 +2440,8 @@ enum ContactOutcome {
   SOLICITO_COTIZACION
   NO_INTERESADO
   REPROGRAMAR
+  REUNION_FISICA
+  REUNION_VIRTUAL
 }
 
 /// Contacto comercial en seguimiento. Todos los datos de identificación son

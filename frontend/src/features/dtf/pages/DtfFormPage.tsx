@@ -26,6 +26,7 @@ const newItem = (): DtfFormItem => ({
   abonoPaymentMethod: '',
   abonoBankEntity: '',
   abonoNotes: '',
+  applyIva: false,
   imageFile: null,
   imagePreviewUrl: null,
   comprobanteFile: null,
@@ -116,6 +117,7 @@ export const DtfFormPage = () => {
               ? item.abonoBankEntity
               : undefined,
           abonoNotes: item.abono && item.abonoNotes ? item.abonoNotes : undefined,
+          applyIva: item.applyIva,
           notes: item.notes || undefined,
         }],
       });

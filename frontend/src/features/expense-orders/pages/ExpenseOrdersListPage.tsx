@@ -33,7 +33,6 @@ import { EXPENSE_ORDER_EXPORT_COLUMNS } from '../utils/expenseOrderExportColumns
 import {
   EXPENSE_ORDER_ITEM_EXPORT_COLUMNS,
   explodeExpenseOrderItems,
-  type ExpenseOrderItemRow,
 } from '../utils/expenseOrderItemExportColumns';
 import { expenseOrdersApi } from '../../../api/expense-orders.api';
 
@@ -259,7 +258,7 @@ export const ExpenseOrdersListPage = () => {
 
       {/* Export to Excel Dialog */}
       {canExport && (
-        <ExportDialog<ExpenseOrder, ExpenseOrderItemRow>
+        <ExportDialog<ExpenseOrder>
           open={exportOpen}
           onClose={() => setExportOpen(false)}
           title="Exportar Órdenes de Gasto a Excel"
@@ -287,14 +286,16 @@ export const ExpenseOrdersListPage = () => {
             });
             return response.data ?? [];
           }}
-          detailSheet={{
-            toggleLabel: 'Incluir detalle de ítems (hoja aparte)',
-            sheetName: 'Ítems de Gasto',
-            columns: EXPENSE_ORDER_ITEM_EXPORT_COLUMNS,
-            explode: explodeExpenseOrderItems,
-            storageKey: 'expense_orders_export_include_items',
-            defaultChecked: true,
-          }}
+          detailSheets={[
+            {
+              toggleLabel: 'Incluir detalle de ítems (hoja aparte)',
+              sheetName: 'Ítems de Gasto',
+              columns: EXPENSE_ORDER_ITEM_EXPORT_COLUMNS,
+              explode: explodeExpenseOrderItems,
+              storageKey: 'expense_orders_export_include_items',
+              defaultChecked: true,
+            },
+          ]}
         />
       )}
     </Box>

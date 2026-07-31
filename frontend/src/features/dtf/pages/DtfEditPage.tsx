@@ -18,6 +18,8 @@ import {
   TextField,
   Typography,
   Alert,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import UploadIcon from '@mui/icons-material/Upload';
@@ -69,6 +71,7 @@ export const DtfEditPage = () => {
   const [abonoPaymentMethod, setAbonoPaymentMethod] = useState<DtfPaymentMethod | ''>('');
   const [abonoBankEntity, setAbonoBankEntity] = useState<string | null>(null);
   const [abonoNotes, setAbonoNotes] = useState<string>('');
+  const [applyIva, setApplyIva] = useState<boolean>(false);
   const [notes, setNotes] = useState<string>('');
   const [initialized, setInitialized] = useState(false);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
@@ -82,6 +85,7 @@ export const DtfEditPage = () => {
     setAbonoPaymentMethod((record.abonoPaymentMethod as DtfPaymentMethod) ?? '');
     setAbonoBankEntity(record.abonoBankEntity ?? null);
     setAbonoNotes(record.abonoNotes ?? '');
+    setApplyIva(record.applyIva ?? false);
     setNotes(record.notes ?? '');
     setInitialized(true);
   }
@@ -131,6 +135,7 @@ export const DtfEditPage = () => {
         abonoBankEntity:
           abonoValue > 0 && abonoPaymentMethod === 'TRANSFER' ? abonoBankEntity ?? null : null,
         abonoNotes: abonoValue > 0 ? (abonoNotes || undefined) : undefined,
+        applyIva,
         notes: notes || undefined,
       },
     });
@@ -231,6 +236,24 @@ export const DtfEditPage = () => {
                     />
                   </>
                 )}
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={applyIva}
+                      onChange={(e) => setApplyIva(e.target.checked)}
+                      disabled={isSaving}
+                    />
+                  }
+                  label={
+                    <Typography variant="body2">
+                      Aplicar IVA (19%){' '}
+                      <Typography component="span" variant="caption" color="text.secondary">
+                        — se traslada a la OP
+                      </Typography>
+                    </Typography>
+                  }
+                />
                 <TextField
                   label="Notas"
                   size="small"
