@@ -35,6 +35,7 @@ import {
   Tabs,
   Tab,
   Tooltip,
+  Link,
   useTheme,
   Paper,
 } from '@mui/material';
@@ -1560,22 +1561,22 @@ export const OrderDetailPage: React.FC = () => {
                         </Stack>
                         <Divider />
                         <Stack spacing={0.5} sx={{ minWidth: 0 }}>
-                          <TruncatedText
-                            text={order.client.name}
-                            variant='body2'
-                            fontWeight={700}
-                            component='a'
+                          <Link
                             href={`/clients/${order.client.id}`}
                             target='_blank'
                             rel='noopener noreferrer'
-                            tooltipTitle='Ver detalle del cliente en una nueva pestaña'
-                            sx={{
-                              color: 'primary.main',
-                              textDecoration: 'none',
-                              cursor: 'pointer',
-                              '&:hover': { textDecoration: 'underline' },
-                            }}
-                          />
+                            underline='hover'
+                            sx={{ minWidth: 0, color: 'primary.main' }}
+                          >
+                            <TruncatedText
+                              text={order.client.name}
+                              variant='body2'
+                              fontWeight={700}
+                              component='span'
+                              tooltipTitle='Ver detalle del cliente en una nueva pestaña'
+                              sx={{ color: 'inherit', cursor: 'pointer' }}
+                            />
+                          </Link>
                           {(() => {
                             const docLabel =
                               order.client.personType === 'EMPRESA'
