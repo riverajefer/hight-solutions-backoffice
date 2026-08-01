@@ -8,9 +8,10 @@ import { PayrollPeriodsRepository } from './periods/payroll-periods.repository';
 import { PayrollItemsService } from './items/payroll-items.service';
 import { PayrollItemsRepository } from './items/payroll-items.repository';
 import { UsersModule } from '../users/users.module';
+import { RolesModule } from '../roles/roles.module';
 
 @Module({
-  imports: [UsersModule],
+  imports: [UsersModule, RolesModule],
   controllers: [PayrollEmployeesController, PayrollPeriodsController],
   providers: [
     PayrollEmployeesService,

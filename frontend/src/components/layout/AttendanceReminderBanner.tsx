@@ -123,7 +123,7 @@ export const AttendanceReminderBanner: React.FC = () => {
         severity="warning"
         variant="outlined"
         onClose={handleDismiss}
-        icon={<PlayCircleIcon />}
+        icon={<PlayCircleIcon fontSize="small" />}
         sx={{
           borderRadius: 0,
           borderLeft: 'none',
@@ -133,22 +133,31 @@ export const AttendanceReminderBanner: React.FC = () => {
             ? alpha(theme.palette.warning.main, 0.12)
             : alpha(theme.palette.warning.main, 0.08),
           alignItems: 'center',
+          py: 0.25,
+          px: 2,
+          fontSize: '0.8125rem',
           // En mobile permitimos que el botón (action) baje a una segunda
           // línea a ancho completo; en sm+ queda alineado a la derecha.
           flexWrap: { xs: 'wrap', sm: 'nowrap' },
+          '& .MuiAlert-icon': {
+            py: 0,
+            mr: 1,
+            fontSize: '1.125rem',
+          },
           '& .MuiAlert-message': {
             display: 'flex',
             alignItems: 'center',
-            gap: 2,
+            gap: 1.5,
             flexWrap: 'wrap',
             minWidth: 0,
+            py: 0.5,
           },
           '& .MuiAlert-action': {
             pt: 0,
             pl: { xs: 0, sm: 2 },
             ml: { xs: 0, sm: 'auto' },
-            mr: { xs: 0, sm: -1 },
-            mt: { xs: 1.5, sm: 0 },
+            mr: { xs: 0, sm: -0.5 },
+            mt: { xs: 1, sm: 0 },
             width: { xs: '100%', sm: 'auto' },
           },
         }}
@@ -159,14 +168,20 @@ export const AttendanceReminderBanner: React.FC = () => {
             variant="contained"
             startIcon={
               clockInMutation.isPending ? (
-                <CircularProgress size={14} color="inherit" />
+                <CircularProgress size={12} color="inherit" />
               ) : (
-                <PlayCircleIcon />
+                <PlayCircleIcon sx={{ fontSize: 16 }} />
               )
             }
             disabled={clockInMutation.isPending}
             onClick={handleClockIn}
-            sx={{ whiteSpace: 'nowrap', width: { xs: '100%', sm: 'auto' } }}
+            sx={{
+              whiteSpace: 'nowrap',
+              width: { xs: '100%', sm: 'auto' },
+              py: 0.25,
+              px: 1.25,
+              fontSize: '0.75rem',
+            }}
           >
             Marcar Entrada
           </Button>
