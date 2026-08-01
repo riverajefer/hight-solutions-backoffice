@@ -69,12 +69,13 @@ export const ApprovalQueueBar: React.FC<ApprovalQueueBarProps> = ({
             <Typography variant="body2" fontWeight={600}>
               {queue.isFinished
                 ? `Revisaste ${queue.total === 1 ? `la ${singular}` : `las ${queue.total} ${plural}`} de la cola`
-                : `Revisando ${queue.position} de ${queue.total} ${plural}`}
+                : `Revisando ${queue.pendingPosition} de ${queue.pendingTotal} ${
+                    queue.pendingTotal === 1 ? singular : plural
+                  }`}
             </Typography>
             {!queue.isFinished && reviewed > 0 && (
               <Typography variant="caption" color="text.secondary">
-                {reviewed} revisada{reviewed === 1 ? '' : 's'} · {queue.remaining} pendiente
-                {queue.remaining === 1 ? '' : 's'}
+                {reviewed} revisada{reviewed === 1 ? '' : 's'} en esta sesión
               </Typography>
             )}
           </Box>

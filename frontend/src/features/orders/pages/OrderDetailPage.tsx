@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import {
   Alert,
@@ -343,6 +343,7 @@ export const OrderDetailPage: React.FC = () => {
         queryKey: ['clientOwnershipAuthRequests'],
       });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['approval-queue-pending'] });
       enqueueSnackbar(
         variables.action === 'approve'
           ? 'Solicitud aprobada'
@@ -358,6 +359,35 @@ export const OrderDetailPage: React.FC = () => {
       );
     },
   });
+
+  // Auto-salto: si al abrir una orden de la cola su solicitud ya fue resuelta
+  // (aprobada/rechazada desde la bandeja, otra pestaña, etc.), se marca como
+  // revisada y se salta a la siguiente pendiente. Así el paginador solo recorre
+  // solicitudes realmente pendientes, sin importar desde dónde se resolvieron.
+  // Se comprueba contra la lista de pendientes en vivo (por tipo de cola).
+  const { data: queuePendingRequestIds } = useQuery({
+    queryKey: ['approval-queue-pending', queueKey],
+    queryFn: async () => {
+      const rows =
+        queueKey === 'order-edit'
+          ? await editRequestsApi.findAllPending()
+          : await clientOwnershipAuthRequestsApi.findPending();
+      return new Set((rows as Array<{ id: string }>).map((row) => row.id));
+    },
+    enabled: approvalQueue.isActive && canResolveQueue,
+  });
+
+  const isQueueItemResolved =
+    approvalQueue.isActive &&
+    !approvalQueue.isCurrentProcessed &&
+    !!queueRequestId &&
+    !!queuePendingRequestIds &&
+    !queuePendingRequestIds.has(queueRequestId);
+
+  useEffect(() => {
+    if (isQueueItemResolved) approvalQueue.markProcessedAndNext();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isQueueItemResolved]);
 
   const order = orderQuery.data;
   const payments = paymentsQuery.data || [];
