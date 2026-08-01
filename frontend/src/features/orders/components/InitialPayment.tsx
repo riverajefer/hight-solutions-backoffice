@@ -35,7 +35,6 @@ import type {
   PaymentMethod,
 } from '../../../types/order.types';
 import { PAYMENT_METHOD_LABELS } from '../../../types/order.types';
-import { useAuthStore } from '../../../store/authStore';
 import { BankSelector } from '../../../components/common/BankSelector';
 
 const MAX_PAYMENTS = 3;
@@ -167,8 +166,8 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
         </Typography>
         <Divider sx={{ mb: 2 }} />
 
-        {/* Alerta: anticipo requiere aprobación de Caja */}
-        {enabled && !useAuthStore.getState().permissions.includes('approve_advance_payments') && (
+        {/* Alerta: todo anticipo requiere autorización de Caja, sin importar el rol */}
+        {enabled && (
           <Alert severity="info" sx={{ mb: 2 }}>
             El anticipo debe ser aprobado por Caja antes de que la orden pueda avanzar de estado.
           </Alert>

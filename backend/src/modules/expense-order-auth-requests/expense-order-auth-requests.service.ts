@@ -445,6 +445,21 @@ export class ExpenseOrderAuthRequestsService implements OnModuleInit, ApprovalRe
   }
 
   /**
+   * Obtener el historial completo de solicitudes de una OG
+   * (todas las solicitudes de autorización asociadas a la OG, en orden cronológico)
+   */
+  async findByExpenseOrder(expenseOrderId: string) {
+    return this.prisma.expenseOrderAuthRequest.findMany({
+      where: { expenseOrderId },
+      include: {
+        requestedBy: { select: USER_SELECT },
+        reviewedBy: { select: USER_SELECT },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
    * Obtener solicitudes propias del usuario
    */
   async findByUser(userId: string) {

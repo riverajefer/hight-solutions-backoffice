@@ -36,6 +36,36 @@ import { isValidTransition, getValidNextStatuses } from './order-status-transiti
 import { PrismaService } from '../../database/prisma.service';
 import { startOfDay, endOfDay } from '../../common/utils/date-range.util';
 
+/** Usuario mínimo asociado a un evento del historial de autorizaciones. */
+export interface AuthHistoryUser {
+  id: string;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+}
+
+/** Evento normalizado del historial de aprobaciones/solicitudes de autorización de una OP. */
+export interface AuthorizationHistoryEvent {
+  id: string;
+  type:
+    | 'ADVANCE_PAYMENT'
+    | 'DISCOUNT'
+    | 'CLIENT_OWNERSHIP'
+    | 'PAYMENT_EDIT'
+    | 'EDIT_REQUEST';
+  status: EditRequestStatus;
+  reason: string | null;
+  /** Monto asociado (anticipo, descuento, edición de pago); null si no aplica. */
+  amount: string | null;
+  /** Asesor destino (solo propiedad de cliente); null si no aplica. */
+  advisor: AuthHistoryUser | null;
+  createdAt: Date;
+  reviewedAt: Date | null;
+  reviewNotes: string | null;
+  requestedBy: AuthHistoryUser;
+  reviewedBy: AuthHistoryUser | null;
+}
+
 /** Redondeo comercial colombiano al múltiplo de 100 más cercano según regla de denominaciones. */
 function applyColombianRounding(value: Prisma.Decimal): Prisma.Decimal {
   const truncated = value.toDecimalPlaces(0, Prisma.Decimal.ROUND_DOWN);
@@ -795,8 +825,8 @@ export class OrdersService {
         const approvalCheck = await this.advancePaymentApprovalsService.requiresApproval(userId);
         this.logger.debug(`[update] requiresApproval: ${JSON.stringify(approvalCheck)}`);
 
-        const wasRejected = oldOrder.advancePaymentStatus === EditRequestStatus.REJECTED;
-
+        // Todo pago requiere autorización de Caja (sin bypass por rol): se crea
+        // la solicitud para el último pago agregado en esta edición.
         if (approvalCheck.required) {
           const payment = await this.prisma.payment.findFirst({
             where: { orderId: id },
@@ -812,16 +842,6 @@ export class OrdersService {
             );
             return this.findOne(id);
           }
-        } else if (wasRejected) {
-          // Admin/caja no requiere aprobación — limpiar el estado rechazado para que el banner desaparezca
-          await this.prisma.order.update({
-            where: { id },
-            data: {
-              advancePaymentStatus: null,
-              advancePaymentRejectedReason: null,
-            },
-          });
-          return this.findOne(id);
         }
       }
 
@@ -1988,6 +2008,140 @@ export class OrdersService {
     await this.findOne(orderId);
 
     return this.ordersRepository.findDiscountsByOrderId(orderId);
+  }
+
+  /**
+   * Historial unificado de aprobaciones y solicitudes de autorización de una OP.
+   *
+   * Consolida en una sola lista cronológica las distintas solicitudes de
+   * autorización asociadas a la orden: anticipos, descuentos, propiedad de
+   * cliente, edición de pagos y solicitudes de edición general. Cada registro
+   * se normaliza a una forma común para poder renderizarse en un timeline.
+   */
+  async getAuthorizationHistory(orderId: string) {
+    // Verificar que la orden existe
+    await this.findOne(orderId);
+
+    const USER_SELECT = {
+      id: true,
+      email: true,
+      firstName: true,
+      lastName: true,
+    } as const;
+
+    const [advances, discounts, clientOwnership, paymentEdits, editRequests] =
+      await Promise.all([
+        this.prisma.advancePaymentApproval.findMany({
+          where: { orderId },
+          include: {
+            requestedBy: { select: USER_SELECT },
+            reviewedBy: { select: USER_SELECT },
+          },
+        }),
+        this.prisma.discountApproval.findMany({
+          where: { orderId },
+          include: {
+            requestedBy: { select: USER_SELECT },
+            reviewedBy: { select: USER_SELECT },
+            discount: { select: { amount: true, reason: true } },
+          },
+        }),
+        this.prisma.clientOwnershipAuthRequest.findMany({
+          where: { orderId },
+          include: {
+            requestedBy: { select: USER_SELECT },
+            reviewedBy: { select: USER_SELECT },
+            advisor: { select: USER_SELECT },
+          },
+        }),
+        this.prisma.paymentEditApproval.findMany({
+          where: { orderId },
+          include: {
+            requestedBy: { select: USER_SELECT },
+            reviewedBy: { select: USER_SELECT },
+          },
+        }),
+        this.prisma.orderEditRequest.findMany({
+          where: { orderId },
+          include: {
+            requestedBy: { select: USER_SELECT },
+            reviewedBy: { select: USER_SELECT },
+          },
+        }),
+      ]);
+
+    const events: AuthorizationHistoryEvent[] = [
+      ...advances.map((a) => ({
+        id: a.id,
+        type: 'ADVANCE_PAYMENT' as const,
+        status: a.status,
+        reason: a.reason,
+        amount: a.paymentAmount ? a.paymentAmount.toString() : null,
+        advisor: null,
+        createdAt: a.createdAt,
+        reviewedAt: a.reviewedAt,
+        reviewNotes: a.reviewNotes,
+        requestedBy: a.requestedBy,
+        reviewedBy: a.reviewedBy,
+      })),
+      ...discounts.map((d) => ({
+        id: d.id,
+        type: 'DISCOUNT' as const,
+        status: d.status,
+        reason: d.discount?.reason ?? null,
+        amount: d.discount?.amount ? d.discount.amount.toString() : null,
+        advisor: null,
+        createdAt: d.createdAt,
+        reviewedAt: d.reviewedAt,
+        reviewNotes: d.reviewNotes,
+        requestedBy: d.requestedBy,
+        reviewedBy: d.reviewedBy,
+      })),
+      ...clientOwnership.map((c) => ({
+        id: c.id,
+        type: 'CLIENT_OWNERSHIP' as const,
+        status: c.status,
+        reason: c.reason,
+        amount: null,
+        advisor: c.advisor,
+        createdAt: c.createdAt,
+        reviewedAt: c.reviewedAt,
+        reviewNotes: c.reviewNotes,
+        requestedBy: c.requestedBy,
+        reviewedBy: c.reviewedBy,
+      })),
+      ...paymentEdits.map((p) => ({
+        id: p.id,
+        type: 'PAYMENT_EDIT' as const,
+        status: p.status,
+        reason: p.reason,
+        amount: (p.newAmount ?? p.oldAmount).toString(),
+        advisor: null,
+        createdAt: p.createdAt,
+        reviewedAt: p.reviewedAt,
+        reviewNotes: p.reviewNotes,
+        requestedBy: p.requestedBy,
+        reviewedBy: p.reviewedBy,
+      })),
+      ...editRequests.map((e) => ({
+        id: e.id,
+        type: 'EDIT_REQUEST' as const,
+        status: e.status,
+        reason: e.observations,
+        amount: null,
+        advisor: null,
+        createdAt: e.createdAt,
+        reviewedAt: e.reviewedAt,
+        reviewNotes: e.reviewNotes,
+        requestedBy: e.requestedBy,
+        reviewedBy: e.reviewedBy,
+      })),
+    ];
+
+    // Orden cronológico descendente (más reciente primero)
+    events.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+    return events;
   }
 
   async removeDiscount(orderId: string, discountId: string) {
