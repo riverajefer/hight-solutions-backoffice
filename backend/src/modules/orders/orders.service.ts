@@ -825,8 +825,8 @@ export class OrdersService {
         const approvalCheck = await this.advancePaymentApprovalsService.requiresApproval(userId);
         this.logger.debug(`[update] requiresApproval: ${JSON.stringify(approvalCheck)}`);
 
-        const wasRejected = oldOrder.advancePaymentStatus === EditRequestStatus.REJECTED;
-
+        // Todo pago requiere autorización de Caja (sin bypass por rol): se crea
+        // la solicitud para el último pago agregado en esta edición.
         if (approvalCheck.required) {
           const payment = await this.prisma.payment.findFirst({
             where: { orderId: id },
@@ -842,16 +842,6 @@ export class OrdersService {
             );
             return this.findOne(id);
           }
-        } else if (wasRejected) {
-          // Admin/caja no requiere aprobación — limpiar el estado rechazado para que el banner desaparezca
-          await this.prisma.order.update({
-            where: { id },
-            data: {
-              advancePaymentStatus: null,
-              advancePaymentRejectedReason: null,
-            },
-          });
-          return this.findOne(id);
         }
       }
 
