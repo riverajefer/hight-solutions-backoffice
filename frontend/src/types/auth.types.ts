@@ -1,3 +1,24 @@
+import type {
+  EmployeePersonalData,
+  EmployeeType,
+  EmployeeStatus,
+  ContractType,
+} from './payroll-employee.types';
+
+/** Ficha de nómina asociada al usuario (cuando el usuario es empleado). */
+export type UserPayrollEmployee = EmployeePersonalData & {
+  id: string;
+  employeeType: EmployeeType;
+  monthlySalary: string | null;
+  dailyRate: string | null;
+  startDate: string;
+  contractEndDate: string | null;
+  contractType: ContractType | null;
+  status: EmployeeStatus;
+  notes: string | null;
+  cargo: { id: string; name: string } | null;
+};
+
 export interface User {
   id: string;
   username?: string | null;
@@ -20,6 +41,7 @@ export interface User {
       name: string;
     };
   };
+  payrollEmployee?: UserPayrollEmployee | null;
   isActive?: boolean;
   mustChangePassword?: boolean;
   createdAt: string;
