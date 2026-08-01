@@ -385,6 +385,17 @@ export class OrdersController {
     return this.ordersService.applyDiscount(orderId, applyDiscountDto, userId);
   }
 
+  @Get(':id/authorization-history')
+  @RequirePermissions('read_orders')
+  @ApiOperation({
+    summary: 'Historial unificado de aprobaciones y solicitudes de autorización',
+  })
+  @ApiParam({ name: 'id', description: 'Order ID' })
+  @ApiResponse({ status: 200, description: 'Authorization history retrieved' })
+  getAuthorizationHistory(@Param('id') orderId: string) {
+    return this.ordersService.getAuthorizationHistory(orderId);
+  }
+
   @Get(':id/discounts')
   @RequirePermissions('read_orders')
   @ApiOperation({ summary: 'Get all discounts for an order' })

@@ -205,34 +205,21 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
   // ─── Domain methods ───
 
   /**
-   * Verificar si el usuario requiere aprobación de anticipo
+   * Verificar si el pago requiere autorización de Caja.
+   *
+   * Política: TODO pago entrante debe ser autorizado por Caja, sin importar el
+   * rol que lo registró (incluidos admin y el propio rol Caja). No hay bypass
+   * por permiso: `approve_advance_payments` solo determina QUIÉN puede aprobar
+   * desde la cola de Caja, no exime de la solicitud.
+   *
+   * Se conserva la firma `(userId)` por compatibilidad con los llamadores.
    */
-  async requiresApproval(userId: string): Promise<{ required: boolean; reason?: string }> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        role: {
-          include: {
-            permissions: {
-              include: { permission: true },
-            },
-          },
-        },
-      },
-    });
-
-    // Si el usuario tiene permiso approve_advance_payments, no requiere aprobación
-    const hasPermission = user?.role?.permissions?.some(
-      (rp) => rp.permission.name === 'approve_advance_payments',
-    );
-
-    if (hasPermission) {
-      return { required: false };
-    }
-
+  async requiresApproval(
+    _userId: string,
+  ): Promise<{ required: boolean; reason?: string }> {
     return {
       required: true,
-      reason: 'El anticipo requiere aprobación de Caja',
+      reason: 'El pago requiere autorización de Caja',
     };
   }
 

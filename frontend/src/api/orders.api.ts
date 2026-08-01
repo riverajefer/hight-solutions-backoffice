@@ -19,6 +19,7 @@ import type {
   SalesGoal,
   UpsertSalesGoalDto,
 } from '../types/order.types';
+import type { OrderAuthHistoryEvent } from '../types/order-authorization-history.types';
 
 const BASE_URL = '/orders';
 
@@ -194,6 +195,18 @@ export const ordersApi = {
   getDiscounts: async (orderId: string): Promise<OrderDiscount[]> => {
     const { data } = await axiosInstance.get<OrderDiscount[]>(
       `${BASE_URL}/${orderId}/discounts`
+    );
+    return data;
+  },
+
+  /**
+   * Historial unificado de aprobaciones y solicitudes de autorización de la OP
+   */
+  getAuthorizationHistory: async (
+    orderId: string
+  ): Promise<OrderAuthHistoryEvent[]> => {
+    const { data } = await axiosInstance.get<OrderAuthHistoryEvent[]>(
+      `${BASE_URL}/${orderId}/authorization-history`
     );
     return data;
   },

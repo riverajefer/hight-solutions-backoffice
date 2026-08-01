@@ -68,6 +68,19 @@ export class ExpenseOrderAuthRequestsController {
     return this.service.findByUser(userId);
   }
 
+  @Get('expense-order/:expenseOrderId')
+  @RequirePermissions('read_expense_orders')
+  @ApiOperation({
+    summary: 'Historial de solicitudes de autorización de una OG',
+  })
+  @ApiParam({ name: 'expenseOrderId', description: 'ID de la OG' })
+  @ApiResponse({ status: 200, description: 'Historial de solicitudes de la OG' })
+  async findByExpenseOrder(
+    @Param('expenseOrderId') expenseOrderId: string,
+  ) {
+    return this.service.findByExpenseOrder(expenseOrderId);
+  }
+
   @Put(':id/approve')
   @RequirePermissions('approve_expense_orders')
   @ApiOperation({ summary: 'Aprobar solicitud (solo admin)' })

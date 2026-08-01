@@ -66,25 +66,14 @@ describe('AdvancePaymentApprovalsService', () => {
   });
 
   describe('requiresApproval', () => {
-    it('should return required false if user has permission', async () => {
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
-        id: 'u1',
-        role: {
-          permissions: [{ permission: { name: 'approve_advance_payments' } }],
-        },
-      } as any);
-
+    it('should always require approval, even for users with approve_advance_payments', async () => {
       const result = await service.requiresApproval('u1');
-      expect(result).toEqual({ required: false });
+      expect(result.required).toBe(true);
+      expect(result.reason).toBeDefined();
     });
 
-    it('should return required true if user does not have permission', async () => {
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
-        id: 'u1',
-        role: { permissions: [] },
-      } as any);
-
-      const result = await service.requiresApproval('u1');
+    it('should require approval for users without the permission', async () => {
+      const result = await service.requiresApproval('u2');
       expect(result.required).toBe(true);
       expect(result.reason).toBeDefined();
     });

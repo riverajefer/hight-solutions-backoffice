@@ -37,6 +37,16 @@ export const expenseOrderAuthRequestsApi = {
   },
 
   /**
+   * Obtener el historial de solicitudes de autorización de una OG
+   */
+  findByExpenseOrder: async (expenseOrderId: string) => {
+    const { data } = await axiosInstance.get<ExpenseOrderAuthRequest[]>(
+      `/expense-order-auth-requests/expense-order/${expenseOrderId}`,
+    );
+    return data;
+  },
+
+  /**
    * Obtener solicitudes propias del usuario
    */
   findMy: async () => {
