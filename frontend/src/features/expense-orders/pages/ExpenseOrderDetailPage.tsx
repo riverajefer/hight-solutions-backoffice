@@ -250,6 +250,24 @@ export const ExpenseOrderDetailPage = () => {
     });
   }, [nextQueueId, queryClient]);
 
+  // Auto-salto: si al abrir una OG de la cola resulta que ya no está pendiente
+  // de autorización administrativa (se aprobó/rechazó desde Caja, otra pestaña,
+  // etc.), se marca como resuelta y se salta a la siguiente pendiente. Así el
+  // paginador solo recorre OGs que realmente faltan por aprobar, sin importar
+  // desde dónde se resolvieron.
+  const isQueueItemResolved =
+    approvalQueue.isActive &&
+    !approvalQueue.isCurrentProcessed &&
+    !!og &&
+    og.id === id &&
+    og.status !== ExpenseOrderStatus.CREATED;
+  useEffect(() => {
+    if (isQueueItemResolved) approvalQueue.markProcessedAndNext();
+    // markProcessedAndNext es estable respecto a la OG actual; el booleano
+    // controla cuándo debe dispararse.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isQueueItemResolved]);
+
   // ── Caja authorize ───────────────────────────────────────────────────────────
   const handleCajaAuthorize = async () => {
     if (!id) return;

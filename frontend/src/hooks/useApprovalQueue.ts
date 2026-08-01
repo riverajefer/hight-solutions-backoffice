@@ -110,9 +110,13 @@ export interface UseApprovalQueueResult {
   currentItem: ApprovalQueueItem | null;
   /** true si el elemento actual ya fue revisado en esta sesión. */
   isCurrentProcessed: boolean;
-  /** Posición 1-based dentro del snapshot. */
+  /** Posición 1-based dentro del snapshot (incluye ya revisados). */
   position: number;
   total: number;
+  /** Posición 1-based contando solo los elementos aún pendientes. */
+  pendingPosition: number;
+  /** Total de elementos aún pendientes (los que se paginan). */
+  pendingTotal: number;
   /** Elementos del snapshot que aún no se han revisado. */
   remaining: number;
   hasNext: boolean;
@@ -161,9 +165,33 @@ export const useApprovalQueue = (params: {
   const processed = useMemo(() => new Set(snapshot?.processed ?? []), [snapshot]);
   const remaining = items.filter((item) => !processed.has(item.id)).length;
 
-  const nextItem = isActive && currentIndex < items.length - 1 ? items[currentIndex + 1] : null;
-  const prevItem = isActive && currentIndex > 0 ? items[currentIndex - 1] : null;
+  // La navegación solo recorre elementos aún pendientes: los que ya se
+  // aprobaron/revisaron en esta sesión se saltan (no se vuelven a paginar).
+  const nextIndex = isActive
+    ? items.findIndex((item, index) => index > currentIndex && !processed.has(item.id))
+    : -1;
+  const prevIndex = useMemo(() => {
+    if (!isActive) return -1;
+    for (let i = currentIndex - 1; i >= 0; i--) {
+      if (!processed.has(items[i].id)) return i;
+    }
+    return -1;
+  }, [isActive, currentIndex, items, processed]);
+
+  const nextItem = nextIndex >= 0 ? items[nextIndex] : null;
+  const prevItem = prevIndex >= 0 ? items[prevIndex] : null;
   const currentItem = isActive ? items[currentIndex] : null;
+
+  // Posición/total contando solo pendientes, para que el contador refleje
+  // "cuántas quedan por aprobar" y no el tamaño congelado del snapshot.
+  const pendingTotal = remaining;
+  const pendingPosition = isActive
+    ? items.reduce(
+        (acc, item, index) =>
+          index <= currentIndex && !processed.has(item.id) ? acc + 1 : acc,
+        0,
+      ) || 1
+    : 0;
 
   const goTo = useCallback(
     (index: number) => {
@@ -177,12 +205,12 @@ export const useApprovalQueue = (params: {
   );
 
   const goNext = useCallback(() => {
-    if (nextItem) goTo(currentIndex + 1);
-  }, [nextItem, goTo, currentIndex]);
+    if (nextIndex >= 0) goTo(nextIndex);
+  }, [nextIndex, goTo]);
 
   const goPrev = useCallback(() => {
-    if (prevItem) goTo(currentIndex - 1);
-  }, [prevItem, goTo, currentIndex]);
+    if (prevIndex >= 0) goTo(prevIndex);
+  }, [prevIndex, goTo]);
 
   const markProcessedAndNext = useCallback(() => {
     if (!snapshot || !queueKey || currentIndex < 0 || !currentId) return;
@@ -261,6 +289,8 @@ export const useApprovalQueue = (params: {
     isCurrentProcessed: !!currentId && processed.has(currentId),
     position: currentIndex + 1,
     total: items.length,
+    pendingPosition,
+    pendingTotal,
     remaining,
     hasNext: !!nextItem,
     hasPrev: !!prevItem,

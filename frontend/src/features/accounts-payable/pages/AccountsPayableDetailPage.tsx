@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
 import {
   Alert,
@@ -154,6 +154,24 @@ export default function AccountsPayableDetailPage() {
     buildPath: buildQueuePath,
     enabled: canAdminApprove || canCajaAuthorize,
   });
+
+  // Auto-salto: si al abrir una CxP de la cola su paso ya no está pendiente
+  // (el admin ya aprobó, Caja ya firmó, o se resolvió desde otra pestaña), se
+  // marca como revisada y se salta a la siguiente pendiente. Así el paginador
+  // solo recorre CxP realmente pendientes, sin importar desde dónde se
+  // resolvieron. `ap-auth` espera una solicitud PENDING; `ap-caja` una
+  // ADMIN_APPROVED.
+  const isQueueItemResolved =
+    approvalQueue.isActive &&
+    !approvalQueue.isCurrentProcessed &&
+    paymentAuthRequestsQuery.isSuccess &&
+    ((approvalQueue.queueKey === 'ap-auth' && !activePendingRequest) ||
+      (approvalQueue.queueKey === 'ap-caja' && !activeAdminApprovedRequest));
+
+  useEffect(() => {
+    if (isQueueItemResolved) approvalQueue.markProcessedAndNext();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isQueueItemResolved]);
 
   const handleAdminAction = async () => {
     if (!adminActionRequest) return;
