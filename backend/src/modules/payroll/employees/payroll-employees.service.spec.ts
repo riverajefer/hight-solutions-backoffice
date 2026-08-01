@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PayrollEmployeesService } from './payroll-employees.service';
 import { PayrollEmployeesRepository } from './payroll-employees.repository';
 import { UsersRepository } from '../../users/users.repository';
+import { UsersService } from '../../users/users.service';
+import { RolesRepository } from '../../roles/roles.repository';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { EmployeeType, ContractType } from './dto/create-payroll-employee.dto';
 
@@ -24,12 +26,22 @@ describe('PayrollEmployeesService', () => {
     findById: jest.fn(),
   };
 
+  const mockUsersService = {
+    create: jest.fn(),
+  };
+
+  const mockRolesRepository = {
+    findByName: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PayrollEmployeesService,
         { provide: PayrollEmployeesRepository, useValue: mockEmployeesRepository },
         { provide: UsersRepository, useValue: mockUsersRepository },
+        { provide: UsersService, useValue: mockUsersService },
+        { provide: RolesRepository, useValue: mockRolesRepository },
       ],
     }).compile();
 
