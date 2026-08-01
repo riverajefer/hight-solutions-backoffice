@@ -108,6 +108,7 @@ import { AdvancePaymentApprovalsList } from '../components/AdvancePaymentApprova
 import { AdvancePaymentApprovalBadge } from '../components/AdvancePaymentApprovalBadge';
 import { StatusChangeAuthRequestDialog } from '../components/StatusChangeAuthRequestDialog';
 import { OrderChangeHistoryTab } from '../components/OrderChangeHistoryTab';
+import { OrderAuthHistory } from '../components/OrderAuthHistory';
 import { ordersApi } from '../../../api/orders.api';
 import { storageApi } from '../../../api/storage.api';
 import axiosInstance from '../../../api/axios';
@@ -2842,6 +2843,11 @@ export const OrderDetailPage: React.FC = () => {
             orderNumber={order.orderNumber}
           />
         </TabPanel>
+      </Box>
+
+      {/* Historial de aprobaciones y solicitudes de autorización */}
+      <Box sx={{ mt: 4 }}>
+        <OrderAuthHistory orderId={id!} />
       </Box>
 
       {/* Comentarios */}

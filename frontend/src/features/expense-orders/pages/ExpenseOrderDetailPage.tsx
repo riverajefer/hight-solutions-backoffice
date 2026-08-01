@@ -63,6 +63,7 @@ import { StatusHighlight } from '../../../components/common/StatusHighlight';
 import { DocumentTypeBanner } from '../../../components/common/DocumentTypeBanner';
 import { ToolbarButton } from '../../orders/components/ToolbarButton';
 import { ExpenseOrderAuthRequestDialog } from '../components/ExpenseOrderAuthRequestDialog';
+import { ExpenseOrderAuthHistory } from '../components/ExpenseOrderAuthHistory';
 import { expenseOrderAuthRequestsApi } from '../../../api/expense-order-auth-requests.api';
 import { ExpenseOrderPdfButton } from '../components/ExpenseOrderPdfButton';
 import { useExpenseOrder, expenseOrdersKeys } from '../hooks';
@@ -1186,6 +1187,11 @@ export const ExpenseOrderDetailPage = () => {
           </Grid>
         )}
       </Grid>
+
+      {/* ── Historial de aprobaciones y solicitudes de autorización ──────────── */}
+      <Box sx={{ mt: 4 }}>
+        <ExpenseOrderAuthHistory expenseOrder={og} />
+      </Box>
 
       {/* ── Status change dialog ─────────────────────────────────────────────── */}
       <Dialog open={statusDialogOpen} onClose={() => setStatusDialogOpen(false)} maxWidth="xs" fullWidth>
