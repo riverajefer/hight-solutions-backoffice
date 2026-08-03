@@ -11,6 +11,7 @@ import {
   Avatar,
   Divider,
 } from '@mui/material';
+import { lighten } from '@mui/material/styles';
 import {
   Payments as PaymentsIcon,
   LocalOffer as LocalOfferIcon,
@@ -99,10 +100,11 @@ const STATUS_CONFIG: Record<
   OrderAuthEventStatus,
   { label: string; color: 'warning' | 'success' | 'error' | 'default'; dotBg: string }
 > = {
-  PENDING: { label: 'Pendiente', color: 'warning', dotBg: '#ed6c02' },
-  APPROVED: { label: 'Aprobada', color: 'success', dotBg: '#4caf50' },
-  REJECTED: { label: 'Rechazada', color: 'error', dotBg: '#f44336' },
-  EXPIRED: { label: 'Expirada', color: 'default', dotBg: '#9e9e9e' },
+  // Tonos oscuros (Material 800/900) para que el icono blanco tenga buen contraste
+  PENDING: { label: 'Pendiente', color: 'warning', dotBg: '#e65100' },
+  APPROVED: { label: 'Aprobada', color: 'success', dotBg: '#2e7d32' },
+  REJECTED: { label: 'Rechazada', color: 'error', dotBg: '#c62828' },
+  EXPIRED: { label: 'Expirada', color: 'default', dotBg: '#616161' },
 };
 
 // ─── Presentational bits ──────────────────────────────────────────────────────
@@ -129,6 +131,10 @@ const TimelineDot: React.FC<{
       height: 32,
       backgroundColor: STATUS_CONFIG[status].dotBg,
       color: '#fff',
+      // Anillo más claro del mismo color: separa el punto del fondo oscuro
+      // manteniendo el icono blanco con alto contraste sobre el relleno.
+      border: '2px solid',
+      borderColor: lighten(STATUS_CONFIG[status].dotBg, 0.45),
       boxShadow: (theme) =>
         theme.palette.mode === 'dark'
           ? '0 0 10px rgba(0,0,0,0.5)'
@@ -219,16 +225,32 @@ export const OrderAuthHistory: React.FC<OrderAuthHistoryProps> = ({
             const statusCfg = STATUS_CONFIG[event.status];
             const isLast = index === events.length - 1;
 
-            // Título principal del evento
-            let title = typeCfg.verb;
-            if (event.amount && (event.type === 'ADVANCE_PAYMENT' || event.type === 'PAYMENT_EDIT')) {
-              title += ` de ${formatCurrency(event.amount)}`;
-            } else if (event.amount && event.type === 'DISCOUNT') {
-              title += ` de ${formatCurrency(event.amount)}`;
-            } else if (event.type === 'CLIENT_OWNERSHIP' && event.advisor) {
-              title += ` para ${userName(event.advisor)}`;
-            }
-            title += '.';
+            // Título principal del evento — el monto se resalta en negrita + color
+            const showAmount =
+              event.amount != null &&
+              (event.type === 'ADVANCE_PAYMENT' ||
+                event.type === 'PAYMENT_EDIT' ||
+                event.type === 'DISCOUNT');
+            const titleNode = (
+              <>
+                {typeCfg.verb}
+                {showAmount && (
+                  <>
+                    {' de '}
+                    <Box
+                      component="span"
+                      sx={{ fontWeight: 800, color: 'primary.main' }}
+                    >
+                      {formatCurrency(event.amount)}
+                    </Box>
+                  </>
+                )}
+                {event.type === 'CLIENT_OWNERSHIP' && event.advisor
+                  ? ` para ${userName(event.advisor)}`
+                  : ''}
+                {'.'}
+              </>
+            );
 
             // Línea de revisión (solicitudes resueltas)
             let reviewLine: string | null = null;
@@ -346,7 +368,7 @@ export const OrderAuthHistory: React.FC<OrderAuthHistoryProps> = ({
                   {/* Detalle */}
                   <Box sx={{ ml: 1 }}>
                     <Typography variant="body2" sx={{ mb: 0.5 }}>
-                      {title}
+                      {titleNode}
                     </Typography>
 
                     {event.reason && (
