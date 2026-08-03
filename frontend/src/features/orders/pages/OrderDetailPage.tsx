@@ -104,7 +104,6 @@ import { RequestEditPermissionButton } from '../components/RequestEditPermission
 import { RequestAdvisorChangeButton } from '../components/RequestAdvisorChangeButton';
 import { AdvisorChangeStatusAlert } from '../components/AdvisorChangeStatusAlert';
 import { EditRequestsList } from '../components/EditRequestsList';
-import { AdvancePaymentApprovalsList } from '../components/AdvancePaymentApprovalsList';
 import { AdvancePaymentApprovalBadge } from '../components/AdvancePaymentApprovalBadge';
 import { StatusChangeAuthRequestDialog } from '../components/StatusChangeAuthRequestDialog';
 import { OrderChangeHistoryTab } from '../components/OrderChangeHistoryTab';
@@ -2585,13 +2584,19 @@ export const OrderDetailPage: React.FC = () => {
               </Card>
             )}
 
+            {/* Historial de aprobaciones y solicitudes de autorización */}
+            <Box sx={{ mt: 4 }}>
+              <OrderAuthHistory orderId={id!} />
+            </Box>
+
             {/* Descuentos Aplicados */}
             <DiscountsSection
               discounts={discounts}
               canDelete={canDeleteDiscount}
               onDelete={handleRemoveDiscount}
               isDeleting={deletingDiscount}
-            />
+            />            
+
             {/* Resumen Financiero / Rentabilidad */}
             <Accordion
               defaultExpanded={false}
@@ -2832,9 +2837,6 @@ export const OrderDetailPage: React.FC = () => {
 
         <TabPanel value={tabValue} index={0}>
           <EditRequestsList orderId={id!} />
-          <AdvancePaymentApprovalsList
-            approvals={order.advancePaymentApprovals}
-          />
         </TabPanel>
 
         <TabPanel value={tabValue} index={1}>
@@ -2845,10 +2847,6 @@ export const OrderDetailPage: React.FC = () => {
         </TabPanel>
       </Box>
 
-      {/* Historial de aprobaciones y solicitudes de autorización */}
-      <Box sx={{ mt: 4 }}>
-        <OrderAuthHistory orderId={id!} />
-      </Box>
 
       {/* Comentarios */}
       <CommentSection entityType='ORDER' entityId={order.id} />
