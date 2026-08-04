@@ -9,7 +9,7 @@ import {
   Min,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { OrderStatus } from '../../../generated/prisma';
+import { EditRequestStatus, OrderStatus } from '../../../generated/prisma';
 
 export class FilterOrdersDto {
   @ApiPropertyOptional({
@@ -97,4 +97,21 @@ export class FilterOrdersDto {
   @IsOptional()
   @IsUUID()
   createdById?: string;
+
+  @ApiPropertyOptional({
+    description: 'Si es true, solo órdenes con saldo pendiente por cobrar (balance > 0)',
+    example: true,
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  hasBalance?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Filtrar por estado de autorización del anticipo',
+    enum: EditRequestStatus,
+  })
+  @IsOptional()
+  @IsEnum(EditRequestStatus)
+  advancePaymentStatus?: EditRequestStatus;
 }

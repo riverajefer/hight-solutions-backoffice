@@ -10,6 +10,8 @@ import {
 import { esES } from '@mui/x-data-grid/locales';
 import { Paper, Box, Typography, Skeleton, LinearProgress, useTheme, useMediaQuery } from '@mui/material';
 import { CustomToolbar } from './CustomToolbar';
+import { ColumnSettingsDialog } from './ColumnSettingsDialog';
+import { useColumnPreferences } from '../../../hooks/useColumnPreferences';
 import { dataGridStyles, paperStyles } from './styles';
 
 interface DataTableProps<T extends GridValidRowModel> {
@@ -36,6 +38,13 @@ interface DataTableProps<T extends GridValidRowModel> {
   rowCount?: number;
   currentPage?: number; // 0-indexed
   onPaginationModelChange?: (model: { page: number; pageSize: number }) => void;
+  /**
+   * Habilita el diálogo "Configurar columnas" (reordenar + mostrar/ocultar).
+   * El valor identifica la tabla en localStorage; la preferencia se guarda por usuario.
+   */
+  columnSettingsKey?: string;
+  /** Campos que no se pueden mover ni ocultar (columna fija, acciones). */
+  lockedColumnFields?: string[];
 }
 
 export function DataTable<T extends GridValidRowModel>({
@@ -61,6 +70,8 @@ export function DataTable<T extends GridValidRowModel>({
   rowCount,
   currentPage,
   onPaginationModelChange: externalOnPaginationModelChange,
+  columnSettingsKey,
+  lockedColumnFields = [],
 }: DataTableProps<T>) {
   const isServerPagination =
     rowCount !== undefined && externalOnPaginationModelChange !== undefined;
@@ -152,9 +163,18 @@ export function DataTable<T extends GridValidRowModel>({
     return rows.filter(searchInObject);
   }, [rows, debouncedSearchText, serverSideSearch]);
 
+  // Orden/visibilidad elegidos por el usuario (no-op si no hay columnSettingsKey)
+  const columnPreferences = useColumnPreferences<T>(
+    columnSettingsKey ?? '',
+    columns,
+    lockedColumnFields,
+  );
+  const effectiveColumns = columnSettingsKey ? columnPreferences.columns : columns;
+  const [columnSettingsOpen, setColumnSettingsOpen] = useState(false);
+
   // Agregar columna de numeración automática (oculta en mobile)
   const columnsWithRowNumber = useMemo<GridColDef[]>(() => {
-    if (isMobile) return columns;
+    if (isMobile) return effectiveColumns;
 
     const rowNumberColumn: GridColDef = {
       field: '__row_number__',
@@ -188,8 +208,8 @@ export function DataTable<T extends GridValidRowModel>({
       },
     };
 
-    return [rowNumberColumn, ...columns];
-  }, [columns, filteredRows, getRowId, paginationModel.page, paginationModel.pageSize, isMobile]);
+    return [rowNumberColumn, ...effectiveColumns];
+  }, [effectiveColumns, filteredRows, getRowId, paginationModel.page, paginationModel.pageSize, isMobile]);
 
   const handleRowClick = (params: GridRowParams<T>) => {
     if (onRowClick) {
@@ -267,6 +287,24 @@ export function DataTable<T extends GridValidRowModel>({
           searchValue={internalSearchText}
           onSearchChange={handleSearchChange}
           showExport={showExport}
+          onToggleColumns={
+            columnSettingsKey ? () => setColumnSettingsOpen(true) : undefined
+          }
+        />
+      )}
+
+      {columnSettingsKey && (
+        <ColumnSettingsDialog
+          open={columnSettingsOpen}
+          onClose={() => setColumnSettingsOpen(false)}
+          columns={columns}
+          orderedFields={columnPreferences.orderedFields}
+          hiddenFields={columnPreferences.hiddenFields}
+          lockedFields={lockedColumnFields}
+          onOrderChange={columnPreferences.setOrder}
+          onToggleVisibility={columnPreferences.toggleVisibility}
+          onReset={columnPreferences.reset}
+          isCustomized={columnPreferences.isCustomized}
         />
       )}
 

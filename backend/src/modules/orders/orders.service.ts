@@ -29,6 +29,7 @@ import {
   ExpenseOrderSummaryDto,
   UpsertSalesGoalDto,
   FilterSalesGoalsDto,
+  OrdersDashboardQueryDto,
 } from './dto';
 import { InitialPaymentDto } from './dto/create-order.dto';
 import { EditRequestStatus, OrderStatus, PaymentMethod, Prisma } from '../../generated/prisma';
@@ -66,6 +67,17 @@ export interface AuthorizationHistoryEvent {
   reviewedBy: AuthHistoryUser | null;
 }
 
+/** Resumen del mini dashboard de la lista de órdenes de pedido. */
+export interface OrdersDashboardSummary {
+  salesAmount: string;
+  salesCount: number;
+  collectedAmount: string;
+  paymentsCount: number;
+  receivableAmount: string;
+  receivableCount: number;
+  pendingAdvancesCount: number;
+}
+
 /** Redondeo comercial colombiano al múltiplo de 100 más cercano según regla de denominaciones. */
 function applyColombianRounding(value: Prisma.Decimal): Prisma.Decimal {
   const truncated = value.toDecimalPlaces(0, Prisma.Decimal.ROUND_DOWN);
@@ -93,7 +105,7 @@ export class OrdersService {
   ) {}
 
   async findAll(filters: FilterOrdersDto) {
-    const { status, search, clientId, orderDateFrom, orderDateTo, page, limit, excludeWithWorkOrder, productionAreaId, createdById } = filters;
+    const { status, search, clientId, orderDateFrom, orderDateTo, page, limit, excludeWithWorkOrder, productionAreaId, createdById, hasBalance, advancePaymentStatus } = filters;
 
     return this.ordersRepository.findAllWithFilters({
       status,
@@ -106,7 +118,64 @@ export class OrdersService {
       excludeWithWorkOrder,
       productionAreaId,
       createdById,
+      hasBalance,
+      advancePaymentStatus,
     });
+  }
+
+  /**
+   * Mini dashboard de la lista de OP. Todas las métricas se acotan al rango de
+   * fechas recibido (por defecto, hoy) y excluyen las órdenes anuladas.
+   */
+  async getDashboardSummary(query: OrdersDashboardQueryDto): Promise<OrdersDashboardSummary> {
+    const today = new Date().toISOString().split('T')[0];
+    const from = startOfDay(query.dateFrom ?? today)!;
+    const to = endOfDay(query.dateTo ?? today)!;
+
+    const notAnulado = { not: OrderStatus.ANULADO } as const;
+    const inRange: Prisma.OrderWhereInput = {
+      orderDate: { gte: from, lte: to },
+      status: notAnulado,
+    };
+
+    const [sales, collected, receivable, pendingAdvances] =
+      await Promise.all([
+        this.prisma.order.aggregate({
+          where: { orderDate: { gte: from, lte: to }, status: notAnulado },
+          _sum: { total: true },
+          _count: { id: true },
+        }),
+        this.prisma.payment.aggregate({
+          where: {
+            paymentDate: { gte: from, lte: to },
+            order: { status: notAnulado },
+          },
+          _sum: { amount: true },
+          _count: { id: true },
+        }),
+        this.prisma.order.aggregate({
+          where: {
+            orderDate: { gte: from, lte: to },
+            status: notAnulado,
+            balance: { gt: 0 },
+          },
+          _sum: { balance: true },
+          _count: { id: true },
+        }),
+        this.prisma.order.count({
+          where: { ...inRange, advancePaymentStatus: EditRequestStatus.PENDING },
+        }),
+      ]);
+
+    return {
+      salesAmount: (sales._sum.total ?? new Prisma.Decimal(0)).toString(),
+      salesCount: sales._count.id,
+      collectedAmount: (collected._sum.amount ?? new Prisma.Decimal(0)).toString(),
+      paymentsCount: collected._count.id,
+      receivableAmount: (receivable._sum.balance ?? new Prisma.Decimal(0)).toString(),
+      receivableCount: receivable._count.id,
+      pendingAdvancesCount: pendingAdvances,
+    };
   }
 
   async getSalesSummary(filters: FilterOrdersDto) {

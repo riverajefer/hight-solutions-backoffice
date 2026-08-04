@@ -378,6 +378,28 @@ export interface FilterOrdersDto {
   excludeWithWorkOrder?: boolean;
   productionAreaId?: string;
   createdById?: string;
+  /** Si true, solo órdenes con saldo pendiente por cobrar (balance > 0) */
+  hasBalance?: boolean;
+  advancePaymentStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
+}
+
+// ── Mini dashboard de la lista de órdenes ────────────────────────
+
+export interface OrdersDashboardQuery {
+  /** YYYY-MM-DD; por defecto, hoy */
+  dateFrom?: string;
+  /** YYYY-MM-DD; por defecto, hoy */
+  dateTo?: string;
+}
+
+export interface OrdersDashboardSummary {
+  salesAmount: string;
+  salesCount: number;
+  collectedAmount: string;
+  paymentsCount: number;
+  receivableAmount: string;
+  receivableCount: number;
+  pendingAdvancesCount: number;
 }
 
 // ============================================================

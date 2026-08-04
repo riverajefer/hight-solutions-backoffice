@@ -5,6 +5,8 @@ export { DataTable } from './DataTable';
 export { LoadingSpinner } from './LoadingSpinner';
 export { SearchInput } from './SearchInput';
 export { PageHeader } from './PageHeader';
+export { StatCard } from './StatCard';
+export type { StatCardProps } from './StatCard';
 export { DocumentTypeBadge } from './DocumentTypeBadge';
 export { DocumentTypeBanner } from './DocumentTypeBanner';
 export { ApprovalQueueBar } from './ApprovalQueueBar';
