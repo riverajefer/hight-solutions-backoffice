@@ -140,12 +140,12 @@ export interface ExpenseOrder {
       };
     };
   } | null;
-  authorizedTo: {
+  authorizedTo?: {
     id: string;
     firstName?: string | null;
     lastName?: string | null;
     email: string;
-  };
+  } | null;
   responsible?: {
     id: string;
     firstName?: string | null;
@@ -217,7 +217,7 @@ export interface CreateExpenseOrderDto {
   expenseTypeId: string;
   expenseSubcategoryId: string;
   workOrderId?: string;
-  authorizedToId: string;
+  authorizedToId?: string;
   responsibleId?: string;
   observations?: string;
   areaOrMachine?: string;

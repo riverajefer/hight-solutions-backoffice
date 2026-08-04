@@ -68,6 +68,14 @@ export class UpdateAccountPayableDto {
   @IsOptional()
   supplierId?: string;
 
+  @ApiPropertyOptional({
+    description:
+      'ID del usuario beneficiario del anticipo (Personal / Anticipos). Se vincula al periodo de nómina en curso.',
+  })
+  @IsUUID()
+  @IsOptional()
+  beneficiaryUserId?: string;
+
   @ApiPropertyOptional({ description: 'Indica si es un pago recurrente' })
   @IsBoolean()
   @IsOptional()

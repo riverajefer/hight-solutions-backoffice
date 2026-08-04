@@ -1,7 +1,7 @@
 import type { PayrollItem } from './payroll-item.types';
 
 export type PayrollPeriodType = 'BIWEEKLY' | 'MONTHLY';
-export type PayrollPeriodStatus = 'DRAFT' | 'CALCULATED' | 'PAID';
+export type PayrollPeriodStatus = 'DRAFT' | 'IN_PROGRESS' | 'CALCULATED' | 'PAID';
 
 export interface PayrollPeriod {
   id: string;
@@ -51,4 +51,26 @@ export interface PayrollPeriodSummary {
   totalPayment: number;
   totalEpsAndPension: number;
   totalPayrollCost: number;
+}
+
+/**
+ * Anticipo (Cuenta por Pagar tipo Personal/Anticipos) vinculado a un periodo de
+ * nómina. `beneficiaryUser.id` es el userId del empleado; se agrupan por ese id.
+ */
+export interface PayrollAdvance {
+  id: string;
+  apNumber: string;
+  description: string;
+  totalAmount: string;
+  paidAmount: string;
+  balance: string;
+  status: string;
+  dueDate: string;
+  createdAt: string;
+  beneficiaryUser: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
+  } | null;
 }

@@ -40,7 +40,7 @@ const schema = z
     startDate: z.date({ invalid_type_error: 'Fecha inválida' }).nullable(),
     endDate: z.date({ invalid_type_error: 'Fecha inválida' }).nullable(),
     periodType: z.enum(['BIWEEKLY', 'MONTHLY']),
-    status: z.enum(['DRAFT', 'CALCULATED', 'PAID']).optional(),
+    status: z.enum(['DRAFT', 'IN_PROGRESS', 'CALCULATED', 'PAID']).optional(),
     overtimeDaytimeRate: z.string().optional(),
     overtimeNighttimeRate: z.string().optional(),
     overtimeDaytimeFestiveRate: z.string().optional(),
@@ -275,6 +275,7 @@ const PayrollPeriodFormPage: React.FC = () => {
                       <InputLabel>Estado</InputLabel>
                       <Select {...field} label="Estado">
                         <MenuItem value="DRAFT">Borrador</MenuItem>
+                        <MenuItem value="IN_PROGRESS">En curso</MenuItem>
                         <MenuItem value="CALCULATED">Calculado</MenuItem>
                         <MenuItem value="PAID">Pagado</MenuItem>
                       </Select>

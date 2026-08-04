@@ -299,7 +299,7 @@ export const ExpenseOrderFormPage = () => {
       setExpenseTypeId(existingOG.expenseType.id);
       setExpenseSubcategoryId(existingOG.expenseSubcategory.id);
       setWorkOrderId(existingOG.workOrder?.id ?? '');
-      setAuthorizedToId(existingOG.authorizedTo.id);
+      setAuthorizedToId(existingOG.authorizedTo?.id ?? '');
       setResponsibleId(existingOG.responsible?.id ?? '');
       setObservations(existingOG.observations ?? '');
       setAreaOrMachine(existingOG.areaOrMachine ?? '');
@@ -507,7 +507,8 @@ export const ExpenseOrderFormPage = () => {
 
   // ─── Validation per step ──────────────────────────────────────────────────────
   const isStep1Valid = !!expenseTypeId && !!expenseSubcategoryId;
-  const isStep2Valid = !!authorizedToId;
+  // El empleado "Se autoriza a" es opcional; el paso de autorización no bloquea.
+  const isStep2Valid = true;
   const isStep3Valid = items.every(
     (item) =>
       item.name.trim() &&
@@ -556,7 +557,7 @@ export const ExpenseOrderFormPage = () => {
     expenseTypeId,
     expenseSubcategoryId,
     workOrderId: workOrderId || undefined,
-    authorizedToId,
+    authorizedToId: authorizedToId || undefined,
     responsibleId: responsibleId || undefined,
     observations: observations || undefined,
     areaOrMachine: areaOrMachine || undefined,
@@ -726,7 +727,7 @@ export const ExpenseOrderFormPage = () => {
         value={users.find((u) => u.id === authorizedToId) ?? null}
         onChange={(_, val) => setAuthorizedToId(val?.id ?? '')}
         renderInput={(params) => (
-          <TextField {...params} label="Se autoriza a *" placeholder="Seleccionar usuario..." />
+          <TextField {...params} label="Se autoriza a (opcional)" placeholder="Seleccionar usuario..." />
         )}
       />
 

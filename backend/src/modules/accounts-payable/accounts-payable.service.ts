@@ -21,6 +21,12 @@ const READONLY_STATUSES: AccountPayableStatus[] = [
   AccountPayableStatus.CANCELLED,
 ];
 
+// Un gasto se considera "anticipo de nómina" cuando el tipo es "Personal" y la
+// subcategoría "Anticipos". En ese caso se debe elegir un empleado beneficiario y
+// el anticipo se vincula al periodo de nómina en curso para aplicar el descuento.
+const ADVANCE_EXPENSE_TYPE = 'personal';
+const ADVANCE_EXPENSE_SUBCATEGORY = 'anticipos';
+
 @Injectable()
 export class AccountsPayableService {
   private readonly logger = new Logger(AccountsPayableService.name);
@@ -44,6 +50,24 @@ export class AccountsPayableService {
     return ap;
   }
 
+  /**
+   * Empleados activos elegibles como beneficiarios de un anticipo de nómina.
+   * Se expone aquí para no acoplar el formulario de Cuentas por Pagar al permiso
+   * de nómina (read_payroll_employees).
+   */
+  async getBeneficiaries() {
+    const employees = await this.prisma.employee.findMany({
+      where: { status: 'ACTIVE' },
+      select: {
+        id: true,
+        userId: true,
+        user: { select: { id: true, firstName: true, lastName: true, email: true } },
+      },
+      orderBy: { user: { firstName: 'asc' } },
+    });
+    return employees;
+  }
+
   async create(dto: CreateAccountPayableDto, createdById: string) {
     const apNumber = await this.generateApNumber();
 
@@ -55,6 +79,12 @@ export class AccountsPayableService {
         );
       }
     }
+
+    const advanceLink = await this.resolveAdvanceLink(
+      dto.expenseTypeId,
+      dto.expenseSubcategoryId,
+      dto.beneficiaryUserId,
+    );
 
     return this.repository.create({
       apNumber,
@@ -75,7 +105,73 @@ export class AccountsPayableService {
       createdBy: { connect: { id: createdById } },
       ...(dto.supplierId && { supplier: { connect: { id: dto.supplierId } } }),
       ...(dto.expenseOrderId && { expenseOrder: { connect: { id: dto.expenseOrderId } } }),
+      ...(advanceLink && {
+        beneficiaryUser: { connect: { id: advanceLink.beneficiaryUserId } },
+        payrollPeriod: { connect: { id: advanceLink.payrollPeriodId } },
+      }),
     });
+  }
+
+  /**
+   * Determina si una cuenta por pagar es un anticipo de nómina (tipo "Personal" +
+   * subcategoría "Anticipos"). En ese caso valida el empleado beneficiario y lo
+   * vincula al periodo de nómina en curso. Devuelve `null` cuando no es un anticipo.
+   */
+  private async resolveAdvanceLink(
+    expenseTypeId: string,
+    expenseSubcategoryId: string,
+    beneficiaryUserId?: string,
+  ): Promise<{ beneficiaryUserId: string; payrollPeriodId: string } | null> {
+    const subcategory = await this.prisma.expenseSubcategory.findUnique({
+      where: { id: expenseSubcategoryId },
+      select: { name: true, expenseType: { select: { name: true } } },
+    });
+
+    const isAdvance =
+      subcategory?.expenseType?.name?.trim().toLowerCase() === ADVANCE_EXPENSE_TYPE &&
+      subcategory?.name?.trim().toLowerCase() === ADVANCE_EXPENSE_SUBCATEGORY;
+
+    if (!isAdvance) return null;
+
+    // El beneficiario es opcional: si no se selecciona, el anticipo se crea sin
+    // vincularse a un empleado/periodo de nómina (no se aplicará descuento).
+    if (!beneficiaryUserId) return null;
+
+    const employee = await this.prisma.employee.findUnique({
+      where: { userId: beneficiaryUserId },
+      select: { id: true, status: true },
+    });
+
+    if (!employee) {
+      throw new BadRequestException(
+        'El usuario seleccionado no tiene ficha de empleado y no puede recibir anticipos de nómina',
+      );
+    }
+
+    const currentPeriod = await this.prisma.payrollPeriod.findFirst({
+      where: { status: 'IN_PROGRESS' },
+      orderBy: { startDate: 'desc' },
+      select: { id: true, name: true },
+    });
+
+    if (!currentPeriod) {
+      throw new BadRequestException(
+        'No hay un periodo de nómina en curso (En curso) al cual vincular el anticipo. Marca un periodo como "En curso" primero.',
+      );
+    }
+
+    const payrollItem = await this.prisma.payrollItem.findUnique({
+      where: { periodId_employeeId: { periodId: currentPeriod.id, employeeId: employee.id } },
+      select: { id: true },
+    });
+
+    if (!payrollItem) {
+      throw new BadRequestException(
+        `El empleado seleccionado no está incluido en el periodo de nómina en curso (${currentPeriod.name}). Agrégalo al periodo antes de registrar el anticipo.`,
+      );
+    }
+
+    return { beneficiaryUserId, payrollPeriodId: currentPeriod.id };
   }
 
   async adminAuthorize(id: string, adminId: string) {
@@ -129,6 +225,35 @@ export class AccountsPayableService {
       const newBalance = dto.totalAmount - Number(ap.paidAmount);
       updateData.totalAmount = dto.totalAmount;
       updateData.balance = newBalance;
+    }
+
+    // Recalcular el vínculo de anticipo si cambian el tipo/subcategoría o el
+    // beneficiario. Si deja de ser un anticipo, se desvincula.
+    if (
+      dto.expenseTypeId !== undefined ||
+      dto.expenseSubcategoryId !== undefined ||
+      dto.beneficiaryUserId !== undefined
+    ) {
+      const effectiveTypeId = dto.expenseTypeId ?? ap.expenseType?.id;
+      const effectiveSubcategoryId = dto.expenseSubcategoryId ?? ap.expenseSubcategory?.id;
+      const effectiveBeneficiaryId = dto.beneficiaryUserId ?? ap.beneficiaryUser?.id;
+
+      const advanceLink =
+        effectiveTypeId && effectiveSubcategoryId
+          ? await this.resolveAdvanceLink(
+              effectiveTypeId,
+              effectiveSubcategoryId,
+              effectiveBeneficiaryId,
+            )
+          : null;
+
+      if (advanceLink) {
+        updateData.beneficiaryUser = { connect: { id: advanceLink.beneficiaryUserId } };
+        updateData.payrollPeriod = { connect: { id: advanceLink.payrollPeriodId } };
+      } else {
+        updateData.beneficiaryUser = { disconnect: true };
+        updateData.payrollPeriod = { disconnect: true };
+      }
     }
 
     return this.repository.update(id, updateData);

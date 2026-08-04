@@ -177,7 +177,7 @@ export class ExpenseOrdersRepository {
     expenseTypeId: string;
     expenseSubcategoryId: string;
     workOrderId?: string;
-    authorizedToId: string;
+    authorizedToId?: string;
     responsibleId?: string;
     observations?: string;
     areaOrMachine?: string;
