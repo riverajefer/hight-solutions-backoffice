@@ -161,8 +161,8 @@ export const OrdersDashboardCards: React.FC<OrdersDashboardCardsProps> = ({
           onChange={handlePresetChange}
         >
           <ToggleButton value="today">Hoy</ToggleButton>
-          <ToggleButton value="week">Semana</ToggleButton>
-          <ToggleButton value="month">Mes</ToggleButton>
+          <ToggleButton value="week">Esta semana</ToggleButton>
+          <ToggleButton value="month">Este mes</ToggleButton>
           <ToggleButton value="custom">Personalizado</ToggleButton>
         </ToggleButtonGroup>
 
