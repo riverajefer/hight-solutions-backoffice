@@ -20,7 +20,7 @@ import { PaymentEditApprovalsService } from '../payment-edit-approvals/payment-e
 import { DiscountApprovalsService } from '../discount-approvals/discount-approvals.service';
 import { ClientOwnershipAuthRequestsService } from '../client-ownership-auth-requests/client-ownership-auth-requests.service';
 import { PrismaService } from '../../database/prisma.service';
-import { Prisma, OrderStatus, PaymentMethod } from '../../generated/prisma';
+import { Prisma, OrderStatus, PaymentMethod, EditRequestStatus } from '../../generated/prisma';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mock collaborators
@@ -93,6 +93,7 @@ const mockPrisma = {
     findMany: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
+    aggregate: jest.fn(),
   },
   orderDiscount: {
     findUnique: jest.fn(),
@@ -117,6 +118,8 @@ const mockPrisma = {
   order: {
     findUnique: jest.fn(),
     update: jest.fn(),
+    aggregate: jest.fn(),
+    count: jest.fn(),
   },
   cashSession: {
     findFirst: jest.fn(),
@@ -253,6 +256,117 @@ describe('OrdersService', () => {
           orderDateTo: undefined,
         }),
       );
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // getDashboardSummary
+  // ─────────────────────────────────────────────
+  describe('getDashboardSummary', () => {
+    const emptyAggregate = { _sum: {}, _count: { id: 0 } };
+
+    beforeEach(() => {
+      mockPrisma.order.aggregate.mockResolvedValue(emptyAggregate);
+      mockPrisma.payment.aggregate.mockResolvedValue(emptyAggregate);
+      mockPrisma.order.count.mockResolvedValue(0);
+    });
+
+    it('should acotar todas las métricas al rango recibido y excluir ANULADO', async () => {
+      await service.getDashboardSummary({
+        dateFrom: '2026-07-01',
+        dateTo: '2026-07-31',
+      });
+
+      const from = new Date('2026-07-01T00:00:00.000Z');
+      const to = new Date('2026-07-31T23:59:59.999Z');
+
+      expect(mockPrisma.order.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            orderDate: { gte: from, lte: to },
+            status: { not: OrderStatus.ANULADO },
+          },
+        }),
+      );
+      expect(mockPrisma.payment.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            paymentDate: { gte: from, lte: to },
+            order: { status: { not: OrderStatus.ANULADO } },
+          },
+        }),
+      );
+    });
+
+    it('should usar el día de hoy cuando no se envía rango', async () => {
+      const today = new Date().toISOString().split('T')[0];
+
+      await service.getDashboardSummary({});
+
+      expect(mockPrisma.order.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            orderDate: {
+              gte: new Date(`${today}T00:00:00.000Z`),
+              lte: new Date(`${today}T23:59:59.999Z`),
+            },
+          }),
+        }),
+      );
+    });
+
+    it('should contar solo los anticipos PENDING dentro del rango', async () => {
+      await service.getDashboardSummary({ dateFrom: '2026-07-01', dateTo: '2026-07-31' });
+
+      const [advances] = mockPrisma.order.count.mock.calls[0];
+
+      expect(advances.where.advancePaymentStatus).toBe(EditRequestStatus.PENDING);
+      expect(advances.where.status).toEqual({ not: OrderStatus.ANULADO });
+      expect(advances.where.orderDate).toEqual({
+        gte: new Date('2026-07-01T00:00:00.000Z'),
+        lte: new Date('2026-07-31T23:59:59.999Z'),
+      });
+    });
+
+    it('should devolver los montos como string y cero cuando no hay datos', async () => {
+      const result = await service.getDashboardSummary({});
+
+      expect(result).toEqual({
+        salesAmount: '0',
+        salesCount: 0,
+        collectedAmount: '0',
+        paymentsCount: 0,
+        receivableAmount: '0',
+        receivableCount: 0,
+        pendingAdvancesCount: 0,
+      });
+    });
+
+    it('should sumar los agregados devueltos por Prisma', async () => {
+      mockPrisma.order.aggregate
+        .mockResolvedValueOnce({
+          _sum: { total: new Prisma.Decimal(150000) },
+          _count: { id: 3 },
+        })
+        .mockResolvedValueOnce({
+          _sum: { balance: new Prisma.Decimal(40000) },
+          _count: { id: 2 },
+        });
+      mockPrisma.payment.aggregate.mockResolvedValue({
+        _sum: { amount: new Prisma.Decimal(110000) },
+        _count: { id: 5 },
+      });
+      mockPrisma.order.count.mockResolvedValue(1);
+
+      const result = await service.getDashboardSummary({ dateFrom: '2026-07-01', dateTo: '2026-07-31' });
+
+      expect(result.salesAmount).toBe('150000');
+      expect(result.salesCount).toBe(3);
+      expect(result.collectedAmount).toBe('110000');
+      expect(result.paymentsCount).toBe(5);
+      expect(result.receivableAmount).toBe('40000');
+      expect(result.receivableCount).toBe(2);
+      expect(result.pendingAdvancesCount).toBe(1);
     });
   });
 

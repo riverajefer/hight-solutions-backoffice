@@ -28,7 +28,7 @@ import { useOrders } from '../hooks';
 import { useClients } from '../../clients/hooks/useClients';
 import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
 import { useUsers } from '../../users/hooks/useUsers';
-import { OrderStatusChip, ChangeStatusDialog } from '../components';
+import { OrderStatusChip, ChangeStatusDialog, OrdersDashboardCards } from '../components';
 import { ExportDialog } from '../../../components/common/ExportDialog';
 import { EXPORT_LIMIT } from '../../../utils/excelExport';
 import { ORDER_EXPORT_COLUMNS } from '../utils/orderExportColumns';
@@ -423,6 +423,27 @@ export const OrdersListPage: React.FC = () => {
       renderCell: (params: any) => formatCurrency(params.value),
     },
     {
+      field: 'paidAmount',
+      headerName: 'Anticipo',
+      width: 130,
+      align: 'right',
+      headerAlign: 'right',
+      responsive: 'md',
+      renderCell: (params: any) => {
+        const paid = parseFloat(params.value);
+        return (
+          <Box
+            sx={{
+              color: paid > 0 ? 'info.main' : 'text.disabled',
+              fontWeight: 500,
+            }}
+          >
+            {formatCurrency(params.value)}
+          </Box>
+        );
+      },
+    },
+    {
       field: 'balance',
       headerName: 'Saldo',
       width: 130,
@@ -445,8 +466,8 @@ export const OrdersListPage: React.FC = () => {
     },
     {
       field: 'advancePaymentStatus',
-      headerName: 'Anticipo',
-      width: 120,
+      headerName: 'Estado Anticipo',
+      width: 165,
       responsive: 'md',
       renderCell: (params: any) => {
         const status = params.value;
@@ -505,7 +526,25 @@ export const OrdersListPage: React.FC = () => {
     filters.orderDateTo ||
     filters.search ||
     filters.productionAreaId ||
-    filters.createdById;
+    filters.createdById ||
+    filters.hasBalance ||
+    filters.advancePaymentStatus;
+
+  // Filtros que llegan desde el mini dashboard y no tienen control propio en la
+  // barra de filtros; se muestran como chips para que se puedan quitar.
+  const dashboardFilterChips: Array<{ label: string; keys: (keyof FilterOrdersDto)[] }> = [
+    ...(filters.hasBalance
+      ? [{ label: 'Con saldo por cobrar', keys: ['hasBalance' as const] }]
+      : []),
+    ...(filters.advancePaymentStatus
+      ? [
+          {
+            label: `Anticipo: ${filters.advancePaymentStatus}`,
+            keys: ['advancePaymentStatus' as const],
+          },
+        ]
+      : []),
+  ];
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
@@ -534,6 +573,15 @@ export const OrdersListPage: React.FC = () => {
           </Box>
         }
       />
+
+      {/* Mini dashboard */}
+      {hasPermission(PERMISSIONS.READ_ORDERS_DASHBOARD) && (
+        <OrdersDashboardCards
+          onFilterClick={(params) =>
+            setFilters((prev) => ({ ...prev, ...params, page: 1 }))
+          }
+        />
+      )}
 
       {/* Filtros */}
       <Box
@@ -666,6 +714,28 @@ export const OrdersListPage: React.FC = () => {
         )}
       </Box>
 
+      {/* Filtros aplicados desde el mini dashboard */}
+      {dashboardFilterChips.length > 0 && (
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2, mt: -1 }}>
+          {dashboardFilterChips.map((chip) => (
+            <Chip
+              key={chip.label}
+              label={chip.label}
+              size='small'
+              color='primary'
+              variant='outlined'
+              onDelete={() =>
+                setFilters((prev) => {
+                  const next = { ...prev, page: 1 };
+                  chip.keys.forEach((key) => delete next[key]);
+                  return next;
+                })
+              }
+            />
+          ))}
+        </Box>
+      )}
+
       {/* Tabla */}
       <DataTable
         density='compact'
@@ -688,6 +758,8 @@ export const OrdersListPage: React.FC = () => {
         searchValue={filters.search || ''}
         onSearchChange={(value) => handleFilterChange('search', value)}
         serverSideSearch={true}
+        columnSettingsKey='orders'
+        lockedColumnFields={['orderNumber', 'actions']}
         searchPlaceholder='Buscar por número, cliente, notas...'
         emptyMessage='No se encontraron órdenes'
         getRowClassName={(params) => {

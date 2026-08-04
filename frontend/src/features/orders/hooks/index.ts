@@ -1,4 +1,4 @@
-export { useOrders, useOrder, useOrderPayments, ordersKeys, useOrderProfitability, useProfitabilityList, useSalesSummary, salesSummaryKeys, useSalesGoals, salesGoalsKeys } from './useOrders';
+export { useOrders, useOrder, useOrderPayments, ordersKeys, useOrderProfitability, useProfitabilityList, useSalesSummary, salesSummaryKeys, useSalesGoals, salesGoalsKeys, useOrdersDashboardSummary } from './useOrders';
 export {
   useRefundRequestsByOrder,
   usePendingRefundRequests,

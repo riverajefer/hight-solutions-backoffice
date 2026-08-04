@@ -11,6 +11,8 @@ import type {
   FilterProfitabilityDto,
   SalesSummary,
   UpsertSalesGoalDto,
+  OrdersDashboardQuery,
+  OrdersDashboardSummary,
 } from '../../../types/order.types';
 
 // ============================================================
@@ -30,6 +32,22 @@ export const ordersKeys = {
     [...ordersKeys.detail(orderId), 'profitability'] as const,
   profitabilityList: (filters?: FilterProfitabilityDto) =>
     [...ordersKeys.all, 'profitability', 'list', filters] as const,
+  dashboardSummaries: () => [...ordersKeys.all, 'dashboard-summary'] as const,
+  dashboardSummary: (params?: OrdersDashboardQuery) =>
+    [...ordersKeys.dashboardSummaries(), params] as const,
+};
+
+// ============================================================
+// HOOK: useOrdersDashboardSummary — Mini dashboard de la lista
+// ============================================================
+
+export const useOrdersDashboardSummary = (params?: OrdersDashboardQuery) => {
+  return useQuery<OrdersDashboardSummary>({
+    queryKey: ordersKeys.dashboardSummary(params),
+    queryFn: () => ordersApi.getDashboardSummary(params),
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+  });
 };
 
 // ============================================================
@@ -52,6 +70,7 @@ export const useOrders = (filters?: FilterOrdersDto) => {
     mutationFn: (data: CreateOrderDto) => ordersApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: ordersKeys.dashboardSummaries() });
       enqueueSnackbar('Orden creada correctamente', { variant: 'success' });
     },
     onError: (error: any) => {
@@ -67,6 +86,7 @@ export const useOrders = (filters?: FilterOrdersDto) => {
       ordersApi.update(id, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: ordersKeys.dashboardSummaries() });
       queryClient.invalidateQueries({
         queryKey: ordersKeys.detail(variables.id),
       });
@@ -87,6 +107,7 @@ export const useOrders = (filters?: FilterOrdersDto) => {
       ordersApi.updateStatus(id, status),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: ordersKeys.dashboardSummaries() });
       queryClient.invalidateQueries({
         queryKey: ordersKeys.detail(variables.id),
       });
@@ -113,6 +134,7 @@ export const useOrders = (filters?: FilterOrdersDto) => {
     mutationFn: (id: string) => ordersApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: ordersKeys.dashboardSummaries() });
       enqueueSnackbar('Orden eliminada correctamente', { variant: 'success' });
     },
     onError: (error: any) => {
@@ -155,6 +177,7 @@ export const useOrder = (id: string) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ordersKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: ordersKeys.dashboardSummaries() });
       enqueueSnackbar('Orden actualizada correctamente', {
         variant: 'success',
       });
@@ -172,6 +195,7 @@ export const useOrder = (id: string) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ordersKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: ordersKeys.dashboardSummaries() });
       enqueueSnackbar('Estado actualizado correctamente', {
         variant: 'success',
       });
@@ -195,6 +219,7 @@ export const useOrder = (id: string) => {
     mutationFn: () => ordersApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: ordersKeys.dashboardSummaries() });
       enqueueSnackbar('Orden eliminada correctamente', { variant: 'success' });
     },
     onError: (error: any) => {
@@ -241,6 +266,7 @@ export const useOrderPayments = (orderId: string) => {
         queryKey: ordersKeys.detail(orderId),
       });
       queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: ordersKeys.dashboardSummaries() });
       enqueueSnackbar('Pago registrado correctamente', { variant: 'success' });
     },
     onError: (error: any) => {
@@ -269,6 +295,7 @@ export const useOrderPayments = (orderId: string) => {
         queryKey: ordersKeys.detail(orderId),
       });
       queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: ordersKeys.dashboardSummaries() });
       if (result && 'status' in result && result.status === 'PENDING_APPROVAL') {
         enqueueSnackbar(
           result.message ||

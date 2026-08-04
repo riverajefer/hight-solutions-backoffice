@@ -18,6 +18,8 @@ import type {
   SalesSummary,
   SalesGoal,
   UpsertSalesGoalDto,
+  OrdersDashboardQuery,
+  OrdersDashboardSummary,
 } from '../types/order.types';
 import type { OrderAuthHistoryEvent } from '../types/order-authorization-history.types';
 
@@ -266,6 +268,19 @@ export const ordersApi = {
    */
   getSalesSummary: async (params?: FilterOrdersDto): Promise<SalesSummary> => {
     const { data } = await axiosInstance.get<SalesSummary>(`${BASE_URL}/sales-summary`, { params });
+    return data;
+  },
+
+  /**
+   * Obtener el resumen del mini dashboard de la lista de órdenes
+   */
+  getDashboardSummary: async (
+    params?: OrdersDashboardQuery,
+  ): Promise<OrdersDashboardSummary> => {
+    const { data } = await axiosInstance.get<OrdersDashboardSummary>(
+      `${BASE_URL}/dashboard-summary`,
+      { params },
+    );
     return data;
   },
 

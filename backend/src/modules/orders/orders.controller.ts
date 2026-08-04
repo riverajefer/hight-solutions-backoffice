@@ -41,6 +41,7 @@ import {
   PaginatedProfitabilityDto,
   UpsertSalesGoalDto,
   FilterSalesGoalsDto,
+  OrdersDashboardQueryDto,
 } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -92,6 +93,16 @@ export class OrdersController {
   }
 
   // ── Sales Summary ─────────────────────────────────────────────
+
+  @Get('dashboard-summary')
+  @RequirePermissions('read_orders_dashboard')
+  @ApiOperation({ summary: 'Get the orders list mini dashboard summary' })
+  @ApiQuery({ name: 'dateFrom', required: false, type: String })
+  @ApiQuery({ name: 'dateTo', required: false, type: String })
+  @ApiResponse({ status: 200, description: 'Dashboard summary retrieved successfully' })
+  getDashboardSummary(@Query() query: OrdersDashboardQueryDto) {
+    return this.ordersService.getDashboardSummary(query);
+  }
 
   @Get('sales-summary')
   @RequirePermissions('read_sales_by_advisor')

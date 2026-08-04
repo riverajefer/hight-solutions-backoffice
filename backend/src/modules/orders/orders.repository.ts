@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
-import { Prisma, OrderStatus } from '../../generated/prisma';
+import { Prisma, OrderStatus, EditRequestStatus } from '../../generated/prisma';
 
 @Injectable()
 export class OrdersRepository {
@@ -222,8 +222,10 @@ export class OrdersRepository {
     excludeWithWorkOrder?: boolean;
     productionAreaId?: string;
     createdById?: string;
+    hasBalance?: boolean;
+    advancePaymentStatus?: EditRequestStatus;
   }) {
-    const { status, search, clientId, orderDateFrom, orderDateTo, page = 1, limit = 20, excludeWithWorkOrder, productionAreaId, createdById } = filters;
+    const { status, search, clientId, orderDateFrom, orderDateTo, page = 1, limit = 20, excludeWithWorkOrder, productionAreaId, createdById, hasBalance, advancePaymentStatus } = filters;
 
     const where: Prisma.OrderWhereInput = {};
 
@@ -270,6 +272,14 @@ export class OrdersRepository {
       if (orderDateTo) {
         where.orderDate.lte = orderDateTo;
       }
+    }
+
+    if (hasBalance) {
+      where.balance = { gt: 0 };
+    }
+
+    if (advancePaymentStatus) {
+      where.advancePaymentStatus = advancePaymentStatus;
     }
 
     if (excludeWithWorkOrder) {
