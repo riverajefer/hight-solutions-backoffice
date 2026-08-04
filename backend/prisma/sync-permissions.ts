@@ -142,6 +142,16 @@ const groups: PermissionGroup[] = [
       },
     ],
   },
+  {
+    label: '📊 Órdenes de pedido',
+    permissions: [
+      {
+        name: 'read_orders_dashboard',
+        description:
+          'Ver el mini dashboard de indicadores en la lista de órdenes de pedido',
+      },
+    ],
+  },
 ];
 
 const allPermissions = groups.flatMap((g) => g.permissions);

@@ -69,6 +69,7 @@ export const PERMISSIONS = {
   // Orders
   CREATE_ORDERS: 'create_orders',
   READ_ORDERS: 'read_orders',
+  READ_ORDERS_DASHBOARD: 'read_orders_dashboard',
   EXPORT_ORDERS: 'export_orders',
   EXPORT_PENDING_PAYMENT_ORDERS: 'export_pending_payment_orders',
   EXPORT_PROFITABILITY: 'export_profitability',

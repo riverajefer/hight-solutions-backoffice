@@ -57,7 +57,7 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   'Ventas por Asesor': ['read_sales_by_advisor', 'export_sales_by_advisor', 'manage_sales_goals'],
 
   // Órdenes
-  Órdenes: ['create_orders', 'read_orders', 'update_orders', 'delete_orders', 'export_orders', 'export_pending_payment_orders', 'export_profitability', 'approve_orders', 'change_order_status', 'register_order_payments', 'approve_discounts', 'apply_discounts', 'delete_discounts', 'read_pending_orders'],
+  Órdenes: ['create_orders', 'read_orders', 'read_orders_dashboard', 'update_orders', 'delete_orders', 'export_orders', 'export_pending_payment_orders', 'export_profitability', 'approve_orders', 'change_order_status', 'register_order_payments', 'approve_discounts', 'apply_discounts', 'delete_discounts', 'read_pending_orders'],
   'Pagos de Órdenes': ['edit_order_payments', 'approve_payment_edits', 'delete_payment_receipts'],
   'Cambio de Asesor': ['request_advisor_change', 'approve_advisor_change'],
   DTF: ['create_dtf', 'read_dtf', 'update_dtf', 'export_dtf', 'change_dtf_status', 'convert_dtf_to_order'],
