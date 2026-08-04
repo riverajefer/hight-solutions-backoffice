@@ -1,6 +1,7 @@
 import axiosInstance from './axios';
 import type {
   AccountPayable,
+  AccountPayableBeneficiary,
   AccountPayableAttachment,
   AccountPayableInstallment,
   AccountPayableListResponse,
@@ -62,6 +63,13 @@ export const accountsPayableApi = {
   getPayments: async (id: string): Promise<AccountPayablePayment[]> => {
     const response = await axiosInstance.get<AccountPayablePayment[]>(
       `/accounts-payable/${id}/payments`,
+    );
+    return response.data;
+  },
+
+  getBeneficiaries: async (): Promise<AccountPayableBeneficiary[]> => {
+    const response = await axiosInstance.get<AccountPayableBeneficiary[]>(
+      '/accounts-payable/beneficiaries',
     );
     return response.data;
   },

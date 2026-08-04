@@ -11,6 +11,7 @@ import {
   Avatar,
   Divider,
 } from '@mui/material';
+import { lighten } from '@mui/material/styles';
 import {
   HourglassTop as HourglassTopIcon,
   CheckCircle as CheckCircleIcon,
@@ -85,19 +86,19 @@ const KIND_CONFIG: Record<
     label: 'Solicitud pendiente',
     color: 'warning',
     icon: <HourglassTopIcon fontSize="small" />,
-    dotBg: '#ed6c02',
+    dotBg: '#e65100',
   },
   REQUEST_APPROVED: {
     label: 'Solicitud aprobada',
     color: 'success',
     icon: <CheckCircleIcon fontSize="small" />,
-    dotBg: '#4caf50',
+    dotBg: '#2e7d32',
   },
   REQUEST_REJECTED: {
     label: 'Solicitud rechazada',
     color: 'error',
     icon: <CancelIcon fontSize="small" />,
-    dotBg: '#f44336',
+    dotBg: '#c62828',
   },
   ADMIN_AUTH: {
     label: 'Autorización Admin',
@@ -115,7 +116,7 @@ const KIND_CONFIG: Record<
     label: 'Rechazo de Caja',
     color: 'error',
     icon: <BlockIcon fontSize="small" />,
-    dotBg: '#f44336',
+    dotBg: '#c62828',
   },
 };
 
@@ -142,6 +143,10 @@ const TimelineDot: React.FC<{ kind: EventKind }> = ({ kind }) => {
         height: 32,
         backgroundColor: cfg.dotBg,
         color: '#fff',
+        // Anillo más claro del mismo color: separa el punto del fondo oscuro
+        // manteniendo el icono blanco con alto contraste sobre el relleno.
+        border: '2px solid',
+        borderColor: lighten(cfg.dotBg, 0.45),
         boxShadow: (theme) =>
           theme.palette.mode === 'dark'
             ? '0 0 10px rgba(0,0,0,0.5)'

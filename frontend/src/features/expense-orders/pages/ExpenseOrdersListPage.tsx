@@ -135,8 +135,10 @@ export const ExpenseOrdersListPage = () => {
       flex: 1,
       responsive: 'md',
       renderCell: ({ row }: GridRenderCellParams<ExpenseOrder>) =>
-        `${row.authorizedTo.firstName ?? ''} ${row.authorizedTo.lastName ?? ''}`.trim() ||
-        row.authorizedTo.email,
+        row.authorizedTo
+          ? `${row.authorizedTo.firstName ?? ''} ${row.authorizedTo.lastName ?? ''}`.trim() ||
+            row.authorizedTo.email
+          : '—',
     },
     {
       field: 'workOrder',

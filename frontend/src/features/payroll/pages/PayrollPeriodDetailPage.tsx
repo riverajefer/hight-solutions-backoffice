@@ -20,8 +20,10 @@ import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { DataTable } from '../../../components/common/DataTable';
+import { useQuery } from '@tanstack/react-query';
 import { usePayrollPeriods } from '../hooks/usePayrollPeriods';
 import { usePayrollItems } from '../hooks/usePayrollItems';
+import { payrollPeriodsApi } from '../../../api/payroll-periods.api';
 import { getItemColumns } from '../config/columns';
 import type { PayrollItem } from '../../../types/payroll-item.types';
 import { PATHS } from '../../../router/paths';
@@ -40,12 +42,14 @@ const formatCOP = (value: number | string | null | undefined) => {
 
 const periodStatusColor: Record<string, 'default' | 'warning' | 'info' | 'success'> = {
   DRAFT: 'default',
+  IN_PROGRESS: 'warning',
   CALCULATED: 'info',
   PAID: 'success',
 };
 
 const periodStatusLabel: Record<string, string> = {
   DRAFT: 'Borrador',
+  IN_PROGRESS: 'En curso',
   CALCULATED: 'Calculado',
   PAID: 'Pagado',
 };
@@ -61,6 +65,11 @@ const PayrollPeriodDetailPage: React.FC = () => {
   const periodQuery = getPeriodQuery(id!);
   const summaryQuery = getSummaryQuery(id!);
   const { itemsQuery, deleteMutation } = usePayrollItems(id!);
+  const advancesQuery = useQuery({
+    queryKey: ['payroll-advances', id],
+    queryFn: () => payrollPeriodsApi.getAdvances(id!),
+    enabled: !!id,
+  });
 
   const [toDelete, setToDelete] = useState<PayrollItem | null>(null);
   const [statusAnchorEl, setStatusAnchorEl] = useState<null | HTMLElement>(null);
@@ -72,8 +81,9 @@ const PayrollPeriodDetailPage: React.FC = () => {
         data: { status: newStatus as any },
       });
       enqueueSnackbar('Estado actualizado', { variant: 'success' });
-    } catch {
-      enqueueSnackbar('Error al actualizar el estado', { variant: 'error' });
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? 'Error al actualizar el estado';
+      enqueueSnackbar(msg, { variant: 'error' });
     } finally {
       setStatusAnchorEl(null);
     }
@@ -107,6 +117,24 @@ const PayrollPeriodDetailPage: React.FC = () => {
 
   const items = itemsQuery.data ?? [];
   const summary = summaryQuery.data;
+
+  // Anticipos vinculados agrupados por empleado beneficiario.
+  const advances = advancesQuery.data ?? [];
+  const advancesTotal = advances.reduce((sum, a) => sum + Number(a.totalAmount), 0);
+  const advancesByEmployee = advances.reduce<Record<string, { name: string; total: number; count: number }>>(
+    (acc, a) => {
+      const key = a.beneficiaryUser?.id ?? 'sin-empleado';
+      const name =
+        `${a.beneficiaryUser?.firstName ?? ''} ${a.beneficiaryUser?.lastName ?? ''}`.trim() ||
+        a.beneficiaryUser?.email ||
+        'Empleado';
+      if (!acc[key]) acc[key] = { name, total: 0, count: 0 };
+      acc[key].total += Number(a.totalAmount);
+      acc[key].count += 1;
+      return acc;
+    },
+    {},
+  );
 
   const columns = getItemColumns(
     (item) =>
@@ -148,6 +176,9 @@ const PayrollPeriodDetailPage: React.FC = () => {
               >
                 <MenuItem onClick={() => handleStatusChange('DRAFT')} disabled={period.status === 'DRAFT' || updateMutation.isPending}>
                   Borrador
+                </MenuItem>
+                <MenuItem onClick={() => handleStatusChange('IN_PROGRESS')} disabled={period.status === 'IN_PROGRESS' || updateMutation.isPending}>
+                  En curso
                 </MenuItem>
                 <MenuItem onClick={() => handleStatusChange('CALCULATED')} disabled={period.status === 'CALCULATED' || updateMutation.isPending}>
                   Calculado
@@ -221,6 +252,28 @@ const PayrollPeriodDetailPage: React.FC = () => {
             Editar Periodo
           </Button>
         </Stack>
+      )}
+
+      {/* Anticipos vinculados al periodo */}
+      {advances.length > 0 && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 0.5 }}>
+            {advances.length} anticipo(s) vinculado(s) — total {formatCOP(advancesTotal)}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+            Abre el registro de cada empleado para aplicar el descuento de anticipos.
+          </Typography>
+          <Stack spacing={0.25}>
+            {Object.values(advancesByEmployee).map((e) => (
+              <Typography key={e.name} variant="body2">
+                {e.name}: <strong>{formatCOP(e.total)}</strong>{' '}
+                <Typography component="span" variant="caption" color="text.secondary">
+                  ({e.count} anticipo{e.count > 1 ? 's' : ''})
+                </Typography>
+              </Typography>
+            ))}
+          </Stack>
+        </Alert>
       )}
 
       {/* Items table */}

@@ -48,6 +48,12 @@ export class AccountsPayableRepository {
       select: { id: true, firstName: true, lastName: true, email: true },
     },
     authorizedAt: true,
+    beneficiaryUser: {
+      select: { id: true, firstName: true, lastName: true, email: true },
+    },
+    payrollPeriod: {
+      select: { id: true, name: true, status: true },
+    },
   } satisfies Prisma.AccountPayableSelect;
 
   async findAll(filters: FilterAccountPayableDto) {

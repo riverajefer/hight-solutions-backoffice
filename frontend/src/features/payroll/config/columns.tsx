@@ -28,6 +28,7 @@ const statusLabel: Record<string, { label: string; color: 'success' | 'default' 
 
 const periodStatusLabel: Record<string, { label: string; color: 'default' | 'warning' | 'info' | 'success' }> = {
   DRAFT: { label: 'Borrador', color: 'default' },
+  IN_PROGRESS: { label: 'En curso', color: 'warning' },
   CALCULATED: { label: 'Calculado', color: 'info' },
   PAID: { label: 'Pagado', color: 'success' },
 };

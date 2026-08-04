@@ -79,6 +79,40 @@ export class PayrollPeriodsRepository {
     });
   }
 
+  /** Periodo de nómina "en curso" (status IN_PROGRESS). Debe haber a lo sumo uno. */
+  async findCurrent() {
+    return this.prisma.payrollPeriod.findFirst({
+      where: { status: 'IN_PROGRESS' },
+      orderBy: { startDate: 'desc' },
+      select: periodSelect,
+    });
+  }
+
+  /**
+   * Anticipos (cuentas por pagar Personal/Anticipos) vinculados a un periodo,
+   * con su beneficiario y estado de pago. Excluye los anulados.
+   */
+  async findAdvancesByPeriod(periodId: string) {
+    return this.prisma.accountPayable.findMany({
+      where: { payrollPeriodId: periodId, status: { not: 'CANCELLED' } },
+      select: {
+        id: true,
+        apNumber: true,
+        description: true,
+        totalAmount: true,
+        paidAmount: true,
+        balance: true,
+        status: true,
+        dueDate: true,
+        createdAt: true,
+        beneficiaryUser: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async create(data: Prisma.PayrollPeriodCreateInput) {
     return this.prisma.payrollPeriod.create({
       data,

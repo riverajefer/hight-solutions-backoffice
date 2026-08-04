@@ -54,6 +54,17 @@ export class PayrollPeriodsService {
       throw new BadRequestException('La fecha de inicio debe ser anterior a la fecha de fin');
     }
 
+    // Regla de negocio: solo puede existir un periodo de nómina "en curso"
+    // (IN_PROGRESS) a la vez, para que los anticipos se vinculen sin ambigüedad.
+    if (dto.status === 'IN_PROGRESS') {
+      const openPeriod = await this.periodsRepository.findCurrent();
+      if (openPeriod && openPeriod.id !== id) {
+        throw new BadRequestException(
+          `Ya existe un periodo de nómina en curso (${openPeriod.name}). Cámbialo de estado antes de poner otro en curso.`,
+        );
+      }
+    }
+
     return this.periodsRepository.update(id, {
       ...dto,
       ...(dto.startDate && { startDate: new Date(dto.startDate) }),
@@ -70,6 +81,16 @@ export class PayrollPeriodsService {
   async getSummary(id: string) {
     await this.findOne(id);
     return this.periodsRepository.getSummary(id);
+  }
+
+  /**
+   * Lista los anticipos (cuentas por pagar Personal/Anticipos) vinculados al
+   * periodo. Cada anticipo incluye el usuario beneficiario para poder agruparlos
+   * por empleado en la nómina y aplicar el descuento correspondiente.
+   */
+  async getAdvances(id: string) {
+    await this.findOne(id);
+    return this.periodsRepository.findAdvancesByPeriod(id);
   }
 
   /**
