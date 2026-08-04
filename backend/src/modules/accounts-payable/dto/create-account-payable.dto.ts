@@ -74,6 +74,14 @@ export class CreateAccountPayableDto {
   @IsOptional()
   expenseOrderId?: string;
 
+  @ApiPropertyOptional({
+    description:
+      'ID del usuario beneficiario del anticipo. Requerido cuando el tipo de gasto es "Personal" y la subcategoría "Anticipos"; el anticipo se vincula al periodo de nómina en curso.',
+  })
+  @IsUUID()
+  @IsOptional()
+  beneficiaryUserId?: string;
+
   @ApiPropertyOptional({ description: 'Indica si es un pago recurrente', default: false })
   @IsBoolean()
   @IsOptional()

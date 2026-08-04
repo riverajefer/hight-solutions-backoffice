@@ -59,6 +59,14 @@ export class AccountsPayableController {
     return this.service.getSummary();
   }
 
+  @Get('beneficiaries')
+  @RequirePermissions('read_accounts_payable')
+  @ApiOperation({ summary: 'Listar empleados activos elegibles como beneficiarios de anticipos' })
+  @ApiResponse({ status: 200, description: 'Beneficiarios obtenidos correctamente' })
+  getBeneficiaries() {
+    return this.service.getBeneficiaries();
+  }
+
   @Get(':id')
   @RequirePermissions('read_accounts_payable')
   @ApiOperation({ summary: 'Obtener detalle de una cuenta por pagar' })

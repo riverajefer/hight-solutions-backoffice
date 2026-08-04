@@ -52,6 +52,13 @@ export class PayrollPeriodsController {
     return this.periodsService.getSummary(id);
   }
 
+  @Get(':id/advances')
+  @RequirePermissions('read_payroll_periods')
+  @ApiOperation({ summary: 'Listar anticipos (Cuentas por Pagar) vinculados al periodo' })
+  getAdvances(@Param('id') id: string) {
+    return this.periodsService.getAdvances(id);
+  }
+
   @Post()
   @RequirePermissions('create_payroll_periods')
   @ApiOperation({ summary: 'Crear un nuevo periodo de nómina' })

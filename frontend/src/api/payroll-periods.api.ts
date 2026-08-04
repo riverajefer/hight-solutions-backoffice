@@ -1,6 +1,7 @@
 import axiosInstance from './axios';
 import type {
   PayrollPeriod,
+  PayrollAdvance,
   CreatePayrollPeriodDto,
   UpdatePayrollPeriodDto,
   PayrollPeriodSummary,
@@ -19,6 +20,11 @@ export const payrollPeriodsApi = {
 
   getSummary: async (id: string): Promise<PayrollPeriodSummary> => {
     const { data } = await axiosInstance.get<PayrollPeriodSummary>(`/payroll/periods/${id}/summary`);
+    return data;
+  },
+
+  getAdvances: async (id: string): Promise<PayrollAdvance[]> => {
+    const { data } = await axiosInstance.get<PayrollAdvance[]>(`/payroll/periods/${id}/advances`);
     return data;
   },
 

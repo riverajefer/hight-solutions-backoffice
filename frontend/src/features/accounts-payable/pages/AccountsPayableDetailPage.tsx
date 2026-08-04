@@ -355,6 +355,26 @@ export default function AccountsPayableDetailPage() {
                   <InfoRow label="Proveedor" value={ap.supplier.name} />
                 </Grid>
               )}
+              {ap.beneficiaryUser && (
+                <Grid item xs={12} sm={6}>
+                  <InfoRow
+                    label="Anticipo — empleado beneficiario"
+                    value={
+                      `${ap.beneficiaryUser.firstName ?? ''} ${ap.beneficiaryUser.lastName ?? ''}`.trim() ||
+                      ap.beneficiaryUser.email ||
+                      '—'
+                    }
+                  />
+                </Grid>
+              )}
+              {ap.payrollPeriod && (
+                <Grid item xs={12} sm={6}>
+                  <InfoRow
+                    label="Periodo de nómina vinculado"
+                    value={ap.payrollPeriod.name}
+                  />
+                </Grid>
+              )}
               {ap.expenseOrder && (
                 <Grid item xs={12} sm={6}>
                   <InfoRow

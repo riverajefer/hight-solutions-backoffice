@@ -88,6 +88,7 @@ model User {
   createdAccountsPayable                    AccountPayable[]                       @relation("AccountPayableCreatedBy")
   cancelledAccountsPayable                  AccountPayable[]                       @relation("AccountPayableCancelledBy")
   authorizedAccountsPayable                 AccountPayable[]                       @relation("AccountPayableAuthorizedBy")
+  beneficiaryAccountsPayable                AccountPayable[]                       @relation("AccountPayableBeneficiary")
   registeredApPayments                      AccountPayablePayment[]                @relation("AccountPayablePaymentRegisteredBy")
   requestedApAuthRequests                   AccountPayableAuthRequest[]            @relation("RequestedApAuthRequests")
   reviewedApAuthRequests                    AccountPayableAuthRequest[]            @relation("ReviewedApAuthRequests")
@@ -1252,7 +1253,7 @@ model ExpenseOrder {
   expenseTypeId        String             @map("expense_type_id")
   expenseSubcategoryId String             @map("expense_subcategory_id")
   workOrderId          String?            @map("work_order_id") // Opcional: OT asociada
-  authorizedToId       String             @map("authorized_to_id") // Usuario autorizado
+  authorizedToId       String?            @map("authorized_to_id") // Usuario autorizado (opcional)
   responsibleId        String?            @map("responsible_id") // Responsable (opcional)
   observations         String?
   areaOrMachine        String?            @map("area_or_machine")
@@ -1285,7 +1286,7 @@ model ExpenseOrder {
   expenseType        ExpenseType               @relation(fields: [expenseTypeId], references: [id])
   expenseSubcategory ExpenseSubcategory        @relation(fields: [expenseSubcategoryId], references: [id])
   workOrder          WorkOrder?                @relation(fields: [workOrderId], references: [id])
-  authorizedTo       User                      @relation("AuthorizedExpenseOrders", fields: [authorizedToId], references: [id])
+  authorizedTo       User?                     @relation("AuthorizedExpenseOrders", fields: [authorizedToId], references: [id])
   responsible        User?                     @relation("ResponsibleExpenseOrders", fields: [responsibleId], references: [id])
   createdBy          User                      @relation("CreatedExpenseOrders", fields: [createdById], references: [id])
   authorizedBy       User?                     @relation("ApprovedExpenseOrders", fields: [authorizedById], references: [id])
@@ -1598,6 +1599,7 @@ enum PayrollPeriodStatus {
   DRAFT
   CALCULATED
   PAID
+  IN_PROGRESS
 }
 
 model Employee {
@@ -1668,7 +1670,8 @@ model PayrollPeriod {
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
 
-  payrollItems PayrollItem[]
+  payrollItems    PayrollItem[]
+  advanceAccounts AccountPayable[]
 
   @@map("payroll_periods")
 }
@@ -2196,6 +2199,11 @@ model AccountPayable {
   supplierId     String? @map("supplier_id")
   expenseOrderId String? @unique @map("expense_order_id")
 
+  // Anticipo de nómina: usuario beneficiario y periodo de nómina en curso al que
+  // se vincula (solo cuando el tipo es "Personal" y la subcategoría "Anticipos").
+  beneficiaryUserId String? @map("beneficiary_user_id")
+  payrollPeriodId   String? @map("payroll_period_id")
+
   createdById    String    @map("created_by_id")
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
@@ -2212,6 +2220,8 @@ model AccountPayable {
   createdBy           User                               @relation("AccountPayableCreatedBy", fields: [createdById], references: [id])
   cancelledBy         User?                              @relation("AccountPayableCancelledBy", fields: [cancelledById], references: [id])
   authorizedBy        User?                              @relation("AccountPayableAuthorizedBy", fields: [authorizedById], references: [id])
+  beneficiaryUser     User?                              @relation("AccountPayableBeneficiary", fields: [beneficiaryUserId], references: [id])
+  payrollPeriod       PayrollPeriod?                     @relation(fields: [payrollPeriodId], references: [id])
   payments            AccountPayablePayment[]
   attachments         AccountPayableAttachment[]
   installments        AccountPayableInstallment[]
@@ -2223,6 +2233,8 @@ model AccountPayable {
   @@index([supplierId])
   @@index([createdById])
   @@index([createdAt])
+  @@index([beneficiaryUserId])
+  @@index([payrollPeriodId])
   @@map("accounts_payable")
 }
 

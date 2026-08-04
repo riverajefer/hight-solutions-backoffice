@@ -28,6 +28,7 @@ import { usePayrollItems } from '../hooks/usePayrollItems';
 import { usePayrollPeriods } from '../hooks/usePayrollPeriods';
 import { usePayrollEmployees } from '../hooks/usePayrollEmployees';
 import { payrollItemsApi } from '../../../api/payroll-items.api';
+import { payrollPeriodsApi } from '../../../api/payroll-periods.api';
 import { useQuery } from '@tanstack/react-query';
 import type { CreatePayrollItemDto, UpdatePayrollItemDto } from '../../../types';
 import { PATHS } from '../../../router/paths';
@@ -197,6 +198,13 @@ const PayrollItemFormPage: React.FC = () => {
 
   const { createMutation, updateMutation, itemsQuery } = usePayrollItems(periodId!);
   const { employeesQuery } = usePayrollEmployees();
+
+  // Anticipos (Cuentas por Pagar Personal/Anticipos) vinculados a este periodo.
+  const advancesQuery = useQuery({
+    queryKey: ['payroll-advances', periodId],
+    queryFn: () => payrollPeriodsApi.getAdvances(periodId!),
+    enabled: !!periodId,
+  });
 
   // Empleado a agregar (solo modo nuevo)
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
@@ -378,6 +386,17 @@ const PayrollItemFormPage: React.FC = () => {
       enqueueSnackbar(message, { variant: 'error' });
     }
   };
+
+  // ── Anticipos vinculados del empleado de este registro ─────────────────────
+  const employeeUserId = isNew
+    ? (employeesQuery.data ?? []).find((e) => e.id === selectedEmployeeId)?.userId
+    : itemQuery.data?.employee?.user?.id;
+  const employeeAdvances = (advancesQuery.data ?? []).filter(
+    (a) => !!employeeUserId && a.beneficiaryUser?.id === employeeUserId,
+  );
+  const advancesTotal = employeeAdvances.reduce((sum, a) => sum + Number(a.totalAmount), 0);
+  const currentAdvancesValue = rawNum(values.advances);
+  const applyAdvancesDiscount = () => setValue('advances', String(Math.round(advancesTotal)));
 
   if (!isNew && itemQuery.isLoading) return <LoadingSpinner />;
   const isLoading = updateMutation.isPending || createMutation.isPending;
@@ -573,6 +592,77 @@ const PayrollItemFormPage: React.FC = () => {
               <CurrencyField control={control} name="epsAndPensionDiscount" label="EPS y Pensión" />
             </Grid>
           </Grid>
+
+          {/* ── ANTICIPOS VINCULADOS (Cuentas por Pagar) ──────────────────── */}
+          {employeeAdvances.length > 0 && (
+            <Box
+              sx={{
+                mt: 2,
+                p: 2,
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'warning.main',
+                bgcolor: 'warning.soft',
+              }}
+            >
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                justifyContent="space-between"
+                alignItems={{ xs: 'flex-start', sm: 'center' }}
+                spacing={1}
+                sx={{ mb: 1 }}
+              >
+                <Box>
+                  <Typography variant="subtitle2" fontWeight="bold">
+                    Anticipos vinculados del empleado
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Cuentas por Pagar (Personal / Anticipos) registradas para este empleado en el periodo.
+                  </Typography>
+                </Box>
+                <Tooltip title="Copiar el total de anticipos al campo de descuento 'Anticipos'">
+                  <span>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="warning"
+                      onClick={applyAdvancesDiscount}
+                      disabled={currentAdvancesValue === Math.round(advancesTotal)}
+                    >
+                      Aplicar como descuento
+                    </Button>
+                  </span>
+                </Tooltip>
+              </Stack>
+
+              <Stack spacing={0.5}>
+                {employeeAdvances.map((a) => (
+                  <Stack key={a.id} direction="row" justifyContent="space-between" spacing={2}>
+                    <Typography variant="body2" sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {a.apNumber} — {a.description || 'Anticipo'}
+                    </Typography>
+                    <Typography variant="body2" fontWeight={600} sx={{ whiteSpace: 'nowrap' }}>
+                      {formatCOP(Number(a.totalAmount))}
+                    </Typography>
+                  </Stack>
+                ))}
+                <Divider sx={{ my: 0.5 }} />
+                <Stack direction="row" justifyContent="space-between">
+                  <Typography variant="body2" fontWeight="bold">Total anticipos</Typography>
+                  <Typography variant="body2" fontWeight="bold" color="warning.main">
+                    {formatCOP(advancesTotal)}
+                  </Typography>
+                </Stack>
+              </Stack>
+
+              {currentAdvancesValue !== Math.round(advancesTotal) && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                  El descuento "Anticipos" actual ({formatCOP(currentAdvancesValue)}) difiere del total
+                  vinculado. Usa "Aplicar como descuento" para igualarlo.
+                </Typography>
+              )}
+            </Box>
+          )}
 
           <Divider sx={{ my: 3 }} />
 

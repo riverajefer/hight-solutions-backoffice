@@ -30,12 +30,14 @@ const formatCOP = (value: string | number | null | undefined) => {
 
 const periodStatusLabel: Record<string, string> = {
   DRAFT: 'Borrador',
+  IN_PROGRESS: 'En curso',
   CALCULATED: 'Calculado',
   PAID: 'Pagado',
 };
 
 const periodStatusColor: Record<string, 'default' | 'warning' | 'info' | 'success'> = {
   DRAFT: 'default',
+  IN_PROGRESS: 'warning',
   CALCULATED: 'info',
   PAID: 'success',
 };

@@ -12,6 +12,7 @@ import { PayrollPeriodType } from './create-payroll-period.dto';
 
 export enum PayrollPeriodStatus {
   DRAFT = 'DRAFT',
+  IN_PROGRESS = 'IN_PROGRESS',
   CALCULATED = 'CALCULATED',
   PAID = 'PAID',
 }

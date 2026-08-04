@@ -249,7 +249,9 @@ export class OrderTimelineService {
           createdAt: eo.createdAt.toISOString(),
           endedAt: null,
           createdByName: this.buildUserDisplayName(eo.createdBy),
-          authorizedToName: this.buildUserDisplayName(eo.authorizedTo),
+          authorizedToName: eo.authorizedTo
+            ? this.buildUserDisplayName(eo.authorizedTo)
+            : null,
           authorizedByName: eo.authorizedBy
             ? this.buildUserDisplayName(eo.authorizedBy)
             : null,
@@ -555,7 +557,9 @@ export class OrderTimelineService {
           createdAt: eo.createdAt.toISOString(),
           endedAt: null,
           createdByName: this.buildUserDisplayName(eo.createdBy),
-          authorizedToName: this.buildUserDisplayName(eo.authorizedTo),
+          authorizedToName: eo.authorizedTo
+            ? this.buildUserDisplayName(eo.authorizedTo)
+            : null,
           authorizedByName: eo.authorizedBy
             ? this.buildUserDisplayName(eo.authorizedBy)
             : null,

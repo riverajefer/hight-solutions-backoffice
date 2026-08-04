@@ -168,11 +168,33 @@ export interface AccountPayable {
     email?: string | null;
   } | null;
   authorizedAt?: string | null;
+  beneficiaryUser?: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
+  } | null;
+  payrollPeriod?: {
+    id: string;
+    name: string;
+    status: string;
+  } | null;
   createdAt: string;
   updatedAt: string;
   payments?: AccountPayablePayment[];
   attachments?: AccountPayableAttachment[];
   installments?: AccountPayableInstallment[];
+}
+
+export interface AccountPayableBeneficiary {
+  id: string;
+  userId: string;
+  user: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
+  };
 }
 
 export interface AccountPayableSummary {
@@ -198,12 +220,15 @@ export interface CreateAccountPayableDto {
   dueDate: string;
   supplierId?: string;
   expenseOrderId?: string;
+  beneficiaryUserId?: string;
   isRecurring?: boolean;
   recurringDay?: number;
   recurringFrequency?: 'BIWEEKLY' | 'MONTHLY' | 'SEMIANNUAL' | 'ANNUAL';
 }
 
 export interface UpdateAccountPayableDto {
+  expenseTypeId?: string;
+  expenseSubcategoryId?: string;
   description?: string;
   observations?: string;
   totalAmount?: number;
@@ -211,6 +236,7 @@ export interface UpdateAccountPayableDto {
   ivaRate?: number;
   dueDate?: string;
   supplierId?: string;
+  beneficiaryUserId?: string;
   isRecurring?: boolean;
   recurringDay?: number;
   recurringFrequency?: 'BIWEEKLY' | 'MONTHLY' | 'SEMIANNUAL' | 'ANNUAL';

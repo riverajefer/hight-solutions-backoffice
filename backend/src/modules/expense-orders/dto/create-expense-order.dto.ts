@@ -90,10 +90,10 @@ export class CreateExpenseOrderDto {
   @IsOptional()
   workOrderId?: string;
 
-  @ApiProperty({ description: 'ID del usuario al que se autoriza' })
+  @ApiPropertyOptional({ description: 'ID del usuario al que se autoriza (opcional)' })
   @IsUUID()
-  @IsNotEmpty()
-  authorizedToId: string;
+  @IsOptional()
+  authorizedToId?: string;
 
   @ApiPropertyOptional({ description: 'ID del usuario responsable (opcional)' })
   @IsUUID()

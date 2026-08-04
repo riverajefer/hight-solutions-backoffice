@@ -30,10 +30,17 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { ROUTES } from '../../../utils/constants';
+import { useQuery } from '@tanstack/react-query';
 import { useAccountPayable, useAccountsPayable } from '../hooks/useAccountsPayable';
 import { useSuppliers } from '../../suppliers/hooks/useSuppliers';
 import { useExpenseTypes } from '../../expense-orders/hooks/useExpenseOrders';
+import { accountsPayableApi } from '../../../api/accounts-payable.api';
 import { CreateSupplierModal } from '../../suppliers/components/CreateSupplierModal';
+
+// Un anticipo de nómina se identifica por tipo "Personal" + subcategoría "Anticipos".
+const isAdvanceSelection = (typeName?: string, subcategoryName?: string): boolean =>
+  typeName?.trim().toLowerCase() === 'personal' &&
+  subcategoryName?.trim().toLowerCase() === 'anticipos';
 
 // ─── Currency helper ──────────────────────────────────────────────────────────
 const formatCurrencyInput = (value: string): string => {
@@ -46,6 +53,7 @@ const schema = z
   .object({
     expenseTypeId: z.string().uuid('Selecciona el tipo de gasto'),
     expenseSubcategoryId: z.string().uuid('Selecciona la subcategoría'),
+    beneficiaryUserId: z.string().uuid().optional().or(z.literal('')),
     description: z.string().max(500).optional().or(z.literal('')),
     observations: z.string().optional(),
     totalAmount: z.string().min(1, 'Ingresa el monto total'),
@@ -81,6 +89,11 @@ export default function AccountsPayableFormPage() {
   const { suppliersQuery } = useSuppliers();
   const suppliers = suppliersQuery.data ?? [];
   const { data: expenseTypes = [] } = useExpenseTypes();
+  const beneficiariesQuery = useQuery({
+    queryKey: ['ap-beneficiaries'],
+    queryFn: () => accountsPayableApi.getBeneficiaries(),
+  });
+  const activeEmployees = beneficiariesQuery.data ?? [];
 
   const filteredExpenseTypes = expenseTypes;
 
@@ -96,6 +109,7 @@ export default function AccountsPayableFormPage() {
     defaultValues: {
       expenseTypeId: '',
       expenseSubcategoryId: '',
+      beneficiaryUserId: '',
       isRecurring: false,
       totalAmount: '',
       applyIva: false,
@@ -106,6 +120,7 @@ export default function AccountsPayableFormPage() {
 
   const watchIsRecurring = watch('isRecurring');
   const watchExpenseTypeId = watch('expenseTypeId');
+  const watchExpenseSubcategoryId = watch('expenseSubcategoryId');
   const watchApplyIva = watch('applyIva');
   const watchIvaPercentage = watch('ivaPercentage');
   const watchTotalAmount = watch('totalAmount');
@@ -121,6 +136,11 @@ export default function AccountsPayableFormPage() {
 
   const selectedExpenseType = filteredExpenseTypes.find((t: any) => t.id === watchExpenseTypeId);
   const currentSubcategories = selectedExpenseType?.subcategories || [];
+  const selectedSubcategory = currentSubcategories.find((s: any) => s.id === watchExpenseSubcategoryId);
+  const isAdvance = isAdvanceSelection(selectedExpenseType?.name, selectedSubcategory?.name);
+
+  const employeeLabel = (e: (typeof activeEmployees)[number]) =>
+    `${e.user?.firstName ?? ''} ${e.user?.lastName ?? ''}`.trim() || e.user?.email || 'Empleado';
 
   useEffect(() => {
     if (isEditing && apQuery.data) {
@@ -133,6 +153,7 @@ export default function AccountsPayableFormPage() {
       reset({
         expenseTypeId: ap.expenseType?.id ?? '',
         expenseSubcategoryId: ap.expenseSubcategory?.id ?? '',
+        beneficiaryUserId: ap.beneficiaryUser?.id ?? '',
         description: ap.description,
         observations: ap.observations ?? '',
         totalAmount: String(baseStored),
@@ -153,6 +174,7 @@ export default function AccountsPayableFormPage() {
     const dto = {
       expenseTypeId: values.expenseTypeId,
       expenseSubcategoryId: values.expenseSubcategoryId,
+      beneficiaryUserId: isAdvance ? values.beneficiaryUserId || undefined : undefined,
       description: values.description || '',
       observations: values.observations || undefined,
       totalAmount: finalTotal,
@@ -224,6 +246,7 @@ export default function AccountsPayableFormPage() {
                       reset((formValues) => ({
                         ...formValues,
                         expenseSubcategoryId: '',
+                        beneficiaryUserId: '',
                       }));
                     }}
                   >
@@ -267,6 +290,39 @@ export default function AccountsPayableFormPage() {
               )}
             />
           </Grid>
+
+          {/* Beneficiario del anticipo (solo Personal / Anticipos) */}
+          {isAdvance && (
+            <Grid item xs={12}>
+              <Controller
+                name="beneficiaryUserId"
+                control={control}
+                render={({ field: { onChange, value } }) => (
+                  <Autocomplete
+                    fullWidth
+                    options={activeEmployees}
+                    loading={beneficiariesQuery.isLoading}
+                    getOptionLabel={employeeLabel}
+                    value={activeEmployees.find((e) => e.userId === value) ?? null}
+                    onChange={(_, newValue) => onChange(newValue?.userId ?? '')}
+                    isOptionEqualToValue={(opt, val) => opt.userId === val.userId}
+                    noOptionsText="No hay empleados activos"
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Empleado beneficiario del anticipo (opcional)"
+                        error={!!errors.beneficiaryUserId}
+                        helperText={
+                          errors.beneficiaryUserId?.message ??
+                          'Opcional. Si seleccionas un empleado, el anticipo se vinculará al periodo de nómina en curso para aplicar el descuento (el empleado debe estar incluido en ese periodo).'
+                        }
+                      />
+                    )}
+                  />
+                )}
+              />
+            </Grid>
+          )}
 
           {/* Monto total */}
           <Grid item xs={12} sm={6}>
