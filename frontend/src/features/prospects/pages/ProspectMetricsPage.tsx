@@ -37,6 +37,7 @@ import {
   ProspectMetricsFilterDto,
 } from '../../../types/prospect.types';
 import { useProspectMetrics } from '../hooks/useProspects';
+import { parseDateFilter, toDateFilterOrUndefined } from '../../../utils/dateFilters';
 
 const MEDIUM_COLORS = ['#25D366', '#1976d2', '#ed6c02', '#9c27b0', '#e91e63', '#607d8b'];
 
@@ -99,9 +100,9 @@ export const ProspectMetricsPage: React.FC = () => {
           <Grid item xs={12} sm={4} md={3}>
             <DatePicker
               label="Desde"
-              value={filters.dateFrom ? new Date(filters.dateFrom) : null}
+              value={parseDateFilter(filters.dateFrom) ?? null}
               onChange={(d) =>
-                setFilters((p) => ({ ...p, dateFrom: d ? d.toISOString() : undefined }))
+                setFilters((p) => ({ ...p, dateFrom: toDateFilterOrUndefined(d) }))
               }
               slotProps={{ textField: { fullWidth: true, size: 'small' } }}
             />
@@ -109,9 +110,9 @@ export const ProspectMetricsPage: React.FC = () => {
           <Grid item xs={12} sm={4} md={3}>
             <DatePicker
               label="Hasta"
-              value={filters.dateTo ? new Date(filters.dateTo) : null}
+              value={parseDateFilter(filters.dateTo) ?? null}
               onChange={(d) =>
-                setFilters((p) => ({ ...p, dateTo: d ? d.toISOString() : undefined }))
+                setFilters((p) => ({ ...p, dateTo: toDateFilterOrUndefined(d) }))
               }
               slotProps={{ textField: { fullWidth: true, size: 'small' } }}
             />

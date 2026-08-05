@@ -456,12 +456,12 @@ const ClientsListPage: React.FC = () => {
           storageKey='clients_export_columns'
           dateRangeLabel='Rango de fechas (fecha de creación)'
           helperText='Se incluyen los clientes activos e inactivos creados en el rango.'
-          fetchRows={async ({ from, to }) => {
+          fetchRows={async ({ fromDate, toDate }) => {
             // El endpoint de clientes no pagina: devuelve el array completo.
             return clientsApi.getAll({
               includeInactive: true,
-              createdAtFrom: from.toISOString(),
-              createdAtTo: to.toISOString(),
+              createdAtFrom: fromDate,
+              createdAtTo: toDate,
             });
           }}
         />

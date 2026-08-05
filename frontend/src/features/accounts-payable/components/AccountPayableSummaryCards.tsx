@@ -8,6 +8,7 @@ import { StatCard } from '../../../components/common/StatCard';
 import { formatCurrency } from '../../../utils/formatters';
 import { useAccountPayableSummary } from '../hooks/useAccountsPayable';
 import type { FilterAccountPayableDto } from '../../../types/accounts-payable.types';
+import { toDateFilter } from '../../../utils/dateFilters';
 
 interface AccountPayableSummaryCardsProps {
   onFilterClick?: (filters: Partial<FilterAccountPayableDto>) => void;
@@ -18,8 +19,10 @@ export const AccountPayableSummaryCards: React.FC<AccountPayableSummaryCardsProp
 }) => {
   const { data: summary, isLoading } = useAccountPayableSummary();
 
-  const today = new Date().toISOString().split('T')[0];
-  const in7days = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  // Días del calendario local: `toISOString()` pasa a UTC y a partir de las
+  // 7:00 p. m. hora Colombia ya devolvería el día siguiente.
+  const today = toDateFilter(new Date());
+  const in7days = toDateFilter(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
 
   const cards: Array<{
     title: string;

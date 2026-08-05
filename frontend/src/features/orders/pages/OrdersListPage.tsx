@@ -52,6 +52,7 @@ import type {
   FilterOrdersDto,
 } from '../../../types/order.types';
 import type { Client } from '../../../types/client.types';
+import { parseDateFilter, toDateFilterOrUndefined } from '../../../utils/dateFilters';
 
 // Estados que se consideran "finalizados" — no se alertan aunque la fecha esté vencida
 const CLOSED_STATUSES: OrderStatus[] = [
@@ -680,9 +681,9 @@ export const OrdersListPage: React.FC = () => {
         {/* Fecha Desde */}
         <DatePicker
           label='Fecha Desde'
-          value={filters.orderDateFrom ? new Date(filters.orderDateFrom) : null}
+          value={parseDateFilter(filters.orderDateFrom) ?? null}
           onChange={(date) =>
-            handleFilterChange('orderDateFrom', date?.toISOString())
+            handleFilterChange('orderDateFrom', toDateFilterOrUndefined(date))
           }
           slotProps={{
             textField: { size: 'small', fullWidth: true },
@@ -692,9 +693,9 @@ export const OrdersListPage: React.FC = () => {
         {/* Fecha Hasta */}
         <DatePicker
           label='Fecha Hasta'
-          value={filters.orderDateTo ? new Date(filters.orderDateTo) : null}
+          value={parseDateFilter(filters.orderDateTo) ?? null}
           onChange={(date) =>
-            handleFilterChange('orderDateTo', date?.toISOString())
+            handleFilterChange('orderDateTo', toDateFilterOrUndefined(date))
           }
           slotProps={{
             textField: { size: 'small', fullWidth: true },
@@ -807,18 +808,18 @@ export const OrdersListPage: React.FC = () => {
           dateRangeLabel='Rango de fechas (fecha de orden)'
           helperText='Se respetan los filtros activos de la pantalla (estado, cliente, asesor, área y búsqueda).'
           defaultDateFrom={
-            filters.orderDateFrom ? new Date(filters.orderDateFrom) : undefined
+            parseDateFilter(filters.orderDateFrom)
           }
           defaultDateTo={
-            filters.orderDateTo ? new Date(filters.orderDateTo) : undefined
+            parseDateFilter(filters.orderDateTo)
           }
-          fetchRows={async ({ from, to }) => {
+          fetchRows={async ({ fromDate, toDate }) => {
             // Se descartan page/limit de la pantalla para usar los del export.
             const { page, limit, ...activeFilters } = filters;
             const response = await ordersApi.getAll({
               ...activeFilters,
-              orderDateFrom: from.toISOString(),
-              orderDateTo: to.toISOString(),
+              orderDateFrom: fromDate,
+              orderDateTo: toDate,
               page: 1,
               limit: EXPORT_LIMIT,
             });

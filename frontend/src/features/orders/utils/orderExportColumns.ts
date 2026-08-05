@@ -17,6 +17,42 @@ const num = (value: string | null | undefined): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
+/**
+ * Importes que el backend calcula pero no guarda: de la orden solo se persisten
+ * las *tasas* de retención. Se replican aquí con la misma fórmula que
+ * `orders.service.ts` para que la hoja de Excel cuadre por sí sola:
+ *
+ *   Total = Subtotal − Retefuente − ReteICA + IVA − ReteIVA
+ *           − Descuentos + Prueba de color + Ajuste por redondeo
+ *
+ * El ajuste sale del redondeo comercial colombiano, que el backend aplica solo
+ * cuando la orden no tiene retenciones. Se expone como columna propia para que
+ * la resta cierre exacta y no quede como una diferencia sin explicación.
+ */
+const retefuenteAmount = (o: Order): number =>
+  num(o.subtotal) * num(o.retefuenteRate);
+
+const reteICAAmount = (o: Order): number =>
+  num(o.subtotal) * num(o.reteICARate);
+
+const reteIVAAmount = (o: Order): number => num(o.tax) * num(o.reteIVARate);
+
+const colorProofAmount = (o: Order): number =>
+  o.requiresColorProof ? num(o.colorProofPrice) : 0;
+
+const roundingAdjustment = (o: Order): number => {
+  const beforeRounding =
+    num(o.subtotal) -
+    retefuenteAmount(o) -
+    reteICAAmount(o) +
+    num(o.tax) -
+    reteIVAAmount(o) -
+    num(o.discountAmount) +
+    colorProofAmount(o);
+  // Se redondea a 2 decimales para no arrastrar ruido de coma flotante.
+  return Math.round((num(o.total) - beforeRounding) * 100) / 100;
+};
+
 const advancePaymentLabel = (status: Order['advancePaymentStatus']): string => {
   if (!status) return '';
   const labels: Record<string, string> = {
@@ -158,11 +194,25 @@ export const ORDER_EXPORT_COLUMNS: OrderExportColumn[] = [
     getValue: (o) => num(o.retefuenteRate) * 100,
   },
   {
+    key: 'retefuenteAmount',
+    label: 'Retefuente ($)',
+    defaultVisible: false,
+    numeric: true,
+    getValue: retefuenteAmount,
+  },
+  {
     key: 'reteICA',
     label: 'ReteICA (%)',
     defaultVisible: false,
     numeric: true,
     getValue: (o) => num(o.reteICARate) * 100,
+  },
+  {
+    key: 'reteICAAmount',
+    label: 'ReteICA ($)',
+    defaultVisible: false,
+    numeric: true,
+    getValue: reteICAAmount,
   },
   {
     key: 'reteIVA',
@@ -172,11 +222,32 @@ export const ORDER_EXPORT_COLUMNS: OrderExportColumn[] = [
     getValue: (o) => num(o.reteIVARate) * 100,
   },
   {
+    key: 'reteIVAAmount',
+    label: 'ReteIVA ($)',
+    defaultVisible: false,
+    numeric: true,
+    getValue: reteIVAAmount,
+  },
+  {
     key: 'discountAmount',
     label: 'Descuentos',
     defaultVisible: false,
     numeric: true,
     getValue: (o) => num(o.discountAmount),
+  },
+  {
+    key: 'colorProofPrice',
+    label: 'Prueba de color ($)',
+    defaultVisible: false,
+    numeric: true,
+    getValue: colorProofAmount,
+  },
+  {
+    key: 'roundingAdjustment',
+    label: 'Ajuste redondeo',
+    defaultVisible: false,
+    numeric: true,
+    getValue: roundingAdjustment,
   },
   {
     key: 'paidAmount',

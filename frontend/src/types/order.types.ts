@@ -381,6 +381,13 @@ export interface FilterOrdersDto {
   /** Si true, solo órdenes con saldo pendiente por cobrar (balance > 0) */
   hasBalance?: boolean;
   advancePaymentStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
+  /**
+   * Si true, excluye las órdenes ANULADAS: una orden anulada no es una venta.
+   * Lo usan las pantallas de ventas para que la tarjeta de totales, la tabla y
+   * el Excel cuenten lo mismo. Se ignora si se filtra explícitamente por
+   * `status`, así que elegir "Anulada" en el filtro sigue mostrándolas.
+   */
+  excludeAnulado?: boolean;
 }
 
 // ── Mini dashboard de la lista de órdenes ────────────────────────
