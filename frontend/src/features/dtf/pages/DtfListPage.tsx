@@ -32,6 +32,7 @@ import type { DtfRecord, DtfStatus, DtfListFilters, DtfFiles } from '../../../ty
 import { ExportDialog } from '../../../components/common/ExportDialog';
 import { EXPORT_LIMIT } from '../../../utils/excelExport';
 import { DTF_EXPORT_COLUMNS } from '../utils/dtfExportColumns';
+import { parseDateFilter } from '../../../utils/dateFilters';
 
 const STATUS_OPTIONS: { value: DtfStatus | ''; label: string }[] = [
   { value: '', label: 'Todos' },
@@ -392,17 +393,17 @@ export const DtfListPage = () => {
           dateRangeLabel="Rango de fechas (fecha de creación)"
           helperText="Se respetan los filtros activos de la pantalla (estado, producto y cliente)."
           defaultDateFrom={
-            filters.createdAtFrom ? new Date(filters.createdAtFrom) : undefined
+            parseDateFilter(filters.createdAtFrom)
           }
           defaultDateTo={
-            filters.createdAtTo ? new Date(filters.createdAtTo) : undefined
+            parseDateFilter(filters.createdAtTo)
           }
-          fetchRows={async ({ from, to }) => {
+          fetchRows={async ({ fromDate, toDate }) => {
             const { page, limit, ...activeFilters } = filters;
             const response = await dtfApi.getAll({
               ...activeFilters,
-              createdAtFrom: from.toISOString(),
-              createdAtTo: to.toISOString(),
+              createdAtFrom: fromDate,
+              createdAtTo: toDate,
               page: 1,
               limit: EXPORT_LIMIT,
             });

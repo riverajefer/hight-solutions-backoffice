@@ -41,6 +41,7 @@ import { QUOTE_EXPORT_COLUMNS } from '../utils/quoteExportColumns';
 import { quotesApi } from '../../../api/quotes.api';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
+import { parseDateFilter, toDateFilterOrUndefined } from '../../../utils/dateFilters';
 
 const formatCurrency = (value: string | number): string => {
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
@@ -366,15 +367,15 @@ export const QuotesListPage: React.FC = () => {
 
             <DatePicker
               label="Desde"
-              value={filters.dateFrom ? new Date(filters.dateFrom) : null}
-              onChange={(d) => handleFilterChange('dateFrom', d?.toISOString())}
+              value={parseDateFilter(filters.dateFrom) ?? null}
+              onChange={(d) => handleFilterChange('dateFrom', toDateFilterOrUndefined(d))}
               slotProps={{ textField: { size: 'small' } }}
             />
 
             <DatePicker
               label="Hasta"
-              value={filters.dateTo ? new Date(filters.dateTo) : null}
-              onChange={(d) => handleFilterChange('dateTo', d?.toISOString())}
+              value={parseDateFilter(filters.dateTo) ?? null}
+              onChange={(d) => handleFilterChange('dateTo', toDateFilterOrUndefined(d))}
               slotProps={{ textField: { size: 'small' } }}
             />
 
@@ -458,15 +459,15 @@ export const QuotesListPage: React.FC = () => {
           dateRangeLabel="Rango de fechas (fecha de cotización)"
           helperText="Se respetan los filtros activos de la pantalla (estado, cliente, asesor y búsqueda)."
           defaultDateFrom={
-            filters.dateFrom ? new Date(filters.dateFrom) : undefined
+            parseDateFilter(filters.dateFrom)
           }
-          defaultDateTo={filters.dateTo ? new Date(filters.dateTo) : undefined}
-          fetchRows={async ({ from, to }) => {
+          defaultDateTo={parseDateFilter(filters.dateTo)}
+          fetchRows={async ({ fromDate, toDate }) => {
             const { page, limit, ...activeFilters } = filters;
             const response = await quotesApi.findAll({
               ...activeFilters,
-              dateFrom: from.toISOString(),
-              dateTo: to.toISOString(),
+              dateFrom: fromDate,
+              dateTo: toDate,
               page: 1,
               limit: EXPORT_LIMIT,
             });

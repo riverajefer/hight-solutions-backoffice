@@ -35,6 +35,7 @@ import {
   explodeExpenseOrderItems,
 } from '../utils/expenseOrderItemExportColumns';
 import { expenseOrdersApi } from '../../../api/expense-orders.api';
+import { parseDateFilter } from '../../../utils/dateFilters';
 
 const formatDate = (date: string): string =>
   new Intl.DateTimeFormat('es-CO', {
@@ -272,17 +273,17 @@ export const ExpenseOrdersListPage = () => {
           dateRangeLabel="Rango de fechas (fecha de creación)"
           helperText="Se respetan los filtros activos de la pantalla (estado, tipo de gasto y búsqueda)."
           defaultDateFrom={
-            filters.createdAtFrom ? new Date(filters.createdAtFrom) : undefined
+            parseDateFilter(filters.createdAtFrom)
           }
           defaultDateTo={
-            filters.createdAtTo ? new Date(filters.createdAtTo) : undefined
+            parseDateFilter(filters.createdAtTo)
           }
-          fetchRows={async ({ from, to }) => {
+          fetchRows={async ({ fromDate, toDate }) => {
             const { page, limit, ...activeFilters } = filters;
             const response = await expenseOrdersApi.getAll({
               ...activeFilters,
-              createdAtFrom: from.toISOString(),
-              createdAtTo: to.toISOString(),
+              createdAtFrom: fromDate,
+              createdAtTo: toDate,
               page: 1,
               limit: EXPORT_LIMIT,
             });

@@ -423,12 +423,12 @@ export const ProfitabilityPage: React.FC = () => {
           helperText="Se respetan los filtros activos de la pantalla (estado y búsqueda)."
           defaultDateFrom={dateFrom ?? undefined}
           defaultDateTo={dateTo ?? undefined}
-          fetchRows={async ({ from, to }) => {
+          fetchRows={async ({ fromDate, toDate }) => {
             const { page, limit, ...activeFilters } = filters;
             const response = await ordersApi.getProfitabilityList({
               ...activeFilters,
-              orderDateFrom: from.toISOString(),
-              orderDateTo: to.toISOString(),
+              orderDateFrom: fromDate,
+              orderDateTo: toDate,
               page: 1,
               limit: EXPORT_LIMIT,
             });

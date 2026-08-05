@@ -136,7 +136,7 @@ describe('ClientsService', () => {
       );
     });
 
-    it('should normalize the date range to full-day bounds', async () => {
+    it('should normalize the date range to full-day bounds in Colombia time', async () => {
       mockClientsRepository.findAll.mockResolvedValue([mockClient]);
 
       await service.findAll({
@@ -144,10 +144,12 @@ describe('ClientsService', () => {
         createdAtTo: '2026-01-01',
       });
 
+      // El día del negocio va de 00:00 a 23:59:59.999 en Bogotá (UTC-5), o sea
+      // de las 05:00 UTC de ese día a las 04:59:59.999 UTC del siguiente.
       expect(mockClientsRepository.findAll).toHaveBeenCalledWith(
         expect.objectContaining({
-          createdAtFrom: new Date('2026-01-01T00:00:00.000Z'),
-          createdAtTo: new Date('2026-01-01T23:59:59.999Z'),
+          createdAtFrom: new Date('2026-01-01T05:00:00.000Z'),
+          createdAtTo: new Date('2026-01-02T04:59:59.999Z'),
         }),
       );
     });

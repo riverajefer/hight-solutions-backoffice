@@ -75,6 +75,39 @@ describe('OrdersRepository', () => {
       );
     });
 
+    it('should exclude ANULADO orders when excludeAnulado is set', async () => {
+      await repository.findAllWithFilters({ excludeAnulado: true });
+
+      expect(prisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: { not: OrderStatus.ANULADO },
+          }),
+        }),
+      );
+    });
+
+    it('should let an explicit status win over excludeAnulado', async () => {
+      // Elegir "Anulada" en el filtro de Estado debe seguir mostrándolas.
+      await repository.findAllWithFilters({
+        status: OrderStatus.ANULADO,
+        excludeAnulado: true,
+      });
+
+      expect(prisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: OrderStatus.ANULADO }),
+        }),
+      );
+    });
+
+    it('should not filter by status when excludeAnulado is not set', async () => {
+      await repository.findAllWithFilters({});
+
+      const where = (prisma.order.findMany as jest.Mock).mock.calls[0][0].where;
+      expect(where.status).toBeUndefined();
+    });
+
     it('should apply clientId filter to prisma where clause', async () => {
       await repository.findAllWithFilters({ clientId: 'client-1' });
 

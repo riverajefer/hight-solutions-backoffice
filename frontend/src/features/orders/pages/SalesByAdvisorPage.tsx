@@ -43,6 +43,7 @@ import type {
   OrderStatus,
 } from '../../../types/order.types';
 import type { Client } from '../../../types/client.types';
+import { parseDateFilter, toDateFilterOrUndefined } from '../../../utils/dateFilters';
 
 const ORDER_STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
   { value: 'DRAFT', label: 'Borrador' },
@@ -116,7 +117,15 @@ export const SalesByAdvisorPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState(0);
-  const [filters, setFilters] = useState<FilterOrdersDto>({ page: 1, limit: 20 });
+  // `excludeAnulado` es propio de esta pantalla: es un informe de ventas y una
+  // orden anulada no es una venta. Va en los filtros base (no en cada llamada)
+  // para que la tarjeta de totales, la tabla y el Excel usen exactamente el
+  // mismo criterio. Elegir "Anulada" en el filtro de Estado lo anula.
+  const [filters, setFilters] = useState<FilterOrdersDto>({
+    page: 1,
+    limit: 20,
+    excludeAnulado: true,
+  });
   const [exportOpen, setExportOpen] = useState(false);
   const { hasPermission } = useAuthStore();
   const canExport = hasPermission(PERMISSIONS.EXPORT_SALES_BY_ADVISOR);
@@ -173,7 +182,8 @@ export const SalesByAdvisorPage: React.FC = () => {
     setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
   };
 
-  const handleClearFilters = () => setFilters({ page: 1, limit: 20 });
+  const handleClearFilters = () =>
+    setFilters({ page: 1, limit: 20, excludeAnulado: true });
 
   const columns = useMemo(() => [
     {
@@ -339,6 +349,15 @@ export const SalesByAdvisorPage: React.FC = () => {
             />
           </Box>
 
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: 'block', mt: -2, mb: 3 }}
+          >
+            Los totales, la tabla y el Excel excluyen las órdenes anuladas. Para
+            verlas, selecciona «Anulada» en el filtro de Estado.
+          </Typography>
+
           {/* Filtros */}
           <Box
             sx={{
@@ -386,11 +405,11 @@ export const SalesByAdvisorPage: React.FC = () => {
 
             <DatePicker
               label="Fecha desde"
-              value={filters.orderDateFrom ? new Date(filters.orderDateFrom) : null}
+              value={parseDateFilter(filters.orderDateFrom) ?? null}
               onChange={(date) =>
                 handleFilterChange(
                   'orderDateFrom',
-                  date ? date.toISOString().split('T')[0] : undefined,
+                  toDateFilterOrUndefined(date),
                 )
               }
               slotProps={{ textField: { size: 'small', fullWidth: true } }}
@@ -398,11 +417,11 @@ export const SalesByAdvisorPage: React.FC = () => {
 
             <DatePicker
               label="Fecha hasta"
-              value={filters.orderDateTo ? new Date(filters.orderDateTo) : null}
+              value={parseDateFilter(filters.orderDateTo) ?? null}
               onChange={(date) =>
                 handleFilterChange(
                   'orderDateTo',
-                  date ? date.toISOString().split('T')[0] : undefined,
+                  toDateFilterOrUndefined(date),
                 )
               }
               slotProps={{ textField: { size: 'small', fullWidth: true } }}
@@ -487,19 +506,19 @@ export const SalesByAdvisorPage: React.FC = () => {
           columns={ORDER_EXPORT_COLUMNS}
           storageKey="sales_by_advisor_export_columns"
           dateRangeLabel="Rango de fechas (fecha de orden)"
-          helperText="Se respetan los filtros activos de la pantalla (estado, cliente, asesor y búsqueda)."
+          helperText="Se respetan los filtros activos de la pantalla (estado, cliente, asesor y búsqueda). No incluye órdenes anuladas, igual que los totales de arriba."
           defaultDateFrom={
-            filters.orderDateFrom ? new Date(filters.orderDateFrom) : undefined
+            parseDateFilter(filters.orderDateFrom)
           }
           defaultDateTo={
-            filters.orderDateTo ? new Date(filters.orderDateTo) : undefined
+            parseDateFilter(filters.orderDateTo)
           }
-          fetchRows={async ({ from, to }) => {
+          fetchRows={async ({ fromDate, toDate }) => {
             const { page, limit, ...activeFilters } = filters;
             const response = await ordersApi.getAll({
               ...activeFilters,
-              orderDateFrom: from.toISOString(),
-              orderDateTo: to.toISOString(),
+              orderDateFrom: fromDate,
+              orderDateTo: toDate,
               page: 1,
               limit: EXPORT_LIMIT,
             });

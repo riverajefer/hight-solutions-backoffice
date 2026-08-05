@@ -43,6 +43,7 @@ import { ExportDialog } from '../../../components/common/ExportDialog';
 import { EXPORT_LIMIT } from '../../../utils/excelExport';
 import { ACCOUNT_PAYABLE_EXPORT_COLUMNS } from '../utils/accountPayableExportColumns';
 import { accountsPayableApi } from '../../../api/accounts-payable.api';
+import { parseDateFilter, toDateFilterOrUndefined } from '../../../utils/dateFilters';
 
 const isDueDateWarning = (dueDate: string, status: AccountPayableStatus): string | null => {
   if (status === AccountPayableStatus.PAID || status === AccountPayableStatus.CANCELLED) return null;
@@ -385,11 +386,11 @@ export default function AccountsPayableListPage() {
           <Grid item xs={12} sm={6} md={2}>
             <DatePicker
               label="Vence desde"
-              value={filters.dueDateFrom ? new Date(filters.dueDateFrom) : null}
+              value={parseDateFilter(filters.dueDateFrom) ?? null}
               onChange={(date) =>
                 setFilters((prev) => ({
                   ...prev,
-                  dueDateFrom: date ? date.toISOString().split('T')[0] : undefined,
+                  dueDateFrom: toDateFilterOrUndefined(date),
                   page: 1,
                 }))
               }
@@ -399,11 +400,11 @@ export default function AccountsPayableListPage() {
           <Grid item xs={12} sm={6} md={2}>
             <DatePicker
               label="Vence hasta"
-              value={filters.dueDateTo ? new Date(filters.dueDateTo) : null}
+              value={parseDateFilter(filters.dueDateTo) ?? null}
               onChange={(date) =>
                 setFilters((prev) => ({
                   ...prev,
-                  dueDateTo: date ? date.toISOString().split('T')[0] : undefined,
+                  dueDateTo: toDateFilterOrUndefined(date),
                   page: 1,
                 }))
               }
@@ -496,17 +497,17 @@ export default function AccountsPayableListPage() {
           dateRangeLabel="Rango de fechas (fecha de vencimiento)"
           helperText="Se respetan los filtros activos de la pantalla (estado, proveedor, tipo de gasto y búsqueda)."
           defaultDateFrom={
-            filters.dueDateFrom ? new Date(filters.dueDateFrom) : undefined
+            parseDateFilter(filters.dueDateFrom)
           }
           defaultDateTo={
-            filters.dueDateTo ? new Date(filters.dueDateTo) : undefined
+            parseDateFilter(filters.dueDateTo)
           }
-          fetchRows={async ({ from, to }) => {
+          fetchRows={async ({ fromDate, toDate }) => {
             const { page, limit, ...activeFilters } = filters;
             const response = await accountsPayableApi.getAll({
               ...activeFilters,
-              dueDateFrom: from.toISOString(),
-              dueDateTo: to.toISOString(),
+              dueDateFrom: fromDate,
+              dueDateTo: toDate,
               page: 1,
               limit: EXPORT_LIMIT,
             });

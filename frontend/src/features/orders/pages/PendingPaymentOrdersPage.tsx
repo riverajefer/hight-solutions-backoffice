@@ -348,11 +348,11 @@ export const PendingPaymentOrdersPage: React.FC = () => {
           storageKey="pending_payment_orders_export_columns"
           dateRangeLabel="Rango de fechas (fecha de orden)"
           helperText="Se respeta el filtro de cliente y solo se incluyen órdenes activas con saldo pendiente."
-          fetchRows={async ({ from, to }) => {
+          fetchRows={async ({ fromDate, toDate }) => {
             const response = await ordersApi.getAll({
               clientId,
-              orderDateFrom: from.toISOString(),
-              orderDateTo: to.toISOString(),
+              orderDateFrom: fromDate,
+              orderDateTo: toDate,
               page: 1,
               limit: EXPORT_LIMIT,
             });
