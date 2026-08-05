@@ -9,6 +9,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ApprovalRequestRegistry } from '../whatsapp/approval-request-registry';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
+import { ExpenseOrdersService } from '../expense-orders/expense-orders.service';
 import { EditRequestStatus, NotificationType } from '../../generated/prisma';
 
 describe('ExpenseOrderAuthRequestsService', () => {
@@ -34,6 +35,10 @@ describe('ExpenseOrderAuthRequestsService', () => {
   const mockNotificationsService = {
     notifyAllAdmins: jest.fn(),
     create: jest.fn(),
+  };
+
+  const mockExpenseOrdersService = {
+    updateStatus: jest.fn(),
   };
 
   const USER_ID = 'user-123';
@@ -89,6 +94,7 @@ describe('ExpenseOrderAuthRequestsService', () => {
         { provide: NotificationsService, useValue: mockNotificationsService },
         { provide: ApprovalRequestRegistry, useValue: { register: jest.fn() } },
         { provide: WhatsappService, useValue: { sendApprovalNotification: jest.fn() } },
+        { provide: ExpenseOrdersService, useValue: mockExpenseOrdersService },
       ],
     }).compile();
 
