@@ -21,6 +21,7 @@ import { DiscountApprovalsService } from '../discount-approvals/discount-approva
 import { ClientOwnershipAuthRequestsService } from '../client-ownership-auth-requests/client-ownership-auth-requests.service';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma, OrderStatus, PaymentMethod, EditRequestStatus } from '../../generated/prisma';
+import { startOfDay, endOfDay, businessToday } from '../../common/utils/date-range.util';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mock collaborators
@@ -120,6 +121,7 @@ const mockPrisma = {
     update: jest.fn(),
     aggregate: jest.fn(),
     count: jest.fn(),
+    groupBy: jest.fn(),
   },
   cashSession: {
     findFirst: jest.fn(),
@@ -225,8 +227,8 @@ describe('OrdersService', () => {
       expect(mockOrdersRepository.findAllWithFilters).toHaveBeenCalledWith({
         status: OrderStatus.CONFIRMED,
         clientId: 'client-1',
-        orderDateFrom: new Date('2026-01-01T00:00:00.000Z'),
-        orderDateTo: new Date('2026-01-31T23:59:59.999Z'),
+        orderDateFrom: new Date('2026-01-01T05:00:00.000Z'),
+        orderDateTo: new Date('2026-02-01T04:59:59.999Z'),
         page: 2,
         limit: 10,
       });
@@ -239,8 +241,8 @@ describe('OrdersService', () => {
 
       expect(mockOrdersRepository.findAllWithFilters).toHaveBeenCalledWith(
         expect.objectContaining({
-          orderDateFrom: new Date('2026-07-01T00:00:00.000Z'),
-          orderDateTo: new Date('2026-07-01T23:59:59.999Z'),
+          orderDateFrom: new Date('2026-07-01T05:00:00.000Z'),
+          orderDateTo: new Date('2026-07-02T04:59:59.999Z'),
         }),
       );
     });
@@ -256,6 +258,77 @@ describe('OrdersService', () => {
           orderDateTo: undefined,
         }),
       );
+    });
+
+    it('should forward excludeAnulado to the repository', async () => {
+      mockOrdersRepository.findAllWithFilters.mockResolvedValue({ data: [], meta: {} });
+
+      await service.findAll({ excludeAnulado: true });
+
+      expect(mockOrdersRepository.findAllWithFilters).toHaveBeenCalledWith(
+        expect.objectContaining({ excludeAnulado: true }),
+      );
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // getSalesSummary — debe contar lo mismo que el listado/export
+  // ─────────────────────────────────────────────
+  describe('getSalesSummary', () => {
+    beforeEach(() => {
+      mockPrisma.order.aggregate.mockResolvedValue({
+        _sum: { total: new Prisma.Decimal(0) },
+        _count: { id: 0 },
+      });
+      mockPrisma.order.groupBy.mockResolvedValue([]);
+    });
+
+    it('excluye las órdenes ANULADAS cuando se pide excludeAnulado', async () => {
+      await service.getSalesSummary({ excludeAnulado: true });
+
+      expect(mockPrisma.order.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: { not: OrderStatus.ANULADO },
+          }),
+        }),
+      );
+    });
+
+    it('respeta un status explícito por encima de excludeAnulado', async () => {
+      // Seleccionar "Anulada" en el filtro debe seguir mostrándolas.
+      await service.getSalesSummary({
+        status: OrderStatus.ANULADO,
+        excludeAnulado: true,
+      });
+
+      expect(mockPrisma.order.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: OrderStatus.ANULADO }),
+        }),
+      );
+    });
+
+    it('no filtra por estado cuando no se pide la exclusión', async () => {
+      await service.getSalesSummary({});
+
+      const where = mockPrisma.order.aggregate.mock.calls[0][0].where;
+      expect(where.status).toBeUndefined();
+    });
+
+    it('usa el mismo buscador que el listado (no solo nº de orden y cliente)', async () => {
+      await service.getSalesSummary({ search: 'texto' });
+
+      const where = mockPrisma.order.aggregate.mock.calls[0][0].where;
+      const campos = where.OR.map((c: Record<string, unknown>) => Object.keys(c)[0]);
+      expect(campos).toEqual([
+        'orderNumber',
+        'client',
+        'client',
+        'client',
+        'notes',
+        'electronicInvoiceNumber',
+      ]);
     });
   });
 
@@ -277,8 +350,8 @@ describe('OrdersService', () => {
         dateTo: '2026-07-31',
       });
 
-      const from = new Date('2026-07-01T00:00:00.000Z');
-      const to = new Date('2026-07-31T23:59:59.999Z');
+      const from = new Date('2026-07-01T05:00:00.000Z');
+      const to = new Date('2026-08-01T04:59:59.999Z');
 
       expect(mockPrisma.order.aggregate).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -299,7 +372,9 @@ describe('OrdersService', () => {
     });
 
     it('should usar el día de hoy cuando no se envía rango', async () => {
-      const today = new Date().toISOString().split('T')[0];
+      // "Hoy" es el día del calendario en Colombia, no en UTC: a las 8 p. m.
+      // hora local, UTC ya está en el día siguiente.
+      const today = businessToday();
 
       await service.getDashboardSummary({});
 
@@ -307,8 +382,8 @@ describe('OrdersService', () => {
         expect.objectContaining({
           where: expect.objectContaining({
             orderDate: {
-              gte: new Date(`${today}T00:00:00.000Z`),
-              lte: new Date(`${today}T23:59:59.999Z`),
+              gte: startOfDay(today),
+              lte: endOfDay(today),
             },
           }),
         }),
@@ -323,8 +398,8 @@ describe('OrdersService', () => {
       expect(advances.where.advancePaymentStatus).toBe(EditRequestStatus.PENDING);
       expect(advances.where.status).toEqual({ not: OrderStatus.ANULADO });
       expect(advances.where.orderDate).toEqual({
-        gte: new Date('2026-07-01T00:00:00.000Z'),
-        lte: new Date('2026-07-31T23:59:59.999Z'),
+        gte: new Date('2026-07-01T05:00:00.000Z'),
+        lte: new Date('2026-08-01T04:59:59.999Z'),
       });
     });
 

@@ -30,6 +30,7 @@ import { ExportDialog } from '../../../components/common/ExportDialog';
 import { EXPORT_LIMIT } from '../../../utils/excelExport';
 import { WORK_ORDER_EXPORT_COLUMNS } from '../utils/workOrderExportColumns';
 import { workOrdersApi } from '../../../api/work-orders.api';
+import { parseDateFilter } from '../../../utils/dateFilters';
 
 const formatDate = (date: string): string => {
   return new Intl.DateTimeFormat('es-CO', {
@@ -307,17 +308,17 @@ export const WorkOrdersListPage = () => {
           dateRangeLabel="Rango de fechas (fecha de creación)"
           helperText="Se respetan los filtros activos de la pantalla (estado y búsqueda)."
           defaultDateFrom={
-            filters.createdAtFrom ? new Date(filters.createdAtFrom) : undefined
+            parseDateFilter(filters.createdAtFrom)
           }
           defaultDateTo={
-            filters.createdAtTo ? new Date(filters.createdAtTo) : undefined
+            parseDateFilter(filters.createdAtTo)
           }
-          fetchRows={async ({ from, to }) => {
+          fetchRows={async ({ fromDate, toDate }) => {
             const { page, limit, ...activeFilters } = filters;
             const response = await workOrdersApi.getAll({
               ...activeFilters,
-              createdAtFrom: from.toISOString(),
-              createdAtTo: to.toISOString(),
+              createdAtFrom: fromDate,
+              createdAtTo: toDate,
               page: 1,
               limit: EXPORT_LIMIT,
             });

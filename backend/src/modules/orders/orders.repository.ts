@@ -2,6 +2,40 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma, OrderStatus, EditRequestStatus } from '../../generated/prisma';
 
+/**
+ * Resuelve el filtro de estado. Las pantallas de ventas piden `excludeAnulado`
+ * porque una orden anulada no es una venta; un `status` explícito manda sobre
+ * la exclusión, de modo que seleccionar "Anulada" en el filtro sigue
+ * mostrándolas. Fuente única para que el listado, el resumen y la exportación
+ * cuenten siempre el mismo conjunto.
+ */
+export function buildOrderStatusFilter(
+  status?: OrderStatus,
+  excludeAnulado?: boolean,
+): Prisma.OrderWhereInput['status'] | undefined {
+  if (status) return status;
+  if (excludeAnulado) return { not: OrderStatus.ANULADO };
+  return undefined;
+}
+
+/**
+ * Campos que cubre el buscador de órdenes. Fuente única para que el listado, la
+ * exportación a Excel y las tarjetas de totales cuenten siempre el mismo
+ * conjunto de órdenes ante el mismo texto de búsqueda.
+ */
+export function buildOrderSearchFilter(
+  search: string,
+): Prisma.OrderWhereInput[] {
+  return [
+    { orderNumber: { contains: search, mode: 'insensitive' } },
+    { client: { name: { contains: search, mode: 'insensitive' } } },
+    { client: { email: { contains: search, mode: 'insensitive' } } },
+    { client: { phone: { contains: search, mode: 'insensitive' } } },
+    { notes: { contains: search, mode: 'insensitive' } },
+    { electronicInvoiceNumber: { contains: search, mode: 'insensitive' } },
+  ];
+}
+
 @Injectable()
 export class OrdersRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -224,13 +258,15 @@ export class OrdersRepository {
     createdById?: string;
     hasBalance?: boolean;
     advancePaymentStatus?: EditRequestStatus;
+    excludeAnulado?: boolean;
   }) {
-    const { status, search, clientId, orderDateFrom, orderDateTo, page = 1, limit = 20, excludeWithWorkOrder, productionAreaId, createdById, hasBalance, advancePaymentStatus } = filters;
+    const { status, search, clientId, orderDateFrom, orderDateTo, page = 1, limit = 20, excludeWithWorkOrder, productionAreaId, createdById, hasBalance, advancePaymentStatus, excludeAnulado } = filters;
 
     const where: Prisma.OrderWhereInput = {};
 
-    if (status) {
-      where.status = status;
+    const statusFilter = buildOrderStatusFilter(status, excludeAnulado);
+    if (statusFilter !== undefined) {
+      where.status = statusFilter;
     }
 
     if (createdById) {
@@ -238,14 +274,7 @@ export class OrdersRepository {
     }
 
     if (search) {
-      where.OR = [
-        { orderNumber: { contains: search, mode: 'insensitive' } },
-        { client: { name: { contains: search, mode: 'insensitive' } } },
-        { client: { email: { contains: search, mode: 'insensitive' } } },
-        { client: { phone: { contains: search, mode: 'insensitive' } } },
-        { notes: { contains: search, mode: 'insensitive' } },
-        { electronicInvoiceNumber: { contains: search, mode: 'insensitive' } },
-      ];
+      where.OR = buildOrderSearchFilter(search);
     }
 
     if (clientId) {

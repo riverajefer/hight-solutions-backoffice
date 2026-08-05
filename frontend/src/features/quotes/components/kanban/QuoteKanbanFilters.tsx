@@ -6,6 +6,7 @@ import { useUsers } from '../../../users/hooks/useUsers';
 import { useAuthStore } from '../../../../store/authStore';
 import { PERMISSIONS } from '../../../../utils/constants';
 import type { BoardFilters } from '../../../../types/quoteKanban.types';
+import { parseDateFilter, toDateFilterOrUndefined } from '../../../../utils/dateFilters';
 
 interface QuoteKanbanFiltersProps {
   filters: BoardFilters;
@@ -89,15 +90,15 @@ export const QuoteKanbanFilters: React.FC<QuoteKanbanFiltersProps> = ({
 
       <DatePicker
         label="Desde"
-        value={filters.dateFrom ? new Date(filters.dateFrom) : null}
-        onChange={(d) => onChange({ ...filters, dateFrom: d?.toISOString() })}
+        value={parseDateFilter(filters.dateFrom) ?? null}
+        onChange={(d) => onChange({ ...filters, dateFrom: toDateFilterOrUndefined(d) })}
         slotProps={{ textField: { size: 'small' } }}
       />
 
       <DatePicker
         label="Hasta"
-        value={filters.dateTo ? new Date(filters.dateTo) : null}
-        onChange={(d) => onChange({ ...filters, dateTo: d?.toISOString() })}
+        value={parseDateFilter(filters.dateTo) ?? null}
+        onChange={(d) => onChange({ ...filters, dateTo: toDateFilterOrUndefined(d) })}
         slotProps={{ textField: { size: 'small' } }}
       />
 

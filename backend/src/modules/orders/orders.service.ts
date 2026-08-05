@@ -5,7 +5,11 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import { OrdersRepository } from './orders.repository';
+import {
+  OrdersRepository,
+  buildOrderSearchFilter,
+  buildOrderStatusFilter,
+} from './orders.repository';
 import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { StorageService } from '../storage/storage.service';
@@ -35,7 +39,7 @@ import { InitialPaymentDto } from './dto/create-order.dto';
 import { EditRequestStatus, OrderStatus, PaymentMethod, Prisma } from '../../generated/prisma';
 import { isValidTransition, getValidNextStatuses } from './order-status-transitions';
 import { PrismaService } from '../../database/prisma.service';
-import { startOfDay, endOfDay } from '../../common/utils/date-range.util';
+import { startOfDay, endOfDay, businessToday } from '../../common/utils/date-range.util';
 
 /** Usuario mínimo asociado a un evento del historial de autorizaciones. */
 export interface AuthHistoryUser {
@@ -105,7 +109,7 @@ export class OrdersService {
   ) {}
 
   async findAll(filters: FilterOrdersDto) {
-    const { status, search, clientId, orderDateFrom, orderDateTo, page, limit, excludeWithWorkOrder, productionAreaId, createdById, hasBalance, advancePaymentStatus } = filters;
+    const { status, search, clientId, orderDateFrom, orderDateTo, page, limit, excludeWithWorkOrder, productionAreaId, createdById, hasBalance, advancePaymentStatus, excludeAnulado } = filters;
 
     return this.ordersRepository.findAllWithFilters({
       status,
@@ -120,6 +124,7 @@ export class OrdersService {
       createdById,
       hasBalance,
       advancePaymentStatus,
+      excludeAnulado,
     });
   }
 
@@ -128,7 +133,7 @@ export class OrdersService {
    * fechas recibido (por defecto, hoy) y excluyen las órdenes anuladas.
    */
   async getDashboardSummary(query: OrdersDashboardQueryDto): Promise<OrdersDashboardSummary> {
-    const today = new Date().toISOString().split('T')[0];
+    const today = businessToday();
     const from = startOfDay(query.dateFrom ?? today)!;
     const to = endOfDay(query.dateTo ?? today)!;
 
@@ -179,11 +184,12 @@ export class OrdersService {
   }
 
   async getSalesSummary(filters: FilterOrdersDto) {
-    const { status, clientId, orderDateFrom, orderDateTo, productionAreaId, createdById, search } = filters;
+    const { status, clientId, orderDateFrom, orderDateTo, productionAreaId, createdById, search, excludeAnulado } = filters;
 
     const where: Prisma.OrderWhereInput = {};
 
-    if (status) where.status = status;
+    const statusFilter = buildOrderStatusFilter(status, excludeAnulado);
+    if (statusFilter !== undefined) where.status = statusFilter;
     if (clientId) where.clientId = clientId;
     if (productionAreaId) {
       where.items = { some: { productionAreas: { some: { productionAreaId } } } };
@@ -195,10 +201,7 @@ export class OrdersService {
       if (orderDateTo) where.orderDate.lte = endOfDay(orderDateTo);
     }
     if (search) {
-      where.OR = [
-        { orderNumber: { contains: search, mode: 'insensitive' } },
-        { client: { name: { contains: search, mode: 'insensitive' } } },
-      ];
+      where.OR = buildOrderSearchFilter(search);
     }
 
     const [aggregate, grouped] = await Promise.all([

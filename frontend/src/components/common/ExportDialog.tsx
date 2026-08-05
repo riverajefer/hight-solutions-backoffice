@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -22,11 +22,19 @@ import {
   type ExportColumn,
   type DetailSheet,
 } from '../../utils/excelExport';
+import { toDateFilter } from '../../utils/dateFilters';
 
 /** Rango de fechas ya normalizado a inicio y fin de día. */
 export interface DateRange {
   from: Date;
   to: Date;
+  /**
+   * El mismo rango como fecha simple `YYYY-MM-DD`. Es lo que hay que mandar al
+   * backend en los filtros de fecha: así el export cuenta exactamente el mismo
+   * día que la pantalla. Ver `utils/dateFilters.ts`.
+   */
+  fromDate: string;
+  toDate: string;
 }
 
 /**
@@ -146,6 +154,19 @@ export function ExportDialog<T>({
     defaultDateFrom ?? oneMonthAgo,
   );
   const [dateTo, setDateTo] = useState<Date | null>(defaultDateTo ?? new Date());
+
+  // El diálogo se monta junto con la pantalla, así que el estado inicial se fija
+  // cuando todavía no hay filtros aplicados. Al abrirlo hay que re-sincronizar
+  // con el rango de fechas que el usuario tenga puesto en ese momento; si no, el
+  // Excel sale con "hace un mes → hoy" y no cuadra con los totales en pantalla.
+  useEffect(() => {
+    if (!open) return;
+    setDateFrom(defaultDateFrom ?? oneMonthAgo());
+    setDateTo(defaultDateTo ?? new Date());
+    // Se comparan por timestamp para no reaccionar a instancias Date nuevas
+    // con el mismo valor (los padres las recrean en cada render).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, defaultDateFrom?.getTime(), defaultDateTo?.getTime()]);
   const [selectedColumns, setSelectedColumns] = useState<Set<string>>(() =>
     loadSavedColumns(storageKey, columns),
   );
@@ -219,6 +240,8 @@ export function ExportDialog<T>({
       const rows = await fetchRows({
         from: toDateStart(dateFrom),
         to: toDateEnd(dateTo),
+        fromDate: toDateFilter(dateFrom),
+        toDate: toDateFilter(dateTo),
       });
 
       if (rows.length === 0) {
@@ -229,8 +252,7 @@ export function ExportDialog<T>({
         return;
       }
 
-      const fmt = (d: Date) => d.toISOString().slice(0, 10);
-      const fileName = `${fileNamePrefix}_${fmt(dateFrom)}_${fmt(dateTo)}.xlsx`;
+      const fileName = `${fileNamePrefix}_${toDateFilter(dateFrom)}_${toDateFilter(dateTo)}.xlsx`;
 
       const activeDetails = (detailSheets ?? []).filter(
         (d) => includedDetails[d.storageKey],

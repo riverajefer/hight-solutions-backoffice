@@ -114,4 +114,17 @@ export class FilterOrdersDto {
   @IsOptional()
   @IsEnum(EditRequestStatus)
   advancePaymentStatus?: EditRequestStatus;
+
+  @ApiPropertyOptional({
+    description:
+      'Si es true, excluye las órdenes ANULADAS. Lo usan las pantallas de ' +
+      'ventas, donde una orden anulada no es una venta. Se ignora cuando se ' +
+      'filtra explícitamente por `status`, para poder consultarlas cuando se ' +
+      'quiere. Afecta por igual al listado, al resumen y a la exportación.',
+    example: true,
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  excludeAnulado?: boolean;
 }

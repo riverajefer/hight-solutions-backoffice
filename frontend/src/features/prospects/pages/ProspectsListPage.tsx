@@ -57,6 +57,7 @@ import { ProspectDetailDrawer } from '../components/ProspectDetailDrawer';
 import { ConvertProspectDialog } from '../components/ConvertProspectDialog';
 import { ProspectKanbanBoard } from '../components/kanban/ProspectKanbanBoard';
 import { PROSPECT_EXPORT_COLUMNS } from '../utils/prospectExportColumns';
+import { parseDateFilter, toDateFilterOrUndefined } from '../../../utils/dateFilters';
 
 const VIEW_MODE_KEY = 'prospects-view-mode';
 
@@ -435,8 +436,8 @@ export const ProspectsListPage: React.FC = () => {
           <Grid item xs={12} sm={6} md={2.4}>
             <DatePicker
               label="Desde"
-              value={filters.dateFrom ? new Date(filters.dateFrom) : null}
-              onChange={(d) => setFilter('dateFrom', d ? d.toISOString() : undefined)}
+              value={parseDateFilter(filters.dateFrom) ?? null}
+              onChange={(d) => setFilter('dateFrom', toDateFilterOrUndefined(d))}
               slotProps={{ textField: { fullWidth: true, size: 'small' } }}
             />
           </Grid>
@@ -444,8 +445,8 @@ export const ProspectsListPage: React.FC = () => {
           <Grid item xs={12} sm={6} md={2.4}>
             <DatePicker
               label="Hasta"
-              value={filters.dateTo ? new Date(filters.dateTo) : null}
-              onChange={(d) => setFilter('dateTo', d ? d.toISOString() : undefined)}
+              value={parseDateFilter(filters.dateTo) ?? null}
+              onChange={(d) => setFilter('dateTo', toDateFilterOrUndefined(d))}
               slotProps={{ textField: { fullWidth: true, size: 'small' } }}
             />
           </Grid>
@@ -602,11 +603,11 @@ export const ProspectsListPage: React.FC = () => {
           storageKey="prospects-export-columns"
           dateRangeLabel="Rango de fechas (fecha de registro)"
           helperText="Se respetan los filtros de estado, medio y vendedora de la pantalla."
-          fetchRows={async ({ from, to }) => {
+          fetchRows={async ({ fromDate, toDate }) => {
             const res = await prospectsApi.findAll({
               ...filters,
-              dateFrom: from.toISOString(),
-              dateTo: to.toISOString(),
+              dateFrom: fromDate,
+              dateTo: toDate,
               page: 1,
               limit: EXPORT_LIMIT,
             });
