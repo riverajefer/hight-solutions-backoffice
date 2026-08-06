@@ -37,6 +37,10 @@ import {
   explodeOrderItems,
 } from '../utils/orderItemExportColumns';
 import { ORDER_FLAT_EXPORT_COLUMNS } from '../utils/orderFlatExportColumns';
+import {
+  ORDER_AREA_FLAT_EXPORT_COLUMNS,
+  explodeOrderItemAreas,
+} from '../utils/orderAreaFlatExportColumns';
 import { ordersApi } from '../../../api/orders.api';
 import {
   formatCurrency,
@@ -841,6 +845,15 @@ export const OrdersListPage: React.FC = () => {
               columns: ORDER_FLAT_EXPORT_COLUMNS,
               explode: explodeOrderItems,
               storageKey: 'orders_export_include_flat',
+              defaultChecked: false,
+            },
+            {
+              toggleLabel:
+                'Incluir hoja aplanada por área (orden + producto + área)',
+              sheetName: 'Aplanado por Área',
+              columns: ORDER_AREA_FLAT_EXPORT_COLUMNS,
+              explode: explodeOrderItemAreas,
+              storageKey: 'orders_export_include_area_flat',
               defaultChecked: false,
             },
           ]}
