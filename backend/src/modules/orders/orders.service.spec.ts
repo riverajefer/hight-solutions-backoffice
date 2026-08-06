@@ -505,14 +505,30 @@ describe('OrdersService', () => {
     });
 
     it('should calculate correct subtotal (qty * unitPrice), tax (19%), and total', async () => {
-      // 2 * 50 = 100 subtotal, 100 * 0.19 = 19 tax, total = 119
+      // 2 * 50 = 100 subtotal, 100 * 0.19 = 19 tax, total bruto = 119
+      // El redondeo colombiano lleva 119 a 100 (últimos dos dígitos <= 40 → baja)
       await service.create(baseCreateDto, 'user-1');
 
       const callArg = mockOrdersRepository.create.mock.calls[0][0];
       expect(callArg.subtotal.toString()).toBe('100');
-      // Prisma.Decimal arithmetic: 100 * 0.19 = 19, total = 100 + 19 = 119
       expect(Number(callArg.tax.toString())).toBe(19);
-      expect(Number(callArg.total.toString())).toBe(119);
+      expect(Number(callArg.total.toString())).toBe(100);
+    });
+
+    it('should set total = subtotal + tax when Colombian rounding is a no-op', async () => {
+      // 2 * 50000 = 100000 subtotal, tax = 19000, total = 119000 (múltiplo de 100)
+      await service.create(
+        {
+          ...baseCreateDto,
+          items: [{ description: 'Item A', quantity: 2, unitPrice: 50000 }],
+        },
+        'user-1',
+      );
+
+      const callArg = mockOrdersRepository.create.mock.calls[0][0];
+      expect(callArg.subtotal.toString()).toBe('100000');
+      expect(Number(callArg.tax.toString())).toBe(19000);
+      expect(Number(callArg.total.toString())).toBe(119000);
     });
 
     it('should call ordersRepository.create with the correct data structure', async () => {
@@ -552,7 +568,7 @@ describe('OrdersService', () => {
     });
 
     it('should allow initialPayment that exceeds order total (saldo a favor via RefundRequest)', async () => {
-      // total = 119, initialPayment = 200 → allowed; overpayment becomes saldo a favor
+      // total = 100 (119 redondeado), initialPayment = 200 → permitido; el exceso es saldo a favor
       await service.create(
         {
           ...baseCreateDto,
@@ -562,9 +578,9 @@ describe('OrdersService', () => {
       );
 
       const callArg = mockOrdersRepository.create.mock.calls[0][0];
-      // paidAmount = 200, total = 119, balance = total - paidAmount = -81 (saldo a favor)
+      // paidAmount = 200, total = 100, balance = total - paidAmount = -100 (saldo a favor)
       expect(Number(callArg.paidAmount.toString())).toBe(200);
-      expect(Number(callArg.balance.toString())).toBe(-81);
+      expect(Number(callArg.balance.toString())).toBe(-100);
     });
 
     it('should set balance = total - paidAmount when payment is provided', async () => {
@@ -577,8 +593,8 @@ describe('OrdersService', () => {
       );
 
       const callArg = mockOrdersRepository.create.mock.calls[0][0];
-      // subtotal=100, tax=19, total=119, paid=50, balance=69
-      expect(Number(callArg.balance.toString())).toBe(69);
+      // subtotal=100, tax=19, total=100 (redondeado desde 119), paid=50, balance=50
+      expect(Number(callArg.balance.toString())).toBe(50);
     });
 
     it('should require Caja approval for a CREDIT-only order even when paidAmount is 0', async () => {
