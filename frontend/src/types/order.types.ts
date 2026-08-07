@@ -561,12 +561,25 @@ export interface FilterProfitabilityDto {
 export interface AdvisorBreakdown {
   advisorId: string;
   advisorName: string;
+  /** Total facturado (incluye IVA, retenciones y prueba de color) */
   totalRevenue: number;
+  /** Suma de los subtotales de las órdenes, antes de descuentos */
+  totalSubtotal: number;
+  /** Descuentos aplicados a las órdenes */
+  totalDiscounts: number;
+  /** Venta neta sin IVA (subtotal − descuentos) — es la cifra que cuenta para las metas */
+  totalNetSubtotal: number;
   totalOrders: number;
 }
 
 export interface SalesSummary {
   totalRevenue: number;
+  /** Suma de los subtotales de las órdenes, antes de descuentos */
+  totalSubtotal: number;
+  /** Descuentos aplicados a las órdenes */
+  totalDiscounts: number;
+  /** Venta neta sin IVA (subtotal − descuentos) — es la cifra que cuenta para las metas */
+  totalNetSubtotal: number;
   totalOrders: number;
   averageOrderValue: number;
   advisorBreakdown: AdvisorBreakdown[];
