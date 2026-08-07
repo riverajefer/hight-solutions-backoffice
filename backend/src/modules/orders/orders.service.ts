@@ -207,7 +207,7 @@ export class OrdersService {
     const [aggregate, grouped] = await Promise.all([
       this.prisma.order.aggregate({
         where,
-        _sum: { total: true },
+        _sum: { total: true, subtotal: true, discountAmount: true },
         _count: { id: true },
       }),
       createdById
@@ -215,12 +215,17 @@ export class OrdersService {
         : this.prisma.order.groupBy({
             by: ['createdById'],
             where,
-            _sum: { total: true },
+            _sum: { total: true, subtotal: true, discountAmount: true },
             _count: { id: true },
           }),
     ]);
 
     const totalRevenue = Number(aggregate._sum.total ?? 0);
+    // Base sin IVA: subtotal de los items, antes de descuentos.
+    const totalSubtotal = Number(aggregate._sum.subtotal ?? 0);
+    const totalDiscounts = Number(aggregate._sum.discountAmount ?? 0);
+    // Venta neta sin IVA (subtotal - descuentos): es la cifra que cuenta para las metas.
+    const totalNetSubtotal = totalSubtotal - totalDiscounts;
     const totalOrders = aggregate._count.id;
     const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
@@ -228,6 +233,9 @@ export class OrdersService {
       advisorId: string;
       advisorName: string;
       totalRevenue: number;
+      totalSubtotal: number;
+      totalDiscounts: number;
+      totalNetSubtotal: number;
       totalOrders: number;
     }> = [];
 
@@ -243,16 +251,29 @@ export class OrdersService {
         const advisor = advisorMap.get(g.createdById);
         const firstName = advisor?.firstName ?? '';
         const lastName = advisor?.lastName ?? '';
+        const subtotal = Number(g._sum.subtotal ?? 0);
+        const discounts = Number(g._sum.discountAmount ?? 0);
         return {
           advisorId: g.createdById,
           advisorName: `${firstName} ${lastName}`.trim() || g.createdById,
           totalRevenue: Number(g._sum.total ?? 0),
+          totalSubtotal: subtotal,
+          totalDiscounts: discounts,
+          totalNetSubtotal: subtotal - discounts,
           totalOrders: g._count.id,
         };
       });
     }
 
-    return { totalRevenue, totalOrders, averageOrderValue, advisorBreakdown };
+    return {
+      totalRevenue,
+      totalSubtotal,
+      totalDiscounts,
+      totalNetSubtotal,
+      totalOrders,
+      averageOrderValue,
+      advisorBreakdown,
+    };
   }
 
   async getSalesGoals(filters: FilterSalesGoalsDto) {
