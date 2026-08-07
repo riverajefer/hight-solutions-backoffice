@@ -334,6 +334,13 @@ export const SalesByAdvisorPage: React.FC = () => {
               color="success"
             />
             <MetricCard
+              title="Venta Neta (sin IVA)"
+              value={summary ? formatCurrency(summary.totalNetSubtotal) : '—'}
+              icon={<SalesIcon />}
+              loading={summaryQuery.isLoading}
+              color="info"
+            />
+            <MetricCard
               title="Número de Órdenes"
               value={summary ? summary.totalOrders.toString() : '—'}
               icon={<ReceiptIcon />}
@@ -354,7 +361,14 @@ export const SalesByAdvisorPage: React.FC = () => {
             color="text.secondary"
             sx={{ display: 'block', mt: -2, mb: 3 }}
           >
-            Los totales, la tabla y el Excel excluyen las órdenes anuladas. Para
+            <strong>Total Vendido</strong> = total facturado de las órdenes (incluye
+            IVA, retenciones y prueba de color).{' '}
+            <strong>Venta Neta (sin IVA)</strong> = subtotal de las órdenes − descuentos
+            aplicados; es la cifra que cuenta para las metas de ventas
+            {summary
+              ? ` (${formatCurrency(summary.totalSubtotal)} − ${formatCurrency(summary.totalDiscounts)})`
+              : ''}
+            . Los totales, la tabla y el Excel excluyen las órdenes anuladas. Para
             verlas, selecciona «Anulada» en el filtro de Estado.
           </Typography>
 

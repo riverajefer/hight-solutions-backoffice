@@ -29,11 +29,12 @@ import {
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
   CheckCircle as CheckCircleIcon,
+  InfoOutlined as InfoIcon,
 } from '@mui/icons-material';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
 import { useSalesGoals, useSalesSummary } from '../hooks';
-import type { SalesGoal } from '../../../types/order.types';
+import type { SalesGoal, AdvisorBreakdown } from '../../../types/order.types';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -69,13 +70,14 @@ function getGoalStatus(pct: number): GoalStatus {
 
 interface GoalProgressCardProps {
   goal: SalesGoal;
-  actual: number;
+  sales: AdvisorBreakdown | undefined;
   canManage: boolean;
   onEdit: (goal: SalesGoal) => void;
   onDelete: (goal: SalesGoal) => void;
 }
 
-const GoalProgressCard: React.FC<GoalProgressCardProps> = ({ goal, actual, canManage, onEdit, onDelete }) => {
+const GoalProgressCard: React.FC<GoalProgressCardProps> = ({ goal, sales, canManage, onEdit, onDelete }) => {
+  const actual = sales?.totalNetSubtotal ?? 0;
   const target = Number(goal.targetAmount);
   const pct = target > 0 ? Math.min((actual / target) * 100, 100) : 0;
   const pctDisplay = target > 0 ? ((actual / target) * 100).toFixed(1) : '0.0';
@@ -172,7 +174,37 @@ const GoalProgressCard: React.FC<GoalProgressCardProps> = ({ goal, actual, canMa
           {/* Números + barra (ancho completo, centrado) */}
           <Box sx={{ width: '100%' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-              <Typography variant="body2" color="text.secondary">Vendido</Typography>
+              <Tooltip
+                title={
+                  <Box sx={{ py: 0.5 }}>
+                    <Typography variant="caption" display="block" fontWeight={700} sx={{ mb: 0.5 }}>
+                      Cómo se calcula
+                    </Typography>
+                    <Typography variant="caption" display="block">
+                      Subtotal de las órdenes: {formatCurrency(sales?.totalSubtotal ?? 0)}
+                    </Typography>
+                    <Typography variant="caption" display="block">
+                      − Descuentos aplicados: {formatCurrency(sales?.totalDiscounts ?? 0)}
+                    </Typography>
+                    <Typography variant="caption" display="block" fontWeight={700} sx={{ mt: 0.5 }}>
+                      = Vendido (sin IVA): {formatCurrency(actual)}
+                    </Typography>
+                    <Typography variant="caption" display="block" sx={{ mt: 0.75, opacity: 0.85 }}>
+                      No incluye IVA, retenciones ni prueba de color.
+                      Basado en {sales?.totalOrders ?? 0} orden(es) del mes.
+                    </Typography>
+                  </Box>
+                }
+                arrow
+              >
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ cursor: 'help', textDecoration: 'underline dotted', textUnderlineOffset: 3 }}
+                >
+                  Vendido (sin IVA)
+                </Typography>
+              </Tooltip>
               <Typography variant="body2" fontWeight={700} color={barColor}>
                 {formatCurrency(actual)}
               </Typography>
@@ -362,9 +394,11 @@ export const SalesGoalsSection: React.FC<SalesGoalsSectionProps> = ({ advisors }
   const goals = goalsQuery.data ?? [];
   const summary = summaryQuery.data;
 
-  // Build a map: advisorId → actual sales from breakdown
-  const actualByAdvisor = new Map<string, number>(
-    (summary?.advisorBreakdown ?? []).map((b) => [b.advisorId, b.totalRevenue]),
+  // Build a map: advisorId → desglose de ventas del mes.
+  // Las metas se miden sobre la venta neta sin IVA (subtotal − descuentos),
+  // no sobre el total facturado.
+  const salesByAdvisor = new Map<string, AdvisorBreakdown>(
+    (summary?.advisorBreakdown ?? []).map((b) => [b.advisorId, b]),
   );
 
   const openNew = () => { setEditingGoal(null); setDialogOpen(true); };
@@ -442,6 +476,15 @@ export const SalesGoalsSection: React.FC<SalesGoalsSectionProps> = ({ advisors }
         <Divider sx={{ mt: 1 }} />
 
         <CardContent>
+          <Alert severity="info" icon={<InfoIcon fontSize="inherit" />} sx={{ mb: 2 }}>
+            <Typography variant="body2">
+              El avance se mide sobre la <strong>venta neta sin IVA</strong>:{' '}
+              <strong>subtotal de las órdenes − descuentos aplicados</strong>. No se
+              cuenta el IVA, las retenciones ni la prueba de color. Pasa el cursor sobre
+              «Vendido (sin IVA)» en cada tarjeta para ver el desglose.
+            </Typography>
+          </Alert>
+
           {goalsQuery.isLoading || summaryQuery.isLoading ? (
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 2 }}>
               {[1, 2, 3].map((i) => <Skeleton key={i} variant="rounded" height={160} />)}
@@ -472,7 +515,7 @@ export const SalesGoalsSection: React.FC<SalesGoalsSectionProps> = ({ advisors }
                 <GoalProgressCard
                   key={goal.id}
                   goal={goal}
-                  actual={actualByAdvisor.get(goal.advisorId) ?? 0}
+                  sales={salesByAdvisor.get(goal.advisorId)}
                   canManage={canManage}
                   onEdit={openEdit}
                   onDelete={setDeletingGoal}
