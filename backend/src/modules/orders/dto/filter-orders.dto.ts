@@ -52,6 +52,25 @@ export class FilterOrdersDto {
   orderDateTo?: string;
 
   @ApiPropertyOptional({
+    description:
+      'Fecha de pago desde (ISO 8601). Trae las órdenes que tengan al menos ' +
+      'un abono en el rango, sin importar su fecha de orden. Pensado para la ' +
+      'conciliación bancaria: los abonos de una OP vieja también cuentan.',
+    example: '2026-01-01',
+  })
+  @IsOptional()
+  @IsDateString()
+  paymentDateFrom?: string;
+
+  @ApiPropertyOptional({
+    description: 'Fecha de pago hasta (ISO 8601). Ver `paymentDateFrom`.',
+    example: '2026-12-31',
+  })
+  @IsOptional()
+  @IsDateString()
+  paymentDateTo?: string;
+
+  @ApiPropertyOptional({
     description: 'Número de página',
     example: 1,
     default: 1,

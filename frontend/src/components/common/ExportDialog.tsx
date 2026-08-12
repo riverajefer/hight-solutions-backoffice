@@ -11,6 +11,8 @@ import {
   Checkbox,
   FormControlLabel,
   FormGroup,
+  Radio,
+  RadioGroup,
   Divider,
   CircularProgress,
 } from '@mui/material';
@@ -35,6 +37,18 @@ export interface DateRange {
    */
   fromDate: string;
   toDate: string;
+  /**
+   * Campo de fecha elegido por el usuario cuando el módulo ofrece varios
+   * (ver `dateFieldOptions`). Vale `'default'` si el módulo no ofrece opciones.
+   */
+  dateField: string;
+}
+
+/** Opción del selector de "sobre qué fecha se aplica el rango". */
+export interface DateFieldOption {
+  /** Valor que llega a `fetchRows` y a los `explode` de las hojas de detalle. */
+  value: string;
+  label: string;
 }
 
 /**
@@ -68,6 +82,15 @@ export interface ExportDialogProps<T> {
   storageKey: string;
   /** Título de la sección de fechas, ej. "Rango de fechas (fecha de orden)". */
   dateRangeLabel?: string;
+  /**
+   * Si se define, el modal muestra un selector para elegir a qué fecha se
+   * aplica el rango (ej. fecha de orden vs. fecha de pago). El valor elegido
+   * llega a `fetchRows` y a los `explode` de las hojas de detalle. Si se omite,
+   * el modal se comporta igual que siempre y el valor es `'default'`.
+   */
+  dateFieldOptions?: DateFieldOption[];
+  /** Opción marcada la primera vez; por defecto, la primera de la lista. */
+  defaultDateField?: string;
   /** Nota al pie de las fechas, ej. qué filtros de pantalla se respetan. */
   helperText?: string;
   defaultDateFrom?: Date;
@@ -132,6 +155,24 @@ const loadDetailIncluded = (
   return defaultChecked;
 };
 
+const loadSavedDateField = (
+  storageKey: string,
+  options: DateFieldOption[] | undefined,
+  defaultDateField: string | undefined,
+): string => {
+  if (!options || options.length === 0) return 'default';
+  const fallback = defaultDateField ?? options[0].value;
+  try {
+    const raw = localStorage.getItem(`${storageKey}_date_field`);
+    // Se valida contra las opciones actuales: si el módulo las cambió, un valor
+    // viejo en localStorage dejaría el export filtrando por un campo inexistente.
+    if (raw && options.some((o) => o.value === raw)) return raw;
+  } catch {
+    // ignorar acceso inválido
+  }
+  return fallback;
+};
+
 export function ExportDialog<T>({
   open,
   onClose,
@@ -142,6 +183,8 @@ export function ExportDialog<T>({
   columns,
   storageKey,
   dateRangeLabel = 'Rango de fechas',
+  dateFieldOptions,
+  defaultDateField,
   helperText,
   defaultDateFrom,
   defaultDateTo,
@@ -182,6 +225,9 @@ export function ExportDialog<T>({
     });
     return initial;
   });
+  const [dateField, setDateField] = useState<string>(() =>
+    loadSavedDateField(storageKey, dateFieldOptions, defaultDateField),
+  );
   const [isExporting, setIsExporting] = useState(false);
 
   const toggleColumn = (key: string) => {
@@ -236,12 +282,19 @@ export function ExportDialog<T>({
           String(includedDetails[d.storageKey] ?? false),
         );
       });
+      if (dateFieldOptions && dateFieldOptions.length > 0) {
+        localStorage.setItem(`${storageKey}_date_field`, dateField);
+      }
+
+      const from = toDateStart(dateFrom);
+      const to = toDateEnd(dateTo);
 
       const rows = await fetchRows({
-        from: toDateStart(dateFrom),
-        to: toDateEnd(dateTo),
+        from,
+        to,
         fromDate: toDateFilter(dateFrom),
         toDate: toDateFilter(dateTo),
+        dateField,
       });
 
       if (rows.length === 0) {
@@ -257,7 +310,11 @@ export function ExportDialog<T>({
       const activeDetails = (detailSheets ?? []).filter(
         (d) => includedDetails[d.storageKey],
       );
-      exportToExcel(rows, selected, fileName, sheetName, activeDetails);
+      exportToExcel(rows, selected, fileName, sheetName, activeDetails, {
+        from,
+        to,
+        dateField,
+      });
       enqueueSnackbar(`Se exportaron ${rows.length} ${entityLabel}`, {
         variant: 'success',
       });
@@ -306,6 +363,22 @@ export function ExportDialog<T>({
             <Typography variant='subtitle2' gutterBottom>
               {dateRangeLabel}
             </Typography>
+            {dateFieldOptions && dateFieldOptions.length > 0 && (
+              <RadioGroup
+                value={dateField}
+                onChange={(e) => setDateField(e.target.value)}
+                sx={{ mb: 1 }}
+              >
+                {dateFieldOptions.map((option) => (
+                  <FormControlLabel
+                    key={option.value}
+                    value={option.value}
+                    control={<Radio size='small' />}
+                    label={option.label}
+                  />
+                ))}
+              </RadioGroup>
+            )}
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
               <DatePicker
                 label='Desde'

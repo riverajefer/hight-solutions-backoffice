@@ -372,6 +372,14 @@ export interface FilterOrdersDto {
   clientId?: string;
   orderDateFrom?: string; // ISO date string
   orderDateTo?: string; // ISO date string
+  /**
+   * Rango por fecha de abono: trae las órdenes con al menos un pago dentro del
+   * rango, sin importar su fecha de orden. Lo usa la exportación para
+   * conciliación bancaria, donde interesa el dinero que entró en el período
+   * aunque la OP sea de meses anteriores.
+   */
+  paymentDateFrom?: string; // ISO date string
+  paymentDateTo?: string; // ISO date string
   page?: number;
   limit?: number;
   /** Si true, excluye órdenes que ya tienen una OT activa (no cancelada) */
