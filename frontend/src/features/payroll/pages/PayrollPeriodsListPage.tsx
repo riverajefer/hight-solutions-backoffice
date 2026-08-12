@@ -5,6 +5,7 @@ import { useSnackbar } from 'notistack';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { DataTable } from '../../../components/common/DataTable';
+import ClonePeriodDialog from '../components/ClonePeriodDialog';
 import { usePayrollPeriods } from '../hooks/usePayrollPeriods';
 import { getPeriodColumns } from '../config/columns';
 import type { PayrollPeriod } from '../../../types/payroll-period.types';
@@ -18,8 +19,10 @@ const PayrollPeriodsListPage: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
   const { hasPermission } = useAuthStore();
   const [toDelete, setToDelete] = useState<PayrollPeriod | null>(null);
+  const [toClone, setToClone] = useState<PayrollPeriod | null>(null);
   const { periodsQuery, deleteMutation } = usePayrollPeriods();
   const periods = periodsQuery.data ?? [];
+  const canCreate = hasPermission(PERMISSIONS.CREATE_PAYROLL_PERIODS);
 
   const handleDelete = async () => {
     if (!toDelete) return;
@@ -36,6 +39,7 @@ const PayrollPeriodsListPage: React.FC = () => {
     (p) => navigate(PATHS.PAYROLL_PERIODS_DETAIL.replace(':id', p.id)),
     (p) => navigate(PATHS.PAYROLL_PERIODS_EDIT.replace(':id', p.id)),
     (p) => setToDelete(p),
+    canCreate ? (p) => setToClone(p) : undefined,
   );
 
   const columns = useResponsiveColumns(rawColumns);
@@ -51,10 +55,23 @@ const PayrollPeriodsListPage: React.FC = () => {
         rows={periods}
         columns={columns}
         loading={periodsQuery.isLoading}
-        onAdd={hasPermission(PERMISSIONS.CREATE_PAYROLL_PERIODS) ? () => navigate(PATHS.PAYROLL_PERIODS_CREATE) : undefined}
+        onAdd={canCreate ? () => navigate(PATHS.PAYROLL_PERIODS_CREATE) : undefined}
         addButtonText="Crear Periodo"
         searchPlaceholder="Buscar periodo..."
         emptyMessage="No hay periodos de nómina registrados"
+      />
+
+      <ClonePeriodDialog
+        open={!!toClone}
+        period={toClone}
+        onClose={() => setToClone(null)}
+        onCloned={(result) => {
+          enqueueSnackbar(
+            `Periodo clonado con ${result.clonedItemsCount} empleado(s)`,
+            { variant: 'success' },
+          );
+          navigate(PATHS.PAYROLL_PERIODS_DETAIL.replace(':id', result.id));
+        }}
       />
 
       <ConfirmDialog

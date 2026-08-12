@@ -38,6 +38,10 @@ import {
 } from '../utils/orderItemExportColumns';
 import { ORDER_FLAT_EXPORT_COLUMNS } from '../utils/orderFlatExportColumns';
 import {
+  ORDER_PAYMENT_EXPORT_COLUMNS,
+  explodeOrderPayments,
+} from '../utils/orderPaymentExportColumns';
+import {
   ORDER_AREA_FLAT_EXPORT_COLUMNS,
   explodeOrderItemAreas,
 } from '../utils/orderAreaFlatExportColumns';
@@ -809,21 +813,36 @@ export const OrdersListPage: React.FC = () => {
           sheetName='Órdenes de Pedido'
           columns={ORDER_EXPORT_COLUMNS}
           storageKey='orders_export_columns'
-          dateRangeLabel='Rango de fechas (fecha de orden)'
-          helperText='Se respetan los filtros activos de la pantalla (estado, cliente, asesor, área y búsqueda).'
+          dateRangeLabel='Rango de fechas'
+          dateFieldOptions={[
+            { value: 'order', label: 'Por fecha de orden' },
+            {
+              value: 'payment',
+              label: 'Por fecha de pago (conciliación bancaria)',
+            },
+          ]}
+          defaultDateField='order'
+          helperText='Se respetan los filtros activos de la pantalla (estado, cliente, asesor, área y búsqueda). «Por fecha de pago» trae las órdenes con abonos en el rango, aunque la orden sea anterior, y la hoja «Pagos» solo incluye esos abonos.'
           defaultDateFrom={
             parseDateFilter(filters.orderDateFrom)
           }
           defaultDateTo={
             parseDateFilter(filters.orderDateTo)
           }
-          fetchRows={async ({ fromDate, toDate }) => {
+          fetchRows={async ({ fromDate, toDate, dateField }) => {
             // Se descartan page/limit de la pantalla para usar los del export.
             const { page, limit, ...activeFilters } = filters;
+            // El rango se aplica a la fecha de orden o a la de abono según lo
+            // elegido en el diálogo; nunca a las dos a la vez.
+            const dateRangeFilter =
+              dateField === 'payment'
+                ? { paymentDateFrom: fromDate, paymentDateTo: toDate }
+                : { orderDateFrom: fromDate, orderDateTo: toDate };
             const response = await ordersApi.getAll({
               ...activeFilters,
-              orderDateFrom: fromDate,
-              orderDateTo: toDate,
+              orderDateFrom: undefined,
+              orderDateTo: undefined,
+              ...dateRangeFilter,
               page: 1,
               limit: EXPORT_LIMIT,
             });
@@ -837,6 +856,15 @@ export const OrdersListPage: React.FC = () => {
               explode: explodeOrderItems,
               storageKey: 'orders_export_include_items',
               defaultChecked: true,
+            },
+            {
+              toggleLabel:
+                'Incluir detalle de abonos (hoja «Pagos», una fila por pago)',
+              sheetName: 'Pagos',
+              columns: ORDER_PAYMENT_EXPORT_COLUMNS,
+              explode: explodeOrderPayments,
+              storageKey: 'orders_export_include_payments',
+              defaultChecked: false,
             },
             {
               toggleLabel:

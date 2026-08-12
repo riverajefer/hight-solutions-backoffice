@@ -251,6 +251,8 @@ export class OrdersRepository {
     clientId?: string;
     orderDateFrom?: Date;
     orderDateTo?: Date;
+    paymentDateFrom?: Date;
+    paymentDateTo?: Date;
     page?: number;
     limit?: number;
     excludeWithWorkOrder?: boolean;
@@ -260,7 +262,7 @@ export class OrdersRepository {
     advancePaymentStatus?: EditRequestStatus;
     excludeAnulado?: boolean;
   }) {
-    const { status, search, clientId, orderDateFrom, orderDateTo, page = 1, limit = 20, excludeWithWorkOrder, productionAreaId, createdById, hasBalance, advancePaymentStatus, excludeAnulado } = filters;
+    const { status, search, clientId, orderDateFrom, orderDateTo, paymentDateFrom, paymentDateTo, page = 1, limit = 20, excludeWithWorkOrder, productionAreaId, createdById, hasBalance, advancePaymentStatus, excludeAnulado } = filters;
 
     const where: Prisma.OrderWhereInput = {};
 
@@ -301,6 +303,21 @@ export class OrdersRepository {
       if (orderDateTo) {
         where.orderDate.lte = orderDateTo;
       }
+    }
+
+    // Filtro por fecha de abono (conciliación bancaria): trae las órdenes con al
+    // menos un pago en el rango, sin importar cuándo se creó la orden. Ojo: cada
+    // orden sigue devolviendo TODOS sus pagos, así que quien necesite solo los
+    // del rango debe filtrarlos también al consumir la respuesta.
+    if (paymentDateFrom || paymentDateTo) {
+      const paymentDate: Prisma.DateTimeFilter = {};
+      if (paymentDateFrom) {
+        paymentDate.gte = paymentDateFrom;
+      }
+      if (paymentDateTo) {
+        paymentDate.lte = paymentDateTo;
+      }
+      where.payments = { some: { paymentDate } };
     }
 
     if (hasBalance) {

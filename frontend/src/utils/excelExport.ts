@@ -21,6 +21,21 @@ export interface ExportColumn<T> {
 }
 
 /**
+ * Contexto del export en curso, que se pasa a cada `explode`. Permite que una
+ * hoja de detalle acote sus filas hijo al mismo rango que pidió el usuario
+ * (ej. la hoja de abonos, cuando se exporta por fecha de pago: el backend
+ * devuelve la orden completa con TODOS sus abonos, no solo los del rango).
+ */
+export interface ExportContext {
+  /** Inicio del rango (inicio del día). */
+  from: Date;
+  /** Fin del rango (fin del día). */
+  to: Date;
+  /** Campo de fecha elegido en el diálogo; `'default'` si el módulo no ofrece opciones. */
+  dateField: string;
+}
+
+/**
  * Hoja de detalle opcional para relaciones uno-a-muchos (ej. una Orden de Gasto
  * y sus ítems). Cada fila padre se "expande" en sus filas hijo mediante `explode`
  * y el resultado se escribe en una hoja aparte, preservando la relación con una
@@ -31,9 +46,20 @@ export interface DetailSheet<Parent, Child> {
   sheetName: string;
   /** Columnas de la hoja de detalle (mismo patrón que las principales). */
   columns: ExportColumn<Child>[];
-  /** Expande una fila padre en sus filas hijo (ej. una OG en sus ítems). */
-  explode: (parent: Parent) => Child[];
+  /**
+   * Expande una fila padre en sus filas hijo (ej. una OG en sus ítems).
+   * Recibe el contexto del export; las hojas que no lo necesiten pueden
+   * declarar solo el primer parámetro.
+   */
+  explode: (parent: Parent, ctx: ExportContext) => Child[];
 }
+
+/** Contexto neutro para los llamados que no pasan uno (mantiene la firma previa). */
+const DEFAULT_EXPORT_CONTEXT: ExportContext = {
+  from: new Date(0),
+  to: new Date(8640000000000000),
+  dateField: 'default',
+};
 
 /** Construye una hoja (con fila de TOTALES si hay columnas numéricas). */
 function buildSheet<R>(rows: R[], columns: ExportColumn<R>[]): XLSX.WorkSheet {
@@ -71,7 +97,8 @@ function buildSheet<R>(rows: R[], columns: ExportColumn<R>[]): XLSX.WorkSheet {
  *
  * Si se pasan `detailSheets`, agrega una hoja adicional por cada uno, con una
  * fila por cada hijo (ej. una fila por ítem de gasto), útil para relaciones
- * uno-a-muchos. Cada hoja de detalle puede tener sus propias columnas.
+ * uno-a-muchos. Cada hoja de detalle puede tener sus propias columnas y recibe
+ * el `ctx` del export para poder acotar sus filas al rango pedido.
  */
 export function exportToExcel<T>(
   rows: T[],
@@ -79,6 +106,7 @@ export function exportToExcel<T>(
   fileName: string,
   sheetName = 'Datos',
   detailSheets: DetailSheet<T, any>[] = [],
+  ctx: ExportContext = DEFAULT_EXPORT_CONTEXT,
 ): void {
   const wb = XLSX.utils.book_new();
 
@@ -90,7 +118,7 @@ export function exportToExcel<T>(
   );
 
   for (const detail of detailSheets) {
-    const childRows = rows.flatMap((row) => detail.explode(row));
+    const childRows = rows.flatMap((row) => detail.explode(row, ctx));
     XLSX.utils.book_append_sheet(
       wb,
       buildSheet(childRows, detail.columns),

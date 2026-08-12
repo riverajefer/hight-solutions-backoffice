@@ -1,6 +1,6 @@
 import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { Chip, IconButton, Box, Tooltip } from '@mui/material';
-import { Edit, Delete, History, Visibility } from '@mui/icons-material';
+import { Edit, Delete, History, Visibility, ContentCopy } from '@mui/icons-material';
 import type { PayrollEmployee } from '../../../types/payroll-employee.types';
 import type { PayrollPeriod } from '../../../types/payroll-period.types';
 import type { PayrollItem } from '../../../types/payroll-item.types';
@@ -132,6 +132,8 @@ export const getPeriodColumns = (
   onView: (p: PayrollPeriod) => void,
   onEdit: (p: PayrollPeriod) => void,
   onDelete: (p: PayrollPeriod) => void,
+  /** Omitir para ocultar la acción de clonar (p. ej. sin permiso de creación). */
+  onClone?: (p: PayrollPeriod) => void,
 ): ResponsiveGridColDef[] => [
   { field: 'name', headerName: 'Periodo', flex: 1.5, minWidth: 160 },
   {
@@ -170,7 +172,7 @@ export const getPeriodColumns = (
   {
     field: 'actions',
     headerName: 'Acciones',
-    width: 130,
+    width: onClone ? 165 : 130,
     sortable: false,
     renderCell: (params: GridRenderCellParams<PayrollPeriod>) => (
       <Box>
@@ -184,6 +186,13 @@ export const getPeriodColumns = (
             <Edit fontSize="small" />
           </IconButton>
         </Tooltip>
+        {onClone && (
+          <Tooltip title="Clonar periodo">
+            <IconButton size="small" onClick={() => onClone(params.row)}>
+              <ContentCopy fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
         <Tooltip title="Eliminar">
           <IconButton size="small" color="error" onClick={() => onDelete(params.row)}>
             <Delete fontSize="small" />

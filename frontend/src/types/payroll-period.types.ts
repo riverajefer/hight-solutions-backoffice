@@ -45,6 +45,21 @@ export interface UpdatePayrollPeriodDto {
   notes?: string;
 }
 
+/**
+ * Datos del periodo destino al clonar. El tipo de periodo, las tarifas de horas
+ * extra y las notas se heredan del periodo origen.
+ */
+export interface ClonePayrollPeriodDto {
+  name: string;
+  startDate: string;
+  endDate: string;
+}
+
+/** Periodo creado por la clonación + cuántos empleados se copiaron. */
+export interface ClonePayrollPeriodResult extends PayrollPeriod {
+  clonedItemsCount: number;
+}
+
 export interface PayrollPeriodSummary {
   employeeCount: number;
   totalBaseSalary: number;
