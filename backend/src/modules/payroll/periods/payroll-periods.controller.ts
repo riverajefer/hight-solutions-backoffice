@@ -13,6 +13,7 @@ import { PayrollPeriodsService } from './payroll-periods.service';
 import { PayrollItemsService } from '../items/payroll-items.service';
 import { CreatePayrollPeriodDto } from './dto/create-payroll-period.dto';
 import { UpdatePayrollPeriodDto } from './dto/update-payroll-period.dto';
+import { ClonePayrollPeriodDto } from './dto/clone-payroll-period.dto';
 import { CreatePayrollItemDto } from '../items/dto/create-payroll-item.dto';
 import { UpdatePayrollItemDto } from '../items/dto/update-payroll-item.dto';
 import { JwtAuthGuard } from '../../auth/guards';
@@ -78,6 +79,16 @@ export class PayrollPeriodsController {
   @ApiOperation({ summary: 'Eliminar un periodo de nómina' })
   remove(@Param('id') id: string) {
     return this.periodsService.remove(id);
+  }
+
+  @Post(':id/clone')
+  @RequirePermissions('create_payroll_periods')
+  @ApiOperation({
+    summary:
+      'Clonar un periodo: copia configuración y valores fijos por empleado, sin las novedades',
+  })
+  clone(@Param('id') id: string, @Body() dto: ClonePayrollPeriodDto) {
+    return this.periodsService.clone(id, dto);
   }
 
   @Post(':id/generate')

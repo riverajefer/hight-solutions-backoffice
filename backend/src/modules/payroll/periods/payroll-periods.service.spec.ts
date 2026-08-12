@@ -17,6 +17,7 @@ describe('PayrollPeriodsService', () => {
       findAll: jest.fn(),
       findById: jest.fn(),
       create: jest.fn(),
+      createWithItems: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
       getSummary: jest.fn(),
@@ -85,6 +86,122 @@ describe('PayrollPeriodsService', () => {
 
     it('should throw BadRequestException if startDate >= endDate', async () => {
       await expect(service.create({ ...createDto, startDate: '2024-02-01' })).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('clone', () => {
+    const cloneDto = {
+      name: '2 QUINCENA ENERO 2026',
+      startDate: new Date('2026-01-16').toISOString(),
+      endDate: new Date('2026-01-31').toISOString(),
+    };
+
+    const sourcePeriod = {
+      id: 'p1',
+      name: '1 QUINCENA ENERO 2026',
+      periodType: 'BIWEEKLY',
+      status: 'PAID',
+      overtimeDaytimeRate: 9950,
+      overtimeNighttimeRate: 13900,
+      overtimeDaytimeFestiveRate: 17927,
+      overtimeNighttimeFestiveRate: 22096,
+      notes: 'Notas del periodo',
+      payrollItems: [
+        {
+          id: 'i1',
+          daysWorked: 15,
+          baseSalary: 1000000,
+          restDayValue: 50000,
+          transportAllowance: 100000,
+          epsAndPensionDiscount: 80000,
+          // Novedades que NO deben copiarse
+          overtimeDaytimeHours: 4,
+          overtimeDaytimeValue: 39800,
+          commissions: 200000,
+          loans: 150000,
+          advances: 300000,
+          workdayDiscount: 20000,
+          nonPaidDays: 10000,
+          observations: 'Incapacidad 2 días',
+          employee: { id: 'e1', status: 'ACTIVE' },
+        },
+        {
+          id: 'i2',
+          daysWorked: 15,
+          baseSalary: 900000,
+          restDayValue: null,
+          transportAllowance: null,
+          epsAndPensionDiscount: null,
+          employee: { id: 'e2', status: 'INACTIVE' },
+        },
+      ],
+    };
+
+    it('should throw NotFoundException if source period does not exist', async () => {
+      periodsRepository.findById.mockResolvedValue(null);
+      await expect(service.clone('p1', cloneDto)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw BadRequestException if startDate >= endDate', async () => {
+      periodsRepository.findById.mockResolvedValue(sourcePeriod as any);
+      await expect(
+        service.clone('p1', { ...cloneDto, startDate: '2026-02-01', endDate: '2026-01-16' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should copy period config, skip inactive employees and reset novelties', async () => {
+      periodsRepository.findById.mockResolvedValue(sourcePeriod as any);
+      periodsRepository.createWithItems.mockResolvedValue({
+        period: { id: 'p2', name: cloneDto.name },
+        itemsCount: 1,
+      } as any);
+
+      const result = await service.clone('p1', cloneDto);
+
+      const [periodData, items] = periodsRepository.createWithItems.mock.calls[0];
+
+      // Configuración heredada del origen, pero siempre en DRAFT
+      expect(periodData).toEqual({
+        name: cloneDto.name,
+        startDate: new Date(cloneDto.startDate),
+        endDate: new Date(cloneDto.endDate),
+        periodType: 'BIWEEKLY',
+        status: 'DRAFT',
+        overtimeDaytimeRate: 9950,
+        overtimeNighttimeRate: 13900,
+        overtimeDaytimeFestiveRate: 17927,
+        overtimeNighttimeFestiveRate: 22096,
+        notes: 'Notas del periodo',
+      });
+
+      // Solo el empleado ACTIVE, con los fijos copiados y sin novedades
+      expect(items).toEqual([
+        {
+          employeeId: 'e1',
+          daysWorked: 15,
+          baseSalary: 1000000,
+          restDayValue: 50000,
+          transportAllowance: 100000,
+          epsAndPensionDiscount: 80000,
+          // 1000000 + 50000 + 100000 - 80000
+          totalPayment: 1070000,
+        },
+      ]);
+
+      expect(result).toEqual({ id: 'p2', name: cloneDto.name, clonedItemsCount: 1 });
+    });
+
+    it('should handle a source period without items', async () => {
+      periodsRepository.findById.mockResolvedValue({ ...sourcePeriod, payrollItems: [] } as any);
+      periodsRepository.createWithItems.mockResolvedValue({
+        period: { id: 'p2' },
+        itemsCount: 0,
+      } as any);
+
+      const result = await service.clone('p1', cloneDto);
+
+      expect(periodsRepository.createWithItems.mock.calls[0][1]).toEqual([]);
+      expect(result.clonedItemsCount).toBe(0);
     });
   });
 

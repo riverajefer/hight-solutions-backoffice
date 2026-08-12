@@ -8,6 +8,10 @@ import { PayrollItemsRepository } from '../items/payroll-items.repository';
 import { PayrollEmployeesRepository } from '../employees/payroll-employees.repository';
 import { CreatePayrollPeriodDto } from './dto/create-payroll-period.dto';
 import { UpdatePayrollPeriodDto } from './dto/update-payroll-period.dto';
+import { ClonePayrollPeriodDto } from './dto/clone-payroll-period.dto';
+
+/** Convierte un Decimal de Prisma (o null) a number. */
+const toNumber = (value: unknown): number => Number(value ?? 0);
 
 @Injectable()
 export class PayrollPeriodsService {
@@ -45,6 +49,65 @@ export class PayrollPeriodsService {
       overtimeNighttimeFestiveRate: dto.overtimeNighttimeFestiveRate,
       notes: dto.notes,
     });
+  }
+
+  /**
+   * Clona un periodo: copia su configuración (tipo, tarifas de horas extra y
+   * notas) y crea un registro por cada empleado ACTIVO del periodo origen con
+   * los valores fijos (salario base, días trabajados, valor de descanso,
+   * auxilio de transporte y descuento EPS/pensión).
+   *
+   * Las novedades del periodo anterior —horas extras, comisiones, préstamos,
+   * anticipos, descuento de jornada, días no pagados, turnos extra y
+   * observaciones— NO se copian: son propias de cada quincena y el usuario las
+   * ingresa de nuevo. El clon siempre nace en DRAFT para no chocar con la regla
+   * de "un solo periodo IN_PROGRESS a la vez".
+   */
+  async clone(sourceId: string, dto: ClonePayrollPeriodDto) {
+    const source = await this.findOne(sourceId);
+
+    if (new Date(dto.startDate) >= new Date(dto.endDate)) {
+      throw new BadRequestException('La fecha de inicio debe ser anterior a la fecha de fin');
+    }
+
+    const items = (source.payrollItems ?? [])
+      .filter((item) => item.employee?.status === 'ACTIVE')
+      .map((item) => {
+        const baseSalary = toNumber(item.baseSalary);
+        const restDayValue = toNumber(item.restDayValue);
+        const transportAllowance = toNumber(item.transportAllowance);
+        const epsAndPensionDiscount = toNumber(item.epsAndPensionDiscount);
+
+        return {
+          employeeId: item.employee.id,
+          daysWorked: item.daysWorked ?? null,
+          baseSalary,
+          restDayValue,
+          transportAllowance,
+          epsAndPensionDiscount,
+          totalPayment: Math.round(
+            baseSalary + restDayValue + transportAllowance - epsAndPensionDiscount,
+          ),
+        };
+      });
+
+    const { period, itemsCount } = await this.periodsRepository.createWithItems(
+      {
+        name: dto.name,
+        startDate: new Date(dto.startDate),
+        endDate: new Date(dto.endDate),
+        periodType: source.periodType,
+        status: 'DRAFT',
+        overtimeDaytimeRate: source.overtimeDaytimeRate,
+        overtimeNighttimeRate: source.overtimeNighttimeRate,
+        overtimeDaytimeFestiveRate: source.overtimeDaytimeFestiveRate,
+        overtimeNighttimeFestiveRate: source.overtimeNighttimeFestiveRate,
+        notes: source.notes,
+      },
+      items,
+    );
+
+    return { ...period, clonedItemsCount: itemsCount };
   }
 
   async update(id: string, dto: UpdatePayrollPeriodDto) {
