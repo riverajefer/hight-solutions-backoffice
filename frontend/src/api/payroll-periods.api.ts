@@ -4,6 +4,8 @@ import type {
   PayrollAdvance,
   CreatePayrollPeriodDto,
   UpdatePayrollPeriodDto,
+  ClonePayrollPeriodDto,
+  ClonePayrollPeriodResult,
   PayrollPeriodSummary,
 } from '../types';
 
@@ -40,6 +42,17 @@ export const payrollPeriodsApi = {
 
   delete: async (id: string): Promise<void> => {
     await axiosInstance.delete(`/payroll/periods/${id}`);
+  },
+
+  clone: async (
+    id: string,
+    payload: ClonePayrollPeriodDto,
+  ): Promise<ClonePayrollPeriodResult> => {
+    const { data } = await axiosInstance.post<ClonePayrollPeriodResult>(
+      `/payroll/periods/${id}/clone`,
+      payload,
+    );
+    return data;
   },
 
   generateItems: async (id: string): Promise<{ message: string; count: number }> => {

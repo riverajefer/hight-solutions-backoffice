@@ -1,6 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { payrollPeriodsApi } from '../../../api/payroll-periods.api';
-import type { CreatePayrollPeriodDto, UpdatePayrollPeriodDto } from '../../../types';
+import type {
+  ClonePayrollPeriodDto,
+  CreatePayrollPeriodDto,
+  UpdatePayrollPeriodDto,
+} from '../../../types';
 
 export const usePayrollPeriods = () => {
   const queryClient = useQueryClient();
@@ -40,6 +44,14 @@ export const usePayrollPeriods = () => {
     },
   });
 
+  const cloneMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: ClonePayrollPeriodDto }) =>
+      payrollPeriodsApi.clone(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payroll-periods'] });
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: (id: string) => payrollPeriodsApi.delete(id),
     onSuccess: () => {
@@ -60,6 +72,7 @@ export const usePayrollPeriods = () => {
     getSummaryQuery,
     createMutation,
     updateMutation,
+    cloneMutation,
     deleteMutation,
     generateItemsMutation,
   };

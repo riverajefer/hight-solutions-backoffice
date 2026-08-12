@@ -59,6 +59,7 @@ export class PayrollPeriodsRepository {
               select: {
                 id: true,
                 employeeType: true,
+                status: true,
                 monthlySalary: true,
                 dailyRate: true,
                 cargo: { select: { id: true, name: true } },
@@ -117,6 +118,33 @@ export class PayrollPeriodsRepository {
     return this.prisma.payrollPeriod.create({
       data,
       select: periodSelect,
+    });
+  }
+
+  /**
+   * Crea un periodo junto con sus registros de nómina en una sola transacción,
+   * de modo que un fallo al insertar los items no deje un periodo huérfano.
+   * Los items llegan sin `periodId`: se inyecta el id del periodo recién creado.
+   */
+  async createWithItems(
+    data: Prisma.PayrollPeriodCreateInput,
+    items: Omit<Prisma.PayrollItemCreateManyInput, 'periodId'>[],
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const period = await tx.payrollPeriod.create({
+        data,
+        select: periodSelect,
+      });
+
+      let itemsCount = 0;
+      if (items.length) {
+        const result = await tx.payrollItem.createMany({
+          data: items.map((item) => ({ ...item, periodId: period.id })),
+        });
+        itemsCount = result.count;
+      }
+
+      return { period, itemsCount };
     });
   }
 
