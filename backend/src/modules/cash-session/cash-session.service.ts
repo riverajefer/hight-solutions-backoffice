@@ -18,6 +18,7 @@ import {
   COLOMBIAN_BILLS,
   COLOMBIAN_COINS,
 } from './helpers/denomination.helpers';
+import { EXCLUDE_REVERSALS } from '../cash-movement/cash-movement.helpers';
 
 @Injectable()
 export class CashSessionService {
@@ -174,7 +175,7 @@ export class CashSessionService {
 
     // Breakdown by payment type (for detailed preview)
     const movements = await this.prisma.cashMovement.findMany({
-      where: { cashSessionId: id, isVoided: false },
+      where: { cashSessionId: id, isVoided: false, ...EXCLUDE_REVERSALS },
       select: { movementType: true, amount: true },
     });
 

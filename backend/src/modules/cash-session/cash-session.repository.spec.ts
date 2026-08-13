@@ -1,0 +1,68 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { CashSessionRepository } from './cash-session.repository';
+import { PrismaService } from '../../database/prisma.service';
+import { CashMovementType, Prisma } from '../../generated/prisma';
+
+describe('CashSessionRepository', () => {
+  let repository: CashSessionRepository;
+  let prisma: any;
+
+  beforeEach(async () => {
+    prisma = {
+      cashMovement: {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+      },
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        CashSessionRepository,
+        { provide: PrismaService, useValue: prisma },
+      ],
+    }).compile();
+
+    repository = module.get<CashSessionRepository>(CashSessionRepository);
+  });
+
+  describe('computeSystemBalance', () => {
+    it('should add income and deposits, subtract expenses and withdrawals', async () => {
+      prisma.cashMovement.findMany.mockResolvedValue([
+        { movementType: CashMovementType.INCOME, amount: new Prisma.Decimal(100000) },
+        { movementType: CashMovementType.DEPOSIT, amount: new Prisma.Decimal(50000) },
+        { movementType: CashMovementType.EXPENSE, amount: new Prisma.Decimal(20000) },
+        { movementType: CashMovementType.WITHDRAWAL, amount: new Prisma.Decimal(30000) },
+      ]);
+
+      const balance = await repository.computeSystemBalance('cs1');
+
+      expect(Number(balance.toString())).toBe(100000);
+    });
+
+    it('should exclude voided movements and their counter-movements', async () => {
+      await repository.computeSystemBalance('cs1');
+
+      // Una anulación se neutraliza excluyendo el movimiento original; si además
+      // se contara su reversa, el saldo no cambiaría al anular.
+      expect(prisma.cashMovement.findMany).toHaveBeenCalledWith({
+        where: {
+          cashSessionId: 'cs1',
+          isVoided: false,
+          paymentMethod: 'CASH',
+          originalMovement: null,
+        },
+        select: { movementType: true, amount: true },
+      });
+    });
+  });
+
+  describe('getMovementCount', () => {
+    it('should not count voided movements nor counter-movements', async () => {
+      await repository.getMovementCount('cs1');
+
+      expect(prisma.cashMovement.count).toHaveBeenCalledWith({
+        where: { cashSessionId: 'cs1', isVoided: false, originalMovement: null },
+      });
+    });
+  });
+});
