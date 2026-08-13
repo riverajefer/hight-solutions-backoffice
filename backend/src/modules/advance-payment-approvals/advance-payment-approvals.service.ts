@@ -56,10 +56,37 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
     orderId: string,
     paymentId: string | null,
     rejectedReason: string | null,
+    reviewerId: string,
   ): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       // El pago queda en null si la solicitud ya había sido procesada antes.
       if (paymentId) {
+        // El movimiento de caja se crea al registrar el pago, antes de que el
+        // admin apruebe. Si el anticipo se rechaza hay que anularlo: de lo
+        // contrario sobrevive a la eliminación del pago (la FK vive en Payment)
+        // y sigue contando como ingreso en el arqueo y en el reporte de caja.
+        //
+        // Se anula administrativamente, sin exigir sesión abierta ni generar
+        // contramovimiento: ese dinero nunca debió entrar a la caja.
+        const payment = await tx.payment.findUnique({
+          where: { id: paymentId },
+          select: { cashMovementId: true },
+        });
+
+        if (payment?.cashMovementId) {
+          await tx.cashMovement.update({
+            where: { id: payment.cashMovementId },
+            data: {
+              isVoided: true,
+              voidedById: reviewerId,
+              voidedAt: new Date(),
+              voidReason: rejectedReason
+                ? `Anticipo rechazado: ${rejectedReason}`
+                : 'Anticipo rechazado',
+            },
+          });
+        }
+
         await tx.payment.delete({ where: { id: paymentId } });
       }
 
@@ -163,6 +190,7 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       request.orderId,
       request.paymentId,
       'Rechazado vía WhatsApp',
+      reviewerId,
     );
 
     await this.notificationsService.create({
@@ -455,6 +483,7 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       request.orderId,
       request.paymentId,
       dto.reviewNotes ?? null,
+      reviewerId,
     );
 
     // 5. Notificar al solicitante
