@@ -13,6 +13,7 @@ import {
   VoidCashMovementDto,
 } from './dto';
 import { CashSessionStatus, Prisma } from '../../generated/prisma';
+import { INVERSE_MOVEMENT_TYPE } from './cash-movement.helpers';
 
 @Injectable()
 export class CashMovementService {
@@ -147,12 +148,14 @@ export class CashMovementService {
         },
       });
 
-      // Create counter-movement (reversal)
+      // Create counter-movement (reversal). Lleva el tipo inverso para que se
+      // lea como reversa y no como un movimiento más del mismo signo; queda
+      // fuera de los cálculos de saldo (ver EXCLUDE_REVERSALS).
       const counter = await tx.cashMovement.create({
         data: {
           cashSessionId: movement.cashSessionId,
           receiptNumber: `${movement.receiptNumber}-ANUL`,
-          movementType: movement.movementType,
+          movementType: INVERSE_MOVEMENT_TYPE[movement.movementType],
           paymentMethod: movement.paymentMethod,
           amount: movement.amount,
           description: `ANULACIÓN: ${movement.description}`,

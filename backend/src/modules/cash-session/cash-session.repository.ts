@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { CashSessionStatus, Prisma } from '../../generated/prisma';
 import { FilterCashSessionsDto } from './dto';
+import { EXCLUDE_REVERSALS } from '../cash-movement/cash-movement.helpers';
 
 const SESSION_SELECT = {
   id: true,
@@ -118,13 +119,13 @@ export class CashSessionRepository {
   }
 
   async computeSystemBalance(cashSessionId: string): Promise<Prisma.Decimal> {
-    const result = await this.prisma.cashMovement.aggregate({
-      where: { cashSessionId, isVoided: false, paymentMethod: 'CASH' },
-      _sum: { amount: true },
-    });
-
     const allMovements = await this.prisma.cashMovement.findMany({
-      where: { cashSessionId, isVoided: false, paymentMethod: 'CASH' },
+      where: {
+        cashSessionId,
+        isVoided: false,
+        paymentMethod: 'CASH',
+        ...EXCLUDE_REVERSALS,
+      },
       select: { movementType: true, amount: true },
     });
 
@@ -142,7 +143,7 @@ export class CashSessionRepository {
 
   async getMovementCount(cashSessionId: string): Promise<number> {
     return this.prisma.cashMovement.count({
-      where: { cashSessionId, isVoided: false },
+      where: { cashSessionId, isVoided: false, ...EXCLUDE_REVERSALS },
     });
   }
 

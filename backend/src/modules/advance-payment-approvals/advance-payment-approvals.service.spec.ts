@@ -35,6 +35,9 @@ describe('AdvancePaymentApprovalsService', () => {
         findUnique: jest.fn(),
         findMany: jest.fn().mockResolvedValue([]),
       },
+      cashMovement: {
+        update: jest.fn(),
+      },
       $transaction: jest.fn(),
     } as any;
     // tx === prisma, así los mocks del modelo controlan lo que ocurre dentro
@@ -206,6 +209,97 @@ describe('AdvancePaymentApprovalsService', () => {
       const updateArgs = (prisma.order.update as jest.Mock).mock.calls[0][0];
       expect(Number(updateArgs.data.paidAmount.toString())).toBe(150000);
       expect(Number(updateArgs.data.balance.toString())).toBe(480000);
+    });
+
+    it('should void the linked cash movement so it stops counting as income', async () => {
+      (prisma.advancePaymentApproval.findFirst as jest.Mock).mockResolvedValue({
+        id: 'req1',
+        orderId: 'o1',
+        paymentId: 'pay1',
+        requestedById: 'u1',
+        order: { orderNumber: '123', total: 1000 },
+      } as any);
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        role: { permissions: [{ permission: { name: 'approve_advance_payments' } }] },
+      } as any);
+      (prisma.advancePaymentApproval.findUnique as jest.Mock).mockResolvedValue({
+        id: 'req1',
+        status: EditRequestStatus.REJECTED,
+      } as any);
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue({ total: 1000 } as any);
+      (prisma.payment.findUnique as jest.Mock).mockResolvedValue({
+        cashMovementId: 'cm1',
+      } as any);
+
+      await service.reject('req1', 'rev1', { reviewNotes: 'comprobante ilegible' });
+
+      const voidArgs = (prisma.cashMovement.update as jest.Mock).mock.calls[0][0];
+      expect(voidArgs.where).toEqual({ id: 'cm1' });
+      expect(voidArgs.data.isVoided).toBe(true);
+      expect(voidArgs.data.voidedById).toBe('rev1');
+      expect(voidArgs.data.voidReason).toContain('comprobante ilegible');
+    });
+
+    it('should void the cash movement before deleting the payment', async () => {
+      const order: string[] = [];
+      (prisma.cashMovement.update as jest.Mock).mockImplementation(async () => {
+        order.push('void');
+      });
+      (prisma.payment.delete as jest.Mock).mockImplementation(async () => {
+        order.push('delete');
+      });
+
+      (prisma.advancePaymentApproval.findFirst as jest.Mock).mockResolvedValue({
+        id: 'req1',
+        orderId: 'o1',
+        paymentId: 'pay1',
+        requestedById: 'u1',
+        order: { orderNumber: '123', total: 1000 },
+      } as any);
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        role: { permissions: [{ permission: { name: 'approve_advance_payments' } }] },
+      } as any);
+      (prisma.advancePaymentApproval.findUnique as jest.Mock).mockResolvedValue({
+        id: 'req1',
+        status: EditRequestStatus.REJECTED,
+      } as any);
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue({ total: 1000 } as any);
+      (prisma.payment.findUnique as jest.Mock).mockResolvedValue({
+        cashMovementId: 'cm1',
+      } as any);
+
+      await service.reject('req1', 'rev1', {});
+
+      // Al borrar el pago se pierde el vínculo con el movimiento (la FK vive en
+      // Payment), así que la anulación debe ocurrir antes.
+      expect(order).toEqual(['void', 'delete']);
+    });
+
+    it('should not touch cash movements when the payment had none', async () => {
+      (prisma.advancePaymentApproval.findFirst as jest.Mock).mockResolvedValue({
+        id: 'req1',
+        orderId: 'o1',
+        paymentId: 'pay1',
+        requestedById: 'u1',
+        order: { orderNumber: '123', total: 1000 },
+      } as any);
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        role: { permissions: [{ permission: { name: 'approve_advance_payments' } }] },
+      } as any);
+      (prisma.advancePaymentApproval.findUnique as jest.Mock).mockResolvedValue({
+        id: 'req1',
+        status: EditRequestStatus.REJECTED,
+      } as any);
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue({ total: 1000 } as any);
+      // Pago registrado sin sesión de caja abierta → sin movimiento vinculado
+      (prisma.payment.findUnique as jest.Mock).mockResolvedValue({
+        cashMovementId: null,
+      } as any);
+
+      await service.reject('req1', 'rev1', {});
+
+      expect(prisma.cashMovement.update).not.toHaveBeenCalled();
+      expect(prisma.payment.delete).toHaveBeenCalledWith({ where: { id: 'pay1' } });
     });
 
     it('should throw NotFoundException if request not found', async () => {

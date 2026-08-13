@@ -1,6 +1,11 @@
 # Scripts de Base de Datos
 
-Scripts para backup y restauración de la base de datos de Staging (Railway).
+Scripts para backup y restauración de las bases de datos en Railway (staging y producción).
+
+Las credenciales **no** viven en los scripts: `backup-db.sh` lee `DATABASE_URL`
+desde `backend/.env.<ambiente>`. Para respaldar producción hay que completar
+antes `backend/.env.production` (Railway → servicio Postgres → Variables →
+`DATABASE_PUBLIC_URL`, o `railway login && railway link && railway variables`).
 
 ---
 
@@ -20,34 +25,43 @@ sudo apt-get install postgresql-client
 
 ## Crear un backup
 
-**Script:** `backup-staging.sh`
+**Script:** `backup-db.sh`
 
-Los backups se guardan en `backups/staging/` con timestamp en el nombre.
+Los backups se guardan en `backups/<ambiente>/` con timestamp en el nombre.
+El ambiente por defecto es `staging`.
 
 ```bash
 # Desde la raíz del proyecto:
 
-# Backup completo (schema + data)
-./backend/scripts/backup-staging.sh
+# Backup completo (schema + data) de staging
+./backend/scripts/backup-db.sh
+
+# Backup completo de producción
+./backend/scripts/backup-db.sh --env=production
 
 # Solo el schema (estructura de tablas)
-./backend/scripts/backup-staging.sh --schema
+./backend/scripts/backup-db.sh --schema
 
 # Solo la data (sin estructura)
-./backend/scripts/backup-staging.sh --data
+./backend/scripts/backup-db.sh --data
 
 # Backup comprimido (.gz)
-./backend/scripts/backup-staging.sh --compress
+./backend/scripts/backup-db.sh --compress
 
-# Combinado: data comprimida
-./backend/scripts/backup-staging.sh --data --compress
+# Combinado: producción, comprimido
+./backend/scripts/backup-db.sh --env=production --compress
 ```
+
+`backup-staging.sh` sigue existiendo como alias de `backup-db.sh --env=staging`.
 
 **Ejemplo de archivo generado:**
 ```
 backups/staging/backup_staging_full_20260511_143022.sql
-backups/staging/backup_staging_full_20260511_143022.sql.gz
+backups/production/backup_production_full_20260511_143022.sql.gz
 ```
+
+El script aborta si el dump sale vacío, para no dejar un backup inservible que
+dé falsa seguridad.
 
 > La carpeta `backups/` está en `.gitignore` — los dumps nunca se commitean.
 
