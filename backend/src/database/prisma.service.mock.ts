@@ -84,6 +84,14 @@ export const createMockPrismaService = () => ({
     deleteMany: jest.fn(),
     createMany: jest.fn(),
   },
+  creditBalanceApplication: {
+    findMany: jest.fn(),
+    create: jest.fn(),
+    createMany: jest.fn(),
+    delete: jest.fn(),
+    deleteMany: jest.fn(),
+    count: jest.fn(),
+  },
   orderStatusChangeRequest: {
     findUnique: jest.fn(),
     findFirst: jest.fn(),

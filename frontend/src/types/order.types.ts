@@ -79,6 +79,8 @@ export interface Order {
   discountAmount: string; // Total de descuentos aplicados
   total: string;
   paidAmount: string;
+  /** Saldo a favor de esta orden ya aplicado como pago de otras órdenes */
+  appliedCreditAmount?: string;
   balance: string;
   advancePaymentStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   advancePaymentRejectedReason: string | null;

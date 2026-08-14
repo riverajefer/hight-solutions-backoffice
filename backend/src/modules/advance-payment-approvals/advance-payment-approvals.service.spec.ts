@@ -7,6 +7,7 @@ import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { EditRequestStatus, NotificationType, Prisma } from '../../generated/prisma';
 import { WsEventsGateway } from '../ws-events/ws-events.gateway';
+import { CreditBalanceService } from '../credit-balance/credit-balance.service';
 
 describe('AdvancePaymentApprovalsService', () => {
   let service: AdvancePaymentApprovalsService;
@@ -58,6 +59,14 @@ describe('AdvancePaymentApprovalsService', () => {
         { provide: ApprovalRequestRegistry, useValue: { register: jest.fn() } },
         { provide: WhatsappService, useValue: { sendApprovalNotification: jest.fn() } },
         { provide: WsEventsGateway, useValue: { emitApprovalCreated: jest.fn(), emitApprovalUpdated: jest.fn() } },
+        {
+          provide: CreditBalanceService,
+          useValue: {
+            applyCredit: jest.fn(),
+            releaseCredit: jest.fn().mockResolvedValue(undefined),
+            resyncCredit: jest.fn().mockResolvedValue(undefined),
+          },
+        },
       ],
     }).compile();
 

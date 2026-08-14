@@ -14,6 +14,13 @@ export interface PendingAdvanceInfo {
 }
 
 /**
+ * Parte del excedente de esta orden que ya se usó para pagar otras órdenes.
+ * Ese saldo ya no está disponible: ni como saldo a favor ni para devolución.
+ */
+const getAppliedCredit = (order: Order): number =>
+  parseFloat(order.appliedCreditAmount || '0') || 0;
+
+/**
  * Los abonos registrados al crear la orden quedan pendientes de aprobación por
  * Caja, pero el backend ya los suma a `paidAmount` (y los descuenta de
  * `balance`) desde el momento del registro. Para efectos de presentación no
@@ -47,6 +54,6 @@ export const getPendingAdvanceInfo = (order: Order): PendingAdvanceInfo => {
     pendingAmount,
     pendingPaymentIds,
     appliedPaidAmount,
-    effectiveBalance: total - appliedPaidAmount,
+    effectiveBalance: total - appliedPaidAmount + getAppliedCredit(order),
   };
 };
