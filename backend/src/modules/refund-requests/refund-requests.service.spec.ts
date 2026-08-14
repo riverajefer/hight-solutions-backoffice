@@ -318,6 +318,78 @@ describe('RefundRequestsService', () => {
       expect(wsGateway.emitApprovalUpdated).toHaveBeenCalled();
       expect(result.status).toBe(EditRequestStatus.APPROVED);
     });
+
+    it('registra el monto devuelto en refundedAmount para que sobreviva a un recálculo', async () => {
+      prisma.refundRequest.findFirst.mockResolvedValue({
+        id: requestId,
+        orderId: 'o1',
+        requestedById: 'u1',
+        refundAmount: '200',
+        paymentMethod: 'CASH',
+        observation: 'cliente pagó de más',
+        order: {
+          id: 'o1',
+          orderNumber: 'OP-1',
+          total: '500',
+          paidAmount: '700',
+          refundedAmount: '0',
+          balance: '-200',
+        },
+      });
+      prisma.user.findUnique.mockResolvedValue({
+        role: { permissions: [{ permission: { name: 'approve_refunds' } }] },
+      });
+      prisma.cashSession.findFirst.mockResolvedValue({ id: 'session-1' });
+      prisma.cashMovement.create.mockResolvedValue({ id: 'mov-1' });
+      prisma.order.update.mockResolvedValue({});
+      prisma.refundRequest.update.mockResolvedValue({
+        id: requestId,
+        status: EditRequestStatus.APPROVED,
+        orderId: 'o1',
+      });
+
+      await service.approve(requestId, reviewerId, {});
+
+      const { data } = prisma.order.update.mock.calls[0][0];
+      expect(Number(data.paidAmount.toString())).toBe(500);
+      expect(Number(data.refundedAmount.toString())).toBe(200);
+      expect(Number(data.balance.toString())).toBe(0);
+    });
+
+    it('acumula sobre devoluciones previas de la misma orden', async () => {
+      prisma.refundRequest.findFirst.mockResolvedValue({
+        id: requestId,
+        orderId: 'o1',
+        requestedById: 'u1',
+        refundAmount: '100',
+        paymentMethod: 'CASH',
+        observation: 'segunda devolución',
+        order: {
+          id: 'o1',
+          orderNumber: 'OP-1',
+          total: '500',
+          paidAmount: '650',
+          refundedAmount: '50',
+          balance: '-150',
+        },
+      });
+      prisma.user.findUnique.mockResolvedValue({
+        role: { permissions: [{ permission: { name: 'approve_refunds' } }] },
+      });
+      prisma.cashSession.findFirst.mockResolvedValue({ id: 'session-1' });
+      prisma.cashMovement.create.mockResolvedValue({ id: 'mov-1' });
+      prisma.order.update.mockResolvedValue({});
+      prisma.refundRequest.update.mockResolvedValue({
+        id: requestId,
+        status: EditRequestStatus.APPROVED,
+        orderId: 'o1',
+      });
+
+      await service.approve(requestId, reviewerId, {});
+
+      const { data } = prisma.order.update.mock.calls[0][0];
+      expect(Number(data.refundedAmount.toString())).toBe(150);
+    });
   });
 
   describe('reject', () => {

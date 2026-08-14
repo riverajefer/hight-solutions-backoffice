@@ -20,6 +20,11 @@ import {
   RejectAdvancePaymentApprovalDto,
 } from './dto';
 import { ApprovalRequestType, EditRequestStatus, NotificationType, Prisma } from '../../generated/prisma';
+import {
+  computeNetPaidAmount,
+  computeOrderBalance,
+} from '../../common/utils/order-balance.util';
+import { CreditBalanceService } from '../credit-balance/credit-balance.service';
 
 const USER_SELECT = {
   id: true,
@@ -38,6 +43,7 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
     private readonly approvalRegistry: ApprovalRequestRegistry,
     private readonly whatsappService: WhatsappService,
     private readonly wsEventsGateway: WsEventsGateway,
+    private readonly creditBalanceService: CreditBalanceService,
   ) {}
 
   onModuleInit() {
@@ -73,6 +79,10 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
           select: { cashMovementId: true },
         });
 
+        // Si el anticipo rechazado consumía saldo a favor, devolverlo a las OPs
+        // de origen antes de borrar el pago (la traza se borra en cascada).
+        await this.creditBalanceService.releaseCredit(tx, paymentId);
+
         if (payment?.cashMovementId) {
           await tx.cashMovement.update({
             where: { id: payment.cashMovementId },
@@ -92,7 +102,11 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
 
       const order = await tx.order.findUnique({
         where: { id: orderId },
-        select: { total: true },
+        select: {
+          total: true,
+          appliedCreditAmount: true,
+          refundedAmount: true,
+        },
       });
       if (!order) return;
 
@@ -101,11 +115,14 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
         select: { amount: true },
       });
 
-      const paidAmount = remainingPayments.reduce(
-        (sum, payment) => sum.add(payment.amount),
-        new Prisma.Decimal(0),
+      // Neto de devoluciones: los pagos siguen ahí, pero ese dinero ya salió.
+      const paidAmount = computeNetPaidAmount(
+        remainingPayments.reduce(
+          (sum, payment) => sum.add(payment.amount),
+          new Prisma.Decimal(0),
+        ),
+        order.refundedAmount,
       );
-      const total = new Prisma.Decimal(order.total);
 
       await tx.order.update({
         where: { id: orderId },
@@ -113,7 +130,11 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
           advancePaymentStatus: EditRequestStatus.REJECTED,
           advancePaymentRejectedReason: rejectedReason,
           paidAmount,
-          balance: total.sub(paidAmount),
+          balance: computeOrderBalance(
+            order.total,
+            paidAmount,
+            order.appliedCreditAmount,
+          ),
         },
       });
     });

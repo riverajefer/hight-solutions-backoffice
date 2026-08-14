@@ -19,6 +19,7 @@ import { AdvancePaymentApprovalsService } from '../advance-payment-approvals/adv
 import { PaymentEditApprovalsService } from '../payment-edit-approvals/payment-edit-approvals.service';
 import { DiscountApprovalsService } from '../discount-approvals/discount-approvals.service';
 import { ClientOwnershipAuthRequestsService } from '../client-ownership-auth-requests/client-ownership-auth-requests.service';
+import { CreditBalanceService } from '../credit-balance/credit-balance.service';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma, OrderStatus, PaymentMethod, EditRequestStatus } from '../../generated/prisma';
 import { startOfDay, endOfDay, businessToday } from '../../common/utils/date-range.util';
@@ -83,6 +84,15 @@ const mockClientOwnershipAuthRequestsService = {
   create: jest.fn(),
   requiresAuth: jest.fn().mockResolvedValue({ required: false }),
   createFromOrderCreation: jest.fn(),
+};
+
+const mockCreditBalanceService = {
+  listCreditSources: jest.fn().mockResolvedValue([]),
+  getAvailableCredit: jest.fn(),
+  assertEnoughCredit: jest.fn().mockResolvedValue(undefined),
+  applyCredit: jest.fn().mockResolvedValue(undefined),
+  releaseCredit: jest.fn().mockResolvedValue(undefined),
+  resyncCredit: jest.fn().mockResolvedValue(undefined),
 };
 
 // PrismaService: used for $transaction and direct model access (payment, orderDiscount)
@@ -197,6 +207,7 @@ describe('OrdersService', () => {
           provide: ClientOwnershipAuthRequestsService,
           useValue: mockClientOwnershipAuthRequestsService,
         },
+        { provide: CreditBalanceService, useValue: mockCreditBalanceService },
         { provide: PrismaService, useValue: mockPrisma },
       ],
     }).compile();
@@ -875,6 +886,7 @@ describe('OrdersService', () => {
       mockPrisma.orderItem.findMany.mockResolvedValueOnce([]);
       const existingPayment = { id: 'pay-1' };
       mockPrisma.payment.findFirst.mockResolvedValue(existingPayment);
+      mockPrisma.payment.update.mockResolvedValue(existingPayment);
 
       await service.update(
         'order-1',
@@ -893,6 +905,7 @@ describe('OrdersService', () => {
     it('should create payment when no existing payment and initialPayment is given', async () => {
       mockPrisma.orderItem.findMany.mockResolvedValueOnce([]);
       mockPrisma.payment.findFirst.mockResolvedValue(null);
+      mockPrisma.payment.create.mockResolvedValue({ id: 'pay-new' });
 
       await service.update(
         'order-1',
@@ -1746,6 +1759,54 @@ describe('OrdersService', () => {
       expect(Number(updateCall.data.discountAmount.toString())).toBe(10);
       expect(Number(updateCall.data.paidAmount.toString())).toBe(30);
     });
+
+    it('should not resurrect refunded money when recalculating from payments', async () => {
+      // OP con 100.000 en pagos, de los cuales 20.000 ya se devolvieron en efectivo.
+      // Los Payment siguen existiendo: sin descontar refundedAmount, el recálculo
+      // devolvería paidAmount = 100.000 y el dinero devuelto reaparecería.
+      mockPrisma.orderItem.findMany.mockResolvedValue([
+        { total: new Prisma.Decimal('70000') },
+      ]);
+      mockPrisma.orderDiscount.findMany.mockResolvedValue([]);
+      mockPrisma.payment.findMany.mockResolvedValue([
+        { amount: new Prisma.Decimal('100000') },
+      ]);
+      mockPrisma.order.findUnique.mockResolvedValue({
+        taxRate: new Prisma.Decimal('0'),
+        appliedCreditAmount: new Prisma.Decimal('0'),
+        refundedAmount: new Prisma.Decimal('20000'),
+      });
+
+      await service.removeItem('order-1', 'item-1');
+
+      const updateCall = mockPrisma.order.update.mock.calls[0][0];
+      // paidAmount = 100.000 - 20.000 devueltos = 80.000 (no 100.000)
+      expect(Number(updateCall.data.paidAmount.toString())).toBe(80000);
+      // total 70.000, abonado neto 80.000 → saldo a favor real 10.000 (no 30.000)
+      expect(Number(updateCall.data.balance.toString())).toBe(-10000);
+    });
+
+    it('should keep discounting refunds together with credit already applied elsewhere', async () => {
+      mockPrisma.orderItem.findMany.mockResolvedValue([
+        { total: new Prisma.Decimal('70000') },
+      ]);
+      mockPrisma.orderDiscount.findMany.mockResolvedValue([]);
+      mockPrisma.payment.findMany.mockResolvedValue([
+        { amount: new Prisma.Decimal('100000') },
+      ]);
+      mockPrisma.order.findUnique.mockResolvedValue({
+        taxRate: new Prisma.Decimal('0'),
+        appliedCreditAmount: new Prisma.Decimal('10000'),
+        refundedAmount: new Prisma.Decimal('20000'),
+      });
+
+      await service.removeItem('order-1', 'item-1');
+
+      const updateCall = mockPrisma.order.update.mock.calls[0][0];
+      expect(Number(updateCall.data.paidAmount.toString())).toBe(80000);
+      // 70.000 - 80.000 + 10.000 aplicados a otras OPs = 0: sin saldo a favor
+      expect(Number(updateCall.data.balance.toString())).toBe(0);
+    });
   });
 
   // ─────────────────────────────────────────────
@@ -1842,6 +1903,46 @@ describe('OrdersService', () => {
         expect.objectContaining({ where: { id: 'pay-new' } }),
       );
       expect(result).toMatchObject({ id: 'pay-new', paymentMethod: PaymentMethod.CASH });
+    });
+
+    it('should consume the client credit balance when paying with CREDIT_BALANCE', async () => {
+      await service.addPayment(
+        'order-1',
+        { amount: 50, paymentMethod: PaymentMethod.CREDIT_BALANCE },
+        'user-1',
+      );
+
+      expect(mockCreditBalanceService.applyCredit).toHaveBeenCalledWith(
+        mockPrisma,
+        expect.objectContaining({
+          paymentId: 'pay-new',
+          targetOrderId: 'order-1',
+        }),
+      );
+    });
+
+    it('should NOT create a cash movement for a CREDIT_BALANCE payment', async () => {
+      // Con sesión de caja abierta: un pago normal sí genera movimiento, pero el
+      // saldo a favor no es dinero nuevo entrando a caja.
+      mockPrisma.cashSession.findFirst.mockResolvedValue({ id: 'session-1' });
+
+      await service.addPayment(
+        'order-1',
+        { amount: 50, paymentMethod: PaymentMethod.CREDIT_BALANCE },
+        'user-1',
+      );
+
+      expect(mockPrisma.cashMovement.create).not.toHaveBeenCalled();
+    });
+
+    it('should create a cash movement for a CASH payment when a session is open', async () => {
+      mockPrisma.cashSession.findFirst.mockResolvedValue({ id: 'session-1' });
+      mockPrisma.cashMovement.create.mockResolvedValue({ id: 'mov-1' });
+
+      await service.addPayment('order-1', paymentDto, 'user-1');
+
+      expect(mockPrisma.cashMovement.create).toHaveBeenCalled();
+      expect(mockCreditBalanceService.applyCredit).not.toHaveBeenCalled();
     });
   });
 

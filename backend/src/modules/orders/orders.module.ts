@@ -9,13 +9,14 @@ import { AdvancePaymentApprovalsModule } from '../advance-payment-approvals/adva
 import { PaymentEditApprovalsModule } from '../payment-edit-approvals/payment-edit-approvals.module';
 import { DiscountApprovalsModule } from '../discount-approvals/discount-approvals.module';
 import { ClientOwnershipAuthRequestsModule } from '../client-ownership-auth-requests/client-ownership-auth-requests.module';
+import { CreditBalanceModule } from '../credit-balance/credit-balance.module';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { OrdersRepository } from './orders.repository';
 import { CanEditOrderGuard } from '../../common/guards/can-edit-order.guard';
 
 @Module({
-  imports: [DatabaseModule, ConsecutivesModule, OrderEditRequestsModule, OrderStatusChangeRequestsModule, AuditLogsModule, StorageModule, AdvancePaymentApprovalsModule, PaymentEditApprovalsModule, DiscountApprovalsModule, ClientOwnershipAuthRequestsModule],
+  imports: [DatabaseModule, ConsecutivesModule, OrderEditRequestsModule, OrderStatusChangeRequestsModule, AuditLogsModule, StorageModule, AdvancePaymentApprovalsModule, PaymentEditApprovalsModule, DiscountApprovalsModule, ClientOwnershipAuthRequestsModule, CreditBalanceModule],
   controllers: [OrdersController],
   providers: [OrdersService, OrdersRepository, CanEditOrderGuard],
   exports: [OrdersService, OrdersRepository],

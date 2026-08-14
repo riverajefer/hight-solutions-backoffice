@@ -26,6 +26,11 @@ import {
   PaymentMethod,
   Prisma,
 } from '../../generated/prisma';
+import {
+  computeNetPaidAmount,
+  computeOrderBalance,
+} from '../../common/utils/order-balance.util';
+import { CreditBalanceService } from '../credit-balance/credit-balance.service';
 
 const USER_SELECT = {
   id: true,
@@ -65,6 +70,7 @@ export class PaymentEditApprovalsService
     private readonly whatsappService: WhatsappService,
     private readonly wsEventsGateway: WsEventsGateway,
     private readonly storageService: StorageService,
+    private readonly creditBalanceService: CreditBalanceService,
   ) {}
 
   onModuleInit() {
@@ -425,10 +431,27 @@ export class PaymentEditApprovalsService
         });
       }
 
-      // 4. Recalcular paidAmount/balance de la orden (total no cambia)
+      // 4. Reajustar el consumo de saldo a favor (el monto o el método pudieron cambiar)
+      const order = await tx.order.findUnique({
+        where: { id: request.orderId },
+        select: { clientId: true },
+      });
+
+      if (order) {
+        await this.creditBalanceService.resyncCredit(tx, {
+          paymentId: request.paymentId,
+          clientId: order.clientId,
+          targetOrderId: request.orderId,
+          amount: payment.amount,
+          isCreditBalance:
+            payment.paymentMethod === PaymentMethod.CREDIT_BALANCE,
+        });
+      }
+
+      // 5. Recalcular paidAmount/balance de la orden (total no cambia)
       await this.recalculateOrderPaidAmount(request.orderId, tx);
 
-      // 5. Marcar solicitud como aprobada
+      // 6. Marcar solicitud como aprobada
       return tx.paymentEditApproval.update({
         where: { id: requestId },
         data: {
@@ -543,17 +566,30 @@ export class PaymentEditApprovalsService
     tx: Prisma.TransactionClient,
   ) {
     const [order, payments] = await Promise.all([
-      tx.order.findUnique({ where: { id: orderId }, select: { total: true } }),
+      tx.order.findUnique({
+        where: { id: orderId },
+        select: {
+          total: true,
+          appliedCreditAmount: true,
+          refundedAmount: true,
+        },
+      }),
       tx.payment.findMany({ where: { orderId }, select: { amount: true } }),
     ]);
 
-    let paidAmount = new Prisma.Decimal(0);
+    let paymentsTotal = new Prisma.Decimal(0);
     for (const payment of payments) {
-      paidAmount = paidAmount.add(payment.amount);
+      paymentsTotal = paymentsTotal.add(payment.amount);
     }
 
-    const total = new Prisma.Decimal(order?.total ?? 0);
-    const balance = total.sub(paidAmount);
+    // Neto de devoluciones: los pagos siguen ahí, pero ese dinero ya salió.
+    const paidAmount = computeNetPaidAmount(paymentsTotal, order?.refundedAmount);
+
+    const balance = computeOrderBalance(
+      order?.total ?? 0,
+      paidAmount,
+      order?.appliedCreditAmount,
+    );
 
     await tx.order.update({
       where: { id: orderId },
