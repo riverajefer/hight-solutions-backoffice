@@ -26,7 +26,10 @@ import {
   PaymentMethod,
   Prisma,
 } from '../../generated/prisma';
-import { computeOrderBalance } from '../../common/utils/order-balance.util';
+import {
+  computeNetPaidAmount,
+  computeOrderBalance,
+} from '../../common/utils/order-balance.util';
 import { CreditBalanceService } from '../credit-balance/credit-balance.service';
 
 const USER_SELECT = {
@@ -565,15 +568,22 @@ export class PaymentEditApprovalsService
     const [order, payments] = await Promise.all([
       tx.order.findUnique({
         where: { id: orderId },
-        select: { total: true, appliedCreditAmount: true },
+        select: {
+          total: true,
+          appliedCreditAmount: true,
+          refundedAmount: true,
+        },
       }),
       tx.payment.findMany({ where: { orderId }, select: { amount: true } }),
     ]);
 
-    let paidAmount = new Prisma.Decimal(0);
+    let paymentsTotal = new Prisma.Decimal(0);
     for (const payment of payments) {
-      paidAmount = paidAmount.add(payment.amount);
+      paymentsTotal = paymentsTotal.add(payment.amount);
     }
+
+    // Neto de devoluciones: los pagos siguen ahí, pero ese dinero ya salió.
+    const paidAmount = computeNetPaidAmount(paymentsTotal, order?.refundedAmount);
 
     const balance = computeOrderBalance(
       order?.total ?? 0,

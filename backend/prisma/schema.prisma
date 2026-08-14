@@ -512,10 +512,14 @@ model Order {
   requiresColorProof Boolean @default(false) @map("requires_color_proof") // ¿Requiere prueba de color?
   colorProofPrice    Decimal @default(0) @map("color_proof_price") // Precio de la prueba de color
   total              Decimal // subtotal - retenciones + tax - reteIVA - discountAmount + colorProofPrice
-  paidAmount         Decimal @default(0) @map("paid_amount") // Abonos realizados
+  paidAmount         Decimal @default(0) @map("paid_amount") // Abonos realizados, neto de devoluciones
   // Saldo a favor de ESTA orden que ya fue aplicado como pago de otras órdenes.
   // Se descuenta del excedente para que un mismo saldo no pueda usarse dos veces.
   appliedCreditAmount Decimal @default(0) @map("applied_credit_amount")
+  // Total devuelto al cliente en efectivo por devoluciones aprobadas.
+  // `paidAmount` ya viene neto; este campo existe para que al recalcularlo desde
+  // los pagos no reaparezca el dinero devuelto (los Payment no se borran).
+  refundedAmount     Decimal @default(0) @map("refunded_amount")
   balance            Decimal // total - paidAmount + appliedCreditAmount (saldo pendiente)
 
   // Estado de aprobación del anticipo (null = sin anticipo o auto-aprobado por admin/caja)

@@ -8,6 +8,24 @@ const toDecimal = (value: DecimalLike): Prisma.Decimal =>
     : new Prisma.Decimal(value.toString());
 
 /**
+ * Abono neto de una orden a partir de sus pagos.
+ *
+ * Los `Payment` no se borran al aprobar una devolución: el dinero devuelto se
+ * descuenta de `paidAmount`. Por eso, cada vez que `paidAmount` se recalcula
+ * sumando los pagos hay que volver a restar lo devuelto, o el dinero que ya salió
+ * de la caja reaparece como saldo a favor disponible.
+ *
+ * paidAmount = suma(pagos) - refundedAmount
+ */
+export function computeNetPaidAmount(
+  paymentsTotal: DecimalLike,
+  refundedAmount: DecimalLike = 0,
+): Prisma.Decimal {
+  const net = toDecimal(paymentsTotal).sub(toDecimal(refundedAmount));
+  return net.lessThan(0) ? new Prisma.Decimal(0) : net;
+}
+
+/**
  * Saldo pendiente de una orden.
  *
  * `appliedCreditAmount` es la parte del excedente de esta orden que ya se aplicó
