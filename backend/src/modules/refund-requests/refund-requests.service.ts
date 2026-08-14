@@ -47,6 +47,7 @@ const ORDER_SELECT = {
   total: true,
   paidAmount: true,
   appliedCreditAmount: true,
+  refundedAmount: true,
   balance: true,
 } as const;
 
@@ -254,6 +255,7 @@ export class RefundRequestsService
             total: true,
             paidAmount: true,
             appliedCreditAmount: true,
+            refundedAmount: true,
             balance: true,
           },
         },
@@ -317,8 +319,14 @@ export class RefundRequestsService
         select: { id: true },
       });
 
-      // 2. Ajustar paidAmount y balance de la OP
+      // 2. Ajustar paidAmount y balance de la OP.
+      //    `refundedAmount` acumula lo devuelto: los Payment no se borran, así que
+      //    sin este registro cualquier recálculo posterior de paidAmount desde los
+      //    pagos (p. ej. al editar un ítem) resucitaría el dinero ya devuelto.
       const newPaidAmount = paidAmount.sub(refundAmount);
+      const newRefundedAmount = new Prisma.Decimal(
+        request.order.refundedAmount ?? 0,
+      ).add(refundAmount);
       const newBalance = computeOrderBalance(
         request.order.total,
         newPaidAmount,
@@ -329,6 +337,7 @@ export class RefundRequestsService
         where: { id: request.orderId },
         data: {
           paidAmount: newPaidAmount,
+          refundedAmount: newRefundedAmount,
           balance: newBalance,
         },
       });

@@ -40,7 +40,10 @@ import { EditRequestStatus, OrderStatus, PaymentMethod, Prisma } from '../../gen
 import { isValidTransition, getValidNextStatuses } from './order-status-transitions';
 import { PrismaService } from '../../database/prisma.service';
 import { startOfDay, endOfDay, businessToday } from '../../common/utils/date-range.util';
-import { computeOrderBalance } from '../../common/utils/order-balance.util';
+import {
+  computeNetPaidAmount,
+  computeOrderBalance,
+} from '../../common/utils/order-balance.util';
 import { CreditBalanceService } from '../credit-balance/credit-balance.service';
 
 /** Usuario mínimo asociado a un evento del historial de autorizaciones. */
@@ -1751,14 +1754,22 @@ export class OrdersService {
         where: { orderId },
         select: { amount: true },
       });
-      let paidAmount = new Prisma.Decimal(0);
+      let paymentsTotal = new Prisma.Decimal(0);
       for (const p of payments) {
-        paidAmount = paidAmount.add(p.amount);
+        paymentsTotal = paymentsTotal.add(p.amount);
       }
       const current = await tx.order.findUnique({
         where: { id: orderId },
-        select: { total: true, appliedCreditAmount: true },
+        select: {
+          total: true,
+          appliedCreditAmount: true,
+          refundedAmount: true,
+        },
       });
+      const paidAmount = computeNetPaidAmount(
+        paymentsTotal,
+        current?.refundedAmount,
+      );
       await tx.order.update({
         where: { id: orderId },
         data: {
@@ -1839,6 +1850,7 @@ export class OrdersService {
         reteICARate: true,
         reteIVARate: true,
         appliedCreditAmount: true,
+        refundedAmount: true,
       },
     });
 
@@ -1879,16 +1891,19 @@ export class OrdersService {
       retefuenteAmount.gt(0) || reteICAAmount.gt(0) || reteIVAAmount.gt(0);
     const total = hasRetenciones ? rawTotal : applyColombianRounding(rawTotal);
 
-    // Calcular paidAmount sumando todos los pagos
+    // Calcular paidAmount sumando todos los pagos, neto de lo ya devuelto:
+    // los Payment no se borran al aprobar una devolución.
     const payments = await tx.payment.findMany({
       where: { orderId },
       select: { amount: true },
     });
 
-    let paidAmount = new Prisma.Decimal(0);
+    let paymentsTotal = new Prisma.Decimal(0);
     for (const payment of payments) {
-      paidAmount = paidAmount.add(payment.amount);
+      paymentsTotal = paymentsTotal.add(payment.amount);
     }
+
+    const paidAmount = computeNetPaidAmount(paymentsTotal, order?.refundedAmount);
 
     // El saldo a favor ya aplicado a otras OPs no vuelve a contar como excedente
     // aunque el total cambie por una edición de ítems.
@@ -1918,6 +1933,7 @@ export class OrdersService {
         total: true,
         paidAmount: true,
         appliedCreditAmount: true,
+        refundedAmount: true,
         balance: true,
         status: true,
         notes: true,

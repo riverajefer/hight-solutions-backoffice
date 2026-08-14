@@ -1759,6 +1759,54 @@ describe('OrdersService', () => {
       expect(Number(updateCall.data.discountAmount.toString())).toBe(10);
       expect(Number(updateCall.data.paidAmount.toString())).toBe(30);
     });
+
+    it('should not resurrect refunded money when recalculating from payments', async () => {
+      // OP con 100.000 en pagos, de los cuales 20.000 ya se devolvieron en efectivo.
+      // Los Payment siguen existiendo: sin descontar refundedAmount, el recálculo
+      // devolvería paidAmount = 100.000 y el dinero devuelto reaparecería.
+      mockPrisma.orderItem.findMany.mockResolvedValue([
+        { total: new Prisma.Decimal('70000') },
+      ]);
+      mockPrisma.orderDiscount.findMany.mockResolvedValue([]);
+      mockPrisma.payment.findMany.mockResolvedValue([
+        { amount: new Prisma.Decimal('100000') },
+      ]);
+      mockPrisma.order.findUnique.mockResolvedValue({
+        taxRate: new Prisma.Decimal('0'),
+        appliedCreditAmount: new Prisma.Decimal('0'),
+        refundedAmount: new Prisma.Decimal('20000'),
+      });
+
+      await service.removeItem('order-1', 'item-1');
+
+      const updateCall = mockPrisma.order.update.mock.calls[0][0];
+      // paidAmount = 100.000 - 20.000 devueltos = 80.000 (no 100.000)
+      expect(Number(updateCall.data.paidAmount.toString())).toBe(80000);
+      // total 70.000, abonado neto 80.000 → saldo a favor real 10.000 (no 30.000)
+      expect(Number(updateCall.data.balance.toString())).toBe(-10000);
+    });
+
+    it('should keep discounting refunds together with credit already applied elsewhere', async () => {
+      mockPrisma.orderItem.findMany.mockResolvedValue([
+        { total: new Prisma.Decimal('70000') },
+      ]);
+      mockPrisma.orderDiscount.findMany.mockResolvedValue([]);
+      mockPrisma.payment.findMany.mockResolvedValue([
+        { amount: new Prisma.Decimal('100000') },
+      ]);
+      mockPrisma.order.findUnique.mockResolvedValue({
+        taxRate: new Prisma.Decimal('0'),
+        appliedCreditAmount: new Prisma.Decimal('10000'),
+        refundedAmount: new Prisma.Decimal('20000'),
+      });
+
+      await service.removeItem('order-1', 'item-1');
+
+      const updateCall = mockPrisma.order.update.mock.calls[0][0];
+      expect(Number(updateCall.data.paidAmount.toString())).toBe(80000);
+      // 70.000 - 80.000 + 10.000 aplicados a otras OPs = 0: sin saldo a favor
+      expect(Number(updateCall.data.balance.toString())).toBe(0);
+    });
   });
 
   // ─────────────────────────────────────────────

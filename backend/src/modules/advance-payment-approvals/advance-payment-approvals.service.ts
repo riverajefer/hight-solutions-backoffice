@@ -20,7 +20,10 @@ import {
   RejectAdvancePaymentApprovalDto,
 } from './dto';
 import { ApprovalRequestType, EditRequestStatus, NotificationType, Prisma } from '../../generated/prisma';
-import { computeOrderBalance } from '../../common/utils/order-balance.util';
+import {
+  computeNetPaidAmount,
+  computeOrderBalance,
+} from '../../common/utils/order-balance.util';
 import { CreditBalanceService } from '../credit-balance/credit-balance.service';
 
 const USER_SELECT = {
@@ -99,7 +102,11 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
 
       const order = await tx.order.findUnique({
         where: { id: orderId },
-        select: { total: true, appliedCreditAmount: true },
+        select: {
+          total: true,
+          appliedCreditAmount: true,
+          refundedAmount: true,
+        },
       });
       if (!order) return;
 
@@ -108,9 +115,13 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
         select: { amount: true },
       });
 
-      const paidAmount = remainingPayments.reduce(
-        (sum, payment) => sum.add(payment.amount),
-        new Prisma.Decimal(0),
+      // Neto de devoluciones: los pagos siguen ahí, pero ese dinero ya salió.
+      const paidAmount = computeNetPaidAmount(
+        remainingPayments.reduce(
+          (sum, payment) => sum.add(payment.amount),
+          new Prisma.Decimal(0),
+        ),
+        order.refundedAmount,
       );
 
       await tx.order.update({

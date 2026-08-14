@@ -63,6 +63,7 @@ export class OrdersRepository {
     total: true,
     paidAmount: true,
     appliedCreditAmount: true,
+    refundedAmount: true,
     balance: true,
     advancePaymentStatus: true,
     advancePaymentRejectedReason: true,
