@@ -4,9 +4,10 @@ import { AdvancePaymentApprovalsService } from './advance-payment-approvals.serv
 import { DatabaseModule } from '../../database/database.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { WsEventsModule } from '../ws-events/ws-events.module';
+import { CreditBalanceModule } from '../credit-balance/credit-balance.module';
 
 @Module({
-  imports: [DatabaseModule, NotificationsModule, WsEventsModule],
+  imports: [DatabaseModule, NotificationsModule, WsEventsModule, CreditBalanceModule],
   controllers: [AdvancePaymentApprovalsController],
   providers: [AdvancePaymentApprovalsService],
   exports: [AdvancePaymentApprovalsService],

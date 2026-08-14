@@ -513,7 +513,10 @@ model Order {
   colorProofPrice    Decimal @default(0) @map("color_proof_price") // Precio de la prueba de color
   total              Decimal // subtotal - retenciones + tax - reteIVA - discountAmount + colorProofPrice
   paidAmount         Decimal @default(0) @map("paid_amount") // Abonos realizados
-  balance            Decimal // total - paidAmount (saldo pendiente)
+  // Saldo a favor de ESTA orden que ya fue aplicado como pago de otras órdenes.
+  // Se descuenta del excedente para que un mismo saldo no pueda usarse dos veces.
+  appliedCreditAmount Decimal @default(0) @map("applied_credit_amount")
+  balance            Decimal // total - paidAmount + appliedCreditAmount (saldo pendiente)
 
   // Estado de aprobación del anticipo (null = sin anticipo o auto-aprobado por admin/caja)
   advancePaymentStatus         EditRequestStatus? @map("advance_payment_status")
@@ -553,6 +556,7 @@ model Order {
   paymentEditApprovals        PaymentEditApproval[]
   clientOwnershipAuthRequests ClientOwnershipAuthRequest[]
   refundRequests              RefundRequest[]
+  creditApplications          CreditBalanceApplication[]   @relation("CreditSourceOrder")
 
   // Referencia a la cotización de origen
   quoteId String? @unique @map("quote_id")
@@ -761,12 +765,31 @@ model Payment {
   advancePaymentApproval AdvancePaymentApproval?
   paymentEditApprovals   PaymentEditApproval[]
   cashMovement           CashMovement?           @relation(fields: [cashMovementId], references: [id])
+  creditApplications     CreditBalanceApplication[]
 
   @@index([orderId])
   @@index([receivedById])
   @@index([paymentDate])
   @@index([receiptFileId])
   @@map("payments")
+}
+
+/// Consumo de saldo a favor: vincula un pago con método CREDIT_BALANCE con la(s)
+/// orden(es) de origen de donde sale ese saldo. Permite revertir la aplicación si
+/// el pago se elimina o se edita, y evita que un mismo excedente se gaste dos veces.
+model CreditBalanceApplication {
+  id            String   @id @default(uuid())
+  paymentId     String   @map("payment_id") // Pago CREDIT_BALANCE que consume el saldo
+  sourceOrderId String   @map("source_order_id") // OP con saldo a favor de donde proviene
+  amount        Decimal // Monto tomado de esa OP de origen
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  payment     Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  sourceOrder Order   @relation("CreditSourceOrder", fields: [sourceOrderId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([sourceOrderId])
+  @@map("credit_balance_applications")
 }
 
 model OrderDiscount {

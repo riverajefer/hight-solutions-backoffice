@@ -28,6 +28,10 @@ import {
   NotificationType,
   Prisma,
 } from '../../generated/prisma';
+import {
+  computeAvailableOverpayment,
+  computeOrderBalance,
+} from '../../common/utils/order-balance.util';
 
 const USER_SELECT = {
   id: true,
@@ -42,6 +46,7 @@ const ORDER_SELECT = {
   status: true,
   total: true,
   paidAmount: true,
+  appliedCreditAmount: true,
   balance: true,
 } as const;
 
@@ -153,10 +158,13 @@ export class RefundRequestsService
       );
     }
 
-    // Calcular saldo a favor: paidAmount - total
-    const paidAmount = new Prisma.Decimal(order.paidAmount);
-    const total = new Prisma.Decimal(order.total);
-    const overpayment = paidAmount.sub(total);
+    // Saldo a favor disponible: el excedente menos lo que ya se aplicó como pago
+    // de otras órdenes (ese saldo ya se gastó y no puede devolverse en efectivo).
+    const overpayment = computeAvailableOverpayment(
+      order.total,
+      order.paidAmount,
+      order.appliedCreditAmount,
+    );
 
     if (overpayment.lessThanOrEqualTo(0)) {
       throw new BadRequestException(
@@ -245,6 +253,7 @@ export class RefundRequestsService
             orderNumber: true,
             total: true,
             paidAmount: true,
+            appliedCreditAmount: true,
             balance: true,
           },
         },
@@ -269,10 +278,17 @@ export class RefundRequestsService
       );
     }
 
-    // Verificar que el saldo a favor sigue existiendo y es suficiente
+    // Verificar que el saldo a favor sigue existiendo y es suficiente (descontando
+    // lo que ya se haya aplicado como pago de otras órdenes)
     const paidAmount = new Prisma.Decimal(request.order.paidAmount);
-    const total = new Prisma.Decimal(request.order.total);
-    const overpayment = paidAmount.sub(total);
+    const appliedCredit = new Prisma.Decimal(
+      request.order.appliedCreditAmount ?? 0,
+    );
+    const overpayment = computeAvailableOverpayment(
+      request.order.total,
+      paidAmount,
+      appliedCredit,
+    );
     const refundAmount = new Prisma.Decimal(request.refundAmount);
 
     if (refundAmount.greaterThan(overpayment)) {
@@ -303,7 +319,11 @@ export class RefundRequestsService
 
       // 2. Ajustar paidAmount y balance de la OP
       const newPaidAmount = paidAmount.sub(refundAmount);
-      const newBalance = total.sub(newPaidAmount);
+      const newBalance = computeOrderBalance(
+        request.order.total,
+        newPaidAmount,
+        appliedCredit,
+      );
 
       await tx.order.update({
         where: { id: request.orderId },

@@ -14,6 +14,7 @@ import {
 } from './dto';
 import { CashSessionStatus, Prisma } from '../../generated/prisma';
 import { INVERSE_MOVEMENT_TYPE } from './cash-movement.helpers';
+import { computeOrderBalance } from '../../common/utils/order-balance.util';
 
 @Injectable()
 export class CashMovementService {
@@ -75,7 +76,14 @@ export class CashMovementService {
       if (dto.referenceType === 'ORDER' && dto.referenceId) {
         const order = await tx.order.findUnique({
           where: { id: dto.referenceId },
-          select: { id: true, total: true, paidAmount: true, balance: true, status: true },
+          select: {
+            id: true,
+            total: true,
+            paidAmount: true,
+            appliedCreditAmount: true,
+            balance: true,
+            status: true,
+          },
         });
         if (!order) {
           throw new NotFoundException(`Orden ${dto.referenceId} no encontrada`);
@@ -101,7 +109,11 @@ export class CashMovementService {
 
         // Update order balance
         const newPaidAmount = new Prisma.Decimal(order.paidAmount.toString()).add(paymentAmount);
-        const newBalance = new Prisma.Decimal(order.total.toString()).sub(newPaidAmount);
+        const newBalance = computeOrderBalance(
+          order.total,
+          newPaidAmount,
+          order.appliedCreditAmount,
+        );
         await tx.order.update({
           where: { id: dto.referenceId },
           data: { paidAmount: newPaidAmount, balance: newBalance },
@@ -178,13 +190,17 @@ export class CashMovementService {
         const payment = movement.linkedPayment;
         const order = await tx.order.findUnique({
           where: { id: payment.orderId },
-          select: { id: true, total: true, paidAmount: true },
+          select: { id: true, total: true, paidAmount: true, appliedCreditAmount: true },
         });
         if (order) {
           const revertedPaid = new Prisma.Decimal(order.paidAmount.toString()).sub(
             payment.amount,
           );
-          const revertedBalance = new Prisma.Decimal(order.total.toString()).sub(revertedPaid);
+          const revertedBalance = computeOrderBalance(
+            order.total,
+            revertedPaid,
+            order.appliedCreditAmount,
+          );
           await tx.order.update({
             where: { id: payment.orderId },
             data: { paidAmount: revertedPaid, balance: revertedBalance },

@@ -43,6 +43,7 @@ export class OrdersRepository {
   private readonly selectFields = {
     id: true,
     orderNumber: true,
+    clientId: true,
     orderDate: true,
     deliveryDate: true,
 
@@ -61,6 +62,7 @@ export class OrdersRepository {
     discountAmount: true,
     total: true,
     paidAmount: true,
+    appliedCreditAmount: true,
     balance: true,
     advancePaymentStatus: true,
     advancePaymentRejectedReason: true,

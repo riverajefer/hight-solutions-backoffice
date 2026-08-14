@@ -40,6 +40,8 @@ import { EditRequestStatus, OrderStatus, PaymentMethod, Prisma } from '../../gen
 import { isValidTransition, getValidNextStatuses } from './order-status-transitions';
 import { PrismaService } from '../../database/prisma.service';
 import { startOfDay, endOfDay, businessToday } from '../../common/utils/date-range.util';
+import { computeOrderBalance } from '../../common/utils/order-balance.util';
+import { CreditBalanceService } from '../credit-balance/credit-balance.service';
 
 /** Usuario mínimo asociado a un evento del historial de autorizaciones. */
 export interface AuthHistoryUser {
@@ -106,6 +108,7 @@ export class OrdersService {
     private readonly paymentEditApprovalsService: PaymentEditApprovalsService,
     private readonly discountApprovalsService: DiscountApprovalsService,
     private readonly clientOwnershipAuthRequestsService: ClientOwnershipAuthRequestsService,
+    private readonly creditBalanceService: CreditBalanceService,
   ) {}
 
   async findAll(filters: FilterOrdersDto) {
@@ -401,6 +404,11 @@ export class OrdersService {
     // Buscar sesión activa una sola vez (se reutiliza en buildPayments)
     let activeSession: { id: string } | null = null;
 
+    // Total de saldo a favor que se pretende aplicar en esta orden
+    const creditBalanceTotal = allInitialPayments
+      .filter((p) => p.paymentMethod === PaymentMethod.CREDIT_BALANCE)
+      .reduce((sum, p) => sum.add(new Prisma.Decimal(p.amount)), new Prisma.Decimal(0));
+
     if (allInitialPayments.length > 0) {
       paidAmount = allInitialPayments.reduce(
         (sum, p) => sum.add(new Prisma.Decimal(p.amount)),
@@ -410,6 +418,16 @@ export class OrdersService {
       // Nota: se permite que los pagos iniciales excedan el total.
       // El excedente queda como saldo a favor del cliente y podrá reembolsarse
       // mediante el flujo de RefundRequest.
+
+      // Validar el saldo a favor ANTES de crear la orden: el consumo real se
+      // registra después (necesita el id del pago), así que fallar aquí evita
+      // dejar una orden creada con un saldo que el cliente no tiene.
+      if (creditBalanceTotal.greaterThan(0)) {
+        await this.creditBalanceService.assertEnoughCredit(
+          createOrderDto.clientId,
+          creditBalanceTotal,
+        );
+      }
 
       // 1. Buscar sesión activa
       activeSession = await this.prisma.cashSession.findFirst({
@@ -435,7 +453,12 @@ export class OrdersService {
           receivedBy: { connect: { id: createdById } },
         };
 
-        if (activeSession) {
+        // El saldo a favor no es dinero que entre a caja: ese ingreso ya se
+        // registró cuando el cliente sobrepagó la orden de origen. Generar un
+        // movimiento aquí inflaría el arqueo.
+        const movesCash = p.paymentMethod !== PaymentMethod.CREDIT_BALANCE;
+
+        if (activeSession && movesCash) {
           const receiptNumber = await this.consecutivesService.generateNumber('CASH_RECEIPT');
           paymentData.cashMovement = {
             create: {
@@ -569,6 +592,26 @@ export class OrdersService {
           }
         });
       }
+    }
+
+    // Consumir el saldo a favor de las OPs de origen. Se hace después de crear la
+    // orden porque cada aplicación se ancla al pago que la consume.
+    if (newOrder && creditBalanceTotal.greaterThan(0)) {
+      const creditPayments = await this.prisma.payment.findMany({
+        where: { orderId: newOrder.id, paymentMethod: PaymentMethod.CREDIT_BALANCE },
+        select: { id: true, amount: true },
+      });
+
+      await this.prisma.$transaction(async (tx) => {
+        for (const creditPayment of creditPayments) {
+          await this.creditBalanceService.applyCredit(tx, {
+            clientId: createOrderDto.clientId,
+            paymentId: creditPayment.id,
+            amount: creditPayment.amount,
+            targetOrderId: newOrder.id,
+          });
+        }
+      });
     }
 
     // Registrar en audit log (fuera de la transacción, sin esperar para no afectar performance)
@@ -867,20 +910,31 @@ export class OrdersService {
             receivedById: userId,
           };
 
-          if (firstPayment) {
-            await tx.payment.update({
-              where: { id: firstPayment.id },
-              data: paymentData,
-            });
-          } else {
-            await tx.payment.create({
-              data: {
-                ...paymentData,
-                orderId: id,
-                paymentDate: new Date(),
-              },
-            });
-          }
+          const touchedPayment = firstPayment
+            ? await tx.payment.update({
+                where: { id: firstPayment.id },
+                data: paymentData,
+                select: { id: true },
+              })
+            : await tx.payment.create({
+                data: {
+                  ...paymentData,
+                  orderId: id,
+                  paymentDate: new Date(),
+                },
+                select: { id: true },
+              });
+
+          // Reajustar el consumo de saldo a favor: el pago pudo pasar a
+          // CREDIT_BALANCE, dejar de serlo o cambiar de monto.
+          await this.creditBalanceService.resyncCredit(tx, {
+            paymentId: touchedPayment.id,
+            clientId: oldOrder.clientId,
+            targetOrderId: id,
+            amount: paymentData.amount,
+            isCreditBalance:
+              paymentData.paymentMethod === PaymentMethod.CREDIT_BALANCE,
+          });
         }
 
         // 4. Recalcular totales, paidAmount y balance
@@ -1439,6 +1493,8 @@ export class OrdersService {
     }
 
     const paymentAmount = new Prisma.Decimal(createPaymentDto.amount);
+    const isCreditBalance =
+      createPaymentDto.paymentMethod === PaymentMethod.CREDIT_BALANCE;
 
     // Buscar sesión de caja abierta activa
     const activeSession = await this.prisma.cashSession.findFirst({
@@ -1452,9 +1508,11 @@ export class OrdersService {
 
     // Usar transacción simple y luego obtener el pago completo
     const paymentId = await this.prisma.$transaction(async (tx) => {
-      // Si hay sesión de caja, generar un número de recibo e insertar el movimiento de caja
+      // Si hay sesión de caja, generar un número de recibo e insertar el movimiento
+      // de caja. El saldo a favor se excluye: ese dinero ya entró a caja cuando el
+      // cliente sobrepagó la orden de origen.
       let cashMovementId: string | undefined = undefined;
-      if (activeSession) {
+      if (activeSession && !isCreditBalance) {
         const receiptNumber = await this.consecutivesService.generateNumber('CASH_RECEIPT');
         const movement = await tx.cashMovement.create({
           data: {
@@ -1494,11 +1552,26 @@ export class OrdersService {
         },
       });
 
+      // Consumir el saldo a favor del cliente (valida disponibilidad dentro de la
+      // transacción y descuenta el excedente de las OPs de origen).
+      if (isCreditBalance) {
+        await this.creditBalanceService.applyCredit(tx, {
+          clientId: order.clientId,
+          paymentId: payment.id,
+          amount: paymentAmount,
+          targetOrderId: orderId,
+        });
+      }
+
       // Actualizar paidAmount y balance
       const newPaidAmount = new Prisma.Decimal(order.paidAmount).add(
         paymentAmount,
       );
-      const newBalance = new Prisma.Decimal(order.total).sub(newPaidAmount);
+      const newBalance = computeOrderBalance(
+        order.total,
+        newPaidAmount,
+        order.appliedCreditAmount,
+      );
 
       await tx.order.update({
         where: { id: orderId },
@@ -1661,6 +1734,18 @@ export class OrdersService {
         });
       }
 
+      // Reajustar el consumo de saldo a favor si el pago editado lo usa (o dejó
+      // de usarlo): se libera lo aplicado antes y se vuelve a tomar con el monto
+      // vigente.
+      await this.creditBalanceService.resyncCredit(tx, {
+        paymentId,
+        clientId: order.clientId,
+        targetOrderId: orderId,
+        amount: updated.amount,
+        isCreditBalance:
+          updated.paymentMethod === PaymentMethod.CREDIT_BALANCE,
+      });
+
       // Recalcular paidAmount/balance (el total de la orden no cambia)
       const payments = await tx.payment.findMany({
         where: { orderId },
@@ -1670,10 +1755,20 @@ export class OrdersService {
       for (const p of payments) {
         paidAmount = paidAmount.add(p.amount);
       }
-      const total = new Prisma.Decimal(order.total);
+      const current = await tx.order.findUnique({
+        where: { id: orderId },
+        select: { total: true, appliedCreditAmount: true },
+      });
       await tx.order.update({
         where: { id: orderId },
-        data: { paidAmount, balance: total.sub(paidAmount) },
+        data: {
+          paidAmount,
+          balance: computeOrderBalance(
+            current?.total ?? order.total,
+            paidAmount,
+            current?.appliedCreditAmount,
+          ),
+        },
       });
     });
 
@@ -1743,6 +1838,7 @@ export class OrdersService {
         retefuenteRate: true,
         reteICARate: true,
         reteIVARate: true,
+        appliedCreditAmount: true,
       },
     });
 
@@ -1794,7 +1890,13 @@ export class OrdersService {
       paidAmount = paidAmount.add(payment.amount);
     }
 
-    const balance = total.sub(paidAmount);
+    // El saldo a favor ya aplicado a otras OPs no vuelve a contar como excedente
+    // aunque el total cambie por una edición de ítems.
+    const balance = computeOrderBalance(
+      total,
+      paidAmount,
+      order?.appliedCreditAmount,
+    );
 
     // Actualizar orden
     return tx.order.update({
@@ -1815,6 +1917,7 @@ export class OrdersService {
         discountAmount: true,
         total: true,
         paidAmount: true,
+        appliedCreditAmount: true,
         balance: true,
         status: true,
         notes: true,

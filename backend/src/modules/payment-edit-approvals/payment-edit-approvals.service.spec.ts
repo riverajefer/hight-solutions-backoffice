@@ -10,6 +10,7 @@ import { ApprovalRequestRegistry } from '../whatsapp/approval-request-registry';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { WsEventsGateway } from '../ws-events/ws-events.gateway';
 import { StorageService } from '../storage/storage.service';
+import { CreditBalanceService } from '../credit-balance/credit-balance.service';
 import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { EditRequestStatus, Prisma } from '../../generated/prisma';
 
@@ -76,6 +77,14 @@ describe('PaymentEditApprovalsService', () => {
         },
         { provide: WsEventsGateway, useValue: wsEventsGateway },
         { provide: StorageService, useValue: storageService },
+        {
+          provide: CreditBalanceService,
+          useValue: {
+            applyCredit: jest.fn(),
+            releaseCredit: jest.fn().mockResolvedValue(undefined),
+            resyncCredit: jest.fn().mockResolvedValue(undefined),
+          },
+        },
       ],
     }).compile();
 
