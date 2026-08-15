@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { sessionLogsApi } from '../../../api';
 import { SessionLogsFilter } from '../../../types';
 
@@ -12,6 +12,9 @@ export const useSessionLogs = () => {
   const sessionLogsQuery = useQuery({
     queryKey: ['session-logs', filters],
     queryFn: () => sessionLogsApi.getAll(filters),
+    // Sin esto `data` queda en undefined al cambiar de página, el `rowCount`
+    // cae a 0 y la grilla rebota a la página 1.
+    placeholderData: keepPreviousData,
   });
 
   const activeSessionsQuery = useQuery({

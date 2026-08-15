@@ -428,8 +428,18 @@ export default function AccountsPayableListPage() {
       <DataTable
         rows={accounts}
         columns={columns}
-        loading={query.isLoading}
+        loading={query.isLoading || query.isFetching}
+        rowCount={query.data?.meta?.total ?? 0}
+        currentPage={(filters.page ?? 1) - 1}
         pageSize={filters.limit ?? 20}
+        pageSizeOptions={[20, 50, 100]}
+        onPaginationModelChange={(model) =>
+          setFilters((prev) => ({
+            ...prev,
+            page: model.page + 1,
+            limit: model.pageSize,
+          }))
+        }
         emptyMessage="No hay cuentas por pagar registradas"
         onRowClick={(row) => handleView(row as AccountPayable)}
         density="compact"

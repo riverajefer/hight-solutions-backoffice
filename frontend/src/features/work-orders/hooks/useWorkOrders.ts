@@ -1,4 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  keepPreviousData,
+} from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { workOrdersApi } from '../../../api/work-orders.api';
 import type {
@@ -34,6 +39,9 @@ export const useWorkOrders = (filters?: FilterWorkOrdersDto) => {
   const workOrdersQuery = useQuery({
     queryKey: workOrdersKeys.list(filters),
     queryFn: () => workOrdersApi.getAll(filters),
+    // Sin esto `data` queda en undefined al cambiar de página, el `rowCount`
+    // cae a 0 y la grilla rebota a la página 1.
+    placeholderData: keepPreviousData,
   });
 
   const createWorkOrderMutation = useMutation({

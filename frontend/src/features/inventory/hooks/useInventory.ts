@@ -1,5 +1,10 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  keepPreviousData,
+} from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { inventoryApi } from '../../../api';
 import { CreateInventoryMovementDto, InventoryMovementFilters } from '../../../types';
@@ -17,6 +22,9 @@ export const useInventory = () => {
   const movementsQuery = useQuery({
     queryKey: [...INVENTORY_MOVEMENTS_QUERY_KEY, filters],
     queryFn: () => inventoryApi.getAll(filters),
+    // Sin esto `data` queda en undefined al cambiar de página, el `rowCount`
+    // cae a 0 y la grilla rebota a la página 1.
+    placeholderData: keepPreviousData,
   });
 
   // Insumos con stock bajo

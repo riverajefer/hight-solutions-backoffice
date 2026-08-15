@@ -108,7 +108,7 @@ const AttendancePage: React.FC = () => {
   const { hasPermission } = useAuthStore();
   const canManage = hasPermission(PERMISSIONS.MANAGE_ATTENDANCE);
 
-  const { recordsQuery, adjustMutation } = useAttendance();
+  const { recordsQuery, adjustMutation, filters, updateFilters } = useAttendance();
   const records: AttendanceRecord[] = recordsQuery.data?.data || [];
 
   // ── Estado para el diálogo de ajuste ──
@@ -370,7 +370,14 @@ const AttendancePage: React.FC = () => {
       <DataTable
         rows={records}
         columns={columns}
-        loading={recordsQuery.isLoading}
+        loading={recordsQuery.isLoading || recordsQuery.isFetching}
+        rowCount={recordsQuery.data?.meta?.total ?? 0}
+        currentPage={(filters.page ?? 1) - 1}
+        pageSize={filters.limit ?? 20}
+        pageSizeOptions={[20, 50, 100]}
+        onPaginationModelChange={(model) =>
+          updateFilters({ page: model.page + 1, limit: model.pageSize })
+        }
         searchPlaceholder="Buscar registros de asistencia..."
         emptyMessage="No se encontraron registros de asistencia"
       />
