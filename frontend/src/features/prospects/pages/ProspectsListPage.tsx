@@ -488,7 +488,7 @@ export const ProspectsListPage: React.FC = () => {
         <DataTable
           rows={prospects}
           columns={columns}
-          loading={prospectsQuery.isLoading}
+          loading={prospectsQuery.isLoading || prospectsQuery.isFetching}
           getRowId={(row) => row.id}
           onRowClick={(row) => setDetailId(row.id)}
           searchPlaceholder="Buscar por nombre, celular o correo..."
@@ -498,6 +498,7 @@ export const ProspectsListPage: React.FC = () => {
           rowCount={meta?.total ?? 0}
           currentPage={(filters.page ?? 1) - 1}
           pageSize={filters.limit ?? 20}
+          pageSizeOptions={[20, 50, 100]}
           onPaginationModelChange={(model) =>
             setFilters((prev) => ({
               ...prev,

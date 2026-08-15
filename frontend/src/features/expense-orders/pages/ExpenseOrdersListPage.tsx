@@ -246,8 +246,18 @@ export const ExpenseOrdersListPage = () => {
       <DataTable
         columns={columns}
         rows={expenseOrders}
-        loading={expenseOrdersQuery.isLoading}
+        loading={expenseOrdersQuery.isLoading || expenseOrdersQuery.isFetching}
+        rowCount={expenseOrdersQuery.data?.meta?.total ?? 0}
+        currentPage={(filters.page ?? 1) - 1}
         pageSize={filters.limit ?? 20}
+        pageSizeOptions={[20, 50, 100]}
+        onPaginationModelChange={(model) =>
+          setFilters((prev) => ({
+            ...prev,
+            page: model.page + 1,
+            limit: model.pageSize,
+          }))
+        }
       />
 
       <ConfirmDialog

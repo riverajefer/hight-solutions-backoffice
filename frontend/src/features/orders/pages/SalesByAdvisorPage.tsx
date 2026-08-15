@@ -492,13 +492,20 @@ export const SalesByAdvisorPage: React.FC = () => {
           <DataTable
             rows={orders}
             columns={columns}
-            loading={ordersQuery.isLoading}
+            loading={ordersQuery.isLoading || ordersQuery.isFetching}
             rowCount={ordersQuery.data?.meta?.total ?? 0}
+            currentPage={(filters.page ?? 1) - 1}
             pageSize={filters.limit ?? 20}
-            onPaginationModelChange={({ page, pageSize }: { page: number; pageSize: number }) => {
-              handleFilterChange('page', page + 1);
-              handleFilterChange('limit', pageSize);
-            }}
+            pageSizeOptions={[20, 50, 100]}
+            // No usar `handleFilterChange`: ese helper fuerza `page: 1` en cada
+            // cambio, así que anularía el cambio de página.
+            onPaginationModelChange={(model) =>
+              setFilters((prev) => ({
+                ...prev,
+                page: model.page + 1,
+                limit: model.pageSize,
+              }))
+            }
           />
         </>
       )}

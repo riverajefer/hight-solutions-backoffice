@@ -198,10 +198,16 @@ const InventoryMovementsListPage: React.FC = () => {
       <DataTable
         rows={movements}
         columns={columns}
-        loading={movementsQuery.isLoading}
+        loading={movementsQuery.isLoading || movementsQuery.isFetching}
         searchPlaceholder="Buscar por insumo..."
         emptyMessage="No hay movimientos de inventario"
+        rowCount={movementsQuery.data?.meta?.total ?? 0}
+        currentPage={(filters.page ?? 1) - 1}
         pageSize={filters.limit ?? 20}
+        pageSizeOptions={[20, 50, 100]}
+        onPaginationModelChange={(model) =>
+          updateFilters({ page: model.page + 1, limit: model.pageSize })
+        }
       />
     </Box>
   );

@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  keepPreviousData,
+} from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { accountsPayableApi } from '../../../api/accounts-payable.api';
 import { apPaymentAuthRequestsApi } from '../../../api/accounts-payable-payment-auth-requests.api';
@@ -40,6 +45,9 @@ export const useAccountsPayable = (filters?: FilterAccountPayableDto) => {
   const query = useQuery({
     queryKey: accountsPayableKeys.list(filters),
     queryFn: () => accountsPayableApi.getAll(filters),
+    // Sin esto `data` queda en undefined al cambiar de página, el `rowCount`
+    // cae a 0 y la grilla rebota a la página 1.
+    placeholderData: keepPreviousData,
   });
 
   const createMutation = useMutation({

@@ -1,5 +1,10 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  keepPreviousData,
+} from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { attendanceApi } from '../../../api';
 import { AttendanceFilter, ClockOutDto, AdjustAttendanceDto, ClockInDto } from '../../../types';
@@ -22,6 +27,9 @@ export const useAttendance = () => {
   const recordsQuery = useQuery({
     queryKey: ['attendance', 'records', filters],
     queryFn: () => attendanceApi.getAll(filters),
+    // Sin esto `data` queda en undefined al cambiar de página, el `rowCount`
+    // cae a 0 y la grilla rebota a la página 1.
+    placeholderData: keepPreviousData,
   });
 
   // Mutation: marcar entrada

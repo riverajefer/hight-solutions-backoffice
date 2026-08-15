@@ -1,4 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  keepPreviousData,
+} from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { dtfApi } from '../../../api/dtf.api';
 import type {
@@ -14,6 +19,9 @@ export const useDtfList = (filters?: DtfListFilters) => {
   return useQuery({
     queryKey: [DTF_QUERY_KEY, 'list', filters],
     queryFn: () => dtfApi.getAll(filters),
+    // Conserva la página anterior mientras carga la siguiente: si `data` queda
+    // en undefined, el `rowCount` cae a 0 y la grilla se devuelve a la página 1.
+    placeholderData: keepPreviousData,
   });
 };
 
