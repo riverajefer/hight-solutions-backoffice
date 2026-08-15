@@ -53,7 +53,7 @@ interface FilesDialogState {
 export const DtfListPage = () => {
   const navigate = useNavigate();
   const { hasPermission } = useAuthStore();
-  const [filters, setFilters] = useState<DtfListFilters>({ limit: 50 });
+  const [filters, setFilters] = useState<DtfListFilters>({ page: 1, limit: 20 });
   const [exportOpen, setExportOpen] = useState(false);
   const canExport = hasPermission(PERMISSIONS.EXPORT_DTF);
   const { changeStatus, convertToOrder } = useDtfMutations();
@@ -244,7 +244,11 @@ export const DtfListPage = () => {
           size="small"
           value={filters.status ?? ''}
           onChange={(e) =>
-            setFilters((f) => ({ ...f, status: (e.target.value as DtfStatus) || undefined }))
+            setFilters((f) => ({
+              ...f,
+              status: (e.target.value as DtfStatus) || undefined,
+              page: 1,
+            }))
           }
           sx={{ minWidth: 180 }}
         >
@@ -259,8 +263,18 @@ export const DtfListPage = () => {
       <DataTable
         columns={columns}
         rows={records}
-        loading={dtfQuery.isLoading}
-        pageSize={filters.limit ?? 50}
+        loading={dtfQuery.isLoading || dtfQuery.isFetching}
+        rowCount={dtfQuery.data?.total ?? 0}
+        currentPage={(filters.page ?? 1) - 1}
+        pageSize={filters.limit ?? 20}
+        pageSizeOptions={[20, 50, 100]}
+        onPaginationModelChange={(model) =>
+          setFilters((prev) => ({
+            ...prev,
+            page: model.page + 1,
+            limit: model.pageSize,
+          }))
+        }
       />
 
       {/* Files Dialog */}

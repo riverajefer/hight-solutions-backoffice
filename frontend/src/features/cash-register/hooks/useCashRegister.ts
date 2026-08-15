@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  keepPreviousData,
+} from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { cashRegisterApi } from '../../../api/cash-register.api';
 import type {
@@ -61,6 +66,9 @@ export const useCashSessions = (filters?: FilterCashSessionsDto) => {
   return useQuery({
     queryKey: cashKeys.sessions.list(filters),
     queryFn: () => cashRegisterApi.getSessions(filters),
+    // Sin esto `data` queda en undefined al cambiar de página, el `rowCount`
+    // cae a 0 y la grilla rebota a la página 1.
+    placeholderData: keepPreviousData,
   });
 };
 

@@ -277,8 +277,18 @@ export const WorkOrdersListPage = () => {
       <DataTable
         rows={workOrders}
         columns={columns}
-        loading={workOrdersQuery.isLoading}
+        loading={workOrdersQuery.isLoading || workOrdersQuery.isFetching}
+        rowCount={workOrdersQuery.data?.meta?.total ?? 0}
+        currentPage={(filters.page ?? 1) - 1}
         pageSize={filters.limit ?? 20}
+        pageSizeOptions={[20, 50, 100]}
+        onPaginationModelChange={(model) =>
+          setFilters((prev) => ({
+            ...prev,
+            page: model.page + 1,
+            limit: model.pageSize,
+          }))
+        }
         searchValue={filters.search ?? ''}
         onSearchChange={(value) => handleFilterChange('search', value)}
         serverSideSearch

@@ -345,6 +345,9 @@ export const useProfitabilityList = (filters?: FilterProfitabilityDto) => {
   return useQuery({
     queryKey: ordersKeys.profitabilityList(filters),
     queryFn: () => ordersApi.getProfitabilityList(filters),
+    // Sin esto `data` queda en undefined al cambiar de página, el `rowCount`
+    // cae a 0 y la grilla rebota a la página 1.
+    placeholderData: keepPreviousData,
   });
 };
 

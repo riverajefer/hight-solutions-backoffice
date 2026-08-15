@@ -402,7 +402,18 @@ export const ProfitabilityPage: React.FC = () => {
       <DataTable
         rows={rows}
         columns={columns}
-        loading={profitabilityQuery.isLoading}
+        loading={profitabilityQuery.isLoading || profitabilityQuery.isFetching}
+        rowCount={profitabilityQuery.data?.total ?? 0}
+        currentPage={(filters.page ?? 1) - 1}
+        pageSize={filters.limit ?? 50}
+        pageSizeOptions={[20, 50, 100]}
+        onPaginationModelChange={(model) =>
+          setFilters((prev) => ({
+            ...prev,
+            page: model.page + 1,
+            limit: model.pageSize,
+          }))
+        }
         getRowId={(row) => row.orderId}
         onRowClick={handleRowClick}
         emptyMessage="No hay órdenes con datos de rentabilidad"

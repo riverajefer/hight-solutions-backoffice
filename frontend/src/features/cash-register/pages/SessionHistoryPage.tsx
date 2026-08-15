@@ -198,7 +198,18 @@ const SessionHistoryPage: React.FC = () => {
       <DataTable
         rows={sessions}
         columns={columns}
-        loading={sessionsQuery.isLoading}
+        loading={sessionsQuery.isLoading || sessionsQuery.isFetching}
+        rowCount={sessionsQuery.data?.total ?? 0}
+        currentPage={(filters.page ?? 1) - 1}
+        pageSize={filters.limit ?? 25}
+        pageSizeOptions={[25, 50, 100]}
+        onPaginationModelChange={(model) =>
+          setFilters((prev) => ({
+            ...prev,
+            page: model.page + 1,
+            limit: model.pageSize,
+          }))
+        }
         onRowClick={(params) =>
           navigate(PATHS.CASH_SESSION_HISTORY_DETAIL.replace(':id', params.id as string))
         }

@@ -10,7 +10,7 @@ import { SessionLog } from '../../../types';
 import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../hooks';
 
 const SessionLogsPage: React.FC = () => {
-  const { sessionLogsQuery } = useSessionLogs();
+  const { sessionLogsQuery, filters, updateFilters } = useSessionLogs();
   const logs = sessionLogsQuery.data?.data || [];
 
   const formatDate = (dateString: string) => {
@@ -175,7 +175,14 @@ const SessionLogsPage: React.FC = () => {
       <DataTable
         rows={logs}
         columns={columns}
-        loading={sessionLogsQuery.isLoading}
+        loading={sessionLogsQuery.isLoading || sessionLogsQuery.isFetching}
+        rowCount={sessionLogsQuery.data?.meta?.total ?? 0}
+        currentPage={(filters.page ?? 1) - 1}
+        pageSize={filters.limit ?? 10}
+        pageSizeOptions={[10, 25, 50, 100]}
+        onPaginationModelChange={(model) =>
+          updateFilters({ page: model.page + 1, limit: model.pageSize })
+        }
         searchPlaceholder="Buscar en historial de sesiones..."
         emptyMessage="No se encontraron registros de sesiones"
       />
