@@ -13,7 +13,7 @@ import {
   Menu,
   MenuItem,
 } from '@mui/material';
-import { AutoAwesome, Edit, KeyboardArrowDown } from '@mui/icons-material';
+import { AutoAwesome, Edit, KeyboardArrowDown, ReceiptLong } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -25,6 +25,7 @@ import { usePayrollPeriods } from '../hooks/usePayrollPeriods';
 import { usePayrollItems } from '../hooks/usePayrollItems';
 import { payrollPeriodsApi } from '../../../api/payroll-periods.api';
 import { getItemColumns } from '../config/columns';
+import { generatePayrollSlipsPdf } from '../utils/generatePayrollSlipPdf';
 import type { PayrollItem } from '../../../types/payroll-item.types';
 import { PATHS } from '../../../router/paths';
 import { PERMISSIONS } from '../../../utils/constants';
@@ -73,6 +74,7 @@ const PayrollPeriodDetailPage: React.FC = () => {
 
   const [toDelete, setToDelete] = useState<PayrollItem | null>(null);
   const [statusAnchorEl, setStatusAnchorEl] = useState<null | HTMLElement>(null);
+  const [generatingSlips, setGeneratingSlips] = useState(false);
 
   const handleStatusChange = async (newStatus: string) => {
     try {
@@ -96,6 +98,28 @@ const PayrollPeriodDetailPage: React.FC = () => {
     } catch (err: any) {
       const msg = err?.response?.data?.message ?? 'Error al generar registros';
       enqueueSnackbar(msg, { variant: 'error' });
+    }
+  };
+
+  // Un solo PDF con el desprendible de cada empleado del periodo, uno por página.
+  const handleGenerateAllSlips = async () => {
+    const currentItems = itemsQuery.data ?? [];
+    if (!periodQuery.data || currentItems.length === 0) return;
+
+    setGeneratingSlips(true);
+    try {
+      const doc = await generatePayrollSlipsPdf(currentItems, periodQuery.data);
+      const slug = periodQuery.data.name
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-zA-Z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+      doc.save(`Desprendibles_${slug}.pdf`);
+    } catch (error) {
+      console.error('Error generando los desprendibles del periodo', error);
+      enqueueSnackbar('No se pudieron generar los desprendibles', { variant: 'error' });
+    } finally {
+      setGeneratingSlips(false);
     }
   };
 
@@ -142,6 +166,7 @@ const PayrollPeriodDetailPage: React.FC = () => {
         PATHS.PAYROLL_ITEM_EDIT.replace(':periodId', id!).replace(':itemId', item.id),
       ),
     (item) => setToDelete(item),
+    period,
   );
 
   return (
@@ -234,25 +259,36 @@ const PayrollPeriodDetailPage: React.FC = () => {
       )}
 
       {/* Actions */}
-      {canEdit && (
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
-          <Button
-            variant="outlined"
-            startIcon={<AutoAwesome />}
-            onClick={handleGenerate}
-            disabled={generateItemsMutation.isPending}
-          >
-            {generateItemsMutation.isPending ? 'Generando...' : 'Generar para todos los activos'}
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={<Edit />}
-            onClick={() => navigate(PATHS.PAYROLL_PERIODS_EDIT.replace(':id', id!))}
-          >
-            Editar Periodo
-          </Button>
-        </Stack>
-      )}
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
+        {canEdit && (
+          <>
+            <Button
+              variant="outlined"
+              startIcon={<AutoAwesome />}
+              onClick={handleGenerate}
+              disabled={generateItemsMutation.isPending}
+            >
+              {generateItemsMutation.isPending ? 'Generando...' : 'Generar para todos los activos'}
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<Edit />}
+              onClick={() => navigate(PATHS.PAYROLL_PERIODS_EDIT.replace(':id', id!))}
+            >
+              Editar Periodo
+            </Button>
+          </>
+        )}
+        {/* Imprimir no requiere permiso de edición: basta con poder ver el periodo. */}
+        <Button
+          variant="outlined"
+          startIcon={<ReceiptLong />}
+          onClick={handleGenerateAllSlips}
+          disabled={generatingSlips || items.length === 0}
+        >
+          {generatingSlips ? 'Generando...' : 'Desprendibles del periodo'}
+        </Button>
+      </Stack>
 
       {/* Anticipos vinculados al periodo */}
       {advances.length > 0 && (
