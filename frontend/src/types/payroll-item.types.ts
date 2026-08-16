@@ -39,6 +39,23 @@ export interface PayrollItem {
     employeeType: 'REGULAR' | 'TEMPORARY';
     monthlySalary: string | null;
     dailyRate: string | null;
+    // Datos usados por el desprendible de nómina. Opcionales porque los
+    // endpoints de historial no los devuelven (allí el empleado se carga aparte).
+    identificationType?: 'CC' | 'CE' | 'TI' | 'PA' | 'NIT' | null;
+    identificationNumber?: string | null;
+    firstName?: string | null;
+    middleName?: string | null;
+    firstLastName?: string | null;
+    secondLastName?: string | null;
+    startDate?: string | null;
+    contractType?:
+      | 'FIXED_TERM'
+      | 'INDEFINITE'
+      | 'SERVICE_CONTRACT'
+      | 'INTERNSHIP'
+      | null;
+    eps?: string | null;
+    pensionFund?: string | null;
     cargo: { name: string } | null;
     user: {
       id: string;

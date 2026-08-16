@@ -16,6 +16,9 @@ import { useParams } from 'react-router-dom';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { usePayrollEmployees } from '../hooks/usePayrollEmployees';
+import { PayrollSlipButton } from '../components/PayrollSlipButton';
+import { toSlipEmployee } from '../utils/generatePayrollSlipPdf';
+import type { PayrollItem } from '../../../types/payroll-item.types';
 import { PATHS } from '../../../router/paths';
 
 const formatCOP = (value: string | number | null | undefined) => {
@@ -53,6 +56,10 @@ const EmployeePayrollHistoryPage: React.FC = () => {
   const employee = employeeQuery.data;
   const history = historyQuery.data ?? [];
 
+  // Los registros del historial no traen el empleado embebido: se toma del
+  // empleado ya cargado en esta página para poder armar el desprendible.
+  const slipEmployee = employee ? toSlipEmployee(employee) : null;
+
   const fullName = employee
     ? `${employee.user?.firstName ?? ''} ${employee.user?.lastName ?? ''}`.trim()
     : '';
@@ -85,6 +92,7 @@ const EmployeePayrollHistoryPage: React.FC = () => {
                 <TableCell align="right">Descuentos</TableCell>
                 <TableCell align="right">Total Pagado</TableCell>
                 <TableCell>Observaciones</TableCell>
+                <TableCell align="center">Desprendible</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -134,6 +142,14 @@ const EmployeePayrollHistoryPage: React.FC = () => {
                     <Typography variant="caption" color="text.secondary">
                       {item.observations ?? '—'}
                     </Typography>
+                  </TableCell>
+                  <TableCell align="center">
+                    {slipEmployee && item.period && (
+                      <PayrollSlipButton
+                        item={{ ...item, employee: slipEmployee } as PayrollItem}
+                        period={item.period}
+                      />
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

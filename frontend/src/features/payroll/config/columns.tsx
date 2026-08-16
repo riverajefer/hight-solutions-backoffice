@@ -5,6 +5,7 @@ import type { PayrollEmployee } from '../../../types/payroll-employee.types';
 import type { PayrollPeriod } from '../../../types/payroll-period.types';
 import type { PayrollItem } from '../../../types/payroll-item.types';
 import type { ResponsiveGridColDef } from '../../../hooks';
+import { PayrollSlipButton } from '../components/PayrollSlipButton';
 
 const formatCOP = (value: string | number | null | undefined) => {
   if (value === null || value === undefined) return '—';
@@ -206,6 +207,8 @@ export const getPeriodColumns = (
 export const getItemColumns = (
   onEdit: (item: PayrollItem) => void,
   onDelete: (item: PayrollItem) => void,
+  /** Necesario para el desprendible; si no está cargado, se oculta el botón. */
+  period?: PayrollPeriod,
 ): GridColDef[] => [
   {
     field: 'employeeName',
@@ -266,10 +269,11 @@ export const getItemColumns = (
   {
     field: 'actions',
     headerName: 'Acciones',
-    width: 100,
+    width: 140,
     sortable: false,
     renderCell: (params: GridRenderCellParams<PayrollItem>) => (
       <Box>
+        {period && <PayrollSlipButton item={params.row} period={period} />}
         <Tooltip title="Editar registro">
           <IconButton size="small" onClick={() => onEdit(params.row)}>
             <Edit fontSize="small" />

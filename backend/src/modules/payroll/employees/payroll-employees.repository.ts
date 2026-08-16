@@ -98,8 +98,11 @@ export class PayrollEmployeesRepository {
       where: { employeeId },
       select: {
         id: true,
+        employeeId: true,
         daysWorked: true,
         baseSalary: true,
+        overtimeDaytimeHours: true,
+        overtimeNighttimeHours: true,
         overtimeDaytimeValue: true,
         overtimeNighttimeValue: true,
         commissions: true,
@@ -113,6 +116,15 @@ export class PayrollEmployeesRepository {
         totalPayment: true,
         observations: true,
         createdAt: true,
+        extraShifts: {
+          select: {
+            id: true,
+            shiftDate: true,
+            description: true,
+            amount: true,
+          },
+          orderBy: { shiftDate: 'asc' as const },
+        },
         period: {
           select: {
             id: true,
