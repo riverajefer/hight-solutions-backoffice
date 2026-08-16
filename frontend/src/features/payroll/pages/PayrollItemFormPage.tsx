@@ -23,6 +23,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import { useForm, Controller } from 'react-hook-form';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { PayrollSlipButton } from '../components/PayrollSlipButton';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { usePayrollItems } from '../hooks/usePayrollItems';
 import { usePayrollPeriods } from '../hooks/usePayrollPeriods';
@@ -413,6 +414,13 @@ const PayrollItemFormPage: React.FC = () => {
           { label: isNew ? 'Nuevo' : employeeName },
         ]}
       />
+
+      {/* El desprendible refleja el registro guardado, no los cambios sin guardar. */}
+      {!isNew && item && period && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+          <PayrollSlipButton item={item} period={period} variant="toolbar" />
+        </Box>
+      )}
 
       <Paper sx={{ p: { xs: 2, sm: 3 } }}>
         {serverError && <Alert severity="error" sx={{ mb: 2 }}>{serverError}</Alert>}
