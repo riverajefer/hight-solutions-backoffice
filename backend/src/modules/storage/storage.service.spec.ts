@@ -19,6 +19,7 @@ import {
 // ---------------------------------------------------------------------------
 const mockStorageRepository = {
   findById: jest.fn(),
+  findManyByIds: jest.fn(),
   findByEntity: jest.fn(),
   findByUser: jest.fn(),
   create: jest.fn(),
@@ -265,6 +266,84 @@ describe('StorageService', () => {
 
       await expect(service.getFileUrl('nonexistent')).rejects.toThrow(
         FileNotFoundStorageException,
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // getFileUrls (batch)
+  // ---------------------------------------------------------------------------
+  describe('getFileUrls', () => {
+    beforeEach(() => {
+      mockStorageS3Service.getSignedUrl.mockImplementation(
+        (key: string) => `https://s3.example.com/${key}`,
+      );
+    });
+
+    it('should return a map of file id to signed URL', async () => {
+      mockStorageRepository.findManyByIds.mockResolvedValue([
+        { id: 'file-1', s3Key: 'dev/payment/a/one.pdf' },
+        { id: 'file-2', s3Key: 'dev/payment/b/two.pdf' },
+      ]);
+
+      const result = await service.getFileUrls(['file-1', 'file-2']);
+
+      expect(result).toEqual({
+        'file-1': 'https://s3.example.com/dev/payment/a/one.pdf',
+        'file-2': 'https://s3.example.com/dev/payment/b/two.pdf',
+      });
+    });
+
+    it('should hit the database once, not once per id', async () => {
+      mockStorageRepository.findManyByIds.mockResolvedValue([]);
+
+      await service.getFileUrls(['file-1', 'file-2', 'file-3']);
+
+      expect(mockStorageRepository.findManyByIds).toHaveBeenCalledTimes(1);
+    });
+
+    it('should deduplicate ids before querying', async () => {
+      mockStorageRepository.findManyByIds.mockResolvedValue([]);
+
+      await service.getFileUrls(['file-1', 'file-1', 'file-2']);
+
+      expect(mockStorageRepository.findManyByIds).toHaveBeenCalledWith([
+        'file-1',
+        'file-2',
+      ]);
+    });
+
+    it('should omit missing or deleted ids instead of throwing', async () => {
+      // El repositorio ya filtra los borrados: solo devuelve el que existe.
+      mockStorageRepository.findManyByIds.mockResolvedValue([
+        { id: 'file-1', s3Key: 'dev/payment/a/one.pdf' },
+      ]);
+
+      const result = await service.getFileUrls(['file-1', 'borrado']);
+
+      expect(result).toEqual({
+        'file-1': 'https://s3.example.com/dev/payment/a/one.pdf',
+      });
+      expect(result['borrado']).toBeUndefined();
+    });
+
+    it('should short-circuit without querying when the id list is empty', async () => {
+      const result = await service.getFileUrls([]);
+
+      expect(result).toEqual({});
+      expect(mockStorageRepository.findManyByIds).not.toHaveBeenCalled();
+    });
+
+    it('should forward expiresIn to the signer', async () => {
+      mockStorageRepository.findManyByIds.mockResolvedValue([
+        { id: 'file-1', s3Key: 'dev/payment/a/one.pdf' },
+      ]);
+
+      await service.getFileUrls(['file-1'], 604800);
+
+      expect(mockStorageS3Service.getSignedUrl).toHaveBeenCalledWith(
+        'dev/payment/a/one.pdf',
+        604800,
       );
     });
   });

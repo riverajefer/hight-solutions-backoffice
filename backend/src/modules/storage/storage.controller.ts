@@ -11,6 +11,8 @@ import {
   Query,
   ParseIntPipe,
   Res,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { Response } from 'express';
 import fetch from 'node-fetch';
@@ -26,7 +28,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { StorageService } from './storage.service';
-import { UploadFileDto, FileResponseDto } from './dto';
+import { UploadFileDto, FileResponseDto, BatchSignedUrlsDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards';
 import { PermissionsGuard } from '../../common/guards';
 import { RequirePermissions, CurrentUser } from '../../common/decorators';
@@ -99,6 +101,38 @@ export class StorageController {
       entityId: dto.entityId,
       userId: user.sub,
     });
+  }
+
+  /**
+   * POST /api/v1/storage/signed-urls
+   * Get signed URLs for many files in a single request
+   * Requiere permiso: read_files
+   *
+   * Es POST y no GET porque la lista de ids desborda el límite de longitud de
+   * una URL. No muta nada, así que responde 200 en vez del 201 por defecto.
+   */
+  @Post('signed-urls')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions('read_files')
+  @ApiOperation({
+    summary: 'Obtener URLs firmadas de varios archivos en un solo request',
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Mapa de id de archivo a URL firmada. Los ids inexistentes o ' +
+      'eliminados se omiten del resultado.',
+    schema: {
+      type: 'object',
+      additionalProperties: { type: 'string' },
+      example: {
+        '3f6c1b6e-6a4a-4a3d-9a2f-1b2c3d4e5f60': 'https://s3.example.com/signed',
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'IDs inválidos' })
+  async getSignedUrls(@Body() dto: BatchSignedUrlsDto) {
+    return this.storageService.getFileUrls(dto.ids, dto.expiresIn);
   }
 
   /**
