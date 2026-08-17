@@ -46,6 +46,7 @@ import {
   explodeOrderItemAreas,
 } from '../utils/orderAreaFlatExportColumns';
 import { ordersApi } from '../../../api/orders.api';
+import { storageApi } from '../../../api/storage.api';
 import {
   formatCurrency,
   formatDate,
@@ -61,6 +62,14 @@ import type {
 } from '../../../types/order.types';
 import type { Client } from '../../../types/client.types';
 import { parseDateFilter, toDateFilterOrUndefined } from '../../../utils/dateFilters';
+
+/**
+ * Vigencia de los enlaces al soporte de pago dentro del Excel: 7 días, que es el
+ * tope de una URL prefirmada con SigV4. Pasado ese plazo los links dejan de
+ * abrir — el archivo es un instrumento de conciliación puntual, no un archivo
+ * permanente.
+ */
+const RECEIPT_URL_EXPIRATION_SECONDS = 604800;
 
 // Estados que se consideran "finalizados" — no se alertan aunque la fecha esté vencida
 const CLOSED_STATUSES: OrderStatus[] = [
@@ -822,7 +831,7 @@ export const OrdersListPage: React.FC = () => {
             },
           ]}
           defaultDateField='order'
-          helperText='Se respetan los filtros activos de la pantalla (estado, cliente, asesor, área y búsqueda). «Por fecha de pago» trae las órdenes con abonos en el rango, aunque la orden sea anterior, y la hoja «Pagos» solo incluye esos abonos.'
+          helperText='Se respetan los filtros activos de la pantalla (estado, cliente, asesor, área y búsqueda). «Por fecha de pago» trae las órdenes con abonos en el rango, aunque la orden sea anterior, y la hoja «Pagos» solo incluye esos abonos. Esa hoja trae una fila por abono con «Registrado por», «¿En Caja?» (filtrar por «No» aísla los pagos que nunca llegaron al historial de caja), «Recibo Caja» y un enlace al soporte válido por 7 días.'
           defaultDateFrom={
             parseDateFilter(filters.orderDateFrom)
           }
@@ -846,7 +855,43 @@ export const OrdersListPage: React.FC = () => {
               page: 1,
               limit: EXPORT_LIMIT,
             });
-            return response.data ?? [];
+            const orders = response.data ?? [];
+
+            // La hoja «Pagos» enlaza el soporte de cada abono. Las URLs se piden
+            // en UN solo request (no una por pago) y se adjuntan al pago para
+            // que `explodeOrderPayments` siga siendo síncrono.
+            const receiptFileIds = [
+              ...new Set(
+                orders
+                  .flatMap((order) => order.payments ?? [])
+                  .map((payment) => payment.receiptFileId)
+                  .filter((id): id is string => Boolean(id)),
+              ),
+            ];
+
+            if (receiptFileIds.length === 0) return orders;
+
+            let receiptUrls: Record<string, string> = {};
+            try {
+              receiptUrls = await storageApi.getSignedUrls(
+                receiptFileIds,
+                RECEIPT_URL_EXPIRATION_SECONDS,
+              );
+            } catch {
+              // Si falla la firma, el Excel sale igual: la columna «Soporte»
+              // dirá "No disponible" en vez de abortar toda la exportación.
+              return orders;
+            }
+
+            return orders.map((order) => ({
+              ...order,
+              payments: (order.payments ?? []).map((payment) => ({
+                ...payment,
+                receiptUrl: payment.receiptFileId
+                  ? receiptUrls[payment.receiptFileId]
+                  : undefined,
+              })),
+            }));
           }}
           detailSheets={[
             {
@@ -864,7 +909,7 @@ export const OrdersListPage: React.FC = () => {
               columns: ORDER_PAYMENT_EXPORT_COLUMNS,
               explode: explodeOrderPayments,
               storageKey: 'orders_export_include_payments',
-              defaultChecked: false,
+              defaultChecked: true,
             },
             {
               toggleLabel:

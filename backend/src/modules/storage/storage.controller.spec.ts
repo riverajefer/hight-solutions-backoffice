@@ -10,6 +10,7 @@ const mockStorageService = {
   uploadFile: jest.fn(),
   getFile: jest.fn(),
   getFileUrl: jest.fn(),
+  getFileUrls: jest.fn(),
   getFilesByEntity: jest.fn(),
   getFilesByUser: jest.fn(),
   deleteFile: jest.fn(),
@@ -131,6 +132,40 @@ describe('StorageController', () => {
       await controller.getFileUrl('file-1', 900);
 
       expect(mockStorageService.getFileUrl).toHaveBeenCalledWith('file-1', 900);
+    });
+  });
+
+  // ─────────────────────────────────────────
+  // getSignedUrls (batch)
+  // ─────────────────────────────────────────
+  describe('getSignedUrls', () => {
+    it('should return the id -> url map as-is', async () => {
+      const urls = {
+        'file-1': 'https://s3.example.com/one',
+        'file-2': 'https://s3.example.com/two',
+      };
+      mockStorageService.getFileUrls.mockResolvedValue(urls);
+
+      const result = await controller.getSignedUrls({
+        ids: ['file-1', 'file-2'],
+      });
+
+      expect(mockStorageService.getFileUrls).toHaveBeenCalledWith(
+        ['file-1', 'file-2'],
+        undefined,
+      );
+      expect(result).toEqual(urls);
+    });
+
+    it('should forward expiresIn to the service', async () => {
+      mockStorageService.getFileUrls.mockResolvedValue({});
+
+      await controller.getSignedUrls({ ids: ['file-1'], expiresIn: 604800 });
+
+      expect(mockStorageService.getFileUrls).toHaveBeenCalledWith(
+        ['file-1'],
+        604800,
+      );
     });
   });
 

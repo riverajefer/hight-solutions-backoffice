@@ -195,6 +195,16 @@ export class OrdersRepository {
             lastName: true,
           },
         },
+        // Un pago solo genera movimiento de caja si había una sesión ABIERTA al
+        // registrarlo; si no, `cashMovementId` queda null para siempre y el abono
+        // nunca aparece en el historial de caja. Exponerlo permite que la
+        // exportación marque esos pagos huérfanos para la conciliación bancaria.
+        cashMovement: {
+          select: {
+            receiptNumber: true,
+            isVoided: true,
+          },
+        },
       },
       orderBy: { paymentDate: 'desc' as const },
     },
@@ -582,6 +592,14 @@ export class OrdersRepository {
             email: true,
             firstName: true,
             lastName: true,
+          },
+        },
+        // Mismo shape que `ORDER_INCLUDE.payments` para que el tipo `Payment`
+        // del frontend valga igual en el listado y en el detalle.
+        cashMovement: {
+          select: {
+            receiptNumber: true,
+            isVoided: true,
           },
         },
       },

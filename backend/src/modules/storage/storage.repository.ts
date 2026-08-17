@@ -34,6 +34,20 @@ export class StorageRepository {
   }
 
   /**
+   * Find several files by ID, skipping the deleted ones.
+   * Los ids inexistentes o borrados simplemente no vienen en el resultado.
+   */
+  async findManyByIds(ids: string[]) {
+    return this.prisma.uploadedFile.findMany({
+      where: {
+        id: { in: ids },
+        isDeleted: false,
+      },
+      select: { id: true, s3Key: true },
+    });
+  }
+
+  /**
    * Find files by entity type and ID
    */
   async findByEntity(entityType: string, entityId: string) {
