@@ -24,6 +24,7 @@ const makePayment = (overrides: Partial<Payment> = {}): Payment =>
       firstName: 'Caja',
       lastName: 'Uno',
     },
+    cashMovement: null,
     ...overrides,
   }) as Payment;
 
@@ -217,5 +218,118 @@ describe('ORDER_PAYMENT_EXPORT_COLUMNS', () => {
       valueOf('reference', r),
     );
     expect(refs).toEqual(['REC-001', 'REC-002']);
+  });
+
+  describe('columna «Registrado por»', () => {
+    it('muestra el nombre completo de quien cargó el abono', () => {
+      expect(valueOf('receivedBy', row)).toBe('Caja Uno');
+    });
+
+    it('cae al email cuando el usuario no tiene nombres cargados', () => {
+      const sinNombre: OrderPaymentRow = {
+        ...row,
+        payment: makePayment({
+          receivedBy: {
+            id: 'user-2',
+            email: 'comercial@example.com',
+            firstName: null,
+            lastName: null,
+          },
+        }),
+      };
+      expect(valueOf('receivedBy', sinNombre)).toBe('comercial@example.com');
+    });
+
+    it('no deja espacios sueltos cuando solo hay uno de los dos nombres', () => {
+      const soloNombre: OrderPaymentRow = {
+        ...row,
+        payment: makePayment({
+          receivedBy: {
+            id: 'user-3',
+            email: 'ana@example.com',
+            firstName: 'Ana',
+            lastName: null,
+          },
+        }),
+      };
+      expect(valueOf('receivedBy', soloNombre)).toBe('Ana');
+    });
+  });
+
+  describe('columna «¿En Caja?»', () => {
+    it('dice "No" cuando el abono nunca generó movimiento de caja', () => {
+      // Es el caso que motiva el reporte: se registró sin sesión de caja
+      // abierta, así que no aparece en el historial de caja.
+      expect(valueOf('inCashRegister', row)).toBe('No');
+      expect(valueOf('cashReceiptNumber', row)).toBe('');
+    });
+
+    it('dice "Sí" y expone el recibo cuando sí llegó a caja', () => {
+      const enCaja: OrderPaymentRow = {
+        ...row,
+        payment: makePayment({
+          cashMovement: { receiptNumber: 'RC-000123', isVoided: false },
+        }),
+      };
+      expect(valueOf('inCashRegister', enCaja)).toBe('Sí');
+      expect(valueOf('cashReceiptNumber', enCaja)).toBe('RC-000123');
+    });
+
+    it('reporta el saldo a favor como "No aplica", no como huérfano', () => {
+      // No genera movimiento de caja por diseño: ese dinero ya entró cuando el
+      // cliente sobrepagó la orden de origen. Contarlo como "No" metería falsos
+      // positivos justo en el filtro que usa el cliente para conciliar.
+      const saldoAFavor: OrderPaymentRow = {
+        ...row,
+        payment: makePayment({
+          paymentMethod: 'CREDIT_BALANCE',
+          cashMovement: null,
+        }),
+      };
+      expect(valueOf('inCashRegister', saldoAFavor)).toBe('No aplica');
+    });
+
+    it('distingue el movimiento anulado de la ausencia de movimiento', () => {
+      const anulado: OrderPaymentRow = {
+        ...row,
+        payment: makePayment({
+          cashMovement: { receiptNumber: 'RC-000124', isVoided: true },
+        }),
+      };
+      expect(valueOf('inCashRegister', anulado)).toBe('Anulado');
+      expect(valueOf('cashReceiptNumber', anulado)).toBe('RC-000124');
+    });
+  });
+
+  describe('columna «Soporte»', () => {
+    const soporte = () => column('receipt');
+
+    it('enlaza la URL prefirmada cuando el abono tiene comprobante', () => {
+      const conSoporte: OrderPaymentRow = {
+        ...row,
+        payment: makePayment({
+          receiptFileId: 'file-1',
+          receiptUrl: 'https://s3.example.com/signed?sig=abc',
+        }),
+      };
+      expect(valueOf('receipt', conSoporte)).toBe('Ver soporte');
+      expect(soporte().hyperlink?.(conSoporte)).toBe(
+        'https://s3.example.com/signed?sig=abc',
+      );
+    });
+
+    it('no enlaza nada cuando el abono no tiene comprobante', () => {
+      expect(valueOf('receipt', row)).toBe('Sin soporte');
+      expect(soporte().hyperlink?.(row)).toBeUndefined();
+    });
+
+    it('avisa cuando hay comprobante pero no se pudo firmar la URL', () => {
+      const sinFirmar: OrderPaymentRow = {
+        ...row,
+        payment: makePayment({ receiptFileId: 'file-borrado' }),
+      };
+      expect(valueOf('receipt', sinFirmar)).toBe('No disponible');
+      expect(soporte().hyperlink?.(sinFirmar)).toBeUndefined();
+    });
   });
 });

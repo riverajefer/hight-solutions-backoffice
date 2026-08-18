@@ -18,6 +18,7 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CashSessionService } from './cash-session.service';
+import { PendingCashEntriesService } from './pending-cash-entries.service';
 import {
   CloseCashSessionDto,
   FilterCashSessionsDto,
@@ -29,13 +30,44 @@ import {
 @Controller('cash-sessions')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class CashSessionController {
-  constructor(private readonly service: CashSessionService) {}
+  constructor(
+    private readonly service: CashSessionService,
+    private readonly pendingCashEntriesService: PendingCashEntriesService,
+  ) {}
 
   @Get()
   @RequirePermissions('read_cash_sessions')
   @ApiOperation({ summary: 'Listar sesiones de caja con filtros' })
   findAll(@Query() filters: FilterCashSessionsDto) {
     return this.service.findAll(filters);
+  }
+
+  // Sin `@RequirePermissions` a propósito: basta con estar autenticado. Lo
+  // consultan las comerciales, que no tienen `read_cash_sessions`, y la
+  // respuesta es un booleano sin datos de caja.
+  @Get('is-open')
+  @ApiOperation({
+    summary: '¿Hay una sesión de caja abierta ahora?',
+    description:
+      'Booleano sin datos sensibles. Lo usa el formulario de OP para avisar ' +
+      'que el abono quedará en cola si la caja está cerrada.',
+  })
+  isCashOpen() {
+    return this.pendingCashEntriesService.isAnySessionOpen();
+  }
+
+  // Debe declararse ANTES de `@Get(':id')`: si no, la ruta de un solo segmento
+  // se la come el parámetro y nunca llega aquí.
+  @Get('pending-entries')
+  @RequirePermissions('read_cash_sessions')
+  @ApiOperation({
+    summary: 'Abonos registrados sin caja abierta, en espera de ingresar',
+    description:
+      'Entran automáticamente al arqueo al abrir la próxima sesión de caja. ' +
+      'Sirve para saber, antes de abrir, cuánto va a ingresar de arrastre.',
+  })
+  getPendingEntries() {
+    return this.pendingCashEntriesService.getPendingSummary();
   }
 
   @Get(':id')

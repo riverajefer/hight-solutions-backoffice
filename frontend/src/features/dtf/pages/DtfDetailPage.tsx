@@ -16,6 +16,7 @@ import {
   Typography,
   CircularProgress,
   Alert,
+  AlertTitle,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
@@ -34,6 +35,7 @@ import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
 import { PATHS } from '../../../router/paths';
 import { formatCurrency, formatDate } from '../../../utils/formatters';
+import { useIsCashOpen } from '../../cash-register/hooks/useCashRegister';
 import { useSnackbar } from 'notistack';
 import axiosInstance from '../../../api/axios';
 import type { DtfStatus, DtfPaymentMethod } from '../../../types/dtf.types';
@@ -79,6 +81,8 @@ export const DtfDetailPage = () => {
   const { enqueueSnackbar } = useSnackbar();
   const { changeStatus, convertToOrder } = useDtfMutations();
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
+  // El abono de la DTF entra a caja al convertir; si está cerrada, va a la cola.
+  const { data: isCashOpen } = useIsCashOpen();
 
   const detailQuery = useDtfDetail(id!);
   const filesQuery = useDtfFiles(id!);
@@ -623,6 +627,18 @@ export const DtfDetailPage = () => {
             ¿Desea convertir el registro <strong>{record.consecutive}</strong> en una Orden de
             Pedido? Se creará una OP con el cliente y el producto correspondiente.
           </Typography>
+
+          {/* El abono de la DTF se convierte en pago de la OP recién aquí, no
+              al capturarlo. Si la caja está cerrada queda en cola, y quien
+              convierte tiene que saberlo. */}
+          {Number(record.abono ?? 0) > 0 && isCashOpen?.isOpen === false && (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              <AlertTitle>La caja está cerrada en este momento</AlertTitle>
+              El abono de {formatCurrency(Number(record.abono))} se registra igual
+              y queda en espera. Entrará al arqueo automáticamente cuando se abra
+              la próxima caja.
+            </Alert>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConvertDialogOpen(false)}>Cancelar</Button>

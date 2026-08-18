@@ -27,6 +27,7 @@ import DenominationForm, {
   buildInitialRows,
   toDenominationDtoList,
 } from '../components/DenominationForm';
+import PendingCashEntriesPanel from '../components/PendingCashEntriesPanel';
 import { PATHS } from '../../../router/paths';
 import { useAuthStore } from '../../../store/authStore';
 import { authApi } from '../../../api/auth.api';
@@ -135,6 +136,11 @@ const OpenSessionPage: React.FC = () => {
       />
 
       <Stack spacing={3}>
+        {/* Arrastre: abonos cobrados sin caja abierta que van a entrar solos
+            al abrir. Va arriba de todo para que se vea antes de contar el
+            fondo, no después de abrir. */}
+        <PendingCashEntriesPanel />
+
         {/* Password verification step */}
         <Card>
           <CardContent>

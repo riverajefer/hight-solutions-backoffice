@@ -119,6 +119,41 @@ export class StorageService {
   }
 
   /**
+   * Get signed URLs for many files at once.
+   *
+   * Devuelve un mapa `fileId -> url`. Los ids inexistentes o borrados se omiten
+   * en vez de lanzar: quien exporta cientos de comprobantes no puede perder el
+   * archivo entero porque uno se haya eliminado.
+   *
+   * Firmar no golpea S3 (es HMAC local), así que el lote no agrega latencia de
+   * red por archivo; el único costo es la consulta única a la base.
+   */
+  async getFileUrls(
+    fileIds: string[],
+    expiresIn?: number,
+  ): Promise<Record<string, string>> {
+    const uniqueIds = [...new Set(fileIds)];
+
+    if (uniqueIds.length === 0) {
+      return {};
+    }
+
+    const files = await this.storageRepository.findManyByIds(uniqueIds);
+
+    const entries = await Promise.all(
+      files.map(async (file) => {
+        const url = await this.storageS3Service.getSignedUrl(
+          file.s3Key,
+          expiresIn,
+        );
+        return [file.id, url] as const;
+      }),
+    );
+
+    return Object.fromEntries(entries);
+  }
+
+  /**
    * Get files by entity
    */
   async getFilesByEntity(entityType: string, entityId: string) {

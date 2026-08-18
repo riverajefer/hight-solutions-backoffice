@@ -15,6 +15,25 @@ export const storageApi = {
   },
 
   /**
+   * Obtener las URLs firmadas de varios archivos en un solo request.
+   *
+   * Pensado para exportaciones que enlazan cientos de comprobantes: pedirlas de
+   * a una sería un request HTTP por archivo. Devuelve un mapa `id -> url`; los
+   * ids inexistentes o eliminados simplemente no aparecen en el resultado.
+   */
+  getSignedUrls: async (
+    ids: string[],
+    expiresIn?: number
+  ): Promise<Record<string, string>> => {
+    if (ids.length === 0) return {};
+    const { data } = await axiosInstance.post<Record<string, string>>(
+      `${BASE_URL}/signed-urls`,
+      { ids, expiresIn }
+    );
+    return data;
+  },
+
+  /**
    * Obtener metadata de un archivo
    */
   getFile: async (fileId: string): Promise<any> => {

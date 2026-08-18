@@ -18,6 +18,15 @@ export interface ExportColumn<T> {
   numeric?: boolean;
   /** Obtiene el valor de la celda para una fila. */
   getValue: (row: T) => string | number;
+  /**
+   * URL a la que enlaza la celda, si aplica. Cuando devuelve un valor, la celda
+   * queda como hipervínculo clicable y `getValue` pasa a ser solo el texto
+   * visible (ej. «Ver soporte»); si devuelve `undefined`, la celda es normal.
+   *
+   * Sin esto, una URL prefirmada —que son cientos de caracteres— queda como
+   * texto plano ilegible y sin enlazar.
+   */
+  hyperlink?: (row: T) => string | undefined;
 }
 
 /**
@@ -86,6 +95,25 @@ function buildSheet<R>(rows: R[], columns: ExportColumn<R>[]): XLSX.WorkSheet {
   const ws = XLSX.utils.aoa_to_sheet([headers, ...sheetRows]);
   // Ancho de columnas aproximado según el encabezado
   ws['!cols'] = columns.map((c) => ({ wch: Math.max(12, c.label.length + 2) }));
+
+  // Hipervínculos: se aplican después de construir la hoja porque `aoa_to_sheet`
+  // solo acepta valores planos. La fila 0 es el encabezado, así que los datos
+  // arrancan en r = 1. Las celdas vacías no las crea `aoa_to_sheet`: se saltan.
+  columns.forEach((column, colIdx) => {
+    if (!column.hyperlink) return;
+
+    rows.forEach((row, rowIdx) => {
+      const target = column.hyperlink!(row);
+      if (!target) return;
+
+      const ref = XLSX.utils.encode_cell({ r: rowIdx + 1, c: colIdx });
+      const cell = ws[ref];
+      if (!cell) return;
+
+      cell.l = { Target: target, Tooltip: column.label };
+    });
+  });
+
   return ws;
 }
 

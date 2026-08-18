@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import {
   Alert,
+  AlertTitle,
   Box,
   Card,
   CardContent,
@@ -103,6 +104,7 @@ import { ActivePermissionBanner } from '../components/ActivePermissionBanner';
 import { RequestEditPermissionButton } from '../components/RequestEditPermissionButton';
 import { RequestAdvisorChangeButton } from '../components/RequestAdvisorChangeButton';
 import { AdvisorChangeStatusAlert } from '../components/AdvisorChangeStatusAlert';
+import { useIsCashOpen } from '../../cash-register/hooks/useCashRegister';
 import { EditRequestsList } from '../components/EditRequestsList';
 import { AdvancePaymentApprovalBadge } from '../components/AdvancePaymentApprovalBadge';
 import { StatusChangeAuthRequestDialog } from '../components/StatusChangeAuthRequestDialog';
@@ -226,6 +228,8 @@ export const OrderDetailPage: React.FC = () => {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  // Define si un abono nuevo entra directo al arqueo o queda en cola.
+  const { data: isCashOpen } = useIsCashOpen();
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [discountDialogOpen, setDiscountDialogOpen] = useState(false);
   const [refundDialogOpen, setRefundDialogOpen] = useState(false);
@@ -2917,6 +2921,17 @@ export const OrderDetailPage: React.FC = () => {
         </DialogTitle>
         <DialogContent onPaste={handleReceiptPaste}>
           <Stack spacing={3} sx={{ mt: 2 }}>
+            {/* Solo al registrar: un abono nuevo sin caja abierta queda en cola
+                en vez de entrar al arqueo. Al editar no aplica, porque el
+                movimiento ya existe y se sincroniza solo. */}
+            {!editingPaymentId && isCashOpen?.isOpen === false && (
+              <Alert severity='warning'>
+                <AlertTitle>La caja está cerrada en este momento</AlertTitle>
+                El abono se registra igual y queda en espera. Entrará al arqueo
+                automáticamente cuando se abra la próxima caja.
+              </Alert>
+            )}
+
             <TextField
               fullWidth
               label='Monto'

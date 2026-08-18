@@ -51,6 +51,7 @@ const mockConsecutivesService = {
 
 const mockAuditLogsService = {
   logOrderChange: jest.fn(),
+  logUpdate: jest.fn().mockResolvedValue(undefined),
 };
 
 const mockStorageService = {
@@ -139,6 +140,8 @@ const mockPrisma = {
   cashMovement: {
     updateMany: jest.fn(),
     create: jest.fn(),
+    update: jest.fn(),
+    findUnique: jest.fn(),
   },
 };
 
@@ -921,6 +924,153 @@ describe('OrdersService', () => {
           data: expect.objectContaining({ orderId: 'order-1' }),
         }),
       );
+    });
+
+    // Esta rama no tocaba caja: un abono agregado al editar la OP nacía
+    // huérfano y editar el monto de uno ya ingresado dejaba el movimiento
+    // con la cifra vieja, descuadrando el arqueo.
+    describe('sincronización con caja', () => {
+      beforeEach(() => {
+        mockPrisma.orderItem.findMany.mockResolvedValue([]);
+        mockConsecutivesService.generateNumber.mockResolvedValue('RC-2026-0001');
+        mockPrisma.cashMovement.create.mockResolvedValue({ id: 'mov-new' });
+      });
+
+      it('genera movimiento de caja para un abono nuevo si hay caja abierta', async () => {
+        mockPrisma.payment.findFirst.mockResolvedValue(null);
+        mockPrisma.payment.create.mockResolvedValue({ id: 'pay-new' });
+        mockPrisma.cashSession.findFirst.mockResolvedValue({ id: 'session-1' });
+
+        await service.update(
+          'order-1',
+          { items: [], initialPayment: { amount: 60, paymentMethod: PaymentMethod.TRANSFER } },
+          'user-1',
+        );
+
+        expect(mockPrisma.cashMovement.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              cashSessionId: 'session-1',
+              movementType: 'INCOME',
+              referenceType: 'ORDER',
+              referenceId: 'order-1',
+              paymentMethod: PaymentMethod.TRANSFER,
+            }),
+          }),
+        );
+        expect(mockPrisma.payment.update).toHaveBeenCalledWith({
+          where: { id: 'pay-new' },
+          data: { cashMovementId: 'mov-new' },
+        });
+      });
+
+      it('sin caja abierta no genera movimiento, pero deja el abono en cola', async () => {
+        mockPrisma.payment.findFirst.mockResolvedValue(null);
+        mockPrisma.payment.create.mockResolvedValue({ id: 'pay-new' });
+        mockPrisma.cashSession.findFirst.mockResolvedValue(null);
+
+        await service.update(
+          'order-1',
+          { items: [], initialPayment: { amount: 60, paymentMethod: PaymentMethod.CASH } },
+          'user-1',
+        );
+
+        expect(mockPrisma.cashMovement.create).not.toHaveBeenCalled();
+        // No se pierde: entra al arqueo al abrir la próxima sesión.
+        expect(mockPrisma.payment.update).toHaveBeenCalledWith({
+          where: { id: 'pay-new' },
+          data: { pendingCashEntry: true },
+        });
+      });
+
+      it('no genera movimiento para saldo a favor (ya entró a caja en la OP de origen)', async () => {
+        mockPrisma.payment.findFirst.mockResolvedValue(null);
+        mockPrisma.payment.create.mockResolvedValue({ id: 'pay-new' });
+        mockPrisma.cashSession.findFirst.mockResolvedValue({ id: 'session-1' });
+
+        await service.update(
+          'order-1',
+          {
+            items: [],
+            initialPayment: { amount: 60, paymentMethod: PaymentMethod.CREDIT_BALANCE },
+          },
+          'user-1',
+        );
+
+        expect(mockPrisma.cashMovement.create).not.toHaveBeenCalled();
+      });
+
+      it('sincroniza el movimiento cuando cambia el monto de un abono ya ingresado', async () => {
+        mockPrisma.payment.findFirst.mockResolvedValue({
+          id: 'pay-1',
+          cashMovementId: 'mov-1',
+        });
+        mockPrisma.payment.update.mockResolvedValue({ id: 'pay-1' });
+
+        await service.update(
+          'order-1',
+          { items: [], initialPayment: { amount: 999, paymentMethod: PaymentMethod.CASH } },
+          'user-1',
+        );
+
+        expect(mockPrisma.cashMovement.update).toHaveBeenCalledWith({
+          where: { id: 'mov-1' },
+          data: {
+            amount: new Prisma.Decimal(999),
+            paymentMethod: PaymentMethod.CASH,
+          },
+        });
+      });
+
+      it('anula el movimiento si el abono pasa a saldo a favor', async () => {
+        mockPrisma.payment.findFirst.mockResolvedValue({
+          id: 'pay-1',
+          cashMovementId: 'mov-1',
+        });
+        mockPrisma.payment.update.mockResolvedValue({ id: 'pay-1' });
+
+        await service.update(
+          'order-1',
+          {
+            items: [],
+            initialPayment: { amount: 60, paymentMethod: PaymentMethod.CREDIT_BALANCE },
+          },
+          'user-1',
+        );
+
+        expect(mockPrisma.cashMovement.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { id: 'mov-1' },
+            data: expect.objectContaining({
+              isVoided: true,
+              voidedById: 'user-1',
+            }),
+          }),
+        );
+        // El vínculo se suelta para que el pago no siga apuntando a un
+        // movimiento anulado.
+        expect(mockPrisma.payment.update).toHaveBeenCalledWith({
+          where: { id: 'pay-1' },
+          data: { cashMovementId: null },
+        });
+      });
+
+      it('no toca caja cuando el abono editado nunca estuvo en caja', async () => {
+        mockPrisma.payment.findFirst.mockResolvedValue({
+          id: 'pay-1',
+          cashMovementId: null,
+        });
+        mockPrisma.payment.update.mockResolvedValue({ id: 'pay-1' });
+
+        await service.update(
+          'order-1',
+          { items: [], initialPayment: { amount: 60, paymentMethod: PaymentMethod.CASH } },
+          'user-1',
+        );
+
+        expect(mockPrisma.cashMovement.update).not.toHaveBeenCalled();
+        expect(mockPrisma.cashMovement.create).not.toHaveBeenCalled();
+      });
     });
 
     it('should record delivery date change data inside the transaction when date changes', async () => {
@@ -1837,6 +1987,52 @@ describe('OrdersService', () => {
       mockPrisma.cashSession.findFirst.mockResolvedValue(null);
     });
 
+    // Cola de pendientes: un abono cobrado fuera del horario de caja no puede
+    // perderse ni frenar a la comercial.
+    describe('cola de pendientes de caja', () => {
+      it('marca el abono como pendiente cuando no hay caja abierta', async () => {
+        mockPrisma.cashSession.findFirst.mockResolvedValue(null);
+
+        await service.addPayment('order-1', paymentDto, 'user-1');
+
+        expect(mockPrisma.payment.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({ pendingCashEntry: true }),
+          }),
+        );
+      });
+
+      it('NO lo marca pendiente si hay caja abierta (ya generó movimiento)', async () => {
+        mockPrisma.cashSession.findFirst.mockResolvedValue({ id: 'session-1' });
+        mockPrisma.cashMovement.create.mockResolvedValue({ id: 'mov-1' });
+        mockConsecutivesService.generateNumber.mockResolvedValue('RC-2026-0001');
+
+        await service.addPayment('order-1', paymentDto, 'user-1');
+
+        expect(mockPrisma.payment.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({ pendingCashEntry: false }),
+          }),
+        );
+      });
+
+      it('NO encola el saldo a favor: ese dinero ya entró en la OP de origen', async () => {
+        mockPrisma.cashSession.findFirst.mockResolvedValue(null);
+
+        await service.addPayment(
+          'order-1',
+          { amount: 50, paymentMethod: PaymentMethod.CREDIT_BALANCE },
+          'user-1',
+        );
+
+        expect(mockPrisma.payment.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({ pendingCashEntry: false }),
+          }),
+        );
+      });
+    });
+
     it('should throw NotFoundException when order does not exist', async () => {
       mockOrdersRepository.findById.mockResolvedValue(null);
 
@@ -2331,6 +2527,96 @@ describe('OrdersService', () => {
         (c: any) => c[0].data.paidAmount !== undefined,
       )[0];
       expect(Number(orderUpdate.data.paidAmount.toString())).toBe(107000);
+    });
+
+    // Editar un pago cuyo movimiento vive en una sesión CERRADA altera un
+    // arqueo ya firmado (`systemBalance` quedó congelado al cerrar). Se permite
+    // —corregir un monto mal digitado no puede quedar bloqueado para siempre—
+    // pero no puede ser silencioso.
+    describe('edición sobre una sesión de caja cerrada', () => {
+      const setupEdit = (sessionStatus: 'OPEN' | 'CLOSED', newAmount = 45000) => {
+        mockPaymentEditApprovalsService.requiresApproval.mockResolvedValue({
+          required: false,
+        });
+        mockPrisma.$transaction.mockImplementation((fn: any) => fn(mockPrisma));
+        mockPrisma.payment.update.mockResolvedValue({
+          id: 'pay-1',
+          amount: new Prisma.Decimal(newAmount),
+          paymentMethod: 'CASH',
+          cashMovementId: 'mov-1',
+        });
+        mockPrisma.cashMovement.findUnique.mockResolvedValue({
+          id: 'mov-1',
+          amount: new Prisma.Decimal(30000),
+          paymentMethod: 'TRANSFER',
+          description: 'Abono a Orden OP-2026-0001',
+          cashSession: { id: 'session-1', status: sessionStatus },
+        });
+        mockPrisma.payment.findMany.mockResolvedValue([
+          { amount: new Prisma.Decimal(newAmount) },
+        ]);
+        mockPrisma.payment.findUnique.mockResolvedValue({ id: 'pay-1' });
+      };
+
+      it('no bloquea la edición: el movimiento se actualiza igual', async () => {
+        setupEdit('CLOSED');
+
+        await service.updatePayment('order-1', 'pay-1', { amount: 45000 }, 'user-1');
+
+        const call = mockPrisma.cashMovement.update.mock.calls[0][0];
+        expect(call.where).toEqual({ id: 'mov-1' });
+        expect(Number(call.data.amount.toString())).toBe(45000);
+      });
+
+      it('anota el cambio en la descripción, que es lo que se ve en el arqueo', async () => {
+        setupEdit('CLOSED');
+
+        await service.updatePayment('order-1', 'pay-1', { amount: 45000 }, 'user-1');
+
+        const { description } = mockPrisma.cashMovement.update.mock.calls[0][0].data;
+        expect(description).toContain('Abono a Orden OP-2026-0001');
+        expect(description).toContain('tras el cierre');
+        expect(description).toContain('30000');
+        expect(description).toContain('45000');
+      });
+
+      it('deja registro en el audit log marcando que el arqueo se alteró', async () => {
+        setupEdit('CLOSED');
+
+        await service.updatePayment('order-1', 'pay-1', { amount: 45000 }, 'user-1');
+
+        expect(mockAuditLogsService.logUpdate).toHaveBeenCalledWith(
+          'CashMovement',
+          'mov-1',
+          expect.objectContaining({ amount: '30000' }),
+          expect.objectContaining({
+            amount: '45000',
+            editedAfterSessionClose: true,
+            cashSessionId: 'session-1',
+          }),
+          'user-1',
+        );
+      });
+
+      it('con la sesión ABIERTA no ensucia la descripción ni audita nada extra', async () => {
+        setupEdit('OPEN');
+
+        await service.updatePayment('order-1', 'pay-1', { amount: 45000 }, 'user-1');
+
+        const { data } = mockPrisma.cashMovement.update.mock.calls[0][0];
+        expect(data.description).toBeUndefined();
+        expect(mockAuditLogsService.logUpdate).not.toHaveBeenCalled();
+      });
+
+      it('no anota nada si el monto no cambió, aunque la sesión esté cerrada', async () => {
+        // Editar solo las notas o la referencia no descuadra ningún arqueo.
+        setupEdit('CLOSED', 30000);
+
+        await service.updatePayment('order-1', 'pay-1', { notes: 'otra nota' }, 'user-1');
+
+        const { data } = mockPrisma.cashMovement.update.mock.calls[0][0];
+        expect(data.description).toBeUndefined();
+      });
     });
 
     it('throws NotFound when the payment does not belong to the order', async () => {

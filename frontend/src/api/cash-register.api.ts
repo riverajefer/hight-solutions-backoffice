@@ -1,5 +1,6 @@
 import axiosInstance from './axios';
 import type {
+  PendingCashEntriesSummary,
   CashRegister,
   CashSession,
   CashMovement,
@@ -80,6 +81,28 @@ export const cashRegisterApi = {
   }> => {
     const { data } = await axiosInstance.get(
       `/cash-sessions/last-closing/${cashRegisterId}`,
+    );
+    return data;
+  },
+
+  /**
+   * ¿Hay caja abierta ahora? Booleano sin datos sensibles: lo consultan las
+   * comerciales desde el formulario de OP, que no tienen permiso sobre caja.
+   */
+  isCashOpen: async (): Promise<{ isOpen: boolean }> => {
+    const { data } = await axiosInstance.get<{ isOpen: boolean }>(
+      '/cash-sessions/is-open',
+    );
+    return data;
+  },
+
+  /**
+   * Abonos cobrados sin caja abierta que están esperando entrar al arqueo.
+   * Se consulta antes de abrir para saber cuánto va a ingresar de arrastre.
+   */
+  getPendingCashEntries: async (): Promise<PendingCashEntriesSummary> => {
+    const { data } = await axiosInstance.get<PendingCashEntriesSummary>(
+      '/cash-sessions/pending-entries',
     );
     return data;
   },

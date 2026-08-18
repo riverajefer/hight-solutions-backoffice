@@ -192,6 +192,20 @@ export interface Payment {
     firstName: string | null;
     lastName: string | null;
   };
+  /**
+   * Movimiento de caja asociado. Es `null` cuando el abono se registró sin una
+   * sesión de caja abierta: el pago existe en la OP pero nunca llegó al
+   * historial de caja. La exportación lo marca para la conciliación bancaria.
+   */
+  cashMovement: {
+    receiptNumber: string;
+    isVoided: boolean;
+  } | null;
+  /**
+   * URL prefirmada del comprobante. No viene del backend: la rellena la
+   * exportación a Excel antes de construir la hoja de abonos.
+   */
+  receiptUrl?: string;
 }
 
 export interface OrderDiscount {

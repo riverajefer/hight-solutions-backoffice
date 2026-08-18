@@ -50,6 +50,20 @@ export const explodeOrderPayments = (
     .map((payment) => ({ order, payment }));
 };
 
+/**
+ * Nombre de quien registró el abono. Cae al email cuando el usuario no tiene
+ * nombres cargados: dejar la celda vacía haría inútil justamente la columna que
+ * responde quién cargó qué.
+ */
+const formatReceivedBy = ({ receivedBy }: Payment): string => {
+  if (!receivedBy) return '';
+  const fullName = [receivedBy.firstName, receivedBy.lastName]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+  return fullName || receivedBy.email;
+};
+
 export const ORDER_PAYMENT_EXPORT_COLUMNS: ExportColumn<OrderPaymentRow>[] = [
   {
     key: 'orderNumber',
@@ -111,5 +125,57 @@ export const ORDER_PAYMENT_EXPORT_COLUMNS: ExportColumn<OrderPaymentRow>[] = [
     defaultVisible: true,
     // Solo se diligencia en transferencias; en efectivo queda vacío a propósito.
     getValue: ({ payment }) => payment.bankEntity ?? '',
+  },
+  {
+    // Responde "qué abonos cargó cada comercial", que es el motivo del reporte.
+    key: 'receivedBy',
+    label: 'Registrado por',
+    defaultVisible: true,
+    getValue: ({ payment }) => formatReceivedBy(payment),
+  },
+  {
+    // La columna que explica por qué un abono no aparece en el historial de
+    // caja: si no había sesión abierta al registrarlo, el pago quedó sin
+    // movimiento y nada lo reprocesa después. Filtrar por "No" en Excel aísla
+    // justamente los abonos que no cuadran contra el extracto.
+    //
+    // El saldo a favor se reporta aparte ("No aplica"): tampoco genera
+    // movimiento, pero eso es correcto — ese dinero ya entró a caja cuando el
+    // cliente sobrepagó la orden de origen. Mezclarlo con los huérfanos
+    // ensuciaría el filtro con falsos positivos.
+    key: 'inCashRegister',
+    label: '¿En Caja?',
+    defaultVisible: true,
+    getValue: ({ payment }) => {
+      if (payment.paymentMethod === 'CREDIT_BALANCE') return 'No aplica';
+      if (!payment.cashMovement) return 'No';
+      return payment.cashMovement.isVoided ? 'Anulado' : 'Sí';
+    },
+  },
+  {
+    // Permite cruzar la fila directamente contra el historial de caja.
+    key: 'cashReceiptNumber',
+    label: 'Recibo Caja',
+    defaultVisible: true,
+    getValue: ({ payment }) => payment.cashMovement?.receiptNumber ?? '',
+  },
+  {
+    // El texto es corto a propósito: la URL prefirmada tiene cientos de
+    // caracteres y va en el hipervínculo, no en la celda.
+    key: 'receipt',
+    label: 'Soporte',
+    defaultVisible: true,
+    getValue: ({ payment }) => {
+      if (!payment.receiptFileId) return 'Sin soporte';
+      // El id existe pero no se pudo firmar la URL (archivo borrado del bucket).
+      return payment.receiptUrl ? 'Ver soporte' : 'No disponible';
+    },
+    hyperlink: ({ payment }) => payment.receiptUrl,
+  },
+  {
+    key: 'notes',
+    label: 'Notas',
+    defaultVisible: true,
+    getValue: ({ payment }) => payment.notes ?? '',
   },
 ];

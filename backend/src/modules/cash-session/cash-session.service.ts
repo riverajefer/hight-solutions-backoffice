@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../../database/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { CashSessionRepository } from './cash-session.repository';
+import { PendingCashEntriesService } from './pending-cash-entries.service';
 import {
   CloseCashSessionDto,
   DenominationCountItemDto,
@@ -26,6 +27,7 @@ export class CashSessionService {
     private readonly repository: CashSessionRepository,
     private readonly prisma: PrismaService,
     private readonly auditLogsService: AuditLogsService,
+    private readonly pendingCashEntriesService: PendingCashEntriesService,
   ) {}
 
   async findAll(filters: FilterCashSessionsDto) {
@@ -90,6 +92,10 @@ export class CashSessionService {
             })),
         });
       }
+
+      // Ingresar los abonos que se registraron sin caja abierta. Va dentro de
+      // la misma transacción: si la apertura falla, la cola queda intacta.
+      await this.pendingCashEntriesService.flushInto(tx, created.id, userId);
 
       return created;
     });
