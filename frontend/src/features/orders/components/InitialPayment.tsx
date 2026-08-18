@@ -127,8 +127,11 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
     const updated = values.map((p, i) => {
       if (i !== index) return p;
       const updatedPayment = { ...p, [field]: newValue };
+      // El crédito no registra dinero: el valor del trabajo queda como saldo
+      // pendiente de la OP y se cobra después. Dejar que conserve un monto hacía
+      // que la orden naciera pagada y que el abono real se duplicara.
       if (field === 'paymentMethod' && newValue === 'CREDIT') {
-        updatedPayment.amount = p.amount || 0;
+        updatedPayment.amount = 0;
       }
       // Limpiar banco de origen si deja de ser transferencia
       if (field === 'paymentMethod' && newValue !== 'TRANSFER') {
@@ -263,7 +266,7 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
                   <Grid item xs={12} sm={6}>
                     <TextField
                       fullWidth
-                      required
+                      required={payment.paymentMethod !== 'CREDIT'}
                       label="Monto del Abono"
                       value={
                         (payment.amount === 0 && payment.paymentMethod !== 'CREDIT')
@@ -279,7 +282,9 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
                       }}
                       color={totalPaid > total ? 'warning' : 'primary'}
                       helperText={
-                        totalPaid > total
+                        payment.paymentMethod === 'CREDIT'
+                          ? `El crédito no registra dinero: quedan ${formatCurrency(total)} como saldo pendiente por cobrar`
+                          : totalPaid > total
                           ? `Quedará un saldo a favor al cliente de ${formatCurrency(totalPaid - total)}`
                           : disabled
                           ? 'Primero seleccione un cliente'
@@ -291,7 +296,7 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
                           fontWeight: totalPaid > total ? 600 : 400
                         }
                       }}
-                      disabled={disabled}
+                      disabled={disabled || payment.paymentMethod === 'CREDIT'}
                       InputProps={{
                         startAdornment: (
                           <Typography sx={{ mr: 1, color: 'text.secondary', fontWeight: 500 }}>

@@ -44,6 +44,10 @@ import {
   computeNetPaidAmount,
   computeOrderBalance,
 } from '../../common/utils/order-balance.util';
+import {
+  paymentMovesCash,
+  voidReasonForNonCash,
+} from '../../common/utils/payment-method.util';
 import { CreditBalanceService } from '../credit-balance/credit-balance.service';
 
 /** Usuario mínimo asociado a un evento del historial de autorizaciones. */
@@ -471,10 +475,11 @@ export class OrdersService {
           receivedBy: { connect: { id: createdById } },
         };
 
-        // El saldo a favor no es dinero que entre a caja: ese ingreso ya se
-        // registró cuando el cliente sobrepagó la orden de origen. Generar un
-        // movimiento aquí inflaría el arqueo.
-        const movesCash = p.paymentMethod !== PaymentMethod.CREDIT_BALANCE;
+        // Ni el saldo a favor ni el crédito son dinero que entre a caja: el
+        // primero ya se registró cuando el cliente sobrepagó la orden de origen
+        // y el segundo es solo la marca de "paga después" (ver
+        // `paymentMovesCash`).
+        const movesCash = paymentMovesCash(p.paymentMethod);
 
         // Sin caja abierta el abono queda en cola: entra al arqueo cuando se
         // abra la próxima sesión, en vez de nacer huérfano para siempre.
@@ -951,14 +956,14 @@ export class OrdersService {
           // que un abono agregado al editar la OP nacía huérfano (nunca
           // aparecía en el historial de caja) y editar el monto de un abono ya
           // ingresado dejaba el movimiento con la cifra vieja, descuadrando el
-          // arqueo. El saldo a favor se excluye: ese dinero ya entró a caja en
-          // la OP de origen.
-          const isCreditBalancePayment =
-            paymentData.paymentMethod === PaymentMethod.CREDIT_BALANCE;
+          // arqueo. El saldo a favor y el crédito se excluyen: el primero ya
+          // entró a caja en la OP de origen y el segundo no es dinero, solo la
+          // marca de "paga después" (ver `paymentMovesCash`).
+          const movesCash = paymentMovesCash(paymentData.paymentMethod);
 
           if (!firstPayment) {
             // Pago nuevo: mismo tratamiento que en `addPayment`.
-            if (!isCreditBalancePayment) {
+            if (movesCash) {
               const activeSession = await tx.cashSession.findFirst({
                 where: { status: 'OPEN' },
                 select: { id: true },
@@ -996,17 +1001,16 @@ export class OrdersService {
             }
           } else if (firstPayment.cashMovementId) {
             // El pago ya estaba en caja: o se sincroniza el movimiento con los
-            // datos nuevos, o se anula si pasó a saldo a favor (ese ingreso
-            // deja de existir como entrada de caja).
-            if (isCreditBalancePayment) {
+            // datos nuevos, o se anula si dejó de ser dinero (saldo a favor o
+            // crédito), porque ese ingreso deja de existir como entrada de caja.
+            if (!movesCash) {
               await tx.cashMovement.update({
                 where: { id: firstPayment.cashMovementId },
                 data: {
                   isVoided: true,
                   voidedById: userId,
                   voidedAt: new Date(),
-                  voidReason:
-                    'El abono pasó a saldo a favor: el ingreso ya se registró en la OP de origen',
+                  voidReason: voidReasonForNonCash(paymentData.paymentMethod),
                 },
               });
               await tx.payment.update({
@@ -1592,8 +1596,8 @@ export class OrdersService {
     }
 
     const paymentAmount = new Prisma.Decimal(createPaymentDto.amount);
-    const isCreditBalance =
-      createPaymentDto.paymentMethod === PaymentMethod.CREDIT_BALANCE;
+    // El saldo a favor y el crédito no mueven caja (ver `paymentMovesCash`).
+    const movesCash = paymentMovesCash(createPaymentDto.paymentMethod);
 
     // Buscar sesión de caja abierta activa
     const activeSession = await this.prisma.cashSession.findFirst({
@@ -1611,7 +1615,7 @@ export class OrdersService {
       // de caja. El saldo a favor se excluye: ese dinero ya entró a caja cuando el
       // cliente sobrepagó la orden de origen.
       let cashMovementId: string | undefined = undefined;
-      if (activeSession && !isCreditBalance) {
+      if (activeSession && movesCash) {
         const receiptNumber = await this.consecutivesService.generateNumber('CASH_RECEIPT');
         const movement = await tx.cashMovement.create({
           data: {
@@ -1648,7 +1652,7 @@ export class OrdersService {
           // Sin caja abierta el abono no puede generar movimiento ahora, pero
           // tampoco debe perderse: queda en cola y entra al abrir la próxima
           // sesión. El saldo a favor se excluye (ya entró en la OP de origen).
-          pendingCashEntry: !activeSession && !isCreditBalance,
+          pendingCashEntry: !activeSession && movesCash,
         },
         select: {
           id: true,
@@ -1657,7 +1661,7 @@ export class OrdersService {
 
       // Consumir el saldo a favor del cliente (valida disponibilidad dentro de la
       // transacción y descuenta el excedente de las OPs de origen).
-      if (isCreditBalance) {
+      if (createPaymentDto.paymentMethod === PaymentMethod.CREDIT_BALANCE) {
         await this.creditBalanceService.applyCredit(tx, {
           clientId: order.clientId,
           paymentId: payment.id,
@@ -1841,8 +1845,9 @@ export class OrdersService {
       // siempre), pero **el cambio no puede ser silencioso**: se anota en la
       // descripción del movimiento —que es lo que se ve en el arqueo y en la
       // exportación de la sesión— y se deja registro en el audit log.
-      const becameCreditBalance =
-        updated.paymentMethod === PaymentMethod.CREDIT_BALANCE;
+      // ¿El pago dejó de ser dinero? Pasa tanto al volverse saldo a favor como
+      // al volverse crédito: en ambos casos el ingreso desaparece de la caja.
+      const becameNonCash = !paymentMovesCash(updated.paymentMethod);
 
       if (updated.cashMovementId) {
         const movement = await tx.cashMovement.findUnique({
@@ -1860,12 +1865,12 @@ export class OrdersService {
         const amountChanged =
           movement != null && !movement.amount.equals(updated.amount);
 
-        if (becameCreditBalance) {
-          // El pago pasó a saldo a favor: ese dinero ya entró a caja en la OP
-          // de origen, así que este movimiento deja de existir como ingreso.
-          // Se anula (patrón administrativo: solo `isVoided`, sin exigir sesión
-          // abierta ni contramovimiento) y se suelta el vínculo, para que el
-          // pago no siga apuntando a un movimiento anulado.
+        if (becameNonCash) {
+          // El pago dejó de ser dinero (saldo a favor o crédito), así que este
+          // movimiento deja de existir como ingreso. Se anula (patrón
+          // administrativo: solo `isVoided`, sin exigir sesión abierta ni
+          // contramovimiento) y se suelta el vínculo, para que el pago no siga
+          // apuntando a un movimiento anulado.
           const fecha = new Date().toISOString().slice(0, 10);
           await tx.cashMovement.update({
             where: { id: updated.cashMovementId },
@@ -1874,8 +1879,7 @@ export class OrdersService {
               voidedById: userId,
               voidedAt: new Date(),
               voidReason:
-                'El abono pasó a saldo a favor: el ingreso ya se registró en ' +
-                'la OP de origen' +
+                voidReasonForNonCash(updated.paymentMethod) +
                 (sessionClosed ? ` (anulado el ${fecha}, tras el cierre)` : ''),
             },
           });
@@ -1909,20 +1913,19 @@ export class OrdersService {
             movementId: movement.id,
             sessionId: movement.cashSession!.id,
             oldAmount: movement.amount.toString(),
-            newAmount: becameCreditBalance
+            newAmount: becameNonCash
               ? '0 (anulado)'
               : updated.amount.toString(),
             oldPaymentMethod: movement.paymentMethod,
             newPaymentMethod: updated.paymentMethod,
           };
         }
-      } else if (
-        payment.paymentMethod === PaymentMethod.CREDIT_BALANCE &&
-        !becameCreditBalance
-      ) {
-        // Camino inverso: el pago era saldo a favor (sin movimiento, por
-        // diseño) y ahora es dinero real. Sin esto nacería huérfano — el mismo
-        // bug que acabamos de cerrar en el resto de los flujos.
+      } else if (!paymentMovesCash(payment.paymentMethod) && !becameNonCash) {
+        // Camino inverso: el pago no era dinero (saldo a favor o crédito, por
+        // diseño sin movimiento) y ahora sí lo es. Sin esto nacería huérfano —
+        // el mismo bug que acabamos de cerrar en el resto de los flujos.
+        // El movimiento se crea en la sesión abierta HOY, no en la del día en
+        // que se registró el crédito: el dinero entra ahora.
         const activeSession = await tx.cashSession.findFirst({
           where: { status: 'OPEN' },
           select: { id: true },
