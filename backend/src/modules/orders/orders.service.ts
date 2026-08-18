@@ -1750,7 +1750,10 @@ export class OrdersService {
 
     const payment = await this.prisma.payment.findFirst({
       where: { id: paymentId, orderId },
-      select: { id: true, receiptFileId: true },
+      // `paymentMethod` hace falta para detectar la transición desde saldo a
+      // favor: ese pago no tiene movimiento de caja, así que al volverse
+      // efectivo/transferencia hay que crearle uno o encolarlo.
+      select: { id: true, receiptFileId: true, paymentMethod: true },
     });
     if (!payment) {
       throw new NotFoundException(
@@ -1838,6 +1841,9 @@ export class OrdersService {
       // siempre), pero **el cambio no puede ser silencioso**: se anota en la
       // descripción del movimiento —que es lo que se ve en el arqueo y en la
       // exportación de la sesión— y se deja registro en el audit log.
+      const becameCreditBalance =
+        updated.paymentMethod === PaymentMethod.CREDIT_BALANCE;
+
       if (updated.cashMovementId) {
         const movement = await tx.cashMovement.findUnique({
           where: { id: updated.cashMovementId },
@@ -1854,34 +1860,100 @@ export class OrdersService {
         const amountChanged =
           movement != null && !movement.amount.equals(updated.amount);
 
-        const movementData: Prisma.CashMovementUpdateInput = {
-          amount: updated.amount,
-          paymentMethod: updated.paymentMethod,
-        };
-
-        if (movement && sessionClosed && amountChanged) {
-          const antes = movement.amount.toString();
-          const ahora = updated.amount.toString();
+        if (becameCreditBalance) {
+          // El pago pasó a saldo a favor: ese dinero ya entró a caja en la OP
+          // de origen, así que este movimiento deja de existir como ingreso.
+          // Se anula (patrón administrativo: solo `isVoided`, sin exigir sesión
+          // abierta ni contramovimiento) y se suelta el vínculo, para que el
+          // pago no siga apuntando a un movimiento anulado.
           const fecha = new Date().toISOString().slice(0, 10);
-          movementData.description =
-            `${movement.description} [Editado el ${fecha} tras el cierre: ` +
-            `${antes} → ${ahora}]`;
-        }
+          await tx.cashMovement.update({
+            where: { id: updated.cashMovementId },
+            data: {
+              isVoided: true,
+              voidedById: userId,
+              voidedAt: new Date(),
+              voidReason:
+                'El abono pasó a saldo a favor: el ingreso ya se registró en ' +
+                'la OP de origen' +
+                (sessionClosed ? ` (anulado el ${fecha}, tras el cierre)` : ''),
+            },
+          });
+          await tx.payment.update({
+            where: { id: paymentId },
+            data: { cashMovementId: null },
+          });
+        } else {
+          const movementData: Prisma.CashMovementUpdateInput = {
+            amount: updated.amount,
+            paymentMethod: updated.paymentMethod,
+          };
 
-        await tx.cashMovement.update({
-          where: { id: updated.cashMovementId },
-          data: movementData,
-        });
+          if (movement && sessionClosed && amountChanged) {
+            const antes = movement.amount.toString();
+            const ahora = updated.amount.toString();
+            const fecha = new Date().toISOString().slice(0, 10);
+            movementData.description =
+              `${movement.description} [Editado el ${fecha} tras el cierre: ` +
+              `${antes} → ${ahora}]`;
+          }
+
+          await tx.cashMovement.update({
+            where: { id: updated.cashMovementId },
+            data: movementData,
+          });
+        }
 
         if (movement && sessionClosed) {
           editedAfterClose = {
             movementId: movement.id,
             sessionId: movement.cashSession!.id,
             oldAmount: movement.amount.toString(),
-            newAmount: updated.amount.toString(),
+            newAmount: becameCreditBalance
+              ? '0 (anulado)'
+              : updated.amount.toString(),
             oldPaymentMethod: movement.paymentMethod,
             newPaymentMethod: updated.paymentMethod,
           };
+        }
+      } else if (
+        payment.paymentMethod === PaymentMethod.CREDIT_BALANCE &&
+        !becameCreditBalance
+      ) {
+        // Camino inverso: el pago era saldo a favor (sin movimiento, por
+        // diseño) y ahora es dinero real. Sin esto nacería huérfano — el mismo
+        // bug que acabamos de cerrar en el resto de los flujos.
+        const activeSession = await tx.cashSession.findFirst({
+          where: { status: 'OPEN' },
+          select: { id: true },
+        });
+
+        if (activeSession) {
+          const receiptNumber =
+            await this.consecutivesService.generateNumber('CASH_RECEIPT');
+          const movement = await tx.cashMovement.create({
+            data: {
+              cashSessionId: activeSession.id,
+              receiptNumber,
+              movementType: 'INCOME',
+              paymentMethod: updated.paymentMethod,
+              amount: updated.amount,
+              description: `Abono a Orden ${order.orderNumber}`,
+              referenceType: 'ORDER',
+              referenceId: orderId,
+              performedById: userId,
+            },
+            select: { id: true },
+          });
+          await tx.payment.update({
+            where: { id: paymentId },
+            data: { cashMovementId: movement.id },
+          });
+        } else {
+          await tx.payment.update({
+            where: { id: paymentId },
+            data: { pendingCashEntry: true },
+          });
         }
       }
 
