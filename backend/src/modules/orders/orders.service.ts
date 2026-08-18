@@ -461,6 +461,10 @@ export class OrdersService {
         // movimiento aquí inflaría el arqueo.
         const movesCash = p.paymentMethod !== PaymentMethod.CREDIT_BALANCE;
 
+        // Sin caja abierta el abono queda en cola: entra al arqueo cuando se
+        // abra la próxima sesión, en vez de nacer huérfano para siempre.
+        paymentData.pendingCashEntry = !activeSession && movesCash;
+
         if (activeSession && movesCash) {
           const receiptNumber = await this.consecutivesService.generateNumber('CASH_RECEIPT');
           paymentData.cashMovement = {
@@ -966,6 +970,12 @@ export class OrdersService {
                 await tx.payment.update({
                   where: { id: touchedPayment.id },
                   data: { cashMovementId: movement.id },
+                });
+              } else {
+                // Sin caja abierta: a la cola, para entrar al abrir la próxima.
+                await tx.payment.update({
+                  where: { id: touchedPayment.id },
+                  data: { pendingCashEntry: true },
                 });
               }
             }
@@ -1620,6 +1630,10 @@ export class OrdersService {
           receiptFileId: createPaymentDto.receiptFileId,
           receivedById,
           cashMovementId, // Vincular movimiento de caja si se creó
+          // Sin caja abierta el abono no puede generar movimiento ahora, pero
+          // tampoco debe perderse: queda en cola y entra al abrir la próxima
+          // sesión. El saldo a favor se excluye (ya entró en la OP de origen).
+          pendingCashEntry: !activeSession && !isCreditBalance,
         },
         select: {
           id: true,

@@ -962,7 +962,7 @@ describe('OrdersService', () => {
         });
       });
 
-      it('no genera movimiento si no hay caja abierta (queda huérfano, como addPayment)', async () => {
+      it('sin caja abierta no genera movimiento, pero deja el abono en cola', async () => {
         mockPrisma.payment.findFirst.mockResolvedValue(null);
         mockPrisma.payment.create.mockResolvedValue({ id: 'pay-new' });
         mockPrisma.cashSession.findFirst.mockResolvedValue(null);
@@ -974,6 +974,11 @@ describe('OrdersService', () => {
         );
 
         expect(mockPrisma.cashMovement.create).not.toHaveBeenCalled();
+        // No se pierde: entra al arqueo al abrir la próxima sesión.
+        expect(mockPrisma.payment.update).toHaveBeenCalledWith({
+          where: { id: 'pay-new' },
+          data: { pendingCashEntry: true },
+        });
       });
 
       it('no genera movimiento para saldo a favor (ya entró a caja en la OP de origen)', async () => {
@@ -1978,6 +1983,52 @@ describe('OrdersService', () => {
       mockPrisma.order.update.mockResolvedValue(mockConfirmedOrder);
       mockPrisma.payment.findUnique.mockResolvedValue(mockPaymentFull);
       mockPrisma.cashSession.findFirst.mockResolvedValue(null);
+    });
+
+    // Cola de pendientes: un abono cobrado fuera del horario de caja no puede
+    // perderse ni frenar a la comercial.
+    describe('cola de pendientes de caja', () => {
+      it('marca el abono como pendiente cuando no hay caja abierta', async () => {
+        mockPrisma.cashSession.findFirst.mockResolvedValue(null);
+
+        await service.addPayment('order-1', paymentDto, 'user-1');
+
+        expect(mockPrisma.payment.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({ pendingCashEntry: true }),
+          }),
+        );
+      });
+
+      it('NO lo marca pendiente si hay caja abierta (ya generó movimiento)', async () => {
+        mockPrisma.cashSession.findFirst.mockResolvedValue({ id: 'session-1' });
+        mockPrisma.cashMovement.create.mockResolvedValue({ id: 'mov-1' });
+        mockConsecutivesService.generateNumber.mockResolvedValue('RC-2026-0001');
+
+        await service.addPayment('order-1', paymentDto, 'user-1');
+
+        expect(mockPrisma.payment.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({ pendingCashEntry: false }),
+          }),
+        );
+      });
+
+      it('NO encola el saldo a favor: ese dinero ya entró en la OP de origen', async () => {
+        mockPrisma.cashSession.findFirst.mockResolvedValue(null);
+
+        await service.addPayment(
+          'order-1',
+          { amount: 50, paymentMethod: PaymentMethod.CREDIT_BALANCE },
+          'user-1',
+        );
+
+        expect(mockPrisma.payment.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({ pendingCashEntry: false }),
+          }),
+        );
+      });
     });
 
     it('should throw NotFoundException when order does not exist', async () => {
