@@ -42,6 +42,20 @@ export class CashSessionController {
     return this.service.findAll(filters);
   }
 
+  // Sin `@RequirePermissions` a propósito: basta con estar autenticado. Lo
+  // consultan las comerciales, que no tienen `read_cash_sessions`, y la
+  // respuesta es un booleano sin datos de caja.
+  @Get('is-open')
+  @ApiOperation({
+    summary: '¿Hay una sesión de caja abierta ahora?',
+    description:
+      'Booleano sin datos sensibles. Lo usa el formulario de OP para avisar ' +
+      'que el abono quedará en cola si la caja está cerrada.',
+  })
+  isCashOpen() {
+    return this.pendingCashEntriesService.isAnySessionOpen();
+  }
+
   // Debe declararse ANTES de `@Get(':id')`: si no, la ruta de un solo segmento
   // se la come el parámetro y nunca llega aquí.
   @Get('pending-entries')

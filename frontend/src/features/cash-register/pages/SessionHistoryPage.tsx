@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import { GridRenderCellParams } from '@mui/x-data-grid';
 import { PageHeader } from '../../../components/common/PageHeader';
+import PendingCashEntriesPanel from '../components/PendingCashEntriesPanel';
 import { DataTable } from '../../../components/common/DataTable';
 import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../hooks';
 import { useCashRegisters, useCashSessions } from '../hooks/useCashRegister';
@@ -134,6 +135,12 @@ const SessionHistoryPage: React.FC = () => {
       />
 
       {/* Filters */}
+      {/* Con la caja cerrada se cae aquí desde el menú de Caja: es el único
+          lugar donde se ve que hay dinero cobrado esperando ingresar. */}
+      <Box sx={{ mb: 2 }}>
+        <PendingCashEntriesPanel />
+      </Box>
+
       <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
         <FormControl sx={{ minWidth: 180 }} size="small">
           <InputLabel>Caja Registradora</InputLabel>

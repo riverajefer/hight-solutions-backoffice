@@ -25,6 +25,22 @@ export class PendingCashEntriesService {
     private readonly consecutivesService: ConsecutivesService,
   ) {}
 
+  /**
+   * Si hay alguna sesión de caja abierta ahora mismo.
+   *
+   * Devuelve solo un booleano a propósito: lo consultan las comerciales desde
+   * el formulario de OP para saber si su abono va a entrar directo a caja o a
+   * la cola, y ellas no tienen permiso para ver datos de caja. Sin montos, sin
+   * ids y sin sesiones, no hay nada que proteger.
+   */
+  async isAnySessionOpen(): Promise<{ isOpen: boolean }> {
+    const open = await this.prisma.cashSession.findFirst({
+      where: { status: 'OPEN' },
+      select: { id: true },
+    });
+    return { isOpen: open !== null };
+  }
+
   /** Cuántos abonos esperan entrar a caja, y por cuánto. */
   async getPendingSummary() {
     const [aggregate, payments] = await Promise.all([

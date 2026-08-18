@@ -6,6 +6,7 @@ import { Prisma, PaymentMethod } from '../../generated/prisma';
 
 const mockPrisma = {
   payment: { aggregate: jest.fn(), findMany: jest.fn(), update: jest.fn() },
+  cashSession: { findFirst: jest.fn() },
 };
 const mockConsecutives = { generateNumber: jest.fn() };
 
@@ -128,6 +129,32 @@ describe('PendingCashEntriesService', () => {
 
       expect(mockPrisma.payment.findMany).not.toHaveBeenCalled();
       expect(mockPrisma.payment.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('isAnySessionOpen', () => {
+    it('devuelve true cuando hay una sesión abierta', async () => {
+      mockPrisma.cashSession.findFirst.mockResolvedValue({ id: 'session-1' });
+
+      expect(await service.isAnySessionOpen()).toEqual({ isOpen: true });
+    });
+
+    it('devuelve false cuando no hay ninguna', async () => {
+      mockPrisma.cashSession.findFirst.mockResolvedValue(null);
+
+      expect(await service.isAnySessionOpen()).toEqual({ isOpen: false });
+    });
+
+    it('no expone datos de caja: solo el booleano', async () => {
+      // Lo consultan las comerciales, que no tienen permiso sobre caja.
+      mockPrisma.cashSession.findFirst.mockResolvedValue({
+        id: 'session-1',
+        openingAmount: 500000,
+      });
+
+      const res = await service.isAnySessionOpen();
+
+      expect(Object.keys(res)).toEqual(['isOpen']);
     });
   });
 
