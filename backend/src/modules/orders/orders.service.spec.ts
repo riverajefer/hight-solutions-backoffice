@@ -51,6 +51,7 @@ const mockConsecutivesService = {
 
 const mockAuditLogsService = {
   logOrderChange: jest.fn(),
+  logUpdate: jest.fn().mockResolvedValue(undefined),
 };
 
 const mockStorageService = {
@@ -140,6 +141,7 @@ const mockPrisma = {
     updateMany: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
+    findUnique: jest.fn(),
   },
 };
 
@@ -2525,6 +2527,96 @@ describe('OrdersService', () => {
         (c: any) => c[0].data.paidAmount !== undefined,
       )[0];
       expect(Number(orderUpdate.data.paidAmount.toString())).toBe(107000);
+    });
+
+    // Editar un pago cuyo movimiento vive en una sesión CERRADA altera un
+    // arqueo ya firmado (`systemBalance` quedó congelado al cerrar). Se permite
+    // —corregir un monto mal digitado no puede quedar bloqueado para siempre—
+    // pero no puede ser silencioso.
+    describe('edición sobre una sesión de caja cerrada', () => {
+      const setupEdit = (sessionStatus: 'OPEN' | 'CLOSED', newAmount = 45000) => {
+        mockPaymentEditApprovalsService.requiresApproval.mockResolvedValue({
+          required: false,
+        });
+        mockPrisma.$transaction.mockImplementation((fn: any) => fn(mockPrisma));
+        mockPrisma.payment.update.mockResolvedValue({
+          id: 'pay-1',
+          amount: new Prisma.Decimal(newAmount),
+          paymentMethod: 'CASH',
+          cashMovementId: 'mov-1',
+        });
+        mockPrisma.cashMovement.findUnique.mockResolvedValue({
+          id: 'mov-1',
+          amount: new Prisma.Decimal(30000),
+          paymentMethod: 'TRANSFER',
+          description: 'Abono a Orden OP-2026-0001',
+          cashSession: { id: 'session-1', status: sessionStatus },
+        });
+        mockPrisma.payment.findMany.mockResolvedValue([
+          { amount: new Prisma.Decimal(newAmount) },
+        ]);
+        mockPrisma.payment.findUnique.mockResolvedValue({ id: 'pay-1' });
+      };
+
+      it('no bloquea la edición: el movimiento se actualiza igual', async () => {
+        setupEdit('CLOSED');
+
+        await service.updatePayment('order-1', 'pay-1', { amount: 45000 }, 'user-1');
+
+        const call = mockPrisma.cashMovement.update.mock.calls[0][0];
+        expect(call.where).toEqual({ id: 'mov-1' });
+        expect(Number(call.data.amount.toString())).toBe(45000);
+      });
+
+      it('anota el cambio en la descripción, que es lo que se ve en el arqueo', async () => {
+        setupEdit('CLOSED');
+
+        await service.updatePayment('order-1', 'pay-1', { amount: 45000 }, 'user-1');
+
+        const { description } = mockPrisma.cashMovement.update.mock.calls[0][0].data;
+        expect(description).toContain('Abono a Orden OP-2026-0001');
+        expect(description).toContain('tras el cierre');
+        expect(description).toContain('30000');
+        expect(description).toContain('45000');
+      });
+
+      it('deja registro en el audit log marcando que el arqueo se alteró', async () => {
+        setupEdit('CLOSED');
+
+        await service.updatePayment('order-1', 'pay-1', { amount: 45000 }, 'user-1');
+
+        expect(mockAuditLogsService.logUpdate).toHaveBeenCalledWith(
+          'CashMovement',
+          'mov-1',
+          expect.objectContaining({ amount: '30000' }),
+          expect.objectContaining({
+            amount: '45000',
+            editedAfterSessionClose: true,
+            cashSessionId: 'session-1',
+          }),
+          'user-1',
+        );
+      });
+
+      it('con la sesión ABIERTA no ensucia la descripción ni audita nada extra', async () => {
+        setupEdit('OPEN');
+
+        await service.updatePayment('order-1', 'pay-1', { amount: 45000 }, 'user-1');
+
+        const { data } = mockPrisma.cashMovement.update.mock.calls[0][0];
+        expect(data.description).toBeUndefined();
+        expect(mockAuditLogsService.logUpdate).not.toHaveBeenCalled();
+      });
+
+      it('no anota nada si el monto no cambió, aunque la sesión esté cerrada', async () => {
+        // Editar solo las notas o la referencia no descuadra ningún arqueo.
+        setupEdit('CLOSED', 30000);
+
+        await service.updatePayment('order-1', 'pay-1', { notes: 'otra nota' }, 'user-1');
+
+        const { data } = mockPrisma.cashMovement.update.mock.calls[0][0];
+        expect(data.description).toBeUndefined();
+      });
     });
 
     it('throws NotFound when the payment does not belong to the order', async () => {
