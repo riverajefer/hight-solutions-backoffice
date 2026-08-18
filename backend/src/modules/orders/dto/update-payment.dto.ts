@@ -1,14 +1,12 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEnum,
-  IsNumber,
   IsOptional,
-  IsPositive,
-  ValidateIf,
   IsString,
   IsDateString,
 } from 'class-validator';
 import { PaymentMethod } from '../../../generated/prisma';
+import { IsValidPaymentAmount } from '../../../common/validators/payment-amount.validator';
 
 /**
  * DTO para editar un pago existente de una orden.
@@ -17,13 +15,12 @@ import { PaymentMethod } from '../../../generated/prisma';
  */
 export class UpdatePaymentDto {
   @ApiPropertyOptional({
-    description: 'Nuevo monto del pago',
+    description:
+      'Nuevo monto del pago. Debe ser 0 cuando el método es CREDIT.',
     example: 107000,
   })
   @IsOptional()
-  @IsNumber()
-  @ValidateIf((o: UpdatePaymentDto) => o.paymentMethod !== PaymentMethod.CREDIT)
-  @IsPositive({ message: 'El monto debe ser mayor a cero para este método de pago' })
+  @IsValidPaymentAmount()
   amount?: number;
 
   @ApiPropertyOptional({

@@ -10,20 +10,19 @@ import {
   IsPositive,
   Min,
   IsEnum,
-  ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaymentMethod } from '../../../generated/prisma';
+import { IsValidPaymentAmount } from '../../../common/validators/payment-amount.validator';
 
 export class InitialPaymentDto {
   @ApiProperty({
-    description: 'Monto del pago inicial',
+    description:
+      'Monto del pago inicial. Debe ser 0 cuando el método es CREDIT: el ' +
+      'crédito no registra dinero, deja el valor como saldo pendiente.',
     example: 50000,
   })
-  @IsNumber()
-  @Min(0)
-  @ValidateIf((o: InitialPaymentDto) => o.paymentMethod !== PaymentMethod.CREDIT)
-  @IsPositive({ message: 'El monto debe ser mayor a cero para este método de pago' })
+  @IsValidPaymentAmount()
   amount: number;
 
   @ApiProperty({

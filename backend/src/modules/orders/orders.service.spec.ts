@@ -2031,6 +2031,61 @@ describe('OrdersService', () => {
           }),
         );
       });
+
+      it('NO encola el crédito: no es dinero, es la marca de "paga después"', async () => {
+        mockPrisma.cashSession.findFirst.mockResolvedValue(null);
+
+        await service.addPayment(
+          'order-1',
+          { amount: 0, paymentMethod: PaymentMethod.CREDIT },
+          'user-1',
+        );
+
+        expect(mockPrisma.payment.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({ pendingCashEntry: false }),
+          }),
+        );
+      });
+    });
+
+    // El crédito ("fiado") no mueve dinero: si genera movimiento de caja, el
+    // arqueo cuenta un ingreso que nunca entró, y si suma a paidAmount la OP
+    // aparece pagada y el abono real posterior queda duplicado.
+    describe('pago a crédito', () => {
+      it('no genera movimiento de caja aunque haya sesión abierta', async () => {
+        mockPrisma.cashSession.findFirst.mockResolvedValue({ id: 'session-1' });
+
+        await service.addPayment(
+          'order-1',
+          { amount: 0, paymentMethod: PaymentMethod.CREDIT },
+          'user-1',
+        );
+
+        expect(mockPrisma.cashMovement.create).not.toHaveBeenCalled();
+        expect(mockConsecutivesService.generateNumber).not.toHaveBeenCalledWith(
+          'CASH_RECEIPT',
+        );
+      });
+
+      it('deja el saldo intacto: paidAmount no cambia y balance sigue siendo el total', async () => {
+        mockPrisma.cashSession.findFirst.mockResolvedValue({ id: 'session-1' });
+
+        await service.addPayment(
+          'order-1',
+          { amount: 0, paymentMethod: PaymentMethod.CREDIT },
+          'user-1',
+        );
+
+        const updateCall = mockPrisma.order.update.mock.calls[0][0];
+        expect(Number(updateCall.data.paidAmount.toString())).toBe(
+          Number(mockConfirmedOrder.paidAmount.toString()),
+        );
+        expect(Number(updateCall.data.balance.toString())).toBe(
+          Number(mockConfirmedOrder.total.toString()) -
+            Number(mockConfirmedOrder.paidAmount.toString()),
+        );
+      });
     });
 
     it('should throw NotFoundException when order does not exist', async () => {
