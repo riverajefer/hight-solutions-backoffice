@@ -2529,6 +2529,164 @@ describe('OrdersService', () => {
       expect(Number(orderUpdate.data.paidAmount.toString())).toBe(107000);
     });
 
+    // El saldo a favor nunca genera movimiento de caja: ese dinero ya entró
+    // cuando el cliente sobrepagó la OP de origen. Editar el método de pago
+    // cruza esa frontera en las dos direcciones.
+    describe('transición desde/hacia saldo a favor', () => {
+      const setup = (opts: {
+        oldMethod: string;
+        newMethod: string;
+        cashMovementId: string | null;
+        sessionOpen?: boolean;
+      }) => {
+        mockPaymentEditApprovalsService.requiresApproval.mockResolvedValue({
+          required: false,
+        });
+        mockPrisma.$transaction.mockImplementation((fn: any) => fn(mockPrisma));
+        mockPrisma.payment.findFirst.mockResolvedValue({
+          id: 'pay-1',
+          receiptFileId: null,
+          paymentMethod: opts.oldMethod,
+        });
+        mockPrisma.payment.update.mockResolvedValue({
+          id: 'pay-1',
+          amount: new Prisma.Decimal(50000),
+          paymentMethod: opts.newMethod,
+          cashMovementId: opts.cashMovementId,
+        });
+        mockPrisma.cashMovement.findUnique.mockResolvedValue({
+          id: 'mov-1',
+          amount: new Prisma.Decimal(50000),
+          paymentMethod: opts.oldMethod,
+          description: 'Abono a Orden OP-2026-0001',
+          cashSession: { id: 'session-1', status: 'OPEN' },
+        });
+        mockPrisma.cashSession.findFirst.mockResolvedValue(
+          opts.sessionOpen === false ? null : { id: 'session-2' },
+        );
+        mockPrisma.cashMovement.create.mockResolvedValue({ id: 'mov-nuevo' });
+        mockConsecutivesService.generateNumber.mockResolvedValue('RC-2026-0100');
+        mockPrisma.payment.findMany.mockResolvedValue([
+          { amount: new Prisma.Decimal(50000) },
+        ]);
+        mockPrisma.payment.findUnique.mockResolvedValue({ id: 'pay-1' });
+      };
+
+      it('anula el movimiento cuando el pago pasa A saldo a favor', async () => {
+        setup({
+          oldMethod: 'TRANSFER',
+          newMethod: PaymentMethod.CREDIT_BALANCE,
+          cashMovementId: 'mov-1',
+        });
+
+        await service.updatePayment(
+          'order-1',
+          'pay-1',
+          { paymentMethod: PaymentMethod.CREDIT_BALANCE },
+          'user-1',
+        );
+
+        expect(mockPrisma.cashMovement.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { id: 'mov-1' },
+            data: expect.objectContaining({
+              isVoided: true,
+              voidedById: 'user-1',
+            }),
+          }),
+        );
+        // Y suelta el vínculo: el pago no puede quedar apuntando a un anulado.
+        expect(mockPrisma.payment.update).toHaveBeenCalledWith({
+          where: { id: 'pay-1' },
+          data: { cashMovementId: null },
+        });
+      });
+
+      it('NO deja el movimiento vivo con método CREDIT_BALANCE', async () => {
+        // Era el bug: le cambiaba el método y lo dejaba contando como ingreso.
+        setup({
+          oldMethod: 'CASH',
+          newMethod: PaymentMethod.CREDIT_BALANCE,
+          cashMovementId: 'mov-1',
+        });
+
+        await service.updatePayment(
+          'order-1',
+          'pay-1',
+          { paymentMethod: PaymentMethod.CREDIT_BALANCE },
+          'user-1',
+        );
+
+        const { data } = mockPrisma.cashMovement.update.mock.calls[0][0];
+        expect(data.paymentMethod).toBeUndefined();
+        expect(data.isVoided).toBe(true);
+      });
+
+      it('crea movimiento cuando DEJA de ser saldo a favor y hay caja abierta', async () => {
+        setup({
+          oldMethod: PaymentMethod.CREDIT_BALANCE,
+          newMethod: 'TRANSFER',
+          cashMovementId: null,
+        });
+
+        await service.updatePayment(
+          'order-1',
+          'pay-1',
+          { paymentMethod: 'TRANSFER' as any },
+          'user-1',
+        );
+
+        expect(mockPrisma.cashMovement.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              cashSessionId: 'session-2',
+              movementType: 'INCOME',
+              referenceId: 'order-1',
+            }),
+          }),
+        );
+        expect(mockPrisma.payment.update).toHaveBeenCalledWith({
+          where: { id: 'pay-1' },
+          data: { cashMovementId: 'mov-nuevo' },
+        });
+      });
+
+      it('lo encola si deja de ser saldo a favor y NO hay caja abierta', async () => {
+        setup({
+          oldMethod: PaymentMethod.CREDIT_BALANCE,
+          newMethod: 'CASH',
+          cashMovementId: null,
+          sessionOpen: false,
+        });
+
+        await service.updatePayment(
+          'order-1',
+          'pay-1',
+          { paymentMethod: 'CASH' as any },
+          'user-1',
+        );
+
+        expect(mockPrisma.cashMovement.create).not.toHaveBeenCalled();
+        expect(mockPrisma.payment.update).toHaveBeenCalledWith({
+          where: { id: 'pay-1' },
+          data: { pendingCashEntry: true },
+        });
+      });
+
+      it('no toca caja si el pago sigue siendo saldo a favor', async () => {
+        setup({
+          oldMethod: PaymentMethod.CREDIT_BALANCE,
+          newMethod: PaymentMethod.CREDIT_BALANCE,
+          cashMovementId: null,
+        });
+
+        await service.updatePayment('order-1', 'pay-1', { amount: 50000 }, 'user-1');
+
+        expect(mockPrisma.cashMovement.create).not.toHaveBeenCalled();
+        expect(mockPrisma.cashMovement.update).not.toHaveBeenCalled();
+      });
+    });
+
     // Editar un pago cuyo movimiento vive en una sesión CERRADA altera un
     // arqueo ya firmado (`systemBalance` quedó congelado al cerrar). Se permite
     // —corregir un monto mal digitado no puede quedar bloqueado para siempre—
