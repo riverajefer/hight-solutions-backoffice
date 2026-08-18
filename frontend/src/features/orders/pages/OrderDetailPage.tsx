@@ -891,6 +891,12 @@ export const OrderDetailPage: React.FC = () => {
   const availableForPayment =
     parseFloat(order.balance) + (editingPaymentId ? originalPaymentAmount : 0);
   const isPaymentOverpay = paymentEntered > availableForPayment;
+  // El crédito es el único método que se registra en $0: no es un abono, es la
+  // marca de "se entrega y el cliente paga después". Los demás exigen monto.
+  const isPaymentAmountValid =
+    paymentData.paymentMethod === 'CREDIT'
+      ? paymentEntered === 0
+      : paymentEntered > 0;
   // Saldo pendiente que quedará tras aplicar el monto (negativo = saldo a favor)
   const saldoDespues = availableForPayment - paymentEntered;
 
@@ -2935,8 +2941,11 @@ export const OrderDetailPage: React.FC = () => {
             <TextField
               fullWidth
               label='Monto'
+              disabled={paymentData.paymentMethod === 'CREDIT'}
               value={
-                paymentData.amount
+                paymentData.paymentMethod === 'CREDIT'
+                  ? '0'
+                  : paymentData.amount
                   ? formatCurrencyInput(paymentData.amount)
                   : ''
               }
@@ -2956,7 +2965,9 @@ export const OrderDetailPage: React.FC = () => {
                 style: { textAlign: 'right' },
               }}
               helperText={
-                editingPaymentId ? (
+                paymentData.paymentMethod === 'CREDIT' ? (
+                  `El crédito no registra dinero: quedan ${formatCurrency(availableForPayment)} como saldo pendiente por cobrar`
+                ) : editingPaymentId ? (
                   <>
                     <Box component='span' sx={{ display: 'block' }}>
                       Saldo pendiente antes: {formatCurrency(order.balance)}
@@ -3003,6 +3014,10 @@ export const OrderDetailPage: React.FC = () => {
                   setPaymentData({
                     ...paymentData,
                     paymentMethod: method,
+                    // El crédito no registra dinero: es la marca de "paga
+                    // después". Con monto, la OP se ve pagada sin que entre un
+                    // peso y el abono real posterior queda duplicado.
+                    amount: method === 'CREDIT' ? 0 : paymentData.amount,
                     // Limpiar banco de origen si deja de ser transferencia
                     bankEntity:
                       method === 'TRANSFER'
@@ -3211,7 +3226,7 @@ export const OrderDetailPage: React.FC = () => {
               disabled={
                 paymentSubmitting ||
                 updatePaymentMutation.isPending ||
-                (paymentData.amount ?? 0) <= 0
+                !isPaymentAmountValid
               }
             >
               {paymentSubmitting
@@ -3227,7 +3242,7 @@ export const OrderDetailPage: React.FC = () => {
               disabled={
                 paymentSubmitting ||
                 addPaymentMutation.isPending ||
-                paymentData.amount <= 0
+                !isPaymentAmountValid
               }
             >
               {paymentSubmitting ? 'Registrando...' : 'Registrar Pago'}

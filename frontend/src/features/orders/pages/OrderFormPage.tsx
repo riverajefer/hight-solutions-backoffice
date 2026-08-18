@@ -89,13 +89,19 @@ const initialPaymentSchema = z
   })
   .refine(
     (data) => {
-      if (data.paymentMethod === 'CREDIT') return data.amount >= 0;
+      // El crédito no registra dinero: es la marca de "se entrega y el cliente
+      // paga después". Si se le pone monto, la OP nace pagada sin que haya
+      // entrado un peso y el abono real posterior queda duplicado.
+      if (data.paymentMethod === 'CREDIT') return data.amount === 0;
       return data.amount > 0;
     },
-    {
-      message: 'El monto del abono inicial debe ser mayor a cero',
+    (data) => ({
+      message:
+        data.paymentMethod === 'CREDIT'
+          ? 'Un pago a crédito no registra dinero: el monto debe ser 0'
+          : 'El monto del abono inicial debe ser mayor a cero',
       path: ['amount'],
-    }
+    })
   );
 
 const orderFormSchema = z
