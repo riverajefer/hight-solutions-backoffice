@@ -9,7 +9,6 @@ import { DtfRepository } from './dtf.repository';
 import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { StorageService } from '../storage/storage.service';
 import { OrdersService } from '../orders/orders.service';
-import { AdvancePaymentApprovalsService } from '../advance-payment-approvals/advance-payment-approvals.service';
 import { CreateDtfRecordDto, BulkCreateDtfDto } from './dto/create-dtf-record.dto';
 import { UpdateDtfRecordDto } from './dto/update-dtf-record.dto';
 import { ChangeDtfStatusDto } from './dto/change-dtf-status.dto';
@@ -26,7 +25,6 @@ export class DtfService {
     private readonly consecutivesService: ConsecutivesService,
     private readonly storageService: StorageService,
     private readonly ordersService: OrdersService,
-    private readonly advancePaymentApprovalsService: AdvancePaymentApprovalsService,
   ) {}
 
   async findAll(filters: FilterDtfDto) {
@@ -201,6 +199,17 @@ export class DtfService {
     const dtfImage = dtfImages[0] ?? null;
     const dtfComprobante = dtfComprobantes[0] ?? null;
 
+    // El abono del cliente viaja como pago inicial de la OP en vez de crearse
+    // aparte: así `ordersService.create` le genera el movimiento de caja, ajusta
+    // los totales y abre la solicitud de aprobación, todo en un solo lugar.
+    // Antes se insertaba con Prisma directo "para evitar la maquinaria de
+    // cash-session / receipt_number", y el resultado fue que el 90% de los
+    // abonos DTF nunca llegaron al historial de caja. Esa maquinaria ya se
+    // recupera sola de las colisiones de consecutivo (retry + syncCounter en
+    // `create`), así que el atajo dejó de tener motivo.
+    const abonoAmount = Number(record.abono);
+    const hasAbono = abonoAmount > 0;
+
     const order = await this.ordersService.create(
       {
         clientId: record.clientId,
@@ -216,6 +225,17 @@ export class DtfService {
         ],
         // Traslada el IVA de la DTF a la OP (19% si aplica, 0 si no)
         taxRate: record.applyIva ? 0.19 : 0,
+        ...(hasAbono && {
+          initialPayment: {
+            amount: abonoAmount,
+            paymentMethod: record.abonoPaymentMethod ?? PaymentMethod.TRANSFER,
+            bankEntity: record.abonoBankEntity ?? undefined,
+            reference: record.consecutive,
+            notes: record.abonoNotes?.trim()
+              ? record.abonoNotes
+              : `Anticipo DTF ${record.consecutive}`,
+          },
+        }),
       },
       userId,
     );
@@ -233,38 +253,18 @@ export class DtfService {
       });
     }
 
-    // Create advance payment from the DTF abono (client's down payment), not the
-    // full value. Attach the comprobante as receipt if one was uploaded.
-    // Done directly via Prisma to avoid cash-session / receipt_number machinery.
-    const abonoAmount = Number(record.abono);
-    if (abonoAmount > 0 && order?.id) {
-      const abonoDecimal = new Prisma.Decimal(abonoAmount);
-
-      const payment = await this.prisma.payment.create({
-        data: {
-          orderId: order.id,
-          amount: abonoDecimal,
-          paymentMethod: record.abonoPaymentMethod ?? PaymentMethod.TRANSFER,
-          bankEntity: record.abonoBankEntity ?? null,
-          reference: record.consecutive,
-          notes: record.abonoNotes?.trim()
-            ? record.abonoNotes
-            : `Anticipo DTF ${record.consecutive}`,
-          receivedById: userId,
-        },
+    // El pago, sus totales, el movimiento de caja y la solicitud de aprobación
+    // ya los creó `ordersService.create`. Lo único que queda por hacer aquí es
+    // colgar el comprobante DTF del pago, porque `InitialPaymentDto` no acepta
+    // `receiptFileId` y el archivo necesita el id del pago para reasignarse.
+    if (hasAbono && dtfComprobante && order?.id) {
+      const payment = await this.prisma.payment.findFirst({
+        where: { orderId: order.id },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true },
       });
 
-      // Keep order totals in sync
-      await this.prisma.order.update({
-        where: { id: order.id },
-        data: {
-          paidAmount: { increment: abonoDecimal },
-          balance: { decrement: abonoDecimal },
-        },
-      });
-
-      // Reassign the comprobante file to the new payment (if present)
-      if (dtfComprobante) {
+      if (payment) {
         await this.prisma.uploadedFile.update({
           where: { id: dtfComprobante.id },
           data: { entityType: 'payment', entityId: payment.id },
@@ -273,19 +273,6 @@ export class DtfService {
           where: { id: payment.id },
           data: { receiptFileId: dtfComprobante.id },
         });
-      }
-
-      // El anticipo debe ser aprobado por Caja, igual que al crear una OP desde
-      // el módulo de Órdenes (se omite si el usuario ya tiene permiso de Caja).
-      const approvalCheck =
-        await this.advancePaymentApprovalsService.requiresApproval(userId);
-      if (approvalCheck.required) {
-        await this.advancePaymentApprovalsService.createFromOrderCreation(
-          userId,
-          order.id,
-          payment.id,
-          'anticipo',
-        );
       }
     }
 

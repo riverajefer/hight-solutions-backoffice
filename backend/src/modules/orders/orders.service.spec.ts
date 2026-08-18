@@ -139,6 +139,7 @@ const mockPrisma = {
   cashMovement: {
     updateMany: jest.fn(),
     create: jest.fn(),
+    update: jest.fn(),
   },
 };
 
@@ -921,6 +922,148 @@ describe('OrdersService', () => {
           data: expect.objectContaining({ orderId: 'order-1' }),
         }),
       );
+    });
+
+    // Esta rama no tocaba caja: un abono agregado al editar la OP nacía
+    // huérfano y editar el monto de uno ya ingresado dejaba el movimiento
+    // con la cifra vieja, descuadrando el arqueo.
+    describe('sincronización con caja', () => {
+      beforeEach(() => {
+        mockPrisma.orderItem.findMany.mockResolvedValue([]);
+        mockConsecutivesService.generateNumber.mockResolvedValue('RC-2026-0001');
+        mockPrisma.cashMovement.create.mockResolvedValue({ id: 'mov-new' });
+      });
+
+      it('genera movimiento de caja para un abono nuevo si hay caja abierta', async () => {
+        mockPrisma.payment.findFirst.mockResolvedValue(null);
+        mockPrisma.payment.create.mockResolvedValue({ id: 'pay-new' });
+        mockPrisma.cashSession.findFirst.mockResolvedValue({ id: 'session-1' });
+
+        await service.update(
+          'order-1',
+          { items: [], initialPayment: { amount: 60, paymentMethod: PaymentMethod.TRANSFER } },
+          'user-1',
+        );
+
+        expect(mockPrisma.cashMovement.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              cashSessionId: 'session-1',
+              movementType: 'INCOME',
+              referenceType: 'ORDER',
+              referenceId: 'order-1',
+              paymentMethod: PaymentMethod.TRANSFER,
+            }),
+          }),
+        );
+        expect(mockPrisma.payment.update).toHaveBeenCalledWith({
+          where: { id: 'pay-new' },
+          data: { cashMovementId: 'mov-new' },
+        });
+      });
+
+      it('no genera movimiento si no hay caja abierta (queda huérfano, como addPayment)', async () => {
+        mockPrisma.payment.findFirst.mockResolvedValue(null);
+        mockPrisma.payment.create.mockResolvedValue({ id: 'pay-new' });
+        mockPrisma.cashSession.findFirst.mockResolvedValue(null);
+
+        await service.update(
+          'order-1',
+          { items: [], initialPayment: { amount: 60, paymentMethod: PaymentMethod.CASH } },
+          'user-1',
+        );
+
+        expect(mockPrisma.cashMovement.create).not.toHaveBeenCalled();
+      });
+
+      it('no genera movimiento para saldo a favor (ya entró a caja en la OP de origen)', async () => {
+        mockPrisma.payment.findFirst.mockResolvedValue(null);
+        mockPrisma.payment.create.mockResolvedValue({ id: 'pay-new' });
+        mockPrisma.cashSession.findFirst.mockResolvedValue({ id: 'session-1' });
+
+        await service.update(
+          'order-1',
+          {
+            items: [],
+            initialPayment: { amount: 60, paymentMethod: PaymentMethod.CREDIT_BALANCE },
+          },
+          'user-1',
+        );
+
+        expect(mockPrisma.cashMovement.create).not.toHaveBeenCalled();
+      });
+
+      it('sincroniza el movimiento cuando cambia el monto de un abono ya ingresado', async () => {
+        mockPrisma.payment.findFirst.mockResolvedValue({
+          id: 'pay-1',
+          cashMovementId: 'mov-1',
+        });
+        mockPrisma.payment.update.mockResolvedValue({ id: 'pay-1' });
+
+        await service.update(
+          'order-1',
+          { items: [], initialPayment: { amount: 999, paymentMethod: PaymentMethod.CASH } },
+          'user-1',
+        );
+
+        expect(mockPrisma.cashMovement.update).toHaveBeenCalledWith({
+          where: { id: 'mov-1' },
+          data: {
+            amount: new Prisma.Decimal(999),
+            paymentMethod: PaymentMethod.CASH,
+          },
+        });
+      });
+
+      it('anula el movimiento si el abono pasa a saldo a favor', async () => {
+        mockPrisma.payment.findFirst.mockResolvedValue({
+          id: 'pay-1',
+          cashMovementId: 'mov-1',
+        });
+        mockPrisma.payment.update.mockResolvedValue({ id: 'pay-1' });
+
+        await service.update(
+          'order-1',
+          {
+            items: [],
+            initialPayment: { amount: 60, paymentMethod: PaymentMethod.CREDIT_BALANCE },
+          },
+          'user-1',
+        );
+
+        expect(mockPrisma.cashMovement.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { id: 'mov-1' },
+            data: expect.objectContaining({
+              isVoided: true,
+              voidedById: 'user-1',
+            }),
+          }),
+        );
+        // El vínculo se suelta para que el pago no siga apuntando a un
+        // movimiento anulado.
+        expect(mockPrisma.payment.update).toHaveBeenCalledWith({
+          where: { id: 'pay-1' },
+          data: { cashMovementId: null },
+        });
+      });
+
+      it('no toca caja cuando el abono editado nunca estuvo en caja', async () => {
+        mockPrisma.payment.findFirst.mockResolvedValue({
+          id: 'pay-1',
+          cashMovementId: null,
+        });
+        mockPrisma.payment.update.mockResolvedValue({ id: 'pay-1' });
+
+        await service.update(
+          'order-1',
+          { items: [], initialPayment: { amount: 60, paymentMethod: PaymentMethod.CASH } },
+          'user-1',
+        );
+
+        expect(mockPrisma.cashMovement.update).not.toHaveBeenCalled();
+        expect(mockPrisma.cashMovement.create).not.toHaveBeenCalled();
+      });
     });
 
     it('should record delivery date change data inside the transaction when date changes', async () => {

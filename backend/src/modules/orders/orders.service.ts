@@ -928,6 +928,77 @@ export class OrdersService {
                 select: { id: true },
               });
 
+          // Mantener la caja alineada con el pago. Esta rama no lo hacía, así
+          // que un abono agregado al editar la OP nacía huérfano (nunca
+          // aparecía en el historial de caja) y editar el monto de un abono ya
+          // ingresado dejaba el movimiento con la cifra vieja, descuadrando el
+          // arqueo. El saldo a favor se excluye: ese dinero ya entró a caja en
+          // la OP de origen.
+          const isCreditBalancePayment =
+            paymentData.paymentMethod === PaymentMethod.CREDIT_BALANCE;
+
+          if (!firstPayment) {
+            // Pago nuevo: mismo tratamiento que en `addPayment`.
+            if (!isCreditBalancePayment) {
+              const activeSession = await tx.cashSession.findFirst({
+                where: { status: 'OPEN' },
+                select: { id: true },
+              });
+
+              if (activeSession) {
+                const receiptNumber =
+                  await this.consecutivesService.generateNumber('CASH_RECEIPT');
+                const movement = await tx.cashMovement.create({
+                  data: {
+                    cashSessionId: activeSession.id,
+                    receiptNumber,
+                    movementType: 'INCOME',
+                    paymentMethod: paymentData.paymentMethod || 'CASH',
+                    amount: paymentData.amount,
+                    description: `Abono a Orden ${oldOrder.orderNumber}`,
+                    referenceType: 'ORDER',
+                    referenceId: id,
+                    performedById: userId,
+                  },
+                  select: { id: true },
+                });
+
+                await tx.payment.update({
+                  where: { id: touchedPayment.id },
+                  data: { cashMovementId: movement.id },
+                });
+              }
+            }
+          } else if (firstPayment.cashMovementId) {
+            // El pago ya estaba en caja: o se sincroniza el movimiento con los
+            // datos nuevos, o se anula si pasó a saldo a favor (ese ingreso
+            // deja de existir como entrada de caja).
+            if (isCreditBalancePayment) {
+              await tx.cashMovement.update({
+                where: { id: firstPayment.cashMovementId },
+                data: {
+                  isVoided: true,
+                  voidedById: userId,
+                  voidedAt: new Date(),
+                  voidReason:
+                    'El abono pasó a saldo a favor: el ingreso ya se registró en la OP de origen',
+                },
+              });
+              await tx.payment.update({
+                where: { id: touchedPayment.id },
+                data: { cashMovementId: null },
+              });
+            } else {
+              await tx.cashMovement.update({
+                where: { id: firstPayment.cashMovementId },
+                data: {
+                  amount: paymentData.amount,
+                  paymentMethod: paymentData.paymentMethod || 'CASH',
+                },
+              });
+            }
+          }
+
           // Reajustar el consumo de saldo a favor: el pago pudo pasar a
           // CREDIT_BALANCE, dejar de serlo o cambiar de monto.
           await this.creditBalanceService.resyncCredit(tx, {
