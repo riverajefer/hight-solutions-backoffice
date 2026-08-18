@@ -763,6 +763,11 @@ model Payment {
   // Vínculo opcional con movimiento de caja
   cashMovementId String? @unique @map("cash_movement_id")
 
+  // Abono registrado sin caja abierta: queda en cola y entra al arqueo cuando
+  // se abra la próxima sesión. Evita que el pago nazca huérfano sin frenar a la
+  // comercial que cobra fuera del horario de caja.
+  pendingCashEntry Boolean @default(false) @map("pending_cash_entry")
+
   // Relaciones
   order                  Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   receivedBy             User                    @relation("ReceivedPayments", fields: [receivedById], references: [id])
@@ -775,6 +780,7 @@ model Payment {
   @@index([receivedById])
   @@index([paymentDate])
   @@index([receiptFileId])
+  @@index([pendingCashEntry])
   @@map("payments")
 }
 

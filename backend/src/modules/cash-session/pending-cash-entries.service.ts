@@ -1,0 +1,149 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '../../generated/prisma';
+import { PrismaService } from '../../database/prisma.service';
+import { ConsecutivesService } from '../consecutives/consecutives.service';
+
+/**
+ * Cola de abonos que se registraron sin caja abierta.
+ *
+ * Cobrar y abrir caja no son simultáneos: una comercial que recibe una
+ * transferencia un sábado no puede quedarse sin registrar el abono. Antes esos
+ * pagos quedaban con `cashMovementId = null` para siempre y nunca entraban al
+ * arqueo. Ahora se marcan con `pendingCashEntry` y esta clase los ingresa a la
+ * primera sesión de caja que se abra.
+ *
+ * El movimiento se crea con la fecha de la sesión que lo recibe, no la del
+ * abono: el dinero entra a la caja cuando la caja existe. La fecha real del
+ * pago queda en la descripción para poder rastrearlo.
+ */
+@Injectable()
+export class PendingCashEntriesService {
+  private readonly logger = new Logger(PendingCashEntriesService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly consecutivesService: ConsecutivesService,
+  ) {}
+
+  /**
+   * Si hay alguna sesión de caja abierta ahora mismo.
+   *
+   * Devuelve solo un booleano a propósito: lo consultan las comerciales desde
+   * el formulario de OP para saber si su abono va a entrar directo a caja o a
+   * la cola, y ellas no tienen permiso para ver datos de caja. Sin montos, sin
+   * ids y sin sesiones, no hay nada que proteger.
+   */
+  async isAnySessionOpen(): Promise<{ isOpen: boolean }> {
+    const open = await this.prisma.cashSession.findFirst({
+      where: { status: 'OPEN' },
+      select: { id: true },
+    });
+    return { isOpen: open !== null };
+  }
+
+  /** Cuántos abonos esperan entrar a caja, y por cuánto. */
+  async getPendingSummary() {
+    const [aggregate, payments] = await Promise.all([
+      this.prisma.payment.aggregate({
+        where: { pendingCashEntry: true },
+        _count: true,
+        _sum: { amount: true },
+      }),
+      this.prisma.payment.findMany({
+        where: { pendingCashEntry: true },
+        select: {
+          id: true,
+          amount: true,
+          paymentMethod: true,
+          paymentDate: true,
+          reference: true,
+          order: { select: { id: true, orderNumber: true } },
+          receivedBy: { select: { firstName: true, lastName: true, email: true } },
+        },
+        orderBy: { paymentDate: 'asc' },
+      }),
+    ]);
+
+    return {
+      count: aggregate._count,
+      totalAmount: aggregate._sum.amount ?? new Prisma.Decimal(0),
+      payments,
+    };
+  }
+
+  /**
+   * Ingresa a `cashSessionId` todos los abonos en cola. Se llama al abrir una
+   * sesión, dentro de su misma transacción: si la apertura falla, la cola queda
+   * intacta.
+   *
+   * Devuelve cuántos se ingresaron. No lanza si la cola está vacía.
+   */
+  async flushInto(
+    tx: Prisma.TransactionClient,
+    cashSessionId: string,
+    performedById: string,
+  ): Promise<number> {
+    const pending = await tx.payment.findMany({
+      where: { pendingCashEntry: true },
+      select: {
+        id: true,
+        amount: true,
+        paymentMethod: true,
+        paymentDate: true,
+        cashMovementId: true,
+        order: { select: { orderNumber: true, id: true } },
+      },
+      orderBy: { paymentDate: 'asc' },
+    });
+
+    if (pending.length === 0) return 0;
+
+    let ingresados = 0;
+
+    for (const payment of pending) {
+      // Defensa: si por cualquier motivo ya tiene movimiento, solo se baja la
+      // bandera. Crear otro duplicaría el ingreso en el arqueo.
+      if (payment.cashMovementId) {
+        await tx.payment.update({
+          where: { id: payment.id },
+          data: { pendingCashEntry: false },
+        });
+        continue;
+      }
+
+      const receiptNumber =
+        await this.consecutivesService.generateNumber('CASH_RECEIPT');
+
+      const fecha = payment.paymentDate.toISOString().slice(0, 10);
+      const movement = await tx.cashMovement.create({
+        data: {
+          cashSessionId,
+          receiptNumber,
+          movementType: 'INCOME',
+          paymentMethod: payment.paymentMethod,
+          amount: payment.amount,
+          description:
+            `Abono a Orden ${payment.order?.orderNumber ?? ''} ` +
+            `(registrado el ${fecha}, sin caja abierta)`,
+          referenceType: 'ORDER',
+          referenceId: payment.order?.id,
+          performedById,
+        },
+        select: { id: true },
+      });
+
+      await tx.payment.update({
+        where: { id: payment.id },
+        data: { cashMovementId: movement.id, pendingCashEntry: false },
+      });
+
+      ingresados++;
+    }
+
+    this.logger.log(
+      `Se ingresaron ${ingresados} abono(s) pendientes a la sesión ${cashSessionId}`,
+    );
+
+    return ingresados;
+  }
+}

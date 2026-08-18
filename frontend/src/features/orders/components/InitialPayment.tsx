@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import {
   Alert,
+  AlertTitle,
   Box,
   Card,
   CardContent,
@@ -29,6 +30,7 @@ import {
   Visibility as VisibilityIcon,
 } from '@mui/icons-material';
 import axiosInstance from '../../../api/axios';
+import { useIsCashOpen } from '../../cash-register/hooks/useCashRegister';
 import { storageApi } from '../../../api/storage.api';
 import type {
   InitialPaymentData,
@@ -85,6 +87,9 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
   required = false,
   creditBalance,
 }) => {
+  // Estado de la caja: define si el abono entra directo al arqueo o a la cola.
+  const { data: isCashOpen } = useIsCashOpen();
+
   // One ref per possible payment block (max 3)
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([null, null, null]);
 
@@ -170,6 +175,18 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
         {enabled && (
           <Alert severity="info" sx={{ mb: 2 }}>
             El anticipo debe ser aprobado por Caja antes de que la orden pueda avanzar de estado.
+          </Alert>
+        )}
+
+        {/* Con la caja cerrada el abono se registra igual, pero no entra al
+            arqueo hasta que alguien abra caja. Sin este aviso el usuario lo
+            reporta como "cargué el pago y no aparece en caja", que es
+            exactamente el problema que originó la cola. */}
+        {enabled && isCashOpen?.isOpen === false && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            <AlertTitle>La caja está cerrada en este momento</AlertTitle>
+            El abono se registra igual y queda en espera. Entrará al arqueo
+            automáticamente cuando se abra la próxima caja.
           </Alert>
         )}
 

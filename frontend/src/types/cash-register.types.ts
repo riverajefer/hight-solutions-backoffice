@@ -196,3 +196,35 @@ export interface FilterCashMovementsDto {
   page?: number;
   limit?: number;
 }
+
+// ── Cola de abonos pendientes de ingresar a caja ─────────────────────────────
+
+/**
+ * Abono cobrado sin caja abierta. Existe en la OP pero todavía no en el arqueo:
+ * entra automáticamente al abrir la próxima sesión.
+ */
+export interface PendingCashEntry {
+  id: string;
+  amount: string;
+  /** Coincide con `PaymentMethod` de Prisma; se tipa como string igual que el
+   *  resto de este archivo para no acoplar los tipos de caja a los de órdenes. */
+  paymentMethod: string;
+  paymentDate: string;
+  reference: string | null;
+  order: {
+    id: string;
+    orderNumber: string;
+  } | null;
+  receivedBy: {
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
+  } | null;
+}
+
+export interface PendingCashEntriesSummary {
+  count: number;
+  /** Decimal serializado. */
+  totalAmount: string;
+  payments: PendingCashEntry[];
+}

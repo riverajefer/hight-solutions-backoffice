@@ -96,6 +96,21 @@ function applyColombianRounding(value: Prisma.Decimal): Prisma.Decimal {
   return truncated.add(100 - lastTwo);
 }
 
+/**
+ * Rastro de una edición de pago que modificó un movimiento de caja cuya sesión
+ * ya estaba cerrada. Se permite hacerlo (corregir un monto mal digitado no
+ * puede quedar bloqueado), pero queda registrado: el arqueo de esa sesión
+ * dejó de reflejar sus movimientos.
+ */
+interface MovementEditedAfterClose {
+  movementId: string;
+  sessionId: string;
+  oldAmount: string;
+  newAmount: string;
+  oldPaymentMethod: string;
+  newPaymentMethod: string;
+}
+
 @Injectable()
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
@@ -460,6 +475,10 @@ export class OrdersService {
         // registró cuando el cliente sobrepagó la orden de origen. Generar un
         // movimiento aquí inflaría el arqueo.
         const movesCash = p.paymentMethod !== PaymentMethod.CREDIT_BALANCE;
+
+        // Sin caja abierta el abono queda en cola: entra al arqueo cuando se
+        // abra la próxima sesión, en vez de nacer huérfano para siempre.
+        paymentData.pendingCashEntry = !activeSession && movesCash;
 
         if (activeSession && movesCash) {
           const receiptNumber = await this.consecutivesService.generateNumber('CASH_RECEIPT');
@@ -927,6 +946,83 @@ export class OrdersService {
                 },
                 select: { id: true },
               });
+
+          // Mantener la caja alineada con el pago. Esta rama no lo hacía, así
+          // que un abono agregado al editar la OP nacía huérfano (nunca
+          // aparecía en el historial de caja) y editar el monto de un abono ya
+          // ingresado dejaba el movimiento con la cifra vieja, descuadrando el
+          // arqueo. El saldo a favor se excluye: ese dinero ya entró a caja en
+          // la OP de origen.
+          const isCreditBalancePayment =
+            paymentData.paymentMethod === PaymentMethod.CREDIT_BALANCE;
+
+          if (!firstPayment) {
+            // Pago nuevo: mismo tratamiento que en `addPayment`.
+            if (!isCreditBalancePayment) {
+              const activeSession = await tx.cashSession.findFirst({
+                where: { status: 'OPEN' },
+                select: { id: true },
+              });
+
+              if (activeSession) {
+                const receiptNumber =
+                  await this.consecutivesService.generateNumber('CASH_RECEIPT');
+                const movement = await tx.cashMovement.create({
+                  data: {
+                    cashSessionId: activeSession.id,
+                    receiptNumber,
+                    movementType: 'INCOME',
+                    paymentMethod: paymentData.paymentMethod || 'CASH',
+                    amount: paymentData.amount,
+                    description: `Abono a Orden ${oldOrder.orderNumber}`,
+                    referenceType: 'ORDER',
+                    referenceId: id,
+                    performedById: userId,
+                  },
+                  select: { id: true },
+                });
+
+                await tx.payment.update({
+                  where: { id: touchedPayment.id },
+                  data: { cashMovementId: movement.id },
+                });
+              } else {
+                // Sin caja abierta: a la cola, para entrar al abrir la próxima.
+                await tx.payment.update({
+                  where: { id: touchedPayment.id },
+                  data: { pendingCashEntry: true },
+                });
+              }
+            }
+          } else if (firstPayment.cashMovementId) {
+            // El pago ya estaba en caja: o se sincroniza el movimiento con los
+            // datos nuevos, o se anula si pasó a saldo a favor (ese ingreso
+            // deja de existir como entrada de caja).
+            if (isCreditBalancePayment) {
+              await tx.cashMovement.update({
+                where: { id: firstPayment.cashMovementId },
+                data: {
+                  isVoided: true,
+                  voidedById: userId,
+                  voidedAt: new Date(),
+                  voidReason:
+                    'El abono pasó a saldo a favor: el ingreso ya se registró en la OP de origen',
+                },
+              });
+              await tx.payment.update({
+                where: { id: touchedPayment.id },
+                data: { cashMovementId: null },
+              });
+            } else {
+              await tx.cashMovement.update({
+                where: { id: firstPayment.cashMovementId },
+                data: {
+                  amount: paymentData.amount,
+                  paymentMethod: paymentData.paymentMethod || 'CASH',
+                },
+              });
+            }
+          }
 
           // Reajustar el consumo de saldo a favor: el pago pudo pasar a
           // CREDIT_BALANCE, dejar de serlo o cambiar de monto.
@@ -1549,6 +1645,10 @@ export class OrdersService {
           receiptFileId: createPaymentDto.receiptFileId,
           receivedById,
           cashMovementId, // Vincular movimiento de caja si se creó
+          // Sin caja abierta el abono no puede generar movimiento ahora, pero
+          // tampoco debe perderse: queda en cola y entra al abrir la próxima
+          // sesión. El saldo a favor se excluye (ya entró en la OP de origen).
+          pendingCashEntry: !activeSession && !isCreditBalance,
         },
         select: {
           id: true,
@@ -1700,7 +1800,10 @@ export class OrdersService {
     }
 
     // Usuario con permiso: aplicar el cambio directamente
-    await this.prisma.$transaction(async (tx) => {
+    // El rastro sale de la transacción en vez de mutar una variable externa:
+    // así el audit log solo se escribe si la edición realmente se confirmó.
+    const movementEditedAfterClose = await this.prisma.$transaction(async (tx) => {
+      let editedAfterClose: MovementEditedAfterClose | null = null;
       const paymentData: Prisma.PaymentUpdateInput = {};
       if (updatePaymentDto.amount !== undefined)
         paymentData.amount = new Prisma.Decimal(updatePaymentDto.amount);
@@ -1726,15 +1829,60 @@ export class OrdersService {
         },
       });
 
-      // Ajustar movimiento de caja vinculado
+      // Ajustar movimiento de caja vinculado.
+      //
+      // Si la sesión de ese movimiento ya está cerrada, editarlo altera un
+      // arqueo firmado: `closingAmount`/`systemBalance`/`discrepancy` quedaron
+      // congelados al cerrar y no se recalculan. Se permite igual (decisión de
+      // negocio: corregir un monto mal digitado no puede quedar bloqueado para
+      // siempre), pero **el cambio no puede ser silencioso**: se anota en la
+      // descripción del movimiento —que es lo que se ve en el arqueo y en la
+      // exportación de la sesión— y se deja registro en el audit log.
       if (updated.cashMovementId) {
-        await tx.cashMovement.update({
+        const movement = await tx.cashMovement.findUnique({
           where: { id: updated.cashMovementId },
-          data: {
-            amount: updated.amount,
-            paymentMethod: updated.paymentMethod,
+          select: {
+            id: true,
+            amount: true,
+            paymentMethod: true,
+            description: true,
+            cashSession: { select: { id: true, status: true } },
           },
         });
+
+        const sessionClosed = movement?.cashSession?.status === 'CLOSED';
+        const amountChanged =
+          movement != null && !movement.amount.equals(updated.amount);
+
+        const movementData: Prisma.CashMovementUpdateInput = {
+          amount: updated.amount,
+          paymentMethod: updated.paymentMethod,
+        };
+
+        if (movement && sessionClosed && amountChanged) {
+          const antes = movement.amount.toString();
+          const ahora = updated.amount.toString();
+          const fecha = new Date().toISOString().slice(0, 10);
+          movementData.description =
+            `${movement.description} [Editado el ${fecha} tras el cierre: ` +
+            `${antes} → ${ahora}]`;
+        }
+
+        await tx.cashMovement.update({
+          where: { id: updated.cashMovementId },
+          data: movementData,
+        });
+
+        if (movement && sessionClosed) {
+          editedAfterClose = {
+            movementId: movement.id,
+            sessionId: movement.cashSession!.id,
+            oldAmount: movement.amount.toString(),
+            newAmount: updated.amount.toString(),
+            oldPaymentMethod: movement.paymentMethod,
+            newPaymentMethod: updated.paymentMethod,
+          };
+        }
       }
 
       // Reajustar el consumo de saldo a favor si el pago editado lo usa (o dejó
@@ -1781,7 +1929,39 @@ export class OrdersService {
           ),
         },
       });
+
+      return editedAfterClose;
     });
+
+    // Rastro del arqueo alterado. Va fuera de la transacción y sin await
+    // bloqueante: es evidencia, no puede tumbar la edición si falla.
+    if (movementEditedAfterClose) {
+      this.logger.warn(
+        `Movimiento ${movementEditedAfterClose.movementId} de la sesión de caja ` +
+        `${movementEditedAfterClose.sessionId} (CERRADA) fue modificado al editar ` +
+        `el pago ${paymentId}: ${movementEditedAfterClose.oldAmount} → ` +
+        `${movementEditedAfterClose.newAmount}. El arqueo de esa sesión ya no ` +
+        `refleja sus movimientos.`,
+      );
+      this.auditLogsService
+        .logUpdate(
+          'CashMovement',
+          movementEditedAfterClose.movementId,
+          {
+            amount: movementEditedAfterClose.oldAmount,
+            paymentMethod: movementEditedAfterClose.oldPaymentMethod,
+          },
+          {
+            amount: movementEditedAfterClose.newAmount,
+            paymentMethod: movementEditedAfterClose.newPaymentMethod,
+            editedAfterSessionClose: true,
+            cashSessionId: movementEditedAfterClose.sessionId,
+            reason: `Edición del pago ${paymentId} sobre una sesión de caja cerrada`,
+          },
+          userId,
+        )
+        .catch(() => {});
+    }
 
     // Reemplazar el comprobante si se adjuntó uno nuevo (fuera de la txn)
     if (receiptFile) {
