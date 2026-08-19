@@ -38,8 +38,12 @@ interface DuplicateClientDialogProps {
   open: boolean;
   matches: ClientDuplicateMatch[];
   onClose: () => void;
-  /** Crear el cliente igual, ignorando el aviso. */
-  onCreateAnyway: () => void;
+  /**
+   * Crear el cliente igual, ignorando el aviso. Se omite cuando el diálogo se
+   * abre desde el aviso anticipado: ahí todavía no se envió nada, así que
+   * "crear igual" no tiene qué reintentar — el asesor sigue llenando el formulario.
+   */
+  onCreateAnyway?: () => void;
   creating?: boolean;
 }
 
@@ -184,17 +188,23 @@ export const DuplicateClientDialog: React.FC<DuplicateClientDialogProps> = ({
           })}
         </Stack>
 
-        <Divider sx={{ my: 2 }} />
-        <Typography variant="body2" color="text.secondary">
-          Si de verdad es un cliente distinto, puedes crearlo igual.
-        </Typography>
+        {onCreateAnyway && (
+          <>
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="body2" color="text.secondary">
+              Si de verdad es un cliente distinto, puedes crearlo igual.
+            </Typography>
+          </>
+        )}
       </DialogContent>
 
       <DialogActions>
         <Button onClick={onClose}>Volver al formulario</Button>
-        <Button color="warning" onClick={onCreateAnyway} disabled={creating}>
-          Crear de todas formas
-        </Button>
+        {onCreateAnyway && (
+          <Button color="warning" onClick={onCreateAnyway} disabled={creating}>
+            Crear de todas formas
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   );

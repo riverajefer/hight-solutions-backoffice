@@ -26,6 +26,7 @@ import { useUsers } from '../../users/hooks/useUsers';
 import { CreateClientDto, UpdateClientDto, Department, City } from '../../../types';
 import type { ClientDuplicateMatch } from '../../../types';
 import { DuplicateClientDialog } from '../components/DuplicateClientDialog';
+import { useDuplicateClientCheck } from '../hooks/useDuplicateClientCheck';
 import { extractDuplicateMatches } from '../utils/duplicateError';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
@@ -131,6 +132,17 @@ const ClientFormPage: React.FC = () => {
   // Watch for department and personType changes
   const watchDepartmentId = watch('departmentId');
   const watchPersonType = watch('personType');
+
+  // Aviso anticipado de duplicado: se consulta mientras el asesor escribe, no
+  // al enviar. Si el aviso llega recién en el submit, ya invirtió el trabajo de
+  // llenar todo el formulario y "Crear de todas formas" gana por inercia.
+  const { matches: liveMatches } = useDuplicateClientCheck({
+    name: watch('name'),
+    nit: watch('nit'),
+    cedula: watch('cedula'),
+    enabled: !isEdit,
+  });
+  const [showLiveMatches, setShowLiveMatches] = useState(false);
 
   // Fetch cities when department changes
   const { data: cities, isLoading: isLoadingCities } = useCitiesByDepartment(watchDepartmentId);
@@ -322,6 +334,24 @@ const ClientFormPage: React.FC = () => {
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {error}
+            </Alert>
+          )}
+
+          {!isEdit && liveMatches.length > 0 && (
+            <Alert
+              severity="warning"
+              sx={{ mb: 2 }}
+              action={
+                <Button color="inherit" size="small" onClick={() => setShowLiveMatches(true)}>
+                  Ver coincidencias
+                </Button>
+              }
+            >
+              {liveMatches.length === 1
+                ? `Ya existe un cliente con estos datos: ${liveMatches[0].name}`
+                : `Ya existen ${liveMatches.length} clientes con estos datos: ` +
+                  liveMatches.slice(0, 2).map((m) => m.name).join(', ') +
+                  (liveMatches.length > 2 ? '…' : '')}
             </Alert>
           )}
 
@@ -717,6 +747,14 @@ const ClientFormPage: React.FC = () => {
           </form>
         </CardContent>
       </Card>
+
+      {/* Aviso anticipado: sin "Crear de todas formas" porque todavía no se
+          envió nada — el asesor simplemente vuelve a completar el formulario. */}
+      <DuplicateClientDialog
+        open={showLiveMatches && liveMatches.length > 0}
+        matches={liveMatches}
+        onClose={() => setShowLiveMatches(false)}
+      />
 
       <DuplicateClientDialog
         open={duplicateMatches.length > 0}

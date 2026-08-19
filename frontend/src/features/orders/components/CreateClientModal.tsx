@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
+  Alert,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -22,6 +23,7 @@ import type {
   PersonType,
 } from '../../../types/client.types';
 import { DuplicateClientDialog } from '../../clients/components/DuplicateClientDialog';
+import { useDuplicateClientCheck } from '../../clients/hooks/useDuplicateClientCheck';
 import { extractDuplicateMatches } from '../../clients/utils/duplicateError';
 
 interface CreateClientModalProps {
@@ -167,6 +169,16 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
 
   const [duplicateMatches, setDuplicateMatches] = useState<ClientDuplicateMatch[]>([]);
 
+  // Aviso mientras se escribe. Este modal es el punto donde más se duplica:
+  // el asesor está creando una venta y el cliente ya existe pero es de otro.
+  const { matches: liveMatches } = useDuplicateClientCheck({
+    name: formData.name,
+    nit: formData.nit,
+    cedula: formData.cedula,
+    enabled: open,
+  });
+  const [showLiveMatches, setShowLiveMatches] = useState(false);
+
   const buildPayload = (): CreateClientDto => ({
     name: formData.name,
     email: formData.email,
@@ -258,6 +270,24 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>Crear Nuevo Cliente</DialogTitle>
       <DialogContent>
+        {liveMatches.length > 0 && (
+          <Alert
+            severity="warning"
+            sx={{ mt: 1 }}
+            action={
+              <Button color="inherit" size="small" onClick={() => setShowLiveMatches(true)}>
+                Ver coincidencias
+              </Button>
+            }
+          >
+            {liveMatches.length === 1
+              ? `Ya existe un cliente con estos datos: ${liveMatches[0].name}`
+              : `Ya existen ${liveMatches.length} clientes con estos datos: ` +
+                liveMatches.slice(0, 2).map((m) => m.name).join(', ') +
+                (liveMatches.length > 2 ? '…' : '')}
+          </Alert>
+        )}
+
         <Grid container spacing={2} sx={{ mt: 1 }}>
           {/* Tipo de Persona */}
           <Grid item xs={12}>
@@ -468,6 +498,12 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
           )}
         </Button>
       </DialogActions>
+
+      <DuplicateClientDialog
+        open={showLiveMatches && liveMatches.length > 0}
+        matches={liveMatches}
+        onClose={() => setShowLiveMatches(false)}
+      />
 
       <DuplicateClientDialog
         open={duplicateMatches.length > 0}
