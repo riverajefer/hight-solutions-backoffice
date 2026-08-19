@@ -1,7 +1,7 @@
 export type EmployeeType = 'REGULAR' | 'TEMPORARY';
 export type EmployeeStatus = 'ACTIVE' | 'INACTIVE';
 export type ContractType = 'FIXED_TERM' | 'INDEFINITE' | 'SERVICE_CONTRACT' | 'INTERNSHIP';
-export type IdentificationType = 'CC' | 'CE' | 'TI' | 'PA' | 'NIT';
+export type IdentificationType = 'CC' | 'CE' | 'TI' | 'PA' | 'PPT' | 'NIT';
 export type Sex = 'MALE' | 'FEMALE' | 'OTHER';
 
 /** Campos de datos personales/RRHH compartidos por el empleado y sus DTOs. */

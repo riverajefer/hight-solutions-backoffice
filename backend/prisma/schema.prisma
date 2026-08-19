@@ -1614,6 +1614,7 @@ enum IdentificationType {
   CE // Cédula de extranjería
   TI // Tarjeta de identidad
   PA // Pasaporte
+  PPT // Permiso por protección temporal
   NIT
 }
 

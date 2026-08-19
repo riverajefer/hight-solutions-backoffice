@@ -29,6 +29,7 @@ export enum IdentificationType {
   CE = 'CE',
   TI = 'TI',
   PA = 'PA',
+  PPT = 'PPT',
   NIT = 'NIT',
 }
 

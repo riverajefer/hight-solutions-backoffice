@@ -34,6 +34,7 @@ const identificationTypeLabels: Record<string, string> = {
   CE: 'Cédula de extranjería',
   TI: 'Tarjeta de identidad',
   PA: 'Pasaporte',
+  PPT: 'PPT (Permiso por Protección Temporal)',
   NIT: 'NIT',
 };
 const sexLabels: Record<string, string> = { MALE: 'Masculino', FEMALE: 'Femenino', OTHER: 'Otro' };
