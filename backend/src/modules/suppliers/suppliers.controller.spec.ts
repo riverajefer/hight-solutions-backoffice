@@ -7,6 +7,7 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 const mockSuppliersService = {
   findAll: jest.fn(),
   findOne: jest.fn(),
+  findDuplicates: jest.fn(),
   create: jest.fn(),
   update: jest.fn(),
   remove: jest.fn(),
@@ -54,7 +55,9 @@ describe('SuppliersController', () => {
       const dto = { name: 'Proveedor XYZ', email: 'xyz@test.com' } as any;
       mockSuppliersService.create.mockResolvedValue({ id: 'supplier-1', ...dto });
       await controller.create(dto);
-      expect(mockSuppliersService.create).toHaveBeenCalledWith(dto);
+      expect(mockSuppliersService.create).toHaveBeenCalledWith(dto, {
+        force: false,
+      });
     });
   });
 

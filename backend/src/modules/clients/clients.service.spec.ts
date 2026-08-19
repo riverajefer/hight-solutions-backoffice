@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { ClientsService } from './clients.service';
 import { ClientsRepository } from './clients.repository';
 import { LocationsService } from '../locations/locations.service';
@@ -12,6 +16,8 @@ const mockClientsRepository = {
   findAll: jest.fn(),
   findById: jest.fn(),
   findByEmail: jest.fn(),
+  // Sin duplicados por defecto: cada test que los necesite lo sobrescribe.
+  findAllForDuplicateCheck: jest.fn().mockResolvedValue([]),
   findByEmailExcludingId: jest.fn(),
   findAllEmails: jest.fn(),
   create: jest.fn(),
@@ -101,6 +107,8 @@ describe('ClientsService', () => {
 
     // Default happy-path stubs
     mockClientsRepository.findByEmail.mockResolvedValue(null);
+    // Se restablece en cada test: si no, el duplicado montado por uno se filtra al siguiente.
+    mockClientsRepository.findAllForDuplicateCheck.mockResolvedValue([]);
     mockClientsRepository.findById.mockResolvedValue(mockClient);
     mockClientsRepository.create.mockResolvedValue(mockClient);
     mockLocationsService.findDepartmentById.mockResolvedValue({ id: 'dept-1' });
@@ -178,7 +186,107 @@ describe('ClientsService', () => {
   // ---------------------------------------------------------------------------
   // create
   // ---------------------------------------------------------------------------
+  describe('findDuplicates', () => {
+    it('marca ALTA cuando coinciden documento y nombre', async () => {
+      mockClientsRepository.findAllForDuplicateCheck.mockResolvedValue([
+        {
+          id: 'c-1',
+          name: 'Empresa Nueva SAS',
+          nit: '800987654-3',
+          cedula: null,
+          advisors: [
+            {
+              advisor: {
+                id: 'u-1',
+                username: 'nicole',
+                firstName: 'Nicole',
+                lastName: 'Pérez',
+              },
+            },
+          ],
+        },
+      ]);
+
+      const matches = await service.findDuplicates({
+        name: 'Empresa Nueva S.A.S',
+        nit: '800987654',
+      });
+
+      expect(matches).toHaveLength(1);
+      expect(matches[0].tier).toBe('ALTA');
+      expect(matches[0].advisors[0].name).toBe('Nicole Pérez');
+    });
+
+    it('marca MEDIA cuando solo coincide el documento', async () => {
+      // El caso real de producción: dos personas distintas con la misma cédula.
+      mockClientsRepository.findAllForDuplicateCheck.mockResolvedValue([
+        { id: 'c-1', name: 'Paola Pachon', nit: null, cedula: '1026586236', advisors: [] },
+      ]);
+
+      const matches = await service.findDuplicates({
+        name: 'Angelica Pachon',
+        cedula: '1026586236',
+      });
+
+      expect(matches[0].tier).toBe('MEDIA');
+    });
+
+    it('ignora los documentos de relleno', async () => {
+      mockClientsRepository.findAllForDuplicateCheck.mockResolvedValue([
+        { id: 'c-1', name: 'Otro Cliente', nit: '1111111111', cedula: null, advisors: [] },
+      ]);
+
+      const matches = await service.findDuplicates({
+        name: 'Cliente Sin Relación',
+        nit: '1111111111',
+      });
+
+      expect(matches).toHaveLength(0);
+    });
+
+    it('no devuelve nada cuando no hay nombre ni documento', async () => {
+      const matches = await service.findDuplicates({});
+
+      expect(matches).toHaveLength(0);
+      expect(mockClientsRepository.findAllForDuplicateCheck).not.toHaveBeenCalled();
+    });
+  });
+
   describe('create', () => {
+    it('lanza ConflictException con los datos del duplicado', async () => {
+      mockClientsRepository.findAllForDuplicateCheck.mockResolvedValue([
+        {
+          id: 'c-existente',
+          name: 'Empresa Nueva S.A.S',
+          nit: '800987654',
+          cedula: null,
+          advisors: [],
+        },
+      ]);
+
+      await expect(service.create(createEmpresaDto as any, 'user-1')).rejects.toThrow(
+        ConflictException,
+      );
+      expect(mockClientsRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('crea igual con force: el asesor necesita una salida', async () => {
+      mockClientsRepository.findAllForDuplicateCheck.mockResolvedValue([
+        {
+          id: 'c-existente',
+          name: 'Empresa Nueva S.A.S',
+          nit: '800987654',
+          cedula: null,
+          advisors: [],
+        },
+      ]);
+      mockClientsRepository.create.mockResolvedValue(mockClient);
+
+      await service.create(createEmpresaDto as any, 'user-1', { force: true });
+
+      expect(mockClientsRepository.create).toHaveBeenCalled();
+    });
+
     it('should throw BadRequestException when email already exists', async () => {
       mockClientsRepository.findByEmail.mockResolvedValue(mockClient);
 

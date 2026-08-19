@@ -68,6 +68,28 @@ export class ClientsController {
     return this.clientsService.findAll(filters);
   }
 
+  // Debe declararse antes de `@Get(':id')`: si no, "check-duplicate" se
+  // interpreta como un id de cliente.
+  @Get('check-duplicate')
+  @RequirePermissions('create_clients')
+  @ApiOperation({
+    summary: 'Consultar si ya existe un cliente con estos datos',
+    description:
+      'Pensado para avisar mientras se llena el formulario, antes de enviarlo. ' +
+      'Nivel ALTA = coincide documento y nombre; MEDIA = solo documento; BAJA = solo nombre.',
+  })
+  @ApiQuery({ name: 'name', required: false })
+  @ApiQuery({ name: 'nit', required: false })
+  @ApiQuery({ name: 'cedula', required: false })
+  @ApiResponse({ status: 200, description: 'Lista de posibles duplicados (vacía si no hay)' })
+  checkDuplicate(
+    @Query('name') name?: string,
+    @Query('nit') nit?: string,
+    @Query('cedula') cedula?: string,
+  ) {
+    return this.clientsService.findDuplicates({ name, nit, cedula });
+  }
+
   @Get(':id/stats')
   @RequirePermissions('read_clients')
   @ApiOperation({ summary: 'Obtener estadísticas financieras y historial de órdenes del cliente' })
@@ -143,11 +165,26 @@ export class ClientsController {
     status: 400,
     description: 'Datos inválidos o email duplicado',
   })
+  @ApiResponse({
+    status: 409,
+    description:
+      'Posible duplicado. El cuerpo trae `code: POSSIBLE_DUPLICATE` y los clientes ' +
+      'que coinciden con sus asesores actuales.',
+  })
+  @ApiQuery({
+    name: 'force',
+    required: false,
+    type: Boolean,
+    description: 'Crear pese al aviso de duplicado',
+  })
   create(
     @Body() createClientDto: CreateClientDto,
     @CurrentUser('id') currentUserId: string,
+    @Query('force') force?: string,
   ) {
-    return this.clientsService.create(createClientDto, currentUserId);
+    return this.clientsService.create(createClientDto, currentUserId, {
+      force: force === 'true',
+    });
   }
 
   @Put(':id')

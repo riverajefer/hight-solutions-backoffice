@@ -2,11 +2,20 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { SuppliersRepository } from './suppliers.repository';
 import { LocationsService } from '../locations/locations.service';
 import { CreateSupplierDto, UpdateSupplierDto } from './dto';
 import { PersonType } from '../../generated/prisma';
+import { nameCore, normName } from '../../common/utils/normalize.util';
+
+/** Proveedor existente con el mismo nombre que el que se está por crear. */
+export interface SupplierDuplicateMatch {
+  id: string;
+  name: string;
+  nit: string | null;
+}
 
 @Injectable()
 export class SuppliersService {
@@ -36,9 +45,45 @@ export class SuppliersService {
   }
 
   /**
-   * Create a new supplier
+   * Proveedores con el mismo nombre que el indicado.
+   *
+   * El NIT no participa: en producción 37 proveedores sin relación entre sí
+   * comparten placeholders como `1111111111`, así que usarlo como llave los
+   * agruparía a todos. Solo el nombre distingue.
    */
-  async create(createSupplierDto: CreateSupplierDto) {
+  async findDuplicates(
+    name: string | undefined,
+    excludeId?: string,
+  ): Promise<SupplierDuplicateMatch[]> {
+    const nn = normName(name);
+    const nc = nameCore(name);
+    if (!nn) return [];
+
+    const candidates = await this.suppliersRepository.findAllForDuplicateCheck(excludeId);
+    return candidates
+      .filter((c) => nn === normName(c.name) || (Boolean(nc) && nc === nameCore(c.name)))
+      .map((c) => ({ id: c.id, name: c.name, nit: c.nit }));
+  }
+
+  /**
+   * Create a new supplier.
+   *
+   * A diferencia de clientes, el duplicado acá solo se avisa: los proveedores no
+   * tienen dueño, así que no hay una solicitud de co-propiedad que ofrecer y
+   * bloquear no aportaría nada.
+   */
+  async create(createSupplierDto: CreateSupplierDto, options: { force?: boolean } = {}) {
+    if (!options.force) {
+      const duplicates = await this.findDuplicates(createSupplierDto.name);
+      if (duplicates.length > 0) {
+        throw new ConflictException({
+          code: 'POSSIBLE_DUPLICATE',
+          message: `Ya existe un proveedor llamado "${createSupplierDto.name}".`,
+          matches: duplicates,
+        });
+      }
+    }
+
     // Validate email uniqueness
     const existingSupplier = await this.suppliersRepository.findByEmail(
       createSupplierDto.email || '',

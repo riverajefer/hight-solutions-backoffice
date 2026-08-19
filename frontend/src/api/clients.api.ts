@@ -8,6 +8,7 @@ import {
   ClientQueryParams,
   ClientListResponse,
   UploadClientsResponse,
+  ClientDuplicateMatch,
 } from '../types';
 
 export const clientsApi = {
@@ -30,10 +31,32 @@ export const clientsApi = {
   },
 
   /**
-   * Create a new client
+   * Create a new client.
+   *
+   * Sin `force` el backend responde 409 con los posibles duplicados; el
+   * formulario los muestra y deja elegir entre pedir co-propiedad del cliente
+   * existente o crear igual.
    */
-  create: async (data: CreateClientDto): Promise<Client> => {
-    const response = await axiosInstance.post<Client>('/clients', data);
+  create: async (data: CreateClientDto, force = false): Promise<Client> => {
+    const response = await axiosInstance.post<Client>('/clients', data, {
+      params: force ? { force: true } : undefined,
+    });
+    return response.data;
+  },
+
+  /**
+   * Consulta si ya existe un cliente con estos datos, sin crear nada.
+   * Sirve para avisar mientras se llena el formulario.
+   */
+  checkDuplicate: async (params: {
+    name?: string;
+    nit?: string;
+    cedula?: string;
+  }): Promise<ClientDuplicateMatch[]> => {
+    const response = await axiosInstance.get<ClientDuplicateMatch[]>(
+      '/clients/check-duplicate',
+      { params },
+    );
     return response.data;
   },
 

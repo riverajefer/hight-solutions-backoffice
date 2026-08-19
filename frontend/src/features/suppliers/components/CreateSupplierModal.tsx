@@ -13,6 +13,11 @@ import {
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
 import { useSuppliers } from '../hooks/useSuppliers';
+import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
+import { extractDuplicateNames } from '../utils/duplicateError';
+
+const supplierErrorMessage = (err: unknown): string =>
+  err instanceof Error ? err.message : 'Error al guardar proveedor';
 import { useDepartments, useCitiesByDepartment } from '../../locations/hooks/useLocations';
 import type { Supplier, PersonType } from '../../../types/supplier.types';
 
@@ -121,11 +126,11 @@ export const CreateSupplierModal: React.FC<CreateSupplierModalProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async () => {
-    if (!validate()) return;
+  const [duplicateNames, setDuplicateNames] = useState<string[] | null>(null);
 
-    try {
-      const supplier = await createSupplierMutation.mutateAsync({
+  const submit = async (force: boolean) => {
+    const supplier = await createSupplierMutation.mutateAsync({
+      data: {
         name: formData.name,
         email: formData.email.trim() || undefined,
         phone: formData.phone || undefined,
@@ -136,17 +141,41 @@ export const CreateSupplierModal: React.FC<CreateSupplierModalProps> = ({
         ...(formData.address && { address: formData.address }),
         ...(formData.nit && { nit: formData.nit }),
         ...(formData.encargado && { encargado: formData.encargado }),
-      });
+      },
+      force,
+    });
 
-      setFormData({
-        name: '', email: '', phone: '', landlinePhone: '', address: '',
-        personType: 'NATURAL', departmentId: '', cityId: '', nit: '', encargado: '',
-      });
-      setErrors({});
-      onSuccess(supplier);
-      enqueueSnackbar('Proveedor creado correctamente', { variant: 'success' });
-    } catch (err: any) {
-      enqueueSnackbar(err.message || 'Error al guardar proveedor', { variant: 'error' });
+    setFormData({
+      name: '', email: '', phone: '', landlinePhone: '', address: '',
+      personType: 'NATURAL', departmentId: '', cityId: '', nit: '', encargado: '',
+    });
+    setErrors({});
+    setDuplicateNames(null);
+    onSuccess(supplier);
+    enqueueSnackbar('Proveedor creado correctamente', { variant: 'success' });
+  };
+
+  const handleSubmit = async () => {
+    if (!validate()) return;
+    try {
+      await submit(false);
+    } catch (err: unknown) {
+      // 409 = ya existe un proveedor con ese nombre; se avisa y se deja continuar.
+      const names = extractDuplicateNames(err);
+      if (names) {
+        setDuplicateNames(names);
+        return;
+      }
+      enqueueSnackbar(supplierErrorMessage(err), { variant: 'error' });
+    }
+  };
+
+  const handleCreateAnyway = async () => {
+    try {
+      await submit(true);
+    } catch (err: unknown) {
+      enqueueSnackbar(supplierErrorMessage(err), { variant: 'error' });
+      setDuplicateNames(null);
     }
   };
 
@@ -209,6 +238,22 @@ export const CreateSupplierModal: React.FC<CreateSupplierModalProps> = ({
           {createSupplierMutation.isPending ? <CircularProgress size={24} /> : 'Crear Proveedor'}
         </Button>
       </DialogActions>
+
+      <ConfirmDialog
+        open={duplicateNames !== null}
+        severity="warning"
+        title="Ya existe un proveedor con ese nombre"
+        message={
+          duplicateNames && duplicateNames.length > 0
+            ? `Encontramos: ${duplicateNames.join(', ')}. ¿Quieres crearlo igual?`
+            : '¿Quieres crearlo igual?'
+        }
+        confirmText="Crear de todas formas"
+        cancelText="Volver al formulario"
+        isLoading={createSupplierMutation.isPending}
+        onConfirm={handleCreateAnyway}
+        onCancel={() => setDuplicateNames(null)}
+      />
     </Dialog>
   );
 };
