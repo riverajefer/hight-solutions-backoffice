@@ -177,6 +177,38 @@ export class ClientsRepository {
   }
 
   /**
+   * Proyección mínima de los clientes activos para la detección de duplicados.
+   *
+   * Se filtra en memoria y no en SQL a propósito: el criterio (tildes, sufijos
+   * societarios, dígito de verificación del NIT, placeholders) vive en
+   * `normalize.util.ts` y lo comparte el script que genera el reporte de
+   * saneamiento. Reimplementarlo en SQL haría que el formulario y el reporte
+   * discrepen con el tiempo. Sobre ~1.000 filas de tres columnas el barrido es
+   * de milisegundos.
+   */
+  async findAllForDuplicateCheck(excludeId?: string) {
+    return this.prisma.client.findMany({
+      where: {
+        isActive: true,
+        ...(excludeId && { NOT: { id: excludeId } }),
+      },
+      select: {
+        id: true,
+        name: true,
+        nit: true,
+        cedula: true,
+        advisors: {
+          select: {
+            advisor: {
+              select: { id: true, username: true, firstName: true, lastName: true },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  /**
    * Create a new client
    */
   async create(data: Prisma.ClientCreateInput) {

@@ -16,7 +16,9 @@ export const useSuppliers = (params?: SupplierQueryParams) => {
 
   // Mutation for creating a supplier
   const createSupplierMutation = useMutation({
-    mutationFn: (data: CreateSupplierDto) => suppliersApi.create(data),
+    // `force` omite el aviso de nombre repetido; lo activa el diálogo del formulario.
+    mutationFn: ({ data, force }: { data: CreateSupplierDto; force?: boolean }) =>
+      suppliersApi.create(data, force ?? false),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['suppliers'] });
     },

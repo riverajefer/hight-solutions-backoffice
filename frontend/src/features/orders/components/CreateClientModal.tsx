@@ -15,7 +15,14 @@ import { useSnackbar } from 'notistack';
 import { PhoneInputWithCountry } from '../../../components/common/PhoneInputWithCountry';
 import { useClients } from '../../clients/hooks/useClients';
 import { useDepartments, useCitiesByDepartment } from '../../locations/hooks/useLocations';
-import type { Client, PersonType } from '../../../types/client.types';
+import type {
+  Client,
+  ClientDuplicateMatch,
+  CreateClientDto,
+  PersonType,
+} from '../../../types/client.types';
+import { DuplicateClientDialog } from '../../clients/components/DuplicateClientDialog';
+import { extractDuplicateMatches } from '../../clients/utils/duplicateError';
 
 interface CreateClientModalProps {
   open: boolean;
@@ -158,46 +165,72 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
+  const [duplicateMatches, setDuplicateMatches] = useState<ClientDuplicateMatch[]>([]);
+
+  const buildPayload = (): CreateClientDto => ({
+    name: formData.name,
+    email: formData.email,
+    phone: formData.phone,
+    personType: formData.personType,
+    departmentId: formData.departmentId,
+    cityId: formData.cityId,
+    ...(formData.landlinePhone && { landlinePhone: formData.landlinePhone }),
+    ...(formData.nit && { nit: formData.nit }),
+    ...(formData.cedula && { cedula: formData.cedula }),
+    ...(formData.manager && { manager: formData.manager }),
+    ...(formData.encargado && { encargado: formData.encargado }),
+  });
+
+  const submit = async (force: boolean) => {
+    const client = await createClientMutation.mutateAsync({
+      data: buildPayload(),
+      force,
+    });
+
+    setFormData({
+      name: '',
+      email: '',
+      phone: '',
+      landlinePhone: '',
+      personType: 'NATURAL',
+      departmentId: '',
+      cityId: '',
+      nit: '',
+      cedula: '',
+      manager: '',
+      encargado: '',
+    });
+    setErrors({});
+    setDuplicateMatches([]);
+
+    onSuccess(client);
+    enqueueSnackbar('Cliente creado correctamente', { variant: 'success' });
+  };
+
   const handleSubmit = async () => {
     if (!validate()) return;
-
     try {
-      const client = await createClientMutation.mutateAsync({
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        personType: formData.personType,
-        departmentId: formData.departmentId,
-        cityId: formData.cityId,
-        ...(formData.landlinePhone && { landlinePhone: formData.landlinePhone }),
-        ...(formData.nit && { nit: formData.nit }),
-        ...(formData.cedula && { cedula: formData.cedula }),
-        ...(formData.manager && { manager: formData.manager }),
-        ...(formData.encargado && { encargado: formData.encargado }),
-      });
-
-      // Reset form
-      setFormData({
-        name: '',
-        email: '',
-        phone: '',
-        landlinePhone: '',
-        personType: 'NATURAL',
-        departmentId: '',
-        cityId: '',
-        nit: '',
-        cedula: '',
-        manager: '',
-        encargado: '',
-      });
-      setErrors({});
-
-      onSuccess(client);
-      enqueueSnackbar('Cliente creado correctamente', { variant: 'success' });
+      await submit(false);
     } catch (err: unknown) {
+      // El 409 abre el diálogo de posible duplicado en vez de mostrar un error:
+      // este es justo el punto donde el asesor duplica el cliente para poder vender.
+      const matches = extractDuplicateMatches(err);
+      if (matches) {
+        setDuplicateMatches(matches);
+        return;
+      }
       const message = err instanceof Error ? err.message : 'Error al guardar cliente';
       enqueueSnackbar(message, { variant: 'error' });
       console.error('Error creating client:', err);
+    }
+  };
+
+  const handleCreateAnyway = async () => {
+    try {
+      await submit(true);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al guardar cliente';
+      enqueueSnackbar(message, { variant: 'error' });
     }
   };
 
@@ -435,6 +468,14 @@ export const CreateClientModal: React.FC<CreateClientModalProps> = ({
           )}
         </Button>
       </DialogActions>
+
+      <DuplicateClientDialog
+        open={duplicateMatches.length > 0}
+        matches={duplicateMatches}
+        creating={createClientMutation.isPending}
+        onClose={() => setDuplicateMatches([])}
+        onCreateAnyway={handleCreateAnyway}
+      />
     </Dialog>
   );
 };

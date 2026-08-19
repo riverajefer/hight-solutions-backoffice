@@ -18,9 +18,11 @@ export const useClients = (params?: ClientQueryParams) => {
     enabled: hasPermission(PERMISSIONS.READ_CLIENTS),
   });
 
-  // Mutation for creating a client
+  // Mutation for creating a client.
+  // `force` omite el aviso de posible duplicado; lo activa el diálogo del formulario.
   const createClientMutation = useMutation({
-    mutationFn: (data: CreateClientDto) => clientsApi.create(data),
+    mutationFn: ({ data, force }: { data: CreateClientDto; force?: boolean }) =>
+      clientsApi.create(data, force ?? false),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
     },

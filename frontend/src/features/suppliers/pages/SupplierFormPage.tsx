@@ -19,6 +19,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
+import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
+import { extractDuplicateNames } from '../utils/duplicateError';
 import { useSuppliers, useSupplier } from '../hooks/useSuppliers';
 import { useDepartments, useCitiesByDepartment } from '../../locations/hooks/useLocations';
 import { CreateSupplierDto, UpdateSupplierDto, Department, City } from '../../../types';
@@ -82,6 +84,9 @@ const SupplierFormPage: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
   const { id } = useParams<{ id: string }>();
   const [error, setError] = useState<string | null>(null);
+  // Aviso de nombre repetido: retiene el payload hasta que el usuario decide.
+  const [duplicateNames, setDuplicateNames] = useState<string[] | null>(null);
+  const [duplicatePayload, setDuplicatePayload] = useState<CreateSupplierDto | null>(null);
 
   const isEdit = !!id;
   const { data: supplier, isLoading: isLoadingSupplier } = useSupplier(id || '');
@@ -176,6 +181,8 @@ const SupplierFormPage: React.FC = () => {
   }, [supplier, isEdit, reset]);
 
   const onSubmit = async (data: SupplierFormData) => {
+    // Se guarda fuera del try para poder reintentar con `force` desde el aviso.
+    let attempted: CreateSupplierDto | null = null;
     try {
       setError(null);
 
@@ -196,15 +203,41 @@ const SupplierFormPage: React.FC = () => {
         });
         enqueueSnackbar('Proveedor actualizado correctamente', { variant: 'success' });
       } else {
-        await createSupplierMutation.mutateAsync(cleanedData as CreateSupplierDto);
+        attempted = cleanedData as CreateSupplierDto;
+        await createSupplierMutation.mutateAsync({ data: attempted, force: false });
         enqueueSnackbar('Proveedor creado correctamente', { variant: 'success' });
       }
+      navigate('/suppliers');
+    } catch (err: unknown) {
+      // 409 = ya existe un proveedor con ese nombre. Solo se avisa: los
+      // proveedores no tienen dueño, así que no hay nada que negociar.
+      const names = extractDuplicateNames(err);
+      if (names && attempted) {
+        setDuplicatePayload(attempted);
+        setDuplicateNames(names);
+        return;
+      }
+      const message =
+        err instanceof Error ? err.message : 'Error al guardar proveedor';
+      setError(message);
+      enqueueSnackbar(message, { variant: 'error' });
+    }
+  };
+
+  const handleCreateAnyway = async () => {
+    if (!duplicatePayload) return;
+    try {
+      await createSupplierMutation.mutateAsync({ data: duplicatePayload, force: true });
+      enqueueSnackbar('Proveedor creado correctamente', { variant: 'success' });
       navigate('/suppliers');
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : 'Error al guardar proveedor';
       setError(message);
       enqueueSnackbar(message, { variant: 'error' });
+    } finally {
+      setDuplicateNames(null);
+      setDuplicatePayload(null);
     }
   };
 
@@ -498,6 +531,25 @@ const SupplierFormPage: React.FC = () => {
           </form>
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={duplicateNames !== null}
+        severity="warning"
+        title="Ya existe un proveedor con ese nombre"
+        message={
+          duplicateNames && duplicateNames.length > 0
+            ? `Encontramos: ${duplicateNames.join(', ')}. ¿Quieres crearlo igual?`
+            : '¿Quieres crearlo igual?'
+        }
+        confirmText="Crear de todas formas"
+        cancelText="Volver al formulario"
+        isLoading={createSupplierMutation.isPending}
+        onConfirm={handleCreateAnyway}
+        onCancel={() => {
+          setDuplicateNames(null);
+          setDuplicatePayload(null);
+        }}
+      />
     </Box>
   );
 };

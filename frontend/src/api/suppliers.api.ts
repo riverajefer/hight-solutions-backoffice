@@ -29,8 +29,10 @@ export const suppliersApi = {
   /**
    * Create a new supplier
    */
-  create: async (data: CreateSupplierDto): Promise<Supplier> => {
-    const response = await axiosInstance.post<Supplier>('/suppliers', data);
+  create: async (data: CreateSupplierDto, force = false): Promise<Supplier> => {
+    const response = await axiosInstance.post<Supplier>('/suppliers', data, {
+      params: force ? { force: true } : undefined,
+    });
     return response.data;
   },
 

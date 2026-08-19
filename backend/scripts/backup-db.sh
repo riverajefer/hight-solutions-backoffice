@@ -61,7 +61,12 @@ else
     exit 1
   fi
 
-  DB_URL=$(grep -E '^DATABASE_URL[[:space:]]*=' "$ENV_FILE" | head -1 | sed -E 's/^DATABASE_URL[[:space:]]*=[[:space:]]*"?([^"]*)"?[[:space:]]*$/\1/')
+  # Se quitan comillas simples o dobles y cualquier espacio sobrante. El patrón
+  # anterior solo contemplaba comillas dobles, así que .env.production —que usa
+  # comillas simples y deja un espacio al final— llegaba entrecomillado a pg_dump
+  # y este caía al socket local en vez de conectarse a Railway.
+  DB_URL=$(grep -E '^DATABASE_URL[[:space:]]*=' "$ENV_FILE" | head -1 \
+    | sed -E "s/^DATABASE_URL[[:space:]]*=[[:space:]]*//; s/^['\"]//; s/['\"][[:space:]]*\$//; s/[[:space:]]*\$//")
 
   if [[ -z "$DB_URL" ]]; then
     echo "ERROR: $ENV_FILE no define DATABASE_URL"

@@ -40,3 +40,5 @@ tmp/
 temp/
 src/generated/*
 src/coverage-phase1/*
+# Reportes de deduplicación: contienen datos personales de clientes reales
+scripts/.merge-reports/

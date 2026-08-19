@@ -139,3 +139,86 @@ Selecciona destino [1-2]: 1
 # 3. Si algo salió mal, restaurar el backup más reciente
 ./backend/scripts/restore-backup.sh
 ```
+
+---
+
+## Saneamiento de clientes y proveedores duplicados
+
+Dos scripts, en este orden. La separación es a propósito: el detector **no tiene
+código de escritura**, así que ningún flag mal escrito puede tocar producción.
+
+### Por qué hace falta revisión humana
+
+Coincidir por documento **no** implica ser el mismo cliente. En producción hay
+cédulas compartidas por personas distintas (`Angelica Pachon` / `Paola Pachon`,
+`Martha Inés Ramírez` / `SEMTEC`). Y al revés, hay duplicados reales cuyo nombre
+no coincide (`DM PROMOCIONALES` / `DM PROMOCIONALES SAS`). Ningún criterio
+automático es seguro por sí solo, por eso el reporte se revisa a mano.
+
+En proveedores el NIT **no** se usa como llave: 37 proveedores sin relación entre
+sí comparten placeholders como `1111111111` (ACUEDUCTO, ETB, TIGO…). Solo el
+nombre distingue.
+
+### Paso 1 — detectar (solo lectura)
+
+```bash
+npx ts-node scripts/detect-duplicate-parties.ts --env=staging
+```
+
+Opciones: `--entity=clients|suppliers|both`, `--tier=ALTA|ALL`.
+
+Escribe `scripts/.merge-reports/<entidad>-<env>-<timestamp>.csv` (+ un `.md`
+legible). El directorio está en `.gitignore`: contiene datos personales.
+
+Niveles de confianza:
+
+| Nivel | Regla | `decision` precargada |
+|---|---|---|
+| `ALTA` | documento **y** nombre coinciden | `FUSIONAR` |
+| `MEDIA` | solo el documento | `OMITIR` |
+| `BAJA` | solo el nombre | `OMITIR` |
+| `BAJA_FUZZY` | nombres a distancia <= 2 (erratas) | `OMITIR` |
+
+### Paso 2 — revisar el CSV
+
+Edita solo dos columnas: `decision` (`FUSIONAR` / `OMITIR`) e `is_winner` (la `X`
+marca el registro que sobrevive). Todo el grupo debe llevar la misma `decision` y
+tener exactamente un ganador.
+
+### Paso 3 — fusionar
+
+```bash
+npx ts-node scripts/merge-duplicate-parties.ts --env=staging --report=scripts/.merge-reports/<archivo>.csv
+```
+
+Sin `--apply` es dry-run: solo cuenta lo que movería. Con `--apply` escribe.
+**Haz backup antes** (`./scripts/backup-db.sh --env=production --compress`).
+
+Qué hace por cada grupo, en una transacción:
+
+1. Bloquea las filas y verifica que no cambiaron desde la detección (hash).
+2. Escribe la auditoría en `audit_logs` con el snapshot completo de cada perdedor.
+3. Repunta `orders`, `quotes`, `dtf_records`, `prospects` al ganador.
+4. **Une los asesores**: el ganador queda con los asesores de todos los duplicados
+   (`ON CONFLICT DO NOTHING`, porque el `@@unique(clientId, advisorId)` revienta si
+   ambos comparten asesor). Nadie pierde su cliente.
+5. Rellena los campos vacíos del ganador desde los perdedores. Nunca sobrescribe.
+6. Verifica que no quede **ninguna** referencia a los perdedores; si queda alguna,
+   revierte el grupo entero. Esta guarda evita que las FK `SET NULL` de proveedores
+   vacíen ítems de OG y cuentas por pagar en silencio.
+7. Retira a los perdedores: `isActive = false` y `email = NULL` (liberar el email
+   evita que quede secuestrado por un registro que ya nadie ve). El borrado duro
+   está detrás de `--hard-delete`.
+
+El detector solo mira registros **activos**, así que los perdedores de una fusión
+anterior no vuelven a aparecer en el reporte. Y si intentas reaplicar un CSV viejo,
+el chequeo de hash lo rechaza: hay que volver a detectar.
+
+### Prevención
+
+La causa raíz está atacada en el código: `POST /clients` y `POST /suppliers`
+devuelven **409** con los posibles duplicados en vez de crear a ciegas. En clientes
+el frontend ofrece **solicitar co-propiedad** del cliente existente
+(`client-advisor-requests`) — que es lo que el asesor realmente busca — o crear
+igual con `?force=true`. El criterio lo comparten script y backend en
+`src/common/utils/normalize.util.ts`, para que el reporte y el formulario no discrepen.
