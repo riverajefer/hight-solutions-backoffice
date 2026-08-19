@@ -44,6 +44,7 @@ const identificationTypeOptions: { value: string; label: string }[] = [
   { value: 'CE', label: 'Cédula de extranjería' },
   { value: 'TI', label: 'Tarjeta de identidad' },
   { value: 'PA', label: 'Pasaporte' },
+  { value: 'PPT', label: 'PPT (Permiso por Protección Temporal)' },
   { value: 'NIT', label: 'NIT' },
 ];
 

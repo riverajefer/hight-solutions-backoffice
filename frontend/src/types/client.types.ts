@@ -135,3 +135,26 @@ export interface UploadClientsResponse {
   failed: number;
   errors: UploadClientRowError[];
 }
+
+/**
+ * Posible duplicado devuelto por el backend al crear un cliente (409) o al
+ * consultar `/clients/check-duplicate`.
+ *
+ * `tier` indica qué tan fuerte es la coincidencia: ALTA = mismo documento y
+ * mismo nombre; MEDIA = solo el documento (puede ser una persona distinta que
+ * comparte el dato); BAJA = solo el nombre.
+ */
+export interface ClientDuplicateMatch {
+  id: string;
+  name: string;
+  document: string | null;
+  tier: 'ALTA' | 'MEDIA' | 'BAJA';
+  advisors: { id: string; name: string }[];
+}
+
+/** Cuerpo del 409 que devuelve `POST /clients` cuando detecta un posible duplicado. */
+export interface PossibleDuplicateError {
+  code: 'POSSIBLE_DUPLICATE';
+  message: string;
+  matches: ClientDuplicateMatch[];
+}

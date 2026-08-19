@@ -107,6 +107,22 @@ export class SuppliersRepository {
   /**
    * Create a new supplier
    */
+  /**
+   * Proyección mínima de los proveedores activos para la detección de duplicados.
+   *
+   * Igual que en clientes, el criterio vive en `normalize.util.ts` y se aplica en
+   * memoria para que el formulario y el reporte de saneamiento no discrepen.
+   */
+  async findAllForDuplicateCheck(excludeId?: string) {
+    return this.prisma.supplier.findMany({
+      where: {
+        isActive: true,
+        ...(excludeId && { NOT: { id: excludeId } }),
+      },
+      select: { id: true, name: true, nit: true },
+    });
+  }
+
   async create(data: Prisma.SupplierCreateInput) {
     return this.prisma.supplier.create({
       data,

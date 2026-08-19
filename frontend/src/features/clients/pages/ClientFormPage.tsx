@@ -24,6 +24,9 @@ import { useClients, useClient } from '../hooks/useClients';
 import { useDepartments, useCitiesByDepartment } from '../../locations/hooks/useLocations';
 import { useUsers } from '../../users/hooks/useUsers';
 import { CreateClientDto, UpdateClientDto, Department, City } from '../../../types';
+import type { ClientDuplicateMatch } from '../../../types';
+import { DuplicateClientDialog } from '../components/DuplicateClientDialog';
+import { extractDuplicateMatches } from '../utils/duplicateError';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
 
@@ -192,7 +195,48 @@ const ClientFormPage: React.FC = () => {
     }
   }, [client, isEdit, reset]);
 
+  // Payload retenido mientras el usuario decide en el diálogo de duplicados.
+  const [duplicateMatches, setDuplicateMatches] = useState<ClientDuplicateMatch[]>([]);
+  const [pendingPayload, setPendingPayload] = useState<{
+    payload: CreateClientDto;
+    specialCondition?: string;
+  } | null>(null);
+
+  /** Crea el cliente y hace el post-procesado común a ambos caminos. */
+  const submitCreate = async (
+    payload: CreateClientDto,
+    specialCondition: string | undefined,
+    force: boolean,
+  ) => {
+    const created = await createClientMutation.mutateAsync({ data: payload, force });
+    if (canEditSpecialCondition && specialCondition) {
+      await updateSpecialConditionMutation.mutateAsync({
+        id: created.id,
+        data: { specialCondition },
+      });
+    }
+    enqueueSnackbar('Cliente creado correctamente', { variant: 'success' });
+    navigate('/clients');
+  };
+
+  const handleCreateAnyway = async () => {
+    if (!pendingPayload) return;
+    try {
+      await submitCreate(pendingPayload.payload, pendingPayload.specialCondition, true);
+      setDuplicateMatches([]);
+      setPendingPayload(null);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : 'Error al guardar cliente';
+      setError(message);
+      enqueueSnackbar(message, { variant: 'error' });
+    }
+  };
+
   const onSubmit = async (data: ClientFormData) => {
+    // Se guarda fuera del try para poder reintentar con `force` desde el diálogo
+    // usando el payload ya normalizado, no el crudo del formulario.
+    let attempted: { payload: CreateClientDto; specialCondition?: string } | null = null;
     try {
       setError(null);
 
@@ -238,18 +282,20 @@ const ClientFormPage: React.FC = () => {
             ? { advisorIds: selectedAdvisorIds }
             : {}),
         };
-        const created = await createClientMutation.mutateAsync(createPayload);
-        // Set special condition on new client if user has permission and value is provided
-        if (canEditSpecialCondition && specialCondition) {
-          await updateSpecialConditionMutation.mutateAsync({
-            id: created.id,
-            data: { specialCondition },
-          });
-        }
-        enqueueSnackbar('Cliente creado correctamente', { variant: 'success' });
+        attempted = { payload: createPayload, specialCondition: specialCondition || undefined };
+        await submitCreate(createPayload, specialCondition, false);
+        return;
       }
       navigate('/clients');
     } catch (err: unknown) {
+      // El 409 no es un error a mostrar en rojo: es el aviso de posible duplicado,
+      // que se resuelve en el diálogo (pedir co-propiedad o crear igual).
+      const matches = extractDuplicateMatches(err);
+      if (matches && attempted) {
+        setPendingPayload(attempted);
+        setDuplicateMatches(matches);
+        return;
+      }
       const message =
         err instanceof Error ? err.message : 'Error al guardar cliente';
       setError(message);
@@ -671,6 +717,17 @@ const ClientFormPage: React.FC = () => {
           </form>
         </CardContent>
       </Card>
+
+      <DuplicateClientDialog
+        open={duplicateMatches.length > 0}
+        matches={duplicateMatches}
+        creating={createClientMutation.isPending}
+        onClose={() => {
+          setDuplicateMatches([]);
+          setPendingPayload(null);
+        }}
+        onCreateAnyway={handleCreateAnyway}
+      />
     </Box>
   );
 };

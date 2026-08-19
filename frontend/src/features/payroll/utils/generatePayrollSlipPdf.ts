@@ -103,6 +103,7 @@ const ID_TYPE_LABELS: Record<string, string> = {
   CE: 'C.E.',
   TI: 'T.I.',
   PA: 'Pasaporte',
+  PPT: 'PPT',
   NIT: 'NIT',
 };
 

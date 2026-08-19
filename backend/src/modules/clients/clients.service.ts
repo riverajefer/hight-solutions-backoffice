@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { ClientsRepository } from './clients.repository';
 import { LocationsService } from '../locations/locations.service';
@@ -9,6 +10,21 @@ import { CreateClientDto, UpdateClientDto } from './dto';
 import { FilterClientsDto } from './dto/filter-clients.dto';
 import { PersonType } from '../../generated/prisma';
 import { startOfDay, endOfDay } from '../../common/utils/date-range.util';
+import {
+  docCore,
+  nameCore,
+  normName,
+} from '../../common/utils/normalize.util';
+
+/** Coincidencia posible al crear un cliente, para que el frontend la pinte. */
+export interface DuplicateMatch {
+  id: string;
+  name: string;
+  document: string | null;
+  /** ALTA = mismo documento y mismo nombre; MEDIA = solo documento; BAJA = solo nombre. */
+  tier: 'ALTA' | 'MEDIA' | 'BAJA';
+  advisors: { id: string; name: string }[];
+}
 
 @Injectable()
 export class ClientsService {
@@ -54,11 +70,81 @@ export class ClientsService {
   }
 
   /**
-   * Create a new client.
-   * If the creator is not an admin (does not have `approve_client_ownership_auth`),
-   * they are assigned as the advisor of the client.
+   * Busca clientes que probablemente sean el mismo que se está por crear.
+   *
+   * El documento por sí solo NO alcanza: en producción hay cédulas compartidas
+   * por personas distintas (una persona y su empresa, o un dato mal digitado).
+   * Por eso el nivel ALTA exige documento *y* nombre, y los demás se devuelven
+   * como aviso, no como certeza.
    */
-  async create(createClientDto: CreateClientDto, creatorId: string) {
+  async findDuplicates(
+    input: { name?: string; nit?: string | null; cedula?: string | null },
+    excludeId?: string,
+  ): Promise<DuplicateMatch[]> {
+    const doc = docCore(input.nit, input.cedula);
+    const nn = normName(input.name);
+    const nc = nameCore(input.name);
+    if (!doc && !nn) return [];
+
+    const candidates = await this.clientsRepository.findAllForDuplicateCheck(excludeId);
+    const matches: DuplicateMatch[] = [];
+
+    for (const c of candidates) {
+      const cDoc = docCore(c.nit, c.cedula);
+      const sameDoc = Boolean(doc) && doc === cDoc;
+      const sameName =
+        Boolean(nn) && (nn === normName(c.name) || (Boolean(nc) && nc === nameCore(c.name)));
+
+      if (!sameDoc && !sameName) continue;
+
+      matches.push({
+        id: c.id,
+        name: c.name,
+        document: c.nit ?? c.cedula ?? null,
+        tier: sameDoc && sameName ? 'ALTA' : sameDoc ? 'MEDIA' : 'BAJA',
+        advisors: c.advisors.map((a) => ({
+          id: a.advisor.id,
+          name:
+            [a.advisor.firstName, a.advisor.lastName].filter(Boolean).join(' ') ||
+            a.advisor.username ||
+            'Sin nombre',
+        })),
+      });
+    }
+
+    const rank = { ALTA: 3, MEDIA: 2, BAJA: 1 } as const;
+    return matches.sort((a, b) => rank[b.tier] - rank[a.tier]);
+  }
+
+  /**
+   * Create a new client.
+   *
+   * `force` deja crear pese a un posible duplicado. Existe a propósito: bloquear
+   * sin salida solo lleva a que el asesor invente un documento o un "Juan Pérez 2".
+   * La alternativa que ofrece el frontend es solicitar la co-propiedad del cliente
+   * existente (`client-advisor-requests`), que es lo que realmente busca.
+   *
+   * Si el creador no es admin (no tiene `approve_client_ownership_auth`), queda
+   * asignado como asesor del cliente.
+   */
+  async create(
+    createClientDto: CreateClientDto,
+    creatorId: string,
+    options: { force?: boolean } = {},
+  ) {
+    if (!options.force) {
+      const duplicates = await this.findDuplicates(createClientDto);
+      if (duplicates.length > 0) {
+        throw new ConflictException({
+          code: 'POSSIBLE_DUPLICATE',
+          message:
+            'Ya existe un cliente que coincide con estos datos. Revisa si es el mismo ' +
+            'antes de crear uno nuevo.',
+          matches: duplicates,
+        });
+      }
+    }
+
     // Validate email uniqueness if provided
     if (createClientDto.email) {
       const existingClient = await this.clientsRepository.findByEmail(

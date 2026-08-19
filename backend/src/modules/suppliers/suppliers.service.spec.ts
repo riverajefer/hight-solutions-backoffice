@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { SuppliersService } from './suppliers.service';
 import { SuppliersRepository } from './suppliers.repository';
 import { LocationsService } from '../locations/locations.service';
@@ -12,6 +16,8 @@ const mockSuppliersRepository = {
   findAll: jest.fn(),
   findById: jest.fn(),
   findByEmail: jest.fn(),
+  // Sin duplicados por defecto: cada test que los necesite lo sobrescribe.
+  findAllForDuplicateCheck: jest.fn().mockResolvedValue([]),
   findByEmailExcludingId: jest.fn(),
   create: jest.fn(),
   update: jest.fn(),
@@ -73,6 +79,8 @@ describe('SuppliersService', () => {
 
     // Default happy-path stubs
     mockSuppliersRepository.findByEmail.mockResolvedValue(null);
+    // Se restablece en cada test: si no, el duplicado montado por uno se filtra al siguiente.
+    mockSuppliersRepository.findAllForDuplicateCheck.mockResolvedValue([]);
     mockLocationsService.findDepartmentById.mockResolvedValue({ id: 'dept-1' });
     mockLocationsService.validateCityBelongsToDepartment.mockResolvedValue(true);
     mockSuppliersRepository.create.mockResolvedValue(mockSupplier);
@@ -126,7 +134,61 @@ describe('SuppliersService', () => {
   // ---------------------------------------------------------------------------
   // create
   // ---------------------------------------------------------------------------
+  describe('findDuplicates', () => {
+    it('detecta el mismo nombre con distinta capitalización', async () => {
+      mockSuppliersRepository.findAllForDuplicateCheck.mockResolvedValue([
+        { id: 's-1', name: 'proveedor xyz', nit: '800987654' },
+      ]);
+
+      const matches = await service.findDuplicates('Proveedor XYZ');
+
+      expect(matches).toHaveLength(1);
+      expect(matches[0].id).toBe('s-1');
+    });
+
+    it('empareja el nombre con y sin sufijo societario', async () => {
+      mockSuppliersRepository.findAllForDuplicateCheck.mockResolvedValue([
+        { id: 's-1', name: 'DM PROMOCIONALES', nit: null },
+      ]);
+
+      const matches = await service.findDuplicates('DM Promocionales SAS');
+
+      expect(matches).toHaveLength(1);
+    });
+
+    it('NO agrupa proveedores distintos que comparten un NIT de relleno', async () => {
+      // En producción 37 proveedores comparten NITs como 1111111111.
+      mockSuppliersRepository.findAllForDuplicateCheck.mockResolvedValue([
+        { id: 's-1', name: 'ACUEDUCTO', nit: '1111111111' },
+        { id: 's-2', name: 'ETB', nit: '1111111111' },
+      ]);
+
+      const matches = await service.findDuplicates('TIGO MOVIL');
+
+      expect(matches).toHaveLength(0);
+    });
+  });
+
   describe('create', () => {
+    it('lanza ConflictException cuando el nombre ya existe', async () => {
+      mockSuppliersRepository.findAllForDuplicateCheck.mockResolvedValue([
+        { id: 's-1', name: 'Proveedor XYZ', nit: '900111222' },
+      ]);
+
+      await expect(service.create(createDto as any)).rejects.toThrow(ConflictException);
+      expect(mockSuppliersRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('crea igual con force', async () => {
+      mockSuppliersRepository.findAllForDuplicateCheck.mockResolvedValue([
+        { id: 's-1', name: 'Proveedor XYZ', nit: '900111222' },
+      ]);
+
+      await service.create(createDto as any, { force: true });
+
+      expect(mockSuppliersRepository.create).toHaveBeenCalled();
+    });
+
     it('should throw BadRequestException when email already exists', async () => {
       mockSuppliersRepository.findByEmail.mockResolvedValue(mockSupplier);
 

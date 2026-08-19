@@ -47,6 +47,19 @@ export class SuppliersController {
     return this.suppliersService.findAll(includeInactive === 'true');
   }
 
+  // Antes de `@Get(':id')`: si no, "check-duplicate" se toma como un id.
+  @Get('check-duplicate')
+  @RequirePermissions('create_suppliers')
+  @ApiOperation({
+    summary: 'Consultar si ya existe un proveedor con ese nombre',
+    description: 'Solo compara por nombre: el NIT suele venir con valores de relleno.',
+  })
+  @ApiQuery({ name: 'name', required: false })
+  @ApiResponse({ status: 200, description: 'Lista de posibles duplicados (vacía si no hay)' })
+  checkDuplicate(@Query('name') name?: string) {
+    return this.suppliersService.findDuplicates(name);
+  }
+
   @Get(':id')
   @RequirePermissions('read_suppliers')
   @ApiOperation({ summary: 'Obtener proveedor por ID' })
@@ -74,8 +87,19 @@ export class SuppliersController {
     status: 400,
     description: 'Datos inválidos o email duplicado',
   })
-  create(@Body() createSupplierDto: CreateSupplierDto) {
-    return this.suppliersService.create(createSupplierDto);
+  @ApiResponse({
+    status: 409,
+    description:
+      'Ya existe un proveedor con ese nombre. Reenviar con `?force=true` para crear igual.',
+  })
+  @ApiQuery({
+    name: 'force',
+    required: false,
+    type: Boolean,
+    description: 'Crear pese al aviso de duplicado',
+  })
+  create(@Body() createSupplierDto: CreateSupplierDto, @Query('force') force?: string) {
+    return this.suppliersService.create(createSupplierDto, { force: force === 'true' });
   }
 
   @Put(':id')

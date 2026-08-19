@@ -8,6 +8,7 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 const mockClientsService = {
   findAll: jest.fn(),
   findOne: jest.fn(),
+  findDuplicates: jest.fn(),
   create: jest.fn(),
   update: jest.fn(),
   updateSpecialCondition: jest.fn(),
@@ -62,7 +63,9 @@ describe('ClientsController', () => {
       const dto = { name: 'Empresa ABC', email: 'abc@test.com' } as any;
       mockClientsService.create.mockResolvedValue({ id: 'client-1', ...dto });
       await controller.create(dto, 'user-1');
-      expect(mockClientsService.create).toHaveBeenCalledWith(dto, 'user-1');
+      expect(mockClientsService.create).toHaveBeenCalledWith(dto, 'user-1', {
+        force: false,
+      });
     });
   });
 

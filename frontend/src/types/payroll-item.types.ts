@@ -41,7 +41,7 @@ export interface PayrollItem {
     dailyRate: string | null;
     // Datos usados por el desprendible de nómina. Opcionales porque los
     // endpoints de historial no los devuelven (allí el empleado se carga aparte).
-    identificationType?: 'CC' | 'CE' | 'TI' | 'PA' | 'NIT' | null;
+    identificationType?: 'CC' | 'CE' | 'TI' | 'PA' | 'PPT' | 'NIT' | null;
     identificationNumber?: string | null;
     firstName?: string | null;
     middleName?: string | null;
