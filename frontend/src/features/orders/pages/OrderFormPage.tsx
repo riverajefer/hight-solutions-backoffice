@@ -1289,6 +1289,7 @@ export const OrderFormPage: React.FC = () => {
                       <MenuItem value="0.414">0.414%</MenuItem>
                       <MenuItem value="0.692">0.692%</MenuItem>
                       <MenuItem value="0.966">0.966%</MenuItem>
+                      <MenuItem value="1.104">1.104%</MenuItem>
                     </TextField>
                   )}
                 />
