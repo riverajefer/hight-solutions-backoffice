@@ -1270,7 +1270,11 @@ export const OrderDetailPage: React.FC = () => {
               label='OT'
               secondaryLabel='Crear'
               onClick={() =>
-                navigate(`${ROUTES.WORK_ORDERS_CREATE}?orderId=${id}`)
+                navigate(`${ROUTES.WORK_ORDERS_CREATE}?orderId=${id}`, {
+                  // La OP ya está cargada aquí; la pasamos por state para que la
+                  // OT la use al instante y no reespere el GET /orders/:id (lento).
+                  state: { prefillOrder: order },
+                })
               }
               color={theme.palette.info.main}
               tooltip='Crear Orden de Trabajo'
@@ -1835,6 +1839,7 @@ export const OrderDetailPage: React.FC = () => {
                                             onClick={() =>
                                               navigate(
                                                 `${ROUTES.WORK_ORDERS_CREATE}?orderId=${id}`,
+                                                { state: { prefillOrder: order } },
                                               )
                                             }
                                             sx={{
