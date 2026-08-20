@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   Box,
@@ -32,7 +32,7 @@ import {
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { useWorkOrders, useWorkOrder } from '../hooks';
-import { useOrders } from '../../orders/hooks';
+import { useOrders, useOrder } from '../../orders/hooks';
 import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
 import { useSupplies } from '../../portfolio/supplies/hooks/useSupplies';
 import { useUsers } from '../../users/hooks/useUsers';
@@ -230,6 +230,20 @@ export const WorkOrderFormPage = () => {
   // Step 4: Observations
   const [observations, setObservations] = useState('');
 
+  // OP de origen cuando se llega desde el detalle de una OP (?orderId=...).
+  // Se calcula una sola vez y solo aplica en creación.
+  const prefillOrderId = useMemo(() => {
+    if (isEdit) return null;
+    return new URLSearchParams(location.search).get('orderId');
+  }, [isEdit, location.search]);
+
+  // El detalle de OP ya trae la orden completa y nos la pasa por router state,
+  // así el prefill es instantáneo. Solo si no viene (deep link / refresh)
+  // recurrimos al GET /orders/:id.
+  const prefillOrderFromState = !isEdit
+    ? ((location.state as { prefillOrder?: Order } | null)?.prefillOrder ?? null)
+    : null;
+
   // Data queries
   const { ordersQuery } = useOrders({
     search: orderSearch,
@@ -237,6 +251,22 @@ export const WorkOrderFormPage = () => {
     status: undefined,
     excludeWithWorkOrder: !isEdit,
   });
+
+  // Fetch directo de la OP por ID como respaldo (exacto e inmediato frente a
+  // esperar la lista de búsqueda). Se deshabilita si ya llegó por state o si no
+  // hay orderId. `useOrder('')` queda deshabilitado.
+  const { orderQuery: prefillOrderQuery } = useOrder(
+    prefillOrderFromState ? '' : prefillOrderId ?? '',
+  );
+
+  // Hay un prefill en curso: se llegó con ?orderId= pero la OP aún no queda
+  // seleccionada. Sirve para mostrar un cargador en el paso 1 en lugar del
+  // buscador vacío (sobre todo en el camino de respaldo con GET /orders/:id).
+  const isPrefilling =
+    !isEdit &&
+    !!prefillOrderId &&
+    !selectedOrder &&
+    (prefillOrderFromState != null || prefillOrderQuery.isLoading);
   const { usersQuery } = useUsers();
   const { productionAreasQuery } = useProductionAreas();
   const { suppliesQuery } = useSupplies();
@@ -292,22 +322,22 @@ export const WorkOrderFormPage = () => {
   useEffect(() => {
     if (isEdit || prefillAppliedRef.current) return;
 
-    const queryParams = new URLSearchParams(location.search);
-    const prefillOrderId = queryParams.get('orderId');
     if (!prefillOrderId) {
       prefillAppliedRef.current = true;
       return;
     }
 
-    if (availableOrders.length === 0) return; // wait for orders to load
+    // Preferimos la OP que llega por router state (instantánea); si no vino,
+    // usamos el fetch directo por ID. Ya no dependemos de la lista de búsqueda
+    // (lenta y que fallaba si la OP no estaba entre los primeros resultados).
+    const order = prefillOrderFromState ?? prefillOrderQuery.data;
+    if (!order) return;
 
-    const order = availableOrders.find((o: Order) => o.id === prefillOrderId);
-    if (order) {
-      setSelectedOrder(order);
-      goToStep(1);
-    }
+    // Dejamos la OP seleccionada pero NO avanzamos: el usuario revisa el paso 1
+    // y pasa al paso 2 cuando quiera con «Siguiente».
+    setSelectedOrder(order);
     prefillAppliedRef.current = true;
-  }, [isEdit, availableOrders, location.search]);
+  }, [isEdit, prefillOrderId, prefillOrderFromState, prefillOrderQuery.data]);
 
   // When order is selected, initialize item forms
   useEffect(() => {
@@ -532,12 +562,20 @@ export const WorkOrderFormPage = () => {
           Vinculada a la orden <strong>{workOrderQuery.data?.order.orderNumber}</strong> —{' '}
           <strong>{workOrderQuery.data?.order.client.name}</strong>
         </Alert>
+      ) : isPrefilling ? (
+        <Stack alignItems="center" spacing={2} sx={{ py: 5 }}>
+          <CircularProgress />
+          <Typography variant="body2" color="text.secondary">
+            Cargando la orden de pedido…
+          </Typography>
+        </Stack>
       ) : (
         <Stack spacing={2.5}>
           <Autocomplete
             options={availableOrders}
             getOptionLabel={(o) => `${o.orderNumber} — ${o.client?.name ?? ''}`}
             value={selectedOrder}
+            isOptionEqualToValue={(o, v) => o.id === v?.id}
             onChange={(_, value) => setSelectedOrder(value)}
             inputValue={orderSearch}
             onInputChange={(_, value) => setOrderSearch(value)}

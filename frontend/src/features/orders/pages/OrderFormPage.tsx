@@ -179,6 +179,9 @@ const orderFormSchema = z
 
 type OrderFormData = z.infer<typeof orderFormSchema>;
 
+// Porcentajes de Retefuente predefinidos (valores del select, como string literal)
+const RETEFUENTE_OPTIONS = ['2.5', '3.5', '4.0'] as const;
+
 const formatCurrencyInput = (value: string): string => {
   const numericValue = value.replace(/\D/g, '');
   if (!numericValue) return '';
@@ -365,6 +368,7 @@ export const OrderFormPage: React.FC = () => {
     watch,
     setValue,
     getValues,
+    trigger,
     formState: { errors, isValid },
   } = useForm<OrderFormData>({
     resolver: zodResolver(orderFormSchema) as Resolver<OrderFormData>,
@@ -513,6 +517,22 @@ export const OrderFormPage: React.FC = () => {
     }
   }, [applyTax, setValue]);
 
+  // El error "Debe configurar al menos una retención" vive en `applyWithholdings`,
+  // pero depende de retefuente/reteICA/reteIVA. React Hook Form solo refresca el
+  // error del campo que cambió, así que al elegir la retención el error quedaba
+  // pegado y `canSave` (que mira `errors`) dejaba el botón Guardar deshabilitado
+  // para siempre. Se revalida explícitamente la ruta afectada.
+  useEffect(() => {
+    void trigger(['applyWithholdings', 'retefuenteCustom']);
+  }, [
+    applyWithholdings,
+    retefuente,
+    retefuenteCustomValue,
+    reteICAValue,
+    reteIVAValue,
+    trigger,
+  ]);
+
   useEffect(() => {
     if (isEdit && orderQuery.data) {
       const order = orderQuery.data;
@@ -560,9 +580,11 @@ export const OrderFormPage: React.FC = () => {
       setValue('applyWithholdings', hasRetenciones);
       if (currentRetefuenteRate > 0) {
         const pct = currentRetefuenteRate * 100;
-        const knownRates = [2.5, 3.5, 4.0];
-        if (knownRates.includes(pct)) {
-          setValue('retefuente', pct.toString());
+        // Los valores del select son strings literales ('2.5' | '3.5' | '4.0'):
+        // (4.0).toString() da '4' y no coincide, así que se compara numéricamente.
+        const knownRate = RETEFUENTE_OPTIONS.find((opt) => parseFloat(opt) === pct);
+        if (knownRate) {
+          setValue('retefuente', knownRate);
         } else {
           setValue('retefuente', 'other');
           setValue('retefuenteCustom', pct.toString());
@@ -1213,9 +1235,11 @@ export const OrderFormPage: React.FC = () => {
                       disabled={!isClientSelected}
                     >
                       <MenuItem value="">Sin seleccionar</MenuItem>
-                      <MenuItem value="2.5">2.5%</MenuItem>
-                      <MenuItem value="3.5">3.5%</MenuItem>
-                      <MenuItem value="4.0">4.0%</MenuItem>
+                      {RETEFUENTE_OPTIONS.map((opt) => (
+                        <MenuItem key={opt} value={opt}>
+                          {opt}%
+                        </MenuItem>
+                      ))}
                       <MenuItem value="other">Otro</MenuItem>
                     </TextField>
                   )}
