@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -8,6 +8,8 @@ import {
   Button,
   IconButton,
   Tooltip,
+  Alert,
+  AlertTitle,
 } from '@mui/material';
 import { Chip } from '@mui/material';
 import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../hooks';
@@ -18,6 +20,8 @@ import {
   Today as TodayIcon,
   Build as BuildIcon,
   FileDownload as FileDownloadIcon,
+  FilterAlt as FilterAltIcon,
+  FilterAltOff as FilterAltOffIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -109,14 +113,76 @@ const ORDER_STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
   { value: 'ANULADO', label: 'Anulada' },
 ];
 
+/**
+ * Los filtros de esta pantalla se recuerdan entre visitas. El asesor suele
+ * trabajar acotado a su área/cliente durante toda la jornada, así que perder la
+ * selección cada vez que sale y vuelve era una molestia. Se guarda en
+ * localStorage bajo esta llave.
+ */
+const FILTERS_STORAGE_KEY = 'orders_list_filters';
+
+const DEFAULT_FILTERS: FilterOrdersDto = { page: 1, limit: 20 };
+
+/**
+ * Campos de `FilterOrdersDto` que sí queremos recordar. Dejamos fuera page/limit
+ * (paginación efímera) y los rangos por fecha de abono, que solo usa el export.
+ */
+const PERSISTED_FILTER_KEYS: (keyof FilterOrdersDto)[] = [
+  'status',
+  'search',
+  'clientId',
+  'orderDateFrom',
+  'orderDateTo',
+  'productionAreaId',
+  'createdById',
+  'hasBalance',
+  'advancePaymentStatus',
+];
+
+const loadPersistedFilters = (): FilterOrdersDto => {
+  try {
+    const raw = localStorage.getItem(FILTERS_STORAGE_KEY);
+    if (!raw) return { ...DEFAULT_FILTERS };
+    const parsed = JSON.parse(raw) as Partial<FilterOrdersDto>;
+    const restored: FilterOrdersDto = { ...DEFAULT_FILTERS };
+    PERSISTED_FILTER_KEYS.forEach((key) => {
+      const value = parsed[key];
+      if (value !== undefined && value !== null && value !== '') {
+        (restored as any)[key] = value;
+      }
+    });
+    // Siempre arrancamos en la primera página para no caer en una vacía.
+    return { ...restored, page: 1 };
+  } catch {
+    return { ...DEFAULT_FILTERS };
+  }
+};
+
 export const OrdersListPage: React.FC = () => {
   const navigate = useNavigate();
 
-  // Filtros
-  const [filters, setFilters] = useState<FilterOrdersDto>({
-    page: 1,
-    limit: 20,
-  });
+  // Filtros (se restauran desde localStorage al montar)
+  const [filters, setFilters] = useState<FilterOrdersDto>(loadPersistedFilters);
+
+  // Cada cambio de filtros se persiste para recordarlo en la próxima visita.
+  useEffect(() => {
+    try {
+      const toPersist: Partial<FilterOrdersDto> = {};
+      PERSISTED_FILTER_KEYS.forEach((key) => {
+        const value = filters[key];
+        if (value !== undefined && value !== null && value !== '') {
+          (toPersist as any)[key] = value;
+        }
+      });
+      if (Object.keys(toPersist).length > 0) {
+        localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(toPersist));
+      } else {
+        localStorage.removeItem(FILTERS_STORAGE_KEY);
+      }
+    } catch {
+      /* localStorage no disponible: seguimos sin persistir */
+    }
+  }, [filters]);
 
   // UI state
   const [confirmDelete, setConfirmDelete] = useState<Order | null>(null);
@@ -548,9 +614,66 @@ export const OrdersListPage: React.FC = () => {
     filters.hasBalance ||
     filters.advancePaymentStatus;
 
-  // Filtros que llegan desde el mini dashboard y no tienen control propio en la
-  // barra de filtros; se muestran como chips para que se puedan quitar.
-  const dashboardFilterChips: Array<{ label: string; keys: (keyof FilterOrdersDto)[] }> = [
+  // Elimina uno o varios filtros de la selección activa (usado por los chips).
+  const clearFilterKeys = (keys: (keyof FilterOrdersDto)[]) => {
+    setFilters((prev) => {
+      const next = { ...prev, page: 1 };
+      keys.forEach((key) => delete next[key]);
+      return next;
+    });
+  };
+
+  const formatDateLabel = (value?: string) => {
+    const date = parseDateFilter(value);
+    return date ? date.toLocaleDateString('es-CO') : '';
+  };
+
+  // Resumen legible de TODOS los filtros activos. Se muestra en el aviso
+  // superior como chips que el usuario puede quitar uno a uno.
+  const activeFilterChips: Array<{
+    label: string;
+    keys: (keyof FilterOrdersDto)[];
+  }> = [
+    ...(filters.status
+      ? [
+          {
+            label: `Estado: ${
+              ORDER_STATUS_OPTIONS.find((o) => o.value === filters.status)
+                ?.label ?? filters.status
+            }`,
+            keys: ['status' as const],
+          },
+        ]
+      : []),
+    ...(selectedArea
+      ? [{ label: `Área: ${selectedArea.name}`, keys: ['productionAreaId' as const] }]
+      : []),
+    ...(selectedUser
+      ? [
+          {
+            label: `Asesor: ${selectedUser.firstName ?? ''} ${
+              selectedUser.lastName ?? ''
+            }`.trim(),
+            keys: ['createdById' as const],
+          },
+        ]
+      : []),
+    ...(selectedClient
+      ? [{ label: `Cliente: ${selectedClient.name}`, keys: ['clientId' as const] }]
+      : []),
+    ...(filters.orderDateFrom || filters.orderDateTo
+      ? [
+          {
+            label: `Fecha: ${formatDateLabel(filters.orderDateFrom) || '…'} — ${
+              formatDateLabel(filters.orderDateTo) || '…'
+            }`,
+            keys: ['orderDateFrom' as const, 'orderDateTo' as const],
+          },
+        ]
+      : []),
+    ...(filters.search
+      ? [{ label: `Búsqueda: "${filters.search}"`, keys: ['search' as const] }]
+      : []),
     ...(filters.hasBalance
       ? [{ label: 'Con saldo por cobrar', keys: ['hasBalance' as const] }]
       : []),
@@ -601,6 +724,49 @@ export const OrdersListPage: React.FC = () => {
         />
       )}
 
+      {/* Aviso de filtros activos (se recuerdan entre visitas) */}
+      {hasActiveFilters && (
+        <Alert
+          severity='info'
+          icon={<FilterAltIcon />}
+          sx={{
+            mb: 2,
+            mt: 2,
+            '& .MuiAlert-message': { width: '100%' },
+          }}
+          action={
+            <Button
+              color='inherit'
+              size='small'
+              startIcon={<FilterAltOffIcon />}
+              onClick={handleClearFilters}
+            >
+              Limpiar filtros
+            </Button>
+          }
+        >
+          <AlertTitle sx={{ fontWeight: 700 }}>
+            Tienes filtros activos
+          </AlertTitle>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
+            {activeFilterChips.map((chip) => (
+              <Chip
+                key={chip.label}
+                label={chip.label}
+                size='small'
+                color='info'
+                onDelete={() => clearFilterKeys(chip.keys)}
+              />
+            ))}
+          </Box>
+          <Box sx={{ fontSize: '0.8rem', opacity: 0.85 }}>
+            Esta selección se recordará la próxima vez que ingreses a esta
+            pantalla. Usa «Limpiar filtros» o la ✕ de cada etiqueta para
+            quitarla.
+          </Box>
+        </Alert>
+      )}
+
       {/* Filtros */}
       <Box
         sx={{
@@ -637,12 +803,18 @@ export const OrdersListPage: React.FC = () => {
 
         {/* Área de producción */}
         <Autocomplete
+          /* Remonta al terminar de cargar las áreas para que un filtro
+             restaurado de localStorage se muestre dentro del campo. */
+          key={`area-${productionAreasQuery.isLoading ? 'loading' : 'ready'}`}
           fullWidth
           size='small'
           options={productionAreas}
           value={selectedArea}
           onChange={(_, newValue) =>
             handleFilterChange('productionAreaId', newValue?.id)
+          }
+          isOptionEqualToValue={(option: any, value: any) =>
+            option.id === value?.id
           }
           getOptionLabel={(option: any) => option.name}
           renderInput={(params) => (
@@ -657,12 +829,16 @@ export const OrdersListPage: React.FC = () => {
 
         {/* Asesor */}
         <Autocomplete
+          key={`user-${usersQuery.isLoading ? 'loading' : 'ready'}`}
           fullWidth
           size='small'
           options={users}
           value={selectedUser}
           onChange={(_, newValue) =>
             handleFilterChange('createdById', newValue?.id)
+          }
+          isOptionEqualToValue={(option: any, value: any) =>
+            option.id === value?.id
           }
           getOptionLabel={(option: any) => `${option.firstName} ${option.lastName}`}
           renderInput={(params) => (
@@ -677,12 +853,16 @@ export const OrdersListPage: React.FC = () => {
 
         {/* Cliente */}
         <Autocomplete
+          key={`client-${clientsQuery.isLoading ? 'loading' : 'ready'}`}
           fullWidth
           size='small'
           options={clients}
           value={selectedClient}
           onChange={(_, newValue) =>
             handleFilterChange('clientId', newValue?.id)
+          }
+          isOptionEqualToValue={(option: Client, value: Client) =>
+            option.id === value?.id
           }
           getOptionLabel={(option: Client) => option.name}
           renderInput={(params) => (
@@ -731,28 +911,6 @@ export const OrdersListPage: React.FC = () => {
           </Button>
         )}
       </Box>
-
-      {/* Filtros aplicados desde el mini dashboard */}
-      {dashboardFilterChips.length > 0 && (
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2, mt: -1 }}>
-          {dashboardFilterChips.map((chip) => (
-            <Chip
-              key={chip.label}
-              label={chip.label}
-              size='small'
-              color='primary'
-              variant='outlined'
-              onDelete={() =>
-                setFilters((prev) => {
-                  const next = { ...prev, page: 1 };
-                  chip.keys.forEach((key) => delete next[key]);
-                  return next;
-                })
-              }
-            />
-          ))}
-        </Box>
-      )}
 
       {/* Tabla */}
       <DataTable
