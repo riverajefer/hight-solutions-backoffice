@@ -26,6 +26,11 @@ vi.mock('../../../api/accounts-payable.api', () => ({
     cancel: vi.fn(),
     registerPayment: vi.fn(),
     deletePayment: vi.fn(),
+    addAttachment: vi.fn(),
+    deleteAttachment: vi.fn(),
+    setInstallments: vi.fn(),
+    toggleInstallmentPaid: vi.fn(),
+    deleteInstallment: vi.fn(),
   },
 }));
 vi.mock('../../../api/accounts-payable-payment-auth-requests.api', () => ({
@@ -139,6 +144,63 @@ describe('useAccountPayable (detalle)', () => {
     });
     expect(accountsPayableApi.deletePayment).toHaveBeenCalledWith('ap1', 'pay1');
   });
+
+  it('update guarda cambios y notifica', async () => {
+    (accountsPayableApi.update as any).mockResolvedValue({ id: 'ap1' });
+    const { result } = renderHook(() => useAccountPayable('ap1'), { wrapper: createWrapper() });
+    await act(async () => {
+      await result.current.updateMutation.mutateAsync({ description: 'Nueva' } as any);
+    });
+    expect(accountsPayableApi.update).toHaveBeenCalledWith('ap1', { description: 'Nueva' });
+    expect(enqueueMock).toHaveBeenCalledWith('Cuenta actualizada correctamente', {
+      variant: 'success',
+    });
+  });
+
+  it('adjuntos: agregar y eliminar', async () => {
+    (accountsPayableApi.addAttachment as any).mockResolvedValue({ id: 'att1' });
+    (accountsPayableApi.deleteAttachment as any).mockResolvedValue({});
+    const { result } = renderHook(() => useAccountPayable('ap1'), { wrapper: createWrapper() });
+
+    await act(async () => {
+      await result.current.addAttachmentMutation.mutateAsync({ fileUrl: 'u' } as any);
+    });
+    await act(async () => {
+      await result.current.deleteAttachmentMutation.mutateAsync('att1');
+    });
+
+    expect(accountsPayableApi.addAttachment).toHaveBeenCalledWith('ap1', { fileUrl: 'u' });
+    expect(accountsPayableApi.deleteAttachment).toHaveBeenCalledWith('ap1', 'att1');
+  });
+
+  it('cuotas: definir plan, alternar pago y eliminar', async () => {
+    (accountsPayableApi.setInstallments as any).mockResolvedValue([]);
+    (accountsPayableApi.toggleInstallmentPaid as any).mockResolvedValue({});
+    (accountsPayableApi.deleteInstallment as any).mockResolvedValue({});
+    const { result } = renderHook(() => useAccountPayable('ap1'), { wrapper: createWrapper() });
+
+    await act(async () => {
+      await result.current.setInstallmentsMutation.mutateAsync({ installments: [] } as any);
+    });
+    await act(async () => {
+      await result.current.toggleInstallmentPaidMutation.mutateAsync({
+        installmentId: 'i1',
+        dto: { isPaid: true } as any,
+      });
+    });
+    await act(async () => {
+      await result.current.deleteInstallmentMutation.mutateAsync('i1');
+    });
+
+    expect(accountsPayableApi.setInstallments).toHaveBeenCalledWith('ap1', { installments: [] });
+    expect(accountsPayableApi.toggleInstallmentPaid).toHaveBeenCalledWith('ap1', 'i1', {
+      isPaid: true,
+    });
+    expect(accountsPayableApi.deleteInstallment).toHaveBeenCalledWith('ap1', 'i1');
+    expect(enqueueMock).toHaveBeenCalledWith('Plan de cuotas guardado correctamente', {
+      variant: 'success',
+    });
+  });
 });
 
 describe('useAccountPayablePayments', () => {
@@ -155,12 +217,22 @@ describe('useAccountPayablePayments', () => {
 
 describe('useApPaymentAuthRequests (autorización de pago admin→caja)', () => {
   beforeEach(() => {
-    (apPaymentAuthRequestsApi.findByAccountPayable as any).mockResolvedValue([]);
+    (apPaymentAuthRequestsApi.findByAccountPayable as any).mockResolvedValue([{ id: 'req1' }]);
     (apPaymentAuthRequestsApi.create as any).mockResolvedValue({ id: 'req1' });
     (apPaymentAuthRequestsApi.adminApprove as any).mockResolvedValue({});
+    (apPaymentAuthRequestsApi.adminReject as any).mockResolvedValue({});
     (apPaymentAuthRequestsApi.cajaApprove as any).mockResolvedValue({});
+    (apPaymentAuthRequestsApi.cajaReject as any).mockResolvedValue({});
   });
   afterEach(() => vi.clearAllMocks());
+
+  it('lista las solicitudes por cuenta por pagar', async () => {
+    const { result } = renderHook(() => useApPaymentAuthRequests('ap1'), {
+      wrapper: createWrapper(),
+    });
+    await waitFor(() => expect(result.current.paymentAuthRequestsQuery.isSuccess).toBe(true));
+    expect(apPaymentAuthRequestsApi.findByAccountPayable).toHaveBeenCalledWith('ap1');
+  });
 
   it('crea la solicitud de pago', async () => {
     const { result } = renderHook(() => useApPaymentAuthRequests('ap1'), {
@@ -191,6 +263,34 @@ describe('useApPaymentAuthRequests (autorización de pago admin→caja)', () => 
     });
     expect(apPaymentAuthRequestsApi.cajaApprove).toHaveBeenCalledWith('req1');
     expect(enqueueMock).toHaveBeenCalledWith('Pago registrado correctamente por Caja', {
+      variant: 'success',
+    });
+  });
+
+  it('adminReject rechaza en el paso 1', async () => {
+    const { result } = renderHook(() => useApPaymentAuthRequests('ap1'), {
+      wrapper: createWrapper(),
+    });
+    await act(async () => {
+      await result.current.adminRejectMutation.mutateAsync({ id: 'req1', dto: {} as any });
+    });
+    expect(apPaymentAuthRequestsApi.adminReject).toHaveBeenCalledWith('req1', {});
+  });
+
+  it('cajaReject rechaza en el paso 2 (Caja)', async () => {
+    const { result } = renderHook(() => useApPaymentAuthRequests('ap1'), {
+      wrapper: createWrapper(),
+    });
+    await act(async () => {
+      await result.current.cajaRejectMutation.mutateAsync({
+        id: 'req1',
+        dto: { reason: 'sin fondos' } as any,
+      });
+    });
+    expect(apPaymentAuthRequestsApi.cajaReject).toHaveBeenCalledWith('req1', {
+      reason: 'sin fondos',
+    });
+    expect(enqueueMock).toHaveBeenCalledWith('Solicitud de pago rechazada por Caja', {
       variant: 'success',
     });
   });
