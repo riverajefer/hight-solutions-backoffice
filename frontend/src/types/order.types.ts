@@ -406,6 +406,8 @@ export interface FilterOrdersDto {
   hasBalance?: boolean;
   /** PAID = pagadas al 100%; PENDING = con saldo pendiente */
   paymentStatus?: 'PAID' | 'PENDING';
+  /** DELIVERED = ya entregadas; PENDING = aún sin entregar (sin contar anuladas) */
+  deliveryStatus?: 'PENDING' | 'DELIVERED';
   advancePaymentStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
   /**
    * Si true, excluye las órdenes ANULADAS: una orden anulada no es una venta.
