@@ -4,6 +4,7 @@ import { alpha } from '@mui/material/styles';
 import {
   Alert,
   Box,
+  Button,
   Card,
   CardContent,
   CardHeader,
@@ -26,12 +27,25 @@ import {
 } from '@mui/material';
 import {
   FactCheck as TrackingIcon,
+  FileDownload as DownloadIcon,
   LocalShipping as DeliveredIcon,
   Lock as LockIcon,
 } from '@mui/icons-material';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS, ROUTES } from '../../../utils/constants';
 import { useAdvisorTracking } from '../hooks';
+import {
+  DELIVERED_STATUSES,
+  MONTHS,
+  PAID_MODE_LABEL,
+  STATUS_COLUMNS,
+  buildPivot,
+  pivotTotals,
+  statusLabel,
+  type Measure,
+  type PaidMode,
+} from '../utils/orderTrackingPivot';
+import { exportOrderTrackingToExcel } from '../utils/exportOrderTracking';
 import type { AdvisorTrackingRow, FilterOrdersDto, OrderStatus } from '../../../types/order.types';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -94,41 +108,8 @@ const STICKY_COL = {
   whiteSpace: 'nowrap',
 } as const;
 
-const MONTHS = [
-  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-];
-
 const currentYear = new Date().getFullYear();
 const YEAR_OPTIONS = [currentYear - 1, currentYear, currentYear + 1];
-
-/**
- * Columnas de la matriz. Es el flujo real de la OP, de izquierda a derecha, para
- * que la fila se lea como el avance del pedido.
- */
-const STATUS_COLUMNS: { value: OrderStatus; label: string; full?: string }[] = [
-  { value: 'DRAFT', label: 'Borrador' },
-  { value: 'CONFIRMED', label: 'Confirm.', full: 'Confirmada' },
-  { value: 'IN_PRODUCTION', label: 'En prod.', full: 'En producción' },
-  { value: 'READY', label: 'Lista' },
-  { value: 'PAID', label: 'Pagada' },
-  { value: 'DELIVERED', label: 'Entregada' },
-  { value: 'DELIVERED_ON_CREDIT', label: 'Ent. créd.', full: 'Entregada a crédito' },
-  { value: 'WARRANTY', label: 'Garantía' },
-  { value: 'ANULADO', label: 'Anulada' },
-];
-
-/** Estados que ya cuentan como entrega hecha: son los que pueden comisionar. */
-const DELIVERED_STATUSES: OrderStatus[] = ['DELIVERED', 'DELIVERED_ON_CREDIT', 'WARRANTY'];
-
-type Measure = 'count' | 'amount' | 'balance';
-type PaidMode = 'all' | 'paid' | 'due';
-
-const MEASURE_FIELD: Record<Measure, keyof Pick<AdvisorTrackingRow, 'count' | 'netAmount' | 'pendingBalance'>> = {
-  count: 'count',
-  amount: 'netAmount',
-  balance: 'pendingBalance',
-};
 
 // ─── componente ───────────────────────────────────────────────────────────────
 
@@ -147,44 +128,12 @@ export const OrderTrackingSection: React.FC = () => {
   const scopedToOwn = trackingQuery.data?.scopedToOwn ?? false;
   const canSeeAll = hasPermission(PERMISSIONS.READ_ALL_ADVISORS_TRACKING);
 
-  const field = MEASURE_FIELD[measure];
   const isCount = measure === 'count';
   const format = (v: number) => (isCount ? String(v) : formatCompactCurrency(v));
 
-  /** ¿Esta celda entra en el corte activo de «Incluyo»? */
-  const inPaidMode = (r: AdvisorTrackingRow) =>
-    paidMode === 'all' || (paidMode === 'paid' ? r.paid : !r.paid);
+  const pivot = useMemo(() => buildPivot(rows, measure, paidMode), [rows, measure, paidMode]);
 
-  const pivot = useMemo(() => {
-    const advisors = [...new Set(rows.map((r) => r.advisorId))];
-
-    const built = advisors.map((advisorId) => {
-      const mine = rows.filter((r) => r.advisorId === advisorId);
-      const cells = STATUS_COLUMNS.map(({ value }) =>
-        mine
-          .filter((r) => r.status === value && inPaidMode(r))
-          .reduce((acc, r) => acc + r[field], 0),
-      );
-      // La brecha no depende del toggle: son las OP pagadas al 100% que todavía
-      // no están marcadas como entregadas. En la medida «saldo» daría ~$0 y se
-      // leería como que no hay nada pendiente, que es justo lo contrario.
-      const gapRows = mine.filter(
-        (r) => r.paid && !DELIVERED_STATUSES.includes(r.status) && r.status !== 'ANULADO',
-      );
-      return {
-        advisorId,
-        advisorName: mine[0]?.advisorName ?? advisorId,
-        cells,
-        total: cells.reduce((a, b) => a + b, 0),
-        gapCount: gapRows.reduce((acc, r) => acc + r.count, 0),
-        gapAmount: gapRows.reduce((acc, r) => acc + r.netAmount, 0),
-      };
-    });
-
-    return built.sort((a, b) => Math.abs(b.total) - Math.abs(a.total));
-  }, [rows, field, paidMode]);
-
-  const totals = STATUS_COLUMNS.map((_, i) => pivot.reduce((acc, r) => acc + r.cells[i], 0));
+  const totals = pivotTotals(pivot);
   const grandTotal = totals.reduce((a, b) => a + b, 0);
   const gapCount = pivot.reduce((acc, r) => acc + r.gapCount, 0);
   const gapAmount = pivot.reduce((acc, r) => acc + r.gapAmount, 0);
@@ -223,24 +172,16 @@ export const OrderTrackingSection: React.FC = () => {
     ...(paidMode === 'all' ? {} : { paymentStatus: paidMode === 'due' ? 'PENDING' : 'PAID' }),
   });
 
-  const PAID_MODE_LABEL: Record<PaidMode, string> = {
-    all: 'pagadas y con saldo',
-    paid: 'solo las pagadas al 100%',
-    due: 'solo las que tienen saldo',
-  };
-
   /**
    * Antes de navegar, decir en palabras qué recorte representa la celda y a
    * dónde lleva. Una matriz de doce columnas con dos toggles encima es fácil de
    * leer mal, y el clic saca al usuario de la pantalla.
    */
   const cellTooltip = (statusIndex: number, advisorName?: string) => {
-    const column = STATUS_COLUMNS[statusIndex];
-    const statusLabel = column.full ?? column.label;
     return (
       <Box sx={{ py: 0.5 }}>
         <Typography variant="caption" display="block" fontWeight={700}>
-          {advisorName ?? 'Todos los asesores'} · {statusLabel}
+          {advisorName ?? 'Todos los asesores'} · {statusLabel(statusIndex)}
         </Typography>
         <Typography variant="caption" display="block">
           {MONTHS[month - 1]} {year} · {PAID_MODE_LABEL[paidMode]}
@@ -274,6 +215,10 @@ export const OrderTrackingSection: React.FC = () => {
   );
 
   const isLoading = trackingQuery.isLoading;
+  const canExport = hasPermission(PERMISSIONS.EXPORT_SALES_BY_ADVISOR);
+
+  const handleExport = () =>
+    exportOrderTrackingToExcel({ rows, month, year, paidMode, scopedToOwn });
 
   return (
     <Box>
@@ -310,6 +255,22 @@ export const OrderTrackingSection: React.FC = () => {
                   <MenuItem key={y} value={y}>{y}</MenuItem>
                 ))}
               </TextField>
+              {canExport && (
+                <Tooltip title="Descarga la matriz completa: una hoja de resumen y una por cada medida.">
+                  <span>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="success"
+                      startIcon={<DownloadIcon />}
+                      disabled={isLoading || rows.length === 0}
+                      onClick={handleExport}
+                    >
+                      Excel
+                    </Button>
+                  </span>
+                </Tooltip>
+              )}
             </Box>
           }
         />
