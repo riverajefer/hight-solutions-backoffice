@@ -87,6 +87,68 @@ describe('OrdersRepository', () => {
       );
     });
 
+    it('filtra por estado de pago sin tocar el filtro de estado', async () => {
+      await repository.findAllWithFilters({ paymentStatus: 'PAID' });
+
+      const { where } = (prisma.order.findMany as jest.Mock).mock.calls[0][0];
+      expect(where.balance).toEqual({ lte: 0 });
+      expect(where.status).toBeUndefined();
+    });
+
+    it('«sin entregar» excluye los tres estados de entrega y las anuladas', async () => {
+      await repository.findAllWithFilters({ deliveryStatus: 'PENDING' });
+
+      const { where } = (prisma.order.findMany as jest.Mock).mock.calls[0][0];
+      expect(where.status).toEqual({
+        notIn: [
+          OrderStatus.DELIVERED,
+          OrderStatus.DELIVERED_ON_CREDIT,
+          OrderStatus.WARRANTY,
+          OrderStatus.ANULADO,
+        ],
+      });
+    });
+
+    it('«ya entregadas» incluye entrega a crédito y garantía', async () => {
+      await repository.findAllWithFilters({ deliveryStatus: 'DELIVERED' });
+
+      const { where } = (prisma.order.findMany as jest.Mock).mock.calls[0][0];
+      expect(where.status).toEqual({
+        in: [OrderStatus.DELIVERED, OrderStatus.DELIVERED_ON_CREDIT, OrderStatus.WARRANTY],
+      });
+    });
+
+    it('un status explícito manda sobre deliveryStatus', async () => {
+      await repository.findAllWithFilters({
+        status: OrderStatus.CONFIRMED,
+        deliveryStatus: 'PENDING',
+      });
+
+      const { where } = (prisma.order.findMany as jest.Mock).mock.calls[0][0];
+      expect(where.status).toBe(OrderStatus.CONFIRMED);
+    });
+
+    it('combina la brecha: pagadas al 100% y todavía sin entregar', async () => {
+      // Es el filtro que abre la columna «Brecha» del Seguimiento de OP.
+      await repository.findAllWithFilters({
+        paymentStatus: 'PAID',
+        deliveryStatus: 'PENDING',
+        createdById: 'advisor-1',
+      });
+
+      const { where } = (prisma.order.findMany as jest.Mock).mock.calls[0][0];
+      expect(where.balance).toEqual({ lte: 0 });
+      expect(where.status).toEqual({
+        notIn: [
+          OrderStatus.DELIVERED,
+          OrderStatus.DELIVERED_ON_CREDIT,
+          OrderStatus.WARRANTY,
+          OrderStatus.ANULADO,
+        ],
+      });
+      expect(where.createdById).toBe('advisor-1');
+    });
+
     it('should let an explicit status win over excludeAnulado', async () => {
       // Elegir "Anulada" en el filtro de Estado debe seguir mostrándolas.
       await repository.findAllWithFilters({

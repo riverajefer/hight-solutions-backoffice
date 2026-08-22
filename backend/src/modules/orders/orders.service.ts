@@ -135,7 +135,7 @@ export class OrdersService {
   ) {}
 
   async findAll(filters: FilterOrdersDto) {
-    const { status, search, clientId, orderDateFrom, orderDateTo, paymentDateFrom, paymentDateTo, page, limit, excludeWithWorkOrder, productionAreaId, createdById, hasBalance, paymentStatus, advancePaymentStatus, excludeAnulado } = filters;
+    const { status, search, clientId, orderDateFrom, orderDateTo, paymentDateFrom, paymentDateTo, page, limit, excludeWithWorkOrder, productionAreaId, createdById, hasBalance, paymentStatus, deliveryStatus, advancePaymentStatus, excludeAnulado } = filters;
 
     return this.ordersRepository.findAllWithFilters({
       status,
@@ -152,6 +152,7 @@ export class OrdersService {
       createdById,
       hasBalance,
       paymentStatus,
+      deliveryStatus,
       advancePaymentStatus,
       excludeAnulado,
     });

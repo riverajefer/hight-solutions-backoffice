@@ -137,6 +137,7 @@ const PERSISTED_FILTER_KEYS: (keyof FilterOrdersDto)[] = [
   'createdById',
   'hasBalance',
   'paymentStatus',
+  'deliveryStatus',
   'advancePaymentStatus',
 ];
 
@@ -687,6 +688,17 @@ export const OrdersListPage: React.FC = () => {
       : []),
     ...(filters.search
       ? [{ label: `Búsqueda: "${filters.search}"`, keys: ['search' as const] }]
+      : []),
+    ...(filters.deliveryStatus
+      ? [
+          {
+            label:
+              filters.deliveryStatus === 'DELIVERED'
+                ? 'Ya entregadas'
+                : 'Sin marcar entrega',
+            keys: ['deliveryStatus' as const],
+          },
+        ]
       : []),
     ...(filters.paymentStatus
       ? [

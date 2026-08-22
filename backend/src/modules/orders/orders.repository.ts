@@ -19,6 +19,17 @@ export function buildOrderStatusFilter(
 }
 
 /**
+ * Estados en los que la entrega ya ocurrió. `WARRANTY` entra porque una garantía
+ * solo existe sobre algo que se entregó, y `DELIVERED_ON_CREDIT` porque se
+ * entregó aunque quedara saldo.
+ */
+export const DELIVERED_ORDER_STATUSES: OrderStatus[] = [
+  OrderStatus.DELIVERED,
+  OrderStatus.DELIVERED_ON_CREDIT,
+  OrderStatus.WARRANTY,
+];
+
+/**
  * Campos que cubre el buscador de órdenes. Fuente única para que el listado, la
  * exportación a Excel y las tarjetas de totales cuenten siempre el mismo
  * conjunto de órdenes ante el mismo texto de búsqueda.
@@ -273,10 +284,11 @@ export class OrdersRepository {
     createdById?: string;
     hasBalance?: boolean;
     paymentStatus?: 'PAID' | 'PENDING';
+    deliveryStatus?: 'PENDING' | 'DELIVERED';
     advancePaymentStatus?: EditRequestStatus;
     excludeAnulado?: boolean;
   }) {
-    const { status, search, clientId, orderDateFrom, orderDateTo, paymentDateFrom, paymentDateTo, page = 1, limit = 20, excludeWithWorkOrder, productionAreaId, createdById, hasBalance, paymentStatus, advancePaymentStatus, excludeAnulado } = filters;
+    const { status, search, clientId, orderDateFrom, orderDateTo, paymentDateFrom, paymentDateTo, page = 1, limit = 20, excludeWithWorkOrder, productionAreaId, createdById, hasBalance, paymentStatus, deliveryStatus, advancePaymentStatus, excludeAnulado } = filters;
 
     const where: Prisma.OrderWhereInput = {};
 
@@ -342,6 +354,16 @@ export class OrdersRepository {
     // saldo»; `hasBalance` solo sabe expresar la segunda.
     if (paymentStatus) {
       where.balance = paymentStatus === 'PENDING' ? { gt: 0 } : { lte: 0 };
+    }
+
+    // La columna «Brecha» del Seguimiento de OP necesita expresar «todavía sin
+    // entregar», que no es un estado sino la ausencia de varios. Un `status`
+    // explícito manda sobre este filtro, igual que con `excludeAnulado`.
+    if (deliveryStatus && !status) {
+      where.status =
+        deliveryStatus === 'DELIVERED'
+          ? { in: DELIVERED_ORDER_STATUSES }
+          : { notIn: [...DELIVERED_ORDER_STATUSES, OrderStatus.ANULADO] };
     }
 
     if (advancePaymentStatus) {
