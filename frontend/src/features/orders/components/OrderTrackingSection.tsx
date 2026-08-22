@@ -46,6 +46,54 @@ const formatCurrency = (value: number) => {
   return value < 0 ? `−${formatted}` : formatted;
 };
 
+/**
+ * Dentro de la matriz el símbolo va pegado al número: con nueve columnas de
+ * moneda, el espacio que mete `Intl` cuesta ancho real antes del scroll.
+ */
+const formatCompactCurrency = (value: number) =>
+  // `Intl` separa el símbolo con espacio duro ( ), no con uno normal.
+  formatCurrency(value).replace(/\$[\s ]+/, '$');
+
+/**
+ * Los nombres completos ocupan casi un tercio del ancho de la tabla. Dejamos el
+ * primer nombre y el primer apellido; el nombre entero queda en el tooltip.
+ */
+const shortAdvisorName = (fullName: string) => {
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length <= 2) return fullName;
+  return `${parts[0]} ${parts[parts.length - 2]}`;
+};
+
+/** Densidad de la tabla: celdas y encabezados apretados para ver más columnas. */
+const DENSE_CELL = { px: 1, py: 0.5, fontSize: '0.78rem' } as const;
+const DENSE_HEAD = { px: 1, py: 0.75, lineHeight: 1.2 } as const;
+
+/**
+ * El tema define la tipografía del encabezado con un selector descendiente
+ * (`& .MuiTableCell-head`), más específico que el `sx` de cada celda: para
+ * achicarla hay que atacarla desde la tabla. Con doce columnas, el tamaño y el
+ * `letterSpacing` heredados cuestan ancho real antes del scroll.
+ */
+const DENSE_TABLE = {
+  minWidth: 720,
+  '& .MuiTableCell-head': {
+    fontSize: '0.62rem',
+    letterSpacing: '0.02em',
+  },
+} as const;
+
+/**
+ * La columna de asesor queda fija: al desplazarse a la derecha para ver Total o
+ * Brecha, seguir viendo de quién es la fila es lo que hace legible la matriz.
+ */
+const STICKY_COL = {
+  position: 'sticky',
+  left: 0,
+  zIndex: 2,
+  bgcolor: 'background.paper',
+  whiteSpace: 'nowrap',
+} as const;
+
 const MONTHS = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
@@ -58,14 +106,14 @@ const YEAR_OPTIONS = [currentYear - 1, currentYear, currentYear + 1];
  * Columnas de la matriz. Es el flujo real de la OP, de izquierda a derecha, para
  * que la fila se lea como el avance del pedido.
  */
-const STATUS_COLUMNS: { value: OrderStatus; label: string }[] = [
+const STATUS_COLUMNS: { value: OrderStatus; label: string; full?: string }[] = [
   { value: 'DRAFT', label: 'Borrador' },
-  { value: 'CONFIRMED', label: 'Confirmada' },
-  { value: 'IN_PRODUCTION', label: 'En producción' },
+  { value: 'CONFIRMED', label: 'Confirm.', full: 'Confirmada' },
+  { value: 'IN_PRODUCTION', label: 'En prod.', full: 'En producción' },
   { value: 'READY', label: 'Lista' },
   { value: 'PAID', label: 'Pagada' },
   { value: 'DELIVERED', label: 'Entregada' },
-  { value: 'DELIVERED_ON_CREDIT', label: 'Entregada a crédito' },
+  { value: 'DELIVERED_ON_CREDIT', label: 'Ent. créd.', full: 'Entregada a crédito' },
   { value: 'WARRANTY', label: 'Garantía' },
   { value: 'ANULADO', label: 'Anulada' },
 ];
@@ -101,7 +149,7 @@ export const OrderTrackingSection: React.FC = () => {
 
   const field = MEASURE_FIELD[measure];
   const isCount = measure === 'count';
-  const format = (v: number) => (isCount ? String(v) : formatCurrency(v));
+  const format = (v: number) => (isCount ? String(v) : formatCompactCurrency(v));
 
   /** ¿Esta celda entra en el corte activo de «Incluyo»? */
   const inPaidMode = (r: AdvisorTrackingRow) =>
@@ -334,15 +382,18 @@ export const OrderTrackingSection: React.FC = () => {
             <Alert severity="info">No hay órdenes registradas en {MONTHS[month - 1]} de {year}.</Alert>
           ) : (
             <TableContainer sx={{ overflowX: 'auto' }}>
-              <Table size="small" sx={{ minWidth: 900 }}>
+              <Table size="small" sx={DENSE_TABLE}>
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 700 }}>Asesor</TableCell>
+                    <TableCell sx={{ ...DENSE_HEAD, ...STICKY_COL, fontWeight: 700 }}>
+                      Asesor
+                    </TableCell>
                     {STATUS_COLUMNS.map((c) => (
                       <TableCell
                         key={c.value}
                         align="right"
                         sx={{
+                          ...DENSE_HEAD,
                           fontWeight: 700,
                           ...(c.value === 'DELIVERED'
                             ? {
@@ -352,11 +403,17 @@ export const OrderTrackingSection: React.FC = () => {
                             : {}),
                         }}
                       >
-                        {c.label}
+                        {c.full ? (
+                          <Tooltip title={c.full}>
+                            <span>{c.label}</span>
+                          </Tooltip>
+                        ) : (
+                          c.label
+                        )}
                       </TableCell>
                     ))}
-                    <TableCell align="right" sx={{ fontWeight: 700 }}>Total</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, color: 'warning.main' }}>
+                    <TableCell align="right" sx={{ ...DENSE_HEAD, fontWeight: 700 }}>Total</TableCell>
+                    <TableCell align="right" sx={{ ...DENSE_HEAD, fontWeight: 700, color: 'warning.main' }}>
                       <Tooltip title="OP pagadas al 100% que aún no están marcadas como entregadas. No depende de los toggles.">
                         <span>Brecha</span>
                       </Tooltip>
@@ -366,8 +423,10 @@ export const OrderTrackingSection: React.FC = () => {
                 <TableBody>
                   {pivot.map((r) => (
                     <TableRow key={r.advisorId} hover>
-                      <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
-                        {r.advisorName}
+                      <TableCell sx={{ ...DENSE_CELL, ...STICKY_COL, fontWeight: 600 }}>
+                        <Tooltip title={r.advisorName}>
+                          <span>{shortAdvisorName(r.advisorName)}</span>
+                        </Tooltip>
                       </TableCell>
                       {r.cells.map((v, i) => (
                         <TableCell
@@ -375,6 +434,7 @@ export const OrderTrackingSection: React.FC = () => {
                           align="right"
                           onClick={v ? () => openOrders(cellFilters(r.advisorId, STATUS_COLUMNS[i].value)) : undefined}
                           sx={{
+                            ...DENSE_CELL,
                             cursor: v ? 'pointer' : 'default',
                             color: v === 0 ? 'text.disabled' : v < 0 ? 'secondary.main' : 'text.primary',
                             ...(STATUS_COLUMNS[i].value === 'DELIVERED'
@@ -386,15 +446,22 @@ export const OrderTrackingSection: React.FC = () => {
                           {v === 0 ? '—' : format(v)}
                         </TableCell>
                       ))}
-                      <TableCell align="right" sx={{ fontWeight: 700 }}>
+                      <TableCell align="right" sx={{ ...DENSE_CELL, fontWeight: 700 }}>
                         {format(r.total)}
                       </TableCell>
-                      <TableCell align="right" sx={{ color: 'warning.main', fontWeight: 700, lineHeight: 1.2 }}>
+                      <TableCell
+                        align="right"
+                        sx={{ ...DENSE_CELL, color: 'warning.main', fontWeight: 700, lineHeight: 1.15 }}
+                      >
                         {r.gapCount === 0 ? '—' : (
                           <>
                             {r.gapCount} OP
-                            <Typography variant="caption" display="block" sx={{ opacity: 0.8 }}>
-                              {formatCurrency(r.gapAmount)}
+                            <Typography
+                              variant="caption"
+                              display="block"
+                              sx={{ opacity: 0.8, fontSize: '0.68rem', lineHeight: 1.15 }}
+                            >
+                              {formatCompactCurrency(r.gapAmount)}
                             </Typography>
                           </>
                         )}
@@ -404,13 +471,14 @@ export const OrderTrackingSection: React.FC = () => {
                 </TableBody>
                 <TableFooter>
                   <TableRow sx={{ '& td': { fontWeight: 800, color: 'text.primary', borderTop: 2, borderColor: 'divider' } }}>
-                    <TableCell>Total general</TableCell>
+                    <TableCell sx={{ ...DENSE_CELL, ...STICKY_COL }}>Total general</TableCell>
                     {totals.map((v, i) => (
                       <TableCell
                         key={STATUS_COLUMNS[i].value}
                         align="right"
                         onClick={v ? () => openOrders(cellFilters(undefined, STATUS_COLUMNS[i].value)) : undefined}
                         sx={{
+                          ...DENSE_CELL,
                           cursor: v ? 'pointer' : 'default',
                           color: v === 0 ? 'text.disabled' : v < 0 ? 'secondary.main' : 'text.primary',
                           ...(STATUS_COLUMNS[i].value === 'DELIVERED'
@@ -421,11 +489,18 @@ export const OrderTrackingSection: React.FC = () => {
                         {v === 0 ? '—' : format(v)}
                       </TableCell>
                     ))}
-                    <TableCell align="right">{format(grandTotal)}</TableCell>
-                    <TableCell align="right" sx={{ color: 'warning.main', lineHeight: 1.2 }}>
+                    <TableCell align="right" sx={DENSE_CELL}>{format(grandTotal)}</TableCell>
+                    <TableCell
+                      align="right"
+                      sx={{ ...DENSE_CELL, color: 'warning.main', lineHeight: 1.15 }}
+                    >
                       {gapCount} OP
-                      <Typography variant="caption" display="block" sx={{ opacity: 0.8 }}>
-                        {formatCurrency(gapAmount)}
+                      <Typography
+                        variant="caption"
+                        display="block"
+                        sx={{ opacity: 0.8, fontSize: '0.68rem', lineHeight: 1.15 }}
+                      >
+                        {formatCompactCurrency(gapAmount)}
                       </Typography>
                     </TableCell>
                   </TableRow>
