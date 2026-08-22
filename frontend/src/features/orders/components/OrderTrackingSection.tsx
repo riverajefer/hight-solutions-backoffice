@@ -223,6 +223,56 @@ export const OrderTrackingSection: React.FC = () => {
     ...(paidMode === 'all' ? {} : { paymentStatus: paidMode === 'due' ? 'PENDING' : 'PAID' }),
   });
 
+  const PAID_MODE_LABEL: Record<PaidMode, string> = {
+    all: 'pagadas y con saldo',
+    paid: 'solo las pagadas al 100%',
+    due: 'solo las que tienen saldo',
+  };
+
+  /**
+   * Antes de navegar, decir en palabras qué recorte representa la celda y a
+   * dónde lleva. Una matriz de doce columnas con dos toggles encima es fácil de
+   * leer mal, y el clic saca al usuario de la pantalla.
+   */
+  const cellTooltip = (statusIndex: number, advisorName?: string) => {
+    const column = STATUS_COLUMNS[statusIndex];
+    const statusLabel = column.full ?? column.label;
+    return (
+      <Box sx={{ py: 0.5 }}>
+        <Typography variant="caption" display="block" fontWeight={700}>
+          {advisorName ?? 'Todos los asesores'} · {statusLabel}
+        </Typography>
+        <Typography variant="caption" display="block">
+          {MONTHS[month - 1]} {year} · {PAID_MODE_LABEL[paidMode]}
+        </Typography>
+        <Typography variant="caption" display="block" sx={{ mt: 0.75, opacity: 0.85 }}>
+          Abre el listado de Órdenes con este filtro aplicado.
+        </Typography>
+      </Box>
+    );
+  };
+
+  /** Filtro de la columna «Brecha»: pagadas al 100% y todavía sin marcar entrega. */
+  const gapFilters = (advisorId?: string): Partial<FilterOrdersDto> => ({
+    ...(advisorId ? { createdById: advisorId } : {}),
+    paymentStatus: 'PAID',
+    deliveryStatus: 'PENDING',
+  });
+
+  const gapTooltip = (advisorName?: string) => (
+    <Box sx={{ py: 0.5 }}>
+      <Typography variant="caption" display="block" fontWeight={700}>
+        {advisorName ?? 'Todos los asesores'} · brecha de entrega
+      </Typography>
+      <Typography variant="caption" display="block">
+        {MONTHS[month - 1]} {year} · pagadas al 100% y aún sin marcar como entregadas
+      </Typography>
+      <Typography variant="caption" display="block" sx={{ mt: 0.75, opacity: 0.85 }}>
+        Abre el listado de Órdenes para marcar las entregas pendientes.
+      </Typography>
+    </Box>
+  );
+
   const isLoading = trackingQuery.isLoading;
 
   return (
@@ -316,13 +366,15 @@ export const OrderTrackingSection: React.FC = () => {
               icon={<DeliveredIcon />}
               sx={{ mb: 2 }}
               action={
-                <Chip
-                  label="Ver esas OP"
-                  size="small"
-                  color="warning"
-                  onClick={() => openOrders({ paymentStatus: 'PAID' })}
-                  sx={{ cursor: 'pointer', mt: 0.5 }}
-                />
+                <Tooltip arrow title={gapTooltip()}>
+                  <Chip
+                    label="Ver esas OP"
+                    size="small"
+                    color="warning"
+                    onClick={() => openOrders(gapFilters())}
+                    sx={{ cursor: 'pointer', mt: 0.5 }}
+                  />
+                </Tooltip>
               }
             >
               <strong>{gapCount} OP ya pagadas al 100% todavía no están marcadas como «Entregada»</strong>
@@ -428,11 +480,80 @@ export const OrderTrackingSection: React.FC = () => {
                           <span>{shortAdvisorName(r.advisorName)}</span>
                         </Tooltip>
                       </TableCell>
-                      {r.cells.map((v, i) => (
+                      {r.cells.map((v, i) => {
+                        const cell = (
+                          <TableCell
+                            key={STATUS_COLUMNS[i].value}
+                            align="right"
+                            onClick={v ? () => openOrders(cellFilters(r.advisorId, STATUS_COLUMNS[i].value)) : undefined}
+                            sx={{
+                              ...DENSE_CELL,
+                              cursor: v ? 'pointer' : 'default',
+                              color: v === 0 ? 'text.disabled' : v < 0 ? 'secondary.main' : 'text.primary',
+                              ...(STATUS_COLUMNS[i].value === 'DELIVERED'
+                                ? { bgcolor: (t: any) => alpha(t.palette.success.main, 0.1) }
+                                : {}),
+                              '&:hover': v ? { bgcolor: 'action.selected' } : {},
+                            }}
+                          >
+                            {v === 0 ? '—' : format(v)}
+                          </TableCell>
+                        );
+                        // Sin OP no hay a dónde navegar: la celda vacía no lleva tooltip.
+                        return v ? (
+                          <Tooltip key={STATUS_COLUMNS[i].value} title={cellTooltip(i, r.advisorName)} arrow>
+                            {cell}
+                          </Tooltip>
+                        ) : (
+                          cell
+                        );
+                      })}
+                      <TableCell align="right" sx={{ ...DENSE_CELL, fontWeight: 700 }}>
+                        {format(r.total)}
+                      </TableCell>
+                      <Tooltip
+                        title={r.gapCount ? gapTooltip(r.advisorName) : ''}
+                        arrow
+                        disableHoverListener={r.gapCount === 0}
+                      >
+                        <TableCell
+                          align="right"
+                          onClick={r.gapCount ? () => openOrders(gapFilters(r.advisorId)) : undefined}
+                          sx={{
+                            ...DENSE_CELL,
+                            color: 'warning.main',
+                            fontWeight: 700,
+                            lineHeight: 1.15,
+                            cursor: r.gapCount ? 'pointer' : 'default',
+                            '&:hover': r.gapCount ? { bgcolor: 'action.selected' } : {},
+                          }}
+                        >
+                          {r.gapCount === 0 ? '—' : (
+                            <>
+                              {r.gapCount} OP
+                              <Typography
+                                variant="caption"
+                                display="block"
+                                sx={{ opacity: 0.8, fontSize: '0.68rem', lineHeight: 1.15 }}
+                              >
+                                {formatCompactCurrency(r.gapAmount)}
+                              </Typography>
+                            </>
+                          )}
+                        </TableCell>
+                      </Tooltip>
+                    </TableRow>
+                  ))}
+                </TableBody>
+                <TableFooter>
+                  <TableRow sx={{ '& td': { fontWeight: 800, color: 'text.primary', borderTop: 2, borderColor: 'divider' } }}>
+                    <TableCell sx={{ ...DENSE_CELL, ...STICKY_COL }}>Total general</TableCell>
+                    {totals.map((v, i) => {
+                      const cell = (
                         <TableCell
                           key={STATUS_COLUMNS[i].value}
                           align="right"
-                          onClick={v ? () => openOrders(cellFilters(r.advisorId, STATUS_COLUMNS[i].value)) : undefined}
+                          onClick={v ? () => openOrders(cellFilters(undefined, STATUS_COLUMNS[i].value)) : undefined}
                           sx={{
                             ...DENSE_CELL,
                             cursor: v ? 'pointer' : 'default',
@@ -445,64 +566,38 @@ export const OrderTrackingSection: React.FC = () => {
                         >
                           {v === 0 ? '—' : format(v)}
                         </TableCell>
-                      ))}
-                      <TableCell align="right" sx={{ ...DENSE_CELL, fontWeight: 700 }}>
-                        {format(r.total)}
-                      </TableCell>
+                      );
+                      return v ? (
+                        <Tooltip key={STATUS_COLUMNS[i].value} title={cellTooltip(i)} arrow>
+                          {cell}
+                        </Tooltip>
+                      ) : (
+                        cell
+                      );
+                    })}
+                    <TableCell align="right" sx={DENSE_CELL}>{format(grandTotal)}</TableCell>
+                    <Tooltip title={gapCount ? gapTooltip() : ''} arrow disableHoverListener={gapCount === 0}>
                       <TableCell
                         align="right"
-                        sx={{ ...DENSE_CELL, color: 'warning.main', fontWeight: 700, lineHeight: 1.15 }}
-                      >
-                        {r.gapCount === 0 ? '—' : (
-                          <>
-                            {r.gapCount} OP
-                            <Typography
-                              variant="caption"
-                              display="block"
-                              sx={{ opacity: 0.8, fontSize: '0.68rem', lineHeight: 1.15 }}
-                            >
-                              {formatCompactCurrency(r.gapAmount)}
-                            </Typography>
-                          </>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-                <TableFooter>
-                  <TableRow sx={{ '& td': { fontWeight: 800, color: 'text.primary', borderTop: 2, borderColor: 'divider' } }}>
-                    <TableCell sx={{ ...DENSE_CELL, ...STICKY_COL }}>Total general</TableCell>
-                    {totals.map((v, i) => (
-                      <TableCell
-                        key={STATUS_COLUMNS[i].value}
-                        align="right"
-                        onClick={v ? () => openOrders(cellFilters(undefined, STATUS_COLUMNS[i].value)) : undefined}
+                        onClick={gapCount ? () => openOrders(gapFilters()) : undefined}
                         sx={{
                           ...DENSE_CELL,
-                          cursor: v ? 'pointer' : 'default',
-                          color: v === 0 ? 'text.disabled' : v < 0 ? 'secondary.main' : 'text.primary',
-                          ...(STATUS_COLUMNS[i].value === 'DELIVERED'
-                            ? { bgcolor: (t: any) => alpha(t.palette.success.main, 0.1) }
-                            : {}),
+                          color: 'warning.main',
+                          lineHeight: 1.15,
+                          cursor: gapCount ? 'pointer' : 'default',
+                          '&:hover': gapCount ? { bgcolor: 'action.selected' } : {},
                         }}
                       >
-                        {v === 0 ? '—' : format(v)}
+                        {gapCount} OP
+                        <Typography
+                          variant="caption"
+                          display="block"
+                          sx={{ opacity: 0.8, fontSize: '0.68rem', lineHeight: 1.15 }}
+                        >
+                          {formatCompactCurrency(gapAmount)}
+                        </Typography>
                       </TableCell>
-                    ))}
-                    <TableCell align="right" sx={DENSE_CELL}>{format(grandTotal)}</TableCell>
-                    <TableCell
-                      align="right"
-                      sx={{ ...DENSE_CELL, color: 'warning.main', lineHeight: 1.15 }}
-                    >
-                      {gapCount} OP
-                      <Typography
-                        variant="caption"
-                        display="block"
-                        sx={{ opacity: 0.8, fontSize: '0.68rem', lineHeight: 1.15 }}
-                      >
-                        {formatCompactCurrency(gapAmount)}
-                      </Typography>
-                    </TableCell>
+                    </Tooltip>
                   </TableRow>
                 </TableFooter>
               </Table>
@@ -512,8 +607,9 @@ export const OrderTrackingSection: React.FC = () => {
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
             <strong>Pagada</strong> = sin saldo pendiente por cobrar. <strong>Brecha</strong> = OP
             pagadas al 100% que aún no están marcadas como entregadas; son las que no comisionan
-            hasta registrar la entrega. Los montos en morado son sobrepagos o saldo a favor. Haz
-            clic en cualquier celda para abrir el listado de órdenes ya filtrado.
+            hasta registrar la entrega, y al hacer clic se abren para marcarlas. Los montos en
+            morado son sobrepagos o saldo a favor. Haz clic en cualquier celda para abrir el
+            listado de órdenes ya filtrado.
             {!canSeeAll && ' Solo ves tus propias OP.'}
           </Typography>
         </CardContent>

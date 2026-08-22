@@ -141,6 +141,20 @@ export class FilterOrdersDto {
   @IsIn(['PAID', 'PENDING'])
   paymentStatus?: 'PAID' | 'PENDING';
 
+  /**
+   * «Sin entregar» no es un estado sino la ausencia de varios, así que no se
+   * puede pedir con el filtro `status`. Un `status` explícito manda sobre este.
+   */
+  @ApiPropertyOptional({
+    description:
+      'DELIVERED = ya entregadas (incluye entregada a crédito y garantía); ' +
+      'PENDING = aún sin entregar, sin contar las anuladas',
+    enum: ['PENDING', 'DELIVERED'],
+  })
+  @IsOptional()
+  @IsIn(['PENDING', 'DELIVERED'])
+  deliveryStatus?: 'PENDING' | 'DELIVERED';
+
   @ApiPropertyOptional({
     description: 'Filtrar por estado de autorización del anticipo',
     enum: EditRequestStatus,
