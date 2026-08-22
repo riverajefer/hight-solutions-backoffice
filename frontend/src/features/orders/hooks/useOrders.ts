@@ -10,6 +10,7 @@ import type {
   UpdatePaymentDto,
   FilterProfitabilityDto,
   SalesSummary,
+  AdvisorTracking,
   UpsertSalesGoalDto,
   OrdersDashboardQuery,
   OrdersDashboardSummary,
@@ -364,6 +365,23 @@ export const useSalesSummary = (filters?: FilterOrdersDto) => {
   return useQuery<SalesSummary>({
     queryKey: salesSummaryKeys.summary(filters),
     queryFn: () => ordersApi.getSalesSummary(filters),
+  });
+};
+
+// ============================================================
+// HOOK: useAdvisorTracking — Seguimiento de OP por asesor y estado
+// ============================================================
+
+export const advisorTrackingKeys = {
+  all: ['advisor-tracking'] as const,
+  list: (params: { month: number; year: number }) =>
+    [...advisorTrackingKeys.all, params] as const,
+};
+
+export const useAdvisorTracking = (params: { month: number; year: number }) => {
+  return useQuery<AdvisorTracking>({
+    queryKey: advisorTrackingKeys.list(params),
+    queryFn: () => ordersApi.getAdvisorTracking(params),
   });
 };
 

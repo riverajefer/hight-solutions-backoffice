@@ -272,10 +272,11 @@ export class OrdersRepository {
     productionAreaId?: string;
     createdById?: string;
     hasBalance?: boolean;
+    paymentStatus?: 'PAID' | 'PENDING';
     advancePaymentStatus?: EditRequestStatus;
     excludeAnulado?: boolean;
   }) {
-    const { status, search, clientId, orderDateFrom, orderDateTo, paymentDateFrom, paymentDateTo, page = 1, limit = 20, excludeWithWorkOrder, productionAreaId, createdById, hasBalance, advancePaymentStatus, excludeAnulado } = filters;
+    const { status, search, clientId, orderDateFrom, orderDateTo, paymentDateFrom, paymentDateTo, page = 1, limit = 20, excludeWithWorkOrder, productionAreaId, createdById, hasBalance, paymentStatus, advancePaymentStatus, excludeAnulado } = filters;
 
     const where: Prisma.OrderWhereInput = {};
 
@@ -335,6 +336,12 @@ export class OrdersRepository {
 
     if (hasBalance) {
       where.balance = { gt: 0 };
+    }
+
+    // El Seguimiento de OP abre el listado desde una celda de «pagadas» o «con
+    // saldo»; `hasBalance` solo sabe expresar la segunda.
+    if (paymentStatus) {
+      where.balance = paymentStatus === 'PENDING' ? { gt: 0 } : { lte: 0 };
     }
 
     if (advancePaymentStatus) {

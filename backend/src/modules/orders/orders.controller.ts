@@ -42,6 +42,7 @@ import {
   UpsertSalesGoalDto,
   FilterSalesGoalsDto,
   OrdersDashboardQueryDto,
+  AdvisorTrackingQueryDto,
 } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -110,6 +111,21 @@ export class OrdersController {
   @ApiResponse({ status: 200, description: 'Sales summary retrieved successfully' })
   getSalesSummary(@Query() filters: FilterOrdersDto) {
     return this.ordersService.getSalesSummary(filters);
+  }
+
+  @Get('advisor-tracking')
+  @RequirePermissions('read_sales_by_advisor')
+  @ApiOperation({
+    summary: 'Seguimiento de OP del mes: matriz asesor × estado × pago',
+  })
+  @ApiQuery({ name: 'month', required: false, type: Number })
+  @ApiQuery({ name: 'year', required: false, type: Number })
+  @ApiResponse({ status: 200, description: 'Advisor tracking retrieved successfully' })
+  getAdvisorTracking(
+    @Query() query: AdvisorTrackingQueryDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.ordersService.getAdvisorTracking(query, userId);
   }
 
   @Get('profitability')

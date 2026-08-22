@@ -1,0 +1,448 @@
+import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { alpha } from '@mui/material/styles';
+import {
+  Alert,
+  Box,
+  Card,
+  CardContent,
+  CardHeader,
+  Chip,
+  Divider,
+  MenuItem,
+  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableFooter,
+  TableHead,
+  TableRow,
+  TextField,
+  ToggleButton,
+  ToggleButtonGroup,
+  Tooltip,
+  Typography,
+} from '@mui/material';
+import {
+  FactCheck as TrackingIcon,
+  LocalShipping as DeliveredIcon,
+  Lock as LockIcon,
+} from '@mui/icons-material';
+import { useAuthStore } from '../../../store/authStore';
+import { PERMISSIONS, ROUTES } from '../../../utils/constants';
+import { useAdvisorTracking } from '../hooks';
+import type { AdvisorTrackingRow, FilterOrdersDto, OrderStatus } from '../../../types/order.types';
+
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+const formatCurrency = (value: number) => {
+  const formatted = new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(Math.abs(value));
+  return value < 0 ? `−${formatted}` : formatted;
+};
+
+const MONTHS = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+];
+
+const currentYear = new Date().getFullYear();
+const YEAR_OPTIONS = [currentYear - 1, currentYear, currentYear + 1];
+
+/**
+ * Columnas de la matriz. Es el flujo real de la OP, de izquierda a derecha, para
+ * que la fila se lea como el avance del pedido.
+ */
+const STATUS_COLUMNS: { value: OrderStatus; label: string }[] = [
+  { value: 'DRAFT', label: 'Borrador' },
+  { value: 'CONFIRMED', label: 'Confirmada' },
+  { value: 'IN_PRODUCTION', label: 'En producción' },
+  { value: 'READY', label: 'Lista' },
+  { value: 'PAID', label: 'Pagada' },
+  { value: 'DELIVERED', label: 'Entregada' },
+  { value: 'DELIVERED_ON_CREDIT', label: 'Entregada a crédito' },
+  { value: 'WARRANTY', label: 'Garantía' },
+  { value: 'ANULADO', label: 'Anulada' },
+];
+
+/** Estados que ya cuentan como entrega hecha: son los que pueden comisionar. */
+const DELIVERED_STATUSES: OrderStatus[] = ['DELIVERED', 'DELIVERED_ON_CREDIT', 'WARRANTY'];
+
+type Measure = 'count' | 'amount' | 'balance';
+type PaidMode = 'all' | 'paid' | 'due';
+
+const MEASURE_FIELD: Record<Measure, keyof Pick<AdvisorTrackingRow, 'count' | 'netAmount' | 'pendingBalance'>> = {
+  count: 'count',
+  amount: 'netAmount',
+  balance: 'pendingBalance',
+};
+
+// ─── componente ───────────────────────────────────────────────────────────────
+
+export const OrderTrackingSection: React.FC = () => {
+  const navigate = useNavigate();
+  const { hasPermission } = useAuthStore();
+
+  const now = new Date();
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = useState(now.getFullYear());
+  const [measure, setMeasure] = useState<Measure>('count');
+  const [paidMode, setPaidMode] = useState<PaidMode>('all');
+
+  const trackingQuery = useAdvisorTracking({ month, year });
+  const rows = useMemo(() => trackingQuery.data?.rows ?? [], [trackingQuery.data]);
+  const scopedToOwn = trackingQuery.data?.scopedToOwn ?? false;
+  const canSeeAll = hasPermission(PERMISSIONS.READ_ALL_ADVISORS_TRACKING);
+
+  const field = MEASURE_FIELD[measure];
+  const isCount = measure === 'count';
+  const format = (v: number) => (isCount ? String(v) : formatCurrency(v));
+
+  /** ¿Esta celda entra en el corte activo de «Incluyo»? */
+  const inPaidMode = (r: AdvisorTrackingRow) =>
+    paidMode === 'all' || (paidMode === 'paid' ? r.paid : !r.paid);
+
+  const pivot = useMemo(() => {
+    const advisors = [...new Set(rows.map((r) => r.advisorId))];
+
+    const built = advisors.map((advisorId) => {
+      const mine = rows.filter((r) => r.advisorId === advisorId);
+      const cells = STATUS_COLUMNS.map(({ value }) =>
+        mine
+          .filter((r) => r.status === value && inPaidMode(r))
+          .reduce((acc, r) => acc + r[field], 0),
+      );
+      // La brecha no depende del toggle: son las OP pagadas al 100% que todavía
+      // no están marcadas como entregadas. En la medida «saldo» daría ~$0 y se
+      // leería como que no hay nada pendiente, que es justo lo contrario.
+      const gapRows = mine.filter(
+        (r) => r.paid && !DELIVERED_STATUSES.includes(r.status) && r.status !== 'ANULADO',
+      );
+      return {
+        advisorId,
+        advisorName: mine[0]?.advisorName ?? advisorId,
+        cells,
+        total: cells.reduce((a, b) => a + b, 0),
+        gapCount: gapRows.reduce((acc, r) => acc + r.count, 0),
+        gapAmount: gapRows.reduce((acc, r) => acc + r.netAmount, 0),
+      };
+    });
+
+    return built.sort((a, b) => Math.abs(b.total) - Math.abs(a.total));
+  }, [rows, field, paidMode]);
+
+  const totals = STATUS_COLUMNS.map((_, i) => pivot.reduce((acc, r) => acc + r.cells[i], 0));
+  const grandTotal = totals.reduce((a, b) => a + b, 0);
+  const gapCount = pivot.reduce((acc, r) => acc + r.gapCount, 0);
+  const gapAmount = pivot.reduce((acc, r) => acc + r.gapAmount, 0);
+
+  // KPIs — siempre sobre el mes completo, sin importar el corte activo.
+  const sum = (
+    filter: (r: AdvisorTrackingRow) => boolean,
+    key: keyof Pick<AdvisorTrackingRow, 'count' | 'netAmount' | 'pendingBalance'>,
+  ) => rows.filter(filter).reduce((acc, r) => acc + r[key], 0);
+
+  const totalOrders = sum(() => true, 'count');
+  const totalNet = sum(() => true, 'netAmount');
+  const paidOrders = sum((r) => r.paid, 'count');
+  const paidNet = sum((r) => r.paid, 'netAmount');
+  const dueOrders = sum((r) => !r.paid, 'count');
+  const dueBalance = sum((r) => !r.paid, 'pendingBalance');
+  const commissionable = (r: AdvisorTrackingRow) => r.paid && DELIVERED_STATUSES.includes(r.status);
+  const commissionableOrders = sum(commissionable, 'count');
+  const commissionableNet = sum(commissionable, 'netAmount');
+
+  /** Abre el listado de Órdenes acotado a lo que representa la celda. */
+  const openOrders = (extra: Partial<FilterOrdersDto>) => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const lastDay = new Date(year, month, 0).getDate();
+    const orderFilters: FilterOrdersDto = {
+      orderDateFrom: `${year}-${pad(month)}-01`,
+      orderDateTo: `${year}-${pad(month)}-${pad(lastDay)}`,
+      ...extra,
+    };
+    navigate(ROUTES.ORDERS, { state: { orderFilters } });
+  };
+
+  const cellFilters = (advisorId?: string, status?: OrderStatus): Partial<FilterOrdersDto> => ({
+    ...(advisorId ? { createdById: advisorId } : {}),
+    ...(status ? { status } : {}),
+    ...(paidMode === 'all' ? {} : { paymentStatus: paidMode === 'due' ? 'PENDING' : 'PAID' }),
+  });
+
+  const isLoading = trackingQuery.isLoading;
+
+  return (
+    <Box>
+      <Card variant="outlined">
+        <CardHeader
+          avatar={<TrackingIcon color="primary" />}
+          title={
+            <Typography variant="h6" fontWeight={700}>
+              Seguimiento de OP
+            </Typography>
+          }
+          subheader="En qué estado va cada pedido del mes y cuáles ya están pagados"
+          action={
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', pr: 1, flexWrap: 'wrap' }}>
+              <TextField
+                select
+                size="small"
+                value={month}
+                onChange={(e) => setMonth(Number(e.target.value))}
+                sx={{ width: 130 }}
+              >
+                {MONTHS.map((m, i) => (
+                  <MenuItem key={i + 1} value={i + 1}>{m}</MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                select
+                size="small"
+                value={year}
+                onChange={(e) => setYear(Number(e.target.value))}
+                sx={{ width: 90 }}
+              >
+                {YEAR_OPTIONS.map((y) => (
+                  <MenuItem key={y} value={y}>{y}</MenuItem>
+                ))}
+              </TextField>
+            </Box>
+          }
+        />
+        <Divider />
+        <CardContent>
+          {/* Controles */}
+          <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', alignItems: 'center', mb: 2 }}>
+            <Box>
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                Mido
+              </Typography>
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={measure}
+                onChange={(_, v) => v && setMeasure(v)}
+              >
+                <ToggleButton value="count">N.º de OP</ToggleButton>
+                <ToggleButton value="amount">Monto neto</ToggleButton>
+                <ToggleButton value="balance">Saldo pendiente</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                Incluyo
+              </Typography>
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={paidMode}
+                onChange={(_, v) => v && setPaidMode(v)}
+              >
+                <ToggleButton value="all">Todas</ToggleButton>
+                <ToggleButton value="paid">Solo pagadas</ToggleButton>
+                <ToggleButton value="due">Con saldo</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+            {scopedToOwn && (
+              <Chip
+                icon={<LockIcon fontSize="small" />}
+                label="Viendo solo tus OP"
+                size="small"
+                color="secondary"
+                variant="outlined"
+                sx={{ alignSelf: 'flex-end' }}
+              />
+            )}
+          </Box>
+
+          {/* Brecha: OP pagadas que aún no están marcadas como entregadas */}
+          {!isLoading && gapCount > 0 && (
+            <Alert
+              severity="warning"
+              icon={<DeliveredIcon />}
+              sx={{ mb: 2 }}
+              action={
+                <Chip
+                  label="Ver esas OP"
+                  size="small"
+                  color="warning"
+                  onClick={() => openOrders({ paymentStatus: 'PAID' })}
+                  sx={{ cursor: 'pointer', mt: 0.5 }}
+                />
+              }
+            >
+              <strong>{gapCount} OP ya pagadas al 100% todavía no están marcadas como «Entregada»</strong>
+              {' — '}
+              equivalen a {formatCurrency(gapAmount)} que no comisionan hasta que se registre la
+              entrega.
+            </Alert>
+          )}
+
+          {/* KPIs */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' },
+              gap: 2,
+              mb: 3,
+            }}
+          >
+            {[
+              { t: 'OP del mes', v: totalOrders, s: `${formatCurrency(totalNet)} netos`, c: 'text.primary' },
+              {
+                t: 'Pagadas al 100%',
+                v: paidOrders,
+                s: totalOrders > 0
+                  ? `${Math.round((paidOrders / totalOrders) * 100)}% · ${formatCurrency(paidNet)}`
+                  : '—',
+                c: 'success.main',
+              },
+              { t: 'Saldo pendiente', v: formatCurrency(dueBalance), s: `${dueOrders} OP con saldo`, c: 'warning.main' },
+              {
+                t: 'Listas para comisión',
+                v: commissionableOrders,
+                s: `Entregadas + sin saldo · ${formatCurrency(commissionableNet)}`,
+                c: 'secondary.main',
+              },
+            ].map((k) => (
+              <Card key={k.t} variant="outlined" sx={{ bgcolor: 'action.hover' }}>
+                <CardContent sx={{ p: '14px !important' }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase' }}>
+                    {k.t}
+                  </Typography>
+                  <Typography variant="h6" fontWeight={800} sx={{ color: k.c, mt: 0.25 }}>
+                    {isLoading ? <Skeleton width={70} /> : k.v}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {isLoading ? <Skeleton width={110} /> : k.s}
+                  </Typography>
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
+
+          {/* Matriz asesor × estado */}
+          {isLoading ? (
+            <Skeleton variant="rectangular" height={240} />
+          ) : pivot.length === 0 ? (
+            <Alert severity="info">No hay órdenes registradas en {MONTHS[month - 1]} de {year}.</Alert>
+          ) : (
+            <TableContainer sx={{ overflowX: 'auto' }}>
+              <Table size="small" sx={{ minWidth: 900 }}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 700 }}>Asesor</TableCell>
+                    {STATUS_COLUMNS.map((c) => (
+                      <TableCell
+                        key={c.value}
+                        align="right"
+                        sx={{
+                          fontWeight: 700,
+                          ...(c.value === 'DELIVERED'
+                            ? {
+                                color: 'success.main',
+                                bgcolor: (t: any) => alpha(t.palette.success.main, 0.1),
+                              }
+                            : {}),
+                        }}
+                      >
+                        {c.label}
+                      </TableCell>
+                    ))}
+                    <TableCell align="right" sx={{ fontWeight: 700 }}>Total</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: 'warning.main' }}>
+                      <Tooltip title="OP pagadas al 100% que aún no están marcadas como entregadas. No depende de los toggles.">
+                        <span>Brecha</span>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {pivot.map((r) => (
+                    <TableRow key={r.advisorId} hover>
+                      <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+                        {r.advisorName}
+                      </TableCell>
+                      {r.cells.map((v, i) => (
+                        <TableCell
+                          key={STATUS_COLUMNS[i].value}
+                          align="right"
+                          onClick={v ? () => openOrders(cellFilters(r.advisorId, STATUS_COLUMNS[i].value)) : undefined}
+                          sx={{
+                            cursor: v ? 'pointer' : 'default',
+                            color: v === 0 ? 'text.disabled' : v < 0 ? 'secondary.main' : 'text.primary',
+                            ...(STATUS_COLUMNS[i].value === 'DELIVERED'
+                              ? { bgcolor: (t: any) => alpha(t.palette.success.main, 0.1) }
+                              : {}),
+                            '&:hover': v ? { bgcolor: 'action.selected' } : {},
+                          }}
+                        >
+                          {v === 0 ? '—' : format(v)}
+                        </TableCell>
+                      ))}
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>
+                        {format(r.total)}
+                      </TableCell>
+                      <TableCell align="right" sx={{ color: 'warning.main', fontWeight: 700, lineHeight: 1.2 }}>
+                        {r.gapCount === 0 ? '—' : (
+                          <>
+                            {r.gapCount} OP
+                            <Typography variant="caption" display="block" sx={{ opacity: 0.8 }}>
+                              {formatCurrency(r.gapAmount)}
+                            </Typography>
+                          </>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+                <TableFooter>
+                  <TableRow sx={{ '& td': { fontWeight: 800, color: 'text.primary', borderTop: 2, borderColor: 'divider' } }}>
+                    <TableCell>Total general</TableCell>
+                    {totals.map((v, i) => (
+                      <TableCell
+                        key={STATUS_COLUMNS[i].value}
+                        align="right"
+                        onClick={v ? () => openOrders(cellFilters(undefined, STATUS_COLUMNS[i].value)) : undefined}
+                        sx={{
+                          cursor: v ? 'pointer' : 'default',
+                          color: v === 0 ? 'text.disabled' : v < 0 ? 'secondary.main' : 'text.primary',
+                          ...(STATUS_COLUMNS[i].value === 'DELIVERED'
+                            ? { bgcolor: (t: any) => alpha(t.palette.success.main, 0.1) }
+                            : {}),
+                        }}
+                      >
+                        {v === 0 ? '—' : format(v)}
+                      </TableCell>
+                    ))}
+                    <TableCell align="right">{format(grandTotal)}</TableCell>
+                    <TableCell align="right" sx={{ color: 'warning.main', lineHeight: 1.2 }}>
+                      {gapCount} OP
+                      <Typography variant="caption" display="block" sx={{ opacity: 0.8 }}>
+                        {formatCurrency(gapAmount)}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                </TableFooter>
+              </Table>
+            </TableContainer>
+          )}
+
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
+            <strong>Pagada</strong> = sin saldo pendiente por cobrar. <strong>Brecha</strong> = OP
+            pagadas al 100% que aún no están marcadas como entregadas; son las que no comisionan
+            hasta registrar la entrega. Los montos en morado son sobrepagos o saldo a favor. Haz
+            clic en cualquier celda para abrir el listado de órdenes ya filtrado.
+            {!canSeeAll && ' Solo ves tus propias OP.'}
+          </Typography>
+        </CardContent>
+      </Card>
+    </Box>
+  );
+};

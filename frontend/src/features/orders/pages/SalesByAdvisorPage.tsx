@@ -21,6 +21,7 @@ import {
   Visibility as VisibilityIcon,
   BarChart as SalesIcon,
   EmojiEvents as GoalsIcon,
+  FactCheck as TrackingIcon,
   FileDownload as FileDownloadIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
@@ -31,7 +32,7 @@ import { ordersApi } from '../../../api';
 import { useClients } from '../../clients/hooks/useClients';
 import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
 import { useUsers } from '../../users/hooks/useUsers';
-import { OrderStatusChip, SalesGoalsSection } from '../components';
+import { OrderStatusChip, SalesGoalsSection, OrderTrackingSection } from '../components';
 import { ExportDialog } from '../../../components/common/ExportDialog';
 import { EXPORT_LIMIT } from '../../../utils/excelExport';
 import { ORDER_EXPORT_COLUMNS } from '../utils/orderExportColumns';
@@ -311,6 +312,11 @@ export const SalesByAdvisorPage: React.FC = () => {
             iconPosition="start"
             label="Metas de Ventas"
           />
+          <Tab
+            icon={<TrackingIcon fontSize="small" />}
+            iconPosition="start"
+            label="Seguimiento de OP"
+          />
         </Tabs>
       </Box>
 
@@ -514,6 +520,9 @@ export const SalesByAdvisorPage: React.FC = () => {
       {activeTab === 1 && (
         <SalesGoalsSection advisors={advisors} />
       )}
+
+      {/* Tab 2 — Seguimiento de OP */}
+      {activeTab === 2 && <OrderTrackingSection />}
 
       {/* Export to Excel Dialog */}
       {canExport && (

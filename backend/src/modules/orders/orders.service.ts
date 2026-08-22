@@ -34,6 +34,7 @@ import {
   UpsertSalesGoalDto,
   FilterSalesGoalsDto,
   OrdersDashboardQueryDto,
+  AdvisorTrackingQueryDto,
 } from './dto';
 import { InitialPaymentDto } from './dto/create-order.dto';
 import { EditRequestStatus, OrderStatus, PaymentMethod, Prisma } from '../../generated/prisma';
@@ -134,7 +135,7 @@ export class OrdersService {
   ) {}
 
   async findAll(filters: FilterOrdersDto) {
-    const { status, search, clientId, orderDateFrom, orderDateTo, paymentDateFrom, paymentDateTo, page, limit, excludeWithWorkOrder, productionAreaId, createdById, hasBalance, advancePaymentStatus, excludeAnulado } = filters;
+    const { status, search, clientId, orderDateFrom, orderDateTo, paymentDateFrom, paymentDateTo, page, limit, excludeWithWorkOrder, productionAreaId, createdById, hasBalance, paymentStatus, advancePaymentStatus, excludeAnulado } = filters;
 
     return this.ordersRepository.findAllWithFilters({
       status,
@@ -150,6 +151,7 @@ export class OrdersService {
       productionAreaId,
       createdById,
       hasBalance,
+      paymentStatus,
       advancePaymentStatus,
       excludeAnulado,
     });
@@ -300,6 +302,104 @@ export class OrdersService {
       totalOrders,
       averageOrderValue,
       advisorBreakdown,
+    };
+  }
+
+  /**
+   * ¿El usuario puede ver el seguimiento de todo el equipo, o solo sus propias OP?
+   *
+   * Se resuelve contra la base y no contra el token porque son datos de comisión:
+   * esconder filas en el frontend dejaría la API abierta para cualquier asesor.
+   */
+  private async canReadAllAdvisorsTracking(userId: string): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        role: { include: { permissions: { include: { permission: true } } } },
+      },
+    });
+
+    return (
+      user?.role?.permissions?.some(
+        (rp) => rp.permission.name === 'read_all_advisors_tracking',
+      ) ?? false
+    );
+  }
+
+  /**
+   * Seguimiento de OP del mes: matriz asesor × estado, partida entre las que ya
+   * están pagadas al 100% (`balance <= 0`) y las que tienen saldo pendiente.
+   *
+   * Devuelve las celdas en plano; el frontend arma el pivote y las tres medidas
+   * (n.º de OP, monto neto y saldo pendiente). El rango de fechas se calcula igual
+   * que en `getSalesSummary` para que esta pestaña y la de Metas cuenten siempre
+   * el mismo conjunto de órdenes.
+   */
+  async getAdvisorTracking(query: AdvisorTrackingQueryDto, userId: string) {
+    const [todayYear, todayMonth] = businessToday().split('-').map(Number);
+    const month = query.month ?? todayMonth;
+    const year = query.year ?? todayYear;
+
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const lastDay = new Date(year, month, 0).getDate();
+    const monthStart = `${year}-${pad(month)}-01`;
+    const monthEnd = `${year}-${pad(month)}-${pad(lastDay)}`;
+
+    const scopedToOwn = !(await this.canReadAllAdvisorsTracking(userId));
+
+    const where: Prisma.OrderWhereInput = {
+      orderDate: { gte: startOfDay(monthStart), lte: endOfDay(monthEnd) },
+    };
+    if (scopedToOwn) where.createdById = userId;
+
+    const groupBy = (paid: boolean) =>
+      this.prisma.order.groupBy({
+        by: ['createdById', 'status'],
+        where: { ...where, balance: paid ? { lte: 0 } : { gt: 0 } },
+        _count: { _all: true },
+        _sum: { subtotal: true, discountAmount: true, balance: true },
+      });
+
+    const [paidGroups, unpaidGroups] = await Promise.all([
+      groupBy(true),
+      groupBy(false),
+    ]);
+
+    const advisorIds = [
+      ...new Set([...paidGroups, ...unpaidGroups].map((g) => g.createdById)),
+    ];
+    const advisors = await this.prisma.user.findMany({
+      where: { id: { in: advisorIds } },
+      select: { id: true, firstName: true, lastName: true, email: true },
+    });
+    const advisorMap = new Map(advisors.map((a) => [a.id, a]));
+
+    const toRows = (
+      groups: Awaited<ReturnType<typeof groupBy>>,
+      paid: boolean,
+    ) =>
+      groups.map((g) => {
+        const advisor = advisorMap.get(g.createdById);
+        const name = `${advisor?.firstName ?? ''} ${advisor?.lastName ?? ''}`.trim();
+        return {
+          advisorId: g.createdById,
+          advisorName: name || advisor?.email || g.createdById,
+          status: g.status,
+          paid,
+          count: g._count._all,
+          netAmount:
+            Number(g._sum.subtotal ?? 0) - Number(g._sum.discountAmount ?? 0),
+          pendingBalance: Number(g._sum.balance ?? 0),
+        };
+      });
+
+    return {
+      month,
+      year,
+      // La UI usa esto para bloquear el selector de alcance en lugar de mentirle
+      // al usuario con una vista de equipo que en realidad solo trae sus datos.
+      scopedToOwn,
+      rows: [...toRows(paidGroups, true), ...toRows(unpaidGroups, false)],
     };
   }
 
