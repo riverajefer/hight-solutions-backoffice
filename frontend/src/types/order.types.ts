@@ -404,6 +404,8 @@ export interface FilterOrdersDto {
   createdById?: string;
   /** Si true, solo órdenes con saldo pendiente por cobrar (balance > 0) */
   hasBalance?: boolean;
+  /** PAID = pagadas al 100%; PENDING = con saldo pendiente */
+  paymentStatus?: 'PAID' | 'PENDING';
   advancePaymentStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
   /**
    * Si true, excluye las órdenes ANULADAS: una orden anulada no es una venta.
@@ -632,4 +634,30 @@ export interface UpsertSalesGoalDto {
   month: number;
   year: number;
   targetAmount: number;
+}
+
+// ── Seguimiento de OP (matriz asesor × estado × pago) ────────────
+
+/**
+ * Una celda de la matriz: las OP de un asesor, en un estado, que ya están
+ * pagadas al 100% (`paid: true`) o que todavía tienen saldo (`paid: false`).
+ */
+export interface AdvisorTrackingRow {
+  advisorId: string;
+  advisorName: string;
+  status: OrderStatus;
+  paid: boolean;
+  count: number;
+  /** Venta neta sin IVA (subtotal − descuentos) */
+  netAmount: number;
+  /** Saldo pendiente; negativo cuando hay sobrepagos o saldo a favor */
+  pendingBalance: number;
+}
+
+export interface AdvisorTracking {
+  month: number;
+  year: number;
+  /** true cuando el usuario no tiene `read_all_advisors_tracking` y solo ve lo suyo */
+  scopedToOwn: boolean;
+  rows: AdvisorTrackingRow[];
 }

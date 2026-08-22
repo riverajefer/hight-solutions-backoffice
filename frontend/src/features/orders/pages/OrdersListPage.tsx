@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
   MenuItem,
@@ -136,6 +136,7 @@ const PERSISTED_FILTER_KEYS: (keyof FilterOrdersDto)[] = [
   'productionAreaId',
   'createdById',
   'hasBalance',
+  'paymentStatus',
   'advancePaymentStatus',
 ];
 
@@ -160,9 +161,22 @@ const loadPersistedFilters = (): FilterOrdersDto => {
 
 export const OrdersListPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  /**
+   * El Seguimiento de OP abre esta lista desde una celda de la matriz y manda los
+   * filtros por router state. Pisan a los recordados en localStorage: si el usuario
+   * hizo clic en «Nicole · Confirmadas · con saldo», eso es lo que espera ver.
+   */
+  const incomingFilters = (location.state as { orderFilters?: FilterOrdersDto } | null)
+    ?.orderFilters;
 
   // Filtros (se restauran desde localStorage al montar)
-  const [filters, setFilters] = useState<FilterOrdersDto>(loadPersistedFilters);
+  const [filters, setFilters] = useState<FilterOrdersDto>(() =>
+    incomingFilters
+      ? { ...DEFAULT_FILTERS, ...incomingFilters, page: 1 }
+      : loadPersistedFilters(),
+  );
 
   // Cada cambio de filtros se persiste para recordarlo en la próxima visita.
   useEffect(() => {
@@ -673,6 +687,17 @@ export const OrdersListPage: React.FC = () => {
       : []),
     ...(filters.search
       ? [{ label: `Búsqueda: "${filters.search}"`, keys: ['search' as const] }]
+      : []),
+    ...(filters.paymentStatus
+      ? [
+          {
+            label:
+              filters.paymentStatus === 'PAID'
+                ? 'Pagadas al 100%'
+                : 'Con saldo pendiente',
+            keys: ['paymentStatus' as const],
+          },
+        ]
       : []),
     ...(filters.hasBalance
       ? [{ label: 'Con saldo por cobrar', keys: ['hasBalance' as const] }]

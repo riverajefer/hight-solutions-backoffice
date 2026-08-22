@@ -11,3 +11,4 @@ export * from './apply-discount.dto';
 export * from './register-electronic-invoice.dto';
 export * from './order-profitability.dto';
 export * from './upsert-sales-goal.dto';
+export * from './advisor-tracking.dto';
