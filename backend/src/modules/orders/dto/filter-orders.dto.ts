@@ -2,6 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
   IsEnum,
+  IsIn,
   IsOptional,
   IsUUID,
   IsDateString,
@@ -125,6 +126,20 @@ export class FilterOrdersDto {
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   hasBalance?: boolean;
+
+  /**
+   * Filtro explícito de estado de pago. No se reutilizó `hasBalance` como
+   * tri-estado porque el ValidationPipe corre con `enableImplicitConversion`, que
+   * convierte la cadena 'false' en `true`: un booleano en query string no puede
+   * distinguir «pagadas» de «sin filtro».
+   */
+  @ApiPropertyOptional({
+    description: 'PAID = pagadas al 100% (balance <= 0); PENDING = con saldo pendiente',
+    enum: ['PAID', 'PENDING'],
+  })
+  @IsOptional()
+  @IsIn(['PAID', 'PENDING'])
+  paymentStatus?: 'PAID' | 'PENDING';
 
   @ApiPropertyOptional({
     description: 'Filtrar por estado de autorización del anticipo',

@@ -205,6 +205,7 @@ export const PERMISSIONS = {
   READ_SALES_BY_ADVISOR: 'read_sales_by_advisor',
   EXPORT_SALES_BY_ADVISOR: 'export_sales_by_advisor',
   MANAGE_SALES_GOALS: 'manage_sales_goals',
+  READ_ALL_ADVISORS_TRACKING: 'read_all_advisors_tracking',
 };
 
 export const ROUTES = {

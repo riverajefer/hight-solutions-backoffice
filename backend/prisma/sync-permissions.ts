@@ -152,6 +152,16 @@ const groups: PermissionGroup[] = [
       },
     ],
   },
+  {
+    label: '🎯 Ventas por Asesor',
+    permissions: [
+      {
+        name: 'read_all_advisors_tracking',
+        description:
+          'Ver el seguimiento de OP de todos los asesores (no solo las propias)',
+      },
+    ],
+  },
 ];
 
 const allPermissions = groups.flatMap((g) => g.permissions);

@@ -134,6 +134,10 @@ const mockPrisma = {
     count: jest.fn(),
     groupBy: jest.fn(),
   },
+  user: {
+    findUnique: jest.fn(),
+    findMany: jest.fn(),
+  },
   cashSession: {
     findFirst: jest.fn(),
   },
@@ -343,6 +347,108 @@ describe('OrdersService', () => {
         'notes',
         'electronicInvoiceNumber',
       ]);
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // getAdvisorTracking
+  // ─────────────────────────────────────────────
+  describe('getAdvisorTracking', () => {
+    const withPermission = (names: string[]) =>
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        role: { permissions: names.map((name) => ({ permission: { name } })) },
+      });
+
+    beforeEach(() => {
+      mockPrisma.order.groupBy.mockResolvedValue([]);
+      mockPrisma.user.findMany.mockResolvedValue([]);
+    });
+
+    it('acota el seguimiento a las OP propias cuando falta read_all_advisors_tracking', async () => {
+      withPermission(['read_sales_by_advisor']);
+
+      const result = await service.getAdvisorTracking({ month: 8, year: 2026 }, 'user-1');
+
+      expect(result.scopedToOwn).toBe(true);
+      // Las dos consultas (pagadas y con saldo) deben ir acotadas al usuario.
+      expect(mockPrisma.order.groupBy).toHaveBeenCalledTimes(2);
+      mockPrisma.order.groupBy.mock.calls.forEach(([args]: [any]) => {
+        expect(args.where.createdById).toBe('user-1');
+      });
+    });
+
+    it('muestra todo el equipo cuando el usuario sí tiene el permiso', async () => {
+      withPermission(['read_sales_by_advisor', 'read_all_advisors_tracking']);
+
+      const result = await service.getAdvisorTracking({ month: 8, year: 2026 }, 'user-1');
+
+      expect(result.scopedToOwn).toBe(false);
+      mockPrisma.order.groupBy.mock.calls.forEach(([args]: [any]) => {
+        expect(args.where.createdById).toBeUndefined();
+      });
+    });
+
+    it('parte las celdas entre pagadas (balance <= 0) y con saldo (balance > 0)', async () => {
+      withPermission(['read_all_advisors_tracking']);
+
+      await service.getAdvisorTracking({ month: 8, year: 2026 }, 'user-1');
+
+      const balances = mockPrisma.order.groupBy.mock.calls.map(
+        ([args]: [any]) => args.where.balance,
+      );
+      expect(balances).toEqual([{ lte: 0 }, { gt: 0 }]);
+    });
+
+    it('devuelve la venta neta sin IVA y el saldo de cada celda', async () => {
+      withPermission(['read_all_advisors_tracking']);
+      mockPrisma.order.groupBy
+        .mockResolvedValueOnce([
+          {
+            createdById: 'advisor-1',
+            status: OrderStatus.DELIVERED,
+            _count: { _all: 3 },
+            _sum: {
+              subtotal: new Prisma.Decimal('1000'),
+              discountAmount: new Prisma.Decimal('150'),
+              balance: new Prisma.Decimal('0'),
+            },
+          },
+        ])
+        .mockResolvedValueOnce([]);
+      mockPrisma.user.findMany.mockResolvedValue([
+        { id: 'advisor-1', firstName: 'Laura', lastName: 'Maldonado', email: null },
+      ]);
+
+      const result = await service.getAdvisorTracking({ month: 8, year: 2026 }, 'user-1');
+
+      expect(result.rows).toEqual([
+        {
+          advisorId: 'advisor-1',
+          advisorName: 'Laura Maldonado',
+          status: OrderStatus.DELIVERED,
+          paid: true,
+          count: 3,
+          netAmount: 850,
+          pendingBalance: 0,
+        },
+      ]);
+    });
+
+    it('cubre el mes completo en horario de Colombia, incluido el día 31', async () => {
+      withPermission(['read_all_advisors_tracking']);
+
+      await service.getAdvisorTracking({ month: 1, year: 2026 }, 'user-1');
+
+      // El rango va en UTC, así que enero en Bogotá (UTC-5) arranca el 1 a las
+      // 05:00Z y termina el 1 de febrero a las 04:59:59.999Z.
+      const { orderDate } = mockPrisma.order.groupBy.mock.calls[0][0].where;
+      expect(orderDate.gte.toISOString()).toBe('2026-01-01T05:00:00.000Z');
+      expect(orderDate.lte.toISOString()).toBe('2026-02-01T04:59:59.999Z');
+
+      // Una OP del 31 a las 23:00 en Bogotá sí entra; el 1 de febrero, no.
+      expect(new Date('2026-02-01T04:00:00.000Z') <= orderDate.lte).toBe(true);
+      expect(new Date('2026-02-01T05:00:00.000Z') <= orderDate.lte).toBe(false);
     });
   });
 
