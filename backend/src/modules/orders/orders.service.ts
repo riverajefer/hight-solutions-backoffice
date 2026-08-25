@@ -9,6 +9,7 @@ import {
   OrdersRepository,
   buildOrderSearchFilter,
   buildOrderStatusFilter,
+  DELIVERED_ORDER_STATUSES,
 } from './orders.repository';
 import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
@@ -234,7 +235,20 @@ export class OrdersService {
       where.OR = buildOrderSearchFilter(search);
     }
 
-    const [aggregate, grouped] = await Promise.all([
+    /**
+     * Agrupación auxiliar por asesor sobre un subconjunto del mismo `where`.
+     * A diferencia de `grouped`, estas corren también cuando viene `createdById`:
+     * la vista de un solo asesor necesita sus propias cifras de comisión.
+     */
+    const groupBySubset = (extra: Prisma.OrderWhereInput) =>
+      this.prisma.order.groupBy({
+        by: ['createdById'],
+        where: { ...where, ...extra },
+        _sum: { subtotal: true, discountAmount: true },
+        _count: { id: true },
+      });
+
+    const [aggregate, grouped, commissionableGroups, gapGroups] = await Promise.all([
       this.prisma.order.aggregate({
         where,
         _sum: { total: true, subtotal: true, discountAmount: true },
@@ -248,7 +262,39 @@ export class OrdersService {
             _sum: { total: true, subtotal: true, discountAmount: true },
             _count: { id: true },
           }),
+      // Comisionable: entregada Y sin saldo pendiente. Es la regla con la que el
+      // cliente liquida comisiones, y la que mide el avance de las metas.
+      groupBySubset({
+        status: { in: DELIVERED_ORDER_STATUSES },
+        balance: { lte: 0 },
+      }),
+      // Brecha: ya está pagada pero todavía no se marcó la entrega, así que aún
+      // no comisiona. Es el trabajo pendiente que la tarjeta hace visible.
+      groupBySubset({
+        status: { notIn: [...DELIVERED_ORDER_STATUSES, OrderStatus.ANULADO] },
+        balance: { lte: 0 },
+      }),
     ]);
+
+    type Subset = Awaited<ReturnType<typeof groupBySubset>>;
+
+    const netOf = (g: Subset[number]) =>
+      Number(g._sum.subtotal ?? 0) - Number(g._sum.discountAmount ?? 0);
+
+    /** Índice asesor → { net, orders } para cruzar contra el desglose principal. */
+    const indexSubset = (groups: Subset) =>
+      new Map(groups.map((g) => [g.createdById, { net: netOf(g), orders: g._count.id }]));
+
+    const commissionableBy = indexSubset(commissionableGroups);
+    const gapBy = indexSubset(gapGroups);
+
+    const sumSubset = (groups: Subset) => ({
+      net: groups.reduce((acc, g) => acc + netOf(g), 0),
+      orders: groups.reduce((acc, g) => acc + g._count.id, 0),
+    });
+
+    const commissionableTotal = sumSubset(commissionableGroups);
+    const gapTotal = sumSubset(gapGroups);
 
     const totalRevenue = Number(aggregate._sum.total ?? 0);
     // Base sin IVA: subtotal de los items, antes de descuentos.
@@ -267,6 +313,12 @@ export class OrdersService {
       totalDiscounts: number;
       totalNetSubtotal: number;
       totalOrders: number;
+      /** Venta neta de las OP entregadas y sin saldo: la que sí comisiona. */
+      commissionableNetSubtotal: number;
+      commissionableOrders: number;
+      /** OP pagadas al 100% que aún no están marcadas como entregadas. */
+      gapNetSubtotal: number;
+      gapOrders: number;
     }> = [];
 
     if (grouped.length > 0) {
@@ -283,6 +335,8 @@ export class OrdersService {
         const lastName = advisor?.lastName ?? '';
         const subtotal = Number(g._sum.subtotal ?? 0);
         const discounts = Number(g._sum.discountAmount ?? 0);
+        const commissionable = commissionableBy.get(g.createdById);
+        const gap = gapBy.get(g.createdById);
         return {
           advisorId: g.createdById,
           advisorName: `${firstName} ${lastName}`.trim() || g.createdById,
@@ -291,6 +345,10 @@ export class OrdersService {
           totalDiscounts: discounts,
           totalNetSubtotal: subtotal - discounts,
           totalOrders: g._count.id,
+          commissionableNetSubtotal: commissionable?.net ?? 0,
+          commissionableOrders: commissionable?.orders ?? 0,
+          gapNetSubtotal: gap?.net ?? 0,
+          gapOrders: gap?.orders ?? 0,
         };
       });
     }
@@ -302,6 +360,10 @@ export class OrdersService {
       totalNetSubtotal,
       totalOrders,
       averageOrderValue,
+      commissionableNetSubtotal: commissionableTotal.net,
+      commissionableOrders: commissionableTotal.orders,
+      gapNetSubtotal: gapTotal.net,
+      gapOrders: gapTotal.orders,
       advisorBreakdown,
     };
   }
@@ -348,10 +410,19 @@ export class OrdersService {
 
     const scopedToOwn = !(await this.canReadAllAdvisorsTracking(userId));
 
+    // Pedir el seguimiento de otro asesor sin permiso es un error, no un recorte
+    // silencioso: devolver las cifras propias bajo el nombre ajeno sería peor.
+    if (scopedToOwn && query.advisorId && query.advisorId !== userId) {
+      throw new ForbiddenException(
+        'No tienes permiso para ver el seguimiento de OP de otros asesores',
+      );
+    }
+
     const where: Prisma.OrderWhereInput = {
       orderDate: { gte: startOfDay(monthStart), lte: endOfDay(monthEnd) },
     };
     if (scopedToOwn) where.createdById = userId;
+    else if (query.advisorId) where.createdById = query.advisorId;
 
     const groupBy = (paid: boolean) =>
       this.prisma.order.groupBy({

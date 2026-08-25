@@ -347,6 +347,7 @@ export const ROUTES = {
   DTF_EDIT: '/dtf/:id/edit',
   // Ventas por Asesor
   SALES_BY_ADVISOR: '/ventas-por-asesor',
+  SALES_BY_ADVISOR_DETAIL: '/ventas-por-asesor/:advisorId',
 };
 
 export const DEFAULT_PAGINATION = {

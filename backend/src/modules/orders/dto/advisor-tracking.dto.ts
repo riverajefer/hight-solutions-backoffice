@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class AdvisorTrackingQueryDto {
@@ -17,4 +17,13 @@ export class AdvisorTrackingQueryDto {
   @IsInt()
   @Min(2020)
   year?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Acota el seguimiento a un asesor. Sin `read_all_advisors_tracking` solo se ' +
+      'admite el propio id.',
+  })
+  @IsOptional()
+  @IsUUID()
+  advisorId?: string;
 }

@@ -292,7 +292,7 @@ export const ordersApi = {
    * El backend recorta el alcance a las OP propias cuando el usuario no tiene
    * `read_all_advisors_tracking`, y lo avisa con `scopedToOwn`.
    */
-  getAdvisorTracking: async (params?: { month?: number; year?: number }): Promise<AdvisorTracking> => {
+  getAdvisorTracking: async (params?: { month?: number; year?: number; advisorId?: string }): Promise<AdvisorTracking> => {
     const { data } = await axiosInstance.get<AdvisorTracking>(`${BASE_URL}/advisor-tracking`, { params });
     return data;
   },
