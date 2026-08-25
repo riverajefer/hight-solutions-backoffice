@@ -1,11 +1,12 @@
 import React, { useState, useEffect, type ReactElement } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { alpha } from '@mui/material/styles';
 import {
   Box,
   Card,
   CardContent,
   CardHeader,
   Typography,
-  LinearProgress,
   Chip,
   IconButton,
   Tooltip,
@@ -30,9 +31,11 @@ import {
   TrendingDown as TrendingDownIcon,
   CheckCircle as CheckCircleIcon,
   InfoOutlined as InfoIcon,
+  LocalShipping as DeliveredIcon,
 } from '@mui/icons-material';
 import { useAuthStore } from '../../../store/authStore';
-import { PERMISSIONS } from '../../../utils/constants';
+import { PERMISSIONS, ROUTES } from '../../../utils/constants';
+import { computeGoalProgress, type GoalStatusColor } from '../utils/goalProgress';
 import { useSalesGoals, useSalesSummary } from '../hooks';
 import type { SalesGoal, AdvisorBreakdown } from '../../../types/order.types';
 
@@ -54,17 +57,11 @@ const MONTHS = [
 const currentYear = new Date().getFullYear();
 const YEAR_OPTIONS = [currentYear - 1, currentYear, currentYear + 1];
 
-interface GoalStatus {
-  label: string;
-  color: 'success' | 'warning' | 'error';
-  icon: ReactElement;
-}
-
-function getGoalStatus(pct: number): GoalStatus {
-  if (pct >= 100) return { label: 'Superada', color: 'success', icon: <CheckCircleIcon fontSize="small" /> };
-  if (pct >= 70)  return { label: 'En camino', color: 'warning', icon: <TrendingUpIcon fontSize="small" /> };
-  return { label: 'En riesgo', color: 'error', icon: <TrendingDownIcon fontSize="small" /> };
-}
+const STATUS_ICON: Record<GoalStatusColor, ReactElement> = {
+  success: <CheckCircleIcon fontSize="small" />,
+  warning: <TrendingUpIcon fontSize="small" />,
+  error: <TrendingDownIcon fontSize="small" />,
+};
 
 // ─── GoalProgressCard ─────────────────────────────────────────────────────────
 
@@ -72,25 +69,32 @@ interface GoalProgressCardProps {
   goal: SalesGoal;
   sales: AdvisorBreakdown | undefined;
   canManage: boolean;
+  /** El enlace al detalle solo se ofrece si el usuario puede abrirlo. */
+  canOpenDetail: boolean;
+  month: number;
+  year: number;
   onEdit: (goal: SalesGoal) => void;
   onDelete: (goal: SalesGoal) => void;
 }
 
-const GoalProgressCard: React.FC<GoalProgressCardProps> = ({ goal, sales, canManage, onEdit, onDelete }) => {
-  const actual = sales?.totalNetSubtotal ?? 0;
-  const target = Number(goal.targetAmount);
-  const pct = target > 0 ? Math.min((actual / target) * 100, 100) : 0;
-  const pctDisplay = target > 0 ? ((actual / target) * 100).toFixed(1) : '0.0';
-  const diff = actual - target;
-  const status = getGoalStatus(Number(pctDisplay));
+const GoalProgressCard: React.FC<GoalProgressCardProps> = ({
+  goal, sales, canManage, canOpenDetail, month, year, onEdit, onDelete,
+}) => {
+  const navigate = useNavigate();
+  const progress = computeGoalProgress(sales, goal.targetAmount);
+  const { commissionable, sold, target, pct, pctCapped, soldPctCapped, diff } = progress;
+  const pctDisplay = pct.toFixed(1);
   const advisorName = `${goal.advisor.firstName ?? ''} ${goal.advisor.lastName ?? ''}`.trim()
     || goal.advisor.email
     || goal.advisorId;
 
   const barColor =
-    status.color === 'success' ? '#2e7d32'
-    : status.color === 'warning' ? '#ed6c02'
+    progress.statusColor === 'success' ? '#2e7d32'
+    : progress.statusColor === 'warning' ? '#ed6c02'
     : '#d32f2f';
+
+  const openDetail = () =>
+    navigate(`${ROUTES.SALES_BY_ADVISOR}/${goal.advisorId}?month=${month}&year=${year}`);
 
   return (
     <Card
@@ -104,14 +108,32 @@ const GoalProgressCard: React.FC<GoalProgressCardProps> = ({ goal, sales, canMan
       <CardContent sx={{ p: '20px !important', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         {/* Header: nombre + chip + acciones */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', mb: 2 }}>
-          <Typography fontWeight={700} fontSize="1rem" noWrap sx={{ maxWidth: 180 }}>
-            {advisorName}
-          </Typography>
+          {canOpenDetail ? (
+            <Tooltip title={`Ver las OP de ${advisorName}`}>
+              <Typography
+                fontWeight={700}
+                fontSize="1rem"
+                noWrap
+                onClick={openDetail}
+                sx={{
+                  maxWidth: 180,
+                  cursor: 'pointer',
+                  '&:hover': { color: 'primary.main', textDecoration: 'underline' },
+                }}
+              >
+                {advisorName}
+              </Typography>
+            </Tooltip>
+          ) : (
+            <Typography fontWeight={700} fontSize="1rem" noWrap sx={{ maxWidth: 180 }}>
+              {advisorName}
+            </Typography>
+          )}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <Chip
-              icon={status.icon}
-              label={status.label}
-              color={status.color}
+              icon={STATUS_ICON[progress.statusColor]}
+              label={progress.statusLabel}
+              color={progress.statusColor}
               size="small"
               sx={{ fontWeight: 600 }}
             />
@@ -181,17 +203,20 @@ const GoalProgressCard: React.FC<GoalProgressCardProps> = ({ goal, sales, canMan
                       Cómo se calcula
                     </Typography>
                     <Typography variant="caption" display="block">
-                      Subtotal de las órdenes: {formatCurrency(sales?.totalSubtotal ?? 0)}
+                      Solo cuentan las OP <strong>entregadas</strong> y{' '}
+                      <strong>pagadas al 100%</strong>: son las que comisionan.
+                    </Typography>
+                    <Typography variant="caption" display="block" fontWeight={700} sx={{ mt: 0.75 }}>
+                      Comisionable: {formatCurrency(commissionable)}
+                      {' · '}
+                      {sales?.commissionableOrders ?? 0} OP
                     </Typography>
                     <Typography variant="caption" display="block">
-                      − Descuentos aplicados: {formatCurrency(sales?.totalDiscounts ?? 0)}
-                    </Typography>
-                    <Typography variant="caption" display="block" fontWeight={700} sx={{ mt: 0.5 }}>
-                      = Vendido (sin IVA): {formatCurrency(actual)}
+                      Vendido del mes: {formatCurrency(sold)} · {sales?.totalOrders ?? 0} OP
                     </Typography>
                     <Typography variant="caption" display="block" sx={{ mt: 0.75, opacity: 0.85 }}>
-                      No incluye IVA, retenciones ni prueba de color.
-                      Basado en {sales?.totalOrders ?? 0} orden(es) del mes.
+                      Venta neta sin IVA (subtotal − descuentos). No incluye IVA,
+                      retenciones ni prueba de color.
                     </Typography>
                   </Box>
                 }
@@ -202,24 +227,63 @@ const GoalProgressCard: React.FC<GoalProgressCardProps> = ({ goal, sales, canMan
                   color="text.secondary"
                   sx={{ cursor: 'help', textDecoration: 'underline dotted', textUnderlineOffset: 3 }}
                 >
-                  Vendido (sin IVA)
+                  Comisionable
                 </Typography>
               </Tooltip>
               <Typography variant="body2" fontWeight={700} color={barColor}>
-                {formatCurrency(actual)}
+                {formatCurrency(commissionable)}
               </Typography>
             </Box>
-            <LinearProgress
-              variant="determinate"
-              value={pct}
-              sx={{
-                height: 10,
-                borderRadius: 5,
-                mb: 0.5,
-                bgcolor: 'action.hover',
-                '& .MuiLinearProgress-bar': { bgcolor: barColor, borderRadius: 5 },
-              }}
-            />
+
+            {/*
+              Barra dual: el vendido total va translúcido de fondo y lo comisionable
+              en sólido encima. Con la regla de comisión, una barra sola dejaría casi
+              todas las tarjetas en cero sin explicar por qué.
+            */}
+            <Tooltip
+              arrow
+              title={`Comisionable ${formatCurrency(commissionable)} de ${formatCurrency(sold)} vendidos`}
+            >
+              <Box
+                sx={{
+                  position: 'relative',
+                  height: 10,
+                  borderRadius: 5,
+                  mb: 0.5,
+                  bgcolor: 'action.hover',
+                  overflow: 'hidden',
+                  cursor: 'help',
+                }}
+              >
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    inset: 0,
+                    width: `${soldPctCapped}%`,
+                    bgcolor: alpha(barColor, 0.3),
+                    borderRadius: 5,
+                    transition: 'width 0.6s ease',
+                  }}
+                />
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    inset: 0,
+                    width: `${pctCapped}%`,
+                    bgcolor: barColor,
+                    borderRadius: 5,
+                    transition: 'width 0.6s ease',
+                  }}
+                />
+              </Box>
+            </Tooltip>
+
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography variant="body2" color="text.secondary">Vendido (sin IVA)</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {formatCurrency(sold)}
+              </Typography>
+            </Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
               <Typography variant="body2" color="text.secondary">Meta</Typography>
               <Typography variant="body2" fontWeight={600}>
@@ -259,6 +323,41 @@ const GoalProgressCard: React.FC<GoalProgressCardProps> = ({ goal, sales, canMan
               : `${formatCurrency(Math.abs(diff))} por alcanzar`}
           </Typography>
         </Box>
+
+        {/*
+          La brecha es la palanca accionable de la tarjeta: OP ya cobradas a las
+          que solo les falta registrar la entrega para empezar a comisionar.
+        */}
+        {progress.gapOrders > 0 && (
+          <Tooltip
+            arrow
+            title={
+              <Box sx={{ py: 0.5 }}>
+                <Typography variant="caption" display="block" fontWeight={700}>
+                  {progress.gapOrders} OP pagadas al 100% sin marcar como entregadas
+                </Typography>
+                <Typography variant="caption" display="block">
+                  {formatCurrency(progress.gapAmount)} que aún no comisionan.
+                </Typography>
+                {canOpenDetail && (
+                  <Typography variant="caption" display="block" sx={{ mt: 0.75, opacity: 0.85 }}>
+                    Abre el detalle del asesor para revisarlas.
+                  </Typography>
+                )}
+              </Box>
+            }
+          >
+            <Chip
+              size="small"
+              color="warning"
+              variant="outlined"
+              icon={<DeliveredIcon fontSize="small" />}
+              label={`${progress.gapOrders} OP pagadas sin entregar`}
+              onClick={canOpenDetail ? openDetail : undefined}
+              sx={{ mt: 1, width: '100%', cursor: canOpenDetail ? 'pointer' : 'help' }}
+            />
+          </Tooltip>
+        )}
       </CardContent>
     </Card>
   );
@@ -372,8 +471,12 @@ interface SalesGoalsSectionProps {
 }
 
 export const SalesGoalsSection: React.FC<SalesGoalsSectionProps> = ({ advisors }) => {
-  const { hasPermission } = useAuthStore();
+  const { hasPermission, user } = useAuthStore();
   const canManage = hasPermission(PERMISSIONS.MANAGE_SALES_GOALS);
+  // El detalle usa el seguimiento por asesor, que sí está recortado por permiso:
+  // ofrecer el enlace sin poder abrirlo llevaría a un 403.
+  const canSeeAllAdvisors = hasPermission(PERMISSIONS.READ_ALL_ADVISORS_TRACKING);
+  const currentUserId = user?.id;
 
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -478,10 +581,16 @@ export const SalesGoalsSection: React.FC<SalesGoalsSectionProps> = ({ advisors }
         <CardContent>
           <Alert severity="info" icon={<InfoIcon fontSize="inherit" />} sx={{ mb: 2 }}>
             <Typography variant="body2">
-              El avance se mide sobre la <strong>venta neta sin IVA</strong>:{' '}
-              <strong>subtotal de las órdenes − descuentos aplicados</strong>. No se
-              cuenta el IVA, las retenciones ni la prueba de color. Pasa el cursor sobre
-              «Vendido (sin IVA)» en cada tarjeta para ver el desglose.
+              El avance se mide sobre lo <strong>comisionable</strong>: solo las OP{' '}
+              <strong>entregadas</strong> y <strong>pagadas al 100%</strong>, que es la
+              condición con la que se liquidan las comisiones. La barra muestra además, en
+              tono claro, el total vendido del mes. Las cifras son venta neta sin IVA
+              (subtotal − descuentos); no cuentan IVA, retenciones ni prueba de color.
+            </Typography>
+            <Typography variant="body2" sx={{ mt: 0.75 }}>
+              Si una tarjeta va en 0% pero con vendido alto, casi siempre falta{' '}
+              <strong>marcar las entregas</strong>: el chip naranja de cada tarjeta dice
+              cuántas OP ya están cobradas y solo esperan ese paso.
             </Typography>
           </Alert>
 
@@ -517,6 +626,9 @@ export const SalesGoalsSection: React.FC<SalesGoalsSectionProps> = ({ advisors }
                   goal={goal}
                   sales={salesByAdvisor.get(goal.advisorId)}
                   canManage={canManage}
+                  canOpenDetail={canSeeAllAdvisors || goal.advisorId === currentUserId}
+                  month={month}
+                  year={year}
                   onEdit={openEdit}
                   onDelete={setDeletingGoal}
                 />

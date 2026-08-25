@@ -372,13 +372,19 @@ export const useSalesSummary = (filters?: FilterOrdersDto) => {
 // HOOK: useAdvisorTracking — Seguimiento de OP por asesor y estado
 // ============================================================
 
+export interface AdvisorTrackingParams {
+  month: number;
+  year: number;
+  /** Acota a un asesor; requiere `read_all_advisors_tracking` si no es el propio. */
+  advisorId?: string;
+}
+
 export const advisorTrackingKeys = {
   all: ['advisor-tracking'] as const,
-  list: (params: { month: number; year: number }) =>
-    [...advisorTrackingKeys.all, params] as const,
+  list: (params: AdvisorTrackingParams) => [...advisorTrackingKeys.all, params] as const,
 };
 
-export const useAdvisorTracking = (params: { month: number; year: number }) => {
+export const useAdvisorTracking = (params: AdvisorTrackingParams) => {
   return useQuery<AdvisorTracking>({
     queryKey: advisorTrackingKeys.list(params),
     queryFn: () => ordersApi.getAdvisorTracking(params),
