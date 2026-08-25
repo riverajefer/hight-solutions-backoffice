@@ -595,9 +595,15 @@ export interface AdvisorBreakdown {
   totalSubtotal: number;
   /** Descuentos aplicados a las órdenes */
   totalDiscounts: number;
-  /** Venta neta sin IVA (subtotal − descuentos) — es la cifra que cuenta para las metas */
+  /** Venta neta sin IVA (subtotal − descuentos) */
   totalNetSubtotal: number;
   totalOrders: number;
+  /** Venta neta de las OP entregadas y sin saldo: la que cuenta para la meta */
+  commissionableNetSubtotal: number;
+  commissionableOrders: number;
+  /** OP pagadas al 100% que aún no están marcadas como entregadas */
+  gapNetSubtotal: number;
+  gapOrders: number;
 }
 
 export interface SalesSummary {
@@ -610,6 +616,10 @@ export interface SalesSummary {
   totalNetSubtotal: number;
   totalOrders: number;
   averageOrderValue: number;
+  commissionableNetSubtotal: number;
+  commissionableOrders: number;
+  gapNetSubtotal: number;
+  gapOrders: number;
   advisorBreakdown: AdvisorBreakdown[];
 }
 

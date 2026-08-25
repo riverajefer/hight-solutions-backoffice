@@ -120,7 +120,9 @@ export class OrdersController {
   })
   @ApiQuery({ name: 'month', required: false, type: Number })
   @ApiQuery({ name: 'year', required: false, type: Number })
+  @ApiQuery({ name: 'advisorId', required: false, type: String })
   @ApiResponse({ status: 200, description: 'Advisor tracking retrieved successfully' })
+  @ApiResponse({ status: 403, description: 'Sin permiso para ver otros asesores' })
   getAdvisorTracking(
     @Query() query: AdvisorTrackingQueryDto,
     @CurrentUser('id') userId: string,

@@ -299,7 +299,25 @@ describe('OrdersService', () => {
         _count: { id: 0 },
       });
       mockPrisma.order.groupBy.mockResolvedValue([]);
+      mockPrisma.user.findMany.mockResolvedValue([]);
     });
+
+    /** Grupo tal como lo devuelve un groupBy por asesor. */
+    const group = (createdById: string, subtotal: number, discount: number, count: number) => ({
+      createdById,
+      _sum: {
+        total: new Prisma.Decimal(subtotal),
+        subtotal: new Prisma.Decimal(subtotal),
+        discountAmount: new Prisma.Decimal(discount),
+      },
+      _count: { id: count },
+    });
+
+    /** where de la llamada a groupBy que trae el subconjunto pedido. */
+    const whereOf = (predicado: (w: any) => boolean) =>
+      mockPrisma.order.groupBy.mock.calls
+        .map(([args]: [any]) => args.where)
+        .find(predicado);
 
     it('excluye las órdenes ANULADAS cuando se pide excludeAnulado', async () => {
       await service.getSalesSummary({ excludeAnulado: true });
@@ -435,6 +453,38 @@ describe('OrdersService', () => {
       ]);
     });
 
+    it('rechaza consultar a otro asesor sin el permiso, en vez de recortar en silencio', async () => {
+      withPermission(['read_sales_by_advisor']);
+
+      await expect(
+        service.getAdvisorTracking({ month: 8, year: 2026, advisorId: 'otro' }, 'user-1'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('deja consultarse a sí mismo aunque no tenga el permiso', async () => {
+      withPermission(['read_sales_by_advisor']);
+
+      const result = await service.getAdvisorTracking(
+        { month: 8, year: 2026, advisorId: 'user-1' },
+        'user-1',
+      );
+
+      expect(result.scopedToOwn).toBe(true);
+      mockPrisma.order.groupBy.mock.calls.forEach(([args]: [any]) => {
+        expect(args.where.createdById).toBe('user-1');
+      });
+    });
+
+    it('acota a un asesor cuando quien consulta sí tiene el permiso', async () => {
+      withPermission(['read_all_advisors_tracking']);
+
+      await service.getAdvisorTracking({ month: 8, year: 2026, advisorId: 'advisor-9' }, 'user-1');
+
+      mockPrisma.order.groupBy.mock.calls.forEach(([args]: [any]) => {
+        expect(args.where.createdById).toBe('advisor-9');
+      });
+    });
+
     it('cubre el mes completo en horario de Colombia, incluido el día 31', async () => {
       withPermission(['read_all_advisors_tracking']);
 
@@ -449,6 +499,124 @@ describe('OrdersService', () => {
       // Una OP del 31 a las 23:00 en Bogotá sí entra; el 1 de febrero, no.
       expect(new Date('2026-02-01T04:00:00.000Z') <= orderDate.lte).toBe(true);
       expect(new Date('2026-02-01T05:00:00.000Z') <= orderDate.lte).toBe(false);
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // getSalesSummary — comisionable y brecha
+  // ─────────────────────────────────────────────
+  describe('getSalesSummary — comisionable y brecha', () => {
+    beforeEach(() => {
+      mockPrisma.order.aggregate.mockResolvedValue({
+        _sum: {
+          total: new Prisma.Decimal(0),
+          subtotal: new Prisma.Decimal(0),
+          discountAmount: new Prisma.Decimal(0),
+        },
+        _count: { id: 0 },
+      });
+      mockPrisma.order.groupBy.mockResolvedValue([]);
+      mockPrisma.user.findMany.mockResolvedValue([]);
+    });
+
+    const grupo = (createdById: string, subtotal: number, discount: number, count: number) => ({
+      createdById,
+      _sum: {
+        total: new Prisma.Decimal(subtotal),
+        subtotal: new Prisma.Decimal(subtotal),
+        discountAmount: new Prisma.Decimal(discount),
+      },
+      _count: { id: count },
+    });
+
+    const wheres = () =>
+      mockPrisma.order.groupBy.mock.calls.map(([args]: [any]) => args.where);
+
+    it('lo comisionable exige entrega Y saldo en cero', async () => {
+      await service.getSalesSummary({});
+
+      const comisionable = wheres().find(
+        (w: any) => w.status?.in && w.balance?.lte === 0,
+      );
+      expect(comisionable.status.in).toEqual([
+        OrderStatus.DELIVERED,
+        OrderStatus.DELIVERED_ON_CREDIT,
+        OrderStatus.WARRANTY,
+      ]);
+      // Una entregada con saldo > 0 (devolución posterior) queda fuera por el
+      // filtro de balance, no por el estado.
+      expect(comisionable.balance).toEqual({ lte: 0 });
+    });
+
+    it('la brecha son las pagadas sin entregar, sin contar anuladas', async () => {
+      await service.getSalesSummary({});
+
+      const brecha = wheres().find((w: any) => w.status?.notIn);
+      expect(brecha.status.notIn).toEqual([
+        OrderStatus.DELIVERED,
+        OrderStatus.DELIVERED_ON_CREDIT,
+        OrderStatus.WARRANTY,
+        OrderStatus.ANULADO,
+      ]);
+      expect(brecha.balance).toEqual({ lte: 0 });
+    });
+
+    it('reparte comisionable y brecha en la fila de cada asesor', async () => {
+      mockPrisma.order.groupBy
+        // desglose principal
+        .mockResolvedValueOnce([grupo('a1', 1000, 100, 10), grupo('a2', 500, 0, 5)])
+        // comisionable: solo a1
+        .mockResolvedValueOnce([grupo('a1', 300, 50, 2)])
+        // brecha: solo a2
+        .mockResolvedValueOnce([grupo('a2', 400, 0, 4)]);
+      mockPrisma.user.findMany.mockResolvedValue([
+        { id: 'a1', firstName: 'Laura', lastName: 'Maldonado' },
+        { id: 'a2', firstName: 'Nicole', lastName: 'Chiguasuque' },
+      ]);
+
+      const result = await service.getSalesSummary({});
+      const porId = new Map(result.advisorBreakdown.map((b) => [b.advisorId, b]));
+
+      expect(porId.get('a1')).toMatchObject({
+        totalNetSubtotal: 900,
+        commissionableNetSubtotal: 250,
+        commissionableOrders: 2,
+        gapNetSubtotal: 0,
+        gapOrders: 0,
+      });
+      expect(porId.get('a2')).toMatchObject({
+        commissionableNetSubtotal: 0,
+        gapNetSubtotal: 400,
+        gapOrders: 4,
+      });
+    });
+
+    it('suma los totales globales a partir de los grupos', async () => {
+      mockPrisma.order.groupBy
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([grupo('a1', 300, 50, 2), grupo('a2', 200, 0, 1)])
+        .mockResolvedValueOnce([grupo('a1', 100, 0, 3)]);
+
+      const result = await service.getSalesSummary({});
+
+      expect(result.commissionableNetSubtotal).toBe(450);
+      expect(result.commissionableOrders).toBe(3);
+      expect(result.gapNetSubtotal).toBe(100);
+      expect(result.gapOrders).toBe(3);
+    });
+
+    it('calcula comisionable y brecha también al filtrar por un solo asesor', async () => {
+      // El desglose por asesor se omite con createdById, pero la vista de un
+      // asesor necesita sus totales: las agregaciones nuevas deben correr igual.
+      mockPrisma.order.groupBy
+        .mockResolvedValueOnce([grupo('a1', 300, 0, 2)])
+        .mockResolvedValueOnce([grupo('a1', 100, 0, 1)]);
+
+      const result = await service.getSalesSummary({ createdById: 'a1' });
+
+      expect(result.commissionableNetSubtotal).toBe(300);
+      expect(result.gapNetSubtotal).toBe(100);
+      wheres().forEach((w: any) => expect(w.createdById).toBe('a1'));
     });
   });
 
