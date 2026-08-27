@@ -1023,10 +1023,11 @@ export const OrdersListPage: React.FC = () => {
             {
               value: 'payment',
               label: 'Por fecha de pago (conciliación bancaria)',
+              fileNameTag: 'por-fecha-de-pago',
             },
           ]}
           defaultDateField='order'
-          helperText='Se respetan los filtros activos de la pantalla (estado, cliente, asesor, área y búsqueda). «Por fecha de pago» trae las órdenes con abonos en el rango, aunque la orden sea anterior, y la hoja «Pagos» solo incluye esos abonos. Esa hoja trae una fila por abono con «Registrado por», «¿En Caja?» (filtrar por «No» aísla los pagos que nunca llegaron al historial de caja), «Recibo Caja» y un enlace al soporte válido por 7 días.'
+          helperText='Se respetan los filtros activos de la pantalla (estado, cliente, asesor, área y búsqueda). «Por fecha de pago» trae las órdenes con abonos en el rango, aunque la orden sea anterior, y deja fuera las que todavía no tienen ningún abono; la hoja «Pagos» solo incluye esos abonos. Para un informe de ventas del mes usa «Por fecha de orden». Esa hoja trae una fila por abono con «Registrado por», «¿En Caja?» (filtrar por «No» aísla los pagos que nunca llegaron al historial de caja), «Recibo Caja» y un enlace al soporte válido por 7 días.'
           defaultDateFrom={
             parseDateFilter(filters.orderDateFrom)
           }
