@@ -49,6 +49,14 @@ export interface DateFieldOption {
   /** Valor que llega a `fetchRows` y a los `explode` de las hojas de detalle. */
   value: string;
   label: string;
+  /**
+   * Etiqueta que se agrega al nombre del archivo cuando se elige esta opción
+   * (ej. `por-fecha-de-pago`). El campo de fecha decide qué filas existen, no
+   * cómo se ven: dos exports del mismo rango pueden traer conjuntos distintos.
+   * Sin esto en el nombre, los dos archivos son indistinguibles después de
+   * descargarlos. La opción por defecto se deja sin etiqueta.
+   */
+  fileNameTag?: string;
 }
 
 /**
@@ -155,22 +163,23 @@ const loadDetailIncluded = (
   return defaultChecked;
 };
 
-const loadSavedDateField = (
-  storageKey: string,
+/**
+ * El campo de fecha arranca SIEMPRE en el que declare el módulo, sin recordar
+ * el de la última vez.
+ *
+ * Antes se guardaba en localStorage junto con las columnas, pero no es la misma
+ * clase de preferencia: las columnas cambian cómo se ve el archivo, el campo de
+ * fecha cambia qué filas trae. Un usuario que exportó una vez «por fecha de
+ * pago» para conciliar caja seguía exportando en ese modo semanas después, sin
+ * nada en pantalla que lo indicara, y las órdenes sin ningún abono
+ * desaparecían del archivo en silencio.
+ */
+const resolveInitialDateField = (
   options: DateFieldOption[] | undefined,
   defaultDateField: string | undefined,
 ): string => {
   if (!options || options.length === 0) return 'default';
-  const fallback = defaultDateField ?? options[0].value;
-  try {
-    const raw = localStorage.getItem(`${storageKey}_date_field`);
-    // Se valida contra las opciones actuales: si el módulo las cambió, un valor
-    // viejo en localStorage dejaría el export filtrando por un campo inexistente.
-    if (raw && options.some((o) => o.value === raw)) return raw;
-  } catch {
-    // ignorar acceso inválido
-  }
-  return fallback;
+  return defaultDateField ?? options[0].value;
 };
 
 export function ExportDialog<T>({
@@ -226,7 +235,7 @@ export function ExportDialog<T>({
     return initial;
   });
   const [dateField, setDateField] = useState<string>(() =>
-    loadSavedDateField(storageKey, dateFieldOptions, defaultDateField),
+    resolveInitialDateField(dateFieldOptions, defaultDateField),
   );
   const [isExporting, setIsExporting] = useState(false);
 
@@ -282,10 +291,6 @@ export function ExportDialog<T>({
           String(includedDetails[d.storageKey] ?? false),
         );
       });
-      if (dateFieldOptions && dateFieldOptions.length > 0) {
-        localStorage.setItem(`${storageKey}_date_field`, dateField);
-      }
-
       const from = toDateStart(dateFrom);
       const to = toDateEnd(dateTo);
 
@@ -305,7 +310,14 @@ export function ExportDialog<T>({
         return;
       }
 
-      const fileName = `${fileNamePrefix}_${toDateFilter(dateFrom)}_${toDateFilter(dateTo)}.xlsx`;
+      // El modo no-por-defecto queda escrito en el nombre: es lo único que
+      // sobrevive a la descarga y permite saber, semanas después, con qué
+      // criterio se armó el archivo.
+      const dateFieldTag = dateFieldOptions?.find((o) => o.value === dateField)
+        ?.fileNameTag;
+      const fileName = `${fileNamePrefix}_${toDateFilter(dateFrom)}_${toDateFilter(dateTo)}${
+        dateFieldTag ? `_${dateFieldTag}` : ''
+      }.xlsx`;
 
       const activeDetails = (detailSheets ?? []).filter(
         (d) => includedDetails[d.storageKey],
