@@ -70,11 +70,26 @@ export const DELIVERED_STATUSES: OrderStatus[] = [
 export const isGapRow = (r: AdvisorTrackingRow) =>
   r.paid && !DELIVERED_STATUSES.includes(r.status) && r.status !== 'ANULADO';
 
+/**
+ * Una OP anulada no es una venta. Conserva su columna en la matriz —interesa ver
+ * cuántas se anularon en el mes— pero queda fuera de los totales y de los
+ * indicadores: sumarla infla lo vendido y, si quedó con saldo, aparece además
+ * como cartera por cobrar que nadie va a cobrar.
+ */
+export const isVoidedRow = (r: AdvisorTrackingRow) => r.status === 'ANULADO';
+
+/** Filtro base de los indicadores: todo lo que sí cuenta como venta del mes. */
+export const countsAsSale = (r: AdvisorTrackingRow) => !isVoidedRow(r);
+
+/** Índice de la columna «Anulada», la única que no entra en los totales. */
+const VOIDED_COLUMN_INDEX = STATUS_COLUMNS.findIndex((c) => c.value === 'ANULADO');
+
 export interface PivotRow {
   advisorId: string;
   advisorName: string;
   /** Un valor por cada columna de `STATUS_COLUMNS`, en el mismo orden. */
   cells: number[];
+  /** Suma de las celdas **sin** la columna «Anulada». */
   total: number;
   /** OP pagadas al 100% que aún no están marcadas como entregadas. */
   gapCount: number;
@@ -110,7 +125,10 @@ export function buildPivot(
         // fila sin etiqueta no se puede leer.
         advisorName: mine[0]?.advisorName || advisorId,
         cells,
-        total: cells.reduce((a, b) => a + b, 0),
+        total: cells.reduce(
+          (acc, v, i) => (i === VOIDED_COLUMN_INDEX ? acc : acc + v),
+          0,
+        ),
         gapCount: gapRows.reduce((acc, r) => acc + r.count, 0),
         gapAmount: gapRows.reduce((acc, r) => acc + r.netAmount, 0),
       };
@@ -118,6 +136,13 @@ export function buildPivot(
     .sort((a, b) => Math.abs(b.total) - Math.abs(a.total));
 }
 
-/** Totales por columna de un pivote ya armado. */
+/** Totales por columna de un pivote ya armado, la de anuladas incluida. */
 export const pivotTotals = (pivot: PivotRow[]) =>
   STATUS_COLUMNS.map((_, i) => pivot.reduce((acc, r) => acc + r.cells[i], 0));
+
+/**
+ * Total general de la matriz. Suma los totales de fila —que ya excluyen las
+ * anuladas— en vez de los totales de columna, que sí las traen.
+ */
+export const pivotGrandTotal = (pivot: PivotRow[]) =>
+  pivot.reduce((acc, r) => acc + r.total, 0);

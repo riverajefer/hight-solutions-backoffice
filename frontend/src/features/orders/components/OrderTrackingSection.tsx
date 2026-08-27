@@ -40,6 +40,8 @@ import {
   PAID_MODE_LABEL,
   STATUS_COLUMNS,
   buildPivot,
+  countsAsSale,
+  pivotGrandTotal,
   pivotTotals,
   statusLabel,
   type Measure,
@@ -134,15 +136,20 @@ export const OrderTrackingSection: React.FC = () => {
   const pivot = useMemo(() => buildPivot(rows, measure, paidMode), [rows, measure, paidMode]);
 
   const totals = pivotTotals(pivot);
-  const grandTotal = totals.reduce((a, b) => a + b, 0);
+  const grandTotal = pivotGrandTotal(pivot);
   const gapCount = pivot.reduce((acc, r) => acc + r.gapCount, 0);
   const gapAmount = pivot.reduce((acc, r) => acc + r.gapAmount, 0);
 
-  // KPIs — siempre sobre el mes completo, sin importar el corte activo.
+  // KPIs — siempre sobre el mes completo, sin importar el corte activo, y
+  // siempre sin las anuladas: la columna las muestra, los indicadores no las
+  // suman. Una anulada con saldo tampoco es cartera por cobrar.
   const sum = (
     filter: (r: AdvisorTrackingRow) => boolean,
     key: keyof Pick<AdvisorTrackingRow, 'count' | 'netAmount' | 'pendingBalance'>,
-  ) => rows.filter(filter).reduce((acc, r) => acc + r[key], 0);
+  ) =>
+    rows
+      .filter((r) => countsAsSale(r) && filter(r))
+      .reduce((acc, r) => acc + r[key], 0);
 
   const totalOrders = sum(() => true, 'count');
   const totalNet = sum(() => true, 'netAmount');
@@ -150,6 +157,9 @@ export const OrderTrackingSection: React.FC = () => {
   const paidNet = sum((r) => r.paid, 'netAmount');
   const dueOrders = sum((r) => !r.paid, 'count');
   const dueBalance = sum((r) => !r.paid, 'pendingBalance');
+  const voidedOrders = rows
+    .filter((r) => !countsAsSale(r))
+    .reduce((acc, r) => acc + r.count, 0);
   const commissionable = (r: AdvisorTrackingRow) => r.paid && DELIVERED_STATUSES.includes(r.status);
   const commissionableOrders = sum(commissionable, 'count');
   const commissionableNet = sum(commissionable, 'netAmount');
@@ -355,7 +365,14 @@ export const OrderTrackingSection: React.FC = () => {
             }}
           >
             {[
-              { t: 'OP del mes', v: totalOrders, s: `${formatCurrency(totalNet)} netos`, c: 'text.primary' },
+              {
+                t: 'OP del mes',
+                v: totalOrders,
+                s: voidedOrders > 0
+                  ? `${formatCurrency(totalNet)} netos · sin ${voidedOrders} anulada${voidedOrders === 1 ? '' : 's'}`
+                  : `${formatCurrency(totalNet)} netos`,
+                c: 'text.primary',
+              },
               {
                 t: 'Pagadas al 100%',
                 v: paidOrders,
@@ -425,7 +442,11 @@ export const OrderTrackingSection: React.FC = () => {
                         )}
                       </TableCell>
                     ))}
-                    <TableCell align="right" sx={{ ...DENSE_HEAD, fontWeight: 700 }}>Total</TableCell>
+                    <TableCell align="right" sx={{ ...DENSE_HEAD, fontWeight: 700 }}>
+                      <Tooltip title="Suma de todas las columnas excepto «Anulada»: una OP anulada no es una venta.">
+                        <span>Total</span>
+                      </Tooltip>
+                    </TableCell>
                     <TableCell align="right" sx={{ ...DENSE_HEAD, fontWeight: 700, color: 'warning.main' }}>
                       <Tooltip title="OP pagadas al 100% que aún no están marcadas como entregadas. No depende de los toggles.">
                         <span>Brecha</span>
