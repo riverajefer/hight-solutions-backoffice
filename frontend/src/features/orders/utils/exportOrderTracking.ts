@@ -7,7 +7,9 @@ import {
   PAID_MODE_LABEL,
   STATUS_COLUMNS,
   buildPivot,
+  countsAsSale,
   isGapRow,
+  pivotGrandTotal,
   pivotTotals,
   statusLabel,
   type Measure,
@@ -53,7 +55,7 @@ function buildMeasureSheet(params: ExportParams, measure: Measure): unknown[][] 
   const totalRow = [
     'Total general',
     ...totals,
-    totals.reduce((a, b) => a + b, 0),
+    pivotGrandTotal(pivot),
     pivot.reduce((acc, r) => acc + r.gapCount, 0),
     pivot.reduce((acc, r) => acc + r.gapAmount, 0),
   ];
@@ -63,6 +65,7 @@ function buildMeasureSheet(params: ExportParams, measure: Measure): unknown[][] 
     [`${MONTHS[month - 1]} ${year} · incluye ${PAID_MODE_LABEL[paidMode]}`],
     [scopedToOwn ? 'Alcance: solo tus propias OP' : 'Alcance: todos los asesores'],
     ['Brecha = OP pagadas al 100% que aún no están marcadas como entregadas'],
+    ['La columna Total no incluye las anuladas: una OP anulada no es una venta'],
     [],
     header,
     ...body,
@@ -72,10 +75,18 @@ function buildMeasureSheet(params: ExportParams, measure: Measure): unknown[][] 
 
 function buildSummarySheet(params: ExportParams): unknown[][] {
   const { rows, month, year, paidMode, scopedToOwn } = params;
+  // Igual que en pantalla: los indicadores dejan fuera las anuladas.
   const sum = (
     filter: (r: AdvisorTrackingRow) => boolean,
     key: 'count' | 'netAmount' | 'pendingBalance',
-  ) => rows.filter(filter).reduce((acc, r) => acc + r[key], 0);
+  ) =>
+    rows
+      .filter((r) => countsAsSale(r) && filter(r))
+      .reduce((acc, r) => acc + r[key], 0);
+
+  const voided = rows
+    .filter((r) => !countsAsSale(r))
+    .reduce((acc, r) => acc + r.count, 0);
 
   const commissionable = (r: AdvisorTrackingRow) =>
     r.paid && DELIVERED_STATUSES.includes(r.status);
@@ -88,7 +99,8 @@ function buildSummarySheet(params: ExportParams): unknown[][] {
     [`Generado: ${new Date().toLocaleString('es-CO')}`],
     [],
     ['Indicador', 'OP', 'Monto neto'],
-    ['OP del mes', sum(() => true, 'count'), sum(() => true, 'netAmount')],
+    ['OP del mes (sin anuladas)', sum(() => true, 'count'), sum(() => true, 'netAmount')],
+    ['Anuladas (no suman)', voided, ''],
     ['Pagadas al 100%', sum((r) => r.paid, 'count'), sum((r) => r.paid, 'netAmount')],
     ['Con saldo pendiente', sum((r) => !r.paid, 'count'), sum((r) => !r.paid, 'netAmount')],
     ['Saldo pendiente por cobrar', '', sum((r) => !r.paid, 'pendingBalance')],

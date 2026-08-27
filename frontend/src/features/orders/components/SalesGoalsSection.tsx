@@ -492,7 +492,15 @@ export const SalesGoalsSection: React.FC<SalesGoalsSectionProps> = ({ advisors }
   const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
   const lastDay = new Date(year, month, 0).getDate();
   const monthEnd = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-  const summaryQuery = useSalesSummary({ orderDateFrom: monthStart, orderDateTo: monthEnd });
+  // `excludeAnulado`: el «Vendido del mes» de cada tarjeta es una cifra de
+  // ventas, y una OP anulada no es una venta. Sin esto, anular una orden dejaba
+  // el vendido inflado (lo comisionable no se veía afectado porque ya filtra por
+  // entregadas, y de ahí que la diferencia pasara desapercibida).
+  const summaryQuery = useSalesSummary({
+    orderDateFrom: monthStart,
+    orderDateTo: monthEnd,
+    excludeAnulado: true,
+  });
 
   const goals = goalsQuery.data ?? [];
   const summary = summaryQuery.data;

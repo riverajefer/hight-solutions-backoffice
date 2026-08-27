@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   STATUS_COLUMNS,
   buildPivot,
+  countsAsSale,
   isGapRow,
+  pivotGrandTotal,
   pivotTotals,
   statusLabel,
 } from './orderTrackingPivot';
@@ -37,6 +39,20 @@ describe('buildPivot', () => {
     expect(pivot[0].cells[col('DRAFT')]).toBe(5);
     expect(pivot[0].cells[col('DELIVERED')]).toBe(1);
     expect(pivot[0].total).toBe(6);
+  });
+
+  it('deja las anuladas en su columna pero fuera del total de la fila', () => {
+    const [p] = buildPivot(
+      [
+        row({ status: 'DELIVERED', count: 1, netAmount: 500_000 }),
+        row({ status: 'ANULADO', count: 1, netAmount: 166_600 }),
+      ],
+      'amount',
+      'all',
+    );
+
+    expect(p.cells[col('ANULADO')]).toBe(166_600);
+    expect(p.total).toBe(500_000);
   });
 
   it('el corte «solo pagadas» deja fuera las que tienen saldo', () => {
@@ -110,6 +126,32 @@ describe('pivotTotals', () => {
     const totals = pivotTotals(pivot);
     expect(totals[col('DRAFT')]).toBe(7);
     expect(totals[col('READY')]).toBe(1);
+  });
+});
+
+describe('pivotGrandTotal', () => {
+  it('no arrastra la columna de anuladas al total general', () => {
+    const pivot = buildPivot(
+      [
+        row({ advisorId: 'a1', status: 'DELIVERED', count: 4 }),
+        row({ advisorId: 'a2', status: 'READY', count: 2 }),
+        row({ advisorId: 'a2', status: 'ANULADO', count: 3 }),
+      ],
+      'count',
+      'all',
+    );
+
+    // Sumar los totales de columna daría 9: las 3 anuladas colándose.
+    expect(pivotGrandTotal(pivot)).toBe(6);
+    expect(pivotTotals(pivot)[col('ANULADO')]).toBe(3);
+  });
+});
+
+describe('countsAsSale', () => {
+  it('excluye solo las anuladas', () => {
+    expect(countsAsSale(row({ status: 'ANULADO' }))).toBe(false);
+    expect(countsAsSale(row({ status: 'DRAFT' }))).toBe(true);
+    expect(countsAsSale(row({ status: 'DELIVERED' }))).toBe(true);
   });
 });
 
