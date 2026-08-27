@@ -79,6 +79,24 @@ describe('exportOrderTrackingToExcel', () => {
     expect(last(total, 2)).toBe(4); // brecha en OP
   });
 
+  it('no suma las anuladas en el total general ni en el resumen', () => {
+    const conAnulada = [
+      ...rows,
+      row({ status: 'ANULADO', paid: false, count: 2, netAmount: 166_600, pendingBalance: 106_600 }),
+    ];
+
+    const matriz = last(aoa(exportar({ rows: conAnulada }).wb, 'N.º de OP'));
+    expect(last(matriz, 3)).toBe(14); // las 2 anuladas quedan fuera del total
+
+    const resumen = aoa(exportar({ rows: conAnulada }).wb, 'Resumen');
+    const porNombre = (n: string) => resumen.find((f) => String(f[0]).startsWith(n));
+
+    expect(porNombre('OP del mes')).toEqual(['OP del mes (sin anuladas)', 14, 1_400_000]);
+    expect(porNombre('Anuladas')).toEqual(['Anuladas (no suman)', 2, '']);
+    // El saldo de una anulada no es cartera por cobrar.
+    expect(porNombre('Saldo pendiente')).toEqual(['Saldo pendiente por cobrar', '', 500_000]);
+  });
+
   it('deja constancia del corte de pago y del alcance', () => {
     const propias = aoa(exportar({ paidMode: 'paid', scopedToOwn: true }).wb, 'N.º de OP');
     const texto = propias.flat().join(' | ');
@@ -102,7 +120,7 @@ describe('exportOrderTrackingToExcel', () => {
     const filas = aoa(exportar().wb, 'Resumen');
     const porNombre = (nombre: string) => filas.find((f) => String(f[0]).startsWith(nombre));
 
-    expect(porNombre('OP del mes')).toEqual(['OP del mes', 14, 1_400_000]);
+    expect(porNombre('OP del mes')).toEqual(['OP del mes (sin anuladas)', 14, 1_400_000]);
     expect(porNombre('Pagadas al 100%')).toEqual(['Pagadas al 100%', 5, 500_000]);
     expect(porNombre('Listas para comisión')).toEqual([
       'Listas para comisión (entregadas + pagadas)', 1, 100_000,
