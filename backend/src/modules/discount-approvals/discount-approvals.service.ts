@@ -485,20 +485,10 @@ export class DiscountApprovalsService implements OnModuleInit, ApprovalRequestHa
     reason: string,
   ): Promise<void> {
     try {
-      const usersWithPermission = await this.prisma.user.findMany({
-        where: {
-          isActive: true,
-          phone: { not: null },
-          role: {
-            permissions: {
-              some: { permission: { name: 'approve_discounts' } },
-            },
-          },
-        },
-        select: { phone: true },
-      });
+      const reviewerPhones =
+        await this.whatsappService.getPhonesByPermission('approve_discounts');
 
-      if (usersWithPermission.length === 0) {
+      if (reviewerPhones.length === 0) {
         this.logger.warn(
           'No active users with approve_discounts permission and phone found for WhatsApp notification',
         );
@@ -506,9 +496,9 @@ export class DiscountApprovalsService implements OnModuleInit, ApprovalRequestHa
       }
 
       const results = await Promise.allSettled(
-        usersWithPermission.map((user) =>
+        reviewerPhones.map((phone) =>
           this.whatsappService.sendApprovalNotification({
-            telefono: user.phone!,
+            telefono: phone,
             requesterName,
             requesterRole: 'vendedor',
             actionDescription,

@@ -334,23 +334,13 @@ export class AccountsPayableAuthRequestsService implements OnModuleInit, Approva
     reason: string,
   ): Promise<void> {
     try {
-      const adminRole = await this.prisma.role.findUnique({
-        where: { name: 'admin' },
-        include: {
-          users: {
-            where: { isActive: true, phone: { not: null } },
-            select: { phone: true },
-          },
-        },
-      });
-
-      const adminsWithPhone = adminRole?.users || [];
-      if (adminsWithPhone.length === 0) return;
+      const adminPhones = await this.whatsappService.getAdminPhones();
+      if (adminPhones.length === 0) return;
 
       await Promise.allSettled(
-        adminsWithPhone.map((admin) =>
+        adminPhones.map((phone) =>
           this.whatsappService.sendApprovalNotification({
-            telefono: admin.phone!,
+            telefono: phone,
             requesterName,
             requesterRole,
             actionDescription,

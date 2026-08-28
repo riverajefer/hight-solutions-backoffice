@@ -449,20 +449,11 @@ export class ClientOwnershipAuthRequestsService implements OnModuleInit, Approva
     reason: string,
   ): Promise<void> {
     try {
-      const usersWithPermission = await this.prisma.user.findMany({
-        where: {
-          isActive: true,
-          phone: { not: null },
-          role: {
-            permissions: {
-              some: { permission: { name: 'approve_client_ownership_auth' } },
-            },
-          },
-        },
-        select: { phone: true, role: { select: { name: true } } },
-      });
+      const reviewerPhones = await this.whatsappService.getPhonesByPermission(
+        'approve_client_ownership_auth',
+      );
 
-      if (usersWithPermission.length === 0) {
+      if (reviewerPhones.length === 0) {
         this.logger.warn(
           'No active users with approve_client_ownership_auth permission and phone found for WhatsApp notification',
         );
@@ -470,9 +461,9 @@ export class ClientOwnershipAuthRequestsService implements OnModuleInit, Approva
       }
 
       const results = await Promise.allSettled(
-        usersWithPermission.map((user) =>
+        reviewerPhones.map((phone) =>
           this.whatsappService.sendApprovalNotification({
-            telefono: user.phone!,
+            telefono: phone,
             requesterName,
             requesterRole: 'vendedor',
             actionDescription,

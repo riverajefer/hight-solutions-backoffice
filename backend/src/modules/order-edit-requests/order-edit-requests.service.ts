@@ -636,19 +636,9 @@ export class OrderEditRequestsService implements OnModuleInit, ApprovalRequestHa
     observations: string,
   ): Promise<void> {
     try {
-      const adminRole = await this.prisma.role.findUnique({
-        where: { name: 'admin' },
-        include: {
-          users: {
-            where: { isActive: true, phone: { not: null } },
-            select: { firstName: true, lastName: true, phone: true },
-          },
-        },
-      });
+      const adminPhones = await this.whatsappService.getAdminPhones();
 
-      const adminsWithPhone = adminRole?.users || [];
-
-      if (adminsWithPhone.length === 0) {
+      if (adminPhones.length === 0) {
         this.logger.warn(
           'No active administrators with phone number found for WhatsApp notification',
         );
@@ -658,9 +648,9 @@ export class OrderEditRequestsService implements OnModuleInit, ApprovalRequestHa
       void orderStatus;
 
       const results = await Promise.allSettled(
-        adminsWithPhone.map((admin) =>
+        adminPhones.map((phone) =>
           this.whatsappService.notificarSolicitudConBotones(
-            admin.phone!,
+            phone,
             requesterName,
             requesterRole,
             orderNumber,

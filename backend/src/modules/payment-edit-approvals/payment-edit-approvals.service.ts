@@ -627,20 +627,11 @@ export class PaymentEditApprovalsService
     reason: string,
   ): Promise<void> {
     try {
-      const usersWithPermission = await this.prisma.user.findMany({
-        where: {
-          isActive: true,
-          phone: { not: null },
-          role: {
-            permissions: {
-              some: { permission: { name: 'approve_payment_edits' } },
-            },
-          },
-        },
-        select: { phone: true },
-      });
+      const reviewerPhones = await this.whatsappService.getPhonesByPermission(
+        'approve_payment_edits',
+      );
 
-      if (usersWithPermission.length === 0) {
+      if (reviewerPhones.length === 0) {
         this.logger.warn(
           'No active users with approve_payment_edits permission and phone for WhatsApp notification',
         );
@@ -648,9 +639,9 @@ export class PaymentEditApprovalsService
       }
 
       const results = await Promise.allSettled(
-        usersWithPermission.map((user) =>
+        reviewerPhones.map((phone) =>
           this.whatsappService.sendApprovalNotification({
-            telefono: user.phone!,
+            telefono: phone,
             requesterName,
             requesterRole: 'usuario',
             actionDescription,
