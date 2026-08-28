@@ -79,7 +79,13 @@ describe('OrderStatusChangeRequestsService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: NotificationsService, useValue: mockNotificationsService },
         { provide: ApprovalRequestRegistry, useValue: { register: jest.fn() } },
-        { provide: WhatsappService, useValue: { sendApprovalNotification: jest.fn() } },
+        {
+          provide: WhatsappService,
+          useValue: {
+            sendApprovalNotification: jest.fn().mockResolvedValue(undefined),
+            getAdminPhones: jest.fn().mockResolvedValue(['573212016229']),
+          },
+        },
       ],
     }).compile();
 
@@ -503,6 +509,62 @@ describe('OrderStatusChangeRequestsService', () => {
 
       const whereArg = (prisma.orderStatusChangeRequest.findMany as jest.Mock).mock.calls[0][0].where;
       expect(whereArg).not.toHaveProperty('orderId');
+    });
+
+    // Si la orden llegó al estado pedido por otra vía, la solicitud ya no decide
+    // nada. Las tres pendientes en producción eran anulaciones ya ejecutadas.
+    it('descarta las solicitudes cuya orden ya está en el estado pedido', async () => {
+      (prisma.orderStatusChangeRequest.findMany as jest.Mock).mockResolvedValue([
+        {
+          ...mockPendingRequest,
+          requestedStatus: OrderStatus.ANULADO,
+          order: { id: 'order-1', orderNumber: 'OP-1', status: OrderStatus.ANULADO },
+        },
+        {
+          ...mockPendingRequest,
+          id: 'vigente',
+          requestedStatus: OrderStatus.ANULADO,
+          order: { id: 'order-2', orderNumber: 'OP-2', status: OrderStatus.CONFIRMED },
+        },
+      ]);
+
+      const result = await service.findPendingRequests();
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('vigente');
+    });
+  });
+
+  describe('closePendingRequestsForReachedStatus', () => {
+    it('marca APPROVED las que pedían el estado alcanzado, con quien lo ejecutó', async () => {
+      (prisma.orderStatusChangeRequest.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+
+      const cerradas = await service.closePendingRequestsForReachedStatus(
+        'order-1',
+        OrderStatus.ANULADO,
+        'user-1',
+      );
+
+      expect(cerradas).toBe(1);
+      expect(prisma.orderStatusChangeRequest.updateMany).toHaveBeenCalledWith({
+        where: {
+          orderId: 'order-1',
+          requestedStatus: OrderStatus.ANULADO,
+          status: EditRequestStatus.PENDING,
+        },
+        data: expect.objectContaining({
+          status: EditRequestStatus.APPROVED,
+          reviewedById: 'user-1',
+        }),
+      });
+    });
+
+    it('no toca las solicitudes que pedían otro estado', async () => {
+      (prisma.orderStatusChangeRequest.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
+
+      await expect(
+        service.closePendingRequestsForReachedStatus('order-1', OrderStatus.CONFIRMED, 'user-1'),
+      ).resolves.toBe(0);
     });
   });
 

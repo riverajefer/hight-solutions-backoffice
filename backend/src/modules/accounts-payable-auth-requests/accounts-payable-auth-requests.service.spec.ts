@@ -35,7 +35,7 @@ describe('AccountsPayableAuthRequestsService', () => {
   let service: AccountsPayableAuthRequestsService;
   let prisma: ReturnType<typeof createMockPrismaService>;
   let notifications: { create: jest.Mock; notifyAllAdmins: jest.Mock };
-  let whatsapp: { sendApprovalNotification: jest.Mock };
+  let whatsapp: { sendApprovalNotification: jest.Mock; getAdminPhones: jest.Mock };
   let registry: { register: jest.Mock };
   let accountsPayable: { adminAuthorize: jest.Mock };
 
@@ -45,7 +45,10 @@ describe('AccountsPayableAuthRequestsService', () => {
       create: jest.fn().mockResolvedValue(undefined),
       notifyAllAdmins: jest.fn().mockResolvedValue(undefined),
     };
-    whatsapp = { sendApprovalNotification: jest.fn().mockResolvedValue(undefined) };
+    whatsapp = {
+      sendApprovalNotification: jest.fn().mockResolvedValue(undefined),
+      getAdminPhones: jest.fn().mockResolvedValue(['573212016229']),
+    };
     registry = { register: jest.fn() };
     accountsPayable = { adminAuthorize: jest.fn().mockResolvedValue(undefined) };
     // Sin admins con teléfono → el helper de WhatsApp no envía nada.

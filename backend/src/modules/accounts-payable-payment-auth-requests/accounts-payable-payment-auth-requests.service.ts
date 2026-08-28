@@ -487,10 +487,7 @@ export class AccountsPayablePaymentAuthRequestsService implements OnModuleInit, 
     reason: string,
   ) {
     try {
-      const admins = await this.prisma.user.findMany({
-        where: { role: { name: 'admin' }, isActive: true },
-        select: { id: true, phone: true, firstName: true },
-      });
+      const adminPhones = await this.whatsappService.getAdminPhones();
 
       const amountFormatted = amount.toLocaleString('es-CO', {
         style: 'currency',
@@ -499,19 +496,17 @@ export class AccountsPayablePaymentAuthRequestsService implements OnModuleInit, 
       });
 
       const results = await Promise.allSettled(
-        admins
-          .filter((a) => a.phone)
-          .map((admin) =>
-            this.whatsappService.sendApprovalNotification({
-              telefono: admin.phone!,
-              requesterName,
-              requesterRole,
-              actionDescription: `pago de ${amountFormatted} en CP ${apNumber}`,
-              reason,
-              requestId,
-              requestType: ApprovalRequestType.AP_PAYMENT_AUTH,
-            }),
-          ),
+        adminPhones.map((phone) =>
+          this.whatsappService.sendApprovalNotification({
+            telefono: phone,
+            requesterName,
+            requesterRole,
+            actionDescription: `pago de ${amountFormatted} en CP ${apNumber}`,
+            reason,
+            requestId,
+            requestType: ApprovalRequestType.AP_PAYMENT_AUTH,
+          }),
+        ),
       );
 
       const fulfilled = results.filter((r) => r.status === 'fulfilled').length;
@@ -526,17 +521,9 @@ export class AccountsPayablePaymentAuthRequestsService implements OnModuleInit, 
 
   private async notifyCajaByWhatsApp(requestId: string, apNumber: string, amount: number) {
     try {
-      const cajaUsers = await this.prisma.user.findMany({
-        where: {
-          isActive: true,
-          role: {
-            permissions: {
-              some: { permission: { name: 'caja_authorize_ap_payment' } },
-            },
-          },
-        },
-        select: { id: true, phone: true, firstName: true },
-      });
+      const cajaPhones = await this.whatsappService.getPhonesByPermission(
+        'caja_authorize_ap_payment',
+      );
 
       const amountFormatted = amount.toLocaleString('es-CO', {
         style: 'currency',
@@ -545,11 +532,9 @@ export class AccountsPayablePaymentAuthRequestsService implements OnModuleInit, 
       });
 
       await Promise.allSettled(
-        cajaUsers
-          .filter((u) => u.phone)
-          .map((user) =>
-            this.whatsappService.sendTextMessage(
-              user.phone!,
+        cajaPhones.map((phone) =>
+          this.whatsappService.sendTextMessage(
+            phone,
               `✅ *Pago de CP autorizado por Admin*\n\nSe requiere tu firma de Caja para la CP *${apNumber}* por *${amountFormatted}*.\n\n🔗 Entra al sistema → Cuentas por Pagar → Pendientes Caja para autorizarlo.\n\nID solicitud: ${requestId}`,
             ),
           ),
