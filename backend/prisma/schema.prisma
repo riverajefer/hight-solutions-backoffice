@@ -898,6 +898,7 @@ enum NotificationType {
   AP_PAYMENT_REVERSAL_GERENCIA_REJECTED // Gerencia rechazó reversión
   AP_PAYMENT_REVERSAL_COMPLETED // Caja confirmó reversión — pago revertido
   AP_PAYMENT_REVERSAL_CAJA_REJECTED // Caja rechazó la reversión
+  APPROVAL_REQUEST_EXPIRED // Solicitud vencida sin respuesta (barrido automático)
   ADVISOR_CHANGE_REQUEST_PENDING // Nueva solicitud de cambio de asesor de OP
   ADVISOR_CHANGE_REQUEST_APPROVED // Solicitud de cambio de asesor aprobada
   ADVISOR_CHANGE_REQUEST_REJECTED // Solicitud de cambio de asesor rechazada
