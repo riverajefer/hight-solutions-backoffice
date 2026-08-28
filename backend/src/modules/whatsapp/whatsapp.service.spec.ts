@@ -33,6 +33,8 @@ describe('WhatsappService', () => {
               findUnique: jest.fn(),
               delete: jest.fn(),
             },
+            role: { findUnique: jest.fn() },
+            user: { findMany: jest.fn() },
           },
         },
       ],
@@ -524,6 +526,99 @@ describe('WhatsappService', () => {
         }),
       ).resolves.toBeUndefined();
       expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('db error'));
+    });
+  });
+
+  describe('getAdminPhones', () => {
+    let prismaService: any;
+
+    beforeEach(() => {
+      prismaService = service['prisma'];
+    });
+
+    it('devuelve un solo teléfono cuando dos admins comparten el mismo número', async () => {
+      prismaService.role.findUnique.mockResolvedValue({
+        users: [{ phone: '3212016229' }, { phone: '3212016229' }],
+      });
+
+      await expect(service.getAdminPhones()).resolves.toEqual(['573212016229']);
+    });
+
+    it('colapsa el mismo número guardado con formatos distintos', async () => {
+      prismaService.role.findUnique.mockResolvedValue({
+        users: [
+          { phone: '+573212016229' },
+          { phone: '3212016229' },
+          { phone: '573212016229' },
+        ],
+      });
+
+      await expect(service.getAdminPhones()).resolves.toEqual(['573212016229']);
+    });
+
+    it('conserva los números distintos y los normaliza', async () => {
+      prismaService.role.findUnique.mockResolvedValue({
+        users: [{ phone: '3212016229' }, { phone: '+573118322699' }],
+      });
+
+      await expect(service.getAdminPhones()).resolves.toEqual([
+        '573212016229',
+        '573118322699',
+      ]);
+    });
+
+    it('ignora usuarios sin teléfono', async () => {
+      prismaService.role.findUnique.mockResolvedValue({
+        users: [{ phone: null }, { phone: '3212016229' }],
+      });
+
+      await expect(service.getAdminPhones()).resolves.toEqual(['573212016229']);
+    });
+
+    it('devuelve lista vacía si no existe el rol admin', async () => {
+      prismaService.role.findUnique.mockResolvedValue(null);
+
+      await expect(service.getAdminPhones()).resolves.toEqual([]);
+    });
+  });
+
+  describe('getPhonesByPermission', () => {
+    let prismaService: any;
+
+    beforeEach(() => {
+      prismaService = service['prisma'];
+    });
+
+    it('deduplica los teléfonos de los usuarios con el permiso', async () => {
+      prismaService.user.findMany.mockResolvedValue([
+        { phone: '3212016229' },
+        { phone: '+573212016229' },
+        { phone: '3118322699' },
+      ]);
+
+      await expect(
+        service.getPhonesByPermission('approve_discounts'),
+      ).resolves.toEqual(['573212016229', '573118322699']);
+    });
+
+    it('filtra por el permiso recibido', async () => {
+      prismaService.user.findMany.mockResolvedValue([]);
+
+      await service.getPhonesByPermission('approve_refunds');
+
+      expect(prismaService.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            isActive: true,
+            phone: { not: null },
+            role: {
+              permissions: {
+                some: { permission: { name: 'approve_refunds' } },
+              },
+            },
+          }),
+        }),
+      );
     });
   });
 });

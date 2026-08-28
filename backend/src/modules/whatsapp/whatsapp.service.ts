@@ -60,6 +60,74 @@ export class WhatsappService {
   }
 
   /**
+   * Colapsa una lista de usuarios a la lista de teléfonos únicos a los que hay
+   * que escribir, usando el número normalizado como llave.
+   *
+   * El destinatario de una notificación es un teléfono, no una cuenta: el
+   * webhook resuelve quién aprueba por `adminPhone`, no por userId. Si dos
+   * cuentas comparten celular (o lo tienen guardado con formatos distintos,
+   * "+573001234567" vs "3001234567"), enviar una vez por usuario le entrega
+   * el mismo mensaje duplicado a la misma persona.
+   *
+   * Devuelve los números ya normalizados, que es lo que terminan guardando
+   * `sendApprovalNotification` y `notificarSolicitudConBotones` en
+   * WhatsappActionContext.
+   */
+  private dedupePhones(users: { phone: string | null }[]): string[] {
+    const seen = new Set<string>();
+    const phones: string[] = [];
+
+    for (const { phone } of users) {
+      if (!phone) continue;
+      const normalized = this.normalizePhone(phone);
+      if (!normalized || seen.has(normalized)) continue;
+      seen.add(normalized);
+      phones.push(normalized);
+    }
+
+    return phones;
+  }
+
+  /**
+   * Teléfonos únicos de los administradores activos.
+   * Destinatarios de las solicitudes que se autorizan por rol admin.
+   */
+  async getAdminPhones(): Promise<string[]> {
+    const adminRole = await this.prisma.role.findUnique({
+      where: { name: 'admin' },
+      include: {
+        users: {
+          where: { isActive: true, phone: { not: null } },
+          select: { phone: true },
+        },
+      },
+    });
+
+    return this.dedupePhones(adminRole?.users ?? []);
+  }
+
+  /**
+   * Teléfonos únicos de los usuarios activos cuyo rol tiene el permiso dado.
+   * Destinatarios de las solicitudes que se autorizan por permiso y no por rol.
+   */
+  async getPhonesByPermission(permissionName: string): Promise<string[]> {
+    const users = await this.prisma.user.findMany({
+      where: {
+        isActive: true,
+        phone: { not: null },
+        role: {
+          permissions: {
+            some: { permission: { name: permissionName } },
+          },
+        },
+      },
+      select: { phone: true },
+    });
+
+    return this.dedupePhones(users);
+  }
+
+  /**
    * Enviar mensaje con template de WhatsApp Cloud API
    * @param to Número de teléfono (acepta +57..., 57..., o 10 dígitos colombianos)
    * @param templateName Nombre del template aprobado

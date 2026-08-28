@@ -623,20 +623,11 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
     reason: string,
   ): Promise<void> {
     try {
-      const usersWithPermission = await this.prisma.user.findMany({
-        where: {
-          isActive: true,
-          phone: { not: null },
-          role: {
-            permissions: {
-              some: { permission: { name: 'approve_advance_payments' } },
-            },
-          },
-        },
-        select: { phone: true },
-      });
+      const reviewerPhones = await this.whatsappService.getPhonesByPermission(
+        'approve_advance_payments',
+      );
 
-      if (usersWithPermission.length === 0) {
+      if (reviewerPhones.length === 0) {
         this.logger.warn(
           'No active users with approve_advance_payments permission and phone found for WhatsApp notification',
         );
@@ -644,9 +635,9 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       }
 
       const results = await Promise.allSettled(
-        usersWithPermission.map((user) =>
+        reviewerPhones.map((phone) =>
           this.whatsappService.sendApprovalNotification({
-            telefono: user.phone!,
+            telefono: phone,
             requesterName,
             requesterRole: 'vendedor',
             actionDescription,
