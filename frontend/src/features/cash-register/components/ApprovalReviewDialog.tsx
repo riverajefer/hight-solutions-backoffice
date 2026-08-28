@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import {
@@ -49,6 +49,7 @@ const ApprovalReviewDialog: React.FC<ApprovalReviewDialogProps> = ({
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
   const [reviewNotes, setReviewNotes] = useState('');
+  const submitting = useRef(false);
 
   useEffect(() => {
     if (open) setReviewNotes('');
@@ -66,6 +67,9 @@ const ApprovalReviewDialog: React.FC<ApprovalReviewDialogProps> = ({
       enqueueSnackbar('Error al aprobar. La solicitud puede haber sido procesada por otro usuario.', { variant: 'error' });
       queryClient.invalidateQueries({ queryKey: ['advancePaymentApprovals'] });
     },
+    onSettled: () => {
+      submitting.current = false;
+    },
   });
 
   const rejectMutation = useMutation({
@@ -80,6 +84,9 @@ const ApprovalReviewDialog: React.FC<ApprovalReviewDialogProps> = ({
       enqueueSnackbar('Error al rechazar. La solicitud puede haber sido procesada por otro usuario.', { variant: 'error' });
       queryClient.invalidateQueries({ queryKey: ['advancePaymentApprovals'] });
     },
+    onSettled: () => {
+      submitting.current = false;
+    },
   });
 
   const isLoading = approveMutation.isPending || rejectMutation.isPending;
@@ -90,8 +97,13 @@ const ApprovalReviewDialog: React.FC<ApprovalReviewDialogProps> = ({
 
     if (isReject && !reviewNotes.trim()) return;
 
+    // `disabled={isLoading}` solo surte efecto en el siguiente render, así que dos
+    // clics en el mismo frame mandarían dos veces la misma aprobación.
+    if (submitting.current) return;
+
     const payload = { id: approval.id, notes: reviewNotes.trim() || undefined };
 
+    submitting.current = true;
     if (isReject) {
       rejectMutation.mutate(payload);
     } else {

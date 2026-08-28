@@ -16,6 +16,7 @@ describe('ExpenseOrderAuthRequestsService', () => {
   let service: ExpenseOrderAuthRequestsService;
   let prisma: PrismaService;
   let notificationsService: NotificationsService;
+  let whatsappService: jest.Mocked<WhatsappService>;
 
   const mockPrismaService = {
     expenseOrder: {
@@ -93,7 +94,13 @@ describe('ExpenseOrderAuthRequestsService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: NotificationsService, useValue: mockNotificationsService },
         { provide: ApprovalRequestRegistry, useValue: { register: jest.fn() } },
-        { provide: WhatsappService, useValue: { sendApprovalNotification: jest.fn() } },
+        {
+          provide: WhatsappService,
+          useValue: {
+            sendApprovalNotification: jest.fn().mockResolvedValue(undefined),
+            getAdminPhones: jest.fn().mockResolvedValue(['573212016229']),
+          },
+        },
         { provide: ExpenseOrdersService, useValue: mockExpenseOrdersService },
       ],
     }).compile();
@@ -101,6 +108,7 @@ describe('ExpenseOrderAuthRequestsService', () => {
     service = module.get<ExpenseOrderAuthRequestsService>(ExpenseOrderAuthRequestsService);
     prisma = module.get<PrismaService>(PrismaService);
     notificationsService = module.get<NotificationsService>(NotificationsService);
+    whatsappService = module.get(WhatsappService);
   });
 
   afterEach(() => {
@@ -146,6 +154,73 @@ describe('ExpenseOrderAuthRequestsService', () => {
       mockPrismaService.expenseOrderAuthRequest.findFirst.mockResolvedValue(mockRequest);
 
       await expect(service.create(USER_ID, createDto)).rejects.toThrow(BadRequestException);
+    });
+
+    it('notifica una sola vez por solicitud creada', async () => {
+      mockPrismaService.expenseOrder.findUnique.mockResolvedValue(mockExpenseOrder);
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockPrismaService.expenseOrderAuthRequest.findFirst.mockResolvedValue(null);
+      mockPrismaService.expenseOrderAuthRequest.create.mockResolvedValue(mockRequest);
+
+      await service.create(USER_ID, createDto);
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      expect(whatsappService.sendApprovalNotification).toHaveBeenCalledTimes(1);
+    });
+
+    // El índice parcial `expense_order_auth_requests_pending_unique` es lo que
+    // realmente impide el duplicado: dos peticiones concurrentes pasan las dos la
+    // validación de arriba, y la perdedora llega acá con P2002.
+    describe('cuando dos peticiones concurrentes pasan la validación', () => {
+      const uniqueViolation = Object.assign(new Error('Unique constraint failed'), {
+        code: 'P2002',
+        meta: { target: 'expense_order_auth_requests_pending_unique' },
+      });
+
+      beforeEach(() => {
+        mockPrismaService.expenseOrder.findUnique.mockResolvedValue(mockExpenseOrder);
+        mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+        mockPrismaService.expenseOrderAuthRequest.findFirst.mockResolvedValue(null);
+        mockPrismaService.expenseOrderAuthRequest.create.mockRejectedValue(uniqueViolation);
+      });
+
+      it('devuelve la solicitud gemela en lugar de crear una duplicada', async () => {
+        mockPrismaService.expenseOrderAuthRequest.findFirst
+          .mockResolvedValueOnce(null) // validación previa
+          .mockResolvedValueOnce(mockRequest); // búsqueda de la gemela tras el P2002
+
+        await expect(service.create(USER_ID, createDto)).resolves.toEqual(mockRequest);
+      });
+
+      it('no manda una segunda notificación de WhatsApp', async () => {
+        mockPrismaService.expenseOrderAuthRequest.findFirst
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce(mockRequest);
+
+        await service.create(USER_ID, createDto);
+        await new Promise<void>((resolve) => setImmediate(resolve));
+
+        expect(whatsappService.sendApprovalNotification).not.toHaveBeenCalled();
+        expect(notificationsService.notifyAllAdmins).not.toHaveBeenCalled();
+      });
+
+      it('propaga el error si la gemela no aparece', async () => {
+        mockPrismaService.expenseOrderAuthRequest.findFirst
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce(null);
+
+        await expect(service.create(USER_ID, createDto)).rejects.toThrow(uniqueViolation);
+      });
+
+      it('propaga cualquier otro P2002 que no sea el del índice de pendientes', async () => {
+        const otraViolacion = Object.assign(new Error('Unique constraint failed'), {
+          code: 'P2002',
+          meta: { target: ['otra_restriccion'] },
+        });
+        mockPrismaService.expenseOrderAuthRequest.create.mockRejectedValue(otraViolacion);
+
+        await expect(service.create(USER_ID, createDto)).rejects.toThrow(otraViolacion);
+      });
     });
   });
 

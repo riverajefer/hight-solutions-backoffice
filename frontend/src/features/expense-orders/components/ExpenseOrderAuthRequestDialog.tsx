@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -35,6 +35,13 @@ export const ExpenseOrderAuthRequestDialog: React.FC<ExpenseOrderAuthRequestDial
   const { enqueueSnackbar } = useSnackbar();
   const queryClient = useQueryClient();
 
+  // `disabled={mutation.isPending}` no alcanza para frenar el doble envío: el
+  // botón solo se deshabilita después de que React vuelve a renderizar, así que
+  // dos clics en el mismo frame llaman `mutate()` los dos y se crean dos
+  // solicitudes (y dos notificaciones de WhatsApp). El ref se actualiza en el
+  // acto, antes de salir del handler.
+  const submitting = useRef(false);
+
   const createRequestMutation = useMutation({
     mutationFn: expenseOrderAuthRequestsApi.create,
     onSuccess: () => {
@@ -52,14 +59,20 @@ export const ExpenseOrderAuthRequestDialog: React.FC<ExpenseOrderAuthRequestDial
         { variant: 'error' },
       );
     },
+    onSettled: () => {
+      submitting.current = false;
+    },
   });
 
   const handleSubmit = () => {
+    if (submitting.current) return;
+
     if (!reason.trim()) {
       enqueueSnackbar('Por favor ingrese una razón para el cambio', { variant: 'warning' });
       return;
     }
 
+    submitting.current = true;
     createRequestMutation.mutate({
       expenseOrderId: expenseOrder.id,
       reason: reason.trim(),

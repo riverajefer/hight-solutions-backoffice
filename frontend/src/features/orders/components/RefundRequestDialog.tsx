@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -59,6 +59,7 @@ export const RefundRequestDialog: React.FC<RefundRequestDialogProps> = ({
     useState<RefundPaymentMethod>('CASH');
   const [bankEntity, setBankEntity] = useState<string | null>(null);
   const [observation, setObservation] = useState<string>('');
+  const submitting = useRef(false);
 
   const loading = createMutation.isPending;
 
@@ -75,6 +76,10 @@ export const RefundRequestDialog: React.FC<RefundRequestDialogProps> = ({
   };
 
   const handleSubmit = async () => {
+    // El botón se deshabilita hasta el siguiente render, así que dos clics en el
+    // mismo frame llegarían los dos hasta el `mutateAsync`.
+    if (submitting.current) return;
+
     const numericAmount = parseFloat(amount.replace(/\./g, ''));
     if (!numericAmount || numericAmount <= 0) {
       enqueueSnackbar('El monto a devolver debe ser mayor a 0', {
@@ -96,6 +101,7 @@ export const RefundRequestDialog: React.FC<RefundRequestDialogProps> = ({
       return;
     }
 
+    submitting.current = true;
     try {
       await createMutation.mutateAsync({
         orderId,
@@ -107,6 +113,8 @@ export const RefundRequestDialog: React.FC<RefundRequestDialogProps> = ({
       resetAndClose();
     } catch {
       // handled by hook
+    } finally {
+      submitting.current = false;
     }
   };
 
