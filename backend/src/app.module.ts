@@ -54,6 +54,7 @@ import { HealthModule } from './health/health.module';
 import { PayrollModule } from './modules/payroll/payroll.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { ApprovalExpiryModule } from './modules/approval-expiry/approval-expiry.module';
 import { ProductionModule } from './modules/production/production.module';
 import { CommentsModule } from './modules/comments/comments.module';
 import { CashRegisterModule } from './modules/cash-register/cash-register.module';
@@ -162,6 +163,7 @@ import { DtfModule } from './modules/dtf/dtf.module';
     AttendanceModule,
     // Módulo de Inventario y Movimientos de Insumos
     InventoryModule,
+    ApprovalExpiryModule,
     // Módulo de Producción — Plantillas y Órdenes de Producción
     ProductionModule,
     // Módulo de Comentarios Polimórficos (COT / OP / OT)
