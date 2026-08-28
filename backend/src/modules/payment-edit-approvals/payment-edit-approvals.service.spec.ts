@@ -73,7 +73,10 @@ describe('PaymentEditApprovalsService', () => {
         { provide: ApprovalRequestRegistry, useValue: { register: jest.fn() } },
         {
           provide: WhatsappService,
-          useValue: { sendApprovalNotification: jest.fn() },
+          useValue: {
+            sendApprovalNotification: jest.fn().mockResolvedValue(undefined),
+            getPhonesByPermission: jest.fn().mockResolvedValue(['573212016229']),
+          },
         },
         { provide: WsEventsGateway, useValue: wsEventsGateway },
         { provide: StorageService, useValue: storageService },

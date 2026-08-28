@@ -45,6 +45,7 @@ describe('ClientOwnershipAuthRequestsService', () => {
 
   const mockWhatsappService = {
     sendApprovalNotification: jest.fn(),
+    getPhonesByPermission: jest.fn().mockResolvedValue(['573212016229']),
   };
 
   const mockApprovalRegistry = {

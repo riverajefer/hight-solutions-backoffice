@@ -18,7 +18,7 @@ describe('AdvisorChangeRequestsService', () => {
   let service: AdvisorChangeRequestsService;
   let prisma: MockPrismaService;
   let notifications: { create: jest.Mock; notifyAllAdmins: jest.Mock };
-  let whatsapp: { sendApprovalNotification: jest.Mock };
+  let whatsapp: { sendApprovalNotification: jest.Mock; getAdminPhones: jest.Mock };
   let registry: { register: jest.Mock };
 
   const ORDER = {
@@ -33,7 +33,10 @@ describe('AdvisorChangeRequestsService', () => {
   beforeEach(async () => {
     prisma = createMockPrismaService();
     notifications = { create: jest.fn(), notifyAllAdmins: jest.fn() };
-    whatsapp = { sendApprovalNotification: jest.fn().mockResolvedValue(undefined) };
+    whatsapp = {
+      sendApprovalNotification: jest.fn().mockResolvedValue(undefined),
+      getAdminPhones: jest.fn().mockResolvedValue(['573212016229']),
+    };
     registry = { register: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({

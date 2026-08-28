@@ -57,7 +57,13 @@ describe('AdvancePaymentApprovalsService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: NotificationsService, useValue: notificationsService },
         { provide: ApprovalRequestRegistry, useValue: { register: jest.fn() } },
-        { provide: WhatsappService, useValue: { sendApprovalNotification: jest.fn() } },
+        {
+          provide: WhatsappService,
+          useValue: {
+            sendApprovalNotification: jest.fn().mockResolvedValue(undefined),
+            getPhonesByPermission: jest.fn().mockResolvedValue(['573212016229']),
+          },
+        },
         { provide: WsEventsGateway, useValue: { emitApprovalCreated: jest.fn(), emitApprovalUpdated: jest.fn() } },
         {
           provide: CreditBalanceService,
