@@ -32,6 +32,24 @@ const USER_SELECT = {
   lastName: true,
 } as const;
 
+/** Nombre del índice parcial que garantiza una sola solicitud PENDING por OG y usuario. */
+const PENDING_UNIQUE_INDEX = 'expense_order_auth_requests_pending_unique';
+
+/**
+ * ¿El error es el choque contra `expense_order_auth_requests_pending_unique`?
+ *
+ * Se verifica el nombre del índice y no solo el código P2002 para no confundir
+ * esta carrera con cualquier otra restricción única de la tabla.
+ */
+function isUniquePendingViolation(error: unknown): boolean {
+  const known = error as { code?: string; meta?: { target?: unknown } };
+  if (known?.code !== 'P2002') return false;
+
+  const target = known.meta?.target;
+  const targetText = Array.isArray(target) ? target.join(',') : String(target ?? '');
+  return targetText.includes(PENDING_UNIQUE_INDEX);
+}
+
 @Injectable()
 export class ExpenseOrderAuthRequestsService implements OnModuleInit, ApprovalRequestHandler {
   private readonly logger = new Logger(ExpenseOrderAuthRequestsService.name);
@@ -179,18 +197,52 @@ export class ExpenseOrderAuthRequestsService implements OnModuleInit, ApprovalRe
     }
 
     // 4. Crear solicitud
-    const request = await this.prisma.expenseOrderAuthRequest.create({
-      data: {
-        expenseOrderId: dto.expenseOrderId,
-        requestedById: userId,
-        reason: dto.reason,
-        status: EditRequestStatus.PENDING,
-      },
-      include: {
-        requestedBy: { select: USER_SELECT },
-        expenseOrder: { select: { id: true, ogNumber: true } },
-      },
-    });
+    //
+    // La validación del paso 3 es un check-then-act: dos peticiones concurrentes
+    // leen las dos "no hay pendiente" antes de que cualquiera inserte. El índice
+    // parcial `expense_order_auth_requests_pending_unique` cierra esa ventana, así
+    // que la segunda choca acá con P2002 en vez de crear una solicitud duplicada.
+    //
+    // Cuando eso pasa, la petición perdedora devuelve la solicitud gemela en lugar
+    // de fallar: el usuario hizo una sola acción y ya tiene su solicitud creada.
+    // Así solo sale una notificación de WhatsApp.
+    const requestInclude = {
+      requestedBy: { select: USER_SELECT },
+      expenseOrder: { select: { id: true, ogNumber: true } },
+    };
+
+    let request;
+
+    try {
+      request = await this.prisma.expenseOrderAuthRequest.create({
+        data: {
+          expenseOrderId: dto.expenseOrderId,
+          requestedById: userId,
+          reason: dto.reason,
+          status: EditRequestStatus.PENDING,
+        },
+        include: requestInclude,
+      });
+    } catch (error) {
+      if (!isUniquePendingViolation(error)) throw error;
+
+      const twin = await this.prisma.expenseOrderAuthRequest.findFirst({
+        where: {
+          expenseOrderId: dto.expenseOrderId,
+          requestedById: userId,
+          status: EditRequestStatus.PENDING,
+        },
+        include: requestInclude,
+      });
+
+      if (!twin) throw error;
+
+      this.logger.warn(
+        `Solicitud de autorización duplicada para OG ${dto.expenseOrderId} por el usuario ${userId}: se devuelve la solicitud ${twin.id} sin notificar de nuevo`,
+      );
+
+      return twin;
+    }
 
     // 5. Notificar a todos los administradores (in-app)
     await this.notificationsService.notifyAllAdmins({
