@@ -174,6 +174,15 @@ export interface OrderItem {
       name: string;
     };
   }[];
+  /**
+   * OTs que ya incluyen este ítem. Solo viene en el detalle (GET /orders/:id).
+   * Eliminar el ítem de la OP lo elimina también de estas OTs.
+   */
+  workOrders?: {
+    id: string;
+    workOrderNumber: string;
+    status: string;
+  }[];
 }
 
 export interface Payment {
@@ -465,6 +474,11 @@ export interface OrderItemRow {
   specifications?: Record<string, any>;
   sampleImageId?: string | null;
   productionAreaIds: string[];
+  /**
+   * Números de OT que ya incluyen este ítem (vacío en ítems nuevos). Se usa para
+   * advertir antes de eliminarlo: el borrado se propaga a la OT.
+   */
+  workOrderNumbers?: string[];
 }
 
 export interface InitialPaymentData {

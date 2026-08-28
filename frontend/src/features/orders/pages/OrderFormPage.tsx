@@ -567,6 +567,7 @@ export const OrderFormPage: React.FC = () => {
           productionAreaIds: item.productionAreas
             ? item.productionAreas.map((pa) => pa.productionArea.id)
             : [],
+          workOrderNumbers: item.workOrders?.map((wo) => wo.workOrderNumber) ?? [],
         }))
       );
       const currentTaxRate = parseFloat(order.taxRate);

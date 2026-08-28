@@ -38,7 +38,7 @@ import {
   AdvisorTrackingQueryDto,
 } from './dto';
 import { InitialPaymentDto } from './dto/create-order.dto';
-import { EditRequestStatus, OrderStatus, PaymentMethod, Prisma } from '../../generated/prisma';
+import { EditRequestStatus, OrderStatus, PaymentMethod, Prisma, WorkOrderStatus } from '../../generated/prisma';
 import { isValidTransition, getValidNextStatuses } from './order-status-transitions';
 import { PrismaService } from '../../database/prisma.service';
 import { startOfDay, endOfDay, businessToday } from '../../common/utils/date-range.util';
@@ -115,6 +115,20 @@ interface MovementEditedAfterClose {
   newAmount: string;
   oldPaymentMethod: string;
   newPaymentMethod: string;
+}
+
+/**
+ * Ítem de OT que desaparece al eliminarse el ítem de OP del que cuelga.
+ * Se lee antes del DELETE para poder dejarlo en auditoría después del commit.
+ */
+interface CascadedWorkOrderItem {
+  id: string;
+  productDescription: string;
+  workOrder: {
+    id: string;
+    workOrderNumber: string;
+    status: WorkOrderStatus;
+  };
 }
 
 @Injectable()
@@ -892,6 +906,80 @@ export class OrdersService {
     return newOrder;
   }
 
+  /**
+   * Lee qué ítems de OT se va a llevar por delante el borrado de unos ítems de OP.
+   *
+   * La FK `work_order_items.order_item_id` está en CASCADE: borrar el ítem de la OP
+   * elimina su contraparte en la OT, sus áreas de producción y sus insumos
+   * asignados. Las horas trabajadas sobreviven (SET NULL), pero quedan sin ítem.
+   *
+   * Hay que consultar ANTES del DELETE, dentro de la misma transacción; después ya
+   * no hay a quién preguntarle. El registro en auditoría se hace aparte, una vez
+   * confirmada la transacción, para no dejar rastro de un borrado que se revirtió.
+   *
+   * No lanza: es trazabilidad, no debe tumbar la edición de la OP.
+   */
+  private async findWorkOrderItemsAffectedByCascade(
+    tx: Prisma.TransactionClient,
+    orderItemIds: string[],
+  ): Promise<CascadedWorkOrderItem[]> {
+    try {
+      return await tx.workOrderItem.findMany({
+        where: { orderItemId: { in: orderItemIds } },
+        select: {
+          id: true,
+          productDescription: true,
+          workOrder: { select: { id: true, workOrderNumber: true, status: true } },
+        },
+      });
+    } catch (error) {
+      this.logger.error(
+        'No se pudieron leer los ítems de OT afectados por la eliminación en cascada',
+        error,
+      );
+      return [];
+    }
+  }
+
+  /**
+   * Deja constancia de los ítems de OT eliminados en cascada.
+   *
+   * Producción no se entera por sí sola de que le desaparecieron ítems del tablero,
+   * así que el rastro queda en el audit log y en los logs de la aplicación.
+   * Se llama DESPUÉS del commit, con lo leído por
+   * `findWorkOrderItemsAffectedByCascade`.
+   */
+  private auditWorkOrderItemsRemovedByCascade(
+    affected: CascadedWorkOrderItem[],
+    orderNumber: string,
+    userId?: string,
+  ): void {
+    if (affected.length === 0) return;
+
+    const workOrderNumbers = [
+      ...new Set(affected.map((woi) => woi.workOrder.workOrderNumber)),
+    ];
+
+    this.logger.warn(
+      `Editar ${orderNumber} eliminó ${affected.length} ítem(s) de la(s) OT ${workOrderNumbers.join(', ')} por cascada`,
+    );
+
+    for (const woi of affected) {
+      this.auditLogsService.logDelete(
+        'WorkOrderItem',
+        woi.id,
+        {
+          productDescription: woi.productDescription,
+          workOrderId: woi.workOrder.id,
+          workOrderNumber: woi.workOrder.workOrderNumber,
+          workOrderStatus: woi.workOrder.status,
+          reason: `Eliminado en cascada al editar la orden ${orderNumber}`,
+        },
+        userId,
+      );
+    }
+  }
+
   async update(id: string, updateOrderDto: UpdateOrderDto, userId: string) {
     const oldOrder = await this.findOne(id);
     this.assertNotAnulado(oldOrder, 'editar orden');
@@ -929,6 +1017,9 @@ export class OrdersService {
 
     // Si viene items o initialPayment, usamos una transacción para actualizar todo el conjunto
     if (updateOrderDto.items || updateOrderDto.initialPayment) {
+      // Se llena dentro de la transacción y se audita al confirmarse.
+      let cascadedWorkOrderItems: CascadedWorkOrderItem[] = [];
+
       const updatedOrder = await this.prisma.$transaction(async (tx) => {
         // Preparar datos de actualización de fecha
         const deliveryDateUpdateData: any = {};
@@ -1019,6 +1110,12 @@ export class OrdersService {
             (dbId) => !keepIds.has(dbId),
           );
           if (idsToDelete.length > 0) {
+            // El borrado se propaga a la OT (FK en CASCADE). Hay que leer qué se
+            // lleva por delante mientras todavía existe; el rastro en auditoría
+            // se escribe al confirmarse la transacción.
+            cascadedWorkOrderItems =
+              await this.findWorkOrderItemsAffectedByCascade(tx, idsToDelete);
+
             await tx.orderItem.deleteMany({
               where: { id: { in: idsToDelete } },
             });
@@ -1222,6 +1319,12 @@ export class OrdersService {
         id,
         oldOrder,
         updatedOrder,
+        userId,
+      );
+
+      this.auditWorkOrderItemsRemovedByCascade(
+        cascadedWorkOrderItems,
+        oldOrder.orderNumber,
         userId,
       );
 
@@ -1728,8 +1831,17 @@ export class OrdersService {
       throw new BadRequestException('Order must have at least one item');
     }
 
+    // Se llena dentro de la transacción y se audita al confirmarse.
+    let cascadedWorkOrderItems: CascadedWorkOrderItem[] = [];
+
     // Usar transacción para eliminar item y recalcular totales
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Mismo rastro que en `update`: el DELETE se propaga a la OT en cascada.
+      cascadedWorkOrderItems = await this.findWorkOrderItemsAffectedByCascade(
+        tx,
+        [itemId],
+      );
+
       // Eliminar el item
       await tx.orderItem.delete({
         where: { id: itemId },
@@ -1738,6 +1850,13 @@ export class OrdersService {
       // Recalcular totales
       return this.recalculateOrderTotals(orderId, tx);
     });
+
+    this.auditWorkOrderItemsRemovedByCascade(
+      cascadedWorkOrderItems,
+      order.orderNumber,
+    );
+
+    return result;
   }
 
   // ========== PAYMENT MANAGEMENT ==========

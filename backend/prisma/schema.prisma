@@ -1172,7 +1172,11 @@ model WorkOrderItem {
   updatedAt          DateTime @updatedAt @map("updated_at")
 
   workOrder       WorkOrder                     @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
-  orderItem       OrderItem                     @relation(fields: [orderItemId], references: [id])
+  // Cascade: al eliminar un ítem de la OP, su contraparte en la OT se va con él.
+  // Antes era Restrict (default de Prisma) y editar una OP con OT asociada
+  // reventaba con P2003 → 500. Los registros de tiempo NO se pierden: quedan
+  // colgados de la OT con `workOrderItemId` en NULL (onDelete: SetNull).
+  orderItem       OrderItem                     @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
   productionAreas WorkOrderItemProductionArea[]
   supplies        WorkOrderItemSupply[]
   timeEntries     WorkOrderTimeEntry[]
