@@ -11,7 +11,7 @@ import {
   Stack,
 } from '@mui/material';
 import type { OrderItemRow } from '../../../types/order.types';
-import { applyColombianRounding } from '../../../utils/formatters';
+import { applyColombianRounding, roundToWholePeso } from '../../../utils/formatters';
 
 interface OrderTotalsProps {
   items: OrderItemRow[];
@@ -63,9 +63,13 @@ export const OrderTotals: React.FC<OrderTotalsProps> = ({
 
   const rawTotal =
     subtotal - retefuenteAmount - reteICAAmount + tax - reteIVAAmount + (requiresColorProof ? colorProofPrice : 0);
-  // Si hay retenciones el total debe ser exacto (sin redondeo comercial).
+  // Con retenciones no aplica el redondeo comercial (distorsiona la base del
+  // certificado), pero sí el redondeo a peso entero: los centavos quedarían
+  // como saldo a favor que nadie puede saldar.
   const hasRetencionesForTotal = retefuenteAmount > 0 || reteICAAmount > 0 || reteIVAAmount > 0;
-  const total = hasRetencionesForTotal ? rawTotal : applyColombianRounding(rawTotal);
+  const total = hasRetencionesForTotal
+    ? roundToWholePeso(rawTotal)
+    : applyColombianRounding(rawTotal);
 
   return (
     <Card variant="outlined" sx={{ borderRadius: 2 }}>

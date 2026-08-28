@@ -40,6 +40,7 @@ import type { Product } from '../../../types/product.types';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
 import { CreateProductModal } from '../../portfolio/products/components/CreateProductModal';
+import { ConfirmDialog } from '../../../components/common';
 
 interface OrderItemsTableProps {
   items: OrderItemRow[];
@@ -118,6 +119,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
   const [viewImageDialog, setViewImageDialog] = React.useState<{ open: boolean; url: string }>({ open: false, url: '' });
   const [uploadingItemId, setUploadingItemId] = React.useState<string | null>(null);
   const [thumbnailUrls, setThumbnailUrls] = React.useState<Record<string, string>>({});
+  const [itemPendingRemoval, setItemPendingRemoval] = useState<OrderItemRow | null>(null);
 
   // Fetch thumbnail URLs for items that have sampleImageId
   React.useEffect(() => {
@@ -208,12 +210,25 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
     onChange([...items, newItem]);
   };
 
+  const removeRow = (id: string) => {
+    onChange(items.filter((item) => item.id !== id));
+  };
+
   const handleRemoveRow = (id: string) => {
     // Mantener al menos 1 item
     if (items.length <= 1) {
       return;
     }
-    onChange(items.filter((item) => item.id !== id));
+
+    // Si el ítem ya está en una OT, el borrado se propaga: al guardar la OP
+    // desaparece también del tablero de producción. Se confirma antes.
+    const item = items.find((i) => i.id === id);
+    if (item?.workOrderNumbers?.length) {
+      setItemPendingRemoval(item);
+      return;
+    }
+
+    removeRow(id);
   };
 
   const handleFieldChange = (
@@ -629,6 +644,20 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                         style: { fontSize: '0.8125rem' },
                       }}
                     />
+                    {/* Aviso anticipado: este ítem ya está en producción */}
+                    {!!item.workOrderNumbers?.length && (
+                      <Tooltip
+                        title={`Este ítem ya está en ${item.workOrderNumbers.join(', ')}. Si lo eliminas, también desaparece de esa orden de trabajo.`}
+                      >
+                        <Chip
+                          size="small"
+                          color="warning"
+                          variant="outlined"
+                          label={`En ${item.workOrderNumbers.join(', ')}`}
+                          sx={{ mt: 0.5, height: 20, fontSize: '0.6875rem' }}
+                        />
+                      </Tooltip>
+                    )}
                   </TableCell>
 
                   {/* Áreas de Producción */}
@@ -827,6 +856,29 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Eliminar un ítem que ya está en una OT lo borra también del tablero de
+          producción, y con él sus áreas asignadas e insumos. Los tiempos ya
+          registrados se conservan en la OT. */}
+      <ConfirmDialog
+        open={!!itemPendingRemoval}
+        severity="warning"
+        title="Este ítem ya está en una orden de trabajo"
+        message={
+          itemPendingRemoval
+            ? `«${itemPendingRemoval.description || 'Ítem sin descripción'}» hace parte de ${itemPendingRemoval.workOrderNumbers?.join(', ')}. ` +
+              `Si lo eliminas, al guardar la orden también desaparece de esa orden de trabajo, junto con sus áreas de producción e insumos asignados. ` +
+              `Las horas ya registradas se conservan. Esta acción no se puede deshacer.`
+            : ''
+        }
+        confirmText="Eliminar de todos modos"
+        cancelText="Conservar el ítem"
+        onCancel={() => setItemPendingRemoval(null)}
+        onConfirm={() => {
+          if (itemPendingRemoval) removeRow(itemPendingRemoval.id);
+          setItemPendingRemoval(null);
+        }}
+      />
     </Box>
   );
 };

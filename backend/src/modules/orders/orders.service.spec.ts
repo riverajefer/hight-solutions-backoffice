@@ -52,6 +52,7 @@ const mockConsecutivesService = {
 const mockAuditLogsService = {
   logOrderChange: jest.fn(),
   logUpdate: jest.fn().mockResolvedValue(undefined),
+  logDelete: jest.fn().mockResolvedValue(undefined),
 };
 
 const mockStorageService = {
@@ -127,6 +128,9 @@ const mockPrisma = {
     deleteMany: jest.fn(),
     createMany: jest.fn(),
   },
+  workOrderItem: {
+    findMany: jest.fn(),
+  },
   order: {
     findUnique: jest.fn(),
     update: jest.fn(),
@@ -186,6 +190,10 @@ describe('OrdersService', () => {
   beforeEach(async () => {
     // Make $transaction execute the callback synchronously with mockPrisma as the tx client
     mockPrisma.$transaction.mockImplementation((fn: (tx: any) => any) => fn(mockPrisma));
+
+    // Por defecto ningún ítem de OP cuelga de una OT: la mayoría de los tests no
+    // ejercen la cascada, y sin esto el lookup devuelve undefined y ensucia la salida.
+    mockPrisma.workOrderItem.findMany.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -819,6 +827,24 @@ describe('OrdersService', () => {
       expect(Number(callArg.total.toString())).toBe(119000);
     });
 
+    it('should round the total to a whole peso when there are retenciones', async () => {
+      // Caso real (OP-2026-1644): 442.500 + 84.075 IVA − 11.062,50 retefuente
+      // = 515.512,50. Sin retenciones aplicaría el redondeo comercial; con ellas
+      // no, pero el total no puede quedar con centavos: el cliente paga pesos
+      // enteros y el residuo se volvía un saldo a favor imposible de saldar.
+      await service.create(
+        {
+          ...baseCreateDto,
+          retefuenteRate: 0.025,
+          items: [{ description: 'Item A', quantity: 1, unitPrice: 442500 }],
+        },
+        'user-1',
+      );
+
+      const callArg = mockOrdersRepository.create.mock.calls[0][0];
+      expect(Number(callArg.total.toString())).toBe(515513);
+    });
+
     it('should call ordersRepository.create with the correct data structure', async () => {
       await service.create(baseCreateDto, 'user-1');
 
@@ -1119,6 +1145,57 @@ describe('OrdersService', () => {
       expect(mockPrisma.orderItem.deleteMany).toHaveBeenCalledWith({
         where: { id: { in: ['item-2'] } },
       });
+    });
+
+    it('should audit the work order items removed by cascade when editing the order', async () => {
+      // Caso real OP-2026-2315: la OP tiene una OT asociada y la asesora quita un
+      // ítem. Con la FK en RESTRICT esto era un 500; ahora la OT pierde su ítem y
+      // el borrado queda registrado para que producción pueda rastrearlo.
+      mockPrisma.orderItem.findMany.mockResolvedValueOnce([
+        { id: 'item-1' },
+        { id: 'item-2' },
+      ]);
+      mockPrisma.workOrderItem.findMany.mockResolvedValue([
+        {
+          id: 'woi-2',
+          productDescription: 'SERVICIO DE INSTALACIÓN',
+          workOrder: {
+            id: 'wo-1',
+            workOrderNumber: 'OT-2026-0581',
+            status: 'CONFIRMED',
+          },
+        },
+      ]);
+
+      await service.update(
+        'order-1',
+        { items: [{ id: 'item-1', description: 'A', quantity: 1, unitPrice: 10 }] },
+        'user-1',
+      );
+
+      expect(mockPrisma.workOrderItem.findMany).toHaveBeenCalledWith({
+        where: { orderItemId: { in: ['item-2'] } },
+        select: expect.any(Object),
+      });
+      expect(mockAuditLogsService.logDelete).toHaveBeenCalledWith(
+        'WorkOrderItem',
+        'woi-2',
+        expect.objectContaining({ workOrderNumber: 'OT-2026-0581' }),
+        'user-1',
+      );
+    });
+
+    it('should not look up work order items when no item is removed', async () => {
+      mockPrisma.orderItem.findMany.mockResolvedValueOnce([{ id: 'item-1' }]);
+
+      await service.update(
+        'order-1',
+        { items: [{ id: 'item-1', description: 'A', quantity: 1, unitPrice: 10 }] },
+        'user-1',
+      );
+
+      expect(mockPrisma.workOrderItem.findMany).not.toHaveBeenCalled();
+      expect(mockAuditLogsService.logDelete).not.toHaveBeenCalled();
     });
 
     it('should create new items that have no existing id in the database', async () => {
@@ -2158,6 +2235,57 @@ describe('OrdersService', () => {
       expect(mockPrisma.orderItem.delete).toHaveBeenCalledWith({
         where: { id: 'item-1' },
       });
+    });
+
+    it('should audit the work order items dragged along by the cascade', async () => {
+      mockPrisma.workOrderItem.findMany.mockResolvedValue([
+        {
+          id: 'woi-1',
+          productDescription: 'Volantes Carta x 1000',
+          workOrder: {
+            id: 'wo-1',
+            workOrderNumber: 'OT-2026-0581',
+            status: 'CONFIRMED',
+          },
+        },
+      ]);
+
+      await service.removeItem('order-1', 'item-1');
+
+      // Se consulta antes del DELETE: después ya no existe el registro.
+      expect(mockPrisma.workOrderItem.findMany).toHaveBeenCalledWith({
+        where: { orderItemId: { in: ['item-1'] } },
+        select: expect.any(Object),
+      });
+      expect(mockAuditLogsService.logDelete).toHaveBeenCalledWith(
+        'WorkOrderItem',
+        'woi-1',
+        expect.objectContaining({
+          workOrderNumber: 'OT-2026-0581',
+          productDescription: 'Volantes Carta x 1000',
+        }),
+        undefined,
+      );
+    });
+
+    it('should not audit anything when no work order references the item', async () => {
+      mockPrisma.workOrderItem.findMany.mockResolvedValue([]);
+
+      await service.removeItem('order-1', 'item-1');
+
+      expect(mockAuditLogsService.logDelete).not.toHaveBeenCalled();
+    });
+
+    it('should still delete the item when the cascade lookup fails', async () => {
+      // La trazabilidad es accesoria: si el lookup revienta, la edición sigue.
+      mockPrisma.workOrderItem.findMany.mockRejectedValue(new Error('db down'));
+
+      await expect(service.removeItem('order-1', 'item-1')).resolves.toBeDefined();
+
+      expect(mockPrisma.orderItem.delete).toHaveBeenCalledWith({
+        where: { id: 'item-1' },
+      });
+      expect(mockAuditLogsService.logDelete).not.toHaveBeenCalled();
     });
 
     it('should sum non-empty items, discounts and payments in recalculation', async () => {

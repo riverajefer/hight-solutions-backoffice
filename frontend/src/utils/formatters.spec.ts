@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   formatCurrency,
   applyColombianRounding,
+  roundToWholePeso,
   formatDate,
   formatDateShort,
   formatDateTime,
@@ -55,6 +56,18 @@ describe('formatters', () => {
     it('trunca los decimales antes de redondear', () => {
       expect(applyColombianRounding(1025.9)).toBe(1000);
       expect(applyColombianRounding(1041.1)).toBe(1100);
+    });
+  });
+
+  describe('roundToWholePeso', () => {
+    it('elimina los centavos que dejan las retenciones', () => {
+      // Caso real (OP-2026-1644): 442.500 + 84.075 IVA - 11.062,50 retefuente.
+      expect(roundToWholePeso(515512.5)).toBe(515513);
+      expect(roundToWholePeso(83671331.68)).toBe(83671332);
+    });
+
+    it('deja intacto un valor que ya es peso entero', () => {
+      expect(roundToWholePeso(1026306)).toBe(1026306);
     });
   });
 
