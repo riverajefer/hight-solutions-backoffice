@@ -1520,6 +1520,17 @@ export class OrdersService {
       }
 
       await this.ordersRepository.updateStatus(id, status);
+
+      // La orden ya llegó al estado que se pedía, así que cualquier solicitud
+      // pendiente que apuntara ahí dejó de tener algo que decidir. Sin esto se
+      // quedan PENDING para siempre en la pantalla de Solicitudes: las tres que
+      // había en producción eran justamente anulaciones ya ejecutadas.
+      await this.statusChangeRequestsService.closePendingRequestsForReachedStatus(
+        id,
+        status,
+        userId,
+      );
+
       const updatedOrder = await this.findOne(id);
       this.auditLogsService.logOrderChange('UPDATE', id, order, updatedOrder, userId);
       return updatedOrder;
@@ -1617,6 +1628,14 @@ export class OrdersService {
     }
 
     await this.ordersRepository.updateStatus(id, status);
+
+    // Ver la nota en la rama de ANULADO: la solicitud que pedía este estado ya no
+    // tiene nada que decidir.
+    await this.statusChangeRequestsService.closePendingRequestsForReachedStatus(
+      id,
+      status,
+      userId,
+    );
 
     const updatedOrder = await this.findOne(id);
     this.auditLogsService.logOrderChange(

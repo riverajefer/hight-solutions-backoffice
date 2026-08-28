@@ -21,7 +21,7 @@ describe('ClientAdvisorRequestsService', () => {
     create: jest.Mock;
     notifyUsersWithPermission: jest.Mock;
   };
-  let whatsapp: { sendApprovalNotification: jest.Mock };
+  let whatsapp: { sendApprovalNotification: jest.Mock; getPhonesByPermission: jest.Mock };
   let registry: { register: jest.Mock };
 
   const CLIENT = { id: 'client-1', name: 'Cliente ABC' };
@@ -55,6 +55,7 @@ describe('ClientAdvisorRequestsService', () => {
     };
     whatsapp = {
       sendApprovalNotification: jest.fn().mockResolvedValue(undefined),
+      getPhonesByPermission: jest.fn().mockResolvedValue(['573212016229']),
     };
     registry = { register: jest.fn() };
 

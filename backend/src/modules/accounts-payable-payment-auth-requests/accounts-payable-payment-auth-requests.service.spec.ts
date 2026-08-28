@@ -42,7 +42,12 @@ describe('AccountsPayablePaymentAuthRequestsService', () => {
   let service: AccountsPayablePaymentAuthRequestsService;
   let prisma: ReturnType<typeof createMockPrismaService>;
   let notifications: { create: jest.Mock; notifyAllAdmins: jest.Mock };
-  let whatsapp: { sendApprovalNotification: jest.Mock; sendTextMessage: jest.Mock };
+  let whatsapp: {
+    sendApprovalNotification: jest.Mock;
+    sendTextMessage: jest.Mock;
+    getAdminPhones: jest.Mock;
+    getPhonesByPermission: jest.Mock;
+  };
   let registry: { register: jest.Mock };
   let accountsPayable: { registerPaymentFromAuthRequest: jest.Mock };
 
@@ -55,6 +60,8 @@ describe('AccountsPayablePaymentAuthRequestsService', () => {
     whatsapp = {
       sendApprovalNotification: jest.fn().mockResolvedValue(undefined),
       sendTextMessage: jest.fn().mockResolvedValue(undefined),
+      getAdminPhones: jest.fn().mockResolvedValue(['573212016229']),
+      getPhonesByPermission: jest.fn().mockResolvedValue(['573118322699']),
     };
     registry = { register: jest.fn() };
     accountsPayable = {

@@ -65,6 +65,7 @@ const mockStatusChangeRequestsService = {
   requiresAuthorization: jest.fn(),
   hasApprovedRequest: jest.fn(),
   consumeApprovedRequest: jest.fn(),
+  closePendingRequestsForReachedStatus: jest.fn().mockResolvedValue(0),
 };
 
 const mockAdvancePaymentApprovalsService = {

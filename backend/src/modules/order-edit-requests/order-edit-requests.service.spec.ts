@@ -29,6 +29,8 @@ const mockNotificationsService = {
 const mockWhatsappService = {
   sendTemplateMessage: jest.fn().mockResolvedValue('mock-message-id'),
   notificarSolicitudEdicionOP: jest.fn().mockResolvedValue('mock-message-id'),
+  notificarSolicitudConBotones: jest.fn().mockResolvedValue(undefined),
+  getAdminPhones: jest.fn().mockResolvedValue(['573212016229']),
 };
 
 const mockApprovalRegistry = {

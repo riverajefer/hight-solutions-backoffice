@@ -451,7 +451,65 @@ export class OrderStatusChangeRequestsService implements OnModuleInit, ApprovalR
   /**
    * Obtener todas las solicitudes pendientes
    */
+  /**
+   * Solicitudes de cambio de estado que el administrador todavía tiene que responder.
+   *
+   * Filtrar solo por `status: PENDING` deja fantasmas: si la orden llega al estado
+   * pedido por otra vía —un admin la anula directamente en vez de responder la
+   * solicitud— la fila se queda PENDING y sigue apareciendo aunque ya no haya nada
+   * que decidir. Las tres pendientes que había en producción eran exactamente eso:
+   * las tres órdenes ya estaban ANULADO, que es lo que se había solicitado.
+   *
+   * `NOT { order: { status: requestedStatus } }` no se puede expresar en Prisma
+   * comparando dos columnas, así que el descarte se hace en memoria. Son listas de
+   * decenas de filas, no de miles.
+   */
   async findPendingRequests(orderId?: string) {
+    const requests = await this.findPendingRequestRows(orderId);
+
+    return requests.filter(
+      (request) => request.order?.status !== request.requestedStatus,
+    );
+  }
+
+  /**
+   * Cierra las solicitudes que pedían justamente el estado al que la orden acaba
+   * de llegar. Se llama cuando el cambio se hizo por fuera de la solicitud.
+   *
+   * Se marcan APPROVED porque lo que el solicitante pidió sí ocurrió, y como
+   * revisor queda quien ejecutó el cambio, que es la atribución real.
+   *
+   * Devuelve cuántas cerró.
+   */
+  async closePendingRequestsForReachedStatus(
+    orderId: string,
+    reachedStatus: OrderStatus,
+    reviewerId: string,
+  ): Promise<number> {
+    const { count } = await this.prisma.orderStatusChangeRequest.updateMany({
+      where: {
+        orderId,
+        requestedStatus: reachedStatus,
+        status: EditRequestStatus.PENDING,
+      },
+      data: {
+        status: EditRequestStatus.APPROVED,
+        reviewedById: reviewerId,
+        reviewedAt: new Date(),
+        reviewNotes: 'La orden fue llevada al estado solicitado',
+      },
+    });
+
+    if (count > 0) {
+      this.logger.log(
+        `Orden ${orderId}: se cerraron ${count} solicitud(es) de cambio a ${reachedStatus} al alcanzarse el estado`,
+      );
+    }
+
+    return count;
+  }
+
+  private async findPendingRequestRows(orderId?: string) {
     return this.prisma.orderStatusChangeRequest.findMany({
       where: {
         ...(orderId ? { orderId } : {}),

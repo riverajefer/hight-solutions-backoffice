@@ -40,7 +40,7 @@ describe('CashMovementVoidRequestsService', () => {
   let service: CashMovementVoidRequestsService;
   let prisma: ReturnType<typeof createMockPrismaService>;
   let notifications: { create: jest.Mock; notifyAllAdmins: jest.Mock };
-  let whatsapp: { sendApprovalNotification: jest.Mock };
+  let whatsapp: { sendApprovalNotification: jest.Mock; getAdminPhones: jest.Mock };
   let registry: { register: jest.Mock };
   let cashMovement: { voidMovement: jest.Mock };
 
@@ -50,7 +50,10 @@ describe('CashMovementVoidRequestsService', () => {
       create: jest.fn().mockResolvedValue(undefined),
       notifyAllAdmins: jest.fn().mockResolvedValue(undefined),
     };
-    whatsapp = { sendApprovalNotification: jest.fn().mockResolvedValue(undefined) };
+    whatsapp = {
+      sendApprovalNotification: jest.fn().mockResolvedValue(undefined),
+      getAdminPhones: jest.fn().mockResolvedValue(['573212016229']),
+    };
     registry = { register: jest.fn() };
     cashMovement = { voidMovement: jest.fn().mockResolvedValue(undefined) };
 

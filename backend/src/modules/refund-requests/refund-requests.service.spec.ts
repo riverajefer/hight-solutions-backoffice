@@ -22,7 +22,7 @@ describe('RefundRequestsService', () => {
   let service: RefundRequestsService;
   let prisma: MockPrismaService;
   let notifications: { notifyUsersWithPermission: jest.Mock; create: jest.Mock };
-  let whatsapp: { sendApprovalNotification: jest.Mock };
+  let whatsapp: { sendApprovalNotification: jest.Mock; getPhonesByPermission: jest.Mock };
   let wsGateway: {
     emitApprovalCreated: jest.Mock;
     emitApprovalUpdated: jest.Mock;
@@ -39,6 +39,7 @@ describe('RefundRequestsService', () => {
     };
     whatsapp = {
       sendApprovalNotification: jest.fn().mockResolvedValue(undefined),
+      getPhonesByPermission: jest.fn().mockResolvedValue(['573212016229']),
     };
     wsGateway = {
       emitApprovalCreated: jest.fn(),
