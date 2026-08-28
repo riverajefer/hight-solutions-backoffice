@@ -348,6 +348,7 @@ export class ExpenseOrdersService {
       });
 
       const isAdmin = user?.role?.name === 'admin';
+      let authorizedById: string;
 
       if (!isAdmin) {
         const hasApproval = await this.authRequestsService.hasApprovedRequest(id, currentUser.id);
@@ -363,12 +364,24 @@ export class ExpenseOrdersService {
           authorizedById: approvedRequest!.reviewedById!,
           authorizedAt: new Date(),
         });
+        authorizedById = approvedRequest!.reviewedById!;
       } else {
         await this.repository.updateStatus(id, dto.status, {
           authorizedById: currentUser.id,
           authorizedAt: new Date(),
         });
+        authorizedById = currentUser.id;
       }
+
+      // La OG ya tiene la firma del admin, así que ninguna solicitud de
+      // autorización sigue teniendo algo que pedir. Si no se cierran acá, quedan
+      // PENDING para siempre en "Solicitudes" aunque la OG ya esté autorizada o
+      // pagada: así se acumularon 84 en producción. Cubre también las solicitudes
+      // de otros usuarios para la misma OG, que `consumeApprovedRequest` no toca.
+      await this.authRequestsService.closePendingRequestsForAuthorizedOrder(
+        id,
+        authorizedById,
+      );
 
       return this.repository.findById(id);
     }
