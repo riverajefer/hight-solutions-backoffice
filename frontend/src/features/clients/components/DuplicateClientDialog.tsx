@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Alert,
   Box,
@@ -68,10 +68,18 @@ export const DuplicateClientDialog: React.FC<DuplicateClientDialogProps> = ({
   const [reason, setReason] = useState('');
   const [requested, setRequested] = useState<string[]>([]);
 
+  // El botón se deshabilita hasta el siguiente render de React, así que dos clics
+  // en el mismo frame enviarían dos solicitudes para el mismo cliente. Se lleva el
+  // control por clientId para no bloquear pedir otro cliente mientras uno viaja.
+  const submitting = useRef<Set<string>>(new Set());
+
   const { createMutation } = useClientAdvisorRequests(requestingFor ?? undefined);
 
   const handleRequest = async (clientId: string) => {
     if (!user?.id) return;
+    if (submitting.current.has(clientId)) return;
+
+    submitting.current.add(clientId);
     try {
       await createMutation.mutateAsync({
         clientId,
@@ -89,6 +97,8 @@ export const DuplicateClientDialog: React.FC<DuplicateClientDialogProps> = ({
       const message =
         err instanceof Error ? err.message : 'No se pudo enviar la solicitud';
       enqueueSnackbar(message, { variant: 'error' });
+    } finally {
+      submitting.current.delete(clientId);
     }
   };
 

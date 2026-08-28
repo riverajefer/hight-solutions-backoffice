@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -33,6 +33,11 @@ export const StatusChangeAuthRequestDialog: React.FC<StatusChangeAuthRequestDial
   const [reason, setReason] = useState('');
   const { enqueueSnackbar } = useSnackbar();
 
+  // `disabled={mutation.isPending}` solo surte efecto después de que React vuelve
+  // a renderizar, así que dos clics en el mismo frame envían dos solicitudes. El
+  // ref se marca antes de salir del handler.
+  const submitting = useRef(false);
+
   const createRequestMutation = useMutation({
     mutationFn: orderStatusChangeRequestsApi.create,
     onSuccess: () => {
@@ -49,14 +54,20 @@ export const StatusChangeAuthRequestDialog: React.FC<StatusChangeAuthRequestDial
         { variant: 'error' }
       );
     },
+    onSettled: () => {
+      submitting.current = false;
+    },
   });
 
   const handleSubmit = () => {
+    if (submitting.current) return;
+
     if (!reason.trim()) {
       enqueueSnackbar('Por favor ingrese una razón para el cambio', { variant: 'warning' });
       return;
     }
 
+    submitting.current = true;
     createRequestMutation.mutate({
       orderId: order.id,
       currentStatus: order.status,
