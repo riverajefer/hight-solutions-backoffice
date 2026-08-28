@@ -13,7 +13,10 @@ describe('DiscountApprovalsService', () => {
   let notificationsService: jest.Mocked<NotificationsService>;
 
   const mockRegistry = { register: jest.fn() };
-  const mockWhatsapp = { sendApprovalNotification: jest.fn().mockResolvedValue(undefined) };
+  const mockWhatsapp = {
+    sendApprovalNotification: jest.fn().mockResolvedValue(undefined),
+    getPhonesByPermission: jest.fn().mockResolvedValue([]),
+  };
 
   beforeEach(async () => {
     prisma = {
@@ -252,15 +255,18 @@ describe('DiscountApprovalsService', () => {
         order: { id: 'order-1', orderNumber: 'OP-001' },
       });
       (prisma.order.update as jest.Mock).mockResolvedValue({});
-      // Mock findMany with reviewers having phones (used inside notifyReviewersByWhatsApp)
-      (prisma.user.findMany as jest.Mock).mockResolvedValue([{ phone: '+573001234567' }]);
+      // Los teléfonos llegan ya normalizados y deduplicados desde WhatsappService
+      mockWhatsapp.getPhonesByPermission.mockResolvedValue(['573001234567']);
 
       await service.createFromDiscountApplication('user-1', 'order-1', 'disc-1');
       // Flush fire-and-forget promises
       await new Promise<void>((resolve) => setImmediate(resolve));
 
+      expect(mockWhatsapp.getPhonesByPermission).toHaveBeenCalledWith(
+        'approve_discounts',
+      );
       expect(mockWhatsapp.sendApprovalNotification).toHaveBeenCalledWith(
-        expect.objectContaining({ telefono: '+573001234567' }),
+        expect.objectContaining({ telefono: '573001234567' }),
       );
     });
 
@@ -276,7 +282,7 @@ describe('DiscountApprovalsService', () => {
         order: { id: 'order-1', orderNumber: 'OP-001' },
       });
       (prisma.order.update as jest.Mock).mockResolvedValue({});
-      (prisma.user.findMany as jest.Mock).mockRejectedValue(new Error('DB error'));
+      mockWhatsapp.getPhonesByPermission.mockRejectedValue(new Error('DB error'));
 
       // Should not throw – fire and forget
       await expect(service.createFromDiscountApplication('user-1', 'order-1', 'disc-1')).resolves.toBeDefined();
