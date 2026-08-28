@@ -471,15 +471,69 @@ export class ExpenseOrderAuthRequestsService implements OnModuleInit, ApprovalRe
   /**
    * Obtener solicitudes pendientes (para admins)
    */
+  /**
+   * Solicitudes que el administrador todavía tiene que responder.
+   *
+   * No basta con filtrar por `status: PENDING`: si la OG se autoriza por otra vía
+   * —el admin firma directo sobre la OG en vez de responder la solicitud— la fila
+   * se queda PENDING y la solicitud sigue apareciendo aunque ya no haya nada que
+   * autorizar. En producción eran 84 de 106.
+   *
+   * La solicitud solo tiene sentido mientras la OG espera la firma del admin, es
+   * decir en DRAFT o CREATED. Desde ADMIN_AUTHORIZED en adelante ya se firmó.
+   */
   async findPendingRequests() {
     return this.prisma.expenseOrderAuthRequest.findMany({
-      where: { status: EditRequestStatus.PENDING },
+      where: {
+        status: EditRequestStatus.PENDING,
+        expenseOrder: {
+          status: {
+            in: [ExpenseOrderStatus.DRAFT, ExpenseOrderStatus.CREATED],
+          },
+        },
+      },
       include: {
         requestedBy: { select: USER_SELECT },
         expenseOrder: { select: { id: true, ogNumber: true, status: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  /**
+   * Cierra las solicitudes que quedaron pendientes cuando la OG ya recibió la
+   * firma del admin por otra vía.
+   *
+   * Se marcan APPROVED y no EXPIRED porque lo que el solicitante pidió sí ocurrió,
+   * solo que por otro camino: se guarda como revisor a quien autorizó la OG, para
+   * que el historial de autorizaciones cuente lo que realmente pasó.
+   *
+   * Devuelve cuántas cerró.
+   */
+  async closePendingRequestsForAuthorizedOrder(
+    expenseOrderId: string,
+    authorizedById: string,
+  ): Promise<number> {
+    const { count } = await this.prisma.expenseOrderAuthRequest.updateMany({
+      where: {
+        expenseOrderId,
+        status: EditRequestStatus.PENDING,
+      },
+      data: {
+        status: EditRequestStatus.APPROVED,
+        reviewedById: authorizedById,
+        reviewedAt: new Date(),
+        reviewNotes: 'Autorizada directamente sobre la OG',
+      },
+    });
+
+    if (count > 0) {
+      this.logger.log(
+        `OG ${expenseOrderId}: se cerraron ${count} solicitud(es) de autorización pendientes al firmarse la OG`,
+      );
+    }
+
+    return count;
   }
 
   /**

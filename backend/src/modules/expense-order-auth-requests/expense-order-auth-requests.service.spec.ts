@@ -10,7 +10,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { ApprovalRequestRegistry } from '../whatsapp/approval-request-registry';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { ExpenseOrdersService } from '../expense-orders/expense-orders.service';
-import { EditRequestStatus, NotificationType } from '../../generated/prisma';
+import { EditRequestStatus, ExpenseOrderStatus, NotificationType } from '../../generated/prisma';
 
 describe('ExpenseOrderAuthRequestsService', () => {
   let service: ExpenseOrderAuthRequestsService;
@@ -30,6 +30,7 @@ describe('ExpenseOrderAuthRequestsService', () => {
       create: jest.fn(),
       update: jest.fn(),
       findMany: jest.fn(),
+      updateMany: jest.fn(),
     },
   };
 
@@ -340,11 +341,25 @@ describe('ExpenseOrderAuthRequestsService', () => {
   });
 
   describe('Queries', () => {
-    it('findPendingRequests should call prisma.findMany with pending status', async () => {
+    // La solicitud solo tiene sentido mientras la OG espera la firma del admin.
+    // Filtrar solo por status PENDING dejaba en la pantalla solicitudes de OG ya
+    // autorizadas o pagadas: en producción eran 84 de 106.
+    it('findPendingRequests solo trae solicitudes de OG que aún esperan firma', async () => {
       mockPrismaService.expenseOrderAuthRequest.findMany.mockResolvedValue([mockRequest]);
+
       await service.findPendingRequests();
+
       expect(mockPrismaService.expenseOrderAuthRequest.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { status: EditRequestStatus.PENDING } })
+        expect.objectContaining({
+          where: {
+            status: EditRequestStatus.PENDING,
+            expenseOrder: {
+              status: {
+                in: [ExpenseOrderStatus.DRAFT, ExpenseOrderStatus.CREATED],
+              },
+            },
+          },
+        })
       );
     });
 
@@ -353,7 +368,35 @@ describe('ExpenseOrderAuthRequestsService', () => {
       await service.findAll();
       expect(mockPrismaService.expenseOrderAuthRequest.findMany).toHaveBeenCalled();
     });
+  });
 
+  describe('closePendingRequestsForAuthorizedOrder', () => {
+    it('marca APPROVED las pendientes de la OG y guarda al autorizador como revisor', async () => {
+      mockPrismaService.expenseOrderAuthRequest.updateMany.mockResolvedValue({ count: 2 });
+
+      const cerradas = await service.closePendingRequestsForAuthorizedOrder(OG_ID, ADMIN_ID);
+
+      expect(cerradas).toBe(2);
+      expect(mockPrismaService.expenseOrderAuthRequest.updateMany).toHaveBeenCalledWith({
+        where: { expenseOrderId: OG_ID, status: EditRequestStatus.PENDING },
+        data: expect.objectContaining({
+          status: EditRequestStatus.APPROVED,
+          reviewedById: ADMIN_ID,
+          reviewNotes: 'Autorizada directamente sobre la OG',
+        }),
+      });
+    });
+
+    it('no falla cuando la OG no tenía solicitudes pendientes', async () => {
+      mockPrismaService.expenseOrderAuthRequest.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(
+        service.closePendingRequestsForAuthorizedOrder(OG_ID, ADMIN_ID),
+      ).resolves.toBe(0);
+    });
+  });
+
+  describe('Queries (resto)', () => {
     it('findByUser should call prisma.findMany with userId', async () => {
       mockPrismaService.expenseOrderAuthRequest.findMany.mockResolvedValue([mockRequest]);
       await service.findByUser(USER_ID);

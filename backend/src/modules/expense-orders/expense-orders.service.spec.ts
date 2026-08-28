@@ -52,6 +52,7 @@ describe('ExpenseOrdersService', () => {
       hasApprovedRequest: jest.fn(),
       getApprovedRequest: jest.fn(),
       consumeApprovedRequest: jest.fn(),
+      closePendingRequestsForAuthorizedOrder: jest.fn().mockResolvedValue(0),
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -264,6 +265,42 @@ describe('ExpenseOrdersService', () => {
       await service.updateStatus('order-1', { status: ExpenseOrderStatus.ADMIN_AUTHORIZED } as any, { id: 'admin1', roleId: 'r1' } as any);
 
       expect(repository.updateStatus).toHaveBeenCalledWith('order-1', 'ADMIN_AUTHORIZED', { authorizedById: 'admin1', authorizedAt: expect.any(Date) });
+    });
+
+    // Sin esto las solicitudes quedaban PENDING para siempre aunque la OG ya
+    // estuviera firmada, y seguían apareciendo en la pantalla de "Solicitudes".
+    it('cierra las solicitudes pendientes de la OG al firmarla el admin', async () => {
+      (repository.findById as jest.Mock).mockResolvedValue({
+        id: 'order-1',
+        status: ExpenseOrderStatus.CREATED,
+      } as any);
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ role: { name: 'admin' } } as any);
+      (repository.updateStatus as jest.Mock).mockResolvedValue({ id: 'order-1', status: ExpenseOrderStatus.ADMIN_AUTHORIZED } as any);
+
+      await service.updateStatus('order-1', { status: ExpenseOrderStatus.ADMIN_AUTHORIZED } as any, { id: 'admin1', roleId: 'r1' } as any);
+
+      expect(authRequestsService.closePendingRequestsForAuthorizedOrder).toHaveBeenCalledWith(
+        'order-1',
+        'admin1',
+      );
+    });
+
+    it('cierra las pendientes con el admin que aprobó cuando autoriza un no-admin', async () => {
+      (repository.findById as jest.Mock).mockResolvedValue({
+        id: 'order-1',
+        status: ExpenseOrderStatus.CREATED,
+      } as any);
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ role: { name: 'user' } } as any);
+      (authRequestsService.hasApprovedRequest as jest.Mock).mockResolvedValue(true);
+      (authRequestsService.getApprovedRequest as jest.Mock).mockResolvedValue({ reviewedById: 'admin-que-aprobo' } as any);
+      (repository.updateStatus as jest.Mock).mockResolvedValue({ id: 'order-1', status: ExpenseOrderStatus.ADMIN_AUTHORIZED } as any);
+
+      await service.updateStatus('order-1', { status: ExpenseOrderStatus.ADMIN_AUTHORIZED } as any, { id: 'u1', roleId: 'r1' } as any);
+
+      expect(authRequestsService.closePendingRequestsForAuthorizedOrder).toHaveBeenCalledWith(
+        'order-1',
+        'admin-que-aprobo',
+      );
     });
 
     it('should throw ForbiddenException if non-admin tries to pre-authorize without approved request', async () => {
