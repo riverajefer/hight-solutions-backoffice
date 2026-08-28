@@ -827,6 +827,24 @@ describe('OrdersService', () => {
       expect(Number(callArg.total.toString())).toBe(119000);
     });
 
+    it('should round the total to a whole peso when there are retenciones', async () => {
+      // Caso real (OP-2026-1644): 442.500 + 84.075 IVA − 11.062,50 retefuente
+      // = 515.512,50. Sin retenciones aplicaría el redondeo comercial; con ellas
+      // no, pero el total no puede quedar con centavos: el cliente paga pesos
+      // enteros y el residuo se volvía un saldo a favor imposible de saldar.
+      await service.create(
+        {
+          ...baseCreateDto,
+          retefuenteRate: 0.025,
+          items: [{ description: 'Item A', quantity: 1, unitPrice: 442500 }],
+        },
+        'user-1',
+      );
+
+      const callArg = mockOrdersRepository.create.mock.calls[0][0];
+      expect(Number(callArg.total.toString())).toBe(515513);
+    });
+
     it('should call ordersRepository.create with the correct data structure', async () => {
       await service.create(baseCreateDto, 'user-1');
 

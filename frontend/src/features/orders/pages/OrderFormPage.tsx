@@ -58,7 +58,7 @@ import { useAuthStore } from '../../../store/authStore';
 import { enqueueSnackbar } from 'notistack';
 import { storageApi } from '../../../api/storage.api';
 import { useQueryClient } from '@tanstack/react-query';
-import { applyColombianRounding } from '../../../utils/formatters';
+import { applyColombianRounding, roundToWholePeso } from '../../../utils/formatters';
 
 // ============================================================
 // VALIDATION SCHEMA
@@ -447,9 +447,13 @@ export const OrderFormPage: React.FC = () => {
   const reteIVAAmount = applyTax ? tax * (reteIVAActualRate / 100) : 0;
 
   const rawTotal = subtotal - retefuenteAmount - reteICAAmount + tax - reteIVAAmount + colorProofPrice;
-  // Si hay retenciones el total debe ser exacto (sin redondeo comercial).
+  // Con retenciones no aplica el redondeo comercial (distorsiona la base del
+  // certificado), pero sí el redondeo a peso entero: los centavos quedarían
+  // como saldo a favor que nadie puede saldar.
   const hasRetencionesForTotal = retefuenteAmount > 0 || reteICAAmount > 0 || reteIVAAmount > 0;
-  const total = hasRetencionesForTotal ? rawTotal : applyColombianRounding(rawTotal);
+  const total = hasRetencionesForTotal
+    ? roundToWholePeso(rawTotal)
+    : applyColombianRounding(rawTotal);
 
   const saldoAFavor = selectedClient?.saldoAFavor || 0;
   const useCreditBalance = watch('useCreditBalance');

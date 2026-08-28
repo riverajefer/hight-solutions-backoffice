@@ -103,6 +103,18 @@ function applyColombianRounding(value: Prisma.Decimal): Prisma.Decimal {
 }
 
 /**
+ * Redondea el total al peso entero. Se usa cuando hay retenciones, donde el
+ * redondeo comercial a múltiplos de 100 distorsionaría la base del certificado
+ * de retención, pero dejar el total con centavos tampoco sirve: el cliente paga
+ * pesos enteros y el residuo (0,50) queda como un saldo a favor imposible de
+ * saldar. Se redondea igual que `formatCurrency` en el frontend (half-up), para
+ * que lo que el asesor ve cobrar sea exactamente el total almacenado.
+ */
+function roundToWholePeso(value: Prisma.Decimal): Prisma.Decimal {
+  return value.toDecimalPlaces(0, Prisma.Decimal.ROUND_HALF_UP);
+}
+
+/**
  * Rastro de una edición de pago que modificó un movimiento de caja cuya sesión
  * ya estaba cerrada. Se permite hacerlo (corregir un monto mal digitado no
  * puede quedar bloqueado), pero queda registrado: el arqueo de esa sesión
@@ -595,10 +607,14 @@ export class OrdersService {
       .sub(reteIVAAmount)
       .sub(discountAmount)
       .add(colorProofPrice);
-    // Si hay retenciones el total debe ser exacto (sin redondeo comercial).
+    // Con retenciones no aplica el redondeo comercial (distorsiona la base del
+    // certificado), pero sí el redondeo a peso entero: los centavos quedarían
+    // como saldo a favor que nadie puede saldar.
     const hasRetenciones =
       retefuenteAmount.gt(0) || reteICAAmount.gt(0) || reteIVAAmount.gt(0);
-    const total = hasRetenciones ? rawTotal : applyColombianRounding(rawTotal);
+    const total = hasRetenciones
+      ? roundToWholePeso(rawTotal)
+      : applyColombianRounding(rawTotal);
 
     // Manejar pagos iniciales (uno o múltiples)
     let paidAmount = new Prisma.Decimal(0);
@@ -2432,10 +2448,14 @@ export class OrdersService {
       .sub(reteIVAAmount)
       .sub(discountAmount)
       .add(colorProofPrice);
-    // Si hay retenciones el total debe ser exacto (sin redondeo comercial).
+    // Con retenciones no aplica el redondeo comercial (distorsiona la base del
+    // certificado), pero sí el redondeo a peso entero: los centavos quedarían
+    // como saldo a favor que nadie puede saldar.
     const hasRetenciones =
       retefuenteAmount.gt(0) || reteICAAmount.gt(0) || reteIVAAmount.gt(0);
-    const total = hasRetenciones ? rawTotal : applyColombianRounding(rawTotal);
+    const total = hasRetenciones
+      ? roundToWholePeso(rawTotal)
+      : applyColombianRounding(rawTotal);
 
     // Calcular paidAmount sumando todos los pagos, neto de lo ya devuelto:
     // los Payment no se borran al aprobar una devolución.
