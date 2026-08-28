@@ -40,6 +40,15 @@ export const applyColombianRounding = (value: number): number => {
 };
 
 /**
+ * Redondea el total al peso entero. Se usa cuando hay retenciones, donde el
+ * redondeo comercial a múltiplos de 100 distorsionaría la base del certificado
+ * de retención, pero dejar centavos tampoco sirve: el cliente paga pesos
+ * enteros y el residuo queda como saldo a favor imposible de saldar.
+ * Debe coincidir con `roundToWholePeso` del backend.
+ */
+export const roundToWholePeso = (value: number): number => Math.round(value);
+
+/**
  * Formatea una fecha en formato largo (ej: "15 de enero de 2024")
  * @param date - Fecha en formato string o Date
  */

@@ -424,6 +424,34 @@ export class OrdersRepository {
 
     if (!order) return null;
 
+    // Qué ítems ya están en una OT. Va en consulta aparte y no dentro de
+    // `selectFields` porque ese select lo comparten los listados paginados, que no
+    // necesitan el dato y pagarían un join por ítem en cada página. Aquí es una
+    // sola consulta sobre el índice `work_order_items.order_item_id`.
+    const workOrderLinks = await this.prisma.workOrderItem.findMany({
+      where: { orderItem: { orderId: id } },
+      select: {
+        orderItemId: true,
+        workOrder: {
+          select: { id: true, workOrderNumber: true, status: true },
+        },
+      },
+    });
+
+    const workOrdersByItem = new Map<string, typeof workOrderLinks[number]['workOrder'][]>();
+    for (const link of workOrderLinks) {
+      const current = workOrdersByItem.get(link.orderItemId) ?? [];
+      current.push(link.workOrder);
+      workOrdersByItem.set(link.orderItemId, current);
+    }
+
+    const itemsWithWorkOrders = order.items.map((item) => ({
+      ...item,
+      workOrders: workOrdersByItem.get(item.id) ?? [],
+    }));
+
+    order.items = itemsWithWorkOrders as typeof order.items;
+
     let processedClient: any = order.client;
     if (order.client) {
       const { orders, advisors, ...clientRest } = order.client as any;

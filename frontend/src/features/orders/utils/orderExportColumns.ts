@@ -25,9 +25,10 @@ const num = (value: string | null | undefined): number => {
  *   Total = Subtotal − Retefuente − ReteICA + IVA − ReteIVA
  *           − Descuentos + Prueba de color + Ajuste por redondeo
  *
- * El ajuste sale del redondeo comercial colombiano, que el backend aplica solo
- * cuando la orden no tiene retenciones. Se expone como columna propia para que
- * la resta cierre exacta y no quede como una diferencia sin explicación.
+ * El ajuste sale del redondeo que aplica el backend: comercial (al múltiplo de
+ * 100) cuando la orden no tiene retenciones, y a peso entero cuando sí las
+ * tiene. Se expone como columna propia para que la resta cierre exacta y no
+ * quede como una diferencia sin explicación.
  */
 const retefuenteAmount = (o: Order): number =>
   num(o.subtotal) * num(o.retefuenteRate);

@@ -21,6 +21,7 @@ const mockOrderRow = {
   total: '119.00',
   paidAmount: '0.00',
   balance: '119.00',
+  items: [{ id: 'item-1' }, { id: 'item-2' }],
 };
 
 describe('OrdersRepository', () => {
@@ -38,6 +39,9 @@ describe('OrdersRepository', () => {
     }).compile();
 
     repository = module.get<OrdersRepository>(OrdersRepository);
+
+    // Por defecto ningún ítem está en una OT (findById consulta el vínculo).
+    (prisma.workOrderItem.findMany as jest.Mock).mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -254,6 +258,40 @@ describe('OrdersRepository', () => {
       const result = await repository.findById('bad-id');
 
       expect(result).toBeNull();
+    });
+
+    it('should attach to each item the work orders that already include it', async () => {
+      // El frontend usa esto para advertir antes de eliminar el ítem: el borrado
+      // se propaga a la OT.
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue(mockOrderRow);
+      const workOrder = {
+        id: 'wo-1',
+        workOrderNumber: 'OT-2026-0581',
+        status: 'CONFIRMED',
+      };
+      (prisma.workOrderItem.findMany as jest.Mock).mockResolvedValue([
+        { orderItemId: 'item-1', workOrder },
+      ]);
+
+      const result = await repository.findById('order-1');
+
+      const items = (result as any).items;
+      expect(items[0].workOrders).toEqual([workOrder]);
+      // El ítem que no está en ninguna OT queda con la lista vacía, no undefined.
+      expect(items[1].workOrders).toEqual([]);
+    });
+
+    it('should look up work order links with a single indexed query, not per item', async () => {
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue(mockOrderRow);
+
+      await repository.findById('order-1');
+
+      expect(prisma.workOrderItem.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.workOrderItem.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { orderItem: { orderId: 'order-1' } },
+        }),
+      );
     });
   });
 
