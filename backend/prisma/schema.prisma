@@ -913,6 +913,7 @@ enum ApPaymentAuthRequestStatus {
   COMPLETED // Caja autorizó y registró el pago
   ADMIN_REJECTED // Admin rechazó
   CAJA_REJECTED // Caja rechazó
+  EXPIRED // Vencida sin respuesta (barrido automático)
 }
 
 model EditableOrderStatus {

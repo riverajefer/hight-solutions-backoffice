@@ -5,7 +5,11 @@ import {
 } from './approval-expiry.service';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { EditRequestStatus, NotificationType } from '../../generated/prisma';
+import {
+  ApPaymentAuthRequestStatus,
+  EditRequestStatus,
+  NotificationType,
+} from '../../generated/prisma';
 
 describe('ApprovalExpiryService', () => {
   let service: ApprovalExpiryService;
@@ -32,6 +36,7 @@ describe('ApprovalExpiryService', () => {
       cashMovementVoidRequest: emptyDelegate(),
       clientAdvisorRequest: emptyDelegate(),
       advisorChangeRequest: emptyDelegate(),
+      accountPayablePaymentAuthRequest: emptyDelegate(),
       order: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
     };
 
@@ -138,6 +143,41 @@ describe('ApprovalExpiryService', () => {
       await service.expireStaleRequests();
 
       expect(prisma.order.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
+  // Las solicitudes de pago de CP tienen su propia máquina de estados de dos
+  // pasos y sus propios nombres de campo, así que no pueden usar los del resto.
+  describe('pago de cuenta por pagar', () => {
+    it('usa su propio enum y sus propios campos de constancia', async () => {
+      prisma.accountPayablePaymentAuthRequest.findMany.mockResolvedValue([
+        { id: 'ap-pay-1', requestedById: 'user-1' },
+      ]);
+
+      await service.expireStaleRequests();
+
+      const findArgs =
+        prisma.accountPayablePaymentAuthRequest.findMany.mock.calls[0][0];
+      expect(findArgs.where.status).toBe(ApPaymentAuthRequestStatus.PENDING);
+
+      expect(prisma.accountPayablePaymentAuthRequest.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['ap-pay-1'] } },
+        data: expect.objectContaining({
+          status: ApPaymentAuthRequestStatus.EXPIRED,
+          adminReviewedAt: expect.any(Date),
+          adminNotes: expect.any(String),
+        }),
+      });
+    });
+
+    it('no toca las que ya llegaron a ADMIN_APPROVED', async () => {
+      await service.expireStaleRequests();
+
+      const findArgs =
+        prisma.accountPayablePaymentAuthRequest.findMany.mock.calls[0][0];
+      expect(findArgs.where.status).not.toBe(
+        ApPaymentAuthRequestStatus.ADMIN_APPROVED,
+      );
     });
   });
 

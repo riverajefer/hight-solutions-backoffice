@@ -2,7 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { EditRequestStatus, NotificationType } from '../../generated/prisma';
+import {
+  ApPaymentAuthRequestStatus,
+  EditRequestStatus,
+  NotificationType,
+} from '../../generated/prisma';
 
 /**
  * Días sin respuesta después de los cuales una solicitud se da por abandonada.
@@ -30,9 +34,25 @@ interface ExpirableRequestType {
     findMany: (args: any) => Promise<any[]>;
     updateMany: (args: any) => Promise<{ count: number }>;
   };
+  /**
+   * Valor de `status` que significa "nadie la ha respondido".
+   * Casi todos usan EditRequestStatus, pero las solicitudes de pago de CP tienen
+   * su propia máquina de estados de dos pasos.
+   */
+  pendingStatus?: string;
+  /** Valor terminal al que se lleva. */
+  expiredStatus?: string;
+  /** Campos donde queda constancia; los nombres varían entre modelos. */
+  closeFields?: (note: string) => Record<string, unknown>;
   /** Solo para las solicitudes que espejan su estado en la orden. */
   orderMirrorField?: OrderMirrorField;
 }
+
+/** Constancia estándar: la usan los 12 modelos que siguen EditRequestStatus. */
+const defaultCloseFields = (note: string) => ({
+  reviewedAt: new Date(),
+  reviewNotes: note,
+});
 
 const EXPIRABLE_REQUEST_TYPES: ExpirableRequestType[] = [
   {
@@ -96,6 +116,18 @@ const EXPIRABLE_REQUEST_TYPES: ExpirableRequestType[] = [
     model: 'advisorChangeRequest',
     label: 'cambio de asesor',
     delegate: (p) => p.advisorChangeRequest as any,
+  },
+  {
+    // Máquina de estados propia, de dos pasos (Admin → Caja), con sus propios
+    // nombres de campo. Solo se vencen las que están en PENDING: una que ya llegó
+    // a ADMIN_APPROVED fue aprobada por un administrador y lo que falta es la
+    // firma de Caja, que es otra bandeja y otra decisión.
+    model: 'accountPayablePaymentAuthRequest',
+    label: 'pago de cuenta por pagar',
+    delegate: (p) => p.accountPayablePaymentAuthRequest as any,
+    pendingStatus: ApPaymentAuthRequestStatus.PENDING,
+    expiredStatus: ApPaymentAuthRequestStatus.EXPIRED,
+    closeFields: (note) => ({ adminReviewedAt: new Date(), adminNotes: note }),
   },
 ];
 
@@ -163,7 +195,7 @@ export class ApprovalExpiryService {
 
     const stale = await delegate.findMany({
       where: {
-        status: EditRequestStatus.PENDING,
+        status: type.pendingStatus ?? EditRequestStatus.PENDING,
         createdAt: { lt: cutoff },
       },
       select: {
@@ -176,13 +208,13 @@ export class ApprovalExpiryService {
     if (stale.length === 0) return 0;
 
     const ids = stale.map((request) => request.id);
+    const note = `Vencida automáticamente tras ${APPROVAL_EXPIRY_DAYS} días sin respuesta`;
 
     await delegate.updateMany({
       where: { id: { in: ids } },
       data: {
-        status: EditRequestStatus.EXPIRED,
-        reviewedAt: new Date(),
-        reviewNotes: `Vencida automáticamente tras ${APPROVAL_EXPIRY_DAYS} días sin respuesta`,
+        status: type.expiredStatus ?? EditRequestStatus.EXPIRED,
+        ...(type.closeFields ?? defaultCloseFields)(note),
       },
     });
 
