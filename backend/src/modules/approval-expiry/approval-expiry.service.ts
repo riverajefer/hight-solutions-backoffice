@@ -1,8 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
+import {
+  BUSINESS_TIMEZONE,
+  businessToday,
+  startOfDay,
+} from '../../common/utils/date-range.util';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { EditRequestStatus, NotificationType } from '../../generated/prisma';
+import {
+  ApPaymentAuthRequestStatus,
+  EditRequestStatus,
+  NotificationType,
+} from '../../generated/prisma';
 
 /**
  * Días sin respuesta después de los cuales una solicitud se da por abandonada.
@@ -30,9 +39,25 @@ interface ExpirableRequestType {
     findMany: (args: any) => Promise<any[]>;
     updateMany: (args: any) => Promise<{ count: number }>;
   };
+  /**
+   * Estados que cuentan como "sin resolver". Casi todos usan EditRequestStatus,
+   * pero las solicitudes de pago de CP tienen su propia máquina de dos pasos y
+   * quedan sin resolver en dos estados distintos.
+   */
+  pendingStatus?: string | string[];
+  /** Valor terminal al que se lleva. */
+  expiredStatus?: string;
+  /** Campos donde queda constancia; los nombres varían entre modelos. */
+  closeFields?: (note: string) => Record<string, unknown>;
   /** Solo para las solicitudes que espejan su estado en la orden. */
   orderMirrorField?: OrderMirrorField;
 }
+
+/** Constancia estándar: la usan los 12 modelos que siguen EditRequestStatus. */
+const defaultCloseFields = (note: string) => ({
+  reviewedAt: new Date(),
+  reviewNotes: note,
+});
 
 const EXPIRABLE_REQUEST_TYPES: ExpirableRequestType[] = [
   {
@@ -97,6 +122,23 @@ const EXPIRABLE_REQUEST_TYPES: ExpirableRequestType[] = [
     label: 'cambio de asesor',
     delegate: (p) => p.advisorChangeRequest as any,
   },
+  {
+    // Máquina de estados propia, de dos pasos (Admin → Caja), con sus propios
+    // nombres de campo. Vencen los dos estados sin resolver: PENDING espera al
+    // administrador y ADMIN_APPROVED espera la firma de Caja. Una solicitud que
+    // lleva una semana esperando a Caja está tan abandonada como la que lleva una
+    // semana esperando al admin, y mientras siga abierta bloquea al solicitante
+    // de volver a pedir el pago de esa CP.
+    model: 'accountPayablePaymentAuthRequest',
+    label: 'pago de cuenta por pagar',
+    delegate: (p) => p.accountPayablePaymentAuthRequest as any,
+    pendingStatus: [
+      ApPaymentAuthRequestStatus.PENDING,
+      ApPaymentAuthRequestStatus.ADMIN_APPROVED,
+    ],
+    expiredStatus: ApPaymentAuthRequestStatus.EXPIRED,
+    closeFields: (note) => ({ adminReviewedAt: new Date(), adminNotes: note }),
+  },
 ];
 
 /**
@@ -118,7 +160,10 @@ export class ApprovalExpiryService {
     private readonly notificationsService: NotificationsService,
   ) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_3AM)
+  // 3 de la mañana hora Colombia, no del servidor. Sin `timeZone` el cron sigue
+  // la zona del contenedor, que en Railway es UTC: dispararía a las 10 de la
+  // noche hora local, dentro de la jornada.
+  @Cron('0 3 * * *', { timeZone: BUSINESS_TIMEZONE })
   async expireStaleRequests(): Promise<void> {
     const cutoff = this.cutoffDate();
     let total = 0;
@@ -142,17 +187,27 @@ export class ApprovalExpiryService {
   }
 
   /**
-   * Corte: medianoche de hace APPROVAL_EXPIRY_DAYS días.
+   * Corte: medianoche **hora Colombia** de hace APPROVAL_EXPIRY_DAYS días.
    *
    * Se trunca al día en vez de restar 7×24 horas para que el resultado no dependa
    * de la hora a la que corra el cron, y para que las solicitudes de hoy queden
    * siempre fuera del barrido.
+   *
+   * La zona importa: `new Date().setHours(0,0,0,0)` resuelve en la zona del
+   * servidor, que en Railway es UTC. Eso correría el corte a las 7 de la noche
+   * hora Colombia del día anterior — la misma trampa que documenta
+   * `date-range.util.ts`. Por eso la aritmética va sobre la fecha de calendario
+   * del negocio y `startOfDay` la convierte al instante correcto.
    */
   private cutoffDate(): Date {
-    const cutoff = new Date();
-    cutoff.setHours(0, 0, 0, 0);
-    cutoff.setDate(cutoff.getDate() - APPROVAL_EXPIRY_DAYS);
-    return cutoff;
+    const [year, month, day] = businessToday().split('-').map(Number);
+
+    // Anclado en UTC solo para hacer la resta de días sin que la zona del
+    // servidor desplace el resultado; el valor que importa es la fecha, no la hora.
+    const cutoffDay = new Date(Date.UTC(year, month - 1, day));
+    cutoffDay.setUTCDate(cutoffDay.getUTCDate() - APPROVAL_EXPIRY_DAYS);
+
+    return startOfDay(cutoffDay.toISOString().split('T')[0])!;
   }
 
   private async expireType(
@@ -161,9 +216,11 @@ export class ApprovalExpiryService {
   ): Promise<number> {
     const delegate = type.delegate(this.prisma);
 
+    const pending = type.pendingStatus ?? EditRequestStatus.PENDING;
+
     const stale = await delegate.findMany({
       where: {
-        status: EditRequestStatus.PENDING,
+        status: Array.isArray(pending) ? { in: pending } : pending,
         createdAt: { lt: cutoff },
       },
       select: {
@@ -176,13 +233,13 @@ export class ApprovalExpiryService {
     if (stale.length === 0) return 0;
 
     const ids = stale.map((request) => request.id);
+    const note = `Vencida automáticamente tras ${APPROVAL_EXPIRY_DAYS} días sin respuesta`;
 
     await delegate.updateMany({
       where: { id: { in: ids } },
       data: {
-        status: EditRequestStatus.EXPIRED,
-        reviewedAt: new Date(),
-        reviewNotes: `Vencida automáticamente tras ${APPROVAL_EXPIRY_DAYS} días sin respuesta`,
+        status: type.expiredStatus ?? EditRequestStatus.EXPIRED,
+        ...(type.closeFields ?? defaultCloseFields)(note),
       },
     });
 
