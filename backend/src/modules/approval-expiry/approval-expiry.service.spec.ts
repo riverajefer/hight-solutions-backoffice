@@ -4,8 +4,16 @@ import {
   APPROVAL_EXPIRY_DAYS,
 } from './approval-expiry.service';
 import { PrismaService } from '../../database/prisma.service';
+import {
+  BUSINESS_TIMEZONE,
+  startOfDay,
+} from '../../common/utils/date-range.util';
 import { NotificationsService } from '../notifications/notifications.service';
-import { EditRequestStatus, NotificationType } from '../../generated/prisma';
+import {
+  ApPaymentAuthRequestStatus,
+  EditRequestStatus,
+  NotificationType,
+} from '../../generated/prisma';
 
 describe('ApprovalExpiryService', () => {
   let service: ApprovalExpiryService;
@@ -32,6 +40,7 @@ describe('ApprovalExpiryService', () => {
       cashMovementVoidRequest: emptyDelegate(),
       clientAdvisorRequest: emptyDelegate(),
       advisorChangeRequest: emptyDelegate(),
+      accountPayablePaymentAuthRequest: emptyDelegate(),
       order: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
     };
 
@@ -70,19 +79,37 @@ describe('ApprovalExpiryService', () => {
   });
 
   // El corte se trunca al día, así que lo creado hoy nunca entra al barrido.
-  it('consulta con un corte de hace APPROVAL_EXPIRY_DAYS días a medianoche', async () => {
+  it('consulta con un corte de hace APPROVAL_EXPIRY_DAYS días', async () => {
     await service.expireStaleRequests();
 
     const where = prisma.expenseOrderAuthRequest.findMany.mock.calls[0][0].where;
     const cutoff: Date = where.createdAt.lt;
 
-    const esperado = new Date();
-    esperado.setHours(0, 0, 0, 0);
-    esperado.setDate(esperado.getDate() - APPROVAL_EXPIRY_DAYS);
+    const esperado = startOfDay(
+      new Date(Date.now() - APPROVAL_EXPIRY_DAYS * 86400000)
+        .toLocaleDateString('en-CA', { timeZone: BUSINESS_TIMEZONE }),
+    )!;
 
     expect(where.status).toBe(EditRequestStatus.PENDING);
     expect(cutoff.getTime()).toBe(esperado.getTime());
-    expect(cutoff.getHours()).toBe(0);
+  });
+
+  // `new Date().setHours(0,0,0,0)` resuelve en la zona del servidor, que en
+  // Railway es UTC: el corte caería a las 7 p.m. hora Colombia del día anterior.
+  it('ancla el corte a medianoche hora Colombia, no la del servidor', async () => {
+    await service.expireStaleRequests();
+
+    const cutoff: Date =
+      prisma.expenseOrderAuthRequest.findMany.mock.calls[0][0].where.createdAt.lt;
+
+    const enBogota = new Intl.DateTimeFormat('en-GB', {
+      timeZone: BUSINESS_TIMEZONE,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(cutoff);
+
+    expect(enBogota).toBe('00:00');
   });
 
   it('avisa al solicitante de cada solicitud vencida', async () => {
@@ -138,6 +165,51 @@ describe('ApprovalExpiryService', () => {
       await service.expireStaleRequests();
 
       expect(prisma.order.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
+  // Las solicitudes de pago de CP tienen su propia máquina de estados de dos
+  // pasos y sus propios nombres de campo, así que no pueden usar los del resto.
+  describe('pago de cuenta por pagar', () => {
+    it('usa su propio enum y sus propios campos de constancia', async () => {
+      prisma.accountPayablePaymentAuthRequest.findMany.mockResolvedValue([
+        { id: 'ap-pay-1', requestedById: 'user-1' },
+      ]);
+
+      await service.expireStaleRequests();
+
+      expect(prisma.accountPayablePaymentAuthRequest.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['ap-pay-1'] } },
+        data: expect.objectContaining({
+          status: ApPaymentAuthRequestStatus.EXPIRED,
+          adminReviewedAt: expect.any(Date),
+          adminNotes: expect.any(String),
+        }),
+      });
+    });
+
+    // Los dos estados sin resolver vencen: PENDING espera al admin y
+    // ADMIN_APPROVED espera la firma de Caja. Ambos bloquean al solicitante de
+    // volver a pedir el pago de esa CP.
+    it('barre tanto PENDING como ADMIN_APPROVED', async () => {
+      await service.expireStaleRequests();
+
+      const findArgs =
+        prisma.accountPayablePaymentAuthRequest.findMany.mock.calls[0][0];
+
+      expect(findArgs.where.status).toEqual({
+        in: [
+          ApPaymentAuthRequestStatus.PENDING,
+          ApPaymentAuthRequestStatus.ADMIN_APPROVED,
+        ],
+      });
+    });
+
+    it('no arrastra a los tipos de estado único a un filtro `in`', async () => {
+      await service.expireStaleRequests();
+
+      const findArgs = prisma.expenseOrderAuthRequest.findMany.mock.calls[0][0];
+      expect(findArgs.where.status).toBe(EditRequestStatus.PENDING);
     });
   });
 
