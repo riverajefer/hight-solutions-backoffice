@@ -1,5 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
+import {
+  BUSINESS_TIMEZONE,
+  businessToday,
+  startOfDay,
+} from '../../common/utils/date-range.util';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import {
@@ -155,7 +160,10 @@ export class ApprovalExpiryService {
     private readonly notificationsService: NotificationsService,
   ) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_3AM)
+  // 3 de la mañana hora Colombia, no del servidor. Sin `timeZone` el cron sigue
+  // la zona del contenedor, que en Railway es UTC: dispararía a las 10 de la
+  // noche hora local, dentro de la jornada.
+  @Cron('0 3 * * *', { timeZone: BUSINESS_TIMEZONE })
   async expireStaleRequests(): Promise<void> {
     const cutoff = this.cutoffDate();
     let total = 0;
@@ -179,17 +187,27 @@ export class ApprovalExpiryService {
   }
 
   /**
-   * Corte: medianoche de hace APPROVAL_EXPIRY_DAYS días.
+   * Corte: medianoche **hora Colombia** de hace APPROVAL_EXPIRY_DAYS días.
    *
    * Se trunca al día en vez de restar 7×24 horas para que el resultado no dependa
    * de la hora a la que corra el cron, y para que las solicitudes de hoy queden
    * siempre fuera del barrido.
+   *
+   * La zona importa: `new Date().setHours(0,0,0,0)` resuelve en la zona del
+   * servidor, que en Railway es UTC. Eso correría el corte a las 7 de la noche
+   * hora Colombia del día anterior — la misma trampa que documenta
+   * `date-range.util.ts`. Por eso la aritmética va sobre la fecha de calendario
+   * del negocio y `startOfDay` la convierte al instante correcto.
    */
   private cutoffDate(): Date {
-    const cutoff = new Date();
-    cutoff.setHours(0, 0, 0, 0);
-    cutoff.setDate(cutoff.getDate() - APPROVAL_EXPIRY_DAYS);
-    return cutoff;
+    const [year, month, day] = businessToday().split('-').map(Number);
+
+    // Anclado en UTC solo para hacer la resta de días sin que la zona del
+    // servidor desplace el resultado; el valor que importa es la fecha, no la hora.
+    const cutoffDay = new Date(Date.UTC(year, month - 1, day));
+    cutoffDay.setUTCDate(cutoffDay.getUTCDate() - APPROVAL_EXPIRY_DAYS);
+
+    return startOfDay(cutoffDay.toISOString().split('T')[0])!;
   }
 
   private async expireType(
