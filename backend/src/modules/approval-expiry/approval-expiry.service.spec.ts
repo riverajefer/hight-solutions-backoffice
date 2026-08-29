@@ -156,10 +156,6 @@ describe('ApprovalExpiryService', () => {
 
       await service.expireStaleRequests();
 
-      const findArgs =
-        prisma.accountPayablePaymentAuthRequest.findMany.mock.calls[0][0];
-      expect(findArgs.where.status).toBe(ApPaymentAuthRequestStatus.PENDING);
-
       expect(prisma.accountPayablePaymentAuthRequest.updateMany).toHaveBeenCalledWith({
         where: { id: { in: ['ap-pay-1'] } },
         data: expect.objectContaining({
@@ -170,14 +166,28 @@ describe('ApprovalExpiryService', () => {
       });
     });
 
-    it('no toca las que ya llegaron a ADMIN_APPROVED', async () => {
+    // Los dos estados sin resolver vencen: PENDING espera al admin y
+    // ADMIN_APPROVED espera la firma de Caja. Ambos bloquean al solicitante de
+    // volver a pedir el pago de esa CP.
+    it('barre tanto PENDING como ADMIN_APPROVED', async () => {
       await service.expireStaleRequests();
 
       const findArgs =
         prisma.accountPayablePaymentAuthRequest.findMany.mock.calls[0][0];
-      expect(findArgs.where.status).not.toBe(
-        ApPaymentAuthRequestStatus.ADMIN_APPROVED,
-      );
+
+      expect(findArgs.where.status).toEqual({
+        in: [
+          ApPaymentAuthRequestStatus.PENDING,
+          ApPaymentAuthRequestStatus.ADMIN_APPROVED,
+        ],
+      });
+    });
+
+    it('no arrastra a los tipos de estado único a un filtro `in`', async () => {
+      await service.expireStaleRequests();
+
+      const findArgs = prisma.expenseOrderAuthRequest.findMany.mock.calls[0][0];
+      expect(findArgs.where.status).toBe(EditRequestStatus.PENDING);
     });
   });
 

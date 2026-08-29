@@ -35,11 +35,11 @@ interface ExpirableRequestType {
     updateMany: (args: any) => Promise<{ count: number }>;
   };
   /**
-   * Valor de `status` que significa "nadie la ha respondido".
-   * Casi todos usan EditRequestStatus, pero las solicitudes de pago de CP tienen
-   * su propia máquina de estados de dos pasos.
+   * Estados que cuentan como "sin resolver". Casi todos usan EditRequestStatus,
+   * pero las solicitudes de pago de CP tienen su propia máquina de dos pasos y
+   * quedan sin resolver en dos estados distintos.
    */
-  pendingStatus?: string;
+  pendingStatus?: string | string[];
   /** Valor terminal al que se lleva. */
   expiredStatus?: string;
   /** Campos donde queda constancia; los nombres varían entre modelos. */
@@ -119,13 +119,18 @@ const EXPIRABLE_REQUEST_TYPES: ExpirableRequestType[] = [
   },
   {
     // Máquina de estados propia, de dos pasos (Admin → Caja), con sus propios
-    // nombres de campo. Solo se vencen las que están en PENDING: una que ya llegó
-    // a ADMIN_APPROVED fue aprobada por un administrador y lo que falta es la
-    // firma de Caja, que es otra bandeja y otra decisión.
+    // nombres de campo. Vencen los dos estados sin resolver: PENDING espera al
+    // administrador y ADMIN_APPROVED espera la firma de Caja. Una solicitud que
+    // lleva una semana esperando a Caja está tan abandonada como la que lleva una
+    // semana esperando al admin, y mientras siga abierta bloquea al solicitante
+    // de volver a pedir el pago de esa CP.
     model: 'accountPayablePaymentAuthRequest',
     label: 'pago de cuenta por pagar',
     delegate: (p) => p.accountPayablePaymentAuthRequest as any,
-    pendingStatus: ApPaymentAuthRequestStatus.PENDING,
+    pendingStatus: [
+      ApPaymentAuthRequestStatus.PENDING,
+      ApPaymentAuthRequestStatus.ADMIN_APPROVED,
+    ],
     expiredStatus: ApPaymentAuthRequestStatus.EXPIRED,
     closeFields: (note) => ({ adminReviewedAt: new Date(), adminNotes: note }),
   },
@@ -193,9 +198,11 @@ export class ApprovalExpiryService {
   ): Promise<number> {
     const delegate = type.delegate(this.prisma);
 
+    const pending = type.pendingStatus ?? EditRequestStatus.PENDING;
+
     const stale = await delegate.findMany({
       where: {
-        status: type.pendingStatus ?? EditRequestStatus.PENDING,
+        status: Array.isArray(pending) ? { in: pending } : pending,
         createdAt: { lt: cutoff },
       },
       select: {
