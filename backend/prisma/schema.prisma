@@ -30,6 +30,7 @@ model User {
   sessionLogs                               SessionLog[]
   createdOrders                             Order[]
   receivedPayments                          Payment[]                              @relation("ReceivedPayments")
+  voidedPayments                            Payment[]                              @relation("VoidedPayments")
   requestedEditRequests                     OrderEditRequest[]                     @relation("RequestedEditRequests")
   reviewedEditRequests                      OrderEditRequest[]                     @relation("ReviewedEditRequests")
   requestedStatusChangeRequests             OrderStatusChangeRequest[]             @relation("RequestedStatusChangeRequests")
@@ -768,9 +769,18 @@ model Payment {
   // comercial que cobra fuera del horario de caja.
   pendingCashEntry Boolean @default(false) @map("pending_cash_entry")
 
+  // Anulación. El pago no se borra: la fila sobrevive marcada para que el
+  // Historial de Pagos siga contando qué pasó y quién lo autorizó. Un pago
+  // anulado no suma a `paidAmount` (ver `sumActivePayments`).
+  isVoided   Boolean   @default(false) @map("is_voided")
+  voidedById String?   @map("voided_by_id")
+  voidedAt   DateTime? @map("voided_at")
+  voidReason String?   @map("void_reason")
+
   // Relaciones
   order                  Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   receivedBy             User                    @relation("ReceivedPayments", fields: [receivedById], references: [id])
+  voidedBy               User?                   @relation("VoidedPayments", fields: [voidedById], references: [id])
   advancePaymentApproval AdvancePaymentApproval?
   paymentEditApprovals   PaymentEditApproval[]
   cashMovement           CashMovement?           @relation(fields: [cashMovementId], references: [id])

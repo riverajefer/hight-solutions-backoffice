@@ -43,6 +43,7 @@ import {
   FilterSalesGoalsDto,
   OrdersDashboardQueryDto,
   AdvisorTrackingQueryDto,
+  VoidPaymentDto,
 } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -310,6 +311,31 @@ export class OrdersController {
   @ApiResponse({ status: 200, description: 'Payments retrieved successfully' })
   getPayments(@Param('id') orderId: string) {
     return this.ordersService.getPayments(orderId);
+  }
+
+  @Post(':id/payments/:paymentId/void')
+  @RequirePermissions('void_cash_movements')
+  @ApiOperation({
+    summary:
+      'Anular un pago de la orden. Si la caja del pago sigue abierta se anula de inmediato; si ya cerró, queda como solicitud para el admin',
+  })
+  @ApiParam({ name: 'id', description: 'Order ID' })
+  @ApiParam({ name: 'paymentId', description: 'Payment ID' })
+  @ApiResponse({ status: 201, description: 'Pago anulado o solicitud creada' })
+  @ApiResponse({ status: 400, description: 'El pago ya está anulado' })
+  @ApiResponse({ status: 404, description: 'Orden o pago no encontrado' })
+  voidPayment(
+    @Param('id') orderId: string,
+    @Param('paymentId') paymentId: string,
+    @Body() voidPaymentDto: VoidPaymentDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.ordersService.voidPayment(
+      orderId,
+      paymentId,
+      voidPaymentDto,
+      userId,
+    );
   }
 
   @Patch(':id/payments/:paymentId')

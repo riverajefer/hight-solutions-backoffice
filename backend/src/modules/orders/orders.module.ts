@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from '../../database/database.module';
+import { CashMovementModule } from '../cash-movement/cash-movement.module';
+import { CashMovementVoidRequestsModule } from '../cash-movement-void-requests/cash-movement-void-requests.module';
 import { ConsecutivesModule } from '../consecutives/consecutives.module';
 import { OrderEditRequestsModule } from '../order-edit-requests/order-edit-requests.module';
 import { OrderStatusChangeRequestsModule } from '../order-status-change-requests/order-status-change-requests.module';
@@ -16,7 +18,7 @@ import { OrdersRepository } from './orders.repository';
 import { CanEditOrderGuard } from '../../common/guards/can-edit-order.guard';
 
 @Module({
-  imports: [DatabaseModule, ConsecutivesModule, OrderEditRequestsModule, OrderStatusChangeRequestsModule, AuditLogsModule, StorageModule, AdvancePaymentApprovalsModule, PaymentEditApprovalsModule, DiscountApprovalsModule, ClientOwnershipAuthRequestsModule, CreditBalanceModule],
+  imports: [DatabaseModule, ConsecutivesModule, OrderEditRequestsModule, OrderStatusChangeRequestsModule, AuditLogsModule, StorageModule, AdvancePaymentApprovalsModule, PaymentEditApprovalsModule, DiscountApprovalsModule, ClientOwnershipAuthRequestsModule, CreditBalanceModule, CashMovementModule, CashMovementVoidRequestsModule],
   controllers: [OrdersController],
   providers: [OrdersService, OrdersRepository, CanEditOrderGuard],
   exports: [OrdersService, OrdersRepository],

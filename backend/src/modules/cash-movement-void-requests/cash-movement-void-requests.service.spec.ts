@@ -161,11 +161,22 @@ describe('CashMovementVoidRequestsService', () => {
       await expect(service.create('cm-1', 'user-1', dto)).rejects.toThrow(/ya está anulado/);
     });
 
-    it('rechaza si la sesión no está abierta', async () => {
+    // Una caja cerrada es justo el caso donde la solicitud hace falta: el error
+    // casi siempre se detecta al día siguiente. La reversa se registra después
+    // en la sesión abierta, sin tocar el cierre firmado.
+    it('acepta la solicitud aunque la sesión ya esté cerrada', async () => {
       prisma.cashMovement.findUnique.mockResolvedValue(
         movementStub({ cashSession: { status: 'CLOSED' } }) as any,
       );
-      await expect(service.create('cm-1', 'user-1', dto)).rejects.toThrow(/sesiones abiertas/);
+      prisma.cashMovementVoidRequest.findFirst.mockResolvedValue(null as any);
+      prisma.cashMovementVoidRequest.create.mockResolvedValue(requestStub({
+        cashMovement: { id: 'cm-1', receiptNumber: 'REC-001', amount: new Prisma.Decimal(50000) },
+      }) as any);
+      prisma.user.findUnique.mockResolvedValue({ firstName: 'Ana', role: { name: 'asesor' } } as any);
+      prisma.role.findUnique.mockResolvedValue({ users: [] } as any);
+
+      await expect(service.create('cm-1', 'user-1', dto)).resolves.toBeDefined();
+      expect(prisma.cashMovementVoidRequest.create).toHaveBeenCalled();
     });
 
     it('rechaza si ya hay una solicitud pendiente', async () => {

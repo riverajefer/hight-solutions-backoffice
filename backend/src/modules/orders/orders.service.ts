@@ -36,14 +36,19 @@ import {
   FilterSalesGoalsDto,
   OrdersDashboardQueryDto,
   AdvisorTrackingQueryDto,
+  VoidPaymentDto,
 } from './dto';
 import { InitialPaymentDto } from './dto/create-order.dto';
-import { EditRequestStatus, OrderStatus, PaymentMethod, Prisma, WorkOrderStatus } from '../../generated/prisma';
+import { CashSessionStatus, EditRequestStatus, OrderStatus, PaymentMethod, Prisma, WorkOrderStatus } from '../../generated/prisma';
 import { isValidTransition, getValidNextStatuses } from './order-status-transitions';
 import { PrismaService } from '../../database/prisma.service';
+import { CashMovementService } from '../cash-movement/cash-movement.service';
+import { CashMovementVoidRequestsService } from '../cash-movement-void-requests/cash-movement-void-requests.service';
 import { startOfDay, endOfDay, businessToday } from '../../common/utils/date-range.util';
 import {
+  ACTIVE_PAYMENT_WHERE,
   computeNetPaidAmount,
+  sumActivePayments,
   computeOrderBalance,
 } from '../../common/utils/order-balance.util';
 import {
@@ -155,6 +160,8 @@ export class OrdersService {
     private readonly storageService: StorageService,
     private readonly statusChangeRequestsService: OrderStatusChangeRequestsService,
     private readonly advancePaymentApprovalsService: AdvancePaymentApprovalsService,
+    private readonly cashMovementService: CashMovementService,
+    private readonly cashMovementVoidRequestsService: CashMovementVoidRequestsService,
     private readonly paymentEditApprovalsService: PaymentEditApprovalsService,
     private readonly discountApprovalsService: DiscountApprovalsService,
     private readonly clientOwnershipAuthRequestsService: ClientOwnershipAuthRequestsService,
@@ -211,6 +218,7 @@ export class OrdersService {
           where: {
             paymentDate: { gte: from, lte: to },
             order: { status: notAnulado },
+            ...ACTIVE_PAYMENT_WHERE,
           },
           _sum: { amount: true },
           _count: { id: true },
@@ -2068,6 +2076,131 @@ export class OrdersService {
    * El resto genera una solicitud PENDING que el admin debe autorizar:
    * el pago NO se modifica (ni el saldo) hasta la aprobación.
    */
+  /**
+   * Anula un pago puntual de una orden desde el Historial de Pagos.
+   *
+   * El pago no se borra: queda marcado como anulado, deja de sumar al saldo y la
+   * fila sobrevive con el motivo y quién lo autorizó. Borrarlo dejaría la
+   * pantalla mintiendo por omisión, que fue justo lo que hizo imposible entender
+   * el caso de OP-2026-1504.
+   *
+   * Dos caminos, según dónde esté el dinero:
+   *
+   * - Caja del pago abierta → se anula de una: la reversa cabe en el mismo
+   *   arqueo, nadie firmó todavía ese cierre.
+   * - Caja cerrada → queda como solicitud para el admin. Al aprobarla, la
+   *   reversa se registra en la caja abierta hoy, con la fecha de la corrección.
+   *   El cierre firmado no se toca.
+   * - Pago sin movimiento de caja (saldo a favor, o abono encolado sin caja
+   *   abierta) → no hay reversa que registrar, se anula directo.
+   */
+  async voidPayment(
+    orderId: string,
+    paymentId: string,
+    dto: VoidPaymentDto,
+    userId: string,
+  ) {
+    const payment = await this.prisma.payment.findFirst({
+      where: { id: paymentId, orderId },
+      select: {
+        id: true,
+        isVoided: true,
+        cashMovementId: true,
+        cashMovement: {
+          select: {
+            id: true,
+            isVoided: true,
+            cashSession: { select: { status: true } },
+          },
+        },
+      },
+    });
+
+    if (!payment) {
+      throw new NotFoundException(
+        `Pago con id ${paymentId} no encontrado en la orden`,
+      );
+    }
+    if (payment.isVoided) {
+      throw new BadRequestException('Este pago ya está anulado');
+    }
+
+    // Sin movimiento de caja no hay nada que revertir en el arqueo.
+    if (!payment.cashMovement || payment.cashMovement.isVoided) {
+      await this.prisma.$transaction((tx) =>
+        this.voidPaymentWithoutCashMovement(tx, paymentId, userId, dto.voidReason),
+      );
+      return { voided: true, requiresApproval: false as const };
+    }
+
+    if (payment.cashMovement.cashSession.status === CashSessionStatus.OPEN) {
+      await this.cashMovementService.voidMovement(
+        payment.cashMovement.id,
+        { voidReason: dto.voidReason },
+        userId,
+      );
+      return { voided: true, requiresApproval: false as const };
+    }
+
+    const request = await this.cashMovementVoidRequestsService.create(
+      payment.cashMovement.id,
+      userId,
+      { voidReason: dto.voidReason },
+    );
+    return { voided: false, requiresApproval: true as const, requestId: request.id };
+  }
+
+  /**
+   * Anula un pago que nunca tuvo movimiento de caja y recalcula la orden.
+   * Mismo criterio que `CashMovementService`, sin la parte de caja.
+   */
+  private async voidPaymentWithoutCashMovement(
+    tx: Prisma.TransactionClient,
+    paymentId: string,
+    userId: string,
+    voidReason: string,
+  ): Promise<void> {
+    const payment = await tx.payment.update({
+      where: { id: paymentId },
+      data: {
+        isVoided: true,
+        voidedById: userId,
+        voidedAt: new Date(),
+        voidReason,
+      },
+      select: { orderId: true },
+    });
+
+    await this.creditBalanceService.releaseCredit(tx, paymentId);
+
+    const order = await tx.order.findUnique({
+      where: { id: payment.orderId },
+      select: { total: true, appliedCreditAmount: true, refundedAmount: true },
+    });
+    if (!order) return;
+
+    const payments = await tx.payment.findMany({
+      where: { orderId: payment.orderId, ...ACTIVE_PAYMENT_WHERE },
+      select: { amount: true },
+    });
+    const paidAmount = computeNetPaidAmount(
+      sumActivePayments(payments),
+      order.refundedAmount,
+    );
+
+    await tx.order.update({
+      where: { id: payment.orderId },
+      data: {
+        paidAmount,
+        balance: computeOrderBalance(
+          order.total,
+          paidAmount,
+          order.appliedCreditAmount,
+        ),
+      },
+    });
+  }
+
   async updatePayment(
     orderId: string,
     paymentId: string,
@@ -2300,13 +2433,10 @@ export class OrdersService {
 
       // Recalcular paidAmount/balance (el total de la orden no cambia)
       const payments = await tx.payment.findMany({
-        where: { orderId },
+        where: { orderId, ...ACTIVE_PAYMENT_WHERE },
         select: { amount: true },
       });
-      let paymentsTotal = new Prisma.Decimal(0);
-      for (const p of payments) {
-        paymentsTotal = paymentsTotal.add(p.amount);
-      }
+      const paymentsTotal = sumActivePayments(payments);
       const current = await tx.order.findUnique({
         where: { id: orderId },
         select: {
@@ -2479,14 +2609,11 @@ export class OrdersService {
     // Calcular paidAmount sumando todos los pagos, neto de lo ya devuelto:
     // los Payment no se borran al aprobar una devolución.
     const payments = await tx.payment.findMany({
-      where: { orderId },
+      where: { orderId, ...ACTIVE_PAYMENT_WHERE },
       select: { amount: true },
     });
 
-    let paymentsTotal = new Prisma.Decimal(0);
-    for (const payment of payments) {
-      paymentsTotal = paymentsTotal.add(payment.amount);
-    }
+    const paymentsTotal = sumActivePayments(payments);
 
     const paidAmount = computeNetPaidAmount(paymentsTotal, order?.refundedAmount);
 

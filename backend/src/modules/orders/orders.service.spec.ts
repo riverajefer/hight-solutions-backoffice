@@ -12,6 +12,8 @@ import {
 import { OrdersService } from './orders.service';
 import { OrdersRepository } from './orders.repository';
 import { ConsecutivesService } from '../consecutives/consecutives.service';
+import { CashMovementService } from '../cash-movement/cash-movement.service';
+import { CashMovementVoidRequestsService } from '../cash-movement-void-requests/cash-movement-void-requests.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { StorageService } from '../storage/storage.service';
 import { OrderStatusChangeRequestsService } from '../order-status-change-requests/order-status-change-requests.service';
@@ -99,6 +101,14 @@ const mockCreditBalanceService = {
 };
 
 // PrismaService: used for $transaction and direct model access (payment, orderDiscount)
+const mockCashMovementService = {
+  voidMovement: jest.fn().mockResolvedValue(undefined),
+};
+
+const mockCashMovementVoidRequestsService = {
+  create: jest.fn().mockResolvedValue({ id: 'void-req-1' }),
+};
+
 const mockPrisma = {
   $transaction: jest.fn(),
   payment: {
@@ -202,6 +212,11 @@ describe('OrdersService', () => {
         { provide: OrdersRepository, useValue: mockOrdersRepository },
         { provide: ConsecutivesService, useValue: mockConsecutivesService },
         { provide: AuditLogsService, useValue: mockAuditLogsService },
+        { provide: CashMovementService, useValue: mockCashMovementService },
+        {
+          provide: CashMovementVoidRequestsService,
+          useValue: mockCashMovementVoidRequestsService,
+        },
         { provide: StorageService, useValue: mockStorageService },
         {
           provide: OrderStatusChangeRequestsService,
@@ -663,6 +678,8 @@ describe('OrdersService', () => {
           where: {
             paymentDate: { gte: from, lte: to },
             order: { status: { not: OrderStatus.ANULADO } },
+            // Un pago anulado no es plata recaudada.
+            isVoided: false,
           },
         }),
       );
@@ -2917,6 +2934,97 @@ describe('OrdersService', () => {
         data: { receiptFileId: null },
       });
       expect(result).toMatchObject({ message: 'Receipt deleted successfully' });
+    });
+  });
+
+  describe('voidPayment', () => {
+    const paymentWithSession = (status: string, overrides = {}) => ({
+      id: 'pay-1',
+      isVoided: false,
+      cashMovementId: 'cm-1',
+      cashMovement: {
+        id: 'cm-1',
+        isVoided: false,
+        cashSession: { status },
+      },
+      ...overrides,
+    });
+
+    const reason = 'Pago duplicado: el mismo soporte ya se registró';
+
+    it('anula de una cuando la caja del pago sigue abierta', async () => {
+      mockPrisma.payment.findFirst.mockResolvedValue(paymentWithSession('OPEN'));
+
+      const result = await service.voidPayment('order-1', 'pay-1', { voidReason: reason }, 'user-1');
+
+      expect(mockCashMovementService.voidMovement).toHaveBeenCalledWith(
+        'cm-1',
+        { voidReason: reason },
+        'user-1',
+      );
+      expect(result).toEqual({ voided: true, requiresApproval: false });
+    });
+
+    // El caso que motivó todo: el error se detecta al día siguiente, con la caja
+    // ya cerrada. Antes no había ruta y la gente editaba montos a mano.
+    it('deja solicitud para el admin cuando la caja del pago ya cerró', async () => {
+      mockPrisma.payment.findFirst.mockResolvedValue(paymentWithSession('CLOSED'));
+
+      const result = await service.voidPayment('order-1', 'pay-1', { voidReason: reason }, 'user-1');
+
+      expect(mockCashMovementService.voidMovement).not.toHaveBeenCalled();
+      expect(mockCashMovementVoidRequestsService.create).toHaveBeenCalledWith(
+        'cm-1',
+        'user-1',
+        { voidReason: reason },
+      );
+      expect(result).toEqual({
+        voided: false,
+        requiresApproval: true,
+        requestId: 'void-req-1',
+      });
+    });
+
+    it('anula directo el pago que nunca tuvo movimiento de caja', async () => {
+      mockPrisma.payment.findFirst.mockResolvedValue({
+        id: 'pay-1',
+        isVoided: false,
+        cashMovementId: null,
+        cashMovement: null,
+      });
+      mockPrisma.payment.update.mockResolvedValue({ orderId: 'order-1' });
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.order.findUnique.mockResolvedValue({
+        total: new Prisma.Decimal(100000),
+        appliedCreditAmount: new Prisma.Decimal(0),
+        refundedAmount: new Prisma.Decimal(0),
+      });
+
+      const result = await service.voidPayment('order-1', 'pay-1', { voidReason: reason }, 'user-1');
+
+      expect(mockCashMovementService.voidMovement).not.toHaveBeenCalled();
+      expect(mockPrisma.payment.update.mock.calls[0][0].data.isVoided).toBe(true);
+      // Sin pagos vivos, la orden vuelve a deber todo.
+      expect(Number(mockPrisma.order.update.mock.calls[0][0].data.balance)).toBe(100000);
+      expect(result.voided).toBe(true);
+    });
+
+    it('rechaza anular dos veces el mismo pago', async () => {
+      mockPrisma.payment.findFirst.mockResolvedValue(
+        paymentWithSession('OPEN', { isVoided: true }),
+      );
+
+      await expect(
+        service.voidPayment('order-1', 'pay-1', { voidReason: reason }, 'user-1'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rechaza un pago que no pertenece a la orden', async () => {
+      mockPrisma.payment.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.voidPayment('order-1', 'pay-1', { voidReason: reason }, 'user-1'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

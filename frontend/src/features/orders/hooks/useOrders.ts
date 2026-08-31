@@ -316,6 +316,43 @@ export const useOrderPayments = (orderId: string) => {
     },
   });
 
+  const voidPaymentMutation = useMutation({
+    mutationFn: ({
+      paymentId,
+      voidReason,
+    }: {
+      paymentId: string;
+      voidReason: string;
+    }) => ordersApi.voidPayment(orderId, paymentId, voidReason),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({
+        queryKey: ordersKeys.payments(orderId),
+      });
+      queryClient.invalidateQueries({ queryKey: ordersKeys.detail(orderId) });
+      queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: ordersKeys.dashboardSummaries() });
+
+      // Los dos desenlaces son legítimos y se sienten distintos: uno ya movió el
+      // dinero, el otro deja al usuario esperando al admin. Decirlo igual haría
+      // creer que el saldo ya cambió cuando no.
+      if (result.requiresApproval) {
+        enqueueSnackbar(
+          'La caja de este pago ya está cerrada, así que la anulación quedó pendiente de autorización del administrador.',
+          { variant: 'info' },
+        );
+      } else {
+        enqueueSnackbar('Pago anulado. El saldo de la orden ya fue recalculado.', {
+          variant: 'success',
+        });
+      }
+    },
+    onError: (error: any) => {
+      const message =
+        error?.response?.data?.message || 'Error al anular el pago';
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+
   return {
     // Query
     paymentsQuery,
@@ -323,6 +360,7 @@ export const useOrderPayments = (orderId: string) => {
     // Mutations
     addPaymentMutation,
     updatePaymentMutation,
+    voidPaymentMutation,
   };
 };
 

@@ -163,11 +163,10 @@ export class CashMovementVoidRequestsService
       throw new BadRequestException('El movimiento ya está anulado');
     }
 
-    if (movement.cashSession.status !== 'OPEN') {
-      throw new BadRequestException(
-        'Solo se pueden anular movimientos de sesiones abiertas',
-      );
-    }
+    // Una sesión cerrada NO impide solicitar la anulación: es justamente el caso
+    // en que hace falta, porque el error casi siempre se detecta al día
+    // siguiente. Al aprobarla, la reversa se registra en la sesión abierta de esa
+    // caja (ver `resolveCounterSessionId`), sin tocar el cierre ya firmado.
 
     // 2. Check no pending request already exists
     const existing = await this.prisma.cashMovementVoidRequest.findFirst({

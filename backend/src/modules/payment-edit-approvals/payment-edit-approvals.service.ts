@@ -27,6 +27,7 @@ import {
   Prisma,
 } from '../../generated/prisma';
 import {
+  ACTIVE_PAYMENT_WHERE,
   computeNetPaidAmount,
   computeOrderBalance,
 } from '../../common/utils/order-balance.util';
@@ -574,7 +575,10 @@ export class PaymentEditApprovalsService
           refundedAmount: true,
         },
       }),
-      tx.payment.findMany({ where: { orderId }, select: { amount: true } }),
+      tx.payment.findMany({
+        where: { orderId, ...ACTIVE_PAYMENT_WHERE },
+        select: { amount: true },
+      }),
     ]);
 
     let paymentsTotal = new Prisma.Decimal(0);

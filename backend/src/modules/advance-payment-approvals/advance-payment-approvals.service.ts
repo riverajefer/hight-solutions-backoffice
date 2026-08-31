@@ -21,6 +21,7 @@ import {
 } from './dto';
 import { ApprovalRequestType, EditRequestStatus, NotificationType, Prisma } from '../../generated/prisma';
 import {
+  ACTIVE_PAYMENT_WHERE,
   computeNetPaidAmount,
   computeOrderBalance,
 } from '../../common/utils/order-balance.util';
@@ -180,7 +181,7 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       if (!order) return;
 
       const remainingPayments = await tx.payment.findMany({
-        where: { orderId },
+        where: { orderId, ...ACTIVE_PAYMENT_WHERE },
         select: { amount: true },
       });
 
