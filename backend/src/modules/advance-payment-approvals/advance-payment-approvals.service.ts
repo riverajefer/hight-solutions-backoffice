@@ -51,6 +51,75 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
   }
 
   /**
+   * Recalcula `Order.advancePaymentStatus` a partir de todas las solicitudes de
+   * la orden, en vez de escribir el resultado de la última revisada.
+   *
+   * El campo es uno solo por orden, pero las solicitudes son varias: una por
+   * pago. Al escribirlo directo gana la última escritura, y eso deja órdenes
+   * trabadas para siempre. Caso real (OP-2026-1504): el asesor registró el mismo
+   * pago tres veces, Caja aprobó el bueno a las 17:19:53 y rechazó el duplicado
+   * a las 17:20:32; el rechazo borró la aprobación y la orden quedó bloqueada
+   * con el dinero completo en caja. `updateStatus()` bloquea con REJECTED y la
+   * única ruta que limpia el rechazo es registrar un pago nuevo, que en una
+   * orden ya pagada sería dinero inventado.
+   *
+   * El orden de precedencia refleja lo que de verdad falta:
+   *
+   * - Alguna solicitud PENDING → PENDING: Caja todavía no responde.
+   * - Sobrevive un pago aprobado → APPROVED: el rechazo era de un duplicado y
+   *   la orden sí tiene abono válido. `paymentId` queda en NULL al eliminarse
+   *   el pago (ON DELETE SET NULL), así que sirve para distinguirlos.
+   * - Solo quedan rechazos → REJECTED: la orden se quedó sin abono y el asesor
+   *   tiene que rehacerlo. Es el bloqueo que el flujo buscaba desde el inicio.
+   * - Solo quedan vencidas → EXPIRED: nadie puede aprobarlas ya, no se bloquea.
+   */
+  private async syncOrderAdvanceStatus(
+    tx: Prisma.TransactionClient,
+    orderId: string,
+    rejectedReason: string | null,
+  ): Promise<void> {
+    const approvals = await tx.advancePaymentApproval.findMany({
+      where: { orderId },
+      select: { status: true, paymentId: true },
+    });
+
+    if (approvals.length === 0) return;
+
+    const has = (status: EditRequestStatus) =>
+      approvals.some((approval) => approval.status === status);
+
+    const hasApprovedAlive = approvals.some(
+      (approval) =>
+        approval.status === EditRequestStatus.APPROVED &&
+        approval.paymentId !== null,
+    );
+
+    let status: EditRequestStatus;
+    if (has(EditRequestStatus.PENDING)) {
+      status = EditRequestStatus.PENDING;
+    } else if (hasApprovedAlive) {
+      status = EditRequestStatus.APPROVED;
+    } else if (has(EditRequestStatus.REJECTED)) {
+      status = EditRequestStatus.REJECTED;
+    } else if (has(EditRequestStatus.EXPIRED)) {
+      status = EditRequestStatus.EXPIRED;
+    } else {
+      // Solo quedan aprobaciones cuyo pago se eliminó por otra vía (devolución,
+      // edición). No hay nada pendiente ni rechazado: no se bloquea.
+      status = EditRequestStatus.APPROVED;
+    }
+
+    await tx.order.update({
+      where: { id: orderId },
+      data: {
+        advancePaymentStatus: status,
+        advancePaymentRejectedReason:
+          status === EditRequestStatus.REJECTED ? rejectedReason : null,
+      },
+    });
+  }
+
+  /**
    * Elimina el pago rechazado y recalcula los totales de la orden a partir de
    * los pagos que sobreviven.
    *
@@ -127,8 +196,6 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       await tx.order.update({
         where: { id: orderId },
         data: {
-          advancePaymentStatus: EditRequestStatus.REJECTED,
-          advancePaymentRejectedReason: rejectedReason,
           paidAmount,
           balance: computeOrderBalance(
             order.total,
@@ -137,6 +204,10 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
           ),
         },
       });
+
+      // El rechazo no implica que la orden quede bloqueada: puede tener otro
+      // pago aprobado en pie. Lo decide el conjunto de solicitudes, no esta.
+      await this.syncOrderAdvanceStatus(tx, orderId, rejectedReason);
     });
   }
 
@@ -168,10 +239,7 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       include: { order: { select: { id: true, orderNumber: true } } },
     });
 
-    await this.prisma.order.update({
-      where: { id: request.orderId },
-      data: { advancePaymentStatus: EditRequestStatus.APPROVED },
-    });
+    await this.syncOrderAdvanceStatus(this.prisma, request.orderId, null);
 
     await this.notificationsService.create({
       userId: request.requestedById,
@@ -441,11 +509,9 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
       },
     });
 
-    // 4. Actualizar estado de anticipo en la orden
-    await this.prisma.order.update({
-      where: { id: request.orderId },
-      data: { advancePaymentStatus: EditRequestStatus.APPROVED },
-    });
+    // 4. Actualizar estado de anticipo en la orden. Si quedan otras solicitudes
+    //    pendientes en la misma orden, sigue bloqueada hasta que Caja responda.
+    await this.syncOrderAdvanceStatus(this.prisma, request.orderId, null);
 
     // 5. Notificar al solicitante
     await this.notificationsService.create({

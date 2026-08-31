@@ -28,7 +28,9 @@ describe('AdvancePaymentApprovalsService', () => {
         create: jest.fn(),
         findFirst: jest.fn(),
         update: jest.fn(),
-        findMany: jest.fn(),
+        // `syncOrderAdvanceStatus` lo consulta para derivar la bandera de la
+        // orden. Sin solicitudes no toca el campo; cada test pone las suyas.
+        findMany: jest.fn().mockResolvedValue([]),
         findUnique: jest.fn(),
       },
       payment: {
@@ -135,13 +137,19 @@ describe('AdvancePaymentApprovalsService', () => {
         role: { permissions: [{ permission: { name: 'approve_advance_payments' } }] },
       } as any);
       (prisma.advancePaymentApproval.update as jest.Mock).mockResolvedValue({ id: 'req1', status: EditRequestStatus.APPROVED } as any);
+      (prisma.advancePaymentApproval.findMany as jest.Mock).mockResolvedValue([
+        { status: EditRequestStatus.APPROVED, paymentId: 'pay1' },
+      ] as any);
 
       const result = await service.approve('req1', 'rev1', { reviewNotes: 'OK' });
 
       expect(prisma.advancePaymentApproval.update).toHaveBeenCalled();
       expect(prisma.order.update).toHaveBeenCalledWith({
         where: { id: 'o1' },
-        data: { advancePaymentStatus: EditRequestStatus.APPROVED },
+        data: {
+          advancePaymentStatus: EditRequestStatus.APPROVED,
+          advancePaymentRejectedReason: null,
+        },
       });
       expect(notificationsService.create).toHaveBeenCalled();
       expect(result.status).toBe(EditRequestStatus.APPROVED);
@@ -179,6 +187,10 @@ describe('AdvancePaymentApprovalsService', () => {
       (prisma.advancePaymentApproval.findUnique as jest.Mock).mockResolvedValue({ id: 'req1', status: EditRequestStatus.REJECTED } as any);
       (prisma.order.findUnique as jest.Mock).mockResolvedValue({ total: 1000 } as any);
       (prisma.payment.findMany as jest.Mock).mockResolvedValue([] as any);
+      // El pago se eliminó: la solicitud queda rechazada y sin `paymentId`.
+      (prisma.advancePaymentApproval.findMany as jest.Mock).mockResolvedValue([
+        { status: EditRequestStatus.REJECTED, paymentId: null },
+      ] as any);
 
       const result = await service.reject('req1', 'rev1', { reviewNotes: 'No' });
 
@@ -187,14 +199,93 @@ describe('AdvancePaymentApprovalsService', () => {
       expect(prisma.order.update).toHaveBeenCalledWith({
         where: { id: 'o1' },
         data: {
-          advancePaymentRejectedReason: 'No',
-          advancePaymentStatus: EditRequestStatus.REJECTED,
           paidAmount: new Prisma.Decimal(0),
           balance: new Prisma.Decimal(1000),
         },
       });
+      expect(prisma.order.update).toHaveBeenCalledWith({
+        where: { id: 'o1' },
+        data: {
+          advancePaymentStatus: EditRequestStatus.REJECTED,
+          advancePaymentRejectedReason: 'No',
+        },
+      });
       expect(notificationsService.create).toHaveBeenCalled();
       expect(result?.status).toBe(EditRequestStatus.REJECTED);
+    });
+
+    // Regresión OP-2026-1504: el asesor registró el mismo pago tres veces, Caja
+    // aprobó el bueno y rechazó el duplicado 39 segundos después. Con el campo
+    // escrito a mano, ese rechazo borraba la aprobación y trababa la orden para
+    // siempre con el dinero completo ya recibido.
+    it('should not block the order when another approved payment survives', async () => {
+      (prisma.advancePaymentApproval.findFirst as jest.Mock).mockResolvedValue({
+        id: 'req-duplicado',
+        orderId: 'o1',
+        paymentId: 'pay-duplicado',
+        requestedById: 'u1',
+        order: { orderNumber: 'OP-2026-1504', total: 7000 },
+      } as any);
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        role: { permissions: [{ permission: { name: 'approve_advance_payments' } }] },
+      } as any);
+      (prisma.advancePaymentApproval.findUnique as jest.Mock).mockResolvedValue({
+        id: 'req-duplicado',
+        status: EditRequestStatus.REJECTED,
+      } as any);
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue({ total: 7000 } as any);
+      (prisma.payment.findMany as jest.Mock).mockResolvedValue([
+        { amount: new Prisma.Decimal(7000) },
+      ] as any);
+      (prisma.advancePaymentApproval.findMany as jest.Mock).mockResolvedValue([
+        { status: EditRequestStatus.APPROVED, paymentId: 'pay-bueno' },
+        { status: EditRequestStatus.REJECTED, paymentId: null },
+      ] as any);
+
+      await service.reject('req-duplicado', 'rev1', {
+        reviewNotes: 'El soporte de pago es el mismo del abono.',
+      });
+
+      expect(prisma.order.update).toHaveBeenCalledWith({
+        where: { id: 'o1' },
+        data: {
+          advancePaymentStatus: EditRequestStatus.APPROVED,
+          advancePaymentRejectedReason: null,
+        },
+      });
+    });
+
+    it('should keep the order pending when another request is still awaiting Caja', async () => {
+      (prisma.advancePaymentApproval.findFirst as jest.Mock).mockResolvedValue({
+        id: 'req1',
+        orderId: 'o1',
+        paymentId: 'pay1',
+        requestedById: 'u1',
+        order: { orderNumber: '123', total: 1000 },
+      } as any);
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        role: { permissions: [{ permission: { name: 'approve_advance_payments' } }] },
+      } as any);
+      (prisma.advancePaymentApproval.findUnique as jest.Mock).mockResolvedValue({
+        id: 'req1',
+        status: EditRequestStatus.REJECTED,
+      } as any);
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue({ total: 1000 } as any);
+      (prisma.advancePaymentApproval.findMany as jest.Mock).mockResolvedValue([
+        { status: EditRequestStatus.REJECTED, paymentId: null },
+        { status: EditRequestStatus.APPROVED, paymentId: 'pay-bueno' },
+        { status: EditRequestStatus.PENDING, paymentId: 'pay-otro' },
+      ] as any);
+
+      await service.reject('req1', 'rev1', { reviewNotes: 'duplicado' });
+
+      expect(prisma.order.update).toHaveBeenCalledWith({
+        where: { id: 'o1' },
+        data: {
+          advancePaymentStatus: EditRequestStatus.PENDING,
+          advancePaymentRejectedReason: null,
+        },
+      });
     });
 
     it('should keep the remaining payments applied to the balance', async () => {
