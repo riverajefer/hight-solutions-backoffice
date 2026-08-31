@@ -147,7 +147,10 @@ export const ChangeStatusDialog: React.FC<ChangeStatusDialogProps> = ({
           )}
           {order.advancePaymentStatus === 'REJECTED' && (
             <Alert severity="error" sx={{ mb: 2 }}>
-              El anticipo de esta orden fue rechazado por Caja. No se puede cambiar el estado.
+              El anticipo de esta orden fue rechazado por Caja y el pago se
+              eliminó, así que la orden quedó sin abono válido. Para
+              desbloquearla, edita la orden y vuelve a registrar el «Abono
+              Inicial» con el soporte correcto: Caja lo revisará de nuevo.
             </Alert>
           )}
 
