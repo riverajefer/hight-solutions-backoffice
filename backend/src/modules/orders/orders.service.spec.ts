@@ -154,6 +154,14 @@ const mockPrisma = {
     findUnique: jest.fn(),
     findMany: jest.fn(),
   },
+  // Fuentes del historial de aprobaciones. Por defecto vacías: cada test pone
+  // solo la que ejerce.
+  advancePaymentApproval: { findMany: jest.fn().mockResolvedValue([]) },
+  discountApproval: { findMany: jest.fn().mockResolvedValue([]) },
+  clientOwnershipAuthRequest: { findMany: jest.fn().mockResolvedValue([]) },
+  paymentEditApproval: { findMany: jest.fn().mockResolvedValue([]) },
+  orderEditRequest: { findMany: jest.fn().mockResolvedValue([]) },
+  cashMovementVoidRequest: { findMany: jest.fn().mockResolvedValue([]) },
   cashSession: {
     findFirst: jest.fn(),
   },
@@ -2935,6 +2943,132 @@ describe('OrdersService', () => {
         data: { receiptFileId: null },
       });
       expect(result).toMatchObject({ message: 'Receipt deleted successfully' });
+    });
+  });
+
+  describe('getAuthorizationHistory', () => {
+    const user = { id: 'u1', email: 'caja@x.com', firstName: 'Ana', lastName: 'Gómez' };
+
+    beforeEach(() => {
+      mockOrdersRepository.findById.mockResolvedValue(mockConfirmedOrder);
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+    });
+
+    it('incluye la solicitud de anulación con su monto', async () => {
+      mockPrisma.cashMovementVoidRequest.findMany.mockResolvedValue([
+        {
+          id: 'req-1',
+          status: 'PENDING',
+          voidReason: 'Pago duplicado',
+          paymentId: 'pay-1',
+          payment: { id: 'pay-1', amount: new Prisma.Decimal(320000) },
+          cashMovement: null,
+          createdAt: new Date('2026-09-01T10:00:00Z'),
+          reviewedAt: null,
+          reviewNotes: null,
+          requestedBy: user,
+          reviewedBy: null,
+        },
+      ]);
+
+      const events = await service.getAuthorizationHistory('order-1');
+      const evt = events.find((e) => e.type === 'PAYMENT_VOID');
+
+      expect(evt).toBeDefined();
+      expect(evt!.status).toBe('PENDING');
+      expect(evt!.amount).toBe('320000');
+      expect(evt!.reason).toBe('Pago duplicado');
+      expect(evt!.direct).toBeUndefined();
+    });
+
+    // Caja anula con la caja abierta: no hay solicitud, y sin sintetizar el
+    // evento la plata desaparecería del saldo sin dejar rastro en el timeline.
+    it('sintetiza la anulación directa, que no pasa por ninguna solicitud', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([
+        {
+          id: 'pay-9',
+          amount: new Prisma.Decimal(8000),
+          voidedAt: new Date('2026-09-01T12:00:00Z'),
+          voidReason: 'Se registró dos veces',
+          voidedBy: user,
+        },
+      ]);
+
+      const events = await service.getAuthorizationHistory('order-1');
+      const evt = events.find((e) => e.type === 'PAYMENT_VOID');
+
+      expect(evt).toBeDefined();
+      expect(evt!.direct).toBe(true);
+      expect(evt!.amount).toBe('8000');
+      expect(evt!.requestedBy).toEqual(user);
+      expect(evt!.reviewedBy).toBeNull();
+    });
+
+    it('no duplica el pago que se anuló a través de una solicitud', async () => {
+      mockPrisma.cashMovementVoidRequest.findMany.mockResolvedValue([
+        {
+          id: 'req-1',
+          status: 'APPROVED',
+          voidReason: 'Pago duplicado',
+          paymentId: 'pay-1',
+          payment: { id: 'pay-1', amount: new Prisma.Decimal(320000) },
+          cashMovement: null,
+          createdAt: new Date('2026-09-01T10:00:00Z'),
+          reviewedAt: new Date('2026-09-01T11:00:00Z'),
+          reviewNotes: null,
+          requestedBy: user,
+          reviewedBy: user,
+        },
+      ]);
+      mockPrisma.payment.findMany.mockResolvedValue([
+        {
+          id: 'pay-1',
+          amount: new Prisma.Decimal(320000),
+          voidedAt: new Date('2026-09-01T11:00:00Z'),
+          voidReason: 'Pago duplicado',
+          voidedBy: user,
+        },
+      ]);
+
+      const events = await service.getAuthorizationHistory('order-1');
+
+      expect(events.filter((e) => e.type === 'PAYMENT_VOID')).toHaveLength(1);
+    });
+
+    it('reconoce el pago anulado a través de una solicitud sobre el movimiento de caja', async () => {
+      mockPrisma.cashMovementVoidRequest.findMany.mockResolvedValue([
+        {
+          id: 'req-2',
+          status: 'APPROVED',
+          voidReason: 'Consignación no identificada',
+          paymentId: null,
+          payment: null,
+          cashMovement: {
+            amount: new Prisma.Decimal(50000),
+            linkedPayment: { id: 'pay-5' },
+          },
+          createdAt: new Date('2026-09-01T10:00:00Z'),
+          reviewedAt: new Date('2026-09-01T11:00:00Z'),
+          reviewNotes: null,
+          requestedBy: user,
+          reviewedBy: user,
+        },
+      ]);
+      mockPrisma.payment.findMany.mockResolvedValue([
+        {
+          id: 'pay-5',
+          amount: new Prisma.Decimal(50000),
+          voidedAt: new Date('2026-09-01T11:00:00Z'),
+          voidReason: 'Consignación no identificada',
+          voidedBy: user,
+        },
+      ]);
+
+      const events = await service.getAuthorizationHistory('order-1');
+      const voids = events.filter((e) => e.type === 'PAYMENT_VOID');
+
+      expect(voids).toHaveLength(1);
+      expect(voids[0].amount).toBe('50000');
     });
   });
 
