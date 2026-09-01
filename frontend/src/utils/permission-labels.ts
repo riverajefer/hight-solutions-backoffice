@@ -232,6 +232,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   read_cash_sessions: 'Ver Sesiones de Caja',
   create_cash_movements: 'Registrar Movimientos de Caja',
   void_cash_movements: 'Anular Movimientos de Caja',
+  request_payment_void: 'Solicitar Anulación de Pagos',
   read_cash_movements: 'Ver Movimientos de Caja',
   approve_cash_movements: 'Aprobar Movimientos de Caja',
   caja_authorize_expense_orders: 'Autorizar Órdenes de Gasto en Caja',

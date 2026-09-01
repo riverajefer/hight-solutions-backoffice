@@ -86,7 +86,7 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   // Caja Registradora (POS)
   'Cajas Registradoras': ['create_cash_registers', 'read_cash_registers', 'update_cash_registers', 'delete_cash_registers'],
   'Sesiones de Caja': ['open_cash_session', 'close_cash_session', 'read_cash_sessions'],
-  'Movimientos de Caja': ['create_cash_movements', 'void_cash_movements', 'read_cash_movements', 'approve_cash_movements'],
+  'Movimientos de Caja': ['create_cash_movements', 'void_cash_movements', 'read_cash_movements', 'approve_cash_movements', 'request_payment_void'],
   'Pagos de CP en Caja': ['caja_authorize_ap_payment'],
   Devoluciones: ['approve_refunds', 'create_refund_requests'],
 

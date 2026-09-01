@@ -2,7 +2,13 @@ import type { CashMovementType } from './cash-register.types';
 
 export interface CashMovementVoidRequest {
   id: string;
-  cashMovementId: string;
+  /**
+   * La solicitud apunta a un movimiento de caja O a un pago suelto: un tercio de
+   * los pagos nunca llega a caja (se registran sin caja abierta o salen de saldo
+   * a favor) y también hay que poder anularlos. Nunca vienen los dos en null.
+   */
+  cashMovementId: string | null;
+  paymentId: string | null;
   voidReason: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   requestedBy: {
@@ -28,7 +34,14 @@ export interface CashMovementVoidRequest {
     movementType: CashMovementType;
     description: string;
     paymentMethod: string;
-  };
+  } | null;
+  payment?: {
+    id: string;
+    amount: string;
+    paymentMethod: string;
+    paymentDate: string;
+    order: { id: string; orderNumber: string } | null;
+  } | null;
 }
 
 export interface CreateVoidRequestDto {

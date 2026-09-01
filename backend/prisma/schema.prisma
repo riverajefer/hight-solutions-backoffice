@@ -30,6 +30,7 @@ model User {
   sessionLogs                               SessionLog[]
   createdOrders                             Order[]
   receivedPayments                          Payment[]                              @relation("ReceivedPayments")
+  voidedPayments                            Payment[]                              @relation("VoidedPayments")
   requestedEditRequests                     OrderEditRequest[]                     @relation("RequestedEditRequests")
   reviewedEditRequests                      OrderEditRequest[]                     @relation("ReviewedEditRequests")
   requestedStatusChangeRequests             OrderStatusChangeRequest[]             @relation("RequestedStatusChangeRequests")
@@ -768,13 +769,23 @@ model Payment {
   // comercial que cobra fuera del horario de caja.
   pendingCashEntry Boolean @default(false) @map("pending_cash_entry")
 
+  // Anulación. El pago no se borra: la fila sobrevive marcada para que el
+  // Historial de Pagos siga contando qué pasó y quién lo autorizó. Un pago
+  // anulado no suma a `paidAmount` (ver `sumActivePayments`).
+  isVoided   Boolean   @default(false) @map("is_voided")
+  voidedById String?   @map("voided_by_id")
+  voidedAt   DateTime? @map("voided_at")
+  voidReason String?   @map("void_reason")
+
   // Relaciones
   order                  Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   receivedBy             User                    @relation("ReceivedPayments", fields: [receivedById], references: [id])
+  voidedBy               User?                   @relation("VoidedPayments", fields: [voidedById], references: [id])
   advancePaymentApproval AdvancePaymentApproval?
   paymentEditApprovals   PaymentEditApproval[]
   cashMovement           CashMovement?           @relation(fields: [cashMovementId], references: [id])
   creditApplications     CreditBalanceApplication[]
+  voidRequests           CashMovementVoidRequest[]
 
   @@index([orderId])
   @@index([receivedById])
@@ -2133,7 +2144,14 @@ model CashMovement {
 
 model CashMovementVoidRequest {
   id             String            @id @default(uuid())
-  cashMovementId String            @map("cash_movement_id")
+  // Uno de los dos, nunca ambos vacíos.
+  //
+  // Un tercio de los pagos recientes no tiene movimiento de caja (se registran
+  // fuera del horario de caja o salen de saldo a favor). Si la solicitud solo
+  // pudiera apuntar a un movimiento, el comercial no podría pedir la anulación
+  // justo de esos, que son los que más se equivocan.
+  cashMovementId String?           @map("cash_movement_id")
+  paymentId      String?           @map("payment_id")
   requestedById  String            @map("requested_by_id")
   voidReason     String            @map("void_reason")
   status         EditRequestStatus @default(PENDING)
@@ -2147,11 +2165,13 @@ model CashMovementVoidRequest {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relaciones
-  cashMovement CashMovement @relation(fields: [cashMovementId], references: [id], onDelete: Cascade)
-  requestedBy  User         @relation("RequestedVoidRequests", fields: [requestedById], references: [id])
-  reviewedBy   User?        @relation("ReviewedVoidRequests", fields: [reviewedById], references: [id])
+  cashMovement CashMovement? @relation(fields: [cashMovementId], references: [id], onDelete: Cascade)
+  payment      Payment?      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  requestedBy  User          @relation("RequestedVoidRequests", fields: [requestedById], references: [id])
+  reviewedBy   User?         @relation("ReviewedVoidRequests", fields: [reviewedById], references: [id])
 
   @@index([cashMovementId])
+  @@index([paymentId])
   @@index([requestedById])
   @@index([status])
   @@map("cash_movement_void_requests")

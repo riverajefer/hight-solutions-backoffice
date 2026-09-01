@@ -43,6 +43,70 @@ export class CashMovementVoidRequestsService
     this.approvalRegistry.register('CASH_MOVEMENT_VOID', this);
   }
 
+  /**
+   * Cómo se nombra el objetivo de una solicitud en notificaciones y mensajes.
+   *
+   * La solicitud apunta a un movimiento de caja o directamente a un pago: un
+   * tercio de los pagos recientes nunca llega a caja (se registran fuera del
+   * horario o salen de saldo a favor) y también hay que poder anularlos.
+   */
+  private describeTarget(request: {
+    cashMovement?: { receiptNumber: string; amount?: any } | null;
+    payment?: {
+      amount: any;
+      order?: { orderNumber: string } | null;
+    } | null;
+  }): { label: string; labelWithAmount: string } {
+    if (request.cashMovement) {
+      const label = `movimiento ${request.cashMovement.receiptNumber}`;
+      return {
+        label,
+        labelWithAmount: request.cashMovement.amount
+          ? `${label} ($${parseFloat(request.cashMovement.amount.toString()).toLocaleString('es-CO')})`
+          : label,
+      };
+    }
+
+    if (request.payment) {
+      const orderRef = request.payment.order
+        ? ` de la orden ${request.payment.order.orderNumber}`
+        : '';
+      const label = `pago${orderRef}`;
+      return {
+        label,
+        labelWithAmount: `${label} ($${parseFloat(request.payment.amount.toString()).toLocaleString('es-CO')})`,
+      };
+    }
+
+    return { label: 'movimiento', labelWithAmount: 'movimiento' };
+  }
+
+  /** Ejecuta la anulación según a qué apunte la solicitud. */
+  private async executeVoid(
+    request: {
+      cashMovementId: string | null;
+      paymentId: string | null;
+      voidReason: string;
+    },
+    reviewerId: string,
+  ): Promise<void> {
+    if (request.cashMovementId) {
+      await this.cashMovementService.voidMovement(
+        request.cashMovementId,
+        { voidReason: request.voidReason },
+        reviewerId,
+      );
+      return;
+    }
+    if (request.paymentId) {
+      await this.cashMovementService.voidPaymentWithoutMovement(
+        request.paymentId,
+        reviewerId,
+        request.voidReason,
+      );
+    }
+  }
+
   // ─── ApprovalRequestHandler interface ───
 
   async findPendingRequest(
@@ -51,7 +115,13 @@ export class CashMovementVoidRequestsService
     const request = await this.prisma.cashMovementVoidRequest.findUnique({
       where: { id: requestId },
       include: {
-        cashMovement: { select: { receiptNumber: true } },
+        cashMovement: { select: { receiptNumber: true, amount: true } },
+        payment: {
+          select: {
+            amount: true,
+            order: { select: { orderNumber: true } },
+          },
+        },
       },
     });
     if (!request) return null;
@@ -59,7 +129,7 @@ export class CashMovementVoidRequestsService
       id: request.id,
       status: request.status,
       requestedById: request.requestedById,
-      displayLabel: `Anulación del movimiento ${request.cashMovement.receiptNumber}`,
+      displayLabel: `Anulación del ${this.describeTarget(request).label}`,
     };
   }
 
@@ -70,7 +140,13 @@ export class CashMovementVoidRequestsService
     const request = await this.prisma.cashMovementVoidRequest.findUnique({
       where: { id: requestId },
       include: {
-        cashMovement: { select: { id: true, receiptNumber: true } },
+        cashMovement: { select: { id: true, receiptNumber: true, amount: true } },
+        payment: {
+          select: {
+            amount: true,
+            order: { select: { orderNumber: true } },
+          },
+        },
       },
     });
 
@@ -88,20 +164,16 @@ export class CashMovementVoidRequestsService
     });
 
     // Execute the actual void
-    await this.cashMovementService.voidMovement(
-      request.cashMovementId,
-      { voidReason: request.voidReason },
-      reviewerId,
-    );
+    await this.executeVoid(request, reviewerId);
 
     // Notify requester
     await this.notificationsService.create({
       userId: request.requestedById,
       type: NotificationType.CASH_VOID_REQUEST_APPROVED,
       title: 'Solicitud de anulación aprobada',
-      message: `Tu solicitud para anular el movimiento ${request.cashMovement.receiptNumber} ha sido aprobada y ejecutada.`,
-      relatedId: request.cashMovementId,
-      relatedType: 'CashMovement',
+      message: `Tu solicitud para anular el ${this.describeTarget(request).label} ha sido aprobada y ejecutada.`,
+      relatedId: request.cashMovementId ?? request.paymentId ?? undefined,
+      relatedType: request.cashMovementId ? 'CashMovement' : 'Payment',
     });
   }
 
@@ -112,7 +184,13 @@ export class CashMovementVoidRequestsService
     const request = await this.prisma.cashMovementVoidRequest.findUnique({
       where: { id: requestId },
       include: {
-        cashMovement: { select: { receiptNumber: true } },
+        cashMovement: { select: { receiptNumber: true, amount: true } },
+        payment: {
+          select: {
+            amount: true,
+            order: { select: { orderNumber: true } },
+          },
+        },
       },
     });
 
@@ -132,54 +210,79 @@ export class CashMovementVoidRequestsService
       userId: request.requestedById,
       type: NotificationType.CASH_VOID_REQUEST_REJECTED,
       title: 'Solicitud de anulación rechazada',
-      message: `Tu solicitud para anular el movimiento ${request.cashMovement.receiptNumber} ha sido rechazada.`,
-      relatedId: request.cashMovementId,
-      relatedType: 'CashMovement',
+      message: `Tu solicitud para anular el ${this.describeTarget(request).label} ha sido rechazada.`,
+      relatedId: request.cashMovementId ?? request.paymentId ?? undefined,
+      relatedType: request.cashMovementId ? 'CashMovement' : 'Payment',
     });
   }
 
   // ─── Domain methods ───
 
+  /**
+   * Crea una solicitud de anulación sobre un movimiento de caja o sobre un pago.
+   *
+   * `target` lleva uno de los dos. El pago suelto no es un caso raro: un tercio
+   * de los pagos recientes nunca llega a caja (se registran fuera del horario o
+   * salen de saldo a favor), y son justo los que el comercial necesita poder
+   * pedir que se anulen.
+   */
   async create(
-    cashMovementId: string,
+    target: { cashMovementId?: string; paymentId?: string },
     userId: string,
     dto: CreateVoidRequestDto,
   ) {
-    // 1. Validate movement exists and is not already voided
-    const movement = await this.prisma.cashMovement.findUnique({
-      where: { id: cashMovementId },
-      include: {
-        cashSession: { select: { status: true } },
-      },
-    });
-
-    if (!movement) {
-      throw new NotFoundException(
-        `Movimiento de caja ${cashMovementId} no encontrado`,
-      );
-    }
-
-    if (movement.isVoided) {
-      throw new BadRequestException('El movimiento ya está anulado');
-    }
-
-    if (movement.cashSession.status !== 'OPEN') {
+    const { cashMovementId, paymentId } = target;
+    if (!cashMovementId && !paymentId) {
       throw new BadRequestException(
-        'Solo se pueden anular movimientos de sesiones abiertas',
+        'La solicitud de anulación necesita un movimiento de caja o un pago',
       );
     }
+
+    // 1. Validar que el objetivo existe y no está anulado ya
+    if (cashMovementId) {
+      const movement = await this.prisma.cashMovement.findUnique({
+        where: { id: cashMovementId },
+        select: { isVoided: true },
+      });
+
+      if (!movement) {
+        throw new NotFoundException(
+          `Movimiento de caja ${cashMovementId} no encontrado`,
+        );
+      }
+      if (movement.isVoided) {
+        throw new BadRequestException('El movimiento ya está anulado');
+      }
+    } else {
+      const payment = await this.prisma.payment.findUnique({
+        where: { id: paymentId },
+        select: { isVoided: true },
+      });
+
+      if (!payment) {
+        throw new NotFoundException(`Pago ${paymentId} no encontrado`);
+      }
+      if (payment.isVoided) {
+        throw new BadRequestException('El pago ya está anulado');
+      }
+    }
+
+    // Una sesión cerrada NO impide solicitar la anulación: es justamente el caso
+    // en que hace falta, porque el error casi siempre se detecta al día
+    // siguiente. Al aprobarla, la reversa se registra en la sesión abierta de esa
+    // caja (ver `resolveCounterSessionId`), sin tocar el cierre ya firmado.
 
     // 2. Check no pending request already exists
     const existing = await this.prisma.cashMovementVoidRequest.findFirst({
       where: {
-        cashMovementId,
+        ...(cashMovementId ? { cashMovementId } : { paymentId }),
         status: EditRequestStatus.PENDING,
       },
     });
 
     if (existing) {
       throw new BadRequestException(
-        'Ya existe una solicitud de anulación pendiente para este movimiento',
+        'Ya existe una solicitud de anulación pendiente para este pago',
       );
     }
 
@@ -187,6 +290,7 @@ export class CashMovementVoidRequestsService
     const request = await this.prisma.cashMovementVoidRequest.create({
       data: {
         cashMovementId,
+        paymentId,
         requestedById: userId,
         voidReason: dto.voidReason,
         status: EditRequestStatus.PENDING,
@@ -209,14 +313,22 @@ export class CashMovementVoidRequestsService
             description: true,
           },
         },
+        payment: {
+          select: {
+            id: true,
+            amount: true,
+            paymentMethod: true,
+            order: { select: { id: true, orderNumber: true } },
+          },
+        },
       },
     });
 
     // 4. Notify admins in-app
     await this.notificationsService.notifyAllAdmins({
       type: NotificationType.CASH_VOID_REQUEST_PENDING,
-      title: 'Nueva solicitud de anulación de movimiento',
-      message: `${request.requestedBy.firstName || request.requestedBy.email} solicita anular el movimiento ${request.cashMovement.receiptNumber} ($${parseFloat(request.cashMovement.amount.toString()).toLocaleString('es-CO')})`,
+      title: 'Nueva solicitud de anulación',
+      message: `${request.requestedBy.firstName || request.requestedBy.email} solicita anular el ${this.describeTarget(request).labelWithAmount}`,
       relatedId: request.id,
       relatedType: 'CashMovementVoidRequest',
     });
@@ -237,7 +349,7 @@ export class CashMovementVoidRequestsService
       request.id,
       requesterName,
       requesterRole,
-      `Anular movimiento ${request.cashMovement.receiptNumber} ($${parseFloat(request.cashMovement.amount.toString()).toLocaleString('es-CO')})`,
+      `Anular ${this.describeTarget(request).labelWithAmount}`,
       dto.voidReason,
     );
 
@@ -257,7 +369,13 @@ export class CashMovementVoidRequestsService
       },
       include: {
         requestedBy: true,
-        cashMovement: { select: { id: true, receiptNumber: true } },
+        cashMovement: { select: { id: true, receiptNumber: true, amount: true } },
+        payment: {
+          select: {
+            amount: true,
+            order: { select: { orderNumber: true } },
+          },
+        },
       },
     });
 
@@ -305,25 +423,27 @@ export class CashMovementVoidRequestsService
             lastName: true,
           },
         },
-        cashMovement: { select: { id: true, receiptNumber: true } },
+        cashMovement: { select: { id: true, receiptNumber: true, amount: true } },
+        payment: {
+          select: {
+            amount: true,
+            order: { select: { orderNumber: true } },
+          },
+        },
       },
     });
 
     // 4. Execute the actual void
-    await this.cashMovementService.voidMovement(
-      request.cashMovementId,
-      { voidReason: request.voidReason },
-      adminId,
-    );
+    await this.executeVoid(request, adminId);
 
     // 5. Notify requester
     await this.notificationsService.create({
       userId: request.requestedById,
       type: NotificationType.CASH_VOID_REQUEST_APPROVED,
       title: 'Solicitud de anulación aprobada',
-      message: `Tu solicitud para anular el movimiento ${request.cashMovement.receiptNumber} ha sido aprobada y ejecutada.`,
-      relatedId: request.cashMovementId,
-      relatedType: 'CashMovement',
+      message: `Tu solicitud para anular el ${this.describeTarget(request).label} ha sido aprobada y ejecutada.`,
+      relatedId: request.cashMovementId ?? request.paymentId ?? undefined,
+      relatedType: request.cashMovementId ? 'CashMovement' : 'Payment',
     });
 
     return updatedRequest;
@@ -342,7 +462,13 @@ export class CashMovementVoidRequestsService
       },
       include: {
         requestedBy: true,
-        cashMovement: { select: { receiptNumber: true } },
+        cashMovement: { select: { receiptNumber: true, amount: true } },
+        payment: {
+          select: {
+            amount: true,
+            order: { select: { orderNumber: true } },
+          },
+        },
       },
     });
 
@@ -401,9 +527,9 @@ export class CashMovementVoidRequestsService
       userId: request.requestedById,
       type: NotificationType.CASH_VOID_REQUEST_REJECTED,
       title: 'Solicitud de anulación rechazada',
-      message: `Tu solicitud para anular el movimiento ${request.cashMovement.receiptNumber} ha sido rechazada.${rejectReason}`,
-      relatedId: request.cashMovementId,
-      relatedType: 'CashMovement',
+      message: `Tu solicitud para anular el ${this.describeTarget(request).label} ha sido rechazada.${rejectReason}`,
+      relatedId: request.cashMovementId ?? request.paymentId ?? undefined,
+      relatedType: request.cashMovementId ? 'CashMovement' : 'Payment',
     });
 
     return updatedRequest;
@@ -418,6 +544,17 @@ export class CashMovementVoidRequestsService
         movementType: true,
         description: true,
         paymentMethod: true,
+      },
+    },
+    // Sin esto, una solicitud sobre un pago que nunca pasó por caja le llega al
+    // admin sin recibo, sin tipo y con monto $0: imposible de decidir.
+    payment: {
+      select: {
+        id: true,
+        amount: true,
+        paymentMethod: true,
+        paymentDate: true,
+        order: { select: { id: true, orderNumber: true } },
       },
     },
     requestedBy: {

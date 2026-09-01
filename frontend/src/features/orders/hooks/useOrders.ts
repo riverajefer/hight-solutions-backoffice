@@ -316,6 +316,52 @@ export const useOrderPayments = (orderId: string) => {
     },
   });
 
+  const voidPaymentMutation = useMutation({
+    mutationFn: ({
+      paymentId,
+      voidReason,
+    }: {
+      paymentId: string;
+      voidReason: string;
+      /**
+       * El usuario puede anular sin aprobación. Cambia el PORQUÉ de que algo
+       * quede pendiente: para él es que la caja cerró; para quien no lo tiene,
+       * es que su rol siempre pasa por el admin. Decirle a un comercial que "la
+       * caja está cerrada" es falso cuando el pago ni siquiera pasó por caja.
+       */
+      voidsDirectly?: boolean;
+    }) => ordersApi.voidPayment(orderId, paymentId, voidReason),
+    onSuccess: (result, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ordersKeys.payments(orderId),
+      });
+      queryClient.invalidateQueries({ queryKey: ordersKeys.detail(orderId) });
+      queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: ordersKeys.dashboardSummaries() });
+
+      // Los dos desenlaces son legítimos y se sienten distintos: uno ya movió el
+      // dinero, el otro deja al usuario esperando al admin. Decirlo igual haría
+      // creer que el saldo ya cambió cuando no.
+      if (result.requiresApproval) {
+        enqueueSnackbar(
+          variables.voidsDirectly
+            ? 'La caja de este pago ya está cerrada, así que la anulación quedó pendiente de autorización del administrador.'
+            : 'Tu solicitud de anulación quedó pendiente de autorización del administrador. El saldo de la orden no cambia hasta que la apruebe.',
+          { variant: 'info' },
+        );
+      } else {
+        enqueueSnackbar('Pago anulado. El saldo de la orden ya fue recalculado.', {
+          variant: 'success',
+        });
+      }
+    },
+    onError: (error: any) => {
+      const message =
+        error?.response?.data?.message || 'Error al anular el pago';
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+
   return {
     // Query
     paymentsQuery,
@@ -323,6 +369,7 @@ export const useOrderPayments = (orderId: string) => {
     // Mutations
     addPaymentMutation,
     updatePaymentMutation,
+    voidPaymentMutation,
   };
 };
 

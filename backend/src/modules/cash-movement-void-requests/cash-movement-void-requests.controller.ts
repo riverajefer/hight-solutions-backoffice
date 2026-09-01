@@ -39,6 +39,6 @@ export class CashMovementVoidRequestsController {
     @CurrentUser('id') userId: string,
     @Body() dto: CreateVoidRequestDto,
   ) {
-    return this.service.create(movementId, userId, dto);
+    return this.service.create({ cashMovementId: movementId }, userId, dto);
   }
 }
