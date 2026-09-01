@@ -195,6 +195,19 @@ export interface Payment {
   bankEntity: string | null;
   receiptFileId: string | null;
   createdAt: string;
+  /**
+   * Un pago anulado sobrevive en el historial en vez de desaparecer: deja de
+   * sumar al saldo, pero la fila sigue contando qué pasó y quién lo autorizó.
+   */
+  isVoided: boolean;
+  voidedAt: string | null;
+  voidReason: string | null;
+  voidedBy: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  } | null;
   receivedBy: {
     id: string;
     email: string;
@@ -334,6 +347,16 @@ export interface UpdatePaymentDto {
  * Respuesta del endpoint de edición de pago cuando el usuario NO tiene
  * permiso para aplicar el cambio directamente: queda pendiente de aprobación.
  */
+/**
+ * Resultado de anular un pago. Si la caja del pago ya estaba cerrada no se anula
+ * de una: queda como solicitud para que el admin la autorice.
+ */
+export interface VoidPaymentResponse {
+  voided: boolean;
+  requiresApproval: boolean;
+  requestId?: string;
+}
+
 export interface PaymentEditPendingResponse {
   status: 'PENDING_APPROVAL';
   approvalId?: string;

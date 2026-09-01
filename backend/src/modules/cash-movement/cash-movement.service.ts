@@ -14,7 +14,13 @@ import {
 } from './dto';
 import { CashSessionStatus, Prisma } from '../../generated/prisma';
 import { INVERSE_MOVEMENT_TYPE } from './cash-movement.helpers';
-import { computeOrderBalance } from '../../common/utils/order-balance.util';
+import {
+  ACTIVE_PAYMENT_WHERE,
+  computeNetPaidAmount,
+  computeOrderBalance,
+  sumActivePayments,
+} from '../../common/utils/order-balance.util';
+import { CreditBalanceService } from '../credit-balance/credit-balance.service';
 
 @Injectable()
 export class CashMovementService {
@@ -23,6 +29,7 @@ export class CashMovementService {
     private readonly consecutivesService: ConsecutivesService,
     private readonly prisma: PrismaService,
     private readonly auditLogsService: AuditLogsService,
+    private readonly creditBalanceService: CreditBalanceService,
   ) {}
 
   async findAll(filters: FilterCashMovementsDto) {
@@ -134,6 +141,120 @@ export class CashMovementService {
     return created;
   }
 
+  /**
+   * Sesión donde debe caer el contramovimiento de una anulación.
+   *
+   * Si la sesión original sigue abierta, es ella misma. Si ya cerró, se busca la
+   * sesión abierta de la misma caja: nunca se reabre un cierre firmado, la
+   * corrección se registra donde el dinero sí se puede mover hoy.
+   */
+  private async resolveCounterSessionId(movement: {
+    cashSessionId: string;
+    cashSession?: { status: string; cashRegisterId: string } | null;
+  }): Promise<string> {
+    if (movement.cashSession?.status === CashSessionStatus.OPEN) {
+      return movement.cashSessionId;
+    }
+
+    const openSession = movement.cashSession
+      ? await this.prisma.cashSession.findFirst({
+          where: {
+            cashRegisterId: movement.cashSession.cashRegisterId,
+            status: CashSessionStatus.OPEN,
+          },
+          orderBy: { openedAt: 'desc' },
+          select: { id: true },
+        })
+      : null;
+
+    if (!openSession) {
+      throw new BadRequestException(
+        'La caja de este movimiento ya está cerrada y no hay una sesión abierta ' +
+          'donde registrar la reversa. Abre la caja y vuelve a intentarlo.',
+      );
+    }
+
+    return openSession.id;
+  }
+
+  /**
+   * Marca un pago como anulado y recalcula la orden desde los pagos que quedan
+   * vivos.
+   *
+   * El pago no se borra: la fila sobrevive para que el Historial de Pagos siga
+   * contando qué pasó y quién lo autorizó. Por eso el recálculo suma solo los no
+   * anulados en vez de restar el monto del pago: restar acumula deriva si el
+   * mismo pago se toca dos veces, sumar desde la fuente no.
+   */
+  async voidPaymentAndRecalculate(
+    tx: Prisma.TransactionClient,
+    paymentId: string,
+    userId: string,
+    voidReason: string,
+  ): Promise<void> {
+    const payment = await tx.payment.update({
+      where: { id: paymentId },
+      data: {
+        isVoided: true,
+        voidedById: userId,
+        voidedAt: new Date(),
+        voidReason,
+      },
+      select: { orderId: true },
+    });
+
+    // El saldo a favor que este pago hubiera aplicado a otras órdenes se
+    // devuelve: ese dinero ya no existe.
+    await this.creditBalanceService.releaseCredit(tx, paymentId);
+
+    const order = await tx.order.findUnique({
+      where: { id: payment.orderId },
+      select: {
+        total: true,
+        appliedCreditAmount: true,
+        refundedAmount: true,
+      },
+    });
+    if (!order) return;
+
+    const payments = await tx.payment.findMany({
+      where: { orderId: payment.orderId, ...ACTIVE_PAYMENT_WHERE },
+      select: { amount: true },
+    });
+
+    const paidAmount = computeNetPaidAmount(
+      sumActivePayments(payments),
+      order.refundedAmount,
+    );
+
+    await tx.order.update({
+      where: { id: payment.orderId },
+      data: {
+        paidAmount,
+        balance: computeOrderBalance(
+          order.total,
+          paidAmount,
+          order.appliedCreditAmount,
+        ),
+      },
+    });
+  }
+
+  /**
+   * Anula un pago que no tiene movimiento de caja: los que se registran fuera
+   * del horario de caja o salen de saldo a favor. No hay arqueo que revertir,
+   * así que no hace falta sesión abierta ni contramovimiento.
+   */
+  async voidPaymentWithoutMovement(
+    paymentId: string,
+    userId: string,
+    voidReason: string,
+  ): Promise<void> {
+    await this.prisma.$transaction((tx) =>
+      this.voidPaymentAndRecalculate(tx, paymentId, userId, voidReason),
+    );
+  }
+
   async voidMovement(id: string, dto: VoidCashMovementDto, userId: string) {
     const movement = await this.repository.findById(id);
     if (!movement) {
@@ -142,11 +263,16 @@ export class CashMovementService {
     if (movement.isVoided) {
       throw new BadRequestException('El movimiento ya está anulado');
     }
-    if ((movement as any).cashSession?.status !== CashSessionStatus.OPEN) {
-      throw new BadRequestException(
-        'Solo se pueden anular movimientos de sesiones abiertas',
-      );
-    }
+
+    // La reversa va a la sesión donde el dinero todavía se puede mover.
+    //
+    // Si la sesión original sigue abierta, ahí mismo. Si ya cerró, la reversa se
+    // registra en la sesión abierta hoy de la misma caja: el cuadre que alguien
+    // ya firmó no se toca, y la corrección queda fechada el día en que de verdad
+    // ocurrió. Antes esto se rechazaba de plano, y como los errores casi siempre
+    // se detectan al día siguiente, la gente terminaba editando montos a mano
+    // sobre sesiones cerradas (así nació el pago fantasma de OP-2026-1504).
+    const counterSessionId = await this.resolveCounterSessionId(movement);
 
     await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Mark original as voided
@@ -165,12 +291,18 @@ export class CashMovementService {
       // fuera de los cálculos de saldo (ver EXCLUDE_REVERSALS).
       const counter = await tx.cashMovement.create({
         data: {
-          cashSessionId: movement.cashSessionId,
+          cashSessionId: counterSessionId,
           receiptNumber: `${movement.receiptNumber}-ANUL`,
           movementType: INVERSE_MOVEMENT_TYPE[movement.movementType],
           paymentMethod: movement.paymentMethod,
           amount: movement.amount,
-          description: `ANULACIÓN: ${movement.description}`,
+          description:
+            counterSessionId === movement.cashSessionId
+              ? `ANULACIÓN: ${movement.description}`
+              : // La reversa cae en una caja distinta a la del movimiento: sin
+                // esta pista, quien lea el arqueo de hoy no entiende de dónde
+                // salió un egreso que no corresponde a nada de hoy.
+                `ANULACIÓN (de caja cerrada del ${movement.createdAt.toLocaleDateString('es-CO')}): ${movement.description}`,
           referenceType: movement.referenceType,
           referenceId: movement.referenceId,
           performedById: userId,
@@ -187,27 +319,12 @@ export class CashMovementService {
 
       // If movement was linked to an order payment, revert order balance
       if (movement.linkedPayment) {
-        const payment = movement.linkedPayment;
-        const order = await tx.order.findUnique({
-          where: { id: payment.orderId },
-          select: { id: true, total: true, paidAmount: true, appliedCreditAmount: true },
-        });
-        if (order) {
-          const revertedPaid = new Prisma.Decimal(order.paidAmount.toString()).sub(
-            payment.amount,
-          );
-          const revertedBalance = computeOrderBalance(
-            order.total,
-            revertedPaid,
-            order.appliedCreditAmount,
-          );
-          await tx.order.update({
-            where: { id: payment.orderId },
-            data: { paidAmount: revertedPaid, balance: revertedBalance },
-          });
-          // Delete the linked payment
-          await tx.payment.delete({ where: { id: payment.id } });
-        }
+        await this.voidPaymentAndRecalculate(
+          tx,
+          movement.linkedPayment.id,
+          userId,
+          dto.voidReason,
+        );
       }
     });
 

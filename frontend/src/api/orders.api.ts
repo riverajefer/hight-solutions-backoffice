@@ -8,6 +8,7 @@ import type {
   CreatePaymentDto,
   UpdatePaymentDto,
   UpdatePaymentResponse,
+  VoidPaymentResponse,
   Payment,
   OrderStatus,
   ApplyDiscountDto,
@@ -168,6 +169,22 @@ export const ordersApi = {
   /**
    * Eliminar comprobante de pago
    */
+  /**
+   * Anula un pago de la orden. El backend decide si se anula de inmediato (caja
+   * abierta) o si queda como solicitud para el admin (caja ya cerrada).
+   */
+  voidPayment: async (
+    orderId: string,
+    paymentId: string,
+    voidReason: string
+  ): Promise<VoidPaymentResponse> => {
+    const { data } = await axiosInstance.post<VoidPaymentResponse>(
+      `${BASE_URL}/${orderId}/payments/${paymentId}/void`,
+      { voidReason }
+    );
+    return data;
+  },
+
   deletePaymentReceipt: async (
     orderId: string,
     paymentId: string

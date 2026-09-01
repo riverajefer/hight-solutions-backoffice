@@ -198,7 +198,20 @@ export class OrdersRepository {
         bankEntity: true,
         receiptFileId: true,
         createdAt: true,
+        // Un pago anulado sobrevive en la lista: el Historial de Pagos lo
+        // muestra marcado con su motivo en vez de dejar un hueco sin explicar.
+        isVoided: true,
+        voidedAt: true,
+        voidReason: true,
         receivedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        voidedBy: {
           select: {
             id: true,
             email: true,
@@ -643,7 +656,20 @@ export class OrdersRepository {
         bankEntity: true,
         receiptFileId: true,
         createdAt: true,
+        // Un pago anulado sobrevive en la lista: el Historial de Pagos lo
+        // muestra marcado con su motivo en vez de dejar un hueco sin explicar.
+        isVoided: true,
+        voidedAt: true,
+        voidReason: true,
         receivedBy: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        voidedBy: {
           select: {
             id: true,
             email: true,

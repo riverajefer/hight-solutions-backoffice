@@ -8,6 +8,32 @@ const toDecimal = (value: DecimalLike): Prisma.Decimal =>
     : new Prisma.Decimal(value.toString());
 
 /**
+ * Filtro canónico de los pagos que cuentan como dinero de la orden.
+ *
+ * Un pago anulado sobrevive en la tabla para que el Historial de Pagos pueda
+ * mostrar qué pasó y quién lo autorizó, pero no es dinero: no suma a
+ * `paidAmount` ni a los reportes. Úsalo en TODO `where` que sume pagos; si se
+ * olvida en uno solo, la plata anulada reaparece como saldo a favor.
+ */
+export const ACTIVE_PAYMENT_WHERE = { isVoided: false } as const;
+
+/**
+ * Suma los pagos que siguen vivos, descartando los anulados.
+ *
+ * Recibe la lista completa a propósito: así el llamador puede traerse los pagos
+ * una sola vez para mostrarlos (anulados incluidos) y sumar solo los vivos.
+ */
+export function sumActivePayments(
+  payments: { amount: DecimalLike; isVoided?: boolean }[],
+): Prisma.Decimal {
+  return payments.reduce(
+    (sum, payment) =>
+      payment.isVoided ? sum : sum.add(toDecimal(payment.amount)),
+    new Prisma.Decimal(0),
+  );
+}
+
+/**
  * Abono neto de una orden a partir de sus pagos.
  *
  * Los `Payment` no se borran al aprobar una devolución: el dinero devuelto se

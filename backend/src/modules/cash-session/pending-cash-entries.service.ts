@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma';
 import { PrismaService } from '../../database/prisma.service';
+import { ACTIVE_PAYMENT_WHERE } from '../../common/utils/order-balance.util';
 import { ConsecutivesService } from '../consecutives/consecutives.service';
 
 /**
@@ -45,12 +46,12 @@ export class PendingCashEntriesService {
   async getPendingSummary() {
     const [aggregate, payments] = await Promise.all([
       this.prisma.payment.aggregate({
-        where: { pendingCashEntry: true },
+        where: { pendingCashEntry: true, ...ACTIVE_PAYMENT_WHERE },
         _count: true,
         _sum: { amount: true },
       }),
       this.prisma.payment.findMany({
-        where: { pendingCashEntry: true },
+        where: { pendingCashEntry: true, ...ACTIVE_PAYMENT_WHERE },
         select: {
           id: true,
           amount: true,
@@ -83,8 +84,10 @@ export class PendingCashEntriesService {
     cashSessionId: string,
     performedById: string,
   ): Promise<number> {
+    // Un abono anulado mientras esperaba caja no entra al arqueo: ese dinero
+    // ya no existe, y crearle el movimiento lo resucitaría como ingreso.
     const pending = await tx.payment.findMany({
-      where: { pendingCashEntry: true },
+      where: { pendingCashEntry: true, ...ACTIVE_PAYMENT_WHERE },
       select: {
         id: true,
         amount: true,

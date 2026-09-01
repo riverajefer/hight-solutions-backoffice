@@ -46,6 +46,7 @@ import {
   Add as AddIcon,
   Refresh as RefreshIcon,
   Delete as DeleteIcon,
+  Block as BlockIcon,
   Payment as PaymentIcon,
   Person as PersonIcon,
   CalendarToday as CalendarIcon,
@@ -106,6 +107,7 @@ import { RequestAdvisorChangeButton } from '../components/RequestAdvisorChangeBu
 import { AdvisorChangeStatusAlert } from '../components/AdvisorChangeStatusAlert';
 import { useIsCashOpen } from '../../cash-register/hooks/useCashRegister';
 import { EditRequestsList } from '../components/EditRequestsList';
+import VoidPaymentDialog from '../components/VoidPaymentDialog';
 import { AdvancePaymentApprovalBadge } from '../components/AdvancePaymentApprovalBadge';
 import { StatusChangeAuthRequestDialog } from '../components/StatusChangeAuthRequestDialog';
 import { OrderChangeHistoryTab } from '../components/OrderChangeHistoryTab';
@@ -214,8 +216,12 @@ export const OrderDetailPage: React.FC = () => {
   const { orderQuery, updateStatusMutation, deleteOrderMutation } = useOrder(
     id!,
   );
-  const { paymentsQuery, addPaymentMutation, updatePaymentMutation } =
-    useOrderPayments(id!);
+  const {
+    paymentsQuery,
+    addPaymentMutation,
+    updatePaymentMutation,
+    voidPaymentMutation,
+  } = useOrderPayments(id!);
   const {
     approvalsQuery: paymentEditApprovalsQuery,
     approveMutation: approvePaymentEditMutation,
@@ -249,6 +255,7 @@ export const OrderDetailPage: React.FC = () => {
   const [deletingReceipt, setDeletingReceipt] = useState<string | null>(null);
   // Pago cuyo comprobante se va a eliminar (controla el modal de confirmación)
   const [receiptToDelete, setReceiptToDelete] = useState<string | null>(null);
+  const [paymentToVoid, setPaymentToVoid] = useState<Payment | null>(null);
 
   const handleReceiptPaste = (e: React.ClipboardEvent) => {
     const clipItems = e.clipboardData?.items;
@@ -499,6 +506,12 @@ export const OrderDetailPage: React.FC = () => {
     !isAnulado && permissions.includes('delete_discounts');
   const canEditPayment =
     !isAnulado && permissions.includes('edit_order_payments');
+  // Anular un pago es la vía correcta para quitar plata mal registrada. Pedirla
+  // y ejecutarla son permisos distintos: el comercial solicita y el admin
+  // autoriza; caja y contabilidad anulan de una si su caja sigue abierta.
+  const canVoidPayment =
+    !isAnulado && permissions.includes('request_payment_void');
+  const voidsDirectly = permissions.includes('void_cash_movements');
   // Usuario que puede aplicar la edición sin solicitud de aprobación
   const canApprovePaymentEdit =
     isAdmin || permissions.includes('approve_payment_edits');
@@ -655,6 +668,11 @@ export const OrderDetailPage: React.FC = () => {
       paymentDate: new Date().toISOString(),
     });
     setReceiptFile(null);
+  };
+
+  const handleVoidPayment = async (paymentId: string, voidReason: string) => {
+    await voidPaymentMutation.mutateAsync({ paymentId, voidReason, voidsDirectly });
+    setPaymentToVoid(null);
   };
 
   const handleOpenEditPayment = (payment: Payment) => {
@@ -2237,14 +2255,19 @@ export const OrderDetailPage: React.FC = () => {
                           <TableCell align='right'>Monto</TableCell>
                           <TableCell>Recibido por</TableCell>
                           <TableCell align='center'>Comprobante</TableCell>
-                          {canEditPayment && (
+                          {(canEditPayment || canVoidPayment) && (
                             <TableCell align='center'>Acciones</TableCell>
                           )}
                         </TableRow>
                       </TableHead>
                       <TableBody>
                         {payments.map((payment) => (
-                          <TableRow key={payment.id}>
+                          <TableRow
+                            key={payment.id}
+                            // El pago anulado se queda a la vista pero apagado:
+                            // sigue siendo historia, ya no es dinero.
+                            sx={payment.isVoided ? { opacity: 0.6 } : undefined}
+                          >
                             <TableCell sx={{ whiteSpace: 'nowrap' }}>
                               {(() => {
                                 const [datePart, timePart] = formatDateTime(
@@ -2290,15 +2313,54 @@ export const OrderDetailPage: React.FC = () => {
                               <Typography
                                 fontWeight={500}
                                 color={
-                                  pendingAdvance.pendingPaymentIds.includes(
-                                    payment.id,
-                                  )
-                                    ? 'warning.main'
+                                  payment.isVoided
+                                    ? 'text.disabled'
+                                    : pendingAdvance.pendingPaymentIds.includes(
+                                          payment.id,
+                                        )
+                                      ? 'warning.main'
+                                      : undefined
+                                }
+                                sx={
+                                  payment.isVoided
+                                    ? { textDecoration: 'line-through' }
                                     : undefined
                                 }
                               >
                                 {formatCurrency(payment.amount)}
                               </Typography>
+                              {payment.isVoided && (
+                                // La columna de monto es angosta: sin un ancho
+                                // mínimo el motivo cae a una palabra por línea.
+                                <Box sx={{ mt: 0.5, minWidth: 180, ml: 'auto' }}>
+                                  <Chip
+                                    label='Anulado'
+                                    color='error'
+                                    size='small'
+                                    variant='outlined'
+                                  />
+                                  {payment.voidReason && (
+                                    <Typography
+                                      variant='caption'
+                                      color='text.secondary'
+                                      display='block'
+                                      sx={{ mt: 0.5, whiteSpace: 'normal' }}
+                                    >
+                                      {payment.voidReason}
+                                    </Typography>
+                                  )}
+                                  {payment.voidedBy && (
+                                    <Typography
+                                      variant='caption'
+                                      color='text.secondary'
+                                      display='block'
+                                    >
+                                      Anulado por {payment.voidedBy.firstName}{' '}
+                                      {payment.voidedBy.lastName}
+                                    </Typography>
+                                  )}
+                                </Box>
+                              )}
                               {advanceApprovalByPayment[payment.id] && (
                                 <Box>
                                   <AdvancePaymentApprovalBadge
@@ -2367,9 +2429,16 @@ export const OrderDetailPage: React.FC = () => {
                                 </Typography>
                               )}
                             </TableCell>
-                            {canEditPayment && (
+                            {(canEditPayment || canVoidPayment) && (
                               <TableCell align='center'>
-                                {pendingEditByPayment[payment.id] ? (
+                                {payment.isVoided ? (
+                                  <Typography
+                                    variant='body2'
+                                    color='text.secondary'
+                                  >
+                                    -
+                                  </Typography>
+                                ) : pendingEditByPayment[payment.id] ? (
                                   <Chip
                                     label='Edición pendiente'
                                     color='warning'
@@ -2377,16 +2446,38 @@ export const OrderDetailPage: React.FC = () => {
                                     variant='outlined'
                                   />
                                 ) : (
-                                  <IconButton
-                                    size='small'
-                                    onClick={() =>
-                                      handleOpenEditPayment(payment)
-                                    }
-                                    color='primary'
-                                    title='Editar pago'
+                                  <Stack
+                                    direction='row'
+                                    spacing={0.5}
+                                    justifyContent='center'
                                   >
-                                    <EditIcon fontSize='small' />
-                                  </IconButton>
+                                    {canEditPayment && (
+                                      <IconButton
+                                        size='small'
+                                        onClick={() =>
+                                          handleOpenEditPayment(payment)
+                                        }
+                                        color='primary'
+                                        title='Editar pago'
+                                      >
+                                        <EditIcon fontSize='small' />
+                                      </IconButton>
+                                    )}
+                                    {canVoidPayment && (
+                                      <IconButton
+                                        size='small'
+                                        onClick={() => setPaymentToVoid(payment)}
+                                        color='error'
+                                        title={
+                                          voidsDirectly
+                                            ? 'Anular pago'
+                                            : 'Solicitar anulación del pago'
+                                        }
+                                      >
+                                        <BlockIcon fontSize='small' />
+                                      </IconButton>
+                                    )}
+                                  </Stack>
                                 )}
                               </TableCell>
                             )}
@@ -3264,6 +3355,16 @@ export const OrderDetailPage: React.FC = () => {
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(false)}
         isLoading={deleteOrderMutation.isPending}
+      />
+
+      {/* Dialog: Anular pago */}
+      <VoidPaymentDialog
+        open={!!paymentToVoid}
+        payment={paymentToVoid}
+        onClose={() => setPaymentToVoid(null)}
+        onSubmit={handleVoidPayment}
+        voidsDirectly={voidsDirectly}
+        isLoading={voidPaymentMutation.isPending}
       />
 
       {/* Confirmar eliminación de comprobante de pago */}

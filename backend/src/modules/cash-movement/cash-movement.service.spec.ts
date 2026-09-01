@@ -4,6 +4,7 @@ import { CashMovementService } from './cash-movement.service';
 import { CashMovementRepository } from './cash-movement.repository';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { CreditBalanceService } from '../credit-balance/credit-balance.service';
 import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { CashMovementType, Prisma } from '../../generated/prisma';
 
@@ -23,20 +24,26 @@ describe('CashMovementService', () => {
     referenceType: 'ORDER',
     referenceId: 'o1',
     isVoided: false,
+    createdAt: new Date('2026-08-03T14:35:00Z'),
     linkedPayment: null,
-    cashSession: { id: 'cs1', status: 'OPEN' },
+    cashSession: { id: 'cs1', status: 'OPEN', cashRegisterId: 'cr1' },
     ...overrides,
   });
 
   beforeEach(async () => {
     prisma = {
-      cashSession: { findUnique: jest.fn() },
+      cashSession: { findUnique: jest.fn(), findFirst: jest.fn() },
       cashMovement: {
         create: jest.fn().mockResolvedValue({ id: 'counter1' }),
         update: jest.fn(),
       },
       order: { findUnique: jest.fn(), update: jest.fn() },
-      payment: { create: jest.fn(), delete: jest.fn() },
+      payment: {
+        create: jest.fn(),
+        delete: jest.fn(),
+        update: jest.fn().mockResolvedValue({ orderId: 'o1' }),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       $transaction: jest.fn(),
     };
     prisma.$transaction.mockImplementation((fn: any) => fn(prisma));
@@ -61,6 +68,10 @@ describe('CashMovementService', () => {
         {
           provide: ConsecutivesService,
           useValue: { generateNumber: jest.fn().mockResolvedValue('RC-2026-0002') },
+        },
+        {
+          provide: CreditBalanceService,
+          useValue: { releaseCredit: jest.fn().mockResolvedValue(undefined) },
         },
       ],
     }).compile();
@@ -113,17 +124,38 @@ describe('CashMovementService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should reject a movement from a closed session', async () => {
+    // El error casi siempre se detecta al día siguiente, con la caja ya cerrada.
+    // Antes eso se rechazaba y la gente terminaba editando montos a mano.
+    it('registra la reversa en la sesión abierta cuando la del movimiento ya cerró', async () => {
       repository.findById.mockResolvedValue(
-        openMovement({ cashSession: { id: 'cs1', status: 'CLOSED' } }),
+        openMovement({
+          cashSession: { id: 'cs1', status: 'CLOSED', cashRegisterId: 'cr1' },
+        }),
       );
+      prisma.cashSession.findFirst.mockResolvedValue({ id: 'cs-hoy' });
+
+      await service.voidMovement('cm1', { voidReason: 'Pago duplicado' }, 'u1');
+
+      const counterArgs = prisma.cashMovement.create.mock.calls[0][0];
+      // La reversa cae en la caja de hoy, no en el cierre ya firmado.
+      expect(counterArgs.data.cashSessionId).toBe('cs-hoy');
+      expect(counterArgs.data.description).toContain('de caja cerrada del');
+    });
+
+    it('rechaza si la caja cerró y no hay ninguna sesión abierta donde revertir', async () => {
+      repository.findById.mockResolvedValue(
+        openMovement({
+          cashSession: { id: 'cs1', status: 'CLOSED', cashRegisterId: 'cr1' },
+        }),
+      );
+      prisma.cashSession.findFirst.mockResolvedValue(null);
 
       await expect(
         service.voidMovement('cm1', { voidReason: 'x' }, 'u1'),
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('revierte el saldo de la orden y borra el pago cuando el movimiento estaba ligado a un pago', async () => {
+    it('anula el pago sin borrarlo y recalcula el saldo desde los pagos vivos', async () => {
       repository.findById.mockResolvedValue(
         openMovement({
           linkedPayment: { id: 'pay1', orderId: 'o1', amount: new Prisma.Decimal(50000) },
@@ -140,7 +172,15 @@ describe('CashMovementService', () => {
 
       const orderUpdate = prisma.order.update.mock.calls[0][0];
       expect(Number(orderUpdate.data.paidAmount)).toBe(0);
-      expect(prisma.payment.delete).toHaveBeenCalledWith({ where: { id: 'pay1' } });
+
+      // La fila sobrevive marcada: el Historial de Pagos tiene que poder contar
+      // qué pasó y quién lo autorizó, no dejar un hueco.
+      expect(prisma.payment.delete).not.toHaveBeenCalled();
+      const paymentUpdate = prisma.payment.update.mock.calls[0][0];
+      expect(paymentUpdate.where).toEqual({ id: 'pay1' });
+      expect(paymentUpdate.data.isVoided).toBe(true);
+      expect(paymentUpdate.data.voidedById).toBe('u1');
+      expect(paymentUpdate.data.voidReason).toBe('Reversa');
     });
   });
 
