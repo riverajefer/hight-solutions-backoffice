@@ -73,6 +73,7 @@ export interface AuthorizationHistoryEvent {
     | 'DISCOUNT'
     | 'CLIENT_OWNERSHIP'
     | 'PAYMENT_EDIT'
+    | 'PAYMENT_VOID'
     | 'EDIT_REQUEST';
   status: EditRequestStatus;
   reason: string | null;
@@ -85,6 +86,12 @@ export interface AuthorizationHistoryEvent {
   reviewNotes: string | null;
   requestedBy: AuthHistoryUser;
   reviewedBy: AuthHistoryUser | null;
+  /**
+   * El evento se ejecutó sin pasar por aprobación (solo `PAYMENT_VOID`): Caja o
+   * Contabilidad anulando con la caja abierta. Sin esta marca el timeline diría
+   * "Aprobada por X" sobre algo que nadie aprobó.
+   */
+  direct?: boolean;
 }
 
 /** Resumen del mini dashboard de la lista de órdenes de pedido. */
@@ -2954,8 +2961,15 @@ export class OrdersService {
       lastName: true,
     } as const;
 
-    const [advances, discounts, clientOwnership, paymentEdits, editRequests] =
-      await Promise.all([
+    const [
+      advances,
+      discounts,
+      clientOwnership,
+      paymentEdits,
+      editRequests,
+      voidRequests,
+      voidedPayments,
+    ] = await Promise.all([
         this.prisma.advancePaymentApproval.findMany({
           where: { orderId },
           include: {
@@ -2993,7 +3007,49 @@ export class OrdersService {
             reviewedBy: { select: USER_SELECT },
           },
         }),
+        // La solicitud de anulación no guarda `orderId`: cuelga del pago o del
+        // movimiento de caja. Se llega a la orden por las tres vías porque cada
+        // una cubre un caso: pago sin caja, pago con caja, y movimientos
+        // antiguos cuyo pago se eliminó cuando anular todavía borraba la fila.
+        this.prisma.cashMovementVoidRequest.findMany({
+          where: {
+            OR: [
+              { payment: { orderId } },
+              { cashMovement: { linkedPayment: { orderId } } },
+              { cashMovement: { referenceType: 'ORDER', referenceId: orderId } },
+            ],
+          },
+          include: {
+            requestedBy: { select: USER_SELECT },
+            reviewedBy: { select: USER_SELECT },
+            payment: { select: { id: true, amount: true } },
+            cashMovement: {
+              select: {
+                amount: true,
+                linkedPayment: { select: { id: true } },
+              },
+            },
+          },
+        }),
+        this.prisma.payment.findMany({
+          where: { orderId, isVoided: true },
+          select: {
+            id: true,
+            amount: true,
+            voidedAt: true,
+            voidReason: true,
+            voidedBy: { select: USER_SELECT },
+          },
+        }),
       ]);
+
+    // Un pago anulado a través de una solicitud ya quedó contado arriba; solo
+    // se sintetizan los que Caja anuló de una, que si no no dejarían rastro.
+    const paymentIdsWithRequest = new Set(
+      voidRequests
+        .map((r) => r.paymentId ?? r.cashMovement?.linkedPayment?.id)
+        .filter((id): id is string => id != null),
+    );
 
     const events: AuthorizationHistoryEvent[] = [
       ...advances.map((a) => ({
@@ -3048,6 +3104,36 @@ export class OrdersService {
         requestedBy: p.requestedBy,
         reviewedBy: p.reviewedBy,
       })),
+      ...voidRequests.map((v) => ({
+        id: v.id,
+        type: 'PAYMENT_VOID' as const,
+        status: v.status,
+        reason: v.voidReason,
+        amount: (v.payment?.amount ?? v.cashMovement?.amount)?.toString() ?? null,
+        advisor: null,
+        createdAt: v.createdAt,
+        reviewedAt: v.reviewedAt,
+        reviewNotes: v.reviewNotes,
+        requestedBy: v.requestedBy,
+        reviewedBy: v.reviewedBy,
+      })),
+      ...voidedPayments
+        .filter((p) => !paymentIdsWithRequest.has(p.id) && p.voidedBy != null)
+        .map((p) => ({
+          // Prefijo para no chocar con el id de una solicitud real.
+          id: `payment-void-${p.id}`,
+          type: 'PAYMENT_VOID' as const,
+          status: EditRequestStatus.APPROVED,
+          reason: p.voidReason,
+          amount: p.amount.toString(),
+          advisor: null,
+          createdAt: p.voidedAt ?? new Date(0),
+          reviewedAt: p.voidedAt,
+          reviewNotes: null,
+          requestedBy: p.voidedBy!,
+          reviewedBy: null,
+          direct: true,
+        })),
       ...editRequests.map((e) => ({
         id: e.id,
         type: 'EDIT_REQUEST' as const,
