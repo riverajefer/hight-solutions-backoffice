@@ -18,6 +18,7 @@ import {
   SupervisorAccount as SupervisorAccountIcon,
   EditNote as EditNoteIcon,
   Edit as EditIcon,
+  Block as BlockIcon,
   Person as PersonIcon,
 } from '@mui/icons-material';
 import { ordersApi } from '../../../api/orders.api';
@@ -88,6 +89,11 @@ const TYPE_CONFIG: Record<
     label: 'Edición de pago',
     icon: <EditNoteIcon fontSize="small" />,
     verb: 'Solicitó autorización para editar un pago',
+  },
+  PAYMENT_VOID: {
+    label: 'Anulación de pago',
+    icon: <BlockIcon fontSize="small" />,
+    verb: 'Solicitó autorización para anular un pago',
   },
   EDIT_REQUEST: {
     label: 'Solicitud de edición',
@@ -230,10 +236,16 @@ export const OrderAuthHistory: React.FC<OrderAuthHistoryProps> = ({
               event.amount != null &&
               (event.type === 'ADVANCE_PAYMENT' ||
                 event.type === 'PAYMENT_EDIT' ||
+                event.type === 'PAYMENT_VOID' ||
                 event.type === 'DISCOUNT');
+            // Caja anulando con la caja abierta no "solicitó" nada: lo hizo.
+            const verbText =
+              event.type === 'PAYMENT_VOID' && event.direct
+                ? 'Anuló un pago'
+                : typeCfg.verb;
             const titleNode = (
               <>
-                {typeCfg.verb}
+                {verbText}
                 {showAmount && (
                   <>
                     {' de '}
@@ -254,7 +266,12 @@ export const OrderAuthHistory: React.FC<OrderAuthHistoryProps> = ({
 
             // Línea de revisión (solicitudes resueltas)
             let reviewLine: string | null = null;
-            if (event.status !== 'PENDING') {
+            if (event.type === 'PAYMENT_VOID' && event.direct) {
+              // No hubo revisión: quien lo hizo tenía permiso de anular directo.
+              reviewLine = `Anulado sin aprobación — tiene permiso de anulación directa${
+                event.reviewedAt ? ` · ${formatDateTime(event.reviewedAt)}` : ''
+              }`;
+            } else if (event.status !== 'PENDING') {
               const verb =
                 event.status === 'APPROVED'
                   ? 'Aprobada por'
