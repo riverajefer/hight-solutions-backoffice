@@ -2315,14 +2315,22 @@ export const StatusChangeRequestsPage: React.FC = () => {
     EXPENSE: 'Egreso',
     WITHDRAWAL: 'Retiro',
     DEPOSIT: 'Depósito',
+    // Solicitud sobre un pago que nunca pasó por caja.
+    PAYMENT: 'Pago de orden',
   };
 
   const voidColumns: GridColDef<CashMovementVoidRequest>[] = [
     {
+      // La solicitud apunta a un movimiento de caja o a un pago suelto (los que
+      // se registran sin caja abierta o salen de saldo a favor). Sin el respaldo
+      // al pago, esas filas le llegan al admin vacías y con monto $0.
       field: 'receiptNumber',
-      headerName: 'Nº Recibo',
+      headerName: 'Nº Recibo / OP',
       width: 150,
-      valueGetter: (_, row) => row.cashMovement?.receiptNumber || '-',
+      valueGetter: (_, row) =>
+        row.cashMovement?.receiptNumber ||
+        row.payment?.order?.orderNumber ||
+        '-',
       renderCell: (params) => (
         <Typography variant="body2" fontWeight={600}>
           {params.value}
@@ -2333,7 +2341,8 @@ export const StatusChangeRequestsPage: React.FC = () => {
       field: 'movementType',
       headerName: 'Tipo',
       width: 120,
-      valueGetter: (_, row) => row.cashMovement?.movementType || '-',
+      valueGetter: (_, row) =>
+        row.cashMovement?.movementType || (row.payment ? 'PAYMENT' : '-'),
       renderCell: (params) => (
         <Chip
           label={MOVEMENT_TYPE_LABELS[params.value] || params.value}
@@ -2347,7 +2356,8 @@ export const StatusChangeRequestsPage: React.FC = () => {
       field: 'amount',
       headerName: 'Monto',
       width: 150,
-      valueGetter: (_, row) => row.cashMovement?.amount || '0',
+      valueGetter: (_, row) =>
+        row.cashMovement?.amount || row.payment?.amount || '0',
       renderCell: (params) => {
         const amount = parseFloat(params.value);
         return (
@@ -3573,17 +3583,32 @@ export const StatusChangeRequestsPage: React.FC = () => {
         <DialogContent>
           {voidReviewDialog.request && (
             <Box sx={{ mb: 2 }}>
+              {/* La solicitud puede venir de un movimiento de caja o de un pago
+                  suelto; sin el respaldo el admin decidiría a ciegas. */}
               <Typography variant="body2" gutterBottom>
-                <strong>Recibo:</strong> {voidReviewDialog.request.cashMovement?.receiptNumber || '-'}
+                <strong>
+                  {voidReviewDialog.request.cashMovement ? 'Recibo:' : 'Orden:'}
+                </strong>{' '}
+                {voidReviewDialog.request.cashMovement?.receiptNumber ||
+                  voidReviewDialog.request.payment?.order?.orderNumber ||
+                  '-'}
               </Typography>
               <Typography variant="body2" gutterBottom>
                 <strong>Tipo:</strong>{' '}
-                {MOVEMENT_TYPE_LABELS[voidReviewDialog.request.cashMovement?.movementType || ''] || voidReviewDialog.request.cashMovement?.movementType}
+                {voidReviewDialog.request.cashMovement
+                  ? MOVEMENT_TYPE_LABELS[
+                      voidReviewDialog.request.cashMovement.movementType || ''
+                    ] || voidReviewDialog.request.cashMovement.movementType
+                  : 'Pago de orden (sin movimiento de caja)'}
               </Typography>
               <Typography variant="body2" gutterBottom>
                 <strong>Monto:</strong>{' '}
                 {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(
-                  parseFloat(voidReviewDialog.request.cashMovement?.amount || '0')
+                  parseFloat(
+                    voidReviewDialog.request.cashMovement?.amount ||
+                      voidReviewDialog.request.payment?.amount ||
+                      '0'
+                  )
                 )}
               </Typography>
               <Typography variant="body2" gutterBottom>
@@ -3594,7 +3619,9 @@ export const StatusChangeRequestsPage: React.FC = () => {
               </Typography>
               {voidReviewDialog.action === 'approve' && (
                 <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
-                  Al aprobar, el movimiento será anulado y los saldos de la sesión serán actualizados.
+                  {voidReviewDialog.request.cashMovement
+                    ? 'Al aprobar, el movimiento será anulado y los saldos de la sesión serán actualizados.'
+                    : 'Al aprobar, el pago quedará anulado y el saldo de la orden se recalculará. Este pago no pasó por caja, así que no hay arqueo que revertir.'}
                 </Typography>
               )}
             </Box>

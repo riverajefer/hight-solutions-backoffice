@@ -2084,15 +2084,23 @@ export class OrdersService {
    * pantalla mintiendo por omisión, que fue justo lo que hizo imposible entender
    * el caso de OP-2026-1504.
    *
-   * Dos caminos, según dónde esté el dinero:
+   * Quién decide si se ejecuta o se pide:
    *
-   * - Caja del pago abierta → se anula de una: la reversa cabe en el mismo
-   *   arqueo, nadie firmó todavía ese cierre.
-   * - Caja cerrada → queda como solicitud para el admin. Al aprobarla, la
-   *   reversa se registra en la caja abierta hoy, con la fecha de la corrección.
-   *   El cierre firmado no se toca.
-   * - Pago sin movimiento de caja (saldo a favor, o abono encolado sin caja
-   *   abierta) → no hay reversa que registrar, se anula directo.
+   * - Con `void_cash_movements` (caja, contabilidad, admin) la anulación es
+   *   directa mientras la caja del pago siga abierta.
+   * - Sin ese permiso —el comercial, que solo tiene `request_payment_void`— la
+   *   anulación SIEMPRE queda como solicitud para el admin, esté la caja abierta
+   *   o cerrada. Es quien más se equivoca registrando y quien menos debería
+   *   poder quitar plata de una orden sin que nadie mire.
+   *
+   * Y según dónde esté el dinero:
+   *
+   * - Caja del pago cerrada → solicitud; al aprobarla la reversa cae en la caja
+   *   abierta hoy, con la fecha de la corrección. El cierre firmado no se toca.
+   * - Pago sin movimiento de caja (saldo a favor, o abono registrado sin caja
+   *   abierta) → no hay reversa que registrar. Un tercio de los pagos recientes
+   *   está en este caso, así que la solicitud también tiene que poder apuntar
+   *   directo al pago.
    */
   async voidPayment(
     orderId: string,
@@ -2125,80 +2133,71 @@ export class OrdersService {
       throw new BadRequestException('Este pago ya está anulado');
     }
 
-    // Sin movimiento de caja no hay nada que revertir en el arqueo.
-    if (!payment.cashMovement || payment.cashMovement.isVoided) {
-      await this.prisma.$transaction((tx) =>
-        this.voidPaymentWithoutCashMovement(tx, paymentId, userId, dto.voidReason),
-      );
-      return { voided: true, requiresApproval: false as const };
-    }
+    const canVoidDirectly = await this.hasPermission(
+      userId,
+      'void_cash_movements',
+    );
 
-    if (payment.cashMovement.cashSession.status === CashSessionStatus.OPEN) {
-      await this.cashMovementService.voidMovement(
-        payment.cashMovement.id,
-        { voidReason: dto.voidReason },
-        userId,
-      );
+    // El movimiento vivo es lo que hay que revertir en el arqueo; si el pago no
+    // tiene o ya está anulado, solo queda marcar el pago.
+    const liveMovement =
+      payment.cashMovement && !payment.cashMovement.isVoided
+        ? payment.cashMovement
+        : null;
+
+    const directVoidAllowed =
+      canVoidDirectly &&
+      (!liveMovement ||
+        liveMovement.cashSession.status === CashSessionStatus.OPEN);
+
+    if (directVoidAllowed) {
+      if (liveMovement) {
+        await this.cashMovementService.voidMovement(
+          liveMovement.id,
+          { voidReason: dto.voidReason },
+          userId,
+        );
+      } else {
+        await this.cashMovementService.voidPaymentWithoutMovement(
+          paymentId,
+          userId,
+          dto.voidReason,
+        );
+      }
       return { voided: true, requiresApproval: false as const };
     }
 
     const request = await this.cashMovementVoidRequestsService.create(
-      payment.cashMovement.id,
+      liveMovement ? { cashMovementId: liveMovement.id } : { paymentId },
       userId,
       { voidReason: dto.voidReason },
     );
-    return { voided: false, requiresApproval: true as const, requestId: request.id };
+    return {
+      voided: false,
+      requiresApproval: true as const,
+      requestId: request.id,
+    };
   }
 
-  /**
-   * Anula un pago que nunca tuvo movimiento de caja y recalcula la orden.
-   * Mismo criterio que `CashMovementService`, sin la parte de caja.
-   */
-  private async voidPaymentWithoutCashMovement(
-    tx: Prisma.TransactionClient,
-    paymentId: string,
+  /** ¿El rol del usuario tiene este permiso? */
+  private async hasPermission(
     userId: string,
-    voidReason: string,
-  ): Promise<void> {
-    const payment = await tx.payment.update({
-      where: { id: paymentId },
-      data: {
-        isVoided: true,
-        voidedById: userId,
-        voidedAt: new Date(),
-        voidReason,
-      },
-      select: { orderId: true },
-    });
-
-    await this.creditBalanceService.releaseCredit(tx, paymentId);
-
-    const order = await tx.order.findUnique({
-      where: { id: payment.orderId },
-      select: { total: true, appliedCreditAmount: true, refundedAmount: true },
-    });
-    if (!order) return;
-
-    const payments = await tx.payment.findMany({
-      where: { orderId: payment.orderId, ...ACTIVE_PAYMENT_WHERE },
-      select: { amount: true },
-    });
-    const paidAmount = computeNetPaidAmount(
-      sumActivePayments(payments),
-      order.refundedAmount,
-    );
-
-    await tx.order.update({
-      where: { id: payment.orderId },
-      data: {
-        paidAmount,
-        balance: computeOrderBalance(
-          order.total,
-          paidAmount,
-          order.appliedCreditAmount,
-        ),
+    permission: string,
+  ): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        role: {
+          select: {
+            permissions: {
+              where: { permission: { name: permission } },
+              select: { permissionId: true },
+            },
+          },
+        },
       },
     });
+    return (user?.role?.permissions.length ?? 0) > 0;
   }
 
   async updatePayment(

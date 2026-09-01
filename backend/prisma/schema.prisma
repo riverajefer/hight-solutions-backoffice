@@ -785,6 +785,7 @@ model Payment {
   paymentEditApprovals   PaymentEditApproval[]
   cashMovement           CashMovement?           @relation(fields: [cashMovementId], references: [id])
   creditApplications     CreditBalanceApplication[]
+  voidRequests           CashMovementVoidRequest[]
 
   @@index([orderId])
   @@index([receivedById])
@@ -2143,7 +2144,14 @@ model CashMovement {
 
 model CashMovementVoidRequest {
   id             String            @id @default(uuid())
-  cashMovementId String            @map("cash_movement_id")
+  // Uno de los dos, nunca ambos vacíos.
+  //
+  // Un tercio de los pagos recientes no tiene movimiento de caja (se registran
+  // fuera del horario de caja o salen de saldo a favor). Si la solicitud solo
+  // pudiera apuntar a un movimiento, el comercial no podría pedir la anulación
+  // justo de esos, que son los que más se equivocan.
+  cashMovementId String?           @map("cash_movement_id")
+  paymentId      String?           @map("payment_id")
   requestedById  String            @map("requested_by_id")
   voidReason     String            @map("void_reason")
   status         EditRequestStatus @default(PENDING)
@@ -2157,11 +2165,13 @@ model CashMovementVoidRequest {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relaciones
-  cashMovement CashMovement @relation(fields: [cashMovementId], references: [id], onDelete: Cascade)
-  requestedBy  User         @relation("RequestedVoidRequests", fields: [requestedById], references: [id])
-  reviewedBy   User?        @relation("ReviewedVoidRequests", fields: [reviewedById], references: [id])
+  cashMovement CashMovement? @relation(fields: [cashMovementId], references: [id], onDelete: Cascade)
+  payment      Payment?      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  requestedBy  User          @relation("RequestedVoidRequests", fields: [requestedById], references: [id])
+  reviewedBy   User?         @relation("ReviewedVoidRequests", fields: [reviewedById], references: [id])
 
   @@index([cashMovementId])
+  @@index([paymentId])
   @@index([requestedById])
   @@index([status])
   @@map("cash_movement_void_requests")

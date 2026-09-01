@@ -153,12 +153,12 @@ describe('CashMovementVoidRequestsService', () => {
 
     it('lanza NotFound si el movimiento no existe', async () => {
       prisma.cashMovement.findUnique.mockResolvedValue(null as any);
-      await expect(service.create('cm-1', 'user-1', dto)).rejects.toThrow(NotFoundException);
+      await expect(service.create({ cashMovementId: 'cm-1' }, 'user-1', dto)).rejects.toThrow(NotFoundException);
     });
 
     it('rechaza si el movimiento ya está anulado', async () => {
       prisma.cashMovement.findUnique.mockResolvedValue(movementStub({ isVoided: true }) as any);
-      await expect(service.create('cm-1', 'user-1', dto)).rejects.toThrow(/ya está anulado/);
+      await expect(service.create({ cashMovementId: 'cm-1' }, 'user-1', dto)).rejects.toThrow(/ya está anulado/);
     });
 
     // Una caja cerrada es justo el caso donde la solicitud hace falta: el error
@@ -175,14 +175,14 @@ describe('CashMovementVoidRequestsService', () => {
       prisma.user.findUnique.mockResolvedValue({ firstName: 'Ana', role: { name: 'asesor' } } as any);
       prisma.role.findUnique.mockResolvedValue({ users: [] } as any);
 
-      await expect(service.create('cm-1', 'user-1', dto)).resolves.toBeDefined();
+      await expect(service.create({ cashMovementId: 'cm-1' }, 'user-1', dto)).resolves.toBeDefined();
       expect(prisma.cashMovementVoidRequest.create).toHaveBeenCalled();
     });
 
     it('rechaza si ya hay una solicitud pendiente', async () => {
       prisma.cashMovement.findUnique.mockResolvedValue(movementStub() as any);
       prisma.cashMovementVoidRequest.findFirst.mockResolvedValue({ id: 'req-old' } as any);
-      await expect(service.create('cm-1', 'user-1', dto)).rejects.toThrow(/solicitud de anulación pendiente/);
+      await expect(service.create({ cashMovementId: 'cm-1' }, 'user-1', dto)).rejects.toThrow(/solicitud de anulación pendiente/);
     });
 
     it('crea la solicitud y notifica a los administradores', async () => {
@@ -194,7 +194,7 @@ describe('CashMovementVoidRequestsService', () => {
       prisma.user.findUnique.mockResolvedValue({ firstName: 'Ana', lastName: 'Gómez', role: { name: 'asesor' } } as any);
       prisma.role.findUnique.mockResolvedValue({ users: [] } as any);
 
-      const result = await service.create('cm-1', 'user-1', dto);
+      const result = await service.create({ cashMovementId: 'cm-1' }, 'user-1', dto);
 
       expect(prisma.cashMovementVoidRequest.create).toHaveBeenCalled();
       expect(notifications.notifyAllAdmins).toHaveBeenCalled();

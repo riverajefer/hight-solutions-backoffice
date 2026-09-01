@@ -27,13 +27,17 @@ const payment = {
   cashMovement: null,
 } as unknown as Payment;
 
-const renderDialog = (onSubmit = vi.fn().mockResolvedValue(undefined)) => {
+const renderDialog = (
+  { voidsDirectly = true } = {},
+  onSubmit = vi.fn().mockResolvedValue(undefined),
+) => {
   render(
     <VoidPaymentDialog
       open
       payment={payment}
       onClose={vi.fn()}
       onSubmit={onSubmit}
+      voidsDirectly={voidsDirectly}
     />,
   );
   return onSubmit;
@@ -55,6 +59,19 @@ describe('VoidPaymentDialog', () => {
 
     expect(
       screen.getByText(/pendiente de\s+autorización del administrador/i),
+    ).toBeInTheDocument();
+  });
+
+  // Al comercial la anulación NUNCA se le ejecuta de una: decirle que "depende
+  // de si la caja está cerrada" le haría creer que el saldo ya cambió.
+  it('le habla de solicitud a quien no puede anular directo', () => {
+    renderDialog({ voidsDirectly: false });
+
+    expect(
+      screen.getByRole('button', { name: /Solicitar anulación/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/el saldo de la orden no cambia hasta que él la apruebe/i),
     ).toBeInTheDocument();
   });
 

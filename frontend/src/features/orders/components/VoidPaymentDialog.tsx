@@ -44,6 +44,12 @@ interface Props {
   payment: Payment | null;
   onClose: () => void;
   onSubmit: (paymentId: string, voidReason: string) => Promise<void>;
+  /**
+   * El usuario tiene `void_cash_movements`, así que la anulación puede ejecutarse
+   * sin aprobación. Quien no lo tiene siempre deja una solicitud, y decirle que
+   * "depende de si la caja está cerrada" sería mentirle.
+   */
+  voidsDirectly?: boolean;
   isLoading?: boolean;
 }
 
@@ -52,6 +58,7 @@ const VoidPaymentDialog: React.FC<Props> = ({
   payment,
   onClose,
   onSubmit,
+  voidsDirectly = false,
   isLoading,
 }) => {
   const {
@@ -79,13 +86,17 @@ const VoidPaymentDialog: React.FC<Props> = ({
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth='sm' fullWidth>
-      <DialogTitle>Anular pago</DialogTitle>
+      <DialogTitle>
+        {voidsDirectly ? 'Anular pago' : 'Solicitar anulación de pago'}
+      </DialogTitle>
       <form onSubmit={handleSubmit(submit)}>
         <DialogContent>
           <Stack spacing={2}>
             <Box>
               <Typography variant='body2' color='text.secondary'>
-                Vas a anular este pago:
+                {voidsDirectly
+                  ? 'Vas a anular este pago:'
+                  : 'Vas a solicitar la anulación de este pago:'}
               </Typography>
               <Stack
                 direction='row'
@@ -117,9 +128,10 @@ const VoidPaymentDialog: React.FC<Props> = ({
                 puede terminar en solicitud en vez de sorprenderlo después. */}
             <Alert severity='info'>
               El pago no se borra: queda marcado como anulado, con tu motivo y tu
-              nombre, y deja de sumar al saldo de la orden. Si la caja de este
-              pago ya está cerrada, la anulación quedará pendiente de
-              autorización del administrador.
+              nombre, y deja de sumar al saldo de la orden.{' '}
+              {voidsDirectly
+                ? 'Si la caja de este pago ya está cerrada, la anulación quedará pendiente de autorización del administrador.'
+                : 'Tu solicitud quedará pendiente de autorización del administrador: el saldo de la orden no cambia hasta que él la apruebe.'}
             </Alert>
 
             <Controller
@@ -156,7 +168,13 @@ const VoidPaymentDialog: React.FC<Props> = ({
             color='error'
             disabled={isLoading}
           >
-            {isLoading ? <CircularProgress size={24} /> : 'Anular pago'}
+            {isLoading ? (
+              <CircularProgress size={24} />
+            ) : voidsDirectly ? (
+              'Anular pago'
+            ) : (
+              'Solicitar anulación'
+            )}
           </Button>
         </DialogActions>
       </form>

@@ -103,6 +103,7 @@ const mockCreditBalanceService = {
 // PrismaService: used for $transaction and direct model access (payment, orderDiscount)
 const mockCashMovementService = {
   voidMovement: jest.fn().mockResolvedValue(undefined),
+  voidPaymentWithoutMovement: jest.fn().mockResolvedValue(undefined),
 };
 
 const mockCashMovementVoidRequestsService = {
@@ -2952,6 +2953,16 @@ describe('OrdersService', () => {
 
     const reason = 'Pago duplicado: el mismo soporte ya se registró';
 
+    /** Rol con o sin `void_cash_movements`, que es lo que decide directo vs solicitud. */
+    const withDirectVoidPermission = (allowed: boolean) =>
+      mockPrisma.user.findUnique.mockResolvedValue({
+        role: { permissions: allowed ? [{ permissionId: 'p1' }] : [] },
+      });
+
+    beforeEach(() => {
+      withDirectVoidPermission(true);
+    });
+
     it('anula de una cuando la caja del pago sigue abierta', async () => {
       mockPrisma.payment.findFirst.mockResolvedValue(paymentWithSession('OPEN'));
 
@@ -2974,7 +2985,7 @@ describe('OrdersService', () => {
 
       expect(mockCashMovementService.voidMovement).not.toHaveBeenCalled();
       expect(mockCashMovementVoidRequestsService.create).toHaveBeenCalledWith(
-        'cm-1',
+        { cashMovementId: 'cm-1' },
         'user-1',
         { voidReason: reason },
       );
@@ -2992,21 +3003,53 @@ describe('OrdersService', () => {
         cashMovementId: null,
         cashMovement: null,
       });
-      mockPrisma.payment.update.mockResolvedValue({ orderId: 'order-1' });
-      mockPrisma.payment.findMany.mockResolvedValue([]);
-      mockPrisma.order.findUnique.mockResolvedValue({
-        total: new Prisma.Decimal(100000),
-        appliedCreditAmount: new Prisma.Decimal(0),
-        refundedAmount: new Prisma.Decimal(0),
-      });
-
       const result = await service.voidPayment('order-1', 'pay-1', { voidReason: reason }, 'user-1');
 
+      // Sin movimiento no hay arqueo que revertir: se anula el pago y punto.
       expect(mockCashMovementService.voidMovement).not.toHaveBeenCalled();
-      expect(mockPrisma.payment.update.mock.calls[0][0].data.isVoided).toBe(true);
-      // Sin pagos vivos, la orden vuelve a deber todo.
-      expect(Number(mockPrisma.order.update.mock.calls[0][0].data.balance)).toBe(100000);
+      expect(
+        mockCashMovementService.voidPaymentWithoutMovement,
+      ).toHaveBeenCalledWith('pay-1', 'user-1', reason);
+      expect(mockCashMovementVoidRequestsService.create).not.toHaveBeenCalled();
       expect(result.voided).toBe(true);
+    });
+
+    // El comercial solo tiene `request_payment_void`: nunca ejecuta, aunque la
+    // caja esté abierta. Es quien más se equivoca registrando y quien menos
+    // debería poder quitar plata sin que nadie mire.
+    it('deja solicitud aunque la caja esté abierta si el usuario no puede anular directo', async () => {
+      withDirectVoidPermission(false);
+      mockPrisma.payment.findFirst.mockResolvedValue(paymentWithSession('OPEN'));
+
+      const result = await service.voidPayment('order-1', 'pay-1', { voidReason: reason }, 'comercial-1');
+
+      expect(mockCashMovementService.voidMovement).not.toHaveBeenCalled();
+      expect(mockCashMovementVoidRequestsService.create).toHaveBeenCalledWith(
+        { cashMovementId: 'cm-1' },
+        'comercial-1',
+        { voidReason: reason },
+      );
+      expect(result.requiresApproval).toBe(true);
+    });
+
+    // Un tercio de los pagos recientes no tiene movimiento de caja: la solicitud
+    // tiene que poder colgar del pago o el comercial no puede pedir nada.
+    it('apunta la solicitud al pago cuando no hay movimiento de caja', async () => {
+      withDirectVoidPermission(false);
+      mockPrisma.payment.findFirst.mockResolvedValue({
+        id: 'pay-1',
+        isVoided: false,
+        cashMovementId: null,
+        cashMovement: null,
+      });
+
+      await service.voidPayment('order-1', 'pay-1', { voidReason: reason }, 'comercial-1');
+
+      expect(mockCashMovementVoidRequestsService.create).toHaveBeenCalledWith(
+        { paymentId: 'pay-1' },
+        'comercial-1',
+        { voidReason: reason },
+      );
     });
 
     it('rechaza anular dos veces el mismo pago', async () => {

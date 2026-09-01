@@ -25,6 +25,12 @@ describe('CashMovementVoidRequestsController', () => {
     const dto = { voidReason: 'error' } as any;
     service.create.mockResolvedValue({ id: 'req1' } as any);
     await controller.create('cm1', 'u1', dto);
-    expect(service.create).toHaveBeenCalledWith('cm1', 'u1', dto);
+    // La solicitud puede apuntar a un movimiento o a un pago suelto, así que el
+    // objetivo viaja como objeto.
+    expect(service.create).toHaveBeenCalledWith(
+      { cashMovementId: 'cm1' },
+      'u1',
+      dto,
+    );
   });
 });

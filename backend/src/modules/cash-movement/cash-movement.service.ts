@@ -186,7 +186,7 @@ export class CashMovementService {
    * anulados en vez de restar el monto del pago: restar acumula deriva si el
    * mismo pago se toca dos veces, sumar desde la fuente no.
    */
-  private async voidPaymentAndRecalculate(
+  async voidPaymentAndRecalculate(
     tx: Prisma.TransactionClient,
     paymentId: string,
     userId: string,
@@ -238,6 +238,21 @@ export class CashMovementService {
         ),
       },
     });
+  }
+
+  /**
+   * Anula un pago que no tiene movimiento de caja: los que se registran fuera
+   * del horario de caja o salen de saldo a favor. No hay arqueo que revertir,
+   * así que no hace falta sesión abierta ni contramovimiento.
+   */
+  async voidPaymentWithoutMovement(
+    paymentId: string,
+    userId: string,
+    voidReason: string,
+  ): Promise<void> {
+    await this.prisma.$transaction((tx) =>
+      this.voidPaymentAndRecalculate(tx, paymentId, userId, voidReason),
+    );
   }
 
   async voidMovement(id: string, dto: VoidCashMovementDto, userId: string) {

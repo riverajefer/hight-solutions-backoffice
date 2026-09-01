@@ -506,11 +506,12 @@ export const OrderDetailPage: React.FC = () => {
     !isAnulado && permissions.includes('delete_discounts');
   const canEditPayment =
     !isAnulado && permissions.includes('edit_order_payments');
-  // Anular un pago es la vía correcta para quitar plata mal registrada. Se apoya
-  // en el mismo permiso que anular movimientos de caja porque es la misma
-  // operación vista desde la orden.
+  // Anular un pago es la vía correcta para quitar plata mal registrada. Pedirla
+  // y ejecutarla son permisos distintos: el comercial solicita y el admin
+  // autoriza; caja y contabilidad anulan de una si su caja sigue abierta.
   const canVoidPayment =
-    !isAnulado && permissions.includes('void_cash_movements');
+    !isAnulado && permissions.includes('request_payment_void');
+  const voidsDirectly = permissions.includes('void_cash_movements');
   // Usuario que puede aplicar la edición sin solicitud de aprobación
   const canApprovePaymentEdit =
     isAdmin || permissions.includes('approve_payment_edits');
@@ -670,7 +671,7 @@ export const OrderDetailPage: React.FC = () => {
   };
 
   const handleVoidPayment = async (paymentId: string, voidReason: string) => {
-    await voidPaymentMutation.mutateAsync({ paymentId, voidReason });
+    await voidPaymentMutation.mutateAsync({ paymentId, voidReason, voidsDirectly });
     setPaymentToVoid(null);
   };
 
@@ -2467,7 +2468,11 @@ export const OrderDetailPage: React.FC = () => {
                                         size='small'
                                         onClick={() => setPaymentToVoid(payment)}
                                         color='error'
-                                        title='Anular pago'
+                                        title={
+                                          voidsDirectly
+                                            ? 'Anular pago'
+                                            : 'Solicitar anulación del pago'
+                                        }
                                       >
                                         <BlockIcon fontSize='small' />
                                       </IconButton>
@@ -3358,6 +3363,7 @@ export const OrderDetailPage: React.FC = () => {
         payment={paymentToVoid}
         onClose={() => setPaymentToVoid(null)}
         onSubmit={handleVoidPayment}
+        voidsDirectly={voidsDirectly}
         isLoading={voidPaymentMutation.isPending}
       />
 

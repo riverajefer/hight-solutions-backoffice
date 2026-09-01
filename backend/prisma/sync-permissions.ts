@@ -153,6 +153,16 @@ const groups: PermissionGroup[] = [
     ],
   },
   {
+    label: '💸 Anulación de Pagos',
+    permissions: [
+      {
+        name: 'request_payment_void',
+        description:
+          'Solicitar anulación de pagos de una orden (siempre pasa por el admin salvo que además tenga void_cash_movements)',
+      },
+    ],
+  },
+  {
     label: '🎯 Ventas por Asesor',
     permissions: [
       {

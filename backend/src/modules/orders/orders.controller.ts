@@ -314,7 +314,10 @@ export class OrdersController {
   }
 
   @Post(':id/payments/:paymentId/void')
-  @RequirePermissions('void_cash_movements')
+  // Pedir la anulación y ejecutarla son permisos distintos: este abre la puerta,
+  // y `void_cash_movements` (que el servicio consulta aparte) decide si la
+  // anulación es directa o queda como solicitud para el admin.
+  @RequirePermissions('request_payment_void')
   @ApiOperation({
     summary:
       'Anular un pago de la orden. Si la caja del pago sigue abierta se anula de inmediato; si ya cerró, queda como solicitud para el admin',

@@ -323,8 +323,15 @@ export const useOrderPayments = (orderId: string) => {
     }: {
       paymentId: string;
       voidReason: string;
+      /**
+       * El usuario puede anular sin aprobación. Cambia el PORQUÉ de que algo
+       * quede pendiente: para él es que la caja cerró; para quien no lo tiene,
+       * es que su rol siempre pasa por el admin. Decirle a un comercial que "la
+       * caja está cerrada" es falso cuando el pago ni siquiera pasó por caja.
+       */
+      voidsDirectly?: boolean;
     }) => ordersApi.voidPayment(orderId, paymentId, voidReason),
-    onSuccess: (result) => {
+    onSuccess: (result, variables) => {
       queryClient.invalidateQueries({
         queryKey: ordersKeys.payments(orderId),
       });
@@ -337,7 +344,9 @@ export const useOrderPayments = (orderId: string) => {
       // creer que el saldo ya cambió cuando no.
       if (result.requiresApproval) {
         enqueueSnackbar(
-          'La caja de este pago ya está cerrada, así que la anulación quedó pendiente de autorización del administrador.',
+          variables.voidsDirectly
+            ? 'La caja de este pago ya está cerrada, así que la anulación quedó pendiente de autorización del administrador.'
+            : 'Tu solicitud de anulación quedó pendiente de autorización del administrador. El saldo de la orden no cambia hasta que la apruebe.',
           { variant: 'info' },
         );
       } else {
