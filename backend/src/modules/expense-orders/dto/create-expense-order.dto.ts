@@ -123,6 +123,27 @@ export class CreateExpenseOrderDto {
   @IsOptional()
   ivaRate?: number;
 
+  @ApiPropertyOptional({ description: 'Retefuente en decimal (0.025 = 2.5%), sobre el subtotal' })
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  @IsOptional()
+  retefuenteRate?: number;
+
+  @ApiPropertyOptional({ description: 'ReteICA en decimal (0.00414 = 0.414%), sobre el subtotal' })
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  @IsOptional()
+  reteICARate?: number;
+
+  @ApiPropertyOptional({ description: 'ReteIVA en decimal (0.15 = 15%), sobre el IVA' })
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  @IsOptional()
+  reteIVARate?: number;
+
   @ApiProperty({ type: [CreateExpenseItemDto], description: 'Ítems de gasto (mínimo 1)' })
   @IsArray()
   @ValidateNested({ each: true })

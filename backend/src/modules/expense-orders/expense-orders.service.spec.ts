@@ -15,6 +15,7 @@ describe('ExpenseOrdersService', () => {
   let consecutivesService: jest.Mocked<ConsecutivesService>;
   let prisma: jest.Mocked<PrismaService>;
   let authRequestsService: jest.Mocked<ExpenseOrderAuthRequestsService>;
+  let accountsPayableService: jest.Mocked<AccountsPayableService>;
 
   beforeEach(async () => {
     repository = {
@@ -55,6 +56,12 @@ describe('ExpenseOrdersService', () => {
       closePendingRequestsForAuthorizedOrder: jest.fn().mockResolvedValue(0),
     } as any;
 
+    accountsPayableService = {
+      createFromExpenseOrder: jest.fn(),
+      findByExpenseOrderId: jest.fn(),
+      syncFromExpenseOrder: jest.fn(),
+    } as any;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ExpenseOrdersService,
@@ -62,7 +69,7 @@ describe('ExpenseOrdersService', () => {
         { provide: ConsecutivesService, useValue: consecutivesService },
         { provide: PrismaService, useValue: prisma },
         { provide: ExpenseOrderAuthRequestsService, useValue: authRequestsService },
-        { provide: AccountsPayableService, useValue: { createFromExpenseOrder: jest.fn(), findByExpenseOrderId: jest.fn(), syncFromExpenseOrder: jest.fn() } },
+        { provide: AccountsPayableService, useValue: accountsPayableService },
       ],
     }).compile();
 
@@ -71,6 +78,94 @@ describe('ExpenseOrdersService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('retenciones', () => {
+    const withholdingsDto = {
+      expenseTypeId: 'type-id',
+      expenseSubcategoryId: 'sub-id',
+      applyIva: true,
+      ivaRate: 0.19,
+      retefuenteRate: 0.04,
+      reteICARate: 0.00966,
+      items: [{ quantity: 1, unitPrice: 1000000, name: 'Item', paymentMethod: 'CASH' }],
+    } as any;
+
+    it('crea la cuenta por pagar con el total neto de retenciones', async () => {
+      (prisma.expenseSubcategory.findFirst as jest.Mock).mockResolvedValue({ id: 'sub-id' } as any);
+      (repository.create as jest.Mock).mockResolvedValue({
+        id: 'order-1',
+        ogNumber: 'OG-001',
+        items: [{ total: 1000000 }],
+      } as any);
+
+      await service.create(withholdingsDto, 'user-1');
+
+      // 1.000.000 - 40.000 - 9.660 + 190.000
+      expect(accountsPayableService.createFromExpenseOrder).toHaveBeenCalledWith(
+        'order-1',
+        'Orden de Gasto OG-001',
+        1140340,
+        'user-1',
+        1000000,
+      );
+    });
+
+    it('guarda las tasas de retención en la OG', async () => {
+      (prisma.expenseSubcategory.findFirst as jest.Mock).mockResolvedValue({ id: 'sub-id' } as any);
+      (repository.create as jest.Mock).mockResolvedValue({
+        id: 'order-1',
+        ogNumber: 'OG-001',
+        items: [{ total: 1000000 }],
+      } as any);
+
+      await service.create(withholdingsDto, 'user-1');
+
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          retefuenteRate: 0.04,
+          reteICARate: 0.00966,
+          reteIVARate: 0,
+        }),
+      );
+    });
+
+    it('sincroniza la cuenta por pagar al editar las retenciones', async () => {
+      (repository.findById as jest.Mock)
+        .mockResolvedValueOnce({
+          id: 'order-1',
+          status: ExpenseOrderStatus.CREATED,
+          expenseType: { id: 'type-id' },
+          expenseSubcategory: { id: 'sub-id' },
+          items: [{ total: 1000000 }],
+        } as any)
+        .mockResolvedValueOnce({
+          id: 'order-1',
+          applyIva: true,
+          ivaRate: 0.19,
+          retefuenteRate: 0.025,
+          reteICARate: 0,
+          reteIVARate: 0.15,
+          items: [{ total: 1000000 }],
+        } as any);
+      (accountsPayableService.findByExpenseOrderId as jest.Mock).mockResolvedValue({
+        id: 'ap-1',
+        status: 'PENDING',
+      } as any);
+
+      await service.update('order-1', { retefuenteRate: 0.025, reteIVARate: 0.15 } as any);
+
+      // 1.000.000 - 25.000 + 190.000 - 28.500
+      expect(accountsPayableService.syncFromExpenseOrder).toHaveBeenCalledWith(
+        'ap-1',
+        expect.objectContaining({
+          totalAmount: 1136500,
+          subtotalAmount: 1000000,
+          retefuenteRate: 0.025,
+          reteIVARate: 0.15,
+        }),
+      );
+    });
   });
 
   describe('create', () => {

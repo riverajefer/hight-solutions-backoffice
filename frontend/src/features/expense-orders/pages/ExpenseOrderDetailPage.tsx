@@ -54,6 +54,11 @@ import {
   MarkEmailRead as MarkEmailReadIcon,
   Block as BlockIcon,
 } from '@mui/icons-material';
+import {
+  computeExpenseTotals,
+  getWithholdingPercentages,
+  withholdingsFromRates,
+} from '../../../utils/withholdings';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { BankSelector } from '../../../components/common/BankSelector';
 import { ApprovalQueueBar } from '../../../components/common/ApprovalQueueBar';
@@ -507,8 +512,17 @@ export const ExpenseOrderDetailPage = () => {
   const statusConfig = EXPENSE_ORDER_STATUS_CONFIG[og.status];
   const allowedTransitions = STATUS_TRANSITIONS[og.status] ?? [];
   const subtotalAmount = og.items.reduce((acc, item) => acc + parseFloat(item.total), 0);
-  const ivaAmount = og.applyIva ? Math.round(subtotalAmount * Number(og.ivaRate)) : 0;
-  const totalAmount = subtotalAmount + ivaAmount;
+  const totals = computeExpenseTotals(subtotalAmount, {
+    applyIva: og.applyIva,
+    ivaPercentage: Number(og.ivaRate) * 100,
+    withholdings: withholdingsFromRates(og),
+  });
+  const withholdingPercentages = getWithholdingPercentages(withholdingsFromRates(og));
+  const ivaAmount = totals.ivaAmount;
+  const totalAmount = totals.total;
+  const hasWithholdings =
+    totals.retefuenteAmount > 0 || totals.reteICAAmount > 0 || totals.reteIVAAmount > 0;
+  const showTotalsBreakdown = og.applyIva || hasWithholdings;
   const isEditable =
     !isParentOrderAnulado &&
     (og.status === ExpenseOrderStatus.DRAFT || og.status === ExpenseOrderStatus.CREATED);
@@ -1009,7 +1023,7 @@ export const ExpenseOrderDetailPage = () => {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {og.applyIva && (
+                  {showTotalsBreakdown && (
                     <>
                       <TableRow>
                         <TableCell colSpan={3} align="right">
@@ -1024,26 +1038,73 @@ export const ExpenseOrderDetailPage = () => {
                         </TableCell>
                         <TableCell colSpan={5} />
                       </TableRow>
-                      <TableRow>
-                        <TableCell colSpan={3} align="right">
-                          <Typography variant="body2" color="text.secondary">
-                            IVA ({Math.round(Number(og.ivaRate) * 100)}%)
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="right">
-                          <Typography variant="body2">
-                            {formatCurrency(ivaAmount)}
-                          </Typography>
-                        </TableCell>
-                        <TableCell colSpan={5} />
-                      </TableRow>
+                      {og.applyIva && (
+                        <TableRow>
+                          <TableCell colSpan={3} align="right">
+                            <Typography variant="body2" color="text.secondary">
+                              IVA ({Math.round(Number(og.ivaRate) * 100)}%)
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography variant="body2">
+                              {formatCurrency(ivaAmount)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell colSpan={5} />
+                        </TableRow>
+                      )}
+                      {totals.retefuenteAmount > 0 && (
+                        <TableRow>
+                          <TableCell colSpan={3} align="right">
+                            <Typography variant="body2" color="text.secondary">
+                              Retefuente ({withholdingPercentages.retefuente}%)
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography variant="body2" color="error.main">
+                              - {formatCurrency(totals.retefuenteAmount)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell colSpan={5} />
+                        </TableRow>
+                      )}
+                      {totals.reteICAAmount > 0 && (
+                        <TableRow>
+                          <TableCell colSpan={3} align="right">
+                            <Typography variant="body2" color="text.secondary">
+                              ReteICA ({withholdingPercentages.reteICA}%)
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography variant="body2" color="error.main">
+                              - {formatCurrency(totals.reteICAAmount)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell colSpan={5} />
+                        </TableRow>
+                      )}
+                      {totals.reteIVAAmount > 0 && (
+                        <TableRow>
+                          <TableCell colSpan={3} align="right">
+                            <Typography variant="body2" color="text.secondary">
+                              ReteIVA ({withholdingPercentages.reteIVA}%)
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography variant="body2" color="error.main">
+                              - {formatCurrency(totals.reteIVAAmount)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell colSpan={5} />
+                        </TableRow>
+                      )}
                     </>
                   )}
                   <TableRow>
                     <TableCell colSpan={3} align="right">
-                      {og.applyIva && (
+                      {showTotalsBreakdown && (
                         <Typography variant="subtitle2" fontWeight={700}>
-                          Total
+                          {hasWithholdings ? 'Total a pagar' : 'Total'}
                         </Typography>
                       )}
                     </TableCell>

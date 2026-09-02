@@ -15,6 +15,9 @@ export class ExpenseOrdersRepository {
     areaOrMachine: true,
     applyIva: true,
     ivaRate: true,
+    retefuenteRate: true,
+    reteICARate: true,
+    reteIVARate: true,
     electronicInvoiceNumber: true,
     createdAt: true,
     updatedAt: true,
@@ -183,6 +186,9 @@ export class ExpenseOrdersRepository {
     areaOrMachine?: string;
     applyIva?: boolean;
     ivaRate?: number;
+    retefuenteRate?: number;
+    reteICARate?: number;
+    reteIVARate?: number;
     status: ExpenseOrderStatus;
     createdById: string;
     authorizedById?: string;
@@ -246,6 +252,9 @@ export class ExpenseOrdersRepository {
       areaOrMachine?: string;
       applyIva?: boolean;
       ivaRate?: number;
+      retefuenteRate?: number;
+      reteICARate?: number;
+      reteIVARate?: number;
     },
   ) {
     return this.prisma.expenseOrder.update({

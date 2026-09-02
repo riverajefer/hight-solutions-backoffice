@@ -30,6 +30,11 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CloseIcon from '@mui/icons-material/Close';
+import {
+  computeExpenseTotals,
+  getWithholdingPercentages,
+  withholdingsFromRates,
+} from '../../../utils/withholdings';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { ApprovalQueueBar } from '../../../components/common/ApprovalQueueBar';
 import { useApprovalQueue } from '../../../hooks/useApprovalQueue';
@@ -214,6 +219,23 @@ export default function AccountsPayableDetailPage() {
     100,
     (Number(ap.paidAmount) / Number(ap.totalAmount)) * 100,
   );
+
+  // Las cuentas anteriores a las retenciones no guardan la base: ahí todavía
+  // hay que deshacer el IVA para mostrar el subtotal.
+  const storedSubtotal = Number(ap.subtotalAmount ?? 0);
+  const subtotalAmount = storedSubtotal > 0
+    ? storedSubtotal
+    : Number(ap.totalAmount) / (1 + (ap.applyIva ? Number(ap.ivaRate) : 0));
+  const apWithholdings = withholdingsFromRates(ap);
+  const withholdingPercentages = getWithholdingPercentages(apWithholdings);
+  const totals = computeExpenseTotals(subtotalAmount, {
+    applyIva: ap.applyIva,
+    ivaPercentage: Number(ap.ivaRate) * 100,
+    withholdings: apWithholdings,
+  });
+  const hasWithholdings =
+    totals.retefuenteAmount > 0 || totals.reteICAAmount > 0 || totals.reteIVAAmount > 0;
+  const showBreakdown = ap.applyIva || hasWithholdings;
 
   const isEditable =
     ap.status !== AccountPayableStatus.PAID &&
@@ -456,28 +478,56 @@ export default function AccountsPayableDetailPage() {
             <Divider sx={{ mb: 2 }} />
 
             <Stack spacing={1.5}>
-              {ap.applyIva && (
+              {showBreakdown && (
                 <>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography variant="body2" color="text.secondary">Subtotal</Typography>
-                    <Typography variant="body2">
-                      {formatCurrency(Number(ap.totalAmount) / (1 + Number(ap.ivaRate)))}
-                    </Typography>
+                    <Typography variant="body2">{formatCurrency(subtotalAmount)}</Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2" color="text.secondary">
-                      IVA ({Math.round(Number(ap.ivaRate) * 100)}%)
-                    </Typography>
-                    <Typography variant="body2">
-                      {formatCurrency(
-                        Number(ap.totalAmount) - Number(ap.totalAmount) / (1 + Number(ap.ivaRate)),
-                      )}
-                    </Typography>
-                  </Box>
+                  {ap.applyIva && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="body2" color="text.secondary">
+                        IVA ({Math.round(Number(ap.ivaRate) * 100)}%)
+                      </Typography>
+                      <Typography variant="body2">{formatCurrency(totals.ivaAmount)}</Typography>
+                    </Box>
+                  )}
+                  {totals.retefuenteAmount > 0 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Retefuente ({withholdingPercentages.retefuente}%)
+                      </Typography>
+                      <Typography variant="body2" color="error.main">
+                        - {formatCurrency(totals.retefuenteAmount)}
+                      </Typography>
+                    </Box>
+                  )}
+                  {totals.reteICAAmount > 0 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="body2" color="text.secondary">
+                        ReteICA ({withholdingPercentages.reteICA}%)
+                      </Typography>
+                      <Typography variant="body2" color="error.main">
+                        - {formatCurrency(totals.reteICAAmount)}
+                      </Typography>
+                    </Box>
+                  )}
+                  {totals.reteIVAAmount > 0 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="body2" color="text.secondary">
+                        ReteIVA ({withholdingPercentages.reteIVA}%)
+                      </Typography>
+                      <Typography variant="body2" color="error.main">
+                        - {formatCurrency(totals.reteIVAAmount)}
+                      </Typography>
+                    </Box>
+                  )}
                 </>
               )}
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="body2" color="text.secondary">Total</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {hasWithholdings ? 'Total a pagar' : 'Total'}
+                </Typography>
                 <Typography variant="body2" fontWeight={600}>{formatCurrency(ap.totalAmount)}</Typography>
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
