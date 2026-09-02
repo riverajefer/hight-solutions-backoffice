@@ -46,6 +46,16 @@ import {
 } from '@mui/icons-material';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { BankSelector } from '../../../components/common/BankSelector';
+import { WithholdingsFields } from '../../../components/common/WithholdingsFields';
+import {
+  EMPTY_WITHHOLDINGS,
+  computeExpenseTotals,
+  getWithholdingPercentages,
+  isWithholdingsSelectionEmpty,
+  toWithholdingRates,
+  withholdingsFromRates,
+  type WithholdingsValue,
+} from '../../../utils/withholdings';
 import { useExpenseOrders, useExpenseOrder, useExpenseTypes } from '../hooks';
 import { useUsers } from '../../users/hooks/useUsers';
 import { useWorkOrders } from '../../work-orders/hooks';
@@ -270,6 +280,9 @@ export const ExpenseOrderFormPage = () => {
   const [applyIva, setApplyIva] = useState(false);
   const [ivaPercentage, setIvaPercentage] = useState(19); // porcentaje en UI (19 = 19%)
 
+  // ─── Retenciones (opcional, nivel orden) ────────────────────────────────────
+  const [withholdings, setWithholdings] = useState<WithholdingsValue>(EMPTY_WITHHOLDINGS);
+
   // ─── Step 3: Items ──────────────────────────────────────────────────────────
   const [items, setItems] = useState<ExpenseItemForm[]>([defaultItem()]);
   // receiptFiles[i] and referenceFiles[i] hold the File selected for items[i] (not yet uploaded)
@@ -307,6 +320,7 @@ export const ExpenseOrderFormPage = () => {
       setIvaPercentage(
         existingOG.applyIva ? Math.round(Number(existingOG.ivaRate) * 100) : 19,
       );
+      setWithholdings(withholdingsFromRates(existingOG));
       if (existingOG.items.length) {
         setItems(
           existingOG.items.map((item) => ({
@@ -393,11 +407,20 @@ export const ExpenseOrderFormPage = () => {
     }, 0);
   }, [items]);
 
-  const ivaAmount = useMemo(
-    () => (applyIva ? Math.round(totalAmount * (ivaPercentage / 100)) : 0),
-    [applyIva, ivaPercentage, totalAmount],
+  // `totalAmount` es el subtotal de los ítems; el total a pagar le suma el IVA
+  // y le resta las retenciones, con la misma cuenta que hace el backend.
+  const totals = useMemo(
+    () => computeExpenseTotals(totalAmount, { applyIva, ivaPercentage, withholdings }),
+    [applyIva, ivaPercentage, totalAmount, withholdings],
   );
-  const grandTotal = totalAmount + ivaAmount;
+  const withholdingPercentages = getWithholdingPercentages(withholdings);
+  const ivaAmount = totals.ivaAmount;
+  const grandTotal = totals.total;
+  const hasWithholdings =
+    totals.retefuenteAmount > 0 || totals.reteICAAmount > 0 || totals.reteIVAAmount > 0;
+  const withholdingsError = isWithholdingsSelectionEmpty(withholdings)
+    ? 'Debe configurar al menos una retención'
+    : undefined;
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('es-CO', {
@@ -563,6 +586,7 @@ export const ExpenseOrderFormPage = () => {
     areaOrMachine: areaOrMachine || undefined,
     applyIva,
     ivaRate: applyIva ? ivaPercentage / 100 : undefined,
+    ...toWithholdingRates(applyIva ? withholdings : EMPTY_WITHHOLDINGS),
     items: items.map((item, index) => ({
       quantity: parseFloat(item.quantity),
       name: item.name.trim(),
@@ -1222,9 +1246,56 @@ export const ExpenseOrderFormPage = () => {
 
             <Divider />
 
+            {/* Retenciones */}
+            <WithholdingsFields
+              value={withholdings}
+              onChange={setWithholdings}
+              applyIva={applyIva}
+              error={withholdingsError}
+            />
+
+            {totals.retefuenteAmount > 0 && (
+              <Stack direction="row" justifyContent="space-between">
+                <Typography color="text.secondary">
+                  Retefuente ({withholdingPercentages.retefuente}%):
+                </Typography>
+                <Typography fontWeight={500} color="error.main">
+                  - {formatCurrency(totals.retefuenteAmount)}
+                </Typography>
+              </Stack>
+            )}
+
+            {totals.reteICAAmount > 0 && (
+              <Stack direction="row" justifyContent="space-between">
+                <Typography color="text.secondary">
+                  ReteICA ({withholdingPercentages.reteICA}%):
+                </Typography>
+                <Typography fontWeight={500} color="error.main">
+                  - {formatCurrency(totals.reteICAAmount)}
+                </Typography>
+              </Stack>
+            )}
+
+            {totals.reteIVAAmount > 0 && (
+              <Stack direction="row" justifyContent="space-between">
+                <Typography color="text.secondary">
+                  ReteIVA ({withholdingPercentages.reteIVA}%):
+                </Typography>
+                <Typography fontWeight={500} color="error.main">
+                  - {formatCurrency(totals.reteIVAAmount)}
+                </Typography>
+              </Stack>
+            )}
+
+            {hasWithholdings && <Divider />}
+
             <Stack direction="row" justifyContent="space-between">
               <Typography variant="subtitle1" fontWeight={700}>
-                {applyIva ? 'Total con IVA:' : 'Total estimado:'}
+                {hasWithholdings
+                  ? 'Total a pagar:'
+                  : applyIva
+                    ? 'Total con IVA:'
+                    : 'Total estimado:'}
               </Typography>
               <Typography variant="subtitle1" fontWeight={700} color="primary">
                 {formatCurrency(grandTotal)}
@@ -1246,13 +1317,14 @@ export const ExpenseOrderFormPage = () => {
         </Alert>
       )}
 
-      {isStep1Valid && isStep2Valid && isStep3Valid && (
+      {withholdingsError && <Alert severity="warning">{withholdingsError}.</Alert>}
+      {isStep1Valid && isStep2Valid && isStep3Valid && !withholdingsError && (
         <Alert severity="success">Todos los datos están listos para guardar.</Alert>
       )}
     </Stack>
   );
 
-  const canSubmit = isStep1Valid && isStep2Valid && isStep3Valid;
+  const canSubmit = isStep1Valid && isStep2Valid && isStep3Valid && !withholdingsError;
 
   // ─── Step navigation ──────────────────────────────────────────────────────────
   const goToStep = (step: number) => {

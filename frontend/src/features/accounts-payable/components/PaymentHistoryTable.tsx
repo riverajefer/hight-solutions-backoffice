@@ -39,11 +39,10 @@ export const PaymentHistoryTable: React.FC<PaymentHistoryTableProps> = ({
 }) => {
   const [loadingReceiptId, setLoadingReceiptId] = useState<string | null>(null);
 
-  const handleViewReceipt = async (payment: AccountPayablePayment) => {
-    if (!payment.receiptFileId) return;
-    setLoadingReceiptId(payment.id);
+  const handleViewReceipt = async (fileId: string) => {
+    setLoadingReceiptId(fileId);
     try {
-      const { url } = await storageApi.getFileUrl(payment.receiptFileId);
+      const { url } = await storageApi.getFileUrl(fileId);
       window.open(url, '_blank', 'noopener,noreferrer');
     } finally {
       setLoadingReceiptId(null);
@@ -121,24 +120,42 @@ export const PaymentHistoryTable: React.FC<PaymentHistoryTableProps> = ({
                 </Typography>
               </TableCell>
               <TableCell align="center">
-                {payment.receiptFileId ? (
-                  <Tooltip title="Ver comprobante">
-                    <IconButton
-                      size="small"
-                      color="primary"
-                      onClick={() => handleViewReceipt(payment)}
-                      disabled={loadingReceiptId === payment.id}
-                    >
-                      {loadingReceiptId === payment.id ? (
-                        <CircularProgress size={16} />
-                      ) : (
-                        <ReceiptLongIcon fontSize="small" />
-                      )}
-                    </IconButton>
-                  </Tooltip>
-                ) : (
-                  <Typography variant="body2" color="text.disabled">—</Typography>
-                )}
+                {(() => {
+                  // Un pago puede traer hasta dos soportes; se listan en orden.
+                  const receiptIds = [payment.receiptFileId, payment.receiptFileId2].filter(
+                    Boolean,
+                  ) as string[];
+                  if (receiptIds.length === 0) {
+                    return <Typography variant="body2" color="text.disabled">—</Typography>;
+                  }
+                  return (
+                    <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                      {receiptIds.map((fileId, index) => (
+                        <Tooltip
+                          key={fileId}
+                          title={
+                            receiptIds.length > 1
+                              ? `Ver comprobante ${index + 1}`
+                              : 'Ver comprobante'
+                          }
+                        >
+                          <IconButton
+                            size="small"
+                            color="primary"
+                            onClick={() => handleViewReceipt(fileId)}
+                            disabled={loadingReceiptId === fileId}
+                          >
+                            {loadingReceiptId === fileId ? (
+                              <CircularProgress size={16} />
+                            ) : (
+                              <ReceiptLongIcon fontSize="small" />
+                            )}
+                          </IconButton>
+                        </Tooltip>
+                      ))}
+                    </Box>
+                  );
+                })()}
               </TableCell>
               {canDelete && onDelete && (
                 <TableCell align="center">

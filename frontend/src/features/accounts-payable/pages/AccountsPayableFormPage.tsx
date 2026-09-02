@@ -36,6 +36,16 @@ import { useSuppliers } from '../../suppliers/hooks/useSuppliers';
 import { useExpenseTypes } from '../../expense-orders/hooks/useExpenseOrders';
 import { accountsPayableApi } from '../../../api/accounts-payable.api';
 import { CreateSupplierModal } from '../../suppliers/components/CreateSupplierModal';
+import { WithholdingsFields } from '../../../components/common/WithholdingsFields';
+import {
+  EMPTY_WITHHOLDINGS,
+  computeExpenseTotals,
+  getWithholdingPercentages,
+  isWithholdingsSelectionEmpty,
+  toWithholdingRates,
+  withholdingsFromRates,
+  type WithholdingsValue,
+} from '../../../utils/withholdings';
 
 // Un anticipo de nómina se identifica por tipo "Personal" + subcategoría "Anticipos".
 const isAdvanceSelection = (typeName?: string, subcategoryName?: string): boolean =>
@@ -59,6 +69,11 @@ const schema = z
     totalAmount: z.string().min(1, 'Ingresa el monto total'),
     applyIva: z.boolean().optional(),
     ivaPercentage: z.coerce.number().min(0, 'Mínimo 0%').max(100, 'Máximo 100%').optional(),
+    applyWithholdings: z.boolean().optional(),
+    retefuente: z.string().optional(),
+    retefuenteCustom: z.string().optional(),
+    reteICA: z.string().optional(),
+    reteIVA: z.string().optional(),
     dueDate: z.date({ invalid_type_error: 'Fecha inválida' }).nullable(),
     supplierId: z.string().uuid().optional().or(z.literal('')),
     isRecurring: z.boolean().optional(),
@@ -74,6 +89,17 @@ const schema = z
       return true;
     },
     { message: 'La frecuencia es requerida cuando el pago es recurrente', path: ['recurringFrequency'] },
+  )
+  .refine(
+    (data) =>
+      !isWithholdingsSelectionEmpty({
+        apply: data.applyWithholdings ?? false,
+        retefuente: data.retefuente ?? '',
+        retefuenteCustom: data.retefuenteCustom ?? '',
+        reteICA: data.reteICA ?? '',
+        reteIVA: data.reteIVA ?? '',
+      }),
+    { message: 'Debe configurar al menos una retención', path: ['applyWithholdings'] },
   );
 
 type FormValues = z.infer<typeof schema>;
@@ -103,6 +129,7 @@ export default function AccountsPayableFormPage() {
     watch,
     reset,
     setValue,
+    trigger,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -114,6 +141,11 @@ export default function AccountsPayableFormPage() {
       totalAmount: '',
       applyIva: false,
       ivaPercentage: 19,
+      applyWithholdings: false,
+      retefuente: '',
+      retefuenteCustom: '',
+      reteICA: '',
+      reteIVA: '',
       dueDate: null,
     },
   });
@@ -125,11 +157,51 @@ export default function AccountsPayableFormPage() {
   const watchIvaPercentage = watch('ivaPercentage');
   const watchTotalAmount = watch('totalAmount');
 
-  // ─── IVA breakdown (Monto Total se interpreta como base/subtotal) ──────────────
+  // ─── Retenciones ─────────────────────────────────────────────────────────────
+  const withholdings: WithholdingsValue = {
+    apply: watch('applyWithholdings') ?? false,
+    retefuente: watch('retefuente') ?? '',
+    retefuenteCustom: watch('retefuenteCustom') ?? '',
+    reteICA: watch('reteICA') ?? '',
+    reteIVA: watch('reteIVA') ?? '',
+  };
+
+  // El error «Debe configurar al menos una retención» cuelga de
+  // `applyWithholdings` pero depende de los tres selects. React Hook Form solo
+  // refresca el error del campo que cambió, así que sin este trigger el aviso
+  // se queda en pantalla después de elegir la retención.
+  useEffect(() => {
+    void trigger('applyWithholdings');
+  }, [
+    trigger,
+    withholdings.apply,
+    withholdings.retefuente,
+    withholdings.retefuenteCustom,
+    withholdings.reteICA,
+    withholdings.reteIVA,
+  ]);
+
+  const handleWithholdingsChange = (next: WithholdingsValue) => {
+    setValue('applyWithholdings', next.apply, { shouldValidate: true });
+    setValue('retefuente', next.retefuente, { shouldValidate: true });
+    setValue('retefuenteCustom', next.retefuenteCustom, { shouldValidate: true });
+    setValue('reteICA', next.reteICA, { shouldValidate: true });
+    setValue('reteIVA', next.reteIVA, { shouldValidate: true });
+  };
+
+  // ─── Desglose (Monto Total se interpreta como base/subtotal) ─────────────────
   const baseAmount = Number((watchTotalAmount ?? '').replace(/\D/g, '')) || 0;
   const ivaPercent = Number(watchIvaPercentage) || 0;
-  const ivaAmount = watchApplyIva ? Math.round(baseAmount * (ivaPercent / 100)) : 0;
-  const grandTotal = baseAmount + ivaAmount;
+  const totals = computeExpenseTotals(baseAmount, {
+    applyIva: watchApplyIva ?? false,
+    ivaPercentage: ivaPercent,
+    withholdings,
+  });
+  const withholdingPercentages = getWithholdingPercentages(withholdings);
+  const ivaAmount = totals.ivaAmount;
+  const grandTotal = totals.total;
+  const hasWithholdings =
+    totals.retefuenteAmount > 0 || totals.reteICAAmount > 0 || totals.reteIVAAmount > 0;
 
   const formatCOP = (value: number) =>
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(value);
@@ -145,11 +217,16 @@ export default function AccountsPayableFormPage() {
   useEffect(() => {
     if (isEditing && apQuery.data) {
       const ap = apQuery.data;
-      // El monto almacenado incluye IVA; derivamos la base para editarla.
       const rate = Number(ap.ivaRate) || 0;
-      const baseStored = ap.applyIva && rate > 0
-        ? Math.round(Number(ap.totalAmount) / (1 + rate))
-        : Math.round(Number(ap.totalAmount));
+      // La base se guarda aparte desde que existen las retenciones; para las
+      // cuentas viejas sin `subtotalAmount` todavía hay que deshacer el IVA.
+      const storedSubtotal = Number(ap.subtotalAmount ?? 0);
+      const baseStored = storedSubtotal > 0
+        ? Math.round(storedSubtotal)
+        : ap.applyIva && rate > 0
+          ? Math.round(Number(ap.totalAmount) / (1 + rate))
+          : Math.round(Number(ap.totalAmount));
+      const storedWithholdings = withholdingsFromRates(ap);
       reset({
         expenseTypeId: ap.expenseType?.id ?? '',
         expenseSubcategoryId: ap.expenseSubcategory?.id ?? '',
@@ -159,6 +236,11 @@ export default function AccountsPayableFormPage() {
         totalAmount: String(baseStored),
         applyIva: ap.applyIva ?? false,
         ivaPercentage: ap.applyIva ? Math.round(rate * 100) : 19,
+        applyWithholdings: storedWithholdings.apply,
+        retefuente: storedWithholdings.retefuente,
+        retefuenteCustom: storedWithholdings.retefuenteCustom,
+        reteICA: storedWithholdings.reteICA,
+        reteIVA: storedWithholdings.reteIVA,
         dueDate: ap.dueDate ? new Date(ap.dueDate) : null,
         supplierId: ap.supplier?.id ?? '',
         isRecurring: ap.isRecurring,
@@ -170,7 +252,20 @@ export default function AccountsPayableFormPage() {
   const onSubmit = async (values: FormValues) => {
     const base = Number(values.totalAmount.replace(/\D/g, ''));
     const pct = Number(values.ivaPercentage) || 0;
-    const finalTotal = values.applyIva ? Math.round(base * (1 + pct / 100)) : base;
+    const submittedWithholdings: WithholdingsValue = values.applyIva
+      ? {
+          apply: values.applyWithholdings ?? false,
+          retefuente: values.retefuente ?? '',
+          retefuenteCustom: values.retefuenteCustom ?? '',
+          reteICA: values.reteICA ?? '',
+          reteIVA: values.reteIVA ?? '',
+        }
+      : EMPTY_WITHHOLDINGS;
+    const finalTotal = computeExpenseTotals(base, {
+      applyIva: values.applyIva ?? false,
+      ivaPercentage: pct,
+      withholdings: submittedWithholdings,
+    }).total;
     const dto = {
       expenseTypeId: values.expenseTypeId,
       expenseSubcategoryId: values.expenseSubcategoryId,
@@ -178,8 +273,10 @@ export default function AccountsPayableFormPage() {
       description: values.description || '',
       observations: values.observations || undefined,
       totalAmount: finalTotal,
+      subtotalAmount: base,
       applyIva: values.applyIva ?? false,
       ivaRate: values.applyIva ? pct / 100 : undefined,
+      ...toWithholdingRates(submittedWithholdings),
       dueDate: values.dueDate!.toISOString(),
       supplierId: values.supplierId || undefined,
       isRecurring: values.isRecurring ?? false,
@@ -395,6 +492,16 @@ export default function AccountsPayableFormPage() {
             </Stack>
           </Grid>
 
+          {/* Retenciones */}
+          <Grid item xs={12}>
+            <WithholdingsFields
+              value={withholdings}
+              onChange={handleWithholdingsChange}
+              applyIva={watchApplyIva ?? false}
+              error={errors.applyWithholdings?.message}
+            />
+          </Grid>
+
           {/* Desglose con IVA */}
           {watchApplyIva && (
             <Grid item xs={12}>
@@ -416,9 +523,41 @@ export default function AccountsPayableFormPage() {
                   </Typography>
                   <Typography variant="body2">{formatCOP(ivaAmount)}</Typography>
                 </Stack>
+                {totals.retefuenteAmount > 0 && (
+                  <Stack direction="row" justifyContent="space-between">
+                    <Typography variant="body2" color="text.secondary">
+                      Retefuente ({withholdingPercentages.retefuente}%)
+                    </Typography>
+                    <Typography variant="body2" color="error.main">
+                      - {formatCOP(totals.retefuenteAmount)}
+                    </Typography>
+                  </Stack>
+                )}
+                {totals.reteICAAmount > 0 && (
+                  <Stack direction="row" justifyContent="space-between">
+                    <Typography variant="body2" color="text.secondary">
+                      ReteICA ({withholdingPercentages.reteICA}%)
+                    </Typography>
+                    <Typography variant="body2" color="error.main">
+                      - {formatCOP(totals.reteICAAmount)}
+                    </Typography>
+                  </Stack>
+                )}
+                {totals.reteIVAAmount > 0 && (
+                  <Stack direction="row" justifyContent="space-between">
+                    <Typography variant="body2" color="text.secondary">
+                      ReteIVA ({withholdingPercentages.reteIVA}%)
+                    </Typography>
+                    <Typography variant="body2" color="error.main">
+                      - {formatCOP(totals.reteIVAAmount)}
+                    </Typography>
+                  </Stack>
+                )}
                 <Divider sx={{ my: 0.5 }} />
                 <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="subtitle2" fontWeight={700}>Total a pagar</Typography>
+                  <Typography variant="subtitle2" fontWeight={700}>
+                    {hasWithholdings ? 'Total a pagar (neto de retenciones)' : 'Total a pagar'}
+                  </Typography>
                   <Typography variant="subtitle2" fontWeight={700} color="primary">
                     {formatCOP(grandTotal)}
                   </Typography>

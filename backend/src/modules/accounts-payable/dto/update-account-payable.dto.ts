@@ -45,6 +45,17 @@ export class UpdateAccountPayableDto {
   @IsOptional()
   totalAmount?: number;
 
+  @ApiPropertyOptional({
+    description:
+      'Base gravable. Cuando se envía, el backend recalcula `totalAmount` a partir de ella, del IVA y de las retenciones.',
+    minimum: 0.01,
+  })
+  @Type(() => Number)
+  @IsNumber()
+  @IsPositive()
+  @IsOptional()
+  subtotalAmount?: number;
+
   @ApiPropertyOptional({ description: 'Indica si el monto incluye IVA' })
   @IsBoolean()
   @IsOptional()
@@ -57,6 +68,30 @@ export class UpdateAccountPayableDto {
   @Max(1)
   @IsOptional()
   ivaRate?: number;
+
+  @ApiPropertyOptional({ description: 'Retefuente en decimal (0.025 = 2.5%), sobre el subtotal' })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  @IsOptional()
+  retefuenteRate?: number;
+
+  @ApiPropertyOptional({ description: 'ReteICA en decimal (0.00414 = 0.414%), sobre el subtotal' })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  @IsOptional()
+  reteICARate?: number;
+
+  @ApiPropertyOptional({ description: 'ReteIVA en decimal (0.15 = 15%), sobre el IVA' })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  @IsOptional()
+  reteIVARate?: number;
 
   @ApiPropertyOptional({ description: 'Fecha de vencimiento (ISO 8601)' })
   @IsDateString()

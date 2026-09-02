@@ -27,6 +27,8 @@ const READONLY_STATUSES: AccountPayableStatus[] = [
 const ADVANCE_EXPENSE_TYPE = 'personal';
 const ADVANCE_EXPENSE_SUBCATEGORY = 'anticipos';
 
+import { computeExpenseTotals } from '../../common/utils/expense-totals.util';
+
 @Injectable()
 export class AccountsPayableService {
   private readonly logger = new Logger(AccountsPayableService.name);
@@ -37,6 +39,36 @@ export class AccountsPayableService {
     private readonly consecutivesService: ConsecutivesService,
     private readonly storageService: StorageService,
   ) {}
+
+  /**
+   * Resuelve base y total a pagar de una cuenta.
+   *
+   * El cliente envía la base (`subtotalAmount`) y el backend calcula el total
+   * con IVA y retenciones: si cada lado hiciera su propia cuenta, la pantalla y
+   * el saldo pendiente terminarían en números distintos. `totalAmount` sigue
+   * aceptándose para los clientes que aún no mandan la base.
+   */
+  private resolveAmounts(dto: {
+    totalAmount?: number;
+    subtotalAmount?: number;
+    applyIva?: boolean;
+    ivaRate?: number;
+    retefuenteRate?: number;
+    reteICARate?: number;
+    reteIVARate?: number;
+  }): { subtotalAmount: number; totalAmount: number } {
+    if (dto.subtotalAmount !== undefined) {
+      const { total } = computeExpenseTotals(dto.subtotalAmount, dto);
+      return { subtotalAmount: dto.subtotalAmount, totalAmount: total };
+    }
+
+    const totalAmount = dto.totalAmount ?? 0;
+    const ivaRate = dto.applyIva ? (dto.ivaRate ?? 0.19) : 0;
+    // Sin base explícita solo queda deshacer el IVA. La cuenta no admite
+    // retenciones en esta rama, y por eso el DTO las trae junto con la base.
+    const subtotalAmount = ivaRate > 0 ? totalAmount / (1 + ivaRate) : totalAmount;
+    return { subtotalAmount, totalAmount };
+  }
 
   async findAll(filters: FilterAccountPayableDto) {
     return this.repository.findAll(filters);
@@ -86,17 +118,23 @@ export class AccountsPayableService {
       dto.beneficiaryUserId,
     );
 
+    const { subtotalAmount, totalAmount } = this.resolveAmounts(dto);
+
     return this.repository.create({
       apNumber,
       expenseType: { connect: { id: dto.expenseTypeId } },
       expenseSubcategory: { connect: { id: dto.expenseSubcategoryId } },
       description: dto.description ?? '',
       observations: dto.observations,
-      totalAmount: dto.totalAmount,
+      subtotalAmount,
+      totalAmount,
       paidAmount: 0,
-      balance: dto.totalAmount,
+      balance: totalAmount,
       applyIva: dto.applyIva ?? false,
       ivaRate: dto.ivaRate ?? 0.19,
+      retefuenteRate: dto.retefuenteRate ?? 0,
+      reteICARate: dto.reteICARate ?? 0,
+      reteIVARate: dto.reteIVARate ?? 0,
       dueDate: new Date(dto.dueDate),
       isRecurring: dto.isRecurring ?? false,
       recurringDay: dto.recurringDay,
@@ -198,7 +236,17 @@ export class AccountsPayableService {
     }
 
     const hasPayments = Number(ap.paidAmount) > 0;
-    if (hasPayments && dto.totalAmount !== undefined) {
+    // El IVA y las retenciones también mueven el total: si la cuenta ya tiene
+    // abonos, cambiarlos correría el saldo por debajo de lo ya pagado.
+    const changesAmount =
+      dto.totalAmount !== undefined ||
+      dto.subtotalAmount !== undefined ||
+      dto.applyIva !== undefined ||
+      dto.ivaRate !== undefined ||
+      dto.retefuenteRate !== undefined ||
+      dto.reteICARate !== undefined ||
+      dto.reteIVARate !== undefined;
+    if (hasPayments && changesAmount) {
       throw new BadRequestException(
         'No se puede cambiar el monto total de una cuenta que ya tiene pagos registrados',
       );
@@ -215,16 +263,27 @@ export class AccountsPayableService {
     if (dto.recurringFrequency !== undefined) updateData.recurringFrequency = dto.recurringFrequency;
     if (dto.applyIva !== undefined) updateData.applyIva = dto.applyIva;
     if (dto.ivaRate !== undefined) updateData.ivaRate = dto.ivaRate;
+    if (dto.retefuenteRate !== undefined) updateData.retefuenteRate = dto.retefuenteRate;
+    if (dto.reteICARate !== undefined) updateData.reteICARate = dto.reteICARate;
+    if (dto.reteIVARate !== undefined) updateData.reteIVARate = dto.reteIVARate;
     if (dto.supplierId !== undefined) {
       updateData.supplier = dto.supplierId
         ? { connect: { id: dto.supplierId } }
         : { disconnect: true };
     }
 
-    if (dto.totalAmount !== undefined) {
-      const newBalance = dto.totalAmount - Number(ap.paidAmount);
-      updateData.totalAmount = dto.totalAmount;
-      updateData.balance = newBalance;
+    if (dto.totalAmount !== undefined || dto.subtotalAmount !== undefined) {
+      const { subtotalAmount, totalAmount } = this.resolveAmounts({
+        ...dto,
+        applyIva: dto.applyIva ?? ap.applyIva,
+        ivaRate: dto.ivaRate ?? Number(ap.ivaRate),
+        retefuenteRate: dto.retefuenteRate ?? Number(ap.retefuenteRate ?? 0),
+        reteICARate: dto.reteICARate ?? Number(ap.reteICARate ?? 0),
+        reteIVARate: dto.reteIVARate ?? Number(ap.reteIVARate ?? 0),
+      });
+      updateData.subtotalAmount = subtotalAmount;
+      updateData.totalAmount = totalAmount;
+      updateData.balance = totalAmount - Number(ap.paidAmount);
     }
 
     // Recalcular el vínculo de anticipo si cambian el tipo/subcategoría o el
@@ -299,7 +358,7 @@ export class AccountsPayableService {
 
   async registerPaymentFromAuthRequest(
     id: string,
-    dto: Pick<RegisterPaymentDto, 'amount' | 'paymentMethod' | 'paymentDate' | 'reference' | 'notes' | 'bankEntity' | 'receiptFileId'>,
+    dto: Pick<RegisterPaymentDto, 'amount' | 'paymentMethod' | 'paymentDate' | 'reference' | 'notes' | 'bankEntity' | 'receiptFileId' | 'receiptFileId2'>,
     registeredById: string,
     paymentAuthRequestId: string,
   ) {
@@ -341,7 +400,7 @@ export class AccountsPayableService {
     apNumber: string,
     paidAmount: unknown,
     totalAmount: unknown,
-    dto: Pick<RegisterPaymentDto, 'amount' | 'paymentMethod' | 'paymentDate' | 'reference' | 'notes' | 'bankEntity' | 'receiptFileId'> & { cashSessionId?: string },
+    dto: Pick<RegisterPaymentDto, 'amount' | 'paymentMethod' | 'paymentDate' | 'reference' | 'notes' | 'bankEntity' | 'receiptFileId' | 'receiptFileId2'> & { cashSessionId?: string },
     registeredById: string,
     cashSessionId?: string,
     paymentAuthRequestId?: string,
@@ -388,6 +447,7 @@ export class AccountsPayableService {
       notes: dto.notes,
       bankEntity: dto.bankEntity,
       receiptFileId: dto.receiptFileId,
+      receiptFileId2: dto.receiptFileId2,
       accountPayable: { connect: { id } },
       registeredBy: { connect: { id: registeredById } },
       ...(cashMovementId && { cashMovement: { connect: { id: cashMovementId } } }),
@@ -460,7 +520,20 @@ export class AccountsPayableService {
     return this.repository.findByExpenseOrderId(expenseOrderId);
   }
 
-  async syncFromExpenseOrder(id: string, data: { totalAmount?: number; expenseTypeId?: string; expenseSubcategoryId?: string }) {
+  async syncFromExpenseOrder(
+    id: string,
+    data: {
+      totalAmount?: number;
+      subtotalAmount?: number;
+      expenseTypeId?: string;
+      expenseSubcategoryId?: string;
+      applyIva?: boolean;
+      ivaRate?: number;
+      retefuenteRate?: number;
+      reteICARate?: number;
+      reteIVARate?: number;
+    },
+  ) {
     const ap = await this.repository.findById(id);
     if (!ap) return;
 
@@ -468,6 +541,13 @@ export class AccountsPayableService {
 
     if (data.expenseTypeId !== undefined) updateData.expenseType = { connect: { id: data.expenseTypeId } };
     if (data.expenseSubcategoryId !== undefined) updateData.expenseSubcategory = { connect: { id: data.expenseSubcategoryId } };
+    if (data.applyIva !== undefined) updateData.applyIva = data.applyIva;
+    if (data.ivaRate !== undefined) updateData.ivaRate = data.ivaRate;
+    if (data.retefuenteRate !== undefined) updateData.retefuenteRate = data.retefuenteRate;
+    if (data.reteICARate !== undefined) updateData.reteICARate = data.reteICARate;
+    if (data.reteIVARate !== undefined) updateData.reteIVARate = data.reteIVARate;
+
+    if (data.subtotalAmount !== undefined) updateData.subtotalAmount = data.subtotalAmount;
 
     if (data.totalAmount !== undefined) {
       updateData.totalAmount = data.totalAmount;
@@ -484,13 +564,22 @@ export class AccountsPayableService {
     description: string,
     totalAmount: number,
     createdById: string,
+    subtotalAmount?: number,
   ) {
     const existing = await this.repository.findByExpenseOrderId(expenseOrderId);
     if (existing) return existing;
 
     const expenseOrder = await this.prisma.expenseOrder.findUnique({
       where: { id: expenseOrderId },
-      select: { expenseTypeId: true, expenseSubcategoryId: true, applyIva: true, ivaRate: true },
+      select: {
+        expenseTypeId: true,
+        expenseSubcategoryId: true,
+        applyIva: true,
+        ivaRate: true,
+        retefuenteRate: true,
+        reteICARate: true,
+        reteIVARate: true,
+      },
     });
 
     if (!expenseOrder) throw new BadRequestException(`No se encontró la Orden de Gasto ${expenseOrderId}`);
@@ -504,11 +593,15 @@ export class AccountsPayableService {
       expenseType: { connect: { id: expenseOrder.expenseTypeId } },
       expenseSubcategory: { connect: { id: expenseOrder.expenseSubcategoryId } },
       description,
+      subtotalAmount: subtotalAmount ?? totalAmount,
       totalAmount,
       paidAmount: 0,
       balance: totalAmount,
       applyIva: expenseOrder.applyIva,
       ivaRate: expenseOrder.ivaRate,
+      retefuenteRate: expenseOrder.retefuenteRate,
+      reteICARate: expenseOrder.reteICARate,
+      reteIVARate: expenseOrder.reteIVARate,
       dueDate,
       isRecurring: false,
       status: AccountPayableStatus.PENDING,

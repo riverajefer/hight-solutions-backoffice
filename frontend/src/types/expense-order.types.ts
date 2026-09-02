@@ -97,6 +97,9 @@ export interface ExpenseOrder {
   areaOrMachine?: string | null;
   applyIva: boolean;
   ivaRate: string;
+  retefuenteRate: string;
+  reteICARate: string;
+  reteIVARate: string;
   electronicInvoiceNumber?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -223,6 +226,9 @@ export interface CreateExpenseOrderDto {
   areaOrMachine?: string;
   applyIva?: boolean;
   ivaRate?: number;
+  retefuenteRate?: number;
+  reteICARate?: number;
+  reteIVARate?: number;
   items: CreateExpenseItemDto[];
 }
 
@@ -250,6 +256,9 @@ export interface UpdateExpenseOrderDto {
   areaOrMachine?: string;
   applyIva?: boolean;
   ivaRate?: number;
+  retefuenteRate?: number;
+  reteICARate?: number;
+  reteIVARate?: number;
   items?: UpdateExpenseItemDto[];
 }
 
