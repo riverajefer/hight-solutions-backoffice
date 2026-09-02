@@ -16,6 +16,7 @@ import { FilterDtfDto } from './dto/filter-dtf.dto';
 import { DtfStatus, PaymentMethod, Prisma } from '../../generated/prisma';
 import { isValidDtfTransition } from './dtf-status-transitions';
 import { startOfDay, endOfDay } from '../../common/utils/date-range.util';
+import { computeDtfTotalToCharge } from '../../common/utils/rounding.util';
 
 @Injectable()
 export class DtfService {
@@ -74,6 +75,9 @@ export class DtfService {
     const quantity = new Prisma.Decimal(dto.quantity);
     // Price is per 100 cm (per meter), so value = unitPrice × quantity / 100
     const value = unitPrice.mul(quantity).div(100);
+
+    const applyIva = dto.applyIva ?? false;
+    this.assertAbonoWithinTotal(dto.abono, value, applyIva);
 
     const buildData = (consecutive: string) => ({
       consecutive,
@@ -141,7 +145,37 @@ export class DtfService {
       updates.value = price.mul(qty).div(100);
     }
 
+    // El abono se valida contra los valores que quedarán guardados, no contra
+    // los que tenía el registro: en la misma edición pueden cambiar la cantidad,
+    // el precio o el IVA.
+    this.assertAbonoWithinTotal(
+      updates.abono ?? record.abono,
+      updates.value ?? record.value,
+      updates.applyIva ?? record.applyIva,
+    );
+
     return this.dtfRepository.update(id, updates);
+  }
+
+  /**
+   * El abono no puede superar el total que se le cobra al cliente. El total es
+   * el mismo que tendrá la OP al convertirse —con redondeo comercial incluido—
+   * porque el abono viaja como pago inicial de esa OP: si se recibiera de más,
+   * la orden nacería con un saldo a favor que nadie pidió.
+   */
+  private assertAbonoWithinTotal(
+    abono: Prisma.Decimal | number | string | null | undefined,
+    value: Prisma.Decimal | number | string,
+    applyIva: boolean,
+  ) {
+    if (abono == null) return;
+    const abonoAmount = new Prisma.Decimal(abono);
+    const totalToCharge = computeDtfTotalToCharge(value, applyIva);
+    if (abonoAmount.gt(totalToCharge)) {
+      throw new BadRequestException(
+        `El abono (${abonoAmount.toFixed(0)}) no puede superar el total a cobrar (${totalToCharge.toFixed(0)}).`,
+      );
+    }
   }
 
   async changeStatus(id: string, dto: ChangeDtfStatusDto, changedById: string) {

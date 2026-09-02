@@ -1,3 +1,4 @@
+import { dtfTotalToCharge } from './dtfTotals';
 // Definición de columnas exportables a Excel para registros DTF.
 // Fuente única para el modal de exportación: cada columna sabe cómo obtener su
 // valor desde un DtfRecord y si es numérica (para la fila de totales).
@@ -46,8 +47,16 @@ export const DTF_EXPORT_COLUMNS: DtfExportColumn[] = [
   },
   {
     key: 'value',
-    label: 'Valor',
+    label: 'Total a cobrar',
     defaultVisible: true,
+    numeric: true,
+    // Con IVA y redondeo comercial: el mismo número que tendrá la OP.
+    getValue: (r) => dtfTotalToCharge(num(r.value), r.applyIva),
+  },
+  {
+    key: 'baseValue',
+    label: 'Valor base',
+    defaultVisible: false,
     numeric: true,
     getValue: (r) => num(r.value),
   },

@@ -45,6 +45,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { CashMovementService } from '../cash-movement/cash-movement.service';
 import { CashMovementVoidRequestsService } from '../cash-movement-void-requests/cash-movement-void-requests.service';
 import { startOfDay, endOfDay, businessToday } from '../../common/utils/date-range.util';
+import { applyColombianRounding, roundToWholePeso } from '../../common/utils/rounding.util';
 import {
   ACTIVE_PAYMENT_WHERE,
   computeNetPaidAmount,
@@ -105,26 +106,6 @@ export interface OrdersDashboardSummary {
   pendingAdvancesCount: number;
 }
 
-/** Redondeo comercial colombiano al múltiplo de 100 más cercano según regla de denominaciones. */
-function applyColombianRounding(value: Prisma.Decimal): Prisma.Decimal {
-  const truncated = value.toDecimalPlaces(0, Prisma.Decimal.ROUND_DOWN);
-  const lastTwo = truncated.mod(100).toNumber();
-  if (lastTwo === 0) return truncated;
-  if (lastTwo >= 1 && lastTwo <= 40) return truncated.sub(lastTwo);
-  return truncated.add(100 - lastTwo);
-}
-
-/**
- * Redondea el total al peso entero. Se usa cuando hay retenciones, donde el
- * redondeo comercial a múltiplos de 100 distorsionaría la base del certificado
- * de retención, pero dejar el total con centavos tampoco sirve: el cliente paga
- * pesos enteros y el residuo (0,50) queda como un saldo a favor imposible de
- * saldar. Se redondea igual que `formatCurrency` en el frontend (half-up), para
- * que lo que el asesor ve cobrar sea exactamente el total almacenado.
- */
-function roundToWholePeso(value: Prisma.Decimal): Prisma.Decimal {
-  return value.toDecimalPlaces(0, Prisma.Decimal.ROUND_HALF_UP);
-}
 
 /**
  * Rastro de una edición de pago que modificó un movimiento de caja cuya sesión
