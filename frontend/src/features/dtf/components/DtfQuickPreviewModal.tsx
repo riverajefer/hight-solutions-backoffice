@@ -19,6 +19,7 @@ import { useDtfDetail, useDtfStatusHistory, useDtfMutations } from '../hooks/use
 import { DtfStatusChip } from './DtfStatusChip';
 import { DtfStatusStepper } from './DtfStatusStepper';
 import { formatCurrency, formatDate } from '../../../utils/formatters';
+import { dtfPendingBalance, dtfTotalToCharge } from '../utils/dtfTotals';
 import { PATHS } from '../../../router/paths';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
@@ -212,10 +213,21 @@ export function DtfQuickPreviewModal({ id, onClose }: DtfQuickPreviewModalProps)
                   value={formatCurrency(Number(record.unitPrice))}
                 />
                 <Row
-                  label="Valor total"
+                  label="Valor base"
+                  value={formatCurrency(Number(record.value))}
+                />
+                <Row
+                  label="Total a cobrar"
                   value={
                     <Typography variant="body2" fontWeight={600}>
-                      {formatCurrency(Number(record.value))}
+                      {formatCurrency(
+                        dtfTotalToCharge(Number(record.value), record.applyIva),
+                      )}
+                      {record.applyIva && (
+                        <Typography component="span" variant="caption" color="text.secondary">
+                          {' '}(IVA incl.)
+                        </Typography>
+                      )}
                     </Typography>
                   }
                 />
@@ -235,7 +247,13 @@ export function DtfQuickPreviewModal({ id, onClose }: DtfQuickPreviewModalProps)
                   label="Saldo pendiente"
                   value={
                     <Typography variant="body2" fontWeight={600} color="warning.main">
-                      {formatCurrency(Number(record.value) - Number(record.abono ?? 0))}
+                      {formatCurrency(
+                        dtfPendingBalance(
+                          Number(record.value),
+                          record.applyIva,
+                          Number(record.abono ?? 0),
+                        ),
+                      )}
                     </Typography>
                   }
                 />

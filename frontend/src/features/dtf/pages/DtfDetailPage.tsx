@@ -35,6 +35,7 @@ import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
 import { PATHS } from '../../../router/paths';
 import { formatCurrency, formatDate } from '../../../utils/formatters';
+import { dtfIvaAmount, dtfPendingBalance, dtfTotalToCharge } from '../utils/dtfTotals';
 import { useIsCashOpen } from '../../cash-register/hooks/useCashRegister';
 import { useSnackbar } from 'notistack';
 import axiosInstance from '../../../api/axios';
@@ -183,7 +184,7 @@ export const DtfDetailPage = () => {
     const waNumber = formatPhoneForWhatsApp(record.client.phone);
     const qty = `${Number(record.quantity).toLocaleString('es-CO')} cm`;
     const unitPrice = formatCurrency(Number(record.unitPrice));
-    const total = formatCurrency(Number(record.value));
+    const total = formatCurrency(dtfTotalToCharge(Number(record.value), record.applyIva));
 
     const message = [
       `Hola ${record.client.name}, buen dia!`,
@@ -370,12 +371,8 @@ export const DtfDetailPage = () => {
                   value={formatCurrency(Number(record.unitPrice))}
                 />
                 <Row
-                  label="Valor total"
-                  value={
-                    <Typography fontWeight={600} variant="body2">
-                      {formatCurrency(Number(record.value))}
-                    </Typography>
-                  }
+                  label="Valor base"
+                  value={formatCurrency(Number(record.value))}
                 />
                 <Row
                   label="IVA"
@@ -384,7 +381,19 @@ export const DtfDetailPage = () => {
                       variant="body2"
                       color={record.applyIva ? 'text.primary' : 'text.disabled'}
                     >
-                      {record.applyIva ? 'Aplica (19%) — se traslada a la OP' : 'No aplica'}
+                      {record.applyIva
+                        ? `${formatCurrency(dtfIvaAmount(Number(record.value), record.applyIva))} (19%) — se traslada a la OP`
+                        : 'No aplica'}
+                    </Typography>
+                  }
+                />
+                {/* Redondeado al múltiplo de 100, igual que el total de la OP:
+                    es el número que se le cobra al cliente. */}
+                <Row
+                  label="Total a cobrar"
+                  value={
+                    <Typography fontWeight={600} variant="body2">
+                      {formatCurrency(dtfTotalToCharge(Number(record.value), record.applyIva))}
                     </Typography>
                   }
                 />
@@ -404,7 +413,13 @@ export const DtfDetailPage = () => {
                   label="Saldo pendiente"
                   value={
                     <Typography fontWeight={600} variant="body2" color="warning.main">
-                      {formatCurrency(Number(record.value) - Number(record.abono ?? 0))}
+                      {formatCurrency(
+                        dtfPendingBalance(
+                          Number(record.value),
+                          record.applyIva,
+                          Number(record.abono ?? 0),
+                        ),
+                      )}
                     </Typography>
                   }
                 />

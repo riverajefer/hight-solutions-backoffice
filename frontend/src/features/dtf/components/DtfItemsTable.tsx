@@ -45,6 +45,7 @@ import { useProducts } from '../../portfolio/products/hooks/useProducts';
 import { useClients } from '../../clients/hooks/useClients';
 import { useDtfDetail } from '../hooks/useDtf';
 import { formatCurrency } from '../../../utils/formatters';
+import { dtfIvaAmount, dtfPendingBalance, dtfTotalToCharge } from '../utils/dtfTotals';
 import { DtfStatusChip } from './DtfStatusChip';
 import { CreateClientModal } from '../../orders/components/CreateClientModal';
 import { BankSelector } from '../../../components/common/BankSelector';
@@ -276,7 +277,13 @@ export const DtfItemsTable = ({
     );
   };
   const canSaveItem = (item: DtfFormItem) =>
-    !isSaved(item) && !!item.productId && !!item.clientId && item.quantity > 0;
+    !isSaved(item) &&
+    !!item.productId &&
+    !!item.clientId &&
+    item.quantity > 0 &&
+    // El backend rechaza un abono mayor al total a cobrar; no dejamos que el
+    // usuario llegue hasta el error.
+    item.abono <= dtfTotalToCharge(item.value, item.applyIva);
 
   // Zona de carga (imagen o comprobante) para pantalla de creación, tamaño tarjeta.
   // `lockedReason` deshabilita la carga y muestra el motivo (ej. comprobante solo en transferencia).
@@ -415,7 +422,8 @@ export const DtfItemsTable = ({
             {productName} · {clientName}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {Number(item.quantity).toLocaleString('es-CO')} cm · {formatCurrency(item.value)}
+            {Number(item.quantity).toLocaleString('es-CO')} cm ·{' '}
+            {formatCurrency(dtfTotalToCharge(item.value, item.applyIva))}
           </Typography>
           {item.abono > 0 && (
             <Typography variant="body2" color="success.main" fontWeight={500}>
@@ -445,6 +453,8 @@ export const DtfItemsTable = ({
   const renderFormCard = (item: DtfFormItem, index: number) => {
     const saving = isItemSaving(item);
     const abono = item.abono;
+    const totalToCharge = dtfTotalToCharge(item.value, item.applyIva);
+    const abonoExcedeTotal = abono > totalToCharge;
     const foreignAdvisorName = getForeignAdvisorName(item.clientId);
 
     return (
@@ -628,9 +638,17 @@ export const DtfItemsTable = ({
                 py: 0.5,
               }}
             >
-              <Typography variant="caption" color="warning.main">Valor total</Typography>
+              <Typography variant="caption" color="warning.main">Total a cobrar</Typography>
               <Typography variant="subtitle1" fontWeight={700} color="warning.main" sx={{ lineHeight: 1.2 }}>
-                {formatCurrency(item.value)}
+                {formatCurrency(dtfTotalToCharge(item.value, item.applyIva))}
+              </Typography>
+              {/* El total ya viene redondeado al múltiplo de 100, igual que el de
+                  la OP: cobrar el valor exacto dejaría la orden con un saldo de
+                  centenas que el cliente no debe. */}
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.3 }}>
+                {item.applyIva
+                  ? `Base ${formatCurrency(item.value)} + IVA ${formatCurrency(dtfIvaAmount(item.value, item.applyIva))}`
+                  : `Base ${formatCurrency(item.value)}`}
               </Typography>
             </Box>
           </Grid>
@@ -688,9 +706,34 @@ export const DtfItemsTable = ({
                 })
               }
               disabled={disabled || saving}
+              error={abonoExcedeTotal}
+              helperText={
+                abonoExcedeTotal
+                  ? `Supera el total a cobrar (${formatCurrency(totalToCharge)})`
+                  : undefined
+              }
               InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
               inputProps={{ style: { textAlign: 'right' } }}
             />
+            {/* Atajo para cobrar el total: teclear a mano el valor con IVA sin
+                redondear era justo lo que dejaba las OP con saldos de $50. */}
+            {totalToCharge > 0 && abono !== totalToCharge && (
+              <Button
+                size="small"
+                variant="text"
+                sx={{ mt: 0.25, px: 0.5, minWidth: 0, fontSize: '0.7rem' }}
+                disabled={disabled || saving}
+                onClick={() => {
+                  setAbonoInputs((prev) => ({
+                    ...prev,
+                    [item._localId]: formatCurrencyInput(String(totalToCharge)),
+                  }));
+                  updateItem(item._localId, { abono: totalToCharge });
+                }}
+              >
+                Abonar total ({formatCurrency(totalToCharge)})
+              </Button>
+            )}
           </Grid>
           {abono > 0 && (
             <Grid item xs={12} sm={4}>
@@ -729,8 +772,13 @@ export const DtfItemsTable = ({
           {abono > 0 && (
             <Grid item xs={12} sm={4}>
               <Typography component="label" sx={fieldLabelSx}>Saldo</Typography>
-              <Typography variant="body1" fontWeight={600} color="success.main" sx={{ mt: 0.75 }}>
-                {formatCurrency(item.value - abono)}
+              <Typography
+                variant="body1"
+                fontWeight={600}
+                color={abonoExcedeTotal ? 'error.main' : 'success.main'}
+                sx={{ mt: 0.75 }}
+              >
+                {formatCurrency(dtfPendingBalance(item.value, item.applyIva, abono))}
               </Typography>
             </Grid>
           )}
@@ -773,7 +821,7 @@ export const DtfItemsTable = ({
           >
             {item.notes ? 'Editar notas' : 'Agregar notas'}
           </Button>
-          <Tooltip title={canSaveItem(item) ? 'Guardar este registro' : 'Completa producto, cliente y cantidad'}>
+          <Tooltip title={canSaveItem(item) ? 'Guardar este registro' : 'Completa producto, cliente y cantidad, y revisa que el abono no supere el total'}>
             <span>
               <Button
                 variant="contained"
