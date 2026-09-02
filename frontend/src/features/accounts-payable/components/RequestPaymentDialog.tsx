@@ -71,9 +71,11 @@ export const RequestPaymentDialog: React.FC<Props> = ({
   onSubmit,
   loading,
 }) => {
-  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  // Dos comprobantes opcionales: el soporte suele venir partido (la
+  // transferencia por un lado, la factura o el recibo sellado por otro).
+  const [receiptFiles, setReceiptFiles] = useState<(File | null)[]>([null, null]);
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
 
   const balance = Number(accountPayable.balance);
   // El input solo acepta enteros; el máximo pagable es el floor del saldo real
@@ -108,39 +110,57 @@ export const RequestPaymentDialog: React.FC<Props> = ({
   const handleClose = () => {
     if (!loading) {
       reset();
-      setReceiptFile(null);
+      setReceiptFiles([null, null]);
       onClose();
     }
   };
 
-  const handleFileChange = (file: File | null) => {
-    setReceiptFile(file);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+  const handleFileChange = (index: number, file: File | null) => {
+    setReceiptFiles((prev) => prev.map((f, i) => (i === index ? file : f)));
+    const input = fileInputRefs[index].current;
+    if (input) input.value = '';
   };
 
+  // Al pegar, la imagen cae en el primer espacio libre para no pisar lo ya adjunto.
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
     const item = Array.from(e.clipboardData.items).find((i) => i.type.startsWith('image/'));
     if (item) {
       const file = item.getAsFile();
-      if (file) setReceiptFile(file);
+      if (file) {
+        setReceiptFiles((prev) => {
+          const slot = prev.findIndex((f) => !f);
+          if (slot === -1) return prev;
+          return prev.map((f, i) => (i === slot ? file : f));
+        });
+      }
     }
   }, []);
 
   const handleFormSubmit = async (values: FormValues) => {
-    let receiptFileId: string | undefined;
+    const uploadedIds: (string | undefined)[] = [undefined, undefined];
 
-    if (receiptFile) {
+    if (receiptFiles.some(Boolean)) {
       setUploadingReceipt(true);
       try {
-        const uploaded = await storageApi.uploadFile(receiptFile, {
-          entityType: 'account_payable',
-          entityId: accountPayable.id,
-        });
-        receiptFileId = uploaded.id;
+        for (let i = 0; i < receiptFiles.length; i++) {
+          const file = receiptFiles[i];
+          if (!file) continue;
+          const uploaded = await storageApi.uploadFile(file, {
+            entityType: 'account_payable',
+            entityId: accountPayable.id,
+          });
+          uploadedIds[i] = uploaded.id;
+        }
       } finally {
         setUploadingReceipt(false);
       }
     }
+
+    // Si solo se adjuntó el segundo, se envía como primer comprobante para no
+    // dejar huecos en el registro del pago.
+    const [receiptFileId, receiptFileId2] = uploadedIds.filter(Boolean).length === 1
+      ? [uploadedIds.find(Boolean), undefined]
+      : uploadedIds;
 
     await onSubmit({
       accountPayableId: accountPayable.id,
@@ -151,11 +171,11 @@ export const RequestPaymentDialog: React.FC<Props> = ({
       notes: values.notes || undefined,
       bankEntity: values.paymentMethod === 'TRANSFER' ? values.bankEntity ?? null : null,
       receiptFileId,
+      receiptFileId2,
       reason: values.reason || undefined,
     });
   };
 
-  const isImage = receiptFile?.type.startsWith('image/');
   const isBusy = loading || uploadingReceipt;
 
   return (
@@ -270,41 +290,52 @@ export const RequestPaymentDialog: React.FC<Props> = ({
             )}
           />
 
-          {/* Comprobante */}
+          {/* Comprobantes (ambos opcionales) */}
           <Box>
-            <input
-              type="file"
-              ref={fileInputRef}
-              style={{ display: 'none' }}
-              accept="image/*,application/pdf"
-              onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
-            />
-            <Button
-              startIcon={<AttachFileIcon />}
-              variant="outlined"
-              size="small"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {receiptFile ? 'Cambiar comprobante' : 'Adjuntar comprobante'}
-            </Button>
-            {receiptFile && (
-              <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                {isImage ? (
-                  <ImageIcon fontSize="small" color="primary" />
-                ) : (
-                  <AttachFileIcon fontSize="small" color="primary" />
-                )}
-                <Typography variant="caption">{receiptFile.name}</Typography>
-                <Button
-                  size="small"
-                  color="error"
-                  onClick={() => handleFileChange(null)}
-                  sx={{ minWidth: 0, p: 0.5 }}
-                >
-                  <CloseIcon fontSize="small" />
-                </Button>
-              </Box>
-            )}
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+              Comprobantes (opcionales)
+            </Typography>
+            <Stack spacing={1.5}>
+              {receiptFiles.map((file, index) => (
+                <Box key={index}>
+                  <input
+                    type="file"
+                    ref={fileInputRefs[index]}
+                    style={{ display: 'none' }}
+                    accept="image/*,application/pdf"
+                    onChange={(e) => handleFileChange(index, e.target.files?.[0] ?? null)}
+                  />
+                  <Button
+                    startIcon={<AttachFileIcon />}
+                    variant="outlined"
+                    size="small"
+                    onClick={() => fileInputRefs[index].current?.click()}
+                  >
+                    {file
+                      ? `Cambiar comprobante ${index + 1}`
+                      : `Adjuntar comprobante ${index + 1}`}
+                  </Button>
+                  {file && (
+                    <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {file.type.startsWith('image/') ? (
+                        <ImageIcon fontSize="small" color="primary" />
+                      ) : (
+                        <AttachFileIcon fontSize="small" color="primary" />
+                      )}
+                      <Typography variant="caption">{file.name}</Typography>
+                      <Button
+                        size="small"
+                        color="error"
+                        onClick={() => handleFileChange(index, null)}
+                        sx={{ minWidth: 0, p: 0.5 }}
+                      >
+                        <CloseIcon fontSize="small" />
+                      </Button>
+                    </Box>
+                  )}
+                </Box>
+              ))}
+            </Stack>
             <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
               También puedes pegar una imagen con Ctrl+V
             </Typography>
@@ -322,7 +353,7 @@ export const RequestPaymentDialog: React.FC<Props> = ({
           disabled={isBusy || exceedsBalance}
           startIcon={isBusy ? <CircularProgress size={16} /> : undefined}
         >
-          {uploadingReceipt ? 'Subiendo comprobante...' : 'Enviar solicitud'}
+          {uploadingReceipt ? 'Subiendo comprobantes...' : 'Enviar solicitud'}
         </Button>
       </DialogActions>
     </Dialog>

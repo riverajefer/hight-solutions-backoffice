@@ -2321,6 +2321,9 @@ model AccountPayablePayment {
   notes            String?
   bankEntity       String?       @map("bank_entity") // Entidad bancaria de origen (solo transferencias)
   receiptFileId    String?       @map("receipt_file_id")
+  // Segundo comprobante opcional: un pago suele soportarse con dos soportes
+  // (p. ej. la transferencia y la factura sellada) y antes solo cabía uno.
+  receiptFileId2   String?       @map("receipt_file_id_2")
   cashMovementId   String?       @unique @map("cash_movement_id")
 
   registeredById       String   @map("registered_by_id")
@@ -2394,6 +2397,8 @@ model AccountPayablePaymentAuthRequest {
   notes         String?
   bankEntity    String?       @map("bank_entity") // Entidad bancaria de origen (solo transferencias)
   receiptFileId String?       @map("receipt_file_id")
+  // Segundo comprobante opcional (ver AccountPayablePayment.receiptFileId2)
+  receiptFileId2 String?      @map("receipt_file_id_2")
   reason        String? // Justificación del pago
 
   status ApPaymentAuthRequestStatus @default(PENDING)

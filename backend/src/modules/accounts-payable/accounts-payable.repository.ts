@@ -160,6 +160,7 @@ export class AccountsPayableRepository {
             notes: true,
             bankEntity: true,
             receiptFileId: true,
+            receiptFileId2: true,
             cashMovementId: true,
             createdAt: true,
             registeredBy: {
@@ -229,6 +230,7 @@ export class AccountsPayableRepository {
         notes: true,
         bankEntity: true,
         receiptFileId: true,
+        receiptFileId2: true,
         cashMovementId: true,
         createdAt: true,
         registeredBy: {
@@ -251,6 +253,7 @@ export class AccountsPayableRepository {
         notes: true,
         bankEntity: true,
         receiptFileId: true,
+        receiptFileId2: true,
         cashMovementId: true,
         createdAt: true,
         registeredBy: {

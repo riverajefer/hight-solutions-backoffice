@@ -56,6 +56,11 @@ export class CreateApPaymentAuthRequestDto {
   @IsOptional()
   receiptFileId?: string;
 
+  @ApiPropertyOptional({ description: 'ID del segundo archivo de comprobante (opcional)' })
+  @IsString()
+  @IsOptional()
+  receiptFileId2?: string;
+
   @ApiPropertyOptional({ description: 'Justificación del pago' })
   @IsString()
   @IsOptional()

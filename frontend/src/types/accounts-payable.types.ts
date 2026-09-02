@@ -64,6 +64,7 @@ export interface AccountPayablePayment {
   notes?: string | null;
   bankEntity?: string | null;
   receiptFileId?: string | null;
+  receiptFileId2?: string | null;
   cashMovementId?: string | null;
   paymentAuthRequestId?: string | null;
   isReversed?: boolean;
@@ -277,6 +278,7 @@ export interface RegisterPaymentDto {
   notes?: string;
   bankEntity?: string | null;
   receiptFileId?: string;
+  receiptFileId2?: string;
   cashSessionId?: string;
 }
 
@@ -387,6 +389,7 @@ export interface AccountPayablePaymentAuthRequest {
   notes?: string | null;
   bankEntity?: string | null;
   receiptFileId?: string | null;
+  receiptFileId2?: string | null;
   reason?: string | null;
   status: ApPaymentAuthRequestStatus;
   adminReviewedById?: string | null;
@@ -418,6 +421,7 @@ export interface CreateApPaymentAuthRequestDto {
   notes?: string;
   bankEntity?: string | null;
   receiptFileId?: string;
+  receiptFileId2?: string;
   reason?: string;
 }
 
