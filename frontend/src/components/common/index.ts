@@ -12,3 +12,4 @@ export { DocumentTypeBanner } from './DocumentTypeBanner';
 export { ApprovalQueueBar } from './ApprovalQueueBar';
 export { QueueReviewActions } from './QueueReviewActions';
 export { BankSelector } from './BankSelector';
+export { WithholdingsFields } from './WithholdingsFields';

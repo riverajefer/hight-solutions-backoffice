@@ -64,6 +64,7 @@ export interface AccountPayablePayment {
   notes?: string | null;
   bankEntity?: string | null;
   receiptFileId?: string | null;
+  receiptFileId2?: string | null;
   cashMovementId?: string | null;
   paymentAuthRequestId?: string | null;
   isReversed?: boolean;
@@ -113,11 +114,15 @@ export interface AccountPayable {
   status: AccountPayableStatus;
   description: string;
   observations?: string | null;
+  subtotalAmount: string;
   totalAmount: string;
   paidAmount: string;
   balance: string;
   applyIva: boolean;
   ivaRate: string;
+  retefuenteRate: string;
+  reteICARate: string;
+  reteIVARate: string;
   dueDate: string;
   isRecurring: boolean;
   recurringDay?: number | null;
@@ -215,8 +220,12 @@ export interface CreateAccountPayableDto {
   description: string;
   observations?: string;
   totalAmount: number;
+  subtotalAmount?: number;
   applyIva?: boolean;
   ivaRate?: number;
+  retefuenteRate?: number;
+  reteICARate?: number;
+  reteIVARate?: number;
   dueDate: string;
   supplierId?: string;
   expenseOrderId?: string;
@@ -232,8 +241,12 @@ export interface UpdateAccountPayableDto {
   description?: string;
   observations?: string;
   totalAmount?: number;
+  subtotalAmount?: number;
   applyIva?: boolean;
   ivaRate?: number;
+  retefuenteRate?: number;
+  reteICARate?: number;
+  reteIVARate?: number;
   dueDate?: string;
   supplierId?: string;
   beneficiaryUserId?: string;
@@ -265,6 +278,7 @@ export interface RegisterPaymentDto {
   notes?: string;
   bankEntity?: string | null;
   receiptFileId?: string;
+  receiptFileId2?: string;
   cashSessionId?: string;
 }
 
@@ -375,6 +389,7 @@ export interface AccountPayablePaymentAuthRequest {
   notes?: string | null;
   bankEntity?: string | null;
   receiptFileId?: string | null;
+  receiptFileId2?: string | null;
   reason?: string | null;
   status: ApPaymentAuthRequestStatus;
   adminReviewedById?: string | null;
@@ -406,6 +421,7 @@ export interface CreateApPaymentAuthRequestDto {
   notes?: string;
   bankEntity?: string | null;
   receiptFileId?: string;
+  receiptFileId2?: string;
   reason?: string;
 }
 

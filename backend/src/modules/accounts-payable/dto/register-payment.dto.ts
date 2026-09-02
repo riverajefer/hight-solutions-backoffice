@@ -52,6 +52,11 @@ export class RegisterPaymentDto {
   @IsOptional()
   receiptFileId?: string;
 
+  @ApiPropertyOptional({ description: 'ID del segundo archivo de comprobante de pago (opcional)' })
+  @IsString()
+  @IsOptional()
+  receiptFileId2?: string;
+
   @ApiPropertyOptional({ description: 'ID de la sesión de caja para registrar movimiento' })
   @IsUUID()
   @IsOptional()

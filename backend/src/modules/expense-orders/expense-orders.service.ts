@@ -22,6 +22,7 @@ import { AuthenticatedUser } from '../../common/interfaces/auth.interface';
 import { startOfDay, endOfDay } from '../../common/utils/date-range.util';
 import { ExpenseOrderAuthRequestsService } from '../expense-order-auth-requests/expense-order-auth-requests.service';
 import { AccountsPayableService } from '../accounts-payable/accounts-payable.service';
+import { computeExpenseTotals } from '../../common/utils/expense-totals.util';
 
 const ALLOWED_TRANSITIONS: Record<ExpenseOrderStatus, ExpenseOrderStatus[]> = {
   [ExpenseOrderStatus.DRAFT]: [ExpenseOrderStatus.CREATED, ExpenseOrderStatus.ADMIN_AUTHORIZED],
@@ -47,15 +48,28 @@ export class ExpenseOrdersService {
     private readonly accountsPayableService: AccountsPayableService,
   ) {}
 
-  /** Calcula el total a pagar incluyendo IVA cuando aplica. */
-  private totalWithIva(
+  /**
+   * Total a pagar de la OG: subtotal + IVA - retenciones. Se delega en el util
+   * compartido para que la Cuenta por Pagar que nace de esta orden llegue
+   * exactamente al mismo número.
+   */
+  private totalToPay(
     subtotal: number,
-    applyIva?: boolean,
-    ivaRate?: number | { toString(): string },
+    source: {
+      applyIva?: boolean | null;
+      ivaRate?: unknown;
+      retefuenteRate?: unknown;
+      reteICARate?: unknown;
+      reteIVARate?: unknown;
+    },
   ): number {
-    if (!applyIva) return subtotal;
-    const rate = ivaRate != null ? Number(ivaRate.toString()) : 0.19;
-    return subtotal + subtotal * rate;
+    return computeExpenseTotals(subtotal, {
+      applyIva: source.applyIva,
+      ivaRate: source.ivaRate as number,
+      retefuenteRate: source.retefuenteRate as number,
+      reteICARate: source.reteICARate as number,
+      reteIVARate: source.reteIVARate as number,
+    }).total;
   }
 
   async create(
@@ -131,6 +145,9 @@ export class ExpenseOrdersService {
           areaOrMachine: dto.areaOrMachine,
           applyIva: dto.applyIva ?? false,
           ivaRate: dto.ivaRate ?? 0.19,
+          retefuenteRate: dto.retefuenteRate ?? 0,
+          reteICARate: dto.reteICARate ?? 0,
+          reteIVARate: dto.reteIVARate ?? 0,
           status,
           createdById,
           ...(creatorIsAdmin && {
@@ -144,16 +161,13 @@ export class ExpenseOrdersService {
           (sum, item) => sum + Number(item.total),
           0,
         );
-        const totalAmount = this.totalWithIva(
-          subtotal,
-          dto.applyIva,
-          dto.ivaRate,
-        );
+        const totalAmount = this.totalToPay(subtotal, dto);
         await this.accountsPayableService.createFromExpenseOrder(
           created.id,
           `Orden de Gasto ${created.ogNumber}`,
           totalAmount,
           createdById,
+          subtotal,
         );
 
         return created;
@@ -260,12 +274,26 @@ export class ExpenseOrdersService {
         (sum, item) => sum + Number(item.total),
         0,
       );
-      const newTotal = this.totalWithIva(
-        subtotal,
-        (updated as { applyIva?: boolean }).applyIva,
-        (updated as { ivaRate?: unknown }).ivaRate as number,
-      );
-      const syncData: { totalAmount: number; expenseTypeId?: string; expenseSubcategoryId?: string } = { totalAmount: newTotal };
+      const newTotal = this.totalToPay(subtotal, updated as Parameters<typeof this.totalToPay>[1]);
+      const syncData: {
+        totalAmount: number;
+        subtotalAmount: number;
+        expenseTypeId?: string;
+        expenseSubcategoryId?: string;
+        applyIva?: boolean;
+        ivaRate?: number;
+        retefuenteRate?: number;
+        reteICARate?: number;
+        reteIVARate?: number;
+      } = {
+        totalAmount: newTotal,
+        subtotalAmount: subtotal,
+        applyIva: (updated as { applyIva?: boolean }).applyIva,
+        ivaRate: Number((updated as { ivaRate?: unknown }).ivaRate ?? 0.19),
+        retefuenteRate: Number((updated as { retefuenteRate?: unknown }).retefuenteRate ?? 0),
+        reteICARate: Number((updated as { reteICARate?: unknown }).reteICARate ?? 0),
+        reteIVARate: Number((updated as { reteIVARate?: unknown }).reteIVARate ?? 0),
+      };
       if (dto.expenseTypeId) syncData.expenseTypeId = dto.expenseTypeId;
       if (dto.expenseSubcategoryId) syncData.expenseSubcategoryId = dto.expenseSubcategoryId;
       await this.accountsPayableService.syncFromExpenseOrder(ap.id, syncData);
@@ -312,12 +340,11 @@ export class ExpenseOrdersService {
         (sum, item) => sum + Number(item.total),
         0,
       );
-      const newTotal = this.totalWithIva(
-        subtotal,
-        (updated as { applyIva?: boolean }).applyIva,
-        (updated as { ivaRate?: unknown }).ivaRate as number,
-      );
-      await this.accountsPayableService.syncFromExpenseOrder(ap.id, { totalAmount: newTotal });
+      const newTotal = this.totalToPay(subtotal, updated as Parameters<typeof this.totalToPay>[1]);
+      await this.accountsPayableService.syncFromExpenseOrder(ap.id, {
+        totalAmount: newTotal,
+        subtotalAmount: subtotal,
+      });
     }
 
     return updated;

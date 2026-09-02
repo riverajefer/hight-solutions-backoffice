@@ -1309,6 +1309,12 @@ model ExpenseOrder {
   areaOrMachine        String?            @map("area_or_machine")
   applyIva             Boolean            @default(false) @map("apply_iva")
   ivaRate              Decimal            @default(0.19) @map("iva_rate")
+  // Retenciones que la empresa le practica al proveedor: bajan lo que hay que
+  // pagarle. Mismas bases que en la OP (retefuente/ReteICA sobre el subtotal,
+  // ReteIVA sobre el IVA).
+  retefuenteRate       Decimal            @default(0) @map("retefuente_rate")
+  reteICARate          Decimal            @default(0) @map("rete_ica_rate")
+  reteIVARate          Decimal            @default(0) @map("rete_iva_rate")
   status               ExpenseOrderStatus @default(DRAFT)
 
   // Número de factura electrónica del proveedor asociado a la compra (máx 30 chars)
@@ -2246,11 +2252,19 @@ model AccountPayable {
   status               AccountPayableStatus @default(PENDING)
   description          String
   observations         String?
+  // Base gravable capturada en el formulario. `totalAmount` es lo que hay que
+  // pagar (base + IVA - retenciones); guardar la base evita reconstruirla
+  // dividiendo el total, cuenta que deja de cuadrar cuando hay retenciones.
+  subtotalAmount       Decimal              @default(0) @map("subtotal_amount") @db.Decimal(12, 2)
   totalAmount          Decimal              @map("total_amount") @db.Decimal(12, 2)
   paidAmount           Decimal              @default(0) @map("paid_amount") @db.Decimal(12, 2)
   balance              Decimal              @map("balance") @db.Decimal(12, 2)
   applyIva             Boolean              @default(false) @map("apply_iva")
   ivaRate              Decimal              @default(0.19) @map("iva_rate")
+  // Retenciones practicadas al proveedor (ver ExpenseOrder).
+  retefuenteRate       Decimal              @default(0) @map("retefuente_rate")
+  reteICARate          Decimal              @default(0) @map("rete_ica_rate")
+  reteIVARate          Decimal              @default(0) @map("rete_iva_rate")
   dueDate              DateTime             @map("due_date")
   isRecurring          Boolean              @default(false) @map("is_recurring")
   recurringDay         Int?                 @map("recurring_day")
@@ -2307,6 +2321,9 @@ model AccountPayablePayment {
   notes            String?
   bankEntity       String?       @map("bank_entity") // Entidad bancaria de origen (solo transferencias)
   receiptFileId    String?       @map("receipt_file_id")
+  // Segundo comprobante opcional: un pago suele soportarse con dos soportes
+  // (p. ej. la transferencia y la factura sellada) y antes solo cabía uno.
+  receiptFileId2   String?       @map("receipt_file_id_2")
   cashMovementId   String?       @unique @map("cash_movement_id")
 
   registeredById       String   @map("registered_by_id")
@@ -2380,6 +2397,8 @@ model AccountPayablePaymentAuthRequest {
   notes         String?
   bankEntity    String?       @map("bank_entity") // Entidad bancaria de origen (solo transferencias)
   receiptFileId String?       @map("receipt_file_id")
+  // Segundo comprobante opcional (ver AccountPayablePayment.receiptFileId2)
+  receiptFileId2 String?      @map("receipt_file_id_2")
   reason        String? // Justificación del pago
 
   status ApPaymentAuthRequestStatus @default(PENDING)
