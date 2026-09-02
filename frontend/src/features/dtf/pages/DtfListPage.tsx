@@ -26,6 +26,7 @@ import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
 import { PATHS } from '../../../router/paths';
 import { formatCurrency, formatDate } from '../../../utils/formatters';
+import { dtfTotalToCharge } from '../utils/dtfTotals';
 import { dtfApi } from '../../../api/dtf.api';
 import axiosInstance from '../../../api/axios';
 import type { DtfRecord, DtfStatus, DtfListFilters, DtfFiles } from '../../../types/dtf.types';
@@ -139,10 +140,12 @@ export const DtfListPage = () => {
     },
     {
       field: 'value',
-      headerName: 'Valor',
-      width: 130,
+      headerName: 'Total a cobrar',
+      width: 140,
       align: 'right',
       headerAlign: 'right',
+      // Con IVA y redondeo comercial: el mismo número que tendrá la OP.
+      valueGetter: (_, row) => dtfTotalToCharge(Number(row.value), row.applyIva),
       valueFormatter: (value) => formatCurrency(Number(value)),
     },
     {

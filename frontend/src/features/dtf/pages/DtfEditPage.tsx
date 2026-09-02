@@ -27,6 +27,8 @@ import CloseIcon from '@mui/icons-material/Close';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { useDtfDetail, useDtfFiles, useDtfMutations } from '../hooks/useDtf';
 import { PATHS } from '../../../router/paths';
+import { formatCurrency } from '../../../utils/formatters';
+import { dtfTotalToCharge } from '../utils/dtfTotals';
 import axiosInstance from '../../../api/axios';
 import { DTF_PAYMENT_METHOD_LABELS } from '../../../types/dtf.types';
 import type { DtfPaymentMethod } from '../../../types/dtf.types';
@@ -152,6 +154,13 @@ export const DtfEditPage = () => {
 
   const isSaving = update.isPending;
 
+  // El abono se compara contra el total que verá la OP (con IVA y redondeo
+  // comercial), no contra el valor base: es el mismo número que el backend valida.
+  const abonoValue = Number(parseCurrencyInput(abono) || 0);
+  const editedValue = (Number(record.unitPrice) * (Number(quantity) || 0)) / 100;
+  const totalToCharge = dtfTotalToCharge(editedValue, applyIva);
+  const abonoExcedeTotal = abonoValue > totalToCharge;
+
   return (
     <Box p={3}>
       <PageHeader
@@ -191,6 +200,12 @@ export const DtfEditPage = () => {
                   placeholder="0"
                   disabled={isSaving}
                   fullWidth
+                  error={abonoExcedeTotal}
+                  helperText={
+                    abonoExcedeTotal
+                      ? `Supera el total a cobrar (${formatCurrency(totalToCharge)})`
+                      : `Total a cobrar: ${formatCurrency(totalToCharge)}`
+                  }
                   InputProps={{
                     startAdornment: <InputAdornment position="start">$</InputAdornment>,
                   }}
@@ -386,7 +401,7 @@ export const DtfEditPage = () => {
           variant="contained"
           startIcon={isSaving ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />}
           onClick={handleSave}
-          disabled={isSaving || !quantity || Number(quantity) <= 0}
+          disabled={isSaving || !quantity || Number(quantity) <= 0 || abonoExcedeTotal}
         >
           Guardar cambios
         </Button>
