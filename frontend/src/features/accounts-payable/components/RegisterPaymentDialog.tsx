@@ -23,12 +23,6 @@ import {
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import CloseIcon from '@mui/icons-material/Close';
 import ImageIcon from '@mui/icons-material/Image';
-
-const formatCurrencyInput = (value: string): string => {
-  const digits = value.replace(/\D/g, '');
-  if (!digits) return '';
-  return new Intl.NumberFormat('es-CO').format(parseInt(digits, 10));
-};
 import { DatePicker } from '@mui/x-date-pickers';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -36,6 +30,11 @@ import { z } from 'zod';
 import type { AccountPayable, RegisterPaymentDto } from '../../../types/accounts-payable.types';
 import { PaymentMethod, PAYMENT_METHOD_LABELS } from '../../../types/expense-order.types';
 import { formatCurrency } from '../../../utils/formatters';
+import {
+  formatCurrencyInput,
+  parseCurrencyInput,
+  sanitizeCurrencyInput,
+} from '../../../utils/currencyInput';
 import { storageApi } from '../../../api/storage.api';
 import { BankSelector } from '../../../components/common/BankSelector';
 
@@ -88,7 +87,7 @@ export const RegisterPaymentDialog: React.FC<RegisterPaymentDialogProps> = ({
 
   const watchedAmount = watch('amount');
   const watchedMethod = watch('paymentMethod');
-  const watchedAmountNum = watchedAmount ? Number(watchedAmount.replace(/\D/g, '')) : 0;
+  const watchedAmountNum = parseCurrencyInput(watchedAmount ?? '');
   const afterBalance = balance - watchedAmountNum;
 
   const handleClose = () => {
@@ -127,7 +126,7 @@ export const RegisterPaymentDialog: React.FC<RegisterPaymentDialogProps> = ({
     }
 
     onSubmit({
-      amount: Number(values.amount.replace(/\D/g, '')),
+      amount: parseCurrencyInput(values.amount),
       paymentMethod: values.paymentMethod,
       paymentDate: values.paymentDate.toISOString(),
       reference: values.reference || undefined,
@@ -191,7 +190,7 @@ export const RegisterPaymentDialog: React.FC<RegisterPaymentDialogProps> = ({
                 {...field}
                 label="Monto del pago *"
                 value={value ? formatCurrencyInput(value) : ''}
-                onChange={(e) => onChange(e.target.value.replace(/\D/g, ''))}
+                onChange={(e) => onChange(sanitizeCurrencyInput(e.target.value))}
                 InputProps={{
                   startAdornment: <InputAdornment position="start">$</InputAdornment>,
                 }}

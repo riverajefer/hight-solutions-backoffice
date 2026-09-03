@@ -113,6 +113,7 @@ export class PayrollEmployeesRepository {
         advances: true,
         nonPaidDays: true,
         epsAndPensionDiscount: true,
+        employeeFundSavings: true,
         totalPayment: true,
         observations: true,
         createdAt: true,

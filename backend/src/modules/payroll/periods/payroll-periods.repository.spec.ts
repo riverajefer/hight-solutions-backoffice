@@ -103,8 +103,18 @@ describe('PayrollPeriodsRepository', () => {
   describe('getSummary', () => {
     it('should aggregate payment totals from items', async () => {
       prisma.payrollItem.findMany.mockResolvedValue([
-        { totalPayment: 1000, baseSalary: 800, epsAndPensionDiscount: 100 },
-        { totalPayment: 2000, baseSalary: 1600, epsAndPensionDiscount: 200 },
+        {
+          totalPayment: 1000,
+          baseSalary: 800,
+          epsAndPensionDiscount: 100,
+          employeeFundSavings: 50,
+        },
+        {
+          totalPayment: 2000,
+          baseSalary: 1600,
+          epsAndPensionDiscount: 200,
+          employeeFundSavings: 50,
+        },
       ]);
       const result = await repository.getSummary('p1');
       expect(result).toEqual({
@@ -112,20 +122,32 @@ describe('PayrollPeriodsRepository', () => {
         totalBaseSalary: 2400,
         totalPayment: 3000,
         totalEpsAndPension: 300,
-        totalPayrollCost: 3300,
+        totalEmployeeFundSavings: 100,
+        totalPayrollCost: 3400,
       });
       expect(prisma.payrollItem.findMany).toHaveBeenCalledWith({
         where: { periodId: 'p1' },
-        select: { totalPayment: true, baseSalary: true, epsAndPensionDiscount: true },
+        select: {
+          totalPayment: true,
+          baseSalary: true,
+          epsAndPensionDiscount: true,
+          employeeFundSavings: true,
+        },
       });
     });
 
-    it('should handle null epsAndPensionDiscount', async () => {
+    it('should handle null epsAndPensionDiscount and employeeFundSavings', async () => {
       prisma.payrollItem.findMany.mockResolvedValue([
-        { totalPayment: 500, baseSalary: 400, epsAndPensionDiscount: null },
+        {
+          totalPayment: 500,
+          baseSalary: 400,
+          epsAndPensionDiscount: null,
+          employeeFundSavings: null,
+        },
       ]);
       const result = await repository.getSummary('p1');
       expect(result.totalEpsAndPension).toBe(0);
+      expect(result.totalEmployeeFundSavings).toBe(0);
       expect(result.totalPayrollCost).toBe(500);
     });
 
@@ -137,6 +159,7 @@ describe('PayrollPeriodsRepository', () => {
         totalBaseSalary: 0,
         totalPayment: 0,
         totalEpsAndPension: 0,
+        totalEmployeeFundSavings: 0,
         totalPayrollCost: 0,
       });
     });

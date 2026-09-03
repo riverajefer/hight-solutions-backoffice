@@ -55,7 +55,8 @@ export class PayrollPeriodsService {
    * Clona un periodo: copia su configuración (tipo, tarifas de horas extra y
    * notas) y crea un registro por cada empleado ACTIVO del periodo origen con
    * los valores fijos (salario base, días trabajados, valor de descanso,
-   * auxilio de transporte y descuento EPS/pensión).
+   * auxilio de transporte, descuento EPS/pensión y ahorro al fondo de
+   * empleados).
    *
    * Las novedades del periodo anterior —horas extras, comisiones, préstamos,
    * anticipos, descuento de jornada, días no pagados, turnos extra y
@@ -77,6 +78,7 @@ export class PayrollPeriodsService {
         const restDayValue = toNumber(item.restDayValue);
         const transportAllowance = toNumber(item.transportAllowance);
         const epsAndPensionDiscount = toNumber(item.epsAndPensionDiscount);
+        const employeeFundSavings = toNumber(item.employeeFundSavings);
 
         return {
           employeeId: item.employee.id,
@@ -85,8 +87,13 @@ export class PayrollPeriodsService {
           restDayValue,
           transportAllowance,
           epsAndPensionDiscount,
+          employeeFundSavings,
           totalPayment: Math.round(
-            baseSalary + restDayValue + transportAllowance - epsAndPensionDiscount,
+            baseSalary +
+              restDayValue +
+              transportAllowance -
+              epsAndPensionDiscount -
+              employeeFundSavings,
           ),
         };
       });

@@ -236,13 +236,28 @@ const PayrollPeriodDetailPage: React.FC = () => {
         <Grid item xs={12} sm={6} md={3}>
           <Card variant="outlined">
             <CardContent>
-              <Typography variant="body2" color="text.secondary">Costo Total (incl. SS)</Typography>
+              <Typography variant="body2" color="text.secondary">Costo Total (incl. SS y fondo)</Typography>
               <Typography variant="h5" fontWeight="bold" color="primary.main">
                 {summary ? formatCOP(summary.totalPayrollCost) : '—'}
               </Typography>
             </CardContent>
           </Card>
         </Grid>
+        {/* Solo aparece si alguien tiene ahorro al fondo: es el monto a girarle. */}
+        {!!summary?.totalEmployeeFundSavings && (
+          <Grid item xs={12} sm={6} md={3}>
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="body2" color="text.secondary">
+                  Ahorro fondo de empleados
+                </Typography>
+                <Typography variant="h5" fontWeight="bold" color="warning.main">
+                  {formatCOP(summary.totalEmployeeFundSavings)}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        )}
       </Grid>
 
       {/* Overtime rates info */}

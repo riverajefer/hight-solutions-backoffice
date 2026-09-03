@@ -30,12 +30,13 @@ import { z } from 'zod';
 import { storageApi } from '../../../api/storage.api';
 import type { AccountPayable, CreateApPaymentAuthRequestDto } from '../../../types/accounts-payable.types';
 import { BankSelector } from '../../../components/common/BankSelector';
-
-const formatCurrencyInput = (value: string): string => {
-  const digits = value.replace(/\D/g, '');
-  if (!digits) return '';
-  return new Intl.NumberFormat('es-CO').format(parseInt(digits, 10));
-};
+import { formatCurrency } from '../../../utils/formatters';
+import {
+  formatCurrencyInput,
+  parseCurrencyInput,
+  sanitizeCurrencyInput,
+  toCurrencyInputValue,
+} from '../../../utils/currencyInput';
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   CASH: 'Efectivo',
@@ -103,7 +104,7 @@ export const RequestPaymentDialog: React.FC<Props> = ({
 
   const watchedAmount = watch('amount');
   const watchedMethod = watch('paymentMethod');
-  const watchedAmountNum = watchedAmount ? parseInt(watchedAmount.replace(/\D/g, ''), 10) : 0;
+  const watchedAmountNum = parseCurrencyInput(watchedAmount ?? '');
   const afterBalance = balance - watchedAmountNum;
   const exceedsBalance = watchedAmountNum > maxPayable;
 
@@ -164,7 +165,7 @@ export const RequestPaymentDialog: React.FC<Props> = ({
 
     await onSubmit({
       accountPayableId: accountPayable.id,
-      amount: Number(values.amount.replace(/\D/g, '')),
+      amount: parseCurrencyInput(values.amount),
       paymentMethod: values.paymentMethod,
       paymentDate: values.paymentDate!.toISOString(),
       reference: values.reference || undefined,
@@ -207,6 +208,7 @@ export const RequestPaymentDialog: React.FC<Props> = ({
               <Box>
                 <TextField
                   {...field}
+                  value={formatCurrencyInput(field.value ?? '')}
                   label="Monto del pago"
                   fullWidth
                   required
@@ -225,16 +227,16 @@ export const RequestPaymentDialog: React.FC<Props> = ({
                   InputProps={{
                     startAdornment: <InputAdornment position="start">$</InputAdornment>,
                   }}
-                  onChange={(e) => field.onChange(formatCurrencyInput(e.target.value))}
+                  onChange={(e) => field.onChange(sanitizeCurrencyInput(e.target.value))}
                 />
                 {/* Atajo: pagar el saldo total */}
                 <Box sx={{ mt: 0.5 }}>
                   <Chip
-                    label={`Pagar total: ${maxPayable.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}`}
+                    label={`Pagar total: ${formatCurrency(maxPayable)}`}
                     size="small"
                     variant="outlined"
                     color="primary"
-                    onClick={() => field.onChange(new Intl.NumberFormat('es-CO').format(maxPayable))}
+                    onClick={() => field.onChange(toCurrencyInputValue(maxPayable))}
                     sx={{ cursor: 'pointer', fontSize: '0.72rem' }}
                   />
                 </Box>

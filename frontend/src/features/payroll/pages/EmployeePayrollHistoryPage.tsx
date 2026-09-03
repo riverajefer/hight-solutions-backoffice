@@ -130,7 +130,8 @@ const EmployeePayrollHistoryPage: React.FC = () => {
                         Number(item.loans ?? 0) +
                         Number(item.advances ?? 0) +
                         Number(item.nonPaidDays ?? 0) +
-                        Number(item.epsAndPensionDiscount ?? 0),
+                        Number(item.epsAndPensionDiscount ?? 0) +
+                        Number(item.employeeFundSavings ?? 0),
                     )}
                   </TableCell>
                   <TableCell align="right">
