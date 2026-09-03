@@ -48,7 +48,8 @@ type FieldName =
   | 'overtimeDaytimeValue' | 'overtimeNighttimeValue'
   | 'commissions' | 'restDayValue' | 'transportAllowance'
   | 'workdayDiscount' | 'loans' | 'advances' | 'nonPaidDays'
-  | 'epsAndPensionDiscount' | 'totalPayment' | 'observations';
+  | 'epsAndPensionDiscount' | 'employeeFundSavings'
+  | 'totalPayment' | 'observations';
 
 type FormValues = Record<FieldName, string>;
 
@@ -84,7 +85,8 @@ const calcTotal = (v: Partial<FormValues>, extraShiftsTotal = 0): number =>
   rawNum(v.loans) -
   rawNum(v.advances) -
   rawNum(v.nonPaidDays) -
-  rawNum(v.epsAndPensionDiscount);
+  rawNum(v.epsAndPensionDiscount) -
+  rawNum(v.employeeFundSavings);
 
 // Sum of extra-shift amounts (raw digits)
 const sumShifts = (rows: ExtraShiftRow[]): number =>
@@ -226,7 +228,8 @@ const PayrollItemFormPage: React.FC = () => {
     overtimeDaytimeValue: '', overtimeNighttimeValue: '',
     commissions: '', restDayValue: '', transportAllowance: '',
     workdayDiscount: '', loans: '', advances: '', nonPaidDays: '',
-    epsAndPensionDiscount: '', totalPayment: '', observations: '',
+    epsAndPensionDiscount: '', employeeFundSavings: '',
+    totalPayment: '', observations: '',
   };
 
   const { control, watch, setValue, handleSubmit, reset } = useForm<FormValues>({ defaultValues });
@@ -289,7 +292,7 @@ const PayrollItemFormPage: React.FC = () => {
     values.baseSalary, values.overtimeDaytimeValue, values.overtimeNighttimeValue,
     values.commissions, values.restDayValue, values.transportAllowance,
     values.workdayDiscount, values.loans, values.advances, values.nonPaidDays,
-    values.epsAndPensionDiscount, extraShiftsTotal,
+    values.epsAndPensionDiscount, values.employeeFundSavings, extraShiftsTotal,
   ]);
 
   // Load existing item
@@ -314,6 +317,7 @@ const PayrollItemFormPage: React.FC = () => {
         advances: toRaw(item.advances),
         nonPaidDays: toRaw(item.nonPaidDays),
         epsAndPensionDiscount: toRaw(item.epsAndPensionDiscount),
+        employeeFundSavings: toRaw(item.employeeFundSavings),
         totalPayment: toRaw(item.totalPayment),
         observations: item.observations ?? '',
       });
@@ -350,6 +354,7 @@ const PayrollItemFormPage: React.FC = () => {
       advances: num('advances'),
       nonPaidDays: num('nonPaidDays'),
       epsAndPensionDiscount: num('epsAndPensionDiscount'),
+      employeeFundSavings: num('employeeFundSavings'),
       totalPayment: num('totalPayment'),
       observations: vals.observations || undefined,
       extraShifts: shifts
@@ -598,6 +603,13 @@ const PayrollItemFormPage: React.FC = () => {
             </Grid>
             <Grid item xs={6} md={3}>
               <CurrencyField control={control} name="epsAndPensionDiscount" label="EPS y Pensión" />
+            </Grid>
+            <Grid item xs={6} md={3}>
+              <CurrencyField
+                control={control}
+                name="employeeFundSavings"
+                label="Ahorro fondo de empleados"
+              />
             </Grid>
           </Grid>
 

@@ -65,6 +65,13 @@ import { CreateSupplierModal } from '../../suppliers/components/CreateSupplierMo
 import { CreateProductionAreaModal } from '../../production-areas/components/CreateProductionAreaModal';
 import { storageApi } from '../../../api/storage.api';
 import { ROUTES } from '../../../utils/constants';
+import { formatCurrency } from '../../../utils/formatters';
+import {
+  formatCurrencyInput,
+  parseCurrencyInput,
+  sanitizeCurrencyInput,
+  toCurrencyInputValue,
+} from '../../../utils/currencyInput';
 import {
   PaymentMethod,
   PAYMENT_METHOD_LABELS,
@@ -329,7 +336,7 @@ export const ExpenseOrderFormPage = () => {
             description: item.description ?? '',
             supplierId: item.supplier?.id ?? '',
             supplierLabel: item.supplier?.name ?? '',
-            unitPrice: item.unitPrice,
+            unitPrice: toCurrencyInputValue(item.unitPrice),
             paymentMethod: item.paymentMethod,
             bankEntity: item.bankEntity ?? null,
             productionAreaIds: item.productionAreas.map((pa) => pa.productionArea.id),
@@ -402,7 +409,7 @@ export const ExpenseOrderFormPage = () => {
   const totalAmount = useMemo(() => {
     return items.reduce((acc, item) => {
       const q = parseFloat(item.quantity) || 0;
-      const p = parseFloat(item.unitPrice) || 0;
+      const p = parseCurrencyInput(item.unitPrice);
       return acc + q * p;
     }, 0);
   }, [items]);
@@ -421,21 +428,6 @@ export const ExpenseOrderFormPage = () => {
   const withholdingsError = isWithholdingsSelectionEmpty(withholdings)
     ? 'Debe configurar al menos una retención'
     : undefined;
-
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      minimumFractionDigits: 0,
-    }).format(value);
-
-  const formatCurrencyInput = (value: string | number): string => {
-    const str = typeof value === 'number' ? value.toString() : value;
-    const numericValue = str.replace(/\D/g, '');
-    if (!numericValue) return '';
-    const number = parseInt(numericValue, 10);
-    return new Intl.NumberFormat('es-CO').format(number);
-  };
 
   // ─── Item helpers ─────────────────────────────────────────────────────────────
   const addItem = () => {
@@ -536,7 +528,7 @@ export const ExpenseOrderFormPage = () => {
     (item) =>
       item.name.trim() &&
       parseFloat(item.quantity) > 0 &&
-      parseFloat(item.unitPrice) > 0,
+      parseCurrencyInput(item.unitPrice) > 0,
   );
 
   // ─── Submit ───────────────────────────────────────────────────────────────────
@@ -592,7 +584,7 @@ export const ExpenseOrderFormPage = () => {
       name: item.name.trim(),
       description: item.description || undefined,
       supplierId: item.supplierId || undefined,
-      unitPrice: parseFloat(item.unitPrice),
+      unitPrice: parseCurrencyInput(item.unitPrice),
       paymentMethod: item.paymentMethod,
       bankEntity: item.paymentMethod === PaymentMethod.TRANSFER ? item.bankEntity ?? null : null,
       productionAreaIds: item.productionAreaIds.length
@@ -817,8 +809,7 @@ export const ExpenseOrderFormPage = () => {
                   label="Precio unitario *"
                   value={item.unitPrice ? formatCurrencyInput(item.unitPrice) : ''}
                   onChange={(e) => {
-                    const rawValue = e.target.value.replace(/\D/g, '');
-                    updateItem(index, 'unitPrice', rawValue);
+                    updateItem(index, 'unitPrice', sanitizeCurrencyInput(e.target.value));
                   }}
                   InputProps={{
                     startAdornment: <InputAdornment position="start">$</InputAdornment>,
@@ -844,7 +835,7 @@ export const ExpenseOrderFormPage = () => {
                   </Typography>
                   <Typography variant="subtitle1" fontWeight={800} color="primary.main">
                     {formatCurrency(
-                      (parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0),
+                      (parseFloat(item.quantity) || 0) * parseCurrencyInput(item.unitPrice),
                     )}
                   </Typography>
                 </Box>

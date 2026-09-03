@@ -51,6 +51,7 @@ export class PayrollPeriodsRepository {
             advances: true,
             nonPaidDays: true,
             epsAndPensionDiscount: true,
+            employeeFundSavings: true,
             totalPayment: true,
             observations: true,
             createdAt: true,
@@ -163,7 +164,12 @@ export class PayrollPeriodsRepository {
   async getSummary(id: string) {
     const items = await this.prisma.payrollItem.findMany({
       where: { periodId: id },
-      select: { totalPayment: true, baseSalary: true, epsAndPensionDiscount: true },
+      select: {
+        totalPayment: true,
+        baseSalary: true,
+        epsAndPensionDiscount: true,
+        employeeFundSavings: true,
+      },
     });
 
     const totalPayment = items.reduce(
@@ -178,13 +184,21 @@ export class PayrollPeriodsRepository {
       (acc, item) => acc + Number(item.epsAndPensionDiscount ?? 0),
       0,
     );
+    const totalEmployeeFundSavings = items.reduce(
+      (acc, item) => acc + Number(item.employeeFundSavings ?? 0),
+      0,
+    );
 
     return {
       employeeCount: items.length,
       totalBaseSalary,
       totalPayment,
       totalEpsAndPension,
-      totalPayrollCost: totalPayment + totalEpsAndPension,
+      totalEmployeeFundSavings,
+      // Costo bruto: lo que se le consigna al empleado mas lo que se le retiene
+      // y se gira por el (seguridad social y ahorro al fondo de empleados).
+      totalPayrollCost:
+        totalPayment + totalEpsAndPension + totalEmployeeFundSavings,
     };
   }
 }

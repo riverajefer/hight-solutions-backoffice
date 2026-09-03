@@ -36,6 +36,7 @@ import {
 } from '../utils/expenseOrderItemExportColumns';
 import { expenseOrdersApi } from '../../../api/expense-orders.api';
 import { parseDateFilter } from '../../../utils/dateFilters';
+import { formatCurrency } from '../../../utils/formatters';
 
 const formatDate = (date: string): string =>
   new Intl.DateTimeFormat('es-CO', {
@@ -43,11 +44,6 @@ const formatDate = (date: string): string =>
     month: 'short',
     day: 'numeric',
   }).format(new Date(date));
-
-const formatCurrency = (value: string | number): string =>
-  new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(
-    Number(value),
-  );
 
 const STATUS_OPTIONS: { value: ExpenseOrderStatus | ''; label: string }[] = [
   { value: '', label: 'Todos' },

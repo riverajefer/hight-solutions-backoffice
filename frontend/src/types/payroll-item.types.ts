@@ -29,6 +29,7 @@ export interface PayrollItem {
   advances: string | null;
   nonPaidDays: string | null;
   epsAndPensionDiscount: string | null;
+  employeeFundSavings: string | null;
   totalPayment: string;
   observations: string | null;
   extraShifts?: PayrollExtraShift[];
@@ -90,6 +91,7 @@ export interface CreatePayrollItemDto {
   advances?: number;
   nonPaidDays?: number;
   epsAndPensionDiscount?: number;
+  employeeFundSavings?: number;
   totalPayment: number;
   observations?: string;
   extraShifts?: PayrollExtraShiftInput[];
@@ -110,6 +112,7 @@ export interface UpdatePayrollItemDto {
   advances?: number;
   nonPaidDays?: number;
   epsAndPensionDiscount?: number;
+  employeeFundSavings?: number;
   totalPayment?: number;
   observations?: string;
   extraShifts?: PayrollExtraShiftInput[];

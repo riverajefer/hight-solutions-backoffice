@@ -30,6 +30,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { ROUTES } from '../../../utils/constants';
+import { formatCurrency } from '../../../utils/formatters';
+import {
+  formatCurrencyInput,
+  parseCurrencyInput,
+  roundCurrency,
+  sanitizeCurrencyInput,
+  toCurrencyInputValue,
+} from '../../../utils/currencyInput';
 import { useQuery } from '@tanstack/react-query';
 import { useAccountPayable, useAccountsPayable } from '../hooks/useAccountsPayable';
 import { useSuppliers } from '../../suppliers/hooks/useSuppliers';
@@ -51,13 +59,6 @@ import {
 const isAdvanceSelection = (typeName?: string, subcategoryName?: string): boolean =>
   typeName?.trim().toLowerCase() === 'personal' &&
   subcategoryName?.trim().toLowerCase() === 'anticipos';
-
-// ─── Currency helper ──────────────────────────────────────────────────────────
-const formatCurrencyInput = (value: string): string => {
-  const digits = value.replace(/\D/g, '');
-  if (!digits) return '';
-  return new Intl.NumberFormat('es-CO').format(parseInt(digits, 10));
-};
 
 const schema = z
   .object({
@@ -190,7 +191,7 @@ export default function AccountsPayableFormPage() {
   };
 
   // ─── Desglose (Monto Total se interpreta como base/subtotal) ─────────────────
-  const baseAmount = Number((watchTotalAmount ?? '').replace(/\D/g, '')) || 0;
+  const baseAmount = parseCurrencyInput(watchTotalAmount ?? '');
   const ivaPercent = Number(watchIvaPercentage) || 0;
   const totals = computeExpenseTotals(baseAmount, {
     applyIva: watchApplyIva ?? false,
@@ -203,8 +204,7 @@ export default function AccountsPayableFormPage() {
   const hasWithholdings =
     totals.retefuenteAmount > 0 || totals.reteICAAmount > 0 || totals.reteIVAAmount > 0;
 
-  const formatCOP = (value: number) =>
-    new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(value);
+  const formatCOP = (value: number) => formatCurrency(value);
 
   const selectedExpenseType = filteredExpenseTypes.find((t: any) => t.id === watchExpenseTypeId);
   const currentSubcategories = selectedExpenseType?.subcategories || [];
@@ -222,10 +222,10 @@ export default function AccountsPayableFormPage() {
       // cuentas viejas sin `subtotalAmount` todavía hay que deshacer el IVA.
       const storedSubtotal = Number(ap.subtotalAmount ?? 0);
       const baseStored = storedSubtotal > 0
-        ? Math.round(storedSubtotal)
+        ? roundCurrency(storedSubtotal)
         : ap.applyIva && rate > 0
-          ? Math.round(Number(ap.totalAmount) / (1 + rate))
-          : Math.round(Number(ap.totalAmount));
+          ? roundCurrency(Number(ap.totalAmount) / (1 + rate))
+          : roundCurrency(Number(ap.totalAmount));
       const storedWithholdings = withholdingsFromRates(ap);
       reset({
         expenseTypeId: ap.expenseType?.id ?? '',
@@ -233,7 +233,7 @@ export default function AccountsPayableFormPage() {
         beneficiaryUserId: ap.beneficiaryUser?.id ?? '',
         description: ap.description,
         observations: ap.observations ?? '',
-        totalAmount: String(baseStored),
+        totalAmount: toCurrencyInputValue(baseStored),
         applyIva: ap.applyIva ?? false,
         ivaPercentage: ap.applyIva ? Math.round(rate * 100) : 19,
         applyWithholdings: storedWithholdings.apply,
@@ -250,7 +250,7 @@ export default function AccountsPayableFormPage() {
   }, [isEditing, apQuery.data, reset]);
 
   const onSubmit = async (values: FormValues) => {
-    const base = Number(values.totalAmount.replace(/\D/g, ''));
+    const base = parseCurrencyInput(values.totalAmount);
     const pct = Number(values.ivaPercentage) || 0;
     const submittedWithholdings: WithholdingsValue = values.applyIva
       ? {
@@ -431,7 +431,7 @@ export default function AccountsPayableFormPage() {
                   {...field}
                   label={watchApplyIva ? 'Monto base (sin IVA) *' : 'Monto Total *'}
                   value={value ? formatCurrencyInput(value) : ''}
-                  onChange={(e) => onChange(e.target.value.replace(/\D/g, ''))}
+                  onChange={(e) => onChange(sanitizeCurrencyInput(e.target.value))}
                   InputProps={{
                     startAdornment: <InputAdornment position="start">$</InputAdornment>,
                   }}

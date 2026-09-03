@@ -78,6 +78,12 @@ import { useProductionAreas } from '../../production-areas/hooks/useProductionAr
 import { useAuthStore } from '../../../store/authStore';
 import { storageApi } from '../../../api/storage.api';
 import { PERMISSIONS, ROUTES } from '../../../utils/constants';
+import { formatCurrency as formatCurrencyCOP } from '../../../utils/formatters';
+import {
+  formatCurrencyInput,
+  parseCurrencyInput,
+  sanitizeCurrencyInput,
+} from '../../../utils/currencyInput';
 import {
   ExpenseOrderStatus,
   EXPENSE_ORDER_STATUS_CONFIG,
@@ -103,12 +109,7 @@ const formatDate = (date?: string | null): string => {
 
 const formatCurrency = (value?: string | number | null): string => {
   if (value == null) return '-';
-  const num = typeof value === 'string' ? parseFloat(value) : value;
-  return new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: 'COP',
-    minimumFractionDigits: 0,
-  }).format(isNaN(num) ? 0 : num);
+  return formatCurrencyCOP(value);
 };
 
 const STATUS_TRANSITIONS: Record<ExpenseOrderStatus, ExpenseOrderStatus[]> = {
@@ -160,13 +161,6 @@ const defaultItemForm = (): ItemForm => ({
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
-const formatCurrencyInput = (value: string | number): string => {
-  const str = typeof value === 'number' ? value.toString() : value;
-  const numericValue = str.replace(/\D/g, '');
-  if (!numericValue) return '';
-  const number = parseInt(numericValue, 10);
-  return new Intl.NumberFormat('es-CO').format(number);
-};
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -397,7 +391,7 @@ export const ExpenseOrderDetailPage = () => {
   const isItemFormValid =
     itemForm.name.trim().length > 0 &&
     parseFloat(itemForm.quantity) > 0 &&
-    parseFloat(itemForm.unitPrice) > 0;
+    parseCurrencyInput(itemForm.unitPrice) > 0;
 
   const handleAddItem = async () => {
     if (!id || !isItemFormValid) return;
@@ -418,7 +412,7 @@ export const ExpenseOrderDetailPage = () => {
     const dto: CreateExpenseItemDto = {
       name: itemForm.name.trim(),
       quantity: parseFloat(itemForm.quantity),
-      unitPrice: parseFloat(itemForm.unitPrice),
+      unitPrice: parseCurrencyInput(itemForm.unitPrice),
       description: itemForm.description || undefined,
       paymentMethod: itemForm.paymentMethod,
       bankEntity: itemForm.paymentMethod === PaymentMethod.TRANSFER ? itemForm.bankEntity ?? null : null,
@@ -1371,7 +1365,7 @@ export const ExpenseOrderDetailPage = () => {
                 label="Precio unitario *"
                 value={itemForm.unitPrice ? formatCurrencyInput(itemForm.unitPrice) : ''}
                 onChange={(e) => {
-                  const rawValue = e.target.value.replace(/\D/g, '');
+                  const rawValue = sanitizeCurrencyInput(e.target.value);
                   setItemForm((f) => ({ ...f, unitPrice: rawValue }));
                 }}
                 InputProps={{
@@ -1383,12 +1377,12 @@ export const ExpenseOrderDetailPage = () => {
             </Stack>
 
             {/* Total preview */}
-            {parseFloat(itemForm.quantity) > 0 && parseFloat(itemForm.unitPrice) > 0 && (
+            {parseFloat(itemForm.quantity) > 0 && parseCurrencyInput(itemForm.unitPrice) > 0 && (
               <Typography variant="body2" color="text.secondary">
                 Total:{' '}
                 <strong>
                   {formatCurrency(
-                    (parseFloat(itemForm.quantity) || 0) * (parseFloat(itemForm.unitPrice) || 0),
+                    (parseFloat(itemForm.quantity) || 0) * parseCurrencyInput(itemForm.unitPrice),
                   )}
                 </strong>
               </Typography>
