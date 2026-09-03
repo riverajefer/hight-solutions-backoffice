@@ -114,6 +114,7 @@ describe('PayrollPeriodsService', () => {
           restDayValue: 50000,
           transportAllowance: 100000,
           epsAndPensionDiscount: 80000,
+          employeeFundSavings: 30000,
           // Novedades que NO deben copiarse
           overtimeDaytimeHours: 4,
           overtimeDaytimeValue: 39800,
@@ -132,6 +133,7 @@ describe('PayrollPeriodsService', () => {
           restDayValue: null,
           transportAllowance: null,
           epsAndPensionDiscount: null,
+          employeeFundSavings: null,
           employee: { id: 'e2', status: 'INACTIVE' },
         },
       ],
@@ -183,8 +185,9 @@ describe('PayrollPeriodsService', () => {
           restDayValue: 50000,
           transportAllowance: 100000,
           epsAndPensionDiscount: 80000,
-          // 1000000 + 50000 + 100000 - 80000
-          totalPayment: 1070000,
+          employeeFundSavings: 30000,
+          // 1000000 + 50000 + 100000 - 80000 - 30000
+          totalPayment: 1040000,
         },
       ]);
 

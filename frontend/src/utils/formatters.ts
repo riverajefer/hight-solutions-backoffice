@@ -5,11 +5,12 @@
 /**
  * Formatea un valor numérico como moneda colombiana (COP)
  * @param value - Valor numérico o string a formatear
- * @param decimals - Número de decimales a mostrar (default: 0)
+ * @param decimals - Número de decimales a mostrar. Si se omite, muestra los
+ *   centavos solo cuando el valor los tiene (1500 → "$ 1.500", 142.85 → "$ 142,85").
  */
 export const formatCurrency = (
   value: number | string,
-  decimals: number = 0
+  decimals?: number
 ): string => {
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
 
@@ -17,11 +18,14 @@ export const formatCurrency = (
     return '$0';
   }
 
+  const hasCents = Math.round(numValue * 100) % 100 !== 0;
+  const fractionDigits = decimals ?? (hasCents ? 2 : 0);
+
   return new Intl.NumberFormat('es-CO', {
     style: 'currency',
     currency: 'COP',
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
   }).format(numValue);
 };
 

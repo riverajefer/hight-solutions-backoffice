@@ -69,6 +69,7 @@ export class PayrollItemsService {
         advances: dto.advances,
         nonPaidDays: dto.nonPaidDays,
         epsAndPensionDiscount: dto.epsAndPensionDiscount,
+        employeeFundSavings: dto.employeeFundSavings,
         totalPayment: dto.totalPayment,
         observations: dto.observations,
         period: { connect: { id: periodId } },

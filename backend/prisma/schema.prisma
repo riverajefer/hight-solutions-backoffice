@@ -1751,6 +1751,7 @@ model PayrollItem {
   advances               Decimal? @db.Decimal(12, 2)
   nonPaidDays            Decimal? @db.Decimal(12, 2)
   epsAndPensionDiscount  Decimal? @db.Decimal(12, 2)
+  employeeFundSavings    Decimal? @db.Decimal(12, 2)
   totalPayment           Decimal  @db.Decimal(12, 2)
   observations           String?
   createdAt              DateTime @default(now())

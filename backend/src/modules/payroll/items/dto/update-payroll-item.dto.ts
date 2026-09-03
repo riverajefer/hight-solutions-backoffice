@@ -94,6 +94,12 @@ export class UpdatePayrollItemDto {
   @IsOptional()
   epsAndPensionDiscount?: number;
 
+  @ApiPropertyOptional({ description: 'Ahorro fondo de empleados', example: 50000 })
+  @IsNumber()
+  @Type(() => Number)
+  @IsOptional()
+  employeeFundSavings?: number;
+
   @ApiPropertyOptional({ description: 'Total a pagar', example: 929964 })
   @IsNumber()
   @Type(() => Number)

@@ -233,6 +233,7 @@ export function buildDeductions(item: PayrollItem): Concept[] {
       label: 'Aporte Salud y Pensión (8%)',
       amount: num(item.epsAndPensionDiscount),
     },
+    { label: 'Ahorro fondo de empleados', amount: num(item.employeeFundSavings) },
     { label: 'Préstamos', amount: num(item.loans) },
     { label: 'Anticipos', amount: num(item.advances) },
     {

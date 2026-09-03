@@ -28,6 +28,12 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import { formatCurrency, formatDate } from '../../../utils/formatters';
+import {
+  formatCurrencyInput,
+  parseCurrencyInput,
+  sanitizeCurrencyInput,
+  toCurrencyInputValue,
+} from '../../../utils/currencyInput';
 import type { AccountPayable, AccountPayableInstallment, InstallmentItemDto } from '../../../types/accounts-payable.types';
 import { useAccountPayable } from '../hooks/useAccountsPayable';
 
@@ -35,12 +41,6 @@ interface Props {
   accountPayable: AccountPayable;
   canEdit: boolean;
 }
-
-const formatCurrencyInput = (value: string): string => {
-  const digits = value.replace(/\D/g, '');
-  if (!digits) return '';
-  return new Intl.NumberFormat('es-CO').format(parseInt(digits, 10));
-};
 
 interface InstallmentRow {
   amount: string;
@@ -75,7 +75,7 @@ export const InstallmentScheduleSection: React.FC<Props> = ({ accountPayable, ca
     if (installments.length > 0) {
       setRows(
         installments.map((i) => ({
-          amount: String(Math.round(Number(i.amount))),
+          amount: toCurrencyInputValue(i.amount),
           dueDate: new Date(i.dueDate),
           notes: i.notes ?? '',
         })),
@@ -107,15 +107,15 @@ export const InstallmentScheduleSection: React.FC<Props> = ({ accountPayable, ca
     );
   };
 
-  const rowsTotal = rows.reduce((s, r) => s + (Number(r.amount.replace(/\D/g, '')) || 0), 0);
+  const rowsTotal = rows.reduce((s, r) => s + parseCurrencyInput(r.amount), 0);
   const isValid =
     rows.length > 0 &&
-    rows.every((r) => Number(r.amount.replace(/\D/g, '')) > 0 && r.dueDate !== null) &&
+    rows.every((r) => parseCurrencyInput(r.amount) > 0 && r.dueDate !== null) &&
     Math.abs(rowsTotal - total) <= 1;
 
   const handleSave = async () => {
     const dto: InstallmentItemDto[] = rows.map((r) => ({
-      amount: Number(r.amount.replace(/\D/g, '')),
+      amount: parseCurrencyInput(r.amount),
       dueDate: r.dueDate!.toISOString(),
       notes: r.notes || undefined,
     }));
@@ -240,7 +240,7 @@ export const InstallmentScheduleSection: React.FC<Props> = ({ accountPayable, ca
                     size="small"
                     fullWidth
                     value={row.amount ? formatCurrencyInput(row.amount) : ''}
-                    onChange={(e) => updateRow(i, 'amount', e.target.value.replace(/\D/g, ''))}
+                    onChange={(e) => updateRow(i, 'amount', sanitizeCurrencyInput(e.target.value))}
                     InputProps={{
                       startAdornment: <InputAdornment position="start">$</InputAdornment>,
                     }}

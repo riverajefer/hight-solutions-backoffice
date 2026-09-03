@@ -65,6 +65,7 @@ export interface PayrollPeriodSummary {
   totalBaseSalary: number;
   totalPayment: number;
   totalEpsAndPension: number;
+  totalEmployeeFundSavings: number;
   totalPayrollCost: number;
 }
 
