@@ -7,6 +7,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { createOrReturnTwin } from '../../common/utils/unique-violation.util';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import {
@@ -151,30 +152,56 @@ export class OrderEditRequestsService implements OnModuleInit, ApprovalRequestHa
     }
 
     // 5. Crear solicitud
-    const request = await this.prisma.orderEditRequest.create({
-      data: {
-        orderId,
-        requestedById: userId,
-        observations: dto.observations,
-        status: EditRequestStatus.PENDING,
-      },
-      include: {
-        requestedBy: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-        order: {
-          select: {
-            id: true,
-            orderNumber: true,
-          },
+    //
+    // La validación del paso anterior es un check-then-act; el índice parcial
+    // `order_edit_requests_pending_unique` cierra la carrera del doble clic y
+    // esta petición, si la pierde, devuelve la gemela sin notificar de nuevo.
+    const include = {
+      requestedBy: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
         },
       },
+      order: {
+        select: {
+          id: true,
+          orderNumber: true,
+        },
+      },
+    };
+
+    const { request, wasDuplicate } = await createOrReturnTwin({
+      constraint: 'order_edit_requests_pending_unique',
+      create: () =>
+        this.prisma.orderEditRequest.create({
+          data: {
+            orderId,
+            requestedById: userId,
+            observations: dto.observations,
+            status: EditRequestStatus.PENDING,
+          },
+          include,
+        }),
+      findTwin: () =>
+        this.prisma.orderEditRequest.findFirst({
+          where: {
+            orderId,
+            requestedById: userId,
+            status: EditRequestStatus.PENDING,
+          },
+          include,
+        }),
     });
+
+    if (wasDuplicate) {
+      this.logger.warn(
+        `Solicitud de edición duplicada para la orden ${orderId} por el usuario ${userId}: se devuelve la solicitud ${request.id} sin notificar de nuevo`,
+      );
+      return request;
+    }
 
     // 6. Notificar a todos los administradores (in-app)
     await this.notificationsService.notifyAllAdmins({

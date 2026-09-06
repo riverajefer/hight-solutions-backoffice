@@ -9,7 +9,7 @@ Cada hallazgo lleva evidencia en el código. No se hizo ningún cambio.
 
 ---
 
-## 1. El índice único parcial existe en 1 de 11 tablas de solicitudes — **Alta**
+## 1. El índice único parcial existe en 1 de 11 tablas de solicitudes — **Alta** · ✅ Corregido
 
 `expense_order_auth_requests` es la única tabla con la garantía en base de datos:
 
@@ -41,8 +41,38 @@ migración documenta con tres casos reales de producción (OG-2026-0444, 0445 y
 Consecuencia idéntica a la ya vista: notificación de WhatsApp duplicada y una
 solicitud gemela que se queda PENDING para siempre en la bandeja.
 
-**Corrección**: una migración por tabla siguiendo el molde de la de OG (limpiar
-duplicados existentes marcándolos `EXPIRED`, luego crear el índice parcial).
+### Corrección aplicada
+
+**Una migración**, [20260906010000_unique_pending_request_indexes](../backend/prisma/migrations/20260906010000_unique_pending_request_indexes/migration.sql),
+con diez índices parciales sobre nueve tablas (anulaciones de caja lleva dos: la
+solicitud apunta a un movimiento o a un pago, nunca a los dos). El predicado de
+cada índice replica exactamente el `where` del `findFirst` del servicio, así que
+no se endurece ninguna regla de negocio: la garantía solo se mueve a donde la
+carrera no existe.
+
+`account_payable_payment_reversal_requests` quedó fuera y no le falta nada: ya
+está cubierta por el UNIQUE global de `payment_auth_request_id`.
+
+**El índice solo es la mitad.** Sin manejar el choque, la petición perdedora
+recibe un P2002 crudo. Los nueve servicios ahora devuelven la solicitud gemela y
+salen sin notificar — es lo que evita la segunda notificación de WhatsApp, que
+era el síntoma visible del bug.
+
+**El detector de P2002 estaba roto y había que arreglarlo primero.**
+`isUniquePendingViolation` en el módulo de OG leía `meta.target`, que con el
+adaptador `PrismaPg` viene vacío: el nombre de la restricción viaja en
+`meta.driverAdapterError`. La rama nunca se ejecutaba, así que el índice de OG
+bloqueaba el duplicado pero la petición gemela recibía un 500. Replicar ese
+patrón nueve veces habría multiplicado el bug por nueve.
+
+- [unique-violation.util.ts](../backend/src/common/utils/unique-violation.util.ts) — `isUniqueViolationOn` (busca sobre el meta completo) y `createOrReturnTwin`, que encapsula crear-o-devolver-la-gemela.
+- Los tests de OG mockeaban el error con `meta.target`, la forma del motor nativo. Pasaban mientras producción fallaba. Ahora usan la forma real del adaptador.
+
+**Verificación**: la migración corrió limpia contra la base de dev/staging y los
+once índices quedaron creados (los diez nuevos más el de OG). No había
+duplicados que limpiar ni en producción ni en dev, así que los `UPDATE` de
+saneamiento fueron no-ops; quedan como red para el clon de Zoom, que sí va a
+nacer con datos sembrados. 2521 tests pasan.
 
 ---
 

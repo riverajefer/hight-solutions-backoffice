@@ -176,6 +176,95 @@ describe('RefundRequestsService', () => {
       expect(wsGateway.emitApprovalCreated).toHaveBeenCalled();
       expect(result.id).toBe('req-1');
     });
+
+    // El `findFirst` de arriba es un check-then-act: dos peticiones concurrentes
+    // lo pasan las dos. Quien cierra la carrera es el índice parcial
+    // `refund_requests_pending_unique`, y la petición perdedora llega acá con
+    // P2002.
+    describe('cuando dos peticiones concurrentes pasan la validación', () => {
+      const twin = {
+        id: 'req-gemela',
+        orderId,
+        status: EditRequestStatus.PENDING,
+        order: { orderNumber: 'OP-1' },
+      };
+
+      // Forma real del error con el adaptador `PrismaPg`: `meta.target` viene
+      // vacío y el nombre del índice va en `meta.driverAdapterError`.
+      const uniqueViolation = Object.assign(new Error('Unique constraint failed'), {
+        code: 'P2002',
+        meta: {
+          driverAdapterError: {
+            cause: {
+              constraint: { fields: ['order_id'] },
+              originalMessage:
+                'duplicate key value violates unique constraint "refund_requests_pending_unique"',
+            },
+          },
+        },
+      });
+
+      beforeEach(() => {
+        prisma.order.findUnique.mockResolvedValue({
+          id: orderId,
+          orderNumber: 'OP-1',
+          total: '500',
+          paidAmount: '700',
+          balance: '-200',
+        });
+        prisma.refundRequest.create.mockRejectedValue(uniqueViolation);
+      });
+
+      it('devuelve la solicitud gemela en lugar de fallar', async () => {
+        prisma.refundRequest.findFirst
+          .mockResolvedValueOnce(null) // validación previa
+          .mockResolvedValueOnce(twin); // búsqueda de la gemela tras el P2002
+
+        await expect(service.create(userId, baseDto)).resolves.toEqual(twin);
+      });
+
+      it('no manda una segunda notificación', async () => {
+        prisma.refundRequest.findFirst
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce(twin);
+
+        await service.create(userId, baseDto);
+
+        expect(notifications.notifyUsersWithPermission).not.toHaveBeenCalled();
+        expect(wsGateway.emitApprovalCreated).not.toHaveBeenCalled();
+      });
+
+      it('propaga el error si la gemela no aparece', async () => {
+        prisma.refundRequest.findFirst
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce(null);
+
+        await expect(service.create(userId, baseDto)).rejects.toThrow(
+          uniqueViolation,
+        );
+      });
+
+      it('propaga cualquier otro P2002 que no sea el del índice de pendientes', async () => {
+        prisma.refundRequest.findFirst.mockResolvedValue(null);
+        const otraViolacion = Object.assign(new Error('Unique constraint failed'), {
+          code: 'P2002',
+          meta: {
+            driverAdapterError: {
+              cause: {
+                constraint: { fields: ['cash_movement_id'] },
+                originalMessage:
+                  'duplicate key value violates unique constraint "refund_requests_cash_movement_id_key"',
+              },
+            },
+          },
+        });
+        prisma.refundRequest.create.mockRejectedValue(otraViolacion);
+
+        await expect(service.create(userId, baseDto)).rejects.toThrow(
+          otraViolacion,
+        );
+      });
+    });
   });
 
   describe('approve', () => {

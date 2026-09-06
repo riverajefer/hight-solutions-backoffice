@@ -7,6 +7,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { createOrReturnTwin } from '../../common/utils/unique-violation.util';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import {
@@ -166,32 +167,59 @@ export class OrderStatusChangeRequestsService implements OnModuleInit, ApprovalR
     }
 
     // 5. Crear solicitud
-    const request = await this.prisma.orderStatusChangeRequest.create({
-      data: {
-        orderId: dto.orderId,
-        requestedById: userId,
-        currentStatus: dto.currentStatus,
-        requestedStatus: dto.requestedStatus,
-        reason: dto.reason,
-        status: EditRequestStatus.PENDING,
-      },
-      include: {
-        requestedBy: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-        order: {
-          select: {
-            id: true,
-            orderNumber: true,
-          },
+    //
+    // El índice parcial `order_status_change_requests_pending_unique` cierra la
+    // carrera del doble clic; la petición perdedora devuelve la gemela sin
+    // notificar de nuevo.
+    const include = {
+      requestedBy: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
         },
       },
+      order: {
+        select: {
+          id: true,
+          orderNumber: true,
+        },
+      },
+    };
+
+    const { request, wasDuplicate } = await createOrReturnTwin({
+      constraint: 'order_status_change_requests_pending_unique',
+      create: () =>
+        this.prisma.orderStatusChangeRequest.create({
+          data: {
+            orderId: dto.orderId,
+            requestedById: userId,
+            currentStatus: dto.currentStatus,
+            requestedStatus: dto.requestedStatus,
+            reason: dto.reason,
+            status: EditRequestStatus.PENDING,
+          },
+          include,
+        }),
+      findTwin: () =>
+        this.prisma.orderStatusChangeRequest.findFirst({
+          where: {
+            orderId: dto.orderId,
+            requestedById: userId,
+            requestedStatus: dto.requestedStatus,
+            status: EditRequestStatus.PENDING,
+          },
+          include,
+        }),
     });
+
+    if (wasDuplicate) {
+      this.logger.warn(
+        `Solicitud de cambio de estado duplicada para la orden ${dto.orderId} por el usuario ${userId}: se devuelve la solicitud ${request.id} sin notificar de nuevo`,
+      );
+      return request;
+    }
 
     // 6. Notificar a todos los administradores (in-app)
     await this.notificationsService.notifyAllAdmins({
