@@ -175,6 +175,18 @@ export class ExpenseOrdersRepository {
     });
   }
 
+  /**
+   * Busca la OG que ya nació de este formulario. Devuelve la misma forma que
+   * `create`, para que la petición gemela de un doble clic reciba una respuesta
+   * indistinguible de la original.
+   */
+  async findByIdempotencyKey(idempotencyKey: string) {
+    return this.prisma.expenseOrder.findUnique({
+      where: { idempotencyKey },
+      select: this.selectFields,
+    });
+  }
+
   async create(data: {
     ogNumber: string;
     expenseTypeId: string;
@@ -191,6 +203,7 @@ export class ExpenseOrdersRepository {
     reteIVARate?: number;
     status: ExpenseOrderStatus;
     createdById: string;
+    idempotencyKey?: string;
     authorizedById?: string;
     authorizedAt?: Date;
     items: Array<{

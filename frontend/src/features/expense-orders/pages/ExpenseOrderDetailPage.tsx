@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSingleFlight } from '../../../hooks/useSingleFlight';
 import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import {
@@ -393,7 +394,10 @@ export const ExpenseOrderDetailPage = () => {
     parseFloat(itemForm.quantity) > 0 &&
     parseCurrencyInput(itemForm.unitPrice) > 0;
 
-  const handleAddItem = async () => {
+  // Sube los adjuntos antes de agregar el ítem: cada clic genera IDs de archivo
+  // nuevos, así que dos clics mandan dos cuerpos distintos y la deduplicación de
+  // red no puede reconocerlos como la misma acción.
+  const handleAddItem = useSingleFlight(async () => {
     if (!id || !isItemFormValid) return;
 
     let receiptFileId: string | undefined;
@@ -426,7 +430,7 @@ export const ExpenseOrderDetailPage = () => {
 
     await addExpenseItemMutation.mutateAsync({ id, dto });
     handleCloseItemDialog();
-  };
+  });
 
   // ── View / download receipt ───────────────────────────────────────────────────
   const handleViewReceipt = async (fileId: string) => {

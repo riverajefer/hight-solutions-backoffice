@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useSingleFlight } from '../../../hooks/useSingleFlight';
 import {
   Box,
   Button,
@@ -505,7 +506,10 @@ export const WorkOrderFormPage = () => {
     };
   };
 
-  const handleSaveDraft = async () => {
+  // `useSingleFlight` porque el guardado sube adjuntos antes de crear la OT: cada
+  // clic genera IDs de archivo nuevos, así que dos clics producen dos cuerpos
+  // distintos y la deduplicación de red no los reconoce como la misma acción.
+  const handleSaveDraft = useSingleFlight(async () => {
     if (isEdit) {
       await updateWorkOrderMutation.mutateAsync({ id: id!, dto: buildUpdateDto() });
       navigate(ROUTES.WORK_ORDERS_DETAIL.replace(':id', id!));
@@ -513,9 +517,9 @@ export const WorkOrderFormPage = () => {
       const newWo = await createWorkOrderMutation.mutateAsync({ dto: buildCreateDto(), confirmed: false });
       navigate(ROUTES.WORK_ORDERS_DETAIL.replace(':id', newWo.id));
     }
-  };
+  });
 
-  const handleConfirm = async () => {
+  const handleConfirm = useSingleFlight(async () => {
     if (isEdit) {
       await updateWorkOrderMutation.mutateAsync({ id: id!, dto: buildUpdateDto() });
       navigate(ROUTES.WORK_ORDERS_DETAIL.replace(':id', id!));
@@ -523,7 +527,7 @@ export const WorkOrderFormPage = () => {
       const newWo = await createWorkOrderMutation.mutateAsync({ dto: buildCreateDto(), confirmed: true });
       navigate(ROUTES.WORK_ORDERS_DETAIL.replace(':id', newWo.id));
     }
-  };
+  });
 
   const isSaving = createWorkOrderMutation.isPending || updateWorkOrderMutation.isPending;
 

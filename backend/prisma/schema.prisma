@@ -1320,6 +1320,12 @@ model ExpenseOrder {
   // Número de factura electrónica del proveedor asociado a la compra (máx 30 chars)
   electronicInvoiceNumber String? @map("electronic_invoice_number")
 
+  // Llave de idempotencia del formulario que originó la OG. El frontend la
+  // genera una vez por formulario, así que un doble clic manda la misma llave
+  // dos veces y la segunda petición devuelve la OG ya creada en lugar de gastar
+  // otro consecutivo. Nula en las OGs anteriores a esta columna.
+  idempotencyKey String? @unique @map("idempotency_key")
+
   // Auditoría
   createdById String   @map("created_by_id")
   createdAt   DateTime @default(now()) @map("created_at")

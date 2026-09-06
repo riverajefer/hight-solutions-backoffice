@@ -174,10 +174,16 @@ export class ExpenseOrdersController {
   @Delete(':id')
   @RequirePermissions('delete_expense_orders')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Eliminar una OG (solo en DRAFT)' })
+  @ApiOperation({
+    summary:
+      'Eliminar una OG (solo en DRAFT o CREATED). Borra también su Cuenta por Pagar si no tiene pagos',
+  })
   @ApiParam({ name: 'id', description: 'ID de la OG' })
   @ApiResponse({ status: 204, description: 'OG eliminada correctamente' })
-  @ApiResponse({ status: 400, description: 'Solo se puede eliminar una OG en DRAFT' })
+  @ApiResponse({
+    status: 400,
+    description: 'La OG ya está autorizada, o su cuenta por pagar tiene pagos registrados',
+  })
   @ApiResponse({ status: 404, description: 'OG no encontrada' })
   remove(@Param('id') id: string) {
     return this.service.remove(id);
