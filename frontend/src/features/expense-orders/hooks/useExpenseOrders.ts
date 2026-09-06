@@ -151,12 +151,28 @@ export const useExpenseOrder = (id?: string) => {
     },
   });
 
+  const deleteExpenseOrderMutation = useMutation({
+    mutationFn: (ogId: string) => expenseOrdersApi.delete(ogId),
+    onSuccess: (_, ogId) => {
+      queryClient.invalidateQueries({ queryKey: expenseOrdersKeys.lists() });
+      queryClient.removeQueries({ queryKey: expenseOrdersKeys.detail(ogId) });
+      // La OG arrastra su cuenta por pagar, así que esa lista también cambia.
+      queryClient.invalidateQueries({ queryKey: ['accounts-payable'] });
+      enqueueSnackbar('Orden de gasto eliminada correctamente', { variant: 'success' });
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || 'Error al eliminar la orden de gasto';
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+
   return {
     expenseOrderQuery,
     updateExpenseOrderMutation,
     updateStatusMutation,
     addExpenseItemMutation,
     cajaAuthorizeMutation,
+    deleteExpenseOrderMutation,
   };
 };
 
