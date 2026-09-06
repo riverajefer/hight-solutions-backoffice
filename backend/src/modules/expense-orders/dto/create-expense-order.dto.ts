@@ -150,4 +150,12 @@ export class CreateExpenseOrderDto {
   @ArrayMinSize(1)
   @Type(() => CreateExpenseItemDto)
   items: CreateExpenseItemDto[];
+
+  @ApiPropertyOptional({
+    description:
+      'Llave de idempotencia generada por el formulario. Si llegan dos peticiones con la misma llave (doble clic, reintento de red), la segunda devuelve la OG ya creada en vez de crear otra.',
+  })
+  @IsUUID()
+  @IsOptional()
+  idempotencyKey?: string;
 }

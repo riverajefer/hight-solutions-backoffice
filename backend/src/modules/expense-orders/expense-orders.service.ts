@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -33,6 +34,14 @@ const ALLOWED_TRANSITIONS: Record<ExpenseOrderStatus, ExpenseOrderStatus[]> = {
 };
 
 const EDITABLE_STATUSES: ExpenseOrderStatus[] = [
+  ExpenseOrderStatus.DRAFT,
+  ExpenseOrderStatus.CREATED,
+];
+
+// Mismos estados que los editables: mientras nadie haya firmado la OG, borrarla
+// no destruye ningún hecho contable. Antes solo se permitía en DRAFT, lo que
+// obligaba a devolver la orden a borrador para poder eliminarla.
+const DELETABLE_STATUSES: ExpenseOrderStatus[] = [
   ExpenseOrderStatus.DRAFT,
   ExpenseOrderStatus.CREATED,
 ];
@@ -77,6 +86,17 @@ export class ExpenseOrdersService {
     createdById: string,
     status: ExpenseOrderStatus = ExpenseOrderStatus.DRAFT,
   ) {
+    // Doble clic en "Crear OG": el formulario manda la misma llave en las dos
+    // peticiones. Si la primera ya insertó, devolvemos esa OG en lugar de gastar
+    // otro consecutivo. El índice único de `idempotency_key` es la garantía real
+    // (esta lectura es check-then-act); el P2002 se atrapa más abajo.
+    if (dto.idempotencyKey) {
+      const existing = await this.repository.findByIdempotencyKey(
+        dto.idempotencyKey,
+      );
+      if (existing) return existing;
+    }
+
     // Si el creador es admin, la OG no necesita aprobación administrativa:
     // pasa directamente a ADMIN_AUTHORIZED para que solo Caja deba firmarla.
     const creator = await this.prisma.user.findUnique({
@@ -150,6 +170,7 @@ export class ExpenseOrdersService {
           reteIVARate: dto.reteIVARate ?? 0,
           status,
           createdById,
+          idempotencyKey: dto.idempotencyKey,
           ...(creatorIsAdmin && {
             authorizedById: createdById,
             authorizedAt: new Date(),
@@ -173,9 +194,33 @@ export class ExpenseOrdersService {
         return created;
       } catch (error: any) {
         const isUniqueConstraintError = error.code === 'P2002';
+        // Con el adaptador de Postgres, `meta.target` viene vacío: el nombre de
+        // la restricción violada llega dentro de `meta.driverAdapterError`. Por
+        // eso se busca sobre el meta completo y no sobre `target`.
+        const meta = JSON.stringify(error.meta ?? '');
         const target = JSON.stringify(error.meta?.target || '');
-        const isNumberTarget = 
-          target.includes('og_number') || 
+        const hitsIdempotencyKey =
+          meta.includes('idempotency_key') || meta.includes('idempotencyKey');
+
+        // La petición gemela de un doble clic ganó la carrera: la OG ya existe
+        // con esta misma llave. Devolvemos esa, sin reintentar con otro
+        // consecutivo — reintentar es justo lo que creaba el duplicado.
+        if (isUniqueConstraintError && dto.idempotencyKey && hitsIdempotencyKey) {
+          const twin = await this.repository.findByIdempotencyKey(
+            dto.idempotencyKey,
+          );
+          if (twin) return twin;
+
+          // La gemela existe (por eso chocamos) pero su transacción todavía no
+          // es visible. Volver a intentar el insert crearía el duplicado que
+          // esta llave existe para evitar.
+          throw new ConflictException(
+            'Ya se está creando una orden de gasto con esta misma solicitud. Espera un momento y revisa la lista.',
+          );
+        }
+
+        const isNumberTarget =
+          meta.includes('og_number') ||
           target.includes('expense_orders_og_number_key') ||
           (error.meta?.modelName === 'ExpenseOrder' && (error.meta?.target === undefined || target === '""'));
 
@@ -528,12 +573,44 @@ export class ExpenseOrdersService {
       throw new NotFoundException(`OG con id ${id} no encontrada`);
     }
 
-    if (expenseOrder.status !== ExpenseOrderStatus.DRAFT) {
+    // Se puede eliminar mientras nadie haya firmado: DRAFT y CREATED. Desde
+    // ADMIN_AUTHORIZED en adelante ya hay autorizaciones y (en AUTHORIZED/PAID)
+    // movimiento de caja, así que la orden es un hecho contable y se queda.
+    if (!DELETABLE_STATUSES.includes(expenseOrder.status as ExpenseOrderStatus)) {
       throw new BadRequestException(
-        `Solo se pueden eliminar OGs en estado DRAFT. Estado actual: ${expenseOrder.status}`,
+        `Solo se pueden eliminar OGs en estado BORRADOR o CREADA. Estado actual: ${expenseOrder.status}`,
       );
     }
 
-    return this.repository.delete(id);
+    // La OG nace con una Cuenta por Pagar pegada. Si se borrara solo la OG, la
+    // relación es opcional y Prisma dejaría la CxP viva con `expenseOrderId` en
+    // null: una cuenta fantasma que nadie puede rastrear hasta su origen.
+    const accountPayable = await this.prisma.accountPayable.findUnique({
+      where: { expenseOrderId: id },
+      select: {
+        id: true,
+        apNumber: true,
+        paidAmount: true,
+        _count: { select: { payments: true } },
+      },
+    });
+
+    if (
+      accountPayable &&
+      (accountPayable._count.payments > 0 || Number(accountPayable.paidAmount) > 0)
+    ) {
+      throw new BadRequestException(
+        `No se puede eliminar la OG ${expenseOrder.ogNumber}: su cuenta por pagar ${accountPayable.apNumber} ya tiene pagos registrados`,
+      );
+    }
+
+    // Una sola transacción: o se van las dos, o no se va ninguna. Los ítems, los
+    // adjuntos y las solicitudes de autorización caen por cascada.
+    return this.prisma.$transaction(async (tx) => {
+      if (accountPayable) {
+        await tx.accountPayable.delete({ where: { id: accountPayable.id } });
+      }
+      return tx.expenseOrder.delete({ where: { id } });
+    });
   }
 }

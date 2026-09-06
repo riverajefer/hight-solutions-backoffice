@@ -21,6 +21,7 @@ describe('ExpenseOrdersService', () => {
     repository = {
       findAll: jest.fn(),
       findById: jest.fn(),
+      findByIdempotencyKey: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       replaceItems: jest.fn(),
@@ -47,6 +48,16 @@ describe('ExpenseOrdersService', () => {
       role: {
         findUnique: jest.fn(),
       },
+      accountPayable: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        delete: jest.fn(),
+      },
+      expenseOrder: {
+        delete: jest.fn(),
+      },
+      // `remove` borra la CxP y la OG en una transacción; el mock ejecuta el
+      // callback contra el mismo cliente simulado.
+      $transaction: jest.fn((callback: any) => callback(prisma)),
     } as any;
 
     authRequestsService = {
@@ -78,6 +89,81 @@ describe('ExpenseOrdersService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('idempotencia al crear', () => {
+    const dto = {
+      expenseTypeId: 'type-id',
+      expenseSubcategoryId: 'sub-id',
+      idempotencyKey: '11111111-2222-3333-4444-555555555555',
+      items: [{ quantity: 1, unitPrice: 600000, name: 'Item', paymentMethod: 'CASH' }],
+    } as any;
+
+    it('devuelve la OG existente sin crear otra cuando la llave ya se usó', async () => {
+      (repository.findByIdempotencyKey as jest.Mock).mockResolvedValue({
+        id: 'order-1',
+        ogNumber: 'OG-2026-0485',
+      } as any);
+
+      const result = await service.create(dto, 'user-1');
+
+      expect(result).toEqual(
+        expect.objectContaining({ ogNumber: 'OG-2026-0485' }),
+      );
+      expect(repository.create).not.toHaveBeenCalled();
+      expect(consecutivesService.generateNumber).not.toHaveBeenCalled();
+    });
+
+    it('devuelve la OG gemela cuando la petición paralela ganó la carrera', async () => {
+      (prisma.expenseSubcategory.findFirst as jest.Mock).mockResolvedValue({ id: 'sub-id' } as any);
+      // La lectura previa no ve nada: las dos peticiones entran a la vez.
+      (repository.findByIdempotencyKey as jest.Mock)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 'order-1', ogNumber: 'OG-2026-0485' } as any);
+      // Forma real del P2002 con el adaptador de Postgres: `target` viene vacío
+      // y el nombre de la restricción va dentro de `driverAdapterError`.
+      (repository.create as jest.Mock).mockRejectedValue(
+        Object.assign(new Error('unique'), {
+          code: 'P2002',
+          meta: {
+            modelName: 'ExpenseOrder',
+            driverAdapterError: {
+              cause: {
+                originalMessage:
+                  'duplicate key value violates unique constraint "expense_orders_idempotency_key_key"',
+                constraint: { fields: ['idempotency_key'] },
+              },
+            },
+          },
+        }),
+      );
+
+      const result = await service.create(dto, 'user-1');
+
+      expect(result).toEqual(
+        expect.objectContaining({ ogNumber: 'OG-2026-0485' }),
+      );
+      // No debe reintentar con otro consecutivo: eso es lo que creaba el duplicado.
+      expect(repository.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('guarda la llave en la OG creada', async () => {
+      (prisma.expenseSubcategory.findFirst as jest.Mock).mockResolvedValue({ id: 'sub-id' } as any);
+      (repository.findByIdempotencyKey as jest.Mock).mockResolvedValue(null);
+      (repository.create as jest.Mock).mockResolvedValue({
+        id: 'order-1',
+        ogNumber: 'OG-001',
+        items: [{ total: 600000 }],
+      } as any);
+
+      await service.create(dto, 'user-1');
+
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          idempotencyKey: '11111111-2222-3333-4444-555555555555',
+        }),
+      );
+    });
   });
 
   describe('retenciones', () => {
@@ -293,19 +379,73 @@ describe('ExpenseOrdersService', () => {
     it('should remove an expense order if DRAFT', async () => {
       (repository.findById as jest.Mock).mockResolvedValue({
         id: 'order-1',
+        ogNumber: 'OG-2026-0001',
         status: ExpenseOrderStatus.DRAFT,
       } as any);
-      (repository.delete as jest.Mock).mockResolvedValue(true as any);
 
       await service.remove('order-1');
 
-      expect(repository.delete).toHaveBeenCalledWith('order-1');
+      expect((prisma as any).expenseOrder.delete).toHaveBeenCalledWith({
+        where: { id: 'order-1' },
+      });
     });
 
-    it('should throw BadRequestException if not DRAFT', async () => {
+    it('should remove an expense order if CREATED', async () => {
       (repository.findById as jest.Mock).mockResolvedValue({
         id: 'order-1',
+        ogNumber: 'OG-2026-0486',
         status: ExpenseOrderStatus.CREATED,
+      } as any);
+
+      await service.remove('order-1');
+
+      expect((prisma as any).expenseOrder.delete).toHaveBeenCalledWith({
+        where: { id: 'order-1' },
+      });
+    });
+
+    it('should also delete the linked account payable when it has no payments', async () => {
+      (repository.findById as jest.Mock).mockResolvedValue({
+        id: 'order-1',
+        ogNumber: 'OG-2026-0486',
+        status: ExpenseOrderStatus.CREATED,
+      } as any);
+      (prisma as any).accountPayable.findUnique.mockResolvedValue({
+        id: 'ap-1',
+        apNumber: 'CP-2026-659',
+        paidAmount: 0,
+        _count: { payments: 0 },
+      });
+
+      await service.remove('order-1');
+
+      expect((prisma as any).accountPayable.delete).toHaveBeenCalledWith({
+        where: { id: 'ap-1' },
+      });
+    });
+
+    it('should refuse to delete when the account payable already has payments', async () => {
+      (repository.findById as jest.Mock).mockResolvedValue({
+        id: 'order-1',
+        ogNumber: 'OG-2026-0486',
+        status: ExpenseOrderStatus.CREATED,
+      } as any);
+      (prisma as any).accountPayable.findUnique.mockResolvedValue({
+        id: 'ap-1',
+        apNumber: 'CP-2026-659',
+        paidAmount: 100000,
+        _count: { payments: 1 },
+      });
+
+      await expect(service.remove('order-1')).rejects.toThrow(BadRequestException);
+      expect((prisma as any).expenseOrder.delete).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException once authorized', async () => {
+      (repository.findById as jest.Mock).mockResolvedValue({
+        id: 'order-1',
+        ogNumber: 'OG-2026-0485',
+        status: ExpenseOrderStatus.ADMIN_AUTHORIZED,
       } as any);
 
       await expect(service.remove('order-1')).rejects.toThrow(BadRequestException);

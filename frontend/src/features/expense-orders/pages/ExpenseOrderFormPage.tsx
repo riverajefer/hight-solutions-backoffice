@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useSnackbar } from 'notistack';
 import {
   Box,
   Button,
@@ -237,6 +238,7 @@ export const ExpenseOrderFormPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const { enqueueSnackbar } = useSnackbar();
   const isEditing = !!id;
 
   const [activeStep, setActiveStep] = useState(0);
@@ -298,6 +300,14 @@ export const ExpenseOrderFormPage = () => {
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const referenceFileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const prefillAppliedRef = useRef(false);
+  // Guardia síncrona contra el doble clic: `disabled={isSubmitting}` solo surte
+  // efecto en el siguiente render, así que dos clics en el mismo frame entran
+  // los dos. Este ref se cierra en el acto.
+  const submittingRef = useRef(false);
+  // Identidad de este formulario. Viaja en el POST para que, si igual se cuelan
+  // dos peticiones (reintento de axios, red intermitente), el backend devuelva
+  // la misma OG en vez de crear una gemela.
+  const idempotencyKeyRef = useRef(crypto.randomUUID());
 
   // ─── Data queries ───────────────────────────────────────────────────────────
   const { data: expenseTypes = [], isLoading: loadingTypes } = useExpenseTypes();
@@ -595,33 +605,61 @@ export const ExpenseOrderFormPage = () => {
     })) as CreateExpenseItemDto[],
   });
 
-  const handleSaveDraft = async () => {
-    const { receiptFileIds, referenceFileIds } = await uploadPendingFiles();
-    const payload = buildPayload(receiptFileIds, referenceFileIds);
-    if (isEditing) {
-      await updateExpenseOrderMutation.mutateAsync({ id: id!, dto: payload as UpdateExpenseOrderDto });
-      navigate(ROUTES.EXPENSE_ORDERS_DETAIL.replace(':id', id!));
-    } else {
-      const og = await createExpenseOrderMutation.mutateAsync({ dto: payload });
-      navigate(ROUTES.EXPENSE_ORDERS_DETAIL.replace(':id', og.id));
+  /**
+   * Cierra la puerta antes del primer `await` y solo la reabre si el envío
+   * falló, para que el usuario pueda corregir y reintentar. Tras un envío
+   * exitoso queda cerrada: o navegamos, o se muestra el diálogo de la OG creada.
+   */
+  const runOnce = async (submit: () => Promise<void>) => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    try {
+      await submit();
+    } catch (error: unknown) {
+      submittingRef.current = false;
+      // Los errores de la API ya los anuncia el `onError` de la mutación; este
+      // aviso es para lo que pasa antes, como una subida de archivo que falla.
+      const isApiError =
+        typeof error === 'object' && error !== null && 'response' in error;
+      if (!isApiError) {
+        enqueueSnackbar('No se pudo guardar la orden de gasto. Intenta de nuevo.', {
+          variant: 'error',
+        });
+      }
     }
   };
 
-  const handleCreate = async () => {
-    const { receiptFileIds, referenceFileIds } = await uploadPendingFiles();
-    const payload = buildPayload(receiptFileIds, referenceFileIds);
-    if (isEditing) {
-      await updateExpenseOrderMutation.mutateAsync({ id: id!, dto: payload as UpdateExpenseOrderDto });
-      navigate(ROUTES.EXPENSE_ORDERS_DETAIL.replace(':id', id!));
-    } else {
-      const og = await createExpenseOrderMutation.mutateAsync({
-        dto: payload,
-        confirmed: true,
-      });
-      // Show informational dialog before navigating
-      setCreatedOg({ id: og.id, ogNumber: og.ogNumber });
-    }
-  };
+  const handleSaveDraft = () =>
+    runOnce(async () => {
+      const { receiptFileIds, referenceFileIds } = await uploadPendingFiles();
+      const payload = buildPayload(receiptFileIds, referenceFileIds);
+      if (isEditing) {
+        await updateExpenseOrderMutation.mutateAsync({ id: id!, dto: payload as UpdateExpenseOrderDto });
+        navigate(ROUTES.EXPENSE_ORDERS_DETAIL.replace(':id', id!));
+      } else {
+        const og = await createExpenseOrderMutation.mutateAsync({
+          dto: { ...payload, idempotencyKey: idempotencyKeyRef.current },
+        });
+        navigate(ROUTES.EXPENSE_ORDERS_DETAIL.replace(':id', og.id));
+      }
+    });
+
+  const handleCreate = () =>
+    runOnce(async () => {
+      const { receiptFileIds, referenceFileIds } = await uploadPendingFiles();
+      const payload = buildPayload(receiptFileIds, referenceFileIds);
+      if (isEditing) {
+        await updateExpenseOrderMutation.mutateAsync({ id: id!, dto: payload as UpdateExpenseOrderDto });
+        navigate(ROUTES.EXPENSE_ORDERS_DETAIL.replace(':id', id!));
+      } else {
+        const og = await createExpenseOrderMutation.mutateAsync({
+          dto: { ...payload, idempotencyKey: idempotencyKeyRef.current },
+          confirmed: true,
+        });
+        // Show informational dialog before navigating
+        setCreatedOg({ id: og.id, ogNumber: og.ogNumber });
+      }
+    });
 
   const handleCreatedDialogClose = () => {
     if (createdOg) {

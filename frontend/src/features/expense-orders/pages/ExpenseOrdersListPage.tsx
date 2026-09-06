@@ -45,6 +45,14 @@ const formatDate = (date: string): string =>
     day: 'numeric',
   }).format(new Date(date));
 
+// Se puede eliminar mientras nadie haya firmado la OG. Desde «Autorizada
+// (Admin)» en adelante ya hay aprobaciones y movimiento de caja detrás, así que
+// el backend la rechaza. Debe coincidir con `DELETABLE_STATUSES` del servicio.
+const DELETABLE_STATUSES: ExpenseOrderStatus[] = [
+  ExpenseOrderStatus.DRAFT,
+  ExpenseOrderStatus.CREATED,
+];
+
 const STATUS_OPTIONS: { value: ExpenseOrderStatus | ''; label: string }[] = [
   { value: '', label: 'Todos' },
   { value: ExpenseOrderStatus.DRAFT, label: 'Borrador' },
@@ -171,7 +179,7 @@ export const ExpenseOrdersListPage = () => {
           onView={() => handleView(row)}
           onEdit={canUpdate && row.status === ExpenseOrderStatus.DRAFT ? () => handleEdit(row) : undefined}
           onDelete={
-            canDelete && row.status === ExpenseOrderStatus.DRAFT
+            canDelete && DELETABLE_STATUSES.includes(row.status)
               ? () => setConfirmDelete(row)
               : undefined
           }
@@ -259,7 +267,7 @@ export const ExpenseOrdersListPage = () => {
       <ConfirmDialog
         open={!!confirmDelete}
         title="Eliminar Orden de Gasto"
-        message={`¿Está seguro que desea eliminar la OG ${confirmDelete?.ogNumber}? Esta acción no se puede deshacer.`}
+        message={`¿Está seguro que desea eliminar la OG ${confirmDelete?.ogNumber}? Se elimina también su cuenta por pagar y el consecutivo no se reutiliza. Esta acción no se puede deshacer.`}
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(null)}
         isLoading={deleteExpenseOrderMutation.isPending}
