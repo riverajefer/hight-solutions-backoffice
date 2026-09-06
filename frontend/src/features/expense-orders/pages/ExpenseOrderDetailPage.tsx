@@ -54,6 +54,7 @@ import {
   TaskAlt as TaskAltIcon,
   MarkEmailRead as MarkEmailReadIcon,
   Block as BlockIcon,
+  DeleteOutline as DeleteOutlineIcon,
 } from '@mui/icons-material';
 import {
   computeExpenseTotals,
@@ -61,6 +62,7 @@ import {
   withholdingsFromRates,
 } from '../../../utils/withholdings';
 import { PageHeader } from '../../../components/common/PageHeader';
+import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { BankSelector } from '../../../components/common/BankSelector';
 import { ApprovalQueueBar } from '../../../components/common/ApprovalQueueBar';
 import { useApprovalQueue } from '../../../hooks/useApprovalQueue';
@@ -172,7 +174,13 @@ export const ExpenseOrderDetailPage = () => {
   const { enqueueSnackbar } = useSnackbar();
   const { hasPermission } = useAuthStore();
 
-  const { expenseOrderQuery, updateStatusMutation, addExpenseItemMutation, cajaAuthorizeMutation } = useExpenseOrder(id);
+  const {
+    expenseOrderQuery,
+    updateStatusMutation,
+    addExpenseItemMutation,
+    cajaAuthorizeMutation,
+    deleteExpenseOrderMutation,
+  } = useExpenseOrder(id);
   const { suppliersQuery } = useSuppliers();
   const { productionAreasQuery } = useProductionAreas();
 
@@ -225,12 +233,20 @@ export const ExpenseOrderDetailPage = () => {
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const canUpdate = hasPermission(PERMISSIONS.UPDATE_EXPENSE_ORDERS);
   const canApprove = hasPermission(PERMISSIONS.APPROVE_EXPENSE_ORDERS);
   const canCajaAuthorize = hasPermission(PERMISSIONS.CAJA_AUTHORIZE_EXPENSE_ORDERS);
+  const canDelete = hasPermission(PERMISSIONS.DELETE_EXPENSE_ORDERS);
 
   const og = expenseOrderQuery.data;
+
+  // Mismos estados que acepta el backend: mientras nadie haya firmado la OG.
+  // Debe coincidir con `DELETABLE_STATUSES` del servicio y de la lista.
+  const isDeletable =
+    og?.status === ExpenseOrderStatus.DRAFT ||
+    og?.status === ExpenseOrderStatus.CREATED;
 
   // ── Cola de aprobación ("revisar y siguiente") ────────────────────────────────
   const queryClient = useQueryClient();
@@ -394,6 +410,13 @@ export const ExpenseOrderDetailPage = () => {
     parseFloat(itemForm.quantity) > 0 &&
     parseCurrencyInput(itemForm.unitPrice) > 0;
 
+  const handleDelete = useSingleFlight(async () => {
+    if (!id) return;
+    await deleteExpenseOrderMutation.mutateAsync(id);
+    setConfirmDelete(false);
+    navigate(ROUTES.EXPENSE_ORDERS);
+  });
+
   // Sube los adjuntos antes de agregar el ítem: cada clic genera IDs de archivo
   // nuevos, así que dos clics mandan dos cuerpos distintos y la deduplicación de
   // red no puede reconocerlos como la misma acción.
@@ -539,14 +562,32 @@ export const ExpenseOrderDetailPage = () => {
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <DocumentTypeBanner type="OG" documentNumber={og.ogNumber} />
-      <PageHeader
-        title={og.ogNumber}
-        hideTitle
-        breadcrumbs={[
-          { label: 'Costos directos de la O.T', path: ROUTES.EXPENSE_ORDERS },
-          { label: og.ogNumber },
-        ]}
-      />
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        justifyContent="space-between"
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        gap={1}
+      >
+        <PageHeader
+          title={og.ogNumber}
+          hideTitle
+          breadcrumbs={[
+            { label: 'Costos directos de la O.T', path: ROUTES.EXPENSE_ORDERS },
+            { label: og.ogNumber },
+          ]}
+        />
+        {canDelete && isDeletable && (
+          <Button
+            startIcon={<DeleteOutlineIcon />}
+            size="small"
+            variant="outlined"
+            color="error"
+            onClick={() => setConfirmDelete(true)}
+          >
+            Eliminar OG
+          </Button>
+        )}
+      </Stack>
 
       <ApprovalQueueBar
         queue={approvalQueue}
@@ -1872,6 +1913,16 @@ export const ExpenseOrderDetailPage = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Eliminar Orden de Gasto"
+        severity="error"
+        message={`¿Está seguro que desea eliminar la OG ${og.ogNumber}? Se elimina también su cuenta por pagar y el consecutivo no se reutiliza. Esta acción no se puede deshacer.`}
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmDelete(false)}
+        isLoading={deleteExpenseOrderMutation.isPending}
+      />
     </Box>
   );
 };
