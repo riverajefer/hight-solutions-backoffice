@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
@@ -237,6 +237,12 @@ export const OrderDetailPage: React.FC = () => {
   // Define si un abono nuevo entra directo al arqueo o queda en cola.
   const { data: isCashOpen } = useIsCashOpen();
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+  // El candado contra el doble clic tiene que ser un `ref`: dos clics en el
+  // mismo frame leen ambos `paymentSubmitting` en `false`, porque el estado no
+  // se actualiza hasta el siguiente render. Con dinero de por medio, esa carrera
+  // registraba el abono dos veces. Se declara aquí arriba, junto al resto de
+  // hooks, porque más abajo la página tiene `return` tempranos.
+  const paymentLockRef = useRef(false);
   const [discountDialogOpen, setDiscountDialogOpen] = useState(false);
   const [refundDialogOpen, setRefundDialogOpen] = useState(false);
   const [tabValue, setTabValue] = useState(0);
@@ -615,7 +621,8 @@ export const OrderDetailPage: React.FC = () => {
   };
 
   const handleAddPayment = async () => {
-    if (paymentSubmitting) return;
+    if (paymentLockRef.current) return;
+    paymentLockRef.current = true;
 
     setPaymentSubmitting(true);
     try {
@@ -654,6 +661,7 @@ export const OrderDetailPage: React.FC = () => {
       enqueueSnackbar('Error al registrar el pago', { variant: 'error' });
     } finally {
       setPaymentSubmitting(false);
+      paymentLockRef.current = false;
     }
   };
 
@@ -691,8 +699,11 @@ export const OrderDetailPage: React.FC = () => {
     setPaymentDialogOpen(true);
   };
 
+  // Mismo candado que en `handleAddPayment`. Aquí además el envío puede llevar
+  // un archivo, que la capa de red no deduplica por cuerpo.
   const handleUpdatePayment = async () => {
-    if (paymentSubmitting || !editingPaymentId) return;
+    if (paymentLockRef.current || !editingPaymentId) return;
+    paymentLockRef.current = true;
 
     setPaymentSubmitting(true);
     try {
@@ -717,6 +728,7 @@ export const OrderDetailPage: React.FC = () => {
       console.error('Error updating payment:', error);
     } finally {
       setPaymentSubmitting(false);
+      paymentLockRef.current = false;
     }
   };
 

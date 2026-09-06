@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
+import { useSingleFlight } from '../../../hooks/useSingleFlight';
 import {
   Box,
   Button,
@@ -300,10 +301,6 @@ export const ExpenseOrderFormPage = () => {
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const referenceFileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const prefillAppliedRef = useRef(false);
-  // Guardia síncrona contra el doble clic: `disabled={isSubmitting}` solo surte
-  // efecto en el siguiente render, así que dos clics en el mismo frame entran
-  // los dos. Este ref se cierra en el acto.
-  const submittingRef = useRef(false);
   // Identidad de este formulario. Viaja en el POST para que, si igual se cuelan
   // dos peticiones (reintento de axios, red intermitente), el backend devuelva
   // la misma OG en vez de crear una gemela.
@@ -606,31 +603,21 @@ export const ExpenseOrderFormPage = () => {
   });
 
   /**
-   * Cierra la puerta antes del primer `await` y solo la reabre si el envío
-   * falló, para que el usuario pueda corregir y reintentar. Tras un envío
-   * exitoso queda cerrada: o navegamos, o se muestra el diálogo de la OG creada.
+   * Avisa de lo que falla ANTES de la mutación —una subida de archivo, por
+   * ejemplo—, que es lo único que no anuncia el `onError` de la mutación.
    */
-  const runOnce = async (submit: () => Promise<void>) => {
-    if (submittingRef.current) return;
-    submittingRef.current = true;
-    try {
-      await submit();
-    } catch (error: unknown) {
-      submittingRef.current = false;
-      // Los errores de la API ya los anuncia el `onError` de la mutación; este
-      // aviso es para lo que pasa antes, como una subida de archivo que falla.
-      const isApiError =
-        typeof error === 'object' && error !== null && 'response' in error;
-      if (!isApiError) {
-        enqueueSnackbar('No se pudo guardar la orden de gasto. Intenta de nuevo.', {
-          variant: 'error',
-        });
-      }
+  const reportPreflightError = (error: unknown) => {
+    const isApiError =
+      typeof error === 'object' && error !== null && 'response' in error;
+    if (!isApiError) {
+      enqueueSnackbar('No se pudo guardar la orden de gasto. Intenta de nuevo.', {
+        variant: 'error',
+      });
     }
   };
 
-  const handleSaveDraft = () =>
-    runOnce(async () => {
+  const handleSaveDraft = useSingleFlight(async () => {
+    try {
       const { receiptFileIds, referenceFileIds } = await uploadPendingFiles();
       const payload = buildPayload(receiptFileIds, referenceFileIds);
       if (isEditing) {
@@ -642,10 +629,14 @@ export const ExpenseOrderFormPage = () => {
         });
         navigate(ROUTES.EXPENSE_ORDERS_DETAIL.replace(':id', og.id));
       }
-    });
+    } catch (error) {
+      reportPreflightError(error);
+      throw error;
+    }
+  });
 
-  const handleCreate = () =>
-    runOnce(async () => {
+  const handleCreate = useSingleFlight(async () => {
+    try {
       const { receiptFileIds, referenceFileIds } = await uploadPendingFiles();
       const payload = buildPayload(receiptFileIds, referenceFileIds);
       if (isEditing) {
@@ -659,7 +650,11 @@ export const ExpenseOrderFormPage = () => {
         // Show informational dialog before navigating
         setCreatedOg({ id: og.id, ogNumber: og.ogNumber });
       }
-    });
+    } catch (error) {
+      reportPreflightError(error);
+      throw error;
+    }
+  });
 
   const handleCreatedDialogClose = () => {
     if (createdOg) {
