@@ -8,17 +8,48 @@ export class ConsecutivesRepository {
   /**
    * Genera el siguiente número consecutivo para un tipo dado
    * Usa INSERT ... ON CONFLICT atómico para evitar race conditions
+   *
+   * Con `source` (tabla y columna donde vive el número), el incremento se toma
+   * contra el máximo real de esa tabla, no solo contra el contador. Es lo que
+   * hace que el contador no pueda quedar por detrás de los datos: si alguien
+   * sembró registros o los insertó a mano, `generateNumber` igual devuelve un
+   * número libre en vez de uno ya usado (P2002 al crear).
+   *
+   * La corrección va aquí y no en cada servicio porque varios de los puntos de
+   * creación generan el número dentro de una transacción, donde reintentar no
+   * es posible: el primer error aborta la transacción completa.
    */
   async getNextNumber(
     type: string,
     prefix: string,
     year: number = new Date().getFullYear(),
+    source?: { table: string; column: string },
   ): Promise<string> {
+    const result = source
+      ? await this.getNextNumberFromSource(type, prefix, year, source)
+      : await this.getNextNumberFromCounter(type, prefix, year);
+
+    if (!result || result.length === 0) {
+      throw new Error(`Failed to generate next number for ${type}`);
+    }
+
+    const lastNumber = Number(result[0].last_number);
+    const numberStr = lastNumber.toString().padStart(4, '0');
+    return `${prefix}-${year}-${numberStr}`;
+  }
+
+  /**
+   * Incremento atómico contra el contador únicamente.
+   * Es correcto mientras nadie inserte registros por fuera del contador.
+   */
+  private async getNextNumberFromCounter(
+    type: string,
+    prefix: string,
+    year: number,
+  ): Promise<Array<{ last_number: number }>> {
     // Atomic upsert + increment using raw SQL to prevent race conditions
     // If the year changed, resets to 1; otherwise increments atomically
-    const result = await this.prisma.$queryRaw<
-      Array<{ last_number: number }>
-    >`
+    return this.prisma.$queryRaw<Array<{ last_number: number }>>`
       INSERT INTO consecutives (id, type, prefix, year, last_number, created_at, updated_at)
       VALUES (gen_random_uuid(), ${type}, ${prefix}, ${year}, 1, NOW(), NOW())
       ON CONFLICT (type) DO UPDATE SET
@@ -30,14 +61,52 @@ export class ConsecutivesRepository {
         updated_at = NOW()
       RETURNING last_number
     `;
+  }
 
-    if (!result || result.length === 0) {
-      throw new Error(`Failed to generate next number for ${type}`);
-    }
+  /**
+   * Incremento atómico contra el mayor entre el contador y el máximo real de la
+   * tabla destino. Una sola sentencia: el GREATEST se evalúa con la fila del
+   * contador ya bloqueada, así que dos peticiones concurrentes siguen sin poder
+   * obtener el mismo número.
+   */
+  private async getNextNumberFromSource(
+    type: string,
+    prefix: string,
+    year: number,
+    source: { table: string; column: string },
+  ): Promise<Array<{ last_number: number }>> {
+    const safeTable = source.table.replace(/[^a-z0-9_]/gi, '');
+    const safeColumn = source.column.replace(/[^a-z0-9_]/gi, '');
+    const pattern = `${prefix}-${year}-%`;
 
-    const lastNumber = Number(result[0].last_number);
-    const numberStr = lastNumber.toString().padStart(4, '0');
-    return `${prefix}-${year}-${numberStr}`;
+    // Mismo criterio de extracción que `syncCounterFromTable`: los dígitos
+    // finales, para que funcione con prefijos que llevan guión (ej. "DTF-UV").
+    const maxInTable = `
+      SELECT COALESCE(
+        MAX(CAST(SUBSTRING("${safeColumn}" FROM '([0-9]+)$') AS INTEGER)), 0
+      )
+      FROM "${safeTable}"
+      WHERE "${safeColumn}" LIKE $4
+    `;
+
+    return this.prisma.$queryRawUnsafe<Array<{ last_number: number }>>(
+      `
+      INSERT INTO consecutives (id, type, prefix, year, last_number, created_at, updated_at)
+      VALUES (gen_random_uuid(), $1, $2, $3, (${maxInTable}) + 1, NOW(), NOW())
+      ON CONFLICT (type) DO UPDATE SET
+        last_number = GREATEST(
+          CASE WHEN consecutives.year = $3 THEN consecutives.last_number ELSE 0 END,
+          (${maxInTable})
+        ) + 1,
+        year = $3,
+        updated_at = NOW()
+      RETURNING last_number
+      `,
+      type,
+      prefix,
+      year,
+      pattern,
+    );
   }
 
   /**
