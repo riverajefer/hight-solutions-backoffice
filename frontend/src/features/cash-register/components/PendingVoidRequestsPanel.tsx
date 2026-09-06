@@ -29,6 +29,7 @@ import {
   useRejectVoidRequest,
 } from '../../../hooks/useVoidRequests';
 import type { CashMovementVoidRequest } from '../../../types/void-request.types';
+import { useSingleFlight } from '../../../hooks/useSingleFlight';
 
 const MOVEMENT_TYPE_LABELS: Record<string, string> = {
   INCOME: 'Ingreso',
@@ -75,7 +76,10 @@ const PendingVoidRequestsPanel: React.FC<{ hideWhenEmpty?: boolean }> = ({ hideW
     setReviewNotes('');
   };
 
-  const handleSubmitReview = async () => {
+  // `disabled={mutation.isPending}` no alcanza: el botón solo se deshabilita
+  // cuando React vuelve a renderizar, y dos clics en el mismo frame entran los
+  // dos. Aprobar dos veces mueve el dinero dos veces.
+  const handleSubmitReview = useSingleFlight(async () => {
     if (!reviewTarget) return;
     const { request, action } = reviewTarget;
     const dto = reviewNotes.trim() ? { reviewNotes } : {};
@@ -86,7 +90,7 @@ const PendingVoidRequestsPanel: React.FC<{ hideWhenEmpty?: boolean }> = ({ hideW
       await rejectMutation.mutateAsync({ requestId: request.id, dto });
     }
     setReviewTarget(null);
-  };
+  });
 
   if (isLoading) return null;
   if (hideWhenEmpty && requests.length === 0) return null;

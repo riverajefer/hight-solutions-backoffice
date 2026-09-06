@@ -151,7 +151,7 @@ sembrar la base.
 
 ---
 
-## 3. `useSingleFlight` está en 3 de ~104 formularios — **Media**
+## 3. `useSingleFlight` está en 3 de ~104 formularios — **Media** · ✅ Corregido
 
 El hook existe y tiene pruebas ([useSingleFlight.ts](../frontend/src/hooks/useSingleFlight.ts)),
 pero solo lo usan `WorkOrderFormPage`, `ExpenseOrderFormPage` y
@@ -159,8 +159,52 @@ pero solo lo usan `WorkOrderFormPage`, `ExpenseOrderFormPage` y
 que se apoyan en `disabled={isPending}`, que es justo el guard que no cierra la
 carrera: entre el clic y el primer render con `isPending=true` caben dos envíos.
 
-**Corrección**: no hace falta migrar los 104. Priorizar los que crean dinero o
-solicitudes: pagos, abonos, OP, CP, solicitudes de autorización y anulaciones.
+### El "3 de 104" subestimaba la protección y sobrestimaba la seguridad
+
+Al ir a corregir aparecieron dos cosas que cambian el cuadro:
+
+**Hay cinco formularios más con un candado equivalente escrito a mano**
+(`submitting.current`): `RefundRequestDialog`, `StatusChangeAuthRequestDialog`,
+`ApprovalReviewDialog`, `ExpenseOrderAuthRequestDialog` y `DuplicateClientDialog`.
+Están protegidos; lo que sobra es el idioma duplicado. No los toqué: reescribir
+un candado que funciona es churn, no corrección.
+
+**Los formularios de React Hook Form NO estaban protegidos**, al contrario de lo
+que afirmaba el propio comentario del hook. En react-hook-form 7.71.2,
+`handleSubmit` emite `isSubmitting: true` y **ejecuta el handler igual**: no hay
+guarda de reentrada (`createFormControl.handleSubmit`, `index.esm.mjs:2177`).
+Dos clics en el mismo frame lo ejecutan dos veces. El comentario del hook decía
+lo contrario y quedó corregido — era una suposición peligrosa justo en los
+diálogos de dinero.
+
+Lo verifiqué revirtiendo el arreglo en `VoidPaymentDialog`: con dos
+`fireEvent.click` seguidos, `onSubmit` se llamaba **dos veces**. Con el hook,
+una. Ese test quedó en el repo.
+
+### Qué quedó protegido
+
+Sin ningún candado, y ahora con uno — todos mueven dinero o crean solicitudes:
+
+| Componente | Qué se disparaba dos veces |
+|---|---|
+| `PendingOgAuthorizationsPanel` | autorizar/rechazar OG en Caja |
+| `PendingApAuthorizationsPanel` | aprobar/rechazar pago de CP |
+| `PendingApReversalsCajaPanel` | confirmar reversión de pago |
+| `PendingRefundRequestsPanel` | aprobar/rechazar devolución |
+| `PendingVoidRequestsPanel` | aprobar/rechazar anulación |
+| `AccountPayableAuthRequestDialog` | solicitud de autorización de CP |
+| `OpenSessionPage` / `CloseSessionPage` | abrir y cerrar sesión de caja |
+| `VoidPaymentDialog`, `VoidMovementDialog` | anular pago / movimiento |
+| `RegisterPaymentDialog`, `RequestPaymentDialog` | registrar y solicitar pago de CP |
+| `CreateMovementDialog` | movimiento de caja |
+| `RequestEditPermissionButton`, `RequestAdvisorChangeButton` | solicitudes sobre la OP |
+
+Los cinco últimos grupos son formularios de RHF: sin el hallazgo de arriba se
+habrían dado por seguros.
+
+**Pendiente, deliberadamente**: los ~80 formularios restantes (catálogos, roles,
+productos, plantillas). Un duplicado ahí es una fila repetida que se borra, no
+dinero movido dos veces.
 
 ---
 

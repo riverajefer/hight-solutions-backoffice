@@ -31,6 +31,7 @@ import {
   useRejectRefundRequest,
 } from '../../orders/hooks/useRefundRequests';
 import type { RefundRequest } from '../../../types/refund-request.types';
+import { useSingleFlight } from '../../../hooks/useSingleFlight';
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   CASH: 'Efectivo',
@@ -75,7 +76,10 @@ const PendingRefundRequestsPanel: React.FC<{ hideWhenEmpty?: boolean }> = ({ hid
     setReviewNotes('');
   };
 
-  const handleSubmitReview = async () => {
+  // `disabled={mutation.isPending}` no alcanza: el botón solo se deshabilita
+  // cuando React vuelve a renderizar, y dos clics en el mismo frame entran los
+  // dos. Aprobar dos veces mueve el dinero dos veces.
+  const handleSubmitReview = useSingleFlight(async () => {
     if (!reviewTarget) return;
     const { request, action } = reviewTarget;
 
@@ -92,7 +96,7 @@ const PendingRefundRequestsPanel: React.FC<{ hideWhenEmpty?: boolean }> = ({ hid
       });
     }
     setReviewTarget(null);
-  };
+  });
 
   if (isLoading) return null;
   if (hideWhenEmpty && requests.length === 0) return null;

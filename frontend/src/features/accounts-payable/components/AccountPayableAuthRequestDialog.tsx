@@ -15,6 +15,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { accountsPayableAuthRequestsApi } from '../../../api/accounts-payable-auth-requests.api';
 import { ACCOUNT_PAYABLE_STATUS_CONFIG, AccountPayableStatus } from '../../../types/accounts-payable.types';
+import { useSingleFlight } from '../../../hooks/useSingleFlight';
 
 interface Props {
   open: boolean;
@@ -55,13 +56,19 @@ export const AccountPayableAuthRequestDialog: React.FC<Props> = ({
     },
   });
 
-  const handleSubmit = () => {
+  // `disabled={mutation.isPending}` no alcanza: el botón solo se deshabilita
+  // cuando React vuelve a renderizar, y dos clics en el mismo frame entran los
+  // dos. Dos solicitudes idénticas son dos notificaciones de WhatsApp.
+  const handleSubmit = useSingleFlight(async () => {
     if (!reason.trim()) {
       enqueueSnackbar('Por favor ingresa una razón para la solicitud', { variant: 'warning' });
       return;
     }
-    mutation.mutate({ accountPayableId: accountPayable.id, reason: reason.trim() });
-  };
+    await mutation.mutateAsync({
+      accountPayableId: accountPayable.id,
+      reason: reason.trim(),
+    });
+  });
 
   const handleClose = () => {
     if (!mutation.isPending) {

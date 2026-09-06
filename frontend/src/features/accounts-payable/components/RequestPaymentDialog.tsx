@@ -37,6 +37,7 @@ import {
   sanitizeCurrencyInput,
   toCurrencyInputValue,
 } from '../../../utils/currencyInput';
+import { useSingleFlight } from '../../../hooks/useSingleFlight';
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   CASH: 'Efectivo',
@@ -137,7 +138,10 @@ export const RequestPaymentDialog: React.FC<Props> = ({
     }
   }, []);
 
-  const handleFormSubmit = async (values: FormValues) => {
+  // `react-hook-form` 7.71 NO bloquea envíos reentrantes: `handleSubmit` marca
+  // `isSubmitting` pero ejecuta el handler igual, así que dos clics en el mismo
+  // frame llegan los dos.
+  const handleFormSubmit = useSingleFlight(async (values: FormValues) => {
     const uploadedIds: (string | undefined)[] = [undefined, undefined];
 
     if (receiptFiles.some(Boolean)) {
@@ -175,7 +179,7 @@ export const RequestPaymentDialog: React.FC<Props> = ({
       receiptFileId2,
       reason: values.reason || undefined,
     });
-  };
+  });
 
   const isBusy = loading || uploadingReceipt;
 

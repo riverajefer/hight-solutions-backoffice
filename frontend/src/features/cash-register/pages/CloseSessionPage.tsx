@@ -23,6 +23,7 @@ import DenominationForm, {
 import ConciliationSummary from '../components/ConciliationSummary';
 import { PATHS } from '../../../router/paths';
 import type { BalancePreview } from '../../../types/cash-register.types';
+import { useSingleFlight } from '../../../hooks/useSingleFlight';
 
 type Phase = 'counting' | 'reviewing';
 
@@ -54,11 +55,13 @@ const CloseSessionPage: React.FC = () => {
     }
   };
 
-  const handleConfirmClose = async () => {
+  // El cierre ciego es irreversible: dos clics en el mismo frame mandarían dos
+  // cierres del mismo arqueo.
+  const handleConfirmClose = useSingleFlight(async () => {
     const denominations = toDenominationDtoList(denominationRows);
     await closeSession.mutateAsync({ id, dto: { denominations } });
     navigate(PATHS.CASH_SESSION_HISTORY_DETAIL.replace(':id', id));
-  };
+  }, { keepLockedOnSuccess: true });
 
   if (sessionQuery.isLoading) {
     return (

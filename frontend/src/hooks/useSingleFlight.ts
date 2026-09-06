@@ -8,8 +8,11 @@ import { useCallback, useRef } from 'react';
  * entran los dos. Este candado es un `ref`, así que se cierra de forma síncrona,
  * antes del primer `await`.
  *
- * Los formularios de React Hook Form que envían con `handleSubmit(...)` ya están
- * protegidos por la propia librería y no necesitan este hook.
+ * Los formularios de React Hook Form **también lo necesitan**. `handleSubmit`
+ * no bloquea envíos reentrantes: emite `isSubmitting: true` y ejecuta el handler
+ * igual, así que dos clics en el mismo frame lo ejecutan dos veces (verificado
+ * en react-hook-form 7.71.2, `createFormControl.handleSubmit`). Envuelve el
+ * handler que le pasas, no el `handleSubmit`.
  *
  * @example
  * const handleSave = useSingleFlight(async () => {

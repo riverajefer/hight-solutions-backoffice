@@ -27,6 +27,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import { apPaymentReversalRequestsApi } from '../../../api/accounts-payable-payment-reversal-requests.api';
 import type { AccountPayablePaymentReversalRequest } from '../../../types/accounts-payable-payment-reversal.types';
+import { useSingleFlight } from '../../../hooks/useSingleFlight';
 
 const formatCurrency = (value: number | string) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(Number(value));
@@ -80,6 +81,22 @@ const PendingApReversalsCajaPanel: React.FC<{ hideWhenEmpty?: boolean }> = ({ hi
   });
 
   const isLoading2 = approveMutation.isPending || rejectMutation.isPending;
+
+  // `disabled={isLoading2}` no alcanza: el botón solo se deshabilita cuando
+  // React vuelve a renderizar, y dos clics en el mismo frame entran los dos.
+  // Confirmar la reversión dos veces devuelve el dinero dos veces.
+  const handleApprove = useSingleFlight(async () => {
+    if (!selected) return;
+    await approveMutation.mutateAsync(selected.id);
+  });
+
+  const handleReject = useSingleFlight(async () => {
+    if (!selected) return;
+    await rejectMutation.mutateAsync({
+      id: selected.id,
+      notes: rejectionNotes || undefined,
+    });
+  });
 
   const handleCloseDialog = () => {
     if (isLoading2) return;
@@ -252,7 +269,7 @@ const PendingApReversalsCajaPanel: React.FC<{ hideWhenEmpty?: boolean }> = ({ hi
                 <Button
                   variant="contained" color="error"
                   startIcon={isLoading2 ? <CircularProgress size={16} /> : <CheckCircleIcon />}
-                  onClick={() => approveMutation.mutate(selected.id)}
+                  onClick={handleApprove}
                   disabled={isLoading2}
                 >
                   Confirmar Reversión
@@ -264,7 +281,7 @@ const PendingApReversalsCajaPanel: React.FC<{ hideWhenEmpty?: boolean }> = ({ hi
                 <Button
                   variant="contained" color="error"
                   startIcon={isLoading2 ? <CircularProgress size={16} /> : <CancelIcon />}
-                  onClick={() => rejectMutation.mutate({ id: selected.id, notes: rejectionNotes || undefined })}
+                  onClick={handleReject}
                   disabled={isLoading2}
                 >
                   Confirmar Rechazo

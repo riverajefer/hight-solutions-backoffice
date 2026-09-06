@@ -17,6 +17,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { CashMovement } from '../../../types/cash-register.types';
+import { useSingleFlight } from '../../../hooks/useSingleFlight';
 
 const schema = z.object({
   voidReason: z.string().min(1, 'El motivo es requerido').max(500),
@@ -71,10 +72,13 @@ const VoidMovementDialog: React.FC<Props> = ({
     }
   }, [open, reset]);
 
-  const handleFormSubmit = async (data: FormData) => {
+  // `react-hook-form` 7.71 NO bloquea envíos reentrantes: `handleSubmit` marca
+  // `isSubmitting` pero ejecuta el handler igual, así que dos clics en el mismo
+  // frame llegan los dos.
+  const handleFormSubmit = useSingleFlight(async (data: FormData) => {
     if (!movement) return;
     await onSubmit(movement.id, data.voidReason);
-  };
+  });
 
   if (!movement) return null;
 

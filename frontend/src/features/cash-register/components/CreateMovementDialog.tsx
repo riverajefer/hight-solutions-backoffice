@@ -22,6 +22,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import type { CashMovementType } from '../../../types/cash-register.types';
 import axiosInstance from '../../../api/axios';
 import type { Order } from '../../../types/order.types';
+import { useSingleFlight } from '../../../hooks/useSingleFlight';
 
 const schema = z.object({
   amount: z
@@ -131,7 +132,10 @@ const CreateMovementDialog: React.FC<Props> = ({
     }
   };
 
-  const handleFormSubmit = async (data: FormData) => {
+  // `react-hook-form` 7.71 NO bloquea envíos reentrantes: `handleSubmit` marca
+  // `isSubmitting` pero ejecuta el handler igual, así que dos clics en el mismo
+  // frame llegan los dos.
+  const handleFormSubmit = useSingleFlight(async (data: FormData) => {
     await onSubmit({
       cashSessionId,
       movementType,
@@ -140,7 +144,7 @@ const CreateMovementDialog: React.FC<Props> = ({
       referenceType: linkToOrder && selectedOrder ? 'ORDER' : undefined,
       referenceId: linkToOrder && selectedOrder ? selectedOrder.id : undefined,
     });
-  };
+  });
 
   const color = MOVEMENT_TYPE_COLORS[movementType];
   const label = MOVEMENT_TYPE_LABELS[movementType];
