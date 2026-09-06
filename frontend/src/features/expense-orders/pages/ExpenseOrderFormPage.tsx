@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useSnackbar } from 'notistack';
+import { useSingleFlight } from '../../../hooks/useSingleFlight';
 import {
   Box,
   Button,
@@ -237,6 +239,7 @@ export const ExpenseOrderFormPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const { enqueueSnackbar } = useSnackbar();
   const isEditing = !!id;
 
   const [activeStep, setActiveStep] = useState(0);
@@ -298,6 +301,10 @@ export const ExpenseOrderFormPage = () => {
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const referenceFileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const prefillAppliedRef = useRef(false);
+  // Identidad de este formulario. Viaja en el POST para que, si igual se cuelan
+  // dos peticiones (reintento de axios, red intermitente), el backend devuelva
+  // la misma OG en vez de crear una gemela.
+  const idempotencyKeyRef = useRef(crypto.randomUUID());
 
   // ─── Data queries ───────────────────────────────────────────────────────────
   const { data: expenseTypes = [], isLoading: loadingTypes } = useExpenseTypes();
@@ -595,33 +602,59 @@ export const ExpenseOrderFormPage = () => {
     })) as CreateExpenseItemDto[],
   });
 
-  const handleSaveDraft = async () => {
-    const { receiptFileIds, referenceFileIds } = await uploadPendingFiles();
-    const payload = buildPayload(receiptFileIds, referenceFileIds);
-    if (isEditing) {
-      await updateExpenseOrderMutation.mutateAsync({ id: id!, dto: payload as UpdateExpenseOrderDto });
-      navigate(ROUTES.EXPENSE_ORDERS_DETAIL.replace(':id', id!));
-    } else {
-      const og = await createExpenseOrderMutation.mutateAsync({ dto: payload });
-      navigate(ROUTES.EXPENSE_ORDERS_DETAIL.replace(':id', og.id));
+  /**
+   * Avisa de lo que falla ANTES de la mutación —una subida de archivo, por
+   * ejemplo—, que es lo único que no anuncia el `onError` de la mutación.
+   */
+  const reportPreflightError = (error: unknown) => {
+    const isApiError =
+      typeof error === 'object' && error !== null && 'response' in error;
+    if (!isApiError) {
+      enqueueSnackbar('No se pudo guardar la orden de gasto. Intenta de nuevo.', {
+        variant: 'error',
+      });
     }
   };
 
-  const handleCreate = async () => {
-    const { receiptFileIds, referenceFileIds } = await uploadPendingFiles();
-    const payload = buildPayload(receiptFileIds, referenceFileIds);
-    if (isEditing) {
-      await updateExpenseOrderMutation.mutateAsync({ id: id!, dto: payload as UpdateExpenseOrderDto });
-      navigate(ROUTES.EXPENSE_ORDERS_DETAIL.replace(':id', id!));
-    } else {
-      const og = await createExpenseOrderMutation.mutateAsync({
-        dto: payload,
-        confirmed: true,
-      });
-      // Show informational dialog before navigating
-      setCreatedOg({ id: og.id, ogNumber: og.ogNumber });
+  const handleSaveDraft = useSingleFlight(async () => {
+    try {
+      const { receiptFileIds, referenceFileIds } = await uploadPendingFiles();
+      const payload = buildPayload(receiptFileIds, referenceFileIds);
+      if (isEditing) {
+        await updateExpenseOrderMutation.mutateAsync({ id: id!, dto: payload as UpdateExpenseOrderDto });
+        navigate(ROUTES.EXPENSE_ORDERS_DETAIL.replace(':id', id!));
+      } else {
+        const og = await createExpenseOrderMutation.mutateAsync({
+          dto: { ...payload, idempotencyKey: idempotencyKeyRef.current },
+        });
+        navigate(ROUTES.EXPENSE_ORDERS_DETAIL.replace(':id', og.id));
+      }
+    } catch (error) {
+      reportPreflightError(error);
+      throw error;
     }
-  };
+  });
+
+  const handleCreate = useSingleFlight(async () => {
+    try {
+      const { receiptFileIds, referenceFileIds } = await uploadPendingFiles();
+      const payload = buildPayload(receiptFileIds, referenceFileIds);
+      if (isEditing) {
+        await updateExpenseOrderMutation.mutateAsync({ id: id!, dto: payload as UpdateExpenseOrderDto });
+        navigate(ROUTES.EXPENSE_ORDERS_DETAIL.replace(':id', id!));
+      } else {
+        const og = await createExpenseOrderMutation.mutateAsync({
+          dto: { ...payload, idempotencyKey: idempotencyKeyRef.current },
+          confirmed: true,
+        });
+        // Show informational dialog before navigating
+        setCreatedOg({ id: og.id, ogNumber: og.ogNumber });
+      }
+    } catch (error) {
+      reportPreflightError(error);
+      throw error;
+    }
+  });
 
   const handleCreatedDialogClose = () => {
     if (createdOg) {

@@ -230,6 +230,12 @@ export interface CreateExpenseOrderDto {
   reteICARate?: number;
   reteIVARate?: number;
   items: CreateExpenseItemDto[];
+  /**
+   * UUID generado una vez por formulario. Si un doble clic manda dos peticiones,
+   * el backend reconoce la segunda por esta llave y devuelve la OG que ya creó
+   * en vez de gastar otro consecutivo. Solo aplica al crear.
+   */
+  idempotencyKey?: string;
 }
 
 export interface UpdateExpenseItemDto {
