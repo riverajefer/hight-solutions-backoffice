@@ -9,6 +9,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import {
   ApPaymentReversalStatus,
   NotificationType,
+  Prisma,
 } from '../../generated/prisma';
 import { AuthenticatedUser } from '../../common/interfaces/auth.interface';
 import {
@@ -227,18 +228,31 @@ export class AccountsPayablePaymentReversalRequestsService {
         });
       }
 
-      // 4. Revertir balance en AccountPayable
+      // 4. Revertir balance en AccountPayable.
+      //
+      // Se recalcula desde los pagos que siguen vivos, no restándole el monto al
+      // acumulado: una CP que ya venía descuadrada se corrige sola al revertir,
+      // y desaparecen los topes defensivos (`< 0 ? 0`, `> total ? total`) que
+      // existían para tapar justamente esa deriva. Con Decimal, además, no hay
+      // residuos de coma flotante decidiendo si la cuenta queda en PENDING.
+      const vivos = await tx.accountPayablePayment.findMany({
+        where: { accountPayableId: ap.id, isReversed: false },
+        select: { amount: true },
+      });
+
       const currentAp = await tx.accountPayable.findUniqueOrThrow({ where: { id: ap.id } });
-      const newPaidAmount = Number(currentAp.paidAmount) - paymentAmount;
-      const newBalance = Number(currentAp.totalAmount) - newPaidAmount;
-      const newStatus = newPaidAmount <= 0 ? 'PENDING' : 'PARTIAL';
+      const newPaidAmount = vivos.reduce(
+        (sum, p) => sum.add(p.amount),
+        new Prisma.Decimal(0),
+      );
+      const newBalance = new Prisma.Decimal(currentAp.totalAmount).sub(newPaidAmount);
 
       await tx.accountPayable.update({
         where: { id: ap.id },
         data: {
-          paidAmount: newPaidAmount < 0 ? 0 : newPaidAmount,
-          balance: newBalance > Number(currentAp.totalAmount) ? Number(currentAp.totalAmount) : newBalance,
-          status: newStatus as any,
+          paidAmount: newPaidAmount,
+          balance: newBalance,
+          status: newPaidAmount.lessThanOrEqualTo(0) ? 'PENDING' : 'PARTIAL',
         },
       });
     });

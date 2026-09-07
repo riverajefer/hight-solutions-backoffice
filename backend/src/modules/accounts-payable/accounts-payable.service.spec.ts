@@ -25,6 +25,23 @@ const apStub = (overrides: Record<string, any> = {}) => ({
   ...overrides,
 });
 
+
+/**
+ * Compara un monto sin importar si el código lo entrega como `Prisma.Decimal`,
+ * número o cadena. Los montos guardados pasaron de `number` a `Decimal` para
+ * evitar residuos de coma flotante; lo que importa del test es el valor.
+ */
+const monto = (esperado: number) =>
+  expect.objectContaining({
+    toString: expect.any(Function),
+  }) && ({
+    asymmetricMatch: (recibido: unknown) =>
+      recibido !== null &&
+      recibido !== undefined &&
+      Number(recibido.toString()) === esperado,
+    toString: () => `monto(${esperado})`,
+  } as unknown as number);
+
 describe('AccountsPayableService', () => {
   let service: AccountsPayableService;
   let repository: any;
@@ -317,7 +334,7 @@ describe('AccountsPayableService', () => {
 
       expect(repository.update).toHaveBeenCalledWith(
         'ap-1',
-        expect.objectContaining({ totalAmount: 120000, balance: 120000 }),
+        expect.objectContaining({ totalAmount: 120000, balance: monto(120000) }),
       );
     });
 
@@ -388,8 +405,8 @@ describe('AccountsPayableService', () => {
       expect(repository.update).toHaveBeenCalledWith(
         'ap-1',
         expect.objectContaining({
-          paidAmount: 40000,
-          balance: 60000,
+          paidAmount: monto(40000),
+          balance: monto(60000),
           status: AccountPayableStatus.PARTIAL,
         }),
       );
@@ -405,7 +422,7 @@ describe('AccountsPayableService', () => {
 
       expect(repository.update).toHaveBeenCalledWith(
         'ap-1',
-        expect.objectContaining({ status: AccountPayableStatus.PAID, balance: 0 }),
+        expect.objectContaining({ status: AccountPayableStatus.PAID, balance: monto(0) }),
       );
     });
 
@@ -642,7 +659,7 @@ describe('AccountsPayableService', () => {
       await service.syncFromExpenseOrder('ap-1', { totalAmount: 70000 });
       expect(repository.update).toHaveBeenCalledWith(
         'ap-1',
-        expect.objectContaining({ totalAmount: 70000, balance: 60000 }),
+        expect.objectContaining({ totalAmount: 70000, balance: monto(60000) }),
       );
     });
 

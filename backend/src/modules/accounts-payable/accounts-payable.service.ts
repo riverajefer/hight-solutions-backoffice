@@ -283,7 +283,7 @@ export class AccountsPayableService {
       });
       updateData.subtotalAmount = subtotalAmount;
       updateData.totalAmount = totalAmount;
-      updateData.balance = totalAmount - Number(ap.paidAmount);
+      updateData.balance = new Prisma.Decimal(totalAmount).sub(ap.paidAmount);
     }
 
     // Recalcular el vínculo de anticipo si cambian el tipo/subcategoría o el
@@ -405,10 +405,16 @@ export class AccountsPayableService {
     cashSessionId?: string,
     paymentAuthRequestId?: string,
   ) {
-    const newPaidAmount = Number(paidAmount) + dto.amount;
-    const newBalance = Number(totalAmount) - newPaidAmount;
-    const newStatus =
-      newBalance <= 0 ? AccountPayableStatus.PAID : AccountPayableStatus.PARTIAL;
+    // El dinero se suma con Decimal, no con `Number`: los totales de CP traen
+    // centavos (68 de las cuentas en producción vienen de OG con retenciones) y
+    // la resta en coma flotante deja residuos del tipo `234567.88000000012`.
+    // Ese residuo decide el estado: `newBalance <= 0` es lo que marca la CP como
+    // pagada, y un `1e-10` la dejaría en PARTIAL para siempre.
+    const newPaidAmount = new Prisma.Decimal(paidAmount as never).add(dto.amount);
+    const newBalance = new Prisma.Decimal(totalAmount as never).sub(newPaidAmount);
+    const newStatus = newBalance.lessThanOrEqualTo(0)
+      ? AccountPayableStatus.PAID
+      : AccountPayableStatus.PARTIAL;
 
     let cashMovementId: string | undefined;
 
@@ -603,7 +609,7 @@ export class AccountsPayableService {
 
     if (data.totalAmount !== undefined) {
       updateData.totalAmount = data.totalAmount;
-      updateData.balance = data.totalAmount - Number(ap.paidAmount);
+      updateData.balance = new Prisma.Decimal(data.totalAmount).sub(ap.paidAmount);
     }
 
     if (Object.keys(updateData).length > 0) {

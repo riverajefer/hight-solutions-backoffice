@@ -289,7 +289,7 @@ ruidoso.
 
 ---
 
-## 7. Aritmética de dinero en coma flotante en Cuentas por Pagar — **Baja**
+## 7. Aritmética de dinero en coma flotante en Cuentas por Pagar — **Baja** · ✅ Corregido
 
 [accounts-payable.service.ts:482](../backend/src/modules/accounts-payable/accounts-payable.service.ts#L482)
 y
@@ -300,6 +300,32 @@ justo el patrón que produce `234567.88000000012`.
 **No hay daño hoy**: cero filas en producción con más de 2 decimales en
 `paid_amount` o `balance`. Pero la comparación `newPaidAmount <= 0` decide el
 estado de la CP, y un residuo de `1e-10` la dejaría en PARTIAL para siempre.
+
+### Corrección aplicada
+
+`Prisma.Decimal` en los cuatro puntos donde el resultado **se guarda**:
+
+- `executePayment` — la suma del pago y el saldo resultante, que es lo que
+  decide si la CP queda PAID.
+- Los dos recálculos de `balance` al cambiar el total de la CP
+  (`update` y `syncFromExpenseOrder`).
+- La reversión con aprobación de Caja.
+
+Las comparaciones que solo validan (`dto.amount > currentBalance`, la suma de
+cuotas) se dejaron en `Number`: no acumulan nada en la base.
+
+**En la reversión aproveché para hacer el mismo cambio que en la anulación**: el
+saldo se recalcula desde los pagos vivos en vez de restarle el monto al
+acumulado. Con eso desaparecen los dos topes defensivos que había
+(`newPaidAmount < 0 ? 0` y `newBalance > total ? total`), que existían justamente
+para tapar la deriva que producía la resta.
+
+**Verificado contra producción**: cero CP con `paid_amount` distinto de la suma
+de sus pagos vivos, así que no hay nada que sanear.
+
+Los tests tenían las cifras clavadas como números; se hicieron indiferentes al
+tipo (comparan valor, no representación) y se agregó un caso de reversión con
+otros pagos vivos, partiendo a propósito de una CP con el acumulado corrupto.
 
 ---
 
