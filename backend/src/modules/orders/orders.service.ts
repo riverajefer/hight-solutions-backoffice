@@ -47,7 +47,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { CashMovementService } from '../cash-movement/cash-movement.service';
 import { CashMovementVoidRequestsService } from '../cash-movement-void-requests/cash-movement-void-requests.service';
 import { startOfDay, endOfDay, businessToday } from '../../common/utils/date-range.util';
-import { applyColombianRounding, roundToWholePeso } from '../../common/utils/rounding.util';
+import { applyColombianRounding, roundToWholePeso, normalizeRate } from '../../common/utils/rounding.util';
 import {
   ACTIVE_PAYMENT_WHERE,
   computeNetPaidAmount,
@@ -623,9 +623,9 @@ export class OrdersService {
     const tax = subtotal.mul(taxRate);
     const discountAmount = new Prisma.Decimal(0);
 
-    const retefuenteRate = new Prisma.Decimal(createOrderDto.retefuenteRate ?? 0);
-    const reteICARate = new Prisma.Decimal(createOrderDto.reteICARate ?? 0);
-    const reteIVARate = new Prisma.Decimal(createOrderDto.reteIVARate ?? 0);
+    const retefuenteRate = normalizeRate(createOrderDto.retefuenteRate);
+    const reteICARate = normalizeRate(createOrderDto.reteICARate);
+    const reteIVARate = normalizeRate(createOrderDto.reteIVARate);
     const retefuenteAmount = subtotal.mul(retefuenteRate);
     const reteICAAmount = subtotal.mul(reteICARate);
     const reteIVAAmount = tax.mul(reteIVARate);
@@ -1145,13 +1145,13 @@ export class OrdersService {
               taxRate: new Prisma.Decimal(updateOrderDto.taxRate),
             }),
             ...(updateOrderDto.retefuenteRate !== undefined && {
-              retefuenteRate: new Prisma.Decimal(updateOrderDto.retefuenteRate),
+              retefuenteRate: normalizeRate(updateOrderDto.retefuenteRate),
             }),
             ...(updateOrderDto.reteICARate !== undefined && {
-              reteICARate: new Prisma.Decimal(updateOrderDto.reteICARate),
+              reteICARate: normalizeRate(updateOrderDto.reteICARate),
             }),
             ...(updateOrderDto.reteIVARate !== undefined && {
-              reteIVARate: new Prisma.Decimal(updateOrderDto.reteIVARate),
+              reteIVARate: normalizeRate(updateOrderDto.reteIVARate),
             }),
           },
         });
