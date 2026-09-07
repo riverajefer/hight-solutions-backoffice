@@ -28,6 +28,7 @@ const ADVANCE_EXPENSE_TYPE = 'personal';
 const ADVANCE_EXPENSE_SUBCATEGORY = 'anticipos';
 
 import { computeExpenseTotals } from '../../common/utils/expense-totals.util';
+import { normalizeRate } from '../../common/utils/rounding.util';
 
 @Injectable()
 export class AccountsPayableService {
@@ -132,8 +133,8 @@ export class AccountsPayableService {
       balance: totalAmount,
       applyIva: dto.applyIva ?? false,
       ivaRate: dto.ivaRate ?? 0.19,
-      retefuenteRate: dto.retefuenteRate ?? 0,
-      reteICARate: dto.reteICARate ?? 0,
+      retefuenteRate: normalizeRate(dto.retefuenteRate),
+      reteICARate: normalizeRate(dto.reteICARate),
       reteIVARate: dto.reteIVARate ?? 0,
       dueDate: new Date(dto.dueDate),
       isRecurring: dto.isRecurring ?? false,
@@ -263,8 +264,8 @@ export class AccountsPayableService {
     if (dto.recurringFrequency !== undefined) updateData.recurringFrequency = dto.recurringFrequency;
     if (dto.applyIva !== undefined) updateData.applyIva = dto.applyIva;
     if (dto.ivaRate !== undefined) updateData.ivaRate = dto.ivaRate;
-    if (dto.retefuenteRate !== undefined) updateData.retefuenteRate = dto.retefuenteRate;
-    if (dto.reteICARate !== undefined) updateData.reteICARate = dto.reteICARate;
+    if (dto.retefuenteRate !== undefined) updateData.retefuenteRate = normalizeRate(dto.retefuenteRate);
+    if (dto.reteICARate !== undefined) updateData.reteICARate = normalizeRate(dto.reteICARate);
     if (dto.reteIVARate !== undefined) updateData.reteIVARate = dto.reteIVARate;
     if (dto.supplierId !== undefined) {
       updateData.supplier = dto.supplierId
@@ -601,8 +602,8 @@ export class AccountsPayableService {
     if (data.expenseSubcategoryId !== undefined) updateData.expenseSubcategory = { connect: { id: data.expenseSubcategoryId } };
     if (data.applyIva !== undefined) updateData.applyIva = data.applyIva;
     if (data.ivaRate !== undefined) updateData.ivaRate = data.ivaRate;
-    if (data.retefuenteRate !== undefined) updateData.retefuenteRate = data.retefuenteRate;
-    if (data.reteICARate !== undefined) updateData.reteICARate = data.reteICARate;
+    if (data.retefuenteRate !== undefined) updateData.retefuenteRate = normalizeRate(data.retefuenteRate);
+    if (data.reteICARate !== undefined) updateData.reteICARate = normalizeRate(data.reteICARate);
     if (data.reteIVARate !== undefined) updateData.reteIVARate = data.reteIVARate;
 
     if (data.subtotalAmount !== undefined) updateData.subtotalAmount = data.subtotalAmount;
