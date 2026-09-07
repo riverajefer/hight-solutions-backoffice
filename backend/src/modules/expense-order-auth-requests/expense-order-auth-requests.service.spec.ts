@@ -173,9 +173,21 @@ describe('ExpenseOrderAuthRequestsService', () => {
     // realmente impide el duplicado: dos peticiones concurrentes pasan las dos la
     // validación de arriba, y la perdedora llega acá con P2002.
     describe('cuando dos peticiones concurrentes pasan la validación', () => {
+      // Forma real del error con el adaptador `PrismaPg`: `meta.target` viene
+      // vacío y el nombre del índice viaja en `meta.driverAdapterError`. El
+      // mock anterior usaba `target`, la forma del motor nativo, y por eso el
+      // test pasaba mientras producción devolvía un 500.
       const uniqueViolation = Object.assign(new Error('Unique constraint failed'), {
         code: 'P2002',
-        meta: { target: 'expense_order_auth_requests_pending_unique' },
+        meta: {
+          driverAdapterError: {
+            cause: {
+              constraint: { fields: ['expense_order_id', 'requested_by_id'] },
+              originalMessage:
+                'duplicate key value violates unique constraint "expense_order_auth_requests_pending_unique"',
+            },
+          },
+        },
       });
 
       beforeEach(() => {
@@ -216,7 +228,15 @@ describe('ExpenseOrderAuthRequestsService', () => {
       it('propaga cualquier otro P2002 que no sea el del índice de pendientes', async () => {
         const otraViolacion = Object.assign(new Error('Unique constraint failed'), {
           code: 'P2002',
-          meta: { target: ['otra_restriccion'] },
+          meta: {
+            driverAdapterError: {
+              cause: {
+                constraint: { fields: ['otra_columna'] },
+                originalMessage:
+                  'duplicate key value violates unique constraint "otra_restriccion"',
+              },
+            },
+          },
         });
         mockPrismaService.expenseOrderAuthRequest.create.mockRejectedValue(otraViolacion);
 

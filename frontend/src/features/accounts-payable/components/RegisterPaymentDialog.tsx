@@ -37,6 +37,7 @@ import {
 } from '../../../utils/currencyInput';
 import { storageApi } from '../../../api/storage.api';
 import { BankSelector } from '../../../components/common/BankSelector';
+import { useSingleFlight } from '../../../hooks/useSingleFlight';
 
 const schema = z.object({
   amount: z.string().min(1, 'Ingresa el monto del pago'),
@@ -109,7 +110,10 @@ export const RegisterPaymentDialog: React.FC<RegisterPaymentDialogProps> = ({
     }
   }, []);
 
-  const handleFormSubmit = async (values: FormValues) => {
+  // `react-hook-form` 7.71 NO bloquea envíos reentrantes: `handleSubmit` marca
+  // `isSubmitting` pero ejecuta el handler igual, así que dos clics en el mismo
+  // frame llegan los dos.
+  const handleFormSubmit = useSingleFlight(async (values: FormValues) => {
     let receiptFileId: string | undefined;
 
     if (receiptFile) {
@@ -134,7 +138,7 @@ export const RegisterPaymentDialog: React.FC<RegisterPaymentDialogProps> = ({
       bankEntity: values.paymentMethod === PaymentMethod.TRANSFER ? values.bankEntity ?? null : null,
       receiptFileId,
     });
-  };
+  });
 
   const isImage = receiptFile?.type.startsWith('image/');
 

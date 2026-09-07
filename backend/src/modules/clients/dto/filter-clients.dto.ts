@@ -1,9 +1,10 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsBoolean, IsDateString, IsOptional } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 export class FilterClientsDto {
   @ApiPropertyOptional({ description: 'Incluir clientes inactivos' })
+  @Type(() => String)
   @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   @IsOptional()

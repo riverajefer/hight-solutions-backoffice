@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import VoidPaymentDialog from './VoidPaymentDialog';
 import type { Payment } from '../../../types/order.types';
@@ -104,5 +104,36 @@ describe('VoidPaymentDialog', () => {
         'Pago duplicado, el mismo soporte ya se registró',
       ),
     );
+  });
+
+  // `handleSubmit` de react-hook-form no bloquea envíos reentrantes: emite
+  // `isSubmitting: true` y ejecuta el handler igual. El botón tampoco alcanza,
+  // porque `disabled` solo surte efecto en el siguiente render. Anular un pago
+  // dos veces mueve la caja dos veces.
+  it('no envía dos veces con un doble clic en el mismo frame', async () => {
+    let resolveSubmit: () => void = () => {};
+    const onSubmit = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSubmit = resolve;
+        }),
+    );
+    renderDialog({}, onSubmit);
+    const user = userEvent.setup();
+
+    await user.type(
+      screen.getByLabelText(/Motivo/i),
+      'Pago duplicado, el mismo soporte ya se registró',
+    );
+
+    const button = screen.getByRole('button', { name: /Anular pago/i });
+    // Sin esperar entre clics: es el doble clic real del usuario impaciente.
+    fireEvent.click(button);
+    fireEvent.click(button);
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+
+    resolveSubmit();
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
   });
 });

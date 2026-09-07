@@ -4,6 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import {
   OrdersRepository,
@@ -12,6 +13,7 @@ import {
   DELIVERED_ORDER_STATUSES,
 } from './orders.repository';
 import { ConsecutivesService } from '../consecutives/consecutives.service';
+import { isUniqueViolationOn } from '../../common/utils/unique-violation.util';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { StorageService } from '../storage/storage.service';
 import { OrderStatusChangeRequestsService } from '../order-status-change-requests/order-status-change-requests.service';
@@ -135,6 +137,31 @@ interface CascadedWorkOrderItem {
     status: WorkOrderStatus;
   };
 }
+
+/**
+ * Forma con la que se devuelve un pago recién registrado. Vive fuera de la clase
+ * porque la usan tanto `addPayment` como la búsqueda por llave de idempotencia:
+ * la petición gemela de un doble clic tiene que recibir exactamente lo mismo.
+ */
+const PAYMENT_RESPONSE_SELECT = {
+  id: true,
+  amount: true,
+  paymentMethod: true,
+  paymentDate: true,
+  reference: true,
+  notes: true,
+  bankEntity: true,
+  receiptFileId: true,
+  createdAt: true,
+  receivedBy: {
+    select: {
+      id: true,
+      email: true,
+      firstName: true,
+      lastName: true,
+    },
+  },
+} as const;
 
 @Injectable()
 export class OrdersService {
@@ -548,6 +575,18 @@ export class OrdersService {
       throw new BadRequestException('Order must have at least one item');
     }
 
+    // Doble clic en "Crear orden": el formulario manda la misma llave en las dos
+    // peticiones. Si la primera ya insertó, devolvemos esa OP en lugar de gastar
+    // otro consecutivo y dejar al cliente con dos pedidos. Esta lectura es
+    // check-then-act; la garantía real es el índice único de `idempotency_key`,
+    // que se atrapa dentro del bucle de creación.
+    if (createOrderDto.idempotencyKey) {
+      const existing = await this.ordersRepository.findByIdempotencyKey(
+        createOrderDto.idempotencyKey,
+      );
+      if (existing) return existing;
+    }
+
     // Generar número de orden
     const orderNumber = await this.consecutivesService.generateNumber('ORDER');
 
@@ -719,6 +758,7 @@ export class OrdersService {
       try {
         newOrder = await this.ordersRepository.create({
           orderNumber: currentOrderNumber,
+          idempotencyKey: createOrderDto.idempotencyKey,
           orderDate: new Date(),
           deliveryDate: createOrderDto.deliveryDate
             ? new Date(createOrderDto.deliveryDate)
@@ -750,6 +790,26 @@ export class OrdersService {
         break; // Éxito, salir del bucle
       } catch (error: any) {
         attempts++;
+
+        // La petición gemela de un doble clic ganó la carrera: la OP ya existe
+        // con esta misma llave. Devolvemos esa, sin reintentar con otro
+        // consecutivo — reintentar es justo lo que crea el duplicado.
+        if (
+          createOrderDto.idempotencyKey &&
+          isUniqueViolationOn(error, 'idempotency_key')
+        ) {
+          const twin = await this.ordersRepository.findByIdempotencyKey(
+            createOrderDto.idempotencyKey,
+          );
+          if (twin) return twin;
+
+          // La gemela existe (por eso chocamos) pero su transacción todavía no
+          // es visible. Volver a intentar crearía el duplicado que esta llave
+          // existe para evitar.
+          throw new ConflictException(
+            'Ya se está creando una orden con esta misma solicitud. Espera un momento y revisa la lista.',
+          );
+        }
 
         if (error.code !== 'P2002' || attempts >= maxAttempts) {
           throw error;
@@ -1897,6 +1957,18 @@ export class OrdersService {
     createPaymentDto: CreatePaymentDto,
     receivedById: string,
   ) {
+    // Doble clic en "Registrar abono": el diálogo manda la misma llave en las
+    // dos peticiones. Si la primera ya insertó, devolvemos ese pago en lugar de
+    // inflar `paidAmount` y el arqueo de caja con un abono que nadie recibió.
+    // Esta lectura es check-then-act; la garantía real es el índice único de
+    // `idempotency_key`, que se atrapa más abajo.
+    if (createPaymentDto.idempotencyKey) {
+      const existing = await this.findPaymentByIdempotencyKey(
+        createPaymentDto.idempotencyKey,
+      );
+      if (existing) return existing;
+    }
+
     const order = await this.findOne(orderId);
     this.assertNotAnulado(order, 'registrar pago');
 
@@ -1932,7 +2004,7 @@ export class OrdersService {
     // y puede devolverse al cliente mediante el flujo de RefundRequest.
 
     // Usar transacción simple y luego obtener el pago completo
-    const paymentId = await this.prisma.$transaction(async (tx) => {
+    const runPayment = () => this.prisma.$transaction(async (tx) => {
       // Si hay sesión de caja, generar un número de recibo e insertar el movimiento
       // de caja. El saldo a favor se excluye: ese dinero ya entró a caja cuando el
       // cliente sobrepagó la orden de origen.
@@ -1970,6 +2042,7 @@ export class OrdersService {
           bankEntity: createPaymentDto.bankEntity ?? null,
           receiptFileId: createPaymentDto.receiptFileId,
           receivedById,
+          idempotencyKey: createPaymentDto.idempotencyKey,
           cashMovementId, // Vincular movimiento de caja si se creó
           // Sin caja abierta el abono no puede generar movimiento ahora, pero
           // tampoco debe perderse: queda en cola y entra al abrir la próxima
@@ -2013,28 +2086,36 @@ export class OrdersService {
       return payment.id;
     });
 
+    // La petición gemela de un doble clic ganó la carrera: el abono ya existe
+    // con esta misma llave. Devolvemos ese pago; reintentar la transacción es
+    // justo lo que duplicaría el dinero en caja.
+    let paymentId: string;
+    try {
+      paymentId = await runPayment();
+    } catch (error) {
+      if (
+        !createPaymentDto.idempotencyKey ||
+        !isUniqueViolationOn(error, 'idempotency_key')
+      ) {
+        throw error;
+      }
+
+      const twin = await this.findPaymentByIdempotencyKey(
+        createPaymentDto.idempotencyKey,
+      );
+      if (twin) return twin;
+
+      // La gemela existe (por eso chocamos) pero su transacción todavía no es
+      // visible. Reintentar registraría el abono dos veces.
+      throw new ConflictException(
+        'Ya se está registrando este abono. Espera un momento y revisa el historial de pagos.',
+      );
+    }
+
     // Obtener el pago completo fuera de la transacción
     const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
-      select: {
-        id: true,
-        amount: true,
-        paymentMethod: true,
-        paymentDate: true,
-        reference: true,
-        notes: true,
-        bankEntity: true,
-        receiptFileId: true,
-        createdAt: true,
-        receivedBy: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-      },
+      select: PAYMENT_RESPONSE_SELECT,
     });
 
     // Verificar si el pago requiere aprobación de Caja (usuario sin permiso approve_advance_payments)
@@ -2049,6 +2130,18 @@ export class OrdersService {
     }
 
     return payment;
+  }
+
+  /**
+   * Busca el pago creado con una llave de idempotencia dada, con la misma forma
+   * que devuelve `addPayment`, para que la petición gemela de un doble clic
+   * reciba exactamente lo mismo que recibió la ganadora.
+   */
+  private async findPaymentByIdempotencyKey(idempotencyKey: string) {
+    return this.prisma.payment.findUnique({
+      where: { idempotencyKey },
+      select: PAYMENT_RESPONSE_SELECT,
+    });
   }
 
   async getPayments(orderId: string) {

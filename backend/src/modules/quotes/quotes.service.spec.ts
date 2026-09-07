@@ -70,6 +70,9 @@ const txMock = {
   prospect: {
     updateMany: jest.fn(),
   },
+  user: {
+    findUnique: jest.fn(),
+  },
 };
 
 const mockPrismaService = {
@@ -157,6 +160,14 @@ describe('QuotesService', () => {
   // findAll
   // ─────────────────────────────────────────────
   describe('findAll', () => {
+    // Por defecto, un usuario que ve todas: estos casos verifican el armado de
+    // filtros, no el alcance. El alcance tiene su propio bloque más abajo.
+    beforeEach(() => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        role: { permissions: [{ permission: { name: 'read_all_quotes' } }] },
+      });
+    });
+
     it('should return a paginated list of quotes', async () => {
       const filters = { page: 1, limit: 10 };
       mockQuotesRepository.findAll.mockResolvedValue({
@@ -164,7 +175,7 @@ describe('QuotesService', () => {
         meta: { total: 1, page: 1, limit: 10, totalPages: 1 },
       });
 
-      const result = await service.findAll(filters);
+      const result = await service.findAll(filters, 'user-1');
 
       expect(mockQuotesRepository.findAll).toHaveBeenCalledWith(
         expect.objectContaining({ page: 1, limit: 10 }),
@@ -172,7 +183,11 @@ describe('QuotesService', () => {
       expect(result.data).toEqual([mockQuote]);
     });
 
-    it('should convert date strings to Date objects for filters', async () => {
+    // Los filtros por día se expanden al día completo en hora Colombia. Con
+    // `new Date(...)` a secas, el `dateTo` era medianoche UTC —el 30 a las 7
+    // p. m. en Bogotá— y el día elegido como «hasta» desaparecía entero:
+    // filtrar del 24 al 24 de julio devolvía 0 de las 10 cotizaciones de ese día.
+    it('expande los filtros de fecha al día completo en hora Colombia', async () => {
       const filters = {
         page: 1,
         limit: 10,
@@ -184,14 +199,35 @@ describe('QuotesService', () => {
         meta: { total: 0, page: 1, limit: 10, totalPages: 0 },
       });
 
-      await service.findAll(filters);
+      await service.findAll(filters, 'user-1');
 
       expect(mockQuotesRepository.findAll).toHaveBeenCalledWith(
         expect.objectContaining({
-          dateFrom: new Date('2026-01-01'),
-          dateTo: new Date('2026-01-31'),
+          dateFrom: new Date('2026-01-01T00:00:00.000-05:00'),
+          dateTo: new Date('2026-01-31T23:59:59.999-05:00'),
         }),
       );
+    });
+
+    // El caso que reventaba: una cotización creada ese mismo día a media mañana
+    // tiene que caer dentro del rango.
+    it('incluye una cotización del propio día elegido como "hasta"', async () => {
+      mockQuotesRepository.findAll.mockResolvedValue({
+        data: [],
+        meta: { total: 0, page: 1, limit: 10, totalPages: 0 },
+      });
+
+      await service.findAll(
+        { page: 1, limit: 10, dateFrom: '2026-07-24', dateTo: '2026-07-24' },
+        'user-1',
+      );
+
+      const { dateFrom, dateTo } = mockQuotesRepository.findAll.mock.calls[0][0];
+      // 24 de julio, 10:00 de la mañana en Colombia.
+      const cotizacion = new Date('2026-07-24T10:00:00.000-05:00');
+
+      expect(cotizacion >= dateFrom).toBe(true);
+      expect(cotizacion <= dateTo).toBe(true);
     });
 
     it('should pass undefined for optional date filters when not provided', async () => {
@@ -201,7 +237,7 @@ describe('QuotesService', () => {
         meta: { total: 0, page: 1, limit: 10, totalPages: 0 },
       });
 
-      await service.findAll(filters);
+      await service.findAll(filters, 'user-1');
 
       expect(mockQuotesRepository.findAll).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -212,6 +248,89 @@ describe('QuotesService', () => {
       );
     });
 
+    // El alcance por asesor no puede vivir en el cliente: `createdById` es un
+    // filtro más de la query y basta quitarlo de la petición para ver todo.
+    describe('alcance por asesor', () => {
+      const conPermiso = (nombres: string[]) => ({
+        role: { permissions: nombres.map((name) => ({ permission: { name } })) },
+      });
+
+      beforeEach(() => {
+        mockQuotesRepository.findAll.mockResolvedValue({
+          data: [],
+          meta: { total: 0, page: 1, limit: 10, totalPages: 0 },
+        });
+      });
+
+      it('sin read_all_quotes solo devuelve las propias', async () => {
+        mockPrismaService.user.findUnique.mockResolvedValue(
+          conPermiso(['read_quotes']),
+        );
+
+        await service.findAll({ page: 1, limit: 10 }, 'asesor-1');
+
+        expect(mockQuotesRepository.findAll).toHaveBeenCalledWith(
+          expect.objectContaining({ createdById: 'asesor-1' }),
+        );
+      });
+
+      // El intento de evasión: mandar el id de otro asesor en la query.
+      it('sin read_all_quotes ignora el createdById que venga del cliente', async () => {
+        mockPrismaService.user.findUnique.mockResolvedValue(
+          conPermiso(['read_quotes']),
+        );
+
+        await service.findAll(
+          { page: 1, limit: 10, createdById: 'otro-asesor' },
+          'asesor-1',
+        );
+
+        expect(mockQuotesRepository.findAll).toHaveBeenCalledWith(
+          expect.objectContaining({ createdById: 'asesor-1' }),
+        );
+      });
+
+      it('con read_all_quotes no acota nada', async () => {
+        mockPrismaService.user.findUnique.mockResolvedValue(
+          conPermiso(['read_quotes', 'read_all_quotes']),
+        );
+
+        await service.findAll({ page: 1, limit: 10 }, 'admin-1');
+
+        expect(mockQuotesRepository.findAll).toHaveBeenCalledWith(
+          expect.objectContaining({ createdById: undefined }),
+        );
+      });
+
+      it('con read_all_quotes respeta el filtro por asesor de la pantalla', async () => {
+        mockPrismaService.user.findUnique.mockResolvedValue(
+          conPermiso(['read_quotes', 'read_all_quotes']),
+        );
+
+        await service.findAll(
+          { page: 1, limit: 10, createdById: 'asesor-2' },
+          'admin-1',
+        );
+
+        expect(mockQuotesRepository.findAll).toHaveBeenCalledWith(
+          expect.objectContaining({ createdById: 'asesor-2' }),
+        );
+      });
+
+      it('un usuario sin rol tampoco ve las de los demás', async () => {
+        mockPrismaService.user.findUnique.mockResolvedValue(null);
+
+        await service.findAll(
+          { page: 1, limit: 10, createdById: 'otro-asesor' },
+          'huerfano-1',
+        );
+
+        expect(mockQuotesRepository.findAll).toHaveBeenCalledWith(
+          expect.objectContaining({ createdById: 'huerfano-1' }),
+        );
+      });
+    });
+
     it('should pass clientId filter when provided', async () => {
       const filters = { page: 1, limit: 10, clientId: 'client-1' };
       mockQuotesRepository.findAll.mockResolvedValue({
@@ -219,7 +338,7 @@ describe('QuotesService', () => {
         meta: { total: 0, page: 1, limit: 10, totalPages: 0 },
       });
 
-      await service.findAll(filters);
+      await service.findAll(filters, 'user-1');
 
       expect(mockQuotesRepository.findAll).toHaveBeenCalledWith(
         expect.objectContaining({ clientId: 'client-1' }),

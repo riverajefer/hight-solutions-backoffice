@@ -28,6 +28,7 @@ import { useSnackbar } from 'notistack';
 import { expenseOrdersApi } from '../../../api/expense-orders.api';
 import { ExpenseOrderStatus } from '../../../types/expense-order.types';
 import type { ExpenseOrder } from '../../../types/expense-order.types';
+import { useSingleFlight } from '../../../hooks/useSingleFlight';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('es-CO', {
@@ -96,10 +97,20 @@ const PendingOgAuthorizationsPanel: React.FC<{ hideWhenEmpty?: boolean }> = ({ h
     setRejectReason('');
   };
 
-  const handleConfirmReject = () => {
+  // `disabled={isBusy}` no alcanza: el botón solo se deshabilita cuando React
+  // vuelve a renderizar, y dos clics en el mismo frame entran los dos. Autorizar
+  // dos veces mueve el dinero dos veces.
+  const handleAuthorize = useSingleFlight(async (id: string) => {
+    await cajaAuthorizeMutation.mutateAsync(id);
+  });
+
+  const handleConfirmReject = useSingleFlight(async () => {
     if (!rejectTarget || !rejectReason.trim()) return;
-    cajaRejectMutation.mutate({ id: rejectTarget.id, reason: rejectReason.trim() });
-  };
+    await cajaRejectMutation.mutateAsync({
+      id: rejectTarget.id,
+      reason: rejectReason.trim(),
+    });
+  });
 
   if (isLoading) return null;
   if (hideWhenEmpty && pendingOgs.length === 0) return null;
@@ -248,7 +259,7 @@ const PendingOgAuthorizationsPanel: React.FC<{ hideWhenEmpty?: boolean }> = ({ h
                             <CheckCircleIcon />
                           )
                         }
-                        onClick={() => cajaAuthorizeMutation.mutate(og.id)}
+                        onClick={() => handleAuthorize(og.id)}
                         disabled={isBusy}
                         sx={{ minWidth: 110, fontSize: '0.75rem' }}
                       >

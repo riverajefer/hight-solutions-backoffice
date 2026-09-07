@@ -6,6 +6,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { createOrReturnTwin } from '../../common/utils/unique-violation.util';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import {
@@ -217,19 +218,43 @@ export class ClientOwnershipAuthRequestsService implements OnModuleInit, Approva
       select: USER_SELECT,
     });
 
-    const request = await this.prisma.clientOwnershipAuthRequest.create({
-      data: {
-        orderId,
-        requestedById,
-        advisorId,
-        status: EditRequestStatus.PENDING,
-      },
-      include: {
-        requestedBy: { select: USER_SELECT },
-        advisor: { select: USER_SELECT },
-        order: { select: { id: true, orderNumber: true } },
-      },
+    // Este módulo no validaba duplicados: la solicitud nace dentro de la
+    // creación de la orden, y la orden guarda su propio
+    // `clientOwnershipAuthStatus`, así que dos pendientes para la misma orden
+    // nunca son correctas. El índice parcial
+    // `client_ownership_auth_requests_pending_unique` es aquí la única
+    // validación, y la petición perdedora devuelve la gemela sin notificar.
+    const include = {
+      requestedBy: { select: USER_SELECT },
+      advisor: { select: USER_SELECT },
+      order: { select: { id: true, orderNumber: true } },
+    };
+
+    const { request, wasDuplicate } = await createOrReturnTwin({
+      constraint: 'client_ownership_auth_requests_pending_unique',
+      create: () =>
+        this.prisma.clientOwnershipAuthRequest.create({
+          data: {
+            orderId,
+            requestedById,
+            advisorId,
+            status: EditRequestStatus.PENDING,
+          },
+          include,
+        }),
+      findTwin: () =>
+        this.prisma.clientOwnershipAuthRequest.findFirst({
+          where: { orderId, status: EditRequestStatus.PENDING },
+          include,
+        }),
     });
+
+    if (wasDuplicate) {
+      this.logger.warn(
+        `Solicitud de autorización de cliente duplicada para la orden ${orderId}: se devuelve la solicitud ${request.id} sin notificar de nuevo`,
+      );
+      return request;
+    }
 
     await this.prisma.order.update({
       where: { id: orderId },

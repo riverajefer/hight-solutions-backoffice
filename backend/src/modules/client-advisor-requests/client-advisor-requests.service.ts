@@ -7,6 +7,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { createOrReturnTwin } from '../../common/utils/unique-violation.util';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import {
@@ -172,20 +173,46 @@ export class ClientAdvisorRequestsService
     }
 
     // 5. Crear la solicitud
-    const request = await this.prisma.clientAdvisorRequest.create({
-      data: {
-        clientId: dto.clientId,
-        requestedById: userId,
-        requestedAdvisorId: dto.requestedAdvisorId,
-        reason: dto.reason,
-        status: EditRequestStatus.PENDING,
-      },
-      include: {
-        requestedBy: { select: USER_SELECT },
-        requestedAdvisor: { select: USER_SELECT },
-        client: { select: { id: true, name: true } },
-      },
+    //
+    // El índice parcial `client_advisor_requests_pending_unique` cierra la
+    // carrera del doble clic; la petición perdedora devuelve la gemela sin
+    // notificar de nuevo.
+    const include = {
+      requestedBy: { select: USER_SELECT },
+      requestedAdvisor: { select: USER_SELECT },
+      client: { select: { id: true, name: true } },
+    };
+
+    const { request, wasDuplicate } = await createOrReturnTwin({
+      constraint: 'client_advisor_requests_pending_unique',
+      create: () =>
+        this.prisma.clientAdvisorRequest.create({
+          data: {
+            clientId: dto.clientId,
+            requestedById: userId,
+            requestedAdvisorId: dto.requestedAdvisorId,
+            reason: dto.reason,
+            status: EditRequestStatus.PENDING,
+          },
+          include,
+        }),
+      findTwin: () =>
+        this.prisma.clientAdvisorRequest.findFirst({
+          where: {
+            clientId: dto.clientId,
+            requestedAdvisorId: dto.requestedAdvisorId,
+            status: EditRequestStatus.PENDING,
+          },
+          include,
+        }),
     });
+
+    if (wasDuplicate) {
+      this.logger.warn(
+        `Solicitud de asignación de asesor duplicada para el cliente ${dto.clientId}: se devuelve la solicitud ${request.id} sin notificar de nuevo`,
+      );
+      return request;
+    }
 
     // 6. Notificar a usuarios con permiso de aprobación (in-app)
     await this.notificationsService.notifyUsersWithPermission(

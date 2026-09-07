@@ -14,6 +14,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useEditRequests } from '../../../hooks/useEditRequests';
 import { useAuthStore } from '../../../store/authStore';
+import { useSingleFlight } from '../../../hooks/useSingleFlight';
 
 const schema = z.object({
   observations: z
@@ -60,10 +61,13 @@ export const RequestEditPermissionButton: React.FC<
     reset();
   };
 
-  const onSubmit = async (data: FormData) => {
+  // `react-hook-form` 7.71 NO bloquea envíos reentrantes: `handleSubmit` marca
+  // `isSubmitting` pero ejecuta el handler igual, así que dos clics en el mismo
+  // frame llegan los dos.
+  const onSubmit = useSingleFlight(async (data: FormData) => {
     await createMutation.mutateAsync(data);
     handleClose();
-  };
+  });
 
   return (
     <>

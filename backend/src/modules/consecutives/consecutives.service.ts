@@ -3,6 +3,29 @@ import { ConsecutivesRepository } from './consecutives.repository';
 
 type ConsecutiveType = 'ORDER' | 'PRODUCTION' | 'EXPENSE' | 'QUOTE' | 'WORK_ORDER' | 'PRODUCTION_ORDER' | 'CASH_RECEIPT' | 'DTF_TEXTIL' | 'DTF_UV';
 
+/**
+ * Dónde vive realmente cada consecutivo. Es la fuente de verdad del número:
+ * el contador de `consecutives` es solo una caché que puede quedar atrás
+ * (datos sembrados, inserciones manuales, restauración de un backup).
+ *
+ * `PRODUCTION` no tiene tabla: es un tipo heredado que ya nadie genera. Se deja
+ * en `null` explícito para que no se confunda con un olvido.
+ */
+const CONSECUTIVE_SOURCES: Record<
+  ConsecutiveType,
+  { table: string; column: string } | null
+> = {
+  ORDER: { table: 'orders', column: 'order_number' },
+  PRODUCTION: null,
+  EXPENSE: { table: 'expense_orders', column: 'og_number' },
+  QUOTE: { table: 'quotes', column: 'quote_number' },
+  WORK_ORDER: { table: 'work_orders', column: 'work_order_number' },
+  PRODUCTION_ORDER: { table: 'production_orders', column: 'oprod_number' },
+  CASH_RECEIPT: { table: 'cash_movements', column: 'receipt_number' },
+  DTF_TEXTIL: { table: 'dtf_records', column: 'consecutive' },
+  DTF_UV: { table: 'dtf_records', column: 'consecutive' },
+};
+
 @Injectable()
 export class ConsecutivesService {
   constructor(
@@ -13,6 +36,12 @@ export class ConsecutivesService {
    * Genera el siguiente número consecutivo para un tipo dado
    * Auto-resuelve el prefijo según el tipo
    *
+   * El número se calcula contra el máximo real de la tabla destino, así que no
+   * puede devolver uno ya usado aunque el contador esté desincronizado. Sin
+   * eso, la creación revienta con P2002 y varios de los puntos de creación
+   * (abonos, movimientos de caja, órdenes de producción) generan el número
+   * dentro de una transacción, donde no hay forma de reintentar.
+   *
    * @param type - Tipo de consecutivo (ORDER, PRODUCTION, EXPENSE, QUOTE)
    * @returns Número formateado (ej: "OP-2026-0001", "COT-2026-0001")
    */
@@ -20,7 +49,12 @@ export class ConsecutivesService {
     const prefix = this.getPrefixForType(type);
     const currentYear = new Date().getFullYear();
 
-    return this.consecutivesRepository.getNextNumber(type, prefix, currentYear);
+    return this.consecutivesRepository.getNextNumber(
+      type,
+      prefix,
+      currentYear,
+      CONSECUTIVE_SOURCES[type] ?? undefined,
+    );
   }
 
   /**
@@ -29,19 +63,7 @@ export class ConsecutivesService {
    */
   async syncCounter(type: ConsecutiveType): Promise<void> {
     const prefix = this.getPrefixForType(type);
-    const syncConfig: Record<ConsecutiveType, { table: string; column: string }> = {
-      ORDER: { table: 'orders', column: 'order_number' },
-      PRODUCTION: { table: 'productions', column: 'production_number' },
-      EXPENSE: { table: 'expense_orders', column: 'og_number' },
-      QUOTE: { table: 'quotes', column: 'quote_number' },
-      WORK_ORDER: { table: 'work_orders', column: 'work_order_number' },
-      PRODUCTION_ORDER: { table: 'production_orders', column: 'oprod_number' },
-      CASH_RECEIPT: { table: 'cash_movements', column: 'receipt_number' },
-      DTF_TEXTIL: { table: 'dtf_records', column: 'consecutive' },
-      DTF_UV: { table: 'dtf_records', column: 'consecutive' },
-    };
-
-    const config = syncConfig[type];
+    const config = CONSECUTIVE_SOURCES[type];
     if (!config) return;
 
     return this.consecutivesRepository.syncCounterFromTable(

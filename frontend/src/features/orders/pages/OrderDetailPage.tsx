@@ -243,6 +243,16 @@ export const OrderDetailPage: React.FC = () => {
   // registraba el abono dos veces. Se declara aquí arriba, junto al resto de
   // hooks, porque más abajo la página tiene `return` tempranos.
   const paymentLockRef = useRef(false);
+  // El candado de arriba solo cubre el doble clic dentro de esta pestaña. La
+  // llave de idempotencia cubre además el reintento de red y dos pestañas
+  // abiertas: viaja en el POST y el backend devuelve el abono ya registrado en
+  // vez de inflar el saldo pagado y el arqueo. Se regenera cada vez que se abre
+  // el diálogo, porque dos abonos distintos a la misma orden son legítimos.
+  const paymentIdempotencyKeyRef = useRef(crypto.randomUUID());
+  const openPaymentDialog = () => {
+    paymentIdempotencyKeyRef.current = crypto.randomUUID();
+    setPaymentDialogOpen(true);
+  };
   const [discountDialogOpen, setDiscountDialogOpen] = useState(false);
   const [refundDialogOpen, setRefundDialogOpen] = useState(false);
   const [tabValue, setTabValue] = useState(0);
@@ -626,7 +636,10 @@ export const OrderDetailPage: React.FC = () => {
 
     setPaymentSubmitting(true);
     try {
-      const payment = await addPaymentMutation.mutateAsync(paymentData);
+      const payment = await addPaymentMutation.mutateAsync({
+        ...paymentData,
+        idempotencyKey: paymentIdempotencyKeyRef.current,
+      });
 
       // Si hay archivo, subirlo
       if (receiptFile && payment) {
@@ -1201,7 +1214,7 @@ export const OrderDetailPage: React.FC = () => {
               icon={<PaymentIcon />}
               label='Pago'
               secondaryLabel='Registrar'
-              onClick={() => setPaymentDialogOpen(true)}
+              onClick={openPaymentDialog}
               color={theme.palette.success.main}
               tooltip='Registrar Pago'
             />

@@ -9,6 +9,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { createOrReturnTwin } from '../../common/utils/unique-violation.util';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import {
@@ -147,18 +148,43 @@ export class AccountsPayableAuthRequestsService implements OnModuleInit, Approva
       );
     }
 
-    const request = await this.prisma.accountPayableAuthRequest.create({
-      data: {
-        accountPayableId: dto.accountPayableId,
-        requestedById: userId,
-        reason: dto.reason,
-        status: EditRequestStatus.PENDING,
-      },
-      include: {
-        requestedBy: { select: USER_SELECT },
-        accountPayable: { select: { id: true, apNumber: true } },
-      },
+    // El índice parcial `account_payable_auth_requests_pending_unique` cierra la
+    // carrera del doble clic; la petición perdedora devuelve la gemela sin
+    // notificar de nuevo.
+    const include = {
+      requestedBy: { select: USER_SELECT },
+      accountPayable: { select: { id: true, apNumber: true } },
+    };
+
+    const { request, wasDuplicate } = await createOrReturnTwin({
+      constraint: 'account_payable_auth_requests_pending_unique',
+      create: () =>
+        this.prisma.accountPayableAuthRequest.create({
+          data: {
+            accountPayableId: dto.accountPayableId,
+            requestedById: userId,
+            reason: dto.reason,
+            status: EditRequestStatus.PENDING,
+          },
+          include,
+        }),
+      findTwin: () =>
+        this.prisma.accountPayableAuthRequest.findFirst({
+          where: {
+            accountPayableId: dto.accountPayableId,
+            requestedById: userId,
+            status: EditRequestStatus.PENDING,
+          },
+          include,
+        }),
     });
+
+    if (wasDuplicate) {
+      this.logger.warn(
+        `Solicitud de autorización de CP duplicada para ${dto.accountPayableId} por el usuario ${userId}: se devuelve la solicitud ${request.id} sin notificar de nuevo`,
+      );
+      return request;
+    }
 
     // Notificación in-app a admins
     await this.notificationsService.notifyAllAdmins({

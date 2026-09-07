@@ -41,6 +41,7 @@ describe('ConsecutivesService', () => {
         'ORDER',
         'OP',
         currentYear,
+        { table: 'orders', column: 'order_number' },
       );
       expect(result).toBe(`OP-${currentYear}-0001`);
     });
@@ -55,6 +56,8 @@ describe('ConsecutivesService', () => {
         'PRODUCTION',
         'PROD',
         currentYear,
+        // Tipo heredado sin tabla: se genera solo contra el contador.
+        undefined,
       );
       expect(result).toBe(`PROD-${currentYear}-0001`);
     });
@@ -69,6 +72,7 @@ describe('ConsecutivesService', () => {
         'EXPENSE',
         'OG',
         currentYear,
+        { table: 'expense_orders', column: 'og_number' },
       );
       expect(result).toBe(`OG-${currentYear}-0001`);
     });
@@ -83,6 +87,7 @@ describe('ConsecutivesService', () => {
         'QUOTE',
         'COT',
         currentYear,
+        { table: 'quotes', column: 'quote_number' },
       );
       expect(result).toBe(`COT-${currentYear}-0001`);
     });

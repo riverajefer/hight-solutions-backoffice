@@ -233,4 +233,12 @@ export class CreateOrderDto {
   @IsNumber()
   @Min(0)
   reteIVARate?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Llave de idempotencia generada por el formulario. Si llegan dos peticiones con la misma llave (doble clic, reintento de red), la segunda devuelve la OP ya creada en vez de crear otra y quemar un consecutivo.',
+  })
+  @IsUUID()
+  @IsOptional()
+  idempotencyKey?: string;
 }

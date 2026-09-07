@@ -9,6 +9,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { createOrReturnTwin } from '../../common/utils/unique-violation.util';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import {
@@ -287,42 +288,69 @@ export class CashMovementVoidRequestsService
     }
 
     // 3. Create the request
-    const request = await this.prisma.cashMovementVoidRequest.create({
-      data: {
-        cashMovementId,
-        paymentId,
-        requestedById: userId,
-        voidReason: dto.voidReason,
-        status: EditRequestStatus.PENDING,
-      },
-      include: {
-        requestedBy: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-        cashMovement: {
-          select: {
-            id: true,
-            receiptNumber: true,
-            amount: true,
-            movementType: true,
-            description: true,
-          },
-        },
-        payment: {
-          select: {
-            id: true,
-            amount: true,
-            paymentMethod: true,
-            order: { select: { id: true, orderNumber: true } },
-          },
+    //
+    // La solicitud apunta a un movimiento o a un pago, nunca a los dos, así que
+    // hay un índice parcial por cada columna. El que se viola depende de cuál
+    // venga, y ambos cierran la misma carrera del doble clic.
+    const include = {
+      requestedBy: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
         },
       },
+      cashMovement: {
+        select: {
+          id: true,
+          receiptNumber: true,
+          amount: true,
+          movementType: true,
+          description: true,
+        },
+      },
+      payment: {
+        select: {
+          id: true,
+          amount: true,
+          paymentMethod: true,
+          order: { select: { id: true, orderNumber: true } },
+        },
+      },
+    };
+
+    const { request, wasDuplicate } = await createOrReturnTwin({
+      constraint: cashMovementId
+        ? 'cash_movement_void_requests_pending_movement_unique'
+        : 'cash_movement_void_requests_pending_payment_unique',
+      create: () =>
+        this.prisma.cashMovementVoidRequest.create({
+          data: {
+            cashMovementId,
+            paymentId,
+            requestedById: userId,
+            voidReason: dto.voidReason,
+            status: EditRequestStatus.PENDING,
+          },
+          include,
+        }),
+      findTwin: () =>
+        this.prisma.cashMovementVoidRequest.findFirst({
+          where: {
+            ...(cashMovementId ? { cashMovementId } : { paymentId }),
+            status: EditRequestStatus.PENDING,
+          },
+          include,
+        }),
     });
+
+    if (wasDuplicate) {
+      this.logger.warn(
+        `Solicitud de anulación duplicada para ${cashMovementId ? `el movimiento ${cashMovementId}` : `el pago ${paymentId}`}: se devuelve la solicitud ${request.id} sin notificar de nuevo`,
+      );
+      return request;
+    }
 
     // 4. Notify admins in-app
     await this.notificationsService.notifyAllAdmins({

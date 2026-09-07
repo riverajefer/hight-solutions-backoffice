@@ -98,6 +98,7 @@ export class FilterOrdersDto {
     example: true,
   })
   @IsOptional()
+  @Type(() => String)
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   excludeWithWorkOrder?: boolean;
@@ -123,6 +124,7 @@ export class FilterOrdersDto {
     example: true,
   })
   @IsOptional()
+  @Type(() => String)
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   hasBalance?: boolean;
@@ -172,6 +174,7 @@ export class FilterOrdersDto {
     example: true,
   })
   @IsOptional()
+  @Type(() => String)
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   excludeAnulado?: boolean;

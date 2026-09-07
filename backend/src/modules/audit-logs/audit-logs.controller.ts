@@ -2,11 +2,13 @@ import { Controller, Get, Query, Param, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { PrismaService } from '../../database/prisma.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 
 @ApiTags('audit-logs')
 @ApiBearerAuth('JWT-auth')
 @Controller('audit-logs')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class AuditLogsController {
   constructor(private readonly prisma: PrismaService) {}
 
@@ -15,6 +17,7 @@ export class AuditLogsController {
    * GET /audit-logs
    */
   @Get()
+  @RequirePermissions('read_audit_logs')
   @ApiOperation({ summary: 'Get all audit logs with filters' })
   async findAll(
     @Query('page') page: string = '1',
@@ -89,6 +92,7 @@ export class AuditLogsController {
    * GET /audit-logs/user/:userId
    */
   @Get('user/:userId')
+  @RequirePermissions('read_audit_logs')
   @ApiOperation({ summary: 'Get audit logs by user' })
   async getAuditLogsByUser(@Param('userId') userId: string) {
     const logs = await this.prisma.auditLog.findMany({
@@ -120,6 +124,7 @@ export class AuditLogsController {
    * GET /audit-logs/model/:modelName
    */
   @Get('model/:modelName')
+  @RequirePermissions('read_audit_logs')
   @ApiOperation({ summary: 'Get audit logs by model' })
   async getAuditLogsByModel(@Param('modelName') modelName: string) {
     const logs = await this.prisma.auditLog.findMany({
@@ -157,7 +162,16 @@ export class AuditLogsController {
    * GET /audit-logs/record/:recordId
    * Para órdenes: trae los logs de la orden, sus items y sus pagos
    */
+  // Este es el que alimenta la pestaña «Historial de Cambios» del detalle de
+  // orden, que hoy ve cualquiera que pueda abrir la orden. Pedir
+  // `read_audit_logs` (solo admin y contabilidad) dejaría sin historial a los
+  // comerciales, así que se pide el permiso de la entidad que se está mirando.
+  //
+  // Pendiente: el endpoint es genérico y acepta cualquier `recordId`, así que
+  // con `read_orders` también se puede leer el historial de otros modelos. Para
+  // cerrarlo del todo habría que acotarlo por tipo de entidad.
   @Get('record/:recordId')
+  @RequirePermissions('read_orders')
   @ApiOperation({ summary: 'Get audit logs by record ID' })
   async getRecordHistory(@Param('recordId') recordId: string) {
     // Buscar logs directos del registro (ej: la orden misma)
@@ -224,6 +238,7 @@ export class AuditLogsController {
    * GET /audit-logs/latest
    */
   @Get('latest')
+  @RequirePermissions('read_audit_logs')
   @ApiOperation({ summary: 'Get latest audit logs' })
   async getLatestAuditLogs() {
     const logs = await this.prisma.auditLog.findMany({

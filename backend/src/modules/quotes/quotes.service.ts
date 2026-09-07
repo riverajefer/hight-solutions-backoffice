@@ -17,6 +17,7 @@ import {
 import { QuoteStatus, OrderStatus, ProspectStatus, Prisma } from '../../generated/prisma';
 import { isValidQuoteTransition, getValidNextQuoteStatuses } from './quote-status-transitions';
 import { PrismaService } from '../../database/prisma.service';
+import { startOfDay, endOfDay } from '../../common/utils/date-range.util';
 
 @Injectable()
 export class QuotesService {
@@ -28,12 +29,56 @@ export class QuotesService {
     private readonly storageService: StorageService,
   ) {}
 
-  async findAll(filters: FilterQuotesDto) {
+  /**
+   * Listado de cotizaciones, acotado al asesor cuando corresponde.
+   *
+   * El alcance NO puede decidirse en el cliente. Antes, el tablero kanban
+   * inyectaba `createdById` cuando el usuario no tenía `read_all_quotes`, pero
+   * `createdById` es un filtro más de la query: bastaba quitarlo de la petición
+   * para ver las cotizaciones de todos. Ahora el alcance se deriva del usuario
+   * del token y pisa lo que venga del cliente.
+   */
+  async findAll(filters: FilterQuotesDto, userId: string) {
+    const puedeVerTodas = await this.userHasPermission(userId, 'read_all_quotes');
+
     return this.quotesRepository.findAll({
       ...filters,
-      dateFrom: filters.dateFrom ? new Date(filters.dateFrom) : undefined,
-      dateTo: filters.dateTo ? new Date(filters.dateTo) : undefined,
+      // Sin `read_all_quotes` solo se ven las propias, venga lo que venga en la
+      // query. Con el permiso, `createdById` sigue sirviendo como filtro.
+      createdById: puedeVerTodas ? filters.createdById : userId,
+      // `new Date('2026-09-06')` es medianoche UTC, que en Colombia es el 5 a
+      // las 7 p. m. Usado como `lte` dejaba fuera el día entero que el usuario
+      // había elegido: filtrar «del 24 al 24 de julio» devolvía 0 de las 10
+      // cotizaciones de ese día. `startOfDay`/`endOfDay` expanden el día
+      // completo en hora Colombia, igual que órdenes, OG, OT y clientes.
+      dateFrom: startOfDay(filters.dateFrom),
+      dateTo: endOfDay(filters.dateTo),
     });
+  }
+
+  /** ¿El usuario tiene este permiso? Mismo patrón que el resto de servicios. */
+  private async userHasPermission(
+    userId: string,
+    permission: string,
+  ): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        role: {
+          select: {
+            permissions: {
+              select: { permission: { select: { name: true } } },
+            },
+          },
+        },
+      },
+    });
+
+    return (
+      user?.role?.permissions?.some(
+        (rp) => rp.permission.name === permission,
+      ) ?? false
+    );
   }
 
   async findOne(id: string) {
