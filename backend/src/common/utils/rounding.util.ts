@@ -48,3 +48,25 @@ export function computeDtfTotalToCharge(
   const rawTotal = applyIva ? subtotal.mul(DTF_IVA_RATE.add(1)) : subtotal;
   return applyColombianRounding(rawTotal);
 }
+
+/**
+ * Normaliza una tasa (IVA, retefuente, ReteICA, ReteIVA) antes de guardarla.
+ *
+ * El formulario recibe el porcentaje y lo divide entre 100 en JavaScript, donde
+ * `1.104 / 100` no es `0.01104` sino `0.011040000000000001`. Ese residuo se
+ * guardaba tal cual y después multiplicaba el subtotal, así que el total de la
+ * orden terminaba con cola: en producción quedaron totales como
+ * `770383.695999999999330`, y con ellos un saldo de `-0.304` que nadie podía
+ * saldar.
+ *
+ * Seis decimales sobran para cualquier tasa real —la más fina que usa el
+ * cliente es ReteICA a cuatro— y cortan el ruido de la división en coma
+ * flotante. El redondeo del total (`roundToWholePeso`) tapa el síntoma; esto
+ * corrige el origen, que además se muestra en el certificado de retención.
+ */
+export function normalizeRate(
+  value: Prisma.Decimal | number | string | null | undefined,
+): Prisma.Decimal {
+  if (value === null || value === undefined) return new Prisma.Decimal(0);
+  return new Prisma.Decimal(value.toString()).toDecimalPlaces(6);
+}

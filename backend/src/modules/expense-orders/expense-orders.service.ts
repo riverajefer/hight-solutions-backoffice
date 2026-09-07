@@ -24,6 +24,7 @@ import { startOfDay, endOfDay } from '../../common/utils/date-range.util';
 import { ExpenseOrderAuthRequestsService } from '../expense-order-auth-requests/expense-order-auth-requests.service';
 import { AccountsPayableService } from '../accounts-payable/accounts-payable.service';
 import { computeExpenseTotals } from '../../common/utils/expense-totals.util';
+import { normalizeRate } from '../../common/utils/rounding.util';
 
 const ALLOWED_TRANSITIONS: Record<ExpenseOrderStatus, ExpenseOrderStatus[]> = {
   [ExpenseOrderStatus.DRAFT]: [ExpenseOrderStatus.CREATED, ExpenseOrderStatus.ADMIN_AUTHORIZED],
@@ -165,8 +166,8 @@ export class ExpenseOrdersService {
           areaOrMachine: dto.areaOrMachine,
           applyIva: dto.applyIva ?? false,
           ivaRate: dto.ivaRate ?? 0.19,
-          retefuenteRate: dto.retefuenteRate ?? 0,
-          reteICARate: dto.reteICARate ?? 0,
+          retefuenteRate: normalizeRate(dto.retefuenteRate).toNumber(),
+          reteICARate: normalizeRate(dto.reteICARate).toNumber(),
           reteIVARate: dto.reteIVARate ?? 0,
           status,
           createdById,
