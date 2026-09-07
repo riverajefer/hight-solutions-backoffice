@@ -17,6 +17,7 @@ import {
 import { QuoteStatus, OrderStatus, ProspectStatus, Prisma } from '../../generated/prisma';
 import { isValidQuoteTransition, getValidNextQuoteStatuses } from './quote-status-transitions';
 import { PrismaService } from '../../database/prisma.service';
+import { startOfDay, endOfDay } from '../../common/utils/date-range.util';
 
 @Injectable()
 export class QuotesService {
@@ -45,8 +46,13 @@ export class QuotesService {
       // Sin `read_all_quotes` solo se ven las propias, venga lo que venga en la
       // query. Con el permiso, `createdById` sigue sirviendo como filtro.
       createdById: puedeVerTodas ? filters.createdById : userId,
-      dateFrom: filters.dateFrom ? new Date(filters.dateFrom) : undefined,
-      dateTo: filters.dateTo ? new Date(filters.dateTo) : undefined,
+      // `new Date('2026-09-06')` es medianoche UTC, que en Colombia es el 5 a
+      // las 7 p. m. Usado como `lte` dejaba fuera el día entero que el usuario
+      // había elegido: filtrar «del 24 al 24 de julio» devolvía 0 de las 10
+      // cotizaciones de ese día. `startOfDay`/`endOfDay` expanden el día
+      // completo en hora Colombia, igual que órdenes, OG, OT y clientes.
+      dateFrom: startOfDay(filters.dateFrom),
+      dateTo: endOfDay(filters.dateTo),
     });
   }
 

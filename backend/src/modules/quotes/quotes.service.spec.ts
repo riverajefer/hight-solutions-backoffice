@@ -183,7 +183,11 @@ describe('QuotesService', () => {
       expect(result.data).toEqual([mockQuote]);
     });
 
-    it('should convert date strings to Date objects for filters', async () => {
+    // Los filtros por día se expanden al día completo en hora Colombia. Con
+    // `new Date(...)` a secas, el `dateTo` era medianoche UTC —el 30 a las 7
+    // p. m. en Bogotá— y el día elegido como «hasta» desaparecía entero:
+    // filtrar del 24 al 24 de julio devolvía 0 de las 10 cotizaciones de ese día.
+    it('expande los filtros de fecha al día completo en hora Colombia', async () => {
       const filters = {
         page: 1,
         limit: 10,
@@ -199,10 +203,31 @@ describe('QuotesService', () => {
 
       expect(mockQuotesRepository.findAll).toHaveBeenCalledWith(
         expect.objectContaining({
-          dateFrom: new Date('2026-01-01'),
-          dateTo: new Date('2026-01-31'),
+          dateFrom: new Date('2026-01-01T00:00:00.000-05:00'),
+          dateTo: new Date('2026-01-31T23:59:59.999-05:00'),
         }),
       );
+    });
+
+    // El caso que reventaba: una cotización creada ese mismo día a media mañana
+    // tiene que caer dentro del rango.
+    it('incluye una cotización del propio día elegido como "hasta"', async () => {
+      mockQuotesRepository.findAll.mockResolvedValue({
+        data: [],
+        meta: { total: 0, page: 1, limit: 10, totalPages: 0 },
+      });
+
+      await service.findAll(
+        { page: 1, limit: 10, dateFrom: '2026-07-24', dateTo: '2026-07-24' },
+        'user-1',
+      );
+
+      const { dateFrom, dateTo } = mockQuotesRepository.findAll.mock.calls[0][0];
+      // 24 de julio, 10:00 de la mañana en Colombia.
+      const cotizacion = new Date('2026-07-24T10:00:00.000-05:00');
+
+      expect(cotizacion >= dateFrom).toBe(true);
+      expect(cotizacion <= dateTo).toBe(true);
     });
 
     it('should pass undefined for optional date filters when not provided', async () => {

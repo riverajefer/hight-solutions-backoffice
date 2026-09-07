@@ -72,7 +72,7 @@ el guard: es darle `create_quotes` a ese rol.
 
 ---
 
-## 2. El filtro de fechas de Cotizaciones pierde el último día completo — **Alta**
+## 2. El filtro de fechas de Cotizaciones pierde el último día completo — **Alta** · ✅ Corregido
 
 [quotes.service.ts:34](../backend/src/modules/quotes/quotes.service.ts#L34) hace
 `new Date(filters.dateFrom)` en vez de usar `startOfDay`/`endOfDay` de
@@ -95,8 +95,45 @@ del 24 al 24, la consulta devuelve **0**.
 Pasa en los 88 días con cotizaciones: el día que elijas como "hasta" desaparece
 entero. Y el borde de inicio arrastra 5 horas de la tarde anterior.
 
-**Corrección**: usar `startOfDay`/`endOfDay`, como ya hacen órdenes, OG, OT, DTF
-y clientes.
+### Corrección aplicada
+
+`startOfDay`/`endOfDay` en
+[quotes.service.ts](../backend/src/modules/quotes/quotes.service.ts), como ya
+hacen órdenes, OG, OT, DTF y clientes.
+
+**Verificado contra los mismos datos de producción**, con los límites que produce
+el código corregido:
+
+```
+ antes_del_arreglo | con_el_arreglo | reales_de_ese_dia
+                 0 |             10 |                10
+```
+
+Dos pruebas nuevas: una fija los límites esperados (`00:00:00.000-05:00` a
+`23:59:59.999-05:00`) y otra comprueba el caso que reventaba — que una
+cotización creada a media mañana del día elegido como «hasta» caiga dentro del
+rango.
+
+---
+
+## 2b. «Mi Asistencia» pierde el último día por la razón inversa — **Media**
+
+Mismo síntoma, mecanismo distinto, y apareció al revisar quién más parsea fechas
+a mano.
+
+`attendance.service.ts` hace `new Date(filters.endDate)`, lo cual está bien: ahí
+los filtros son instantes ISO completos, no días, y así lo documenta
+`date-range.util.ts`. El problema está en el otro extremo:
+[MyAttendancePage.tsx:307](../frontend/src/features/attendance/pages/MyAttendancePage.tsx#L307)
+manda `date?.toISOString()` directo del `DatePicker`, o sea **la medianoche del
+día elegido**. Como se usa de límite superior, todo lo que pasó ese día después
+de las 00:00 queda fuera.
+
+Los filtros rápidos (semana, mes) no lo sufren: su `endDate` es el instante
+actual. Solo el rango manual.
+
+**Corrección**: que `handleEndDateChange` mande el fin del día, no el inicio.
+No lo apliqué todavía — queda para la siguiente tanda.
 
 ---
 
