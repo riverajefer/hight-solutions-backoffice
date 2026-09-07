@@ -524,6 +524,19 @@ export class OrdersRepository {
     return { ...order, client: processedClient };
   }
 
+  /**
+   * Busca la orden creada con una llave de idempotencia dada. Devuelve la orden
+   * completa, igual que `create`, para que la petición gemela de un doble clic
+   * reciba exactamente lo mismo que recibió la ganadora.
+   */
+  async findByIdempotencyKey(idempotencyKey: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { idempotencyKey },
+      select: { id: true },
+    });
+    return order ? this.findById(order.id) : null;
+  }
+
   async create(data: Prisma.OrderCreateInput) {
     // Crear la orden primero sin los includes complejos para mejor performance
     const order = await this.prisma.order.create({

@@ -82,15 +82,39 @@ export const PaymentHistoryTable: React.FC<PaymentHistoryTableProps> = ({
           </TableRow>
         </TableHead>
         <TableBody>
-          {payments.map((payment) => (
-            <TableRow key={payment.id} hover>
+          {payments.map((payment) => {
+            // Un pago anulado no se borra: la fila queda con el rastro de quién
+            // lo registró y con qué soporte. Pero tiene que verse anulada, o la
+            // pantalla estaría diciendo que ese dinero salió.
+            const anulado = payment.isReversed === true;
+
+            return (
+            <TableRow
+              key={payment.id}
+              hover
+              sx={anulado ? { opacity: 0.6, bgcolor: 'action.hover' } : undefined}
+            >
               <TableCell>
                 {format(new Date(payment.paymentDate), 'dd MMM yyyy', { locale: es })}
               </TableCell>
               <TableCell align="right">
-                <Typography variant="body2" fontWeight={600} color="success.main">
+                <Typography
+                  variant="body2"
+                  fontWeight={600}
+                  color={anulado ? 'text.disabled' : 'success.main'}
+                  sx={anulado ? { textDecoration: 'line-through' } : undefined}
+                >
                   {formatCurrency(payment.amount)}
                 </Typography>
+                {anulado && (
+                  <Chip
+                    label="Anulado"
+                    size="small"
+                    color="error"
+                    variant="outlined"
+                    sx={{ mt: 0.5, height: 18, fontSize: '0.65rem' }}
+                  />
+                )}
               </TableCell>
               <TableCell>
                 <Chip
@@ -159,19 +183,22 @@ export const PaymentHistoryTable: React.FC<PaymentHistoryTableProps> = ({
               </TableCell>
               {canDelete && onDelete && (
                 <TableCell align="center">
-                  <Tooltip title="Anular pago">
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => onDelete(payment.id)}
-                    >
-                      <DeleteOutlineIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
+                  {!anulado && (
+                    <Tooltip title="Anular pago">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => onDelete(payment.id)}
+                      >
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                 </TableCell>
               )}
             </TableRow>
-          ))}
+            );
+          })}
         </TableBody>
       </Table>
     </TableContainer>

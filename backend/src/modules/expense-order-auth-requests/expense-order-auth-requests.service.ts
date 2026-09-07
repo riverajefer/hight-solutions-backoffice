@@ -24,6 +24,7 @@ import {
 import { ApprovalRequestType, EditRequestStatus, ExpenseOrderStatus, NotificationType } from '../../generated/prisma';
 import { ExpenseOrdersService } from '../expense-orders/expense-orders.service';
 import { AuthenticatedUser } from '../../common/interfaces/auth.interface';
+import { isUniqueViolationOn } from '../../common/utils/unique-violation.util';
 
 const USER_SELECT = {
   id: true,
@@ -38,16 +39,12 @@ const PENDING_UNIQUE_INDEX = 'expense_order_auth_requests_pending_unique';
 /**
  * ¿El error es el choque contra `expense_order_auth_requests_pending_unique`?
  *
- * Se verifica el nombre del índice y no solo el código P2002 para no confundir
- * esta carrera con cualquier otra restricción única de la tabla.
+ * Leía `meta.target`, que con el adaptador de Postgres viene vacío: la rama
+ * nunca se ejecutaba y la petición gemela recibía un 500 en vez de su
+ * solicitud. `isUniqueViolationOn` busca sobre el meta completo.
  */
 function isUniquePendingViolation(error: unknown): boolean {
-  const known = error as { code?: string; meta?: { target?: unknown } };
-  if (known?.code !== 'P2002') return false;
-
-  const target = known.meta?.target;
-  const targetText = Array.isArray(target) ? target.join(',') : String(target ?? '');
-  return targetText.includes(PENDING_UNIQUE_INDEX);
+  return isUniqueViolationOn(error, PENDING_UNIQUE_INDEX);
 }
 
 @Injectable()

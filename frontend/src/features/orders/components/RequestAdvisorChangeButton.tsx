@@ -20,6 +20,7 @@ import { useAuthStore } from '../../../store/authStore';
 import { useUsers } from '../../users/hooks/useUsers';
 import { useAdvisorChangeRequest } from '../hooks/useAdvisorChangeRequests';
 import type { User } from '../../../types/auth.types';
+import { useSingleFlight } from '../../../hooks/useSingleFlight';
 
 const schema = z.object({
   requestedAdvisorId: z.string().min(1, 'Selecciona el nuevo asesor'),
@@ -79,7 +80,10 @@ export const RequestAdvisorChangeButton: React.FC<
     reset();
   };
 
-  const onSubmit = async (data: FormData) => {
+  // `react-hook-form` 7.71 NO bloquea envíos reentrantes: `handleSubmit` marca
+  // `isSubmitting` pero ejecuta el handler igual, así que dos clics en el mismo
+  // frame llegan los dos.
+  const onSubmit = useSingleFlight(async (data: FormData) => {
     try {
       await activeMutation.mutateAsync({
         orderId,
@@ -102,7 +106,7 @@ export const RequestAdvisorChangeButton: React.FC<
         { variant: 'error' },
       );
     }
-  };
+  });
 
   const advisorOptions: User[] = (usersQuery.data ?? []).filter(
     (u) => u.isActive !== false && u.id !== currentAdvisorId,

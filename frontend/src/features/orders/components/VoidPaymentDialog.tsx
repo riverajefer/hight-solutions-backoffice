@@ -19,6 +19,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { Payment } from '../../../types/order.types';
 import { formatCurrency, formatDateTime } from '../../../utils/formatters';
+import { useSingleFlight } from '../../../hooks/useSingleFlight';
 
 const schema = z.object({
   // El backend exige lo mismo: el motivo es lo único que le explica a quien lea
@@ -76,11 +77,14 @@ const VoidPaymentDialog: React.FC<Props> = ({
     onClose();
   };
 
-  const submit = async (data: FormData) => {
+  // `react-hook-form` 7.71 NO bloquea envíos reentrantes: `handleSubmit` marca
+  // `isSubmitting` pero ejecuta el handler igual, así que dos clics en el mismo
+  // frame llegan los dos.
+  const submit = useSingleFlight(async (data: FormData) => {
     if (!payment) return;
     await onSubmit(payment.id, data.voidReason);
     reset();
-  };
+  });
 
   if (!payment) return null;
 

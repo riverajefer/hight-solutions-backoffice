@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DashboardRepository } from './dashboard.repository';
 import { FinancialQueryDto } from './dto/financial-query.dto';
+import { startOfDay, endOfDay, businessToday } from '../../common/utils/date-range.util';
 
 @Injectable()
 export class DashboardService {
@@ -67,20 +68,32 @@ export class DashboardService {
     };
   }
 
+  /**
+   * Convierte el filtro de fechas del dashboard en un rango de instantes.
+   *
+   * Todo se resuelve en hora Colombia, no en la del servidor. Antes usaba
+   * `lte.setHours(23, 59, 59, 999)`, que trabaja en la zona del proceso: en
+   * Railway el servidor corre en UTC, así que el rango terminaba a las 6:59 p. m.
+   * de Colombia y el mes por defecto arrancaba a las 7:00 p. m. del día
+   * anterior. El mes por defecto además se calculaba con el calendario del
+   * servidor: la última tarde de cada mes, a partir de las 7:00 p. m., el
+   * dashboard ya mostraba el mes siguiente en blanco.
+   */
   private resolveDateRange(query: FinancialQueryDto) {
-    const now = new Date();
-
-    let lte: Date;
     let gte: Date;
+    let lte: Date;
 
     if (query.dateFrom && query.dateTo) {
-      gte = new Date(query.dateFrom);
-      lte = new Date(query.dateTo);
-      lte.setHours(23, 59, 59, 999);
+      gte = startOfDay(query.dateFrom)!;
+      lte = endOfDay(query.dateTo)!;
     } else {
-      // Default: current month
-      gte = new Date(now.getFullYear(), now.getMonth(), 1);
-      lte = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      // Mes en curso según el calendario del negocio.
+      const [year, month] = businessToday().split('-').map(Number);
+      const ultimoDia = new Date(Date.UTC(year, month, 0)).getUTCDate();
+      const mm = String(month).padStart(2, '0');
+
+      gte = startOfDay(`${year}-${mm}-01`)!;
+      lte = endOfDay(`${year}-${mm}-${String(ultimoDia).padStart(2, '0')}`)!;
     }
 
     const periodMs = lte.getTime() - gte.getTime();

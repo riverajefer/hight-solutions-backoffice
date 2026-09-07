@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsString,
   IsDateString,
+  IsUUID,
 } from 'class-validator';
 import { PaymentMethod } from '../../../generated/prisma';
 import { IsValidPaymentAmount } from '../../../common/validators/payment-amount.validator';
@@ -65,4 +66,12 @@ export class CreatePaymentDto {
   @IsOptional()
   @IsString()
   receiptFileId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Llave de idempotencia generada por el diálogo de abono. Si llegan dos peticiones con la misma llave (doble clic, reintento de red), la segunda devuelve el pago ya registrado en vez de inflar el saldo pagado y el arqueo de caja.',
+  })
+  @IsUUID()
+  @IsOptional()
+  idempotencyKey?: string;
 }

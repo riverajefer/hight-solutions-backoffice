@@ -465,6 +465,13 @@ export const OrderFormPage: React.FC = () => {
   const [isDatePostponed, setIsDatePostponed] = useState(false);
   const [originalDeliveryDate, setOriginalDeliveryDate] = useState<Date | null>(null);
 
+  // Llave de idempotencia de esta creación. Se genera una sola vez al montar el
+  // formulario, así que un doble clic (o un reintento de red) manda la misma en
+  // las dos peticiones y el backend devuelve la OP ya creada en vez de quemar
+  // otro consecutivo. Solo aplica a la creación: en edición no hay nada que
+  // duplicar.
+  const idempotencyKeyRef = useRef(crypto.randomUUID());
+
   // Imagen adjunta a observaciones
   const notesImageInputRef = useRef<HTMLInputElement>(null);
   const [notesImagePreview, setNotesImagePreview] = useState<string | null>(null);
@@ -745,7 +752,10 @@ export const OrderFormPage: React.FC = () => {
 
         navigate(`/orders/${id}`);
       } else {
-        const newOrder = await createOrderMutation.mutateAsync(orderDto);
+        const newOrder = await createOrderMutation.mutateAsync({
+          ...orderDto,
+          idempotencyKey: idempotencyKeyRef.current,
+        });
 
         // Subir comprobantes de cada anticipo asociando por método+monto
         if (newOrder.payments && newOrder.payments.length > 0) {

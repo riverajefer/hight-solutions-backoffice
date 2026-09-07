@@ -9,6 +9,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { createOrReturnTwin } from '../../common/utils/unique-violation.util';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import {
@@ -163,26 +164,57 @@ export class AccountsPayablePaymentAuthRequestsService implements OnModuleInit, 
       include: { role: true },
     });
 
-    const request = await this.prisma.accountPayablePaymentAuthRequest.create({
-      data: {
-        accountPayableId: dto.accountPayableId,
-        requestedById: userId,
-        amount: dto.amount,
-        paymentMethod: dto.paymentMethod,
-        paymentDate: new Date(dto.paymentDate),
-        reference: dto.reference,
-        notes: dto.notes,
-        bankEntity: dto.bankEntity,
-        receiptFileId: dto.receiptFileId,
-        receiptFileId2: dto.receiptFileId2,
-        reason: dto.reason,
-        status: ApPaymentAuthRequestStatus.PENDING,
-      },
-      include: {
-        requestedBy: { select: USER_SELECT },
-        accountPayable: { select: { id: true, apNumber: true } },
-      },
+    // El índice parcial `account_payable_payment_auth_requests_open_unique`
+    // cierra la carrera del doble clic. Cubre PENDING y ADMIN_APPROVED, igual
+    // que la validación de arriba: una solicitud aprobada por el admin pero
+    // todavía sin registrar en Caja también ocupa el cupo.
+    const include = {
+      requestedBy: { select: USER_SELECT },
+      accountPayable: { select: { id: true, apNumber: true } },
+    };
+
+    const { request, wasDuplicate } = await createOrReturnTwin({
+      constraint: 'account_payable_payment_auth_requests_open_unique',
+      create: () =>
+        this.prisma.accountPayablePaymentAuthRequest.create({
+          data: {
+            accountPayableId: dto.accountPayableId,
+            requestedById: userId,
+            amount: dto.amount,
+            paymentMethod: dto.paymentMethod,
+            paymentDate: new Date(dto.paymentDate),
+            reference: dto.reference,
+            notes: dto.notes,
+            bankEntity: dto.bankEntity,
+            receiptFileId: dto.receiptFileId,
+            receiptFileId2: dto.receiptFileId2,
+            reason: dto.reason,
+            status: ApPaymentAuthRequestStatus.PENDING,
+          },
+          include,
+        }),
+      findTwin: () =>
+        this.prisma.accountPayablePaymentAuthRequest.findFirst({
+          where: {
+            accountPayableId: dto.accountPayableId,
+            requestedById: userId,
+            status: {
+              in: [
+                ApPaymentAuthRequestStatus.PENDING,
+                ApPaymentAuthRequestStatus.ADMIN_APPROVED,
+              ],
+            },
+          },
+          include,
+        }),
     });
+
+    if (wasDuplicate) {
+      this.logger.warn(
+        `Solicitud de pago de CP duplicada para ${dto.accountPayableId} por el usuario ${userId}: se devuelve la solicitud ${request.id} sin notificar de nuevo`,
+      );
+      return request;
+    }
 
     await this.notificationsService.notifyAllAdmins({
       type: NotificationType.AP_PAYMENT_AUTH_PENDING,

@@ -21,6 +21,7 @@ import { useSnackbar } from 'notistack';
 import { apPaymentAuthRequestsApi } from '../../../api/accounts-payable-payment-auth-requests.api';
 import type { AccountPayablePaymentAuthRequest } from '../../../types/accounts-payable.types';
 import { CajaApprovePaymentDialog } from '../../accounts-payable/components/CajaApprovePaymentDialog';
+import { useSingleFlight } from '../../../hooks/useSingleFlight';
 
 const formatCurrency = (value: number | string) =>
   new Intl.NumberFormat('es-CO', {
@@ -83,6 +84,19 @@ const PendingApAuthorizationsPanel: React.FC<{ hideWhenEmpty?: boolean }> = ({ h
       const message = error?.response?.data?.message || 'Error al rechazar el pago';
       enqueueSnackbar(message, { variant: 'error' });
     },
+  });
+
+  // `loading` no alcanza: el botón solo se deshabilita cuando React vuelve a
+  // renderizar, y dos clics en el mismo frame entran los dos. Autorizar dos
+  // veces registra el pago dos veces.
+  const handleApprove = useSingleFlight(async () => {
+    if (!selectedRequest) return;
+    await cajaApproveMutation.mutateAsync(selectedRequest.id);
+  });
+
+  const handleReject = useSingleFlight(async (reason?: string) => {
+    if (!selectedRequest || !reason) return;
+    await cajaRejectMutation.mutateAsync({ id: selectedRequest.id, reason });
   });
 
   if (isLoading) return null;
@@ -240,12 +254,8 @@ const PendingApAuthorizationsPanel: React.FC<{ hideWhenEmpty?: boolean }> = ({ h
           open={!!selectedRequest}
           onClose={() => setSelectedRequest(null)}
           request={selectedRequest}
-          onApprove={async () => {
-            await cajaApproveMutation.mutateAsync(selectedRequest.id);
-          }}
-          onReject={async (reason) => {
-            await cajaRejectMutation.mutateAsync({ id: selectedRequest.id, reason });
-          }}
+          onApprove={handleApprove}
+          onReject={handleReject}
           loading={cajaApproveMutation.isPending || cajaRejectMutation.isPending}
         />
       )}

@@ -22,6 +22,8 @@ import {
 } from './dto';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody, ApiParam } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -32,30 +34,37 @@ interface AuthenticatedRequest extends Request {
 
 @ApiTags('Cotizaciones')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('quotes')
 export class QuotesController {
   constructor(private readonly quotesService: QuotesService) {}
 
   @Post()
+  @RequirePermissions('create_quotes')
   @ApiOperation({ summary: 'Crear una nueva cotización' })
   create(@Body() createQuoteDto: CreateQuoteDto, @NestRequest() req: AuthenticatedRequest) {
     return this.quotesService.create(createQuoteDto, req.user.id);
   }
 
   @Get()
+  @RequirePermissions('read_quotes')
   @ApiOperation({ summary: 'Listar cotizaciones con filtros' })
-  findAll(@Query() filters: FilterQuotesDto) {
-    return this.quotesService.findAll(filters);
+  findAll(
+    @Query() filters: FilterQuotesDto,
+    @NestRequest() req: AuthenticatedRequest,
+  ) {
+    return this.quotesService.findAll(filters, req.user.id);
   }
 
   @Get(':id')
+  @RequirePermissions('read_quotes')
   @ApiOperation({ summary: 'Obtener detalle de una cotización' })
   findOne(@Param('id') id: string) {
     return this.quotesService.findOne(id);
   }
 
   @Patch(':id')
+  @RequirePermissions('update_quotes')
   @ApiOperation({ summary: 'Actualizar una cotización' })
   update(
     @Param('id') id: string,
@@ -66,18 +75,21 @@ export class QuotesController {
   }
 
   @Delete(':id')
+  @RequirePermissions('delete_quotes')
   @ApiOperation({ summary: 'Eliminar una cotización' })
   remove(@Param('id') id: string) {
     return this.quotesService.remove(id);
   }
 
   @Post(':id/convert')
+  @RequirePermissions('convert_quotes')
   @ApiOperation({ summary: 'Convertir cotización en orden de pedido' })
   convertToOrder(@Param('id') id: string, @NestRequest() req: AuthenticatedRequest) {
     return this.quotesService.convertToOrder(id, req.user.id);
   }
 
   @Post(':quoteId/items/:itemId/sample-image')
+  @RequirePermissions('update_quotes', 'upload_files')
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Subir imagen de muestra para un item de cotización' })
@@ -105,6 +117,7 @@ export class QuotesController {
   }
 
   @Delete(':quoteId/items/:itemId/sample-image')
+  @RequirePermissions('update_quotes')
   @ApiOperation({ summary: 'Eliminar imagen de muestra de un item de cotización' })
   @ApiParam({ name: 'quoteId', description: 'ID de la cotización' })
   @ApiParam({ name: 'itemId', description: 'ID del item' })

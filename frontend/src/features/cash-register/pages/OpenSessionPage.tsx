@@ -32,6 +32,7 @@ import { PATHS } from '../../../router/paths';
 import { useAuthStore } from '../../../store/authStore';
 import { authApi } from '../../../api/auth.api';
 import { cashRegisterApi } from '../../../api/cash-register.api';
+import { useSingleFlight } from '../../../hooks/useSingleFlight';
 
 const OpenSessionPage: React.FC = () => {
   const navigate = useNavigate();
@@ -110,7 +111,11 @@ const OpenSessionPage: React.FC = () => {
     }
   };
 
-  const handleSubmit = async () => {
+  // Dos clics en el mismo frame abrirían dos sesiones sobre la misma caja: el
+  // botón no se deshabilita hasta el siguiente render. En la base lo impide
+  // `cash_sessions_one_open_per_register`, pero el candado evita el viaje y el
+  // error crudo.
+  const handleSubmit = useSingleFlight(async () => {
     if (!cashRegisterId) return;
 
     const denominations = toDenominationDtoList(denominationRows);
@@ -126,7 +131,7 @@ const OpenSessionPage: React.FC = () => {
         PATHS.CASH_SESSION_ACTIVE.replace(':id', session.id),
       );
     }
-  };
+  });
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 }, maxWidth: 700, mx: 'auto' }}>

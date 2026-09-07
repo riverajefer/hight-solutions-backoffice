@@ -8,6 +8,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { createOrReturnTwin } from '../../common/utils/unique-violation.util';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { WsEventsGateway } from '../ws-events/ws-events.gateway';
@@ -180,22 +181,45 @@ export class RefundRequestsService
       );
     }
 
-    // Crear la solicitud
-    const request = await this.prisma.refundRequest.create({
-      data: {
-        orderId: dto.orderId,
-        refundAmount,
-        paymentMethod: dto.paymentMethod,
-        bankEntity: dto.bankEntity,
-        observation: dto.observation,
-        status: EditRequestStatus.PENDING,
-        requestedById: userId,
-      },
-      include: {
-        requestedBy: { select: USER_SELECT },
-        order: { select: ORDER_SELECT },
-      },
+    // Crear la solicitud.
+    //
+    // La validación de arriba es un check-then-act; el índice parcial
+    // `refund_requests_pending_unique` es lo que cierra la carrera del doble
+    // clic. Si esta petición la pierde, se devuelve la solicitud gemela sin
+    // volver a notificar.
+    const include = {
+      requestedBy: { select: USER_SELECT },
+      order: { select: ORDER_SELECT },
+    };
+
+    const { request, wasDuplicate } = await createOrReturnTwin({
+      constraint: 'refund_requests_pending_unique',
+      create: () =>
+        this.prisma.refundRequest.create({
+          data: {
+            orderId: dto.orderId,
+            refundAmount,
+            paymentMethod: dto.paymentMethod,
+            bankEntity: dto.bankEntity,
+            observation: dto.observation,
+            status: EditRequestStatus.PENDING,
+            requestedById: userId,
+          },
+          include,
+        }),
+      findTwin: () =>
+        this.prisma.refundRequest.findFirst({
+          where: { orderId: dto.orderId, status: EditRequestStatus.PENDING },
+          include,
+        }),
     });
+
+    if (wasDuplicate) {
+      this.logger.warn(
+        `Solicitud de devolución duplicada para la orden ${dto.orderId}: se devuelve la solicitud ${request.id} sin notificar de nuevo`,
+      );
+      return request;
+    }
 
     // Notificar in-app a usuarios con approve_refunds
     const user = await this.prisma.user.findUnique({

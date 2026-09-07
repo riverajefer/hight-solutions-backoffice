@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { AccountPayableStatus } from '../../generated/prisma';
+import { AccountPayableStatus, Prisma } from '../../generated/prisma';
 import { PrismaService } from '../../database/prisma.service';
 import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { StorageService } from '../storage/storage.service';
@@ -283,7 +283,7 @@ export class AccountsPayableService {
       });
       updateData.subtotalAmount = subtotalAmount;
       updateData.totalAmount = totalAmount;
-      updateData.balance = totalAmount - Number(ap.paidAmount);
+      updateData.balance = new Prisma.Decimal(totalAmount).sub(ap.paidAmount);
     }
 
     // Recalcular el vínculo de anticipo si cambian el tipo/subcategoría o el
@@ -405,10 +405,16 @@ export class AccountsPayableService {
     cashSessionId?: string,
     paymentAuthRequestId?: string,
   ) {
-    const newPaidAmount = Number(paidAmount) + dto.amount;
-    const newBalance = Number(totalAmount) - newPaidAmount;
-    const newStatus =
-      newBalance <= 0 ? AccountPayableStatus.PAID : AccountPayableStatus.PARTIAL;
+    // El dinero se suma con Decimal, no con `Number`: los totales de CP traen
+    // centavos (68 de las cuentas en producción vienen de OG con retenciones) y
+    // la resta en coma flotante deja residuos del tipo `234567.88000000012`.
+    // Ese residuo decide el estado: `newBalance <= 0` es lo que marca la CP como
+    // pagada, y un `1e-10` la dejaría en PARTIAL para siempre.
+    const newPaidAmount = new Prisma.Decimal(paidAmount as never).add(dto.amount);
+    const newBalance = new Prisma.Decimal(totalAmount as never).sub(newPaidAmount);
+    const newStatus = newBalance.lessThanOrEqualTo(0)
+      ? AccountPayableStatus.PAID
+      : AccountPayableStatus.PARTIAL;
 
     let cashMovementId: string | undefined;
 
@@ -470,30 +476,82 @@ export class AccountsPayableService {
     return this.repository.getPaymentHistory(id);
   }
 
+  /**
+   * Anula un pago registrado de una Cuenta por Pagar.
+   *
+   * Antes borraba la fila del pago y ajustaba el saldo, y eso tenía tres
+   * problemas, todos con dinero de por medio:
+   *
+   * 1. **No anulaba el movimiento de caja.** 185 de los 187 pagos de CP tienen
+   *    uno asociado. La CP volvía a deber, pero la caja seguía registrando la
+   *    salida: el arqueo quedaba descuadrado y sin rastro de por qué.
+   * 2. **Borraba el pago**, con quién lo registró, cuándo y con qué soporte. Es
+   *    lo contrario de lo que se decidió para los pagos de OP tras el caso
+   *    OP-2026-1504: la fila sobrevive anulada, no desaparece.
+   * 3. **Las dos escrituras iban sueltas.** Si la segunda fallaba, el pago
+   *    desaparecía y la CP seguía diciendo que estaba pagada.
+   *
+   * Ahora hace lo mismo que el flujo de reversión con aprobación
+   * (`accounts-payable-payment-reversal-requests`), que ya tenía el modelo
+   * correcto: marca `isReversed`, anula el `CashMovement` y recalcula el saldo,
+   * todo en una transacción.
+   *
+   * El saldo se **recalcula** desde los pagos vivos en vez de restarle el monto
+   * al acumulado: así una CP que ya venía descuadrada se corrige sola al anular,
+   * en vez de arrastrar el error.
+   */
   async deletePayment(id: string, paymentId: string, userId: string) {
-    await this.findOne(id);
+    const ap = await this.findOne(id);
     const payment = await this.repository.findPaymentById(paymentId);
     if (!payment || payment.accountPayableId !== id) {
       throw new NotFoundException(`Pago con id ${paymentId} no encontrado`);
     }
-
-    const ap = await this.findOne(id);
-    const paymentAmount = Number(payment.amount);
-    const newPaidAmount = Number(ap.paidAmount) - paymentAmount;
-    const newBalance = Number(ap.totalAmount) - newPaidAmount;
-
-    let newStatus: AccountPayableStatus;
-    if (newPaidAmount <= 0) {
-      newStatus = AccountPayableStatus.PENDING;
-    } else {
-      newStatus = AccountPayableStatus.PARTIAL;
+    if (payment.isReversed) {
+      throw new BadRequestException('El pago ya fue anulado');
     }
 
-    await this.repository.deletePayment(paymentId);
-    await this.repository.update(id, {
-      paidAmount: newPaidAmount,
-      balance: newBalance,
-      status: newStatus,
+    await this.prisma.$transaction(async (tx) => {
+      await tx.accountPayablePayment.update({
+        where: { id: paymentId },
+        data: { isReversed: true, reversedAt: new Date() },
+      });
+
+      // La plata salió de una caja que puede estar cerrada: la anulación es
+      // administrativa y no exige sesión abierta, igual que en la reversión.
+      if (payment.cashMovementId) {
+        await tx.cashMovement.update({
+          where: { id: payment.cashMovementId },
+          data: {
+            isVoided: true,
+            voidedById: userId,
+            voidedAt: new Date(),
+            voidReason: `Anulación de pago de la CP ${ap.apNumber}`,
+          },
+        });
+      }
+
+      const vivos = await tx.accountPayablePayment.findMany({
+        where: { accountPayableId: id, isReversed: false },
+        select: { amount: true },
+      });
+
+      const paidAmount = vivos.reduce(
+        (sum, p) => sum.add(p.amount),
+        new Prisma.Decimal(0),
+      );
+      const totalAmount = new Prisma.Decimal(ap.totalAmount);
+      const balance = totalAmount.sub(paidAmount);
+
+      await tx.accountPayable.update({
+        where: { id },
+        data: {
+          paidAmount,
+          balance,
+          status: paidAmount.lessThanOrEqualTo(0)
+            ? AccountPayableStatus.PENDING
+            : AccountPayableStatus.PARTIAL,
+        },
+      });
     });
 
     return { success: true };
@@ -551,7 +609,7 @@ export class AccountsPayableService {
 
     if (data.totalAmount !== undefined) {
       updateData.totalAmount = data.totalAmount;
-      updateData.balance = data.totalAmount - Number(ap.paidAmount);
+      updateData.balance = new Prisma.Decimal(data.totalAmount).sub(ap.paidAmount);
     }
 
     if (Object.keys(updateData).length > 0) {

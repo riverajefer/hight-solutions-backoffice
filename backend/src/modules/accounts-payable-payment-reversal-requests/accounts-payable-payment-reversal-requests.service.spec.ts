@@ -189,7 +189,10 @@ describe('AccountsPayablePaymentReversalRequestsService', () => {
       prisma.accountPayablePaymentReversalRequest.update.mockResolvedValue({} as any);
       prisma.accountPayablePayment.update.mockResolvedValue({} as any);
       prisma.cashMovement.update.mockResolvedValue({} as any);
-      // paidAmount 40000, totalAmount 100000 → tras revertir 40000: paid 0, balance 100000, PENDING
+      // El saldo se recalcula desde los pagos vivos, no restando del acumulado:
+      // era el único pago, así que al revertirlo no queda ninguno → paid 0,
+      // balance 100000, PENDING.
+      prisma.accountPayablePayment.findMany.mockResolvedValue([] as any);
       prisma.accountPayable.findUniqueOrThrow.mockResolvedValue({
         id: 'ap-1',
         paidAmount: new Prisma.Decimal(40000),
@@ -210,8 +213,38 @@ describe('AccountsPayablePaymentReversalRequestsService', () => {
       );
       const apUpdate = prisma.accountPayable.update.mock.calls[0][0].data;
       expect(Number(apUpdate.paidAmount)).toBe(0);
+      expect(Number(apUpdate.balance)).toBe(100000);
       expect(apUpdate.status).toBe('PENDING');
       expect(result).toEqual({ success: true, reversalId: 'rev-1', accountPayableId: 'ap-1' });
+    });
+
+    // Con otros pagos vivos, el saldo no vuelve a cero: se recalcula desde lo
+    // que sigue en pie, así que una CP descuadrada se corrige sola al revertir.
+    it('recalcula el saldo desde los pagos que siguen vivos', async () => {
+      prisma.accountPayablePaymentReversalRequest.findFirst.mockResolvedValue(
+        reversalStub({ status: ApPaymentReversalStatus.PENDING_CAJA }) as any,
+      );
+      prisma.accountPayablePaymentReversalRequest.update.mockResolvedValue({} as any);
+      prisma.accountPayablePayment.update.mockResolvedValue({} as any);
+      prisma.cashMovement.update.mockResolvedValue({} as any);
+      prisma.accountPayablePayment.findMany.mockResolvedValue([
+        { amount: new Prisma.Decimal(25000) },
+      ] as any);
+      prisma.accountPayable.findUniqueOrThrow.mockResolvedValue({
+        id: 'ap-1',
+        // Acumulado inconsistente a propósito: si el código restara sobre este
+        // valor, el resultado quedaría mal.
+        paidAmount: new Prisma.Decimal(999999),
+        totalAmount: new Prisma.Decimal(100000),
+      } as any);
+      prisma.accountPayable.update.mockResolvedValue({} as any);
+
+      await service.cajaApprove('rev-1', currentUser);
+
+      const apUpdate = prisma.accountPayable.update.mock.calls[0][0].data;
+      expect(Number(apUpdate.paidAmount)).toBe(25000);
+      expect(Number(apUpdate.balance)).toBe(75000);
+      expect(apUpdate.status).toBe('PARTIAL');
     });
   });
 

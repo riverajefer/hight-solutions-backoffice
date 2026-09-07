@@ -70,6 +70,14 @@ function getQuickFilterDates(preset: QuickFilter): { startDate: string; endDate:
   };
 }
 
+/** Último instante del día elegido, en el calendario local del usuario. */
+function endOfLocalDay(date: Date): Date {
+  const fin = new Date(date);
+  fin.setHours(23, 59, 59, 999);
+  return fin;
+}
+
+
 // ─── Summary Card ───────────────────────────────────────────
 interface SummaryCardProps {
   title: string;
@@ -304,7 +312,11 @@ export const MyAttendancePage: React.FC = () => {
 
   const handleEndDateChange = (date: Date | null) => {
     setActiveQuickFilter(undefined as any);
-    updateFilters({ endDate: date?.toISOString() });
+    // El DatePicker entrega la medianoche del día elegido. Mandarla tal cual
+    // como límite superior dejaba fuera todo lo de ese día: el rango terminaba
+    // justo donde el día empieza. Los filtros rápidos no lo sufren porque su
+    // fin es el instante actual.
+    updateFilters({ endDate: date ? endOfLocalDay(date).toISOString() : undefined });
   };
 
   return (

@@ -67,6 +67,7 @@ export class FilterAccountPayableDto {
   limit?: number = 20;
 
   @ApiPropertyOptional({ description: 'Filtrar por OG vinculada (true = solo con OG, false = solo sin OG)' })
+  @Type(() => String)
   @Transform(({ value }) => {
     if (value === true || value === 'true') return true;
     if (value === false || value === 'false') return false;
