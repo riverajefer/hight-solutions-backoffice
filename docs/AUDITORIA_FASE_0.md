@@ -254,13 +254,46 @@ consecutivo duplicado**, que convive en el mismo `catch`) y dos para abonos.
 
 ---
 
-## 5. `filter-notifications.dto.ts` convierte `'false'` en `true` — **Baja (latente)**
+## 5. Todos los filtros booleanos de query string estaban rotos — **Alta** · ✅ Corregido
 
-[filter-notifications.dto.ts:26](../backend/src/modules/notifications/dto/filter-notifications.dto.ts#L26)
-usa `@Type(() => Boolean)` sin `@Transform`, y `Boolean('false') === true`.
-`GET /notifications?isRead=false` devuelve las leídas. Los demás filtros
-booleanos del proyecto ya traen el `@Transform` correcto (órdenes, clientes,
-movimientos de caja, cuentas por pagar), así que es el único que quedó fuera.
+> Este hallazgo entró como "una línea, baja, latente". Era falso: **el
+> `@Transform` que usa todo el proyecto tampoco funciona**, y había al menos
+> tres bugs vivos en producción.
+
+El diagnóstico original —`filter-notifications.dto.ts` usa `@Type(() => Boolean)`
+y `Boolean('false') === true`— era correcto pero incompleto. Al arreglarlo con
+el `@Transform` que usan los demás filtros, el test siguió fallando.
+
+**La causa real**: el ValidationPipe corre con `enableImplicitConversion`, que
+convierte la cadena según el tipo declarado (`boolean`) **antes** de que corra
+el `@Transform`. El transform recibe `true` y ya no puede distinguir nada.
+Medido: con el patrón viejo, `'false'` → `true`, `'true'` → `true`. Cualquier
+valor presente daba `true`.
+
+**El arreglo** es `@Type(() => String)` delante del `@Transform`: hace que la
+conversión implícita deje pasar la cadena intacta. El caso "sin enviar" sigue
+dando `undefined`, así que ningún filtro cambia de comportamiento por omisión.
+
+### Los tres bugs vivos que esto corrige
+
+| Dónde | Qué hacía |
+|---|---|
+| `useClients({ includeInactive: false })` en `ClientSelector`, `QuotesListPage` y `QuoteKanbanFilters` | El backend lo leía como `true` y **los selectores de cliente listaban los inactivos**. En producción hay 35 clientes inactivos sobre 1046. |
+| `excludeWithWorkOrder: !isEdit` en `WorkOrderFormPage` | Al **editar** una OT mandaba `false`, que se leía `true`: la lista excluía las órdenes que ya tienen OT, justo las que hacían falta ahí. |
+| `hasExpenseOrder: false` en `AccountsPayableListPage` | El filtro "solo sin OG" devolvía **solo las que sí tienen OG**. |
+
+El de notificaciones, en cambio, sí era latente: ningún componente manda ese
+filtro hoy.
+
+### Qué quedó
+
+Los siete campos booleanos de query del proyecto (`excludeWithWorkOrder`,
+`hasBalance`, `excludeAnulado`, `hasExpenseOrder`, `includeInactive`,
+`includeVoided`, `isRead`) más una prueba compartida que los recorre a todos:
+[boolean-query-filters.spec.ts](../backend/src/common/validators/boolean-query-filters.spec.ts).
+Está en `common/` a propósito: el modo de fallar es silencioso —la consulta no
+revienta, solo devuelve lo contrario de lo que se pidió— así que un filtro nuevo
+tiene que sumarse ahí.
 
 ---
 

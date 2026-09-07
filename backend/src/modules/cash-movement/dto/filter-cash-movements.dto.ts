@@ -25,6 +25,7 @@ export class FilterCashMovementsDto {
 
   @ApiPropertyOptional({ description: 'Incluir movimientos anulados' })
   @IsOptional()
+  @Type(() => String)
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   includeVoided?: boolean;
