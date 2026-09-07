@@ -5,7 +5,7 @@ Fecha: 2026-09-06 · Rama: `develop` · Tras corregir los 5 hallazgos de
 
 La primera barrida salió de hipótesis conocidas (memorias del proyecto). Esta
 apunta a zonas que aquella no tocó: **autorización, zonas horarias,
-transacciones y aritmética de dinero**. Ningún cambio aplicado todavía.
+transacciones y aritmética de dinero**.
 
 Cada hallazgo trae su verificación contra producción, en solo lectura.
 
@@ -116,7 +116,7 @@ rango.
 
 ---
 
-## 2b. «Mi Asistencia» pierde el último día por la razón inversa — **Media**
+## 2b. «Mi Asistencia» pierde el último día por la razón inversa — **Media** · ✅ Corregido
 
 Mismo síntoma, mecanismo distinto, y apareció al revisar quién más parsea fechas
 a mano.
@@ -132,8 +132,11 @@ de las 00:00 queda fuera.
 Los filtros rápidos (semana, mes) no lo sufren: su `endDate` es el instante
 actual. Solo el rango manual.
 
-**Corrección**: que `handleEndDateChange` mande el fin del día, no el inicio.
-No lo apliqué todavía — queda para la siguiente tanda.
+### Corrección aplicada · ✅
+
+`handleEndDateChange` ahora manda el último instante del día elegido, con un
+helper local `endOfLocalDay`. El `startDate` se queda como está: la medianoche
+del día elegido es justo el límite inferior correcto.
 
 ---
 
@@ -197,7 +200,7 @@ datos que sanear. El flujo de reversión con aprobación tampoco se ha usado nun
 
 ---
 
-## 4. El dashboard financiero corta el último día a las 6:59 p. m. — **Media**
+## 4. El dashboard financiero corta el último día a las 6:59 p. m. — **Media** · ✅ Corregido
 
 [dashboard.service.ts:80](../backend/src/modules/dashboard/dashboard.service.ts#L80)
 hace `lte.setHours(23, 59, 59, 999)`. `setHours` trabaja en la zona horaria **del
@@ -209,11 +212,26 @@ también empieza 5 horas antes de lo pedido, incluyendo la tarde del día anteri
 bug real de corrección, no una urgencia — pero muerde el día que alguien facture
 de noche o cambien los horarios.
 
-**Corrección**: la misma que el hallazgo 2, `date-range.util.ts`.
+### Corrección aplicada
+
+`startOfDay`/`endOfDay` para el rango explícito y `businessToday()` para el mes
+por defecto, en
+[dashboard.service.ts](../backend/src/modules/dashboard/dashboard.service.ts).
+
+**Apareció un segundo problema en el mismo método**: el mes por defecto se
+calculaba con `new Date(now.getFullYear(), now.getMonth(), 1)`, o sea el
+calendario del servidor. En UTC, la última tarde de cada mes —a partir de las
+7:00 p. m. de Colombia— el dashboard ya mostraba el mes siguiente, vacío. Eso
+tenía más impacto que el corte del último día: pasaba una vez al mes, a la hora
+en que se cierra.
+
+Dos pruebas: una fija los límites en instantes absolutos (para no depender de la
+zona donde corran los tests) y otra comprueba que una venta de las 8 de la noche
+del último día caiga dentro del rango.
 
 ---
 
-## 5. Un controlador muerto expone los registros de auditoría sin ningún guard — **Media**
+## 5. Un controlador muerto expone los registros de auditoría sin ningún guard — **Media** · ✅ Corregido
 
 [audit-logs.example.controller.ts](../backend/src/modules/audit-logs/audit-logs.example.controller.ts)
 declara `@Controller('audit-logs')` con **cero guards** y consulta Prisma
@@ -225,11 +243,11 @@ de `controllers: [...]` de publicar toda la auditoría sin autenticación, y el
 nombre (`.example.`) invita a que alguien lo registre "para probar". El clon de
 Zoom se lo llevaría igual.
 
-**Corrección**: borrarlo.
+**Corrección aplicada**: borrado.
 
 ---
 
-## 6. Auditoría y notificaciones no verifican permisos — **Media**
+## 6. Auditoría y notificaciones no verifican permisos — **Media** · ✅ Corregido
 
 Ambos controladores tienen `JwtAuthGuard` pero ningún `@RequirePermissions`:
 
@@ -238,8 +256,36 @@ Ambos controladores tienen `JwtAuthGuard` pero ningún `@RequirePermissions`:
   pueden leer toda la auditoría del sistema**: quién cambió qué, en qué orden, con
   qué valores.
 - **Notificaciones**: no hay permisos definidos para el módulo y las consultas se
-  acotan por el usuario del token, así que el riesgo es menor. Vale confirmar que
-  las 5 rutas filtran por `userId` y ninguna acepta un `userId` del cliente.
+  acotan por el usuario del token, así que el riesgo es menor.
+
+### Corrección aplicada
+
+**Auditoría**: `PermissionsGuard` + `read_audit_logs` en las cuatro rutas de
+navegación global (`/`, `/latest`, `/user/:userId`, `/model/:modelName`).
+
+**`/record/:recordId` va aparte, y esta es la decisión que importa.** Ese
+endpoint alimenta la pestaña «Historial de Cambios» del detalle de orden, que
+**no está tras ningún permiso en el frontend**: la ve cualquiera que pueda abrir
+una orden. Ponerle `read_audit_logs` (solo admin y contabilidad, 7 usuarios)
+habría dejado sin historial a los 8 comerciales que usan esa pantalla a diario.
+Pide `read_orders`, el permiso de la entidad que se está mirando.
+
+> **Queda un residuo, anotado en el código**: el endpoint es genérico y acepta
+> cualquier `recordId`, así que con `read_orders` también se puede leer el
+> historial de otros modelos. Cerrarlo del todo pide acotarlo por tipo de
+> entidad, que es un refactor aparte.
+
+**Notificaciones: revisado y sin cambios.** Las cinco rutas toman el `userId` de
+`@CurrentUser`, nunca del cliente, y las escrituras usan `updateMany`/`deleteMany`
+con `userId` en el `where`. No hay forma de leer ni tocar las notificaciones de
+otro. No hacía falta tocar nada.
+
+**Una prueba nueva para que esto no se pierda otra vez**:
+[controller-permissions.spec.ts](../backend/src/common/guards/controller-permissions.spec.ts)
+verifica el permiso declarado en cada ruta de Cotizaciones y Auditoría, y falla
+si alguna se queda sin ninguno. Quitar un decorador no rompe ningún test de
+comportamiento —solo abre la puerta— así que hacía falta algo que lo hiciera
+ruidoso.
 
 ---
 
