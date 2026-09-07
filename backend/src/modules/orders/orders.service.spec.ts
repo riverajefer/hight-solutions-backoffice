@@ -45,10 +45,12 @@ const mockOrdersRepository = {
   findPaymentsByOrderId: jest.fn(),
   findDiscountsByOrderId: jest.fn(),
   registerElectronicInvoice: jest.fn(),
+  findByIdempotencyKey: jest.fn(),
 };
 
 const mockConsecutivesService = {
   generateNumber: jest.fn(),
+  syncCounter: jest.fn(),
 };
 
 const mockAuditLogsService = {
@@ -819,6 +821,94 @@ describe('OrdersService', () => {
       await expect(
         service.create({ clientId: 'client-1', items: undefined as any }, 'user-1'),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    // Doble clic en "Crear orden": las dos peticiones llevan la misma llave. La
+    // segunda no puede quemar otro consecutivo ni dejar al cliente con dos
+    // pedidos idénticos.
+    describe('llave de idempotencia', () => {
+      const dtoConLlave = {
+        ...baseCreateDto,
+        idempotencyKey: '3f1a0c9e-0000-4000-8000-000000000001',
+      };
+
+      it('devuelve la OP ya creada sin generar otro consecutivo', async () => {
+        mockOrdersRepository.findByIdempotencyKey.mockResolvedValue(mockOrder);
+
+        const result = await service.create(dtoConLlave, 'user-1');
+
+        expect(result).toBe(mockOrder);
+        expect(mockOrdersRepository.create).not.toHaveBeenCalled();
+        expect(mockConsecutivesService.generateNumber).not.toHaveBeenCalled();
+      });
+
+      it('persiste la llave en la orden nueva', async () => {
+        mockOrdersRepository.findByIdempotencyKey.mockResolvedValue(null);
+
+        await service.create(dtoConLlave, 'user-1');
+
+        expect(mockOrdersRepository.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            idempotencyKey: '3f1a0c9e-0000-4000-8000-000000000001',
+          }),
+        );
+      });
+
+      // Las dos peticiones pasan la lectura previa y la perdedora choca contra
+      // el índice único. Forma real del error con el adaptador `PrismaPg`.
+      it('devuelve la gemela cuando pierde la carrera contra el índice', async () => {
+        mockOrdersRepository.findByIdempotencyKey
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce(mockOrder);
+        mockOrdersRepository.create.mockRejectedValue(
+          Object.assign(new Error('Unique constraint failed'), {
+            code: 'P2002',
+            meta: {
+              driverAdapterError: {
+                cause: {
+                  constraint: { fields: ['idempotency_key'] },
+                  originalMessage:
+                    'duplicate key value violates unique constraint "orders_idempotency_key_key"',
+                },
+              },
+            },
+          }),
+        );
+
+        const result = await service.create(dtoConLlave, 'user-1');
+
+        expect(result).toBe(mockOrder);
+        // Una sola inserción: no reintentó con otro consecutivo.
+        expect(mockOrdersRepository.create).toHaveBeenCalledTimes(1);
+      });
+
+      it('no interfiere con el reintento por consecutivo duplicado', async () => {
+        mockOrdersRepository.findByIdempotencyKey.mockResolvedValue(null);
+        mockConsecutivesService.generateNumber
+          .mockResolvedValueOnce('OP-2026-001')
+          .mockResolvedValueOnce('OP-2026-002');
+        mockOrdersRepository.create
+          .mockRejectedValueOnce(
+            Object.assign(new Error('Unique constraint failed'), {
+              code: 'P2002',
+              meta: {
+                driverAdapterError: {
+                  cause: {
+                    constraint: { fields: ['order_number'] },
+                    originalMessage:
+                      'duplicate key value violates unique constraint "orders_order_number_key"',
+                  },
+                },
+              },
+            }),
+          )
+          .mockResolvedValueOnce(mockOrder);
+
+        const result = await service.create(dtoConLlave, 'user-1');
+
+        expect(result).toBe(mockOrder);
+        expect(mockOrdersRepository.create).toHaveBeenCalledTimes(2);
+      });
     });
 
     it('should generate order number via consecutivesService.generateNumber', async () => {
@@ -2414,6 +2504,43 @@ describe('OrdersService', () => {
       mockPrisma.order.update.mockResolvedValue(mockConfirmedOrder);
       mockPrisma.payment.findUnique.mockResolvedValue(mockPaymentFull);
       mockPrisma.cashSession.findFirst.mockResolvedValue(null);
+    });
+
+    // Doble clic en "Registrar abono": un abono duplicado infla `paidAmount` y
+    // el arqueo de caja, y deja un saldo a favor que nadie entregó.
+    describe('llave de idempotencia', () => {
+      const dtoConLlave = {
+        ...paymentDto,
+        idempotencyKey: '3f1a0c9e-0000-4000-8000-000000000002',
+      };
+
+      it('devuelve el abono ya registrado sin volver a mover la caja', async () => {
+        mockPrisma.payment.findUnique.mockResolvedValue(mockPaymentFull);
+
+        const result = await service.addPayment('order-1', dtoConLlave, 'user-1');
+
+        expect(result).toBe(mockPaymentFull);
+        expect(mockPrisma.payment.create).not.toHaveBeenCalled();
+        expect(mockPrisma.order.update).not.toHaveBeenCalled();
+      });
+
+      it('persiste la llave en el pago nuevo', async () => {
+        // La primera lectura (búsqueda por llave) no encuentra nada; la segunda
+        // es la que arma la respuesta del pago recién creado.
+        mockPrisma.payment.findUnique
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce(mockPaymentFull);
+
+        await service.addPayment('order-1', dtoConLlave, 'user-1');
+
+        expect(mockPrisma.payment.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              idempotencyKey: '3f1a0c9e-0000-4000-8000-000000000002',
+            }),
+          }),
+        );
+      });
     });
 
     // Cola de pendientes: un abono cobrado fuera del horario de caja no puede

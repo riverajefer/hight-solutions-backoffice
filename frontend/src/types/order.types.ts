@@ -279,6 +279,11 @@ export interface CreateOrderDto {
   initialPayment?: InitialPaymentDto;
   initialPayments?: InitialPaymentDto[];
   commercialChannelId?: string;
+  /**
+   * Llave de idempotencia del formulario. Si un doble clic manda dos POST, el
+   * backend devuelve la OP ya creada en vez de quemar otro consecutivo.
+   */
+  idempotencyKey?: string;
 }
 
 // ============================================================
@@ -331,6 +336,12 @@ export interface CreatePaymentDto {
   notes?: string;
   bankEntity?: string | null;
   receiptFileId?: string;
+  /**
+   * Llave de idempotencia del diálogo de abono. Si un doble clic manda dos POST,
+   * el backend devuelve el pago ya registrado en vez de inflar el saldo pagado
+   * y el arqueo de caja.
+   */
+  idempotencyKey?: string;
 }
 
 export interface UpdatePaymentDto {

@@ -83,16 +83,23 @@ Solo dos servicios implementan el patrón sync+retry completo
 [quotes.service.ts:91](../backend/src/modules/quotes/quotes.service.ts#L91)) y
 uno lo hace con un reintento suelto ([dtf.service.ts:99](../backend/src/modules/dtf/dtf.service.ts#L99)).
 
+> **Corrección al conteo original.** Este hallazgo decía "9 puntos sin retry" e
+> incluía la creación de OP. Estaba mal: `orders.service.create` y
+> `expense-orders.service.create` **sí** tienen su bucle de reintento, escrito
+> con `maxAttempts` en vez de `MAX_RETRIES`, y el grep con el que hice la
+> auditoría solo buscaba el segundo nombre. El de órdenes cubre además el
+> `CASH_RECEIPT` de sus abonos iniciales (`isReceiptNumberCollision`). Son
+> **siete** los puntos desprotegidos, no nueve, y la corrección aplicada los
+> cubre igual.
+
 Sin ninguna protección contra P2002:
 
-- [orders.service.ts:552](../backend/src/modules/orders/orders.service.ts#L552) — `ORDER`, la creación de OP
 - [quotes.service.ts:303](../backend/src/modules/quotes/quotes.service.ts#L303) — `ORDER`, conversión de cotización
 - [production-orders.service.ts:101](../backend/src/modules/production/production-orders.service.ts#L101) — `PRODUCTION_ORDER`
 
-Y los seis emisores de `CASH_RECEIPT`, todos contra el índice único
+Y cinco emisores de `CASH_RECEIPT`, todos contra el índice único
 `cash_movements_receipt_number_key`:
 [cash-movement.service.ts:62](../backend/src/modules/cash-movement/cash-movement.service.ts#L62),
-[orders.service.ts:687](../backend/src/modules/orders/orders.service.ts#L687),
 [expense-orders.service.ts:497](../backend/src/modules/expense-orders/expense-orders.service.ts#L497),
 [accounts-payable.service.ts:425](../backend/src/modules/accounts-payable/accounts-payable.service.ts#L425),
 [refund-requests.service.ts:303](../backend/src/modules/refund-requests/refund-requests.service.ts#L303),
@@ -208,12 +215,42 @@ dinero movido dos veces.
 
 ---
 
-## 4. La llave de idempotencia solo existe en órdenes de gasto — **Media**
+## 4. La llave de idempotencia solo existe en órdenes de gasto — **Media** · ✅ Corregido
 
 `idempotencyKey` está implementada de punta a punta únicamente en
 [expense-orders.service.ts:91](../backend/src/modules/expense-orders/expense-orders.service.ts#L91).
 Creación de OP, pagos y abonos no la tienen, y son los flujos donde un duplicado
 cuesta dinero real, no una notificación repetida.
+
+### Corrección aplicada
+
+Migración [20260906020000_order_and_payment_idempotency_key](../backend/prisma/migrations/20260906020000_order_and_payment_idempotency_key/migration.sql):
+`idempotency_key` con índice único en `orders` y en `payments`. NULL no colisiona
+con NULL en Postgres, así que las filas históricas y cualquier cliente que no
+mande la llave siguen entrando.
+
+De punta a punta, igual que en OG: lectura previa (check-then-act) + captura del
+P2002 contra el índice, que devuelve el registro gemelo en vez de crear otro.
+
+**Por qué hacía falta además del candado del hallazgo 3**: `useSingleFlight` vive
+en el navegador y solo cubre el doble clic dentro de esa pestaña. No cubre el
+reintento de red, dos pestañas abiertas, ni un cliente viejo en caché. La llave
+sí, porque la garantía está en la base.
+
+**Dónde vive la llave en el frontend**:
+
+- OP — `useRef(crypto.randomUUID())` al montar el formulario. La página se
+  desmonta al crear, así que una llave por formulario alcanza.
+- Abono — se **regenera cada vez que se abre el diálogo**
+  ([OrderDetailPage.tsx:252](../frontend/src/features/orders/pages/OrderDetailPage.tsx#L252)).
+  Una llave fija por página haría que el segundo abono legítimo a la misma orden
+  devolviera el primero en lugar de registrarse. El diálogo de edición no la usa:
+  edita por `PUT`, no crea.
+
+**Verificación**: los dos índices quedaron creados en dev/staging. 2527 tests
+pasan, incluidos cuatro nuevos para OP (devolver la gemela, persistir la llave,
+perder la carrera contra el índice, y **no interferir con el reintento por
+consecutivo duplicado**, que convive en el mismo `catch`) y dos para abonos.
 
 ---
 

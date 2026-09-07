@@ -567,6 +567,12 @@ model Order {
   quoteId String? @unique @map("quote_id")
   quote   Quote?  @relation("QuoteToOrder")
 
+  // Llave de idempotencia del formulario que originó la OP. El frontend la
+  // genera una vez por formulario, así que un doble clic manda la misma llave
+  // dos veces y la segunda petición devuelve la OP ya creada en lugar de gastar
+  // otro consecutivo. Nula en las OPs anteriores a esta columna.
+  idempotencyKey String? @unique @map("idempotency_key")
+
   workOrders WorkOrder[]
   dtfRecords DtfRecord[]
   prospects  Prospect[]
@@ -776,6 +782,13 @@ model Payment {
   voidedById String?   @map("voided_by_id")
   voidedAt   DateTime? @map("voided_at")
   voidReason String?   @map("void_reason")
+
+  // Llave de idempotencia del diálogo que registró el abono. Se regenera cada
+  // vez que se abre el diálogo, así que dos abonos distintos a la misma orden
+  // llevan llaves distintas, pero un doble clic sobre el mismo abono manda la
+  // misma y la segunda petición devuelve el pago ya creado en vez de inflar
+  // `paidAmount` y el arqueo de caja.
+  idempotencyKey String? @unique @map("idempotency_key")
 
   // Relaciones
   order                  Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
