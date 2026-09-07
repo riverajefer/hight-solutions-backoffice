@@ -28,12 +28,51 @@ export class QuotesService {
     private readonly storageService: StorageService,
   ) {}
 
-  async findAll(filters: FilterQuotesDto) {
+  /**
+   * Listado de cotizaciones, acotado al asesor cuando corresponde.
+   *
+   * El alcance NO puede decidirse en el cliente. Antes, el tablero kanban
+   * inyectaba `createdById` cuando el usuario no tenía `read_all_quotes`, pero
+   * `createdById` es un filtro más de la query: bastaba quitarlo de la petición
+   * para ver las cotizaciones de todos. Ahora el alcance se deriva del usuario
+   * del token y pisa lo que venga del cliente.
+   */
+  async findAll(filters: FilterQuotesDto, userId: string) {
+    const puedeVerTodas = await this.userHasPermission(userId, 'read_all_quotes');
+
     return this.quotesRepository.findAll({
       ...filters,
+      // Sin `read_all_quotes` solo se ven las propias, venga lo que venga en la
+      // query. Con el permiso, `createdById` sigue sirviendo como filtro.
+      createdById: puedeVerTodas ? filters.createdById : userId,
       dateFrom: filters.dateFrom ? new Date(filters.dateFrom) : undefined,
       dateTo: filters.dateTo ? new Date(filters.dateTo) : undefined,
     });
+  }
+
+  /** ¿El usuario tiene este permiso? Mismo patrón que el resto de servicios. */
+  private async userHasPermission(
+    userId: string,
+    permission: string,
+  ): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        role: {
+          select: {
+            permissions: {
+              select: { permission: { select: { name: true } } },
+            },
+          },
+        },
+      },
+    });
+
+    return (
+      user?.role?.permissions?.some(
+        (rp) => rp.permission.name === permission,
+      ) ?? false
+    );
   }
 
   async findOne(id: string) {

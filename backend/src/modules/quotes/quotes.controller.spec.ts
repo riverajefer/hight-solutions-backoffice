@@ -9,6 +9,8 @@ import { QuotesController } from './quotes.controller';
 import { QuotesService } from './quotes.service';
 import { CreateQuoteDto, FilterQuotesDto, UpdateQuoteDto } from './dto';
 import { QuoteStatus } from '../../generated/prisma';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MOCKS
@@ -88,7 +90,15 @@ describe('QuotesController', () => {
           useValue: mockQuotesService,
         },
       ],
-    }).compile();
+    })
+      // El controlador ahora exige permisos por ruta. En el spec del controlador
+      // se anulan los guards: lo que se prueba acá es el enrutamiento y la
+      // delegación al servicio, no la autorización.
+      .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(PermissionsGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<QuotesController>(QuotesController);
     service = module.get<QuotesService>(QuotesService);
@@ -146,9 +156,9 @@ describe('QuotesController', () => {
       };
       mockQuotesService.findAll.mockResolvedValue(mockResult);
 
-      const result = await controller.findAll(filterQuotesDto);
+      const result = await controller.findAll(filterQuotesDto, mockRequest);
 
-      expect(service.findAll).toHaveBeenCalledWith(filterQuotesDto);
+      expect(service.findAll).toHaveBeenCalledWith(filterQuotesDto, mockRequest.user.id);
       expect(result).toEqual(mockResult);
     });
 
@@ -164,9 +174,9 @@ describe('QuotesController', () => {
         meta: { total: 0, page: 2, limit: 20, totalPages: 0 },
       });
 
-      await controller.findAll(filtersWithStatus);
+      await controller.findAll(filtersWithStatus, mockRequest);
 
-      expect(service.findAll).toHaveBeenCalledWith(filtersWithStatus);
+      expect(service.findAll).toHaveBeenCalledWith(filtersWithStatus, mockRequest.user.id);
     });
 
     it('should return empty result when no quotes match', async () => {
@@ -176,7 +186,7 @@ describe('QuotesController', () => {
       };
       mockQuotesService.findAll.mockResolvedValue(emptyResult);
 
-      const result = await controller.findAll(filterQuotesDto);
+      const result = await controller.findAll(filterQuotesDto, mockRequest);
 
       expect(result.data).toHaveLength(0);
       expect(result.meta.total).toBe(0);
