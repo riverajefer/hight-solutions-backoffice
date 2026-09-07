@@ -6,7 +6,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { StorageService } from '../storage/storage.service';
 import { createMockPrismaService } from '../../database/prisma.service.mock';
-import { AccountPayableStatus } from '../../generated/prisma';
+import { AccountPayableStatus, Prisma } from '../../generated/prisma';
 
 /**
  * Stub de una cuenta por pagar (CP). Los montos se guardan como number para
@@ -40,7 +40,6 @@ describe('AccountsPayableService', () => {
       update: jest.fn(),
       getPaymentHistory: jest.fn(),
       createPayment: jest.fn(),
-      deletePayment: jest.fn(),
       findPaymentById: jest.fn(),
       getSummary: jest.fn(),
       getLastApNumber: jest.fn(),
@@ -503,51 +502,119 @@ describe('AccountsPayableService', () => {
     });
   });
 
+  // Anular un pago de CP no es borrarlo: la fila sobrevive marcada, el
+  // movimiento de caja se anula y el saldo se recalcula desde los pagos vivos.
+  // Antes borraba la fila y dejaba la caja registrando una salida que ya no
+  // existía: 185 de los 187 pagos de CP en producción tienen movimiento.
   describe('deletePayment', () => {
-    it('elimina el pago y recalcula a PARTIAL', async () => {
-      repository.findById!.mockResolvedValue(apStub({ paidAmount: 60000, balance: 40000 }) as any);
-      repository.findPaymentById!.mockResolvedValue({
-        id: 'pay-1',
-        accountPayableId: 'ap-1',
-        amount: 20000,
-      } as any);
-      repository.deletePayment!.mockResolvedValue({} as any);
-      repository.update!.mockResolvedValue({} as any);
+    const pagoStub = (extra: Record<string, unknown> = {}) => ({
+      id: 'pay-1',
+      accountPayableId: 'ap-1',
+      amount: new Prisma.Decimal(20000),
+      cashMovementId: 'mov-1',
+      isReversed: false,
+      ...extra,
+    });
+
+    /** Corre el callback de la transacción con el mock de prisma como `tx`. */
+    const conTransaccion = (pagosVivos: Array<{ amount: Prisma.Decimal }>) => {
+      prisma.accountPayablePayment.update.mockResolvedValue({} as any);
+      prisma.accountPayablePayment.findMany.mockResolvedValue(pagosVivos as any);
+      prisma.cashMovement.update.mockResolvedValue({} as any);
+      prisma.accountPayable.update.mockResolvedValue({} as any);
+      (prisma.$transaction as jest.Mock).mockImplementation((cb: any) => cb(prisma));
+    };
+
+    it('marca el pago como anulado en vez de borrarlo', async () => {
+      repository.findById!.mockResolvedValue(apStub({ totalAmount: 100000 }) as any);
+      repository.findPaymentById!.mockResolvedValue(pagoStub() as any);
+      conTransaccion([{ amount: new Prisma.Decimal(40000) }]);
 
       await service.deletePayment('ap-1', 'pay-1', 'user-1');
 
-      expect(repository.deletePayment).toHaveBeenCalledWith('pay-1');
-      expect(repository.update).toHaveBeenCalledWith(
-        'ap-1',
-        expect.objectContaining({ paidAmount: 40000, status: AccountPayableStatus.PARTIAL }),
+      expect(prisma.accountPayablePayment.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'pay-1' },
+          data: expect.objectContaining({ isReversed: true }),
+        }),
+      );
+      expect(prisma.accountPayablePayment.delete).not.toHaveBeenCalled();
+    });
+
+    // El bug: la CP volvía a deber pero la caja seguía contando la salida.
+    it('anula el movimiento de caja asociado', async () => {
+      repository.findById!.mockResolvedValue(apStub({ totalAmount: 100000 }) as any);
+      repository.findPaymentById!.mockResolvedValue(pagoStub() as any);
+      conTransaccion([]);
+
+      await service.deletePayment('ap-1', 'pay-1', 'user-1');
+
+      expect(prisma.cashMovement.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'mov-1' },
+          data: expect.objectContaining({ isVoided: true, voidedById: 'user-1' }),
+        }),
       );
     });
 
-    it('vuelve a PENDING cuando se elimina el único pago', async () => {
-      repository.findById!.mockResolvedValue(apStub({ paidAmount: 20000, balance: 80000 }) as any);
-      repository.findPaymentById!.mockResolvedValue({
-        id: 'pay-1',
-        accountPayableId: 'ap-1',
-        amount: 20000,
-      } as any);
-      repository.deletePayment!.mockResolvedValue({} as any);
-      repository.update!.mockResolvedValue({} as any);
+    it('no toca la caja cuando el pago no tuvo movimiento', async () => {
+      repository.findById!.mockResolvedValue(apStub({ totalAmount: 100000 }) as any);
+      repository.findPaymentById!.mockResolvedValue(
+        pagoStub({ cashMovementId: null }) as any,
+      );
+      conTransaccion([]);
 
       await service.deletePayment('ap-1', 'pay-1', 'user-1');
 
-      expect(repository.update).toHaveBeenCalledWith(
-        'ap-1',
-        expect.objectContaining({ status: AccountPayableStatus.PENDING }),
+      expect(prisma.cashMovement.update).not.toHaveBeenCalled();
+    });
+
+    // El saldo se recalcula desde los pagos vivos, no restando del acumulado:
+    // una CP que ya venía descuadrada se corrige sola al anular.
+    it('recalcula el saldo desde los pagos que siguen vivos', async () => {
+      repository.findById!.mockResolvedValue(
+        apStub({ totalAmount: 100000, paidAmount: 999999, balance: -1 }) as any,
       );
+      repository.findPaymentById!.mockResolvedValue(pagoStub() as any);
+      conTransaccion([{ amount: new Prisma.Decimal(40000) }]);
+
+      await service.deletePayment('ap-1', 'pay-1', 'user-1');
+
+      const data = (prisma.accountPayable.update as jest.Mock).mock.calls[0][0].data;
+      expect(data.paidAmount.toString()).toBe('40000');
+      expect(data.balance.toString()).toBe('60000');
+      expect(data.status).toBe(AccountPayableStatus.PARTIAL);
+    });
+
+    it('vuelve a PENDING cuando se anula el único pago', async () => {
+      repository.findById!.mockResolvedValue(apStub({ totalAmount: 100000 }) as any);
+      repository.findPaymentById!.mockResolvedValue(pagoStub() as any);
+      conTransaccion([]);
+
+      await service.deletePayment('ap-1', 'pay-1', 'user-1');
+
+      const data = (prisma.accountPayable.update as jest.Mock).mock.calls[0][0].data;
+      expect(data.paidAmount.toString()).toBe('0');
+      expect(data.status).toBe(AccountPayableStatus.PENDING);
+    });
+
+    it('no deja anular dos veces el mismo pago', async () => {
+      repository.findById!.mockResolvedValue(apStub() as any);
+      repository.findPaymentById!.mockResolvedValue(
+        pagoStub({ isReversed: true }) as any,
+      );
+
+      await expect(
+        service.deletePayment('ap-1', 'pay-1', 'user-1'),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
     it('lanza NotFound si el pago no pertenece a la CP', async () => {
       repository.findById!.mockResolvedValue(apStub() as any);
-      repository.findPaymentById!.mockResolvedValue({
-        id: 'pay-1',
-        accountPayableId: 'otra',
-        amount: 20000,
-      } as any);
+      repository.findPaymentById!.mockResolvedValue(
+        pagoStub({ accountPayableId: 'otra' }) as any,
+      );
       await expect(service.deletePayment('ap-1', 'pay-1', 'user-1')).rejects.toThrow(
         NotFoundException,
       );

@@ -163,6 +163,8 @@ export class AccountsPayableRepository {
             receiptFileId2: true,
             cashMovementId: true,
             createdAt: true,
+            isReversed: true,
+            reversedAt: true,
             registeredBy: {
               select: { id: true, firstName: true, lastName: true, email: true },
             },
@@ -233,6 +235,11 @@ export class AccountsPayableRepository {
         receiptFileId2: true,
         cashMovementId: true,
         createdAt: true,
+        // Un pago anulado sigue en la tabla a propósito (queda el rastro de
+        // quién lo registró y con qué soporte). La pantalla necesita saberlo
+        // para no mostrarlo como si siguiera vivo.
+        isReversed: true,
+        reversedAt: true,
         registeredBy: {
           select: { id: true, firstName: true, lastName: true, email: true },
         },
@@ -256,15 +263,16 @@ export class AccountsPayableRepository {
         receiptFileId2: true,
         cashMovementId: true,
         createdAt: true,
+        // Un pago anulado sigue en la tabla a propósito (queda el rastro de
+        // quién lo registró y con qué soporte). La pantalla necesita saberlo
+        // para no mostrarlo como si siguiera vivo.
+        isReversed: true,
+        reversedAt: true,
         registeredBy: {
           select: { id: true, firstName: true, lastName: true, email: true },
         },
       },
     });
-  }
-
-  async deletePayment(paymentId: string) {
-    return this.prisma.accountPayablePayment.delete({ where: { id: paymentId } });
   }
 
   async findPaymentById(paymentId: string) {

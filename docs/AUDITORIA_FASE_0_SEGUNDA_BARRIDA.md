@@ -100,7 +100,7 @@ y clientes.
 
 ---
 
-## 3. Anular un pago de Cuenta por Pagar no anula su movimiento de caja — **Alta**
+## 3. Anular un pago de Cuenta por Pagar no anula su movimiento de caja — **Alta** · ✅ Corregido
 
 [accounts-payable.service.ts:473](../backend/src/modules/accounts-payable/accounts-payable.service.ts#L473)
 borra la fila del pago y actualiza el saldo de la CP. No toca el `CashMovement`.
@@ -122,6 +122,41 @@ correcto.
 - **Las dos escrituras van fuera de transacción**
   ([líneas 492-497](../backend/src/modules/accounts-payable/accounts-payable.service.ts#L492)):
   si la segunda falla, el pago desaparece y la CP queda diciendo que está pagada.
+
+### Corrección aplicada
+
+**No hizo falta migración**: el modelo correcto ya existía. El flujo hermano de
+reversión con aprobación (`accounts-payable-payment-reversal-requests`) usa
+`isReversed` + `reversedAt` sobre `account_payable_payments` y anula el
+`CashMovement` dentro de una transacción. `deletePayment` ahora hace exactamente
+lo mismo, así que las dos formas de deshacer un pago de CP quedan alineadas.
+
+Tres cambios en `deletePayment`:
+
+1. Marca `isReversed` en vez de borrar la fila.
+2. Anula el `CashMovement` (`isVoided`, quién y por qué). La anulación es
+   administrativa: no exige que la caja del pago siga abierta, igual que la
+   reversión.
+3. Todo en una transacción, y el saldo se **recalcula desde los pagos vivos** en
+   vez de restarle el monto al acumulado — así una CP que ya venía descuadrada se
+   corrige sola al anular, en lugar de arrastrar el error. De paso desaparece la
+   resta en coma flotante del hallazgo 7 en este camino.
+
+**La pantalla también cambió.** Un pago anulado que sobrevive en la tabla pero se
+ve idéntico a uno vivo es peor que borrarlo: los tres `select` de pagos ahora
+exponen `isReversed`/`reversedAt`, y
+[PaymentHistoryTable.tsx](../frontend/src/features/accounts-payable/components/PaymentHistoryTable.tsx)
+muestra el monto tachado con un chip «Anulado» y esconde el botón de anular.
+
+Se borró `AccountsPayableRepository.deletePayment`, que quedó sin uso: dejarlo
+era invitar a repetir el patrón viejo.
+
+**Siete pruebas nuevas**, incluidas las dos que atrapan el bug original (que se
+anule el movimiento de caja, y que no se toque cuando el pago no tuvo
+movimiento) y la de recálculo del saldo partiendo de una CP descuadrada.
+
+**Nota**: en producción hay **0 pagos de CP anulados** hasta hoy, así que no hay
+datos que sanear. El flujo de reversión con aprobación tampoco se ha usado nunca.
 
 ---
 
