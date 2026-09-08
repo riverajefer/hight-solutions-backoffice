@@ -1,5 +1,7 @@
 import { useState, useEffect, type FC, type ReactNode } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Box, useMediaQuery, useTheme } from '@mui/material';
+import { ErrorBoundary } from '../common/ErrorBoundary';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { EnvironmentBanner } from './EnvironmentBanner';
@@ -18,6 +20,7 @@ interface MainLayoutProps {
 export const MainLayout: FC<MainLayoutProps> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isTablet = useMediaQuery(theme.breakpoints.between('md', 'lg'));
@@ -99,7 +102,12 @@ export const MainLayout: FC<MainLayoutProps> = ({ children }) => {
             backgroundColor: (theme) => theme.palette.background.default,
           }}
         >
-          {children}
+          {/*
+            El boundary se resetea al cambiar de ruta: un error en una pantalla
+            no debe dejar bloqueado el resto del sistema. El sidebar y el topbar
+            quedan fuera para que la navegación siga disponible.
+          */}
+          <ErrorBoundary resetKey={location.pathname}>{children}</ErrorBoundary>
         </Box>
 
       </Box>

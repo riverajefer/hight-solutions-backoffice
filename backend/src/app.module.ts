@@ -69,6 +69,7 @@ import { AccountsPayablePaymentAuthRequestsModule } from './modules/accounts-pay
 import { AccountsPayablePaymentReversalRequestsModule } from './modules/accounts-payable-payment-reversal-requests/accounts-payable-payment-reversal-requests.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DtfModule } from './modules/dtf/dtf.module';
+import { ClientErrorsModule } from './modules/client-errors/client-errors.module';
 
 @Module({
   imports: [
@@ -184,6 +185,8 @@ import { DtfModule } from './modules/dtf/dtf.module';
     WsEventsModule,
     // Módulo DTF
     DtfModule,
+    // Recepción de errores de JavaScript del frontend (van al log estructurado)
+    ClientErrorsModule,
   ],
   providers: [
     {

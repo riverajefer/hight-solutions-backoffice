@@ -13,3 +13,4 @@ export { ApprovalQueueBar } from './ApprovalQueueBar';
 export { QueueReviewActions } from './QueueReviewActions';
 export { BankSelector } from './BankSelector';
 export { WithholdingsFields } from './WithholdingsFields';
+export { ErrorBoundary } from './ErrorBoundary';
