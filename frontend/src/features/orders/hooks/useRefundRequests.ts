@@ -6,6 +6,7 @@ import type {
   CreateRefundRequestDto,
   ApproveRefundRequestDto,
   RejectRefundRequestDto,
+  ExecuteRefundRequestDto,
 } from '../../../types/refund-request.types';
 
 // ============================================================
@@ -15,6 +16,8 @@ import type {
 export const refundRequestsKeys = {
   all: ['refund-requests'] as const,
   pending: () => [...refundRequestsKeys.all, 'pending'] as const,
+  pendingExecution: () =>
+    [...refundRequestsKeys.all, 'pending-execution'] as const,
   mine: () => [...refundRequestsKeys.all, 'mine'] as const,
   byOrder: (orderId: string) =>
     [...refundRequestsKeys.all, 'by-order', orderId] as const,
@@ -40,6 +43,19 @@ export const usePendingRefundRequests = (enabled = true) => {
   return useQuery({
     queryKey: refundRequestsKeys.pending(),
     queryFn: () => refundRequestsApi.findPending(),
+    enabled,
+    refetchInterval: 30_000,
+  });
+};
+
+/**
+ * Devoluciones autorizadas por gerencia que esperan el pago de Caja.
+ * Es la segunda sección del panel de Caja.
+ */
+export const usePendingExecutionRefundRequests = (enabled = true) => {
+  return useQuery({
+    queryKey: refundRequestsKeys.pendingExecution(),
+    queryFn: () => refundRequestsApi.findPendingExecution(),
     enabled,
     refetchInterval: 30_000,
   });
@@ -103,13 +119,46 @@ export const useApproveRefundRequest = () => {
           queryKey: ordersKeys.detail(data.orderId),
         });
       }
-      enqueueSnackbar('Devolución aprobada correctamente', {
+      enqueueSnackbar(
+        'Devolución autorizada. Queda pendiente de pago en Caja.',
+        { variant: 'success' },
+      );
+    },
+    onError: (error: any) => {
+      const message =
+        error?.response?.data?.message || 'Error al aprobar la devolución';
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+};
+
+/**
+ * Pagar una devolución autorizada. Es el único punto donde se mueve el dinero.
+ */
+export const useExecuteRefundRequest = () => {
+  const queryClient = useQueryClient();
+  const { enqueueSnackbar } = useSnackbar();
+
+  return useMutation({
+    mutationFn: ({ id, dto }: { id: string; dto?: ExecuteRefundRequestDto }) =>
+      refundRequestsApi.execute(id, dto),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: refundRequestsKeys.all });
+      if (data.orderId) {
+        queryClient.invalidateQueries({
+          queryKey: ordersKeys.detail(data.orderId),
+        });
+      }
+      // El egreso cambia el arqueo de la sesión abierta.
+      queryClient.invalidateQueries({ queryKey: ['cash-session'] });
+      queryClient.invalidateQueries({ queryKey: ['cash-movements'] });
+      enqueueSnackbar('Devolución pagada y registrada en caja', {
         variant: 'success',
       });
     },
     onError: (error: any) => {
       const message =
-        error?.response?.data?.message || 'Error al aprobar la devolución';
+        error?.response?.data?.message || 'Error al pagar la devolución';
       enqueueSnackbar(message, { variant: 'error' });
     },
   });

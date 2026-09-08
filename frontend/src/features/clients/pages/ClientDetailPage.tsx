@@ -52,7 +52,7 @@ const ORDER_STATUS_LABELS: Record<string, string> = {
   DELIVERED_ON_CREDIT: 'Entregada a crédito',
   WARRANTY: 'Garantía',
   PAID: 'Pagada',
-  RETURNED: 'Devuelta',
+  RETURNED: 'Devolución de dinero',
   ANULADO: 'Anulada',
 };
 

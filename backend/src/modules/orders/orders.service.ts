@@ -77,7 +77,8 @@ export interface AuthorizationHistoryEvent {
     | 'CLIENT_OWNERSHIP'
     | 'PAYMENT_EDIT'
     | 'PAYMENT_VOID'
-    | 'EDIT_REQUEST';
+    | 'EDIT_REQUEST'
+    | 'REFUND';
   status: EditRequestStatus;
   reason: string | null;
   /** Monto asociado (anticipo, descuento, edición de pago); null si no aplica. */
@@ -95,6 +96,27 @@ export interface AuthorizationHistoryEvent {
    * "Aprobada por X" sobre algo que nadie aprobó.
    */
   direct?: boolean;
+  /**
+   * Valor de venta anulado (solo `REFUND`); null si la devolución fue de un
+   * simple saldo a favor. Es lo que distingue devolver un excedente de dar de
+   * baja un trabajo, y en el timeline se lee muy distinto.
+   */
+  reversedAmount?: string | null;
+  /**
+   * Tercer hito de una devolución (solo `REFUND`): gerencia autoriza y Caja
+   * paga, así que "aprobada" no significa que el dinero ya salió. Null mientras
+   * siga pendiente de pago.
+   */
+  executedAt?: Date | null;
+  executedBy?: AuthHistoryUser | null;
+  /**
+   * Comprobante de la transferencia (solo `REFUND`). Una devolución en efectivo
+   * queda soportada por el recibo de caja; una por transferencia no deja rastro
+   * dentro del sistema si nadie adjunta el soporte del banco.
+   */
+  receiptFileId?: string | null;
+  /** Comprobante que adjuntó Caja al pagar (solo `REFUND` por transferencia). */
+  executionReceiptFileId?: string | null;
 }
 
 /** Resumen del mini dashboard de la lista de órdenes de pedido. */
@@ -293,7 +315,14 @@ export class OrdersService {
       this.prisma.order.groupBy({
         by: ['createdById'],
         where: { ...where, ...extra },
-        _sum: { subtotal: true, discountAmount: true },
+        // `reversedNetAmount` es la venta anulada por devoluciones llevada a esta
+        // misma base sin IVA: una OP devuelta a medias no debe comisionar la
+        // mitad que se le devolvió al cliente.
+        _sum: {
+          subtotal: true,
+          discountAmount: true,
+          reversedNetAmount: true,
+        },
         _count: { id: true },
       });
 
@@ -319,8 +348,18 @@ export class OrdersService {
       }),
       // Brecha: ya está pagada pero todavía no se marcó la entrega, así que aún
       // no comisiona. Es el trabajo pendiente que la tarjeta hace visible.
+      //
+      // `RETURNED` queda por fuera junto a `ANULADO`: una OP devuelta termina con
+      // balance en cero, así que sin excluirla aparecería acá como "pagada
+      // pendiente de entregar" un trabajo que nunca se va a entregar.
       groupBySubset({
-        status: { notIn: [...DELIVERED_ORDER_STATUSES, OrderStatus.ANULADO] },
+        status: {
+          notIn: [
+            ...DELIVERED_ORDER_STATUSES,
+            OrderStatus.ANULADO,
+            OrderStatus.RETURNED,
+          ],
+        },
         balance: { lte: 0 },
       }),
     ]);
@@ -328,7 +367,9 @@ export class OrdersService {
     type Subset = Awaited<ReturnType<typeof groupBySubset>>;
 
     const netOf = (g: Subset[number]) =>
-      Number(g._sum.subtotal ?? 0) - Number(g._sum.discountAmount ?? 0);
+      Number(g._sum.subtotal ?? 0) -
+      Number(g._sum.discountAmount ?? 0) -
+      Number(g._sum.reversedNetAmount ?? 0);
 
     /** Índice asesor → { net, orders } para cruzar contra el desglose principal. */
     const indexSubset = (groups: Subset) =>
@@ -2069,11 +2110,12 @@ export class OrdersService {
       const newPaidAmount = new Prisma.Decimal(order.paidAmount).add(
         paymentAmount,
       );
-      const newBalance = computeOrderBalance(
-        order.total,
-        newPaidAmount,
-        order.appliedCreditAmount,
-      );
+      const newBalance = computeOrderBalance({
+        total: order.total,
+        paidAmount: newPaidAmount,
+        appliedCreditAmount: order.appliedCreditAmount,
+        reversedAmount: order.reversedAmount,
+      });
 
       await tx.order.update({
         where: { id: orderId },
@@ -2523,6 +2565,7 @@ export class OrdersService {
           total: true,
           appliedCreditAmount: true,
           refundedAmount: true,
+          reversedAmount: true,
         },
       });
       const paidAmount = computeNetPaidAmount(
@@ -2533,11 +2576,12 @@ export class OrdersService {
         where: { id: orderId },
         data: {
           paidAmount,
-          balance: computeOrderBalance(
-            current?.total ?? order.total,
+          balance: computeOrderBalance({
+            total: current?.total ?? order.total,
             paidAmount,
-            current?.appliedCreditAmount,
-          ),
+            appliedCreditAmount: current?.appliedCreditAmount,
+            reversedAmount: current?.reversedAmount ?? order.reversedAmount,
+          }),
         },
       });
 
@@ -2642,6 +2686,7 @@ export class OrdersService {
         reteIVARate: true,
         appliedCreditAmount: true,
         refundedAmount: true,
+        reversedAmount: true,
       },
     });
 
@@ -2699,11 +2744,12 @@ export class OrdersService {
 
     // El saldo a favor ya aplicado a otras OPs no vuelve a contar como excedente
     // aunque el total cambie por una edición de ítems.
-    const balance = computeOrderBalance(
+    const balance = computeOrderBalance({
       total,
       paidAmount,
-      order?.appliedCreditAmount,
-    );
+      appliedCreditAmount: order?.appliedCreditAmount,
+      reversedAmount: order?.reversedAmount ?? 0,
+    });
 
     // Actualizar orden
     return tx.order.update({
@@ -3043,6 +3089,7 @@ export class OrdersService {
       editRequests,
       voidRequests,
       voidedPayments,
+      refunds,
     ] = await Promise.all([
         this.prisma.advancePaymentApproval.findMany({
           where: { orderId },
@@ -3113,6 +3160,14 @@ export class OrdersService {
             voidedAt: true,
             voidReason: true,
             voidedBy: { select: USER_SELECT },
+          },
+        }),
+        this.prisma.refundRequest.findMany({
+          where: { orderId },
+          include: {
+            requestedBy: { select: USER_SELECT },
+            reviewedBy: { select: USER_SELECT },
+            executedBy: { select: USER_SELECT },
           },
         }),
       ]);
@@ -3208,6 +3263,28 @@ export class OrdersService {
           reviewedBy: null,
           direct: true,
         })),
+      ...refunds.map((r) => ({
+        id: r.id,
+        type: 'REFUND' as const,
+        status: r.status,
+        reason: r.observation,
+        amount: r.refundAmount.toString(),
+        // Cero significa "solo se devolvió un excedente": no hay venta anulada
+        // que contar, y el timeline no debe insinuar que la hubo.
+        reversedAmount: r.reversedAmount?.greaterThan(0)
+          ? r.reversedAmount.toString()
+          : null,
+        advisor: null,
+        createdAt: r.createdAt,
+        reviewedAt: r.reviewedAt,
+        reviewNotes: r.reviewNotes,
+        requestedBy: r.requestedBy,
+        reviewedBy: r.reviewedBy,
+        executedAt: r.executedAt,
+        executedBy: r.executedBy,
+        receiptFileId: r.receiptFileId,
+        executionReceiptFileId: r.executionReceiptFileId,
+      })),
       ...editRequests.map((e) => ({
         id: e.id,
         type: 'EDIT_REQUEST' as const,

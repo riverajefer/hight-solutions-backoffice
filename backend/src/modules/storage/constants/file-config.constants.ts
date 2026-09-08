@@ -22,4 +22,9 @@ export const ENTITY_TYPES = {
   EXPENSE_ORDER: 'expense_order',
   WORK_ORDER: 'work_order',
   ACCOUNT_PAYABLE: 'account_payable',
+  // Comprobante del banco cuando una devolución se paga por transferencia. Va
+  // aparte de ORDER para no mezclarse con los comprobantes de los pagos que
+  // entran; el `entityId` sigue siendo la orden, porque al subirlo la solicitud
+  // de devolución todavía no existe.
+  REFUND_REQUEST: 'refund_request',
 } as const;

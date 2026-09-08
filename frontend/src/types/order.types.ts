@@ -11,6 +11,9 @@ export type OrderStatus =
   | 'DELIVERED_ON_CREDIT'
   | 'WARRANTY'
   | 'PAID'
+  // Terminal, lo pone el sistema al pagarse una devolución que anula la venta
+  // completa. No aparece en ALLOWED_TRANSITIONS: no se elige desde el selector.
+  | 'RETURNED'
   | 'ANULADO';
 
 export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'CREDIT' | 'CREDIT_BALANCE';
@@ -81,6 +84,8 @@ export interface Order {
   paidAmount: string;
   /** Saldo a favor de esta orden ya aplicado como pago de otras órdenes */
   appliedCreditAmount?: string;
+  /** Valor de venta anulado por devoluciones ya pagadas. */
+  reversedAmount?: string;
   balance: string;
   advancePaymentStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   advancePaymentRejectedReason: string | null;
@@ -89,10 +94,14 @@ export interface Order {
   refundRequests?: Array<{
     id: string;
     refundAmount: string;
+    /** Venta anulada por esta devolución. '0' si solo se devolvió un excedente. */
+    reversedAmount?: string;
     paymentMethod: 'CASH' | 'TRANSFER' | 'CARD';
     bankEntity?: string | null;
     observation: string;
     status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    /** Null mientras Caja no haya pagado: autorizada pero sin mover dinero. */
+    executedAt?: string | null;
     requestedAt: string;
     requestedBy?: {
       id: string;
@@ -551,8 +560,23 @@ export const ORDER_STATUS_CONFIG: Record<OrderStatus, OrderStatusConfig> = {
   DELIVERED_ON_CREDIT: { label: 'Entregado a Crédito', color: 'warning' },
   WARRANTY: { label: 'Garantía', color: 'secondary' },
   PAID: { label: 'Pagada', color: 'success' },
+  RETURNED: { label: 'Devolución de dinero', color: 'error' },
   ANULADO: { label: 'Anulada', color: 'error' },
 };
+
+/**
+ * Opciones del filtro de estado, derivadas de `ORDER_STATUS_CONFIG`.
+ *
+ * Se deriva y no se escribe a mano porque antes eran dos listas copiadas —una en
+ * Órdenes y otra en Ventas por Asesor— que había que acordarse de actualizar:
+ * al agregar «Devolución de dinero» ninguna de las dos lo mostró. Con esto, un
+ * estado nuevo aparece en los filtros por el solo hecho de existir.
+ */
+export const ORDER_STATUS_OPTIONS: { value: OrderStatus; label: string }[] =
+  (Object.keys(ORDER_STATUS_CONFIG) as OrderStatus[]).map((value) => ({
+    value,
+    label: ORDER_STATUS_CONFIG[value].label,
+  }));
 
 /**
  * Transiciones válidas de estado de orden.
@@ -569,6 +593,9 @@ export const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   DELIVERED: ['WARRANTY'],
   DELIVERED_ON_CREDIT: ['WARRANTY', 'ANULADO'],
   WARRANTY: ['DELIVERED'],
+  // `RETURNED` no se elige: lo pone el sistema cuando Caja paga una devolución
+  // que anula la venta completa. Terminal, igual que ANULADO.
+  RETURNED: [],
   ANULADO: [],
 };
 

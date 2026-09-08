@@ -22,16 +22,20 @@ import {
   CreateRefundRequestDto,
   ApproveRefundRequestDto,
   RejectRefundRequestDto,
+  ExecuteRefundRequestDto,
 } from './dto';
 import {
   ApprovalRequestType,
   EditRequestStatus,
   NotificationType,
+  OrderStatus,
   Prisma,
+  RefundReason,
 } from '../../generated/prisma';
 import {
   computeAvailableOverpayment,
   computeOrderBalance,
+  computeReversedNetAmount,
 } from '../../common/utils/order-balance.util';
 
 const USER_SELECT = {
@@ -45,10 +49,14 @@ const ORDER_SELECT = {
   id: true,
   orderNumber: true,
   status: true,
+  subtotal: true,
+  discountAmount: true,
   total: true,
   paidAmount: true,
   appliedCreditAmount: true,
   refundedAmount: true,
+  reversedAmount: true,
+  reversedNetAmount: true,
   balance: true,
 } as const;
 
@@ -132,8 +140,18 @@ export class RefundRequestsService
   // ─── Domain methods ───
 
   /**
-   * Crear solicitud de devolución de dinero al cliente (saldo a favor).
-   * No mueve dinero hasta ser aprobada.
+   * Crear solicitud de devolución de dinero al cliente.
+   * No mueve dinero hasta que Caja la ejecuta.
+   *
+   * Cubre los dos casos con la misma cuenta:
+   *
+   *   - Saldo a favor (`reversedAmount = 0`): el cliente pagó de más. Esa plata
+   *     nunca fue una venta, así que solo hay que devolverla.
+   *   - Reversión (`reversedAmount > 0`): el trabajo no cumplió o no se entregó,
+   *     así que además de devolver el dinero hay que anular la venta.
+   *
+   * La cifra que el usuario decide es cuánta venta se anula; el dinero que puede
+   * salir de la caja se deduce de ahí.
    */
   async create(userId: string, dto: CreateRefundRequestDto) {
     const order = await this.prisma.order.findUnique({
@@ -143,6 +161,18 @@ export class RefundRequestsService
 
     if (!order) {
       throw new NotFoundException(`Orden con id ${dto.orderId} no encontrada`);
+    }
+
+    if (order.status === OrderStatus.ANULADO) {
+      throw new BadRequestException(
+        'La orden está anulada: no admite devoluciones',
+      );
+    }
+
+    if (order.status === OrderStatus.RETURNED) {
+      throw new BadRequestException(
+        'La orden ya fue devuelta en su totalidad: no queda nada por devolver',
+      );
     }
 
     // Validar que no exista otra solicitud pendiente para la misma orden
@@ -160,24 +190,43 @@ export class RefundRequestsService
       );
     }
 
-    // Saldo a favor disponible: el excedente menos lo que ya se aplicó como pago
-    // de otras órdenes (ese saldo ya se gastó y no puede devolverse en efectivo).
-    const overpayment = computeAvailableOverpayment(
-      order.total,
-      order.paidAmount,
-      order.appliedCreditAmount,
+    const reversedAmount = new Prisma.Decimal(dto.reversedAmount ?? 0);
+    const alreadyReversed = new Prisma.Decimal(order.reversedAmount ?? 0);
+    const pendingSaleValue = new Prisma.Decimal(order.total).sub(
+      alreadyReversed,
     );
+
+    // No se puede anular más venta de la que queda viva. Sin este tope, dos
+    // devoluciones parciales sucesivas dejarían la OP valiendo menos que cero.
+    if (reversedAmount.greaterThan(pendingSaleValue)) {
+      throw new BadRequestException(
+        `El valor a anular (${reversedAmount.toString()}) excede el valor vigente de la orden (${pendingSaleValue.toString()})`,
+      );
+    }
+
+    // Dinero disponible para devolver: el excedente que queda una vez anulada
+    // esa parte de la venta. Con `reversedAmount = 0` es exactamente el saldo a
+    // favor de siempre, descontando lo que ya se aplicó como pago de otras
+    // órdenes (ese saldo ya se gastó y no puede salir en efectivo).
+    const overpayment = computeAvailableOverpayment({
+      total: order.total,
+      paidAmount: order.paidAmount,
+      appliedCreditAmount: order.appliedCreditAmount,
+      reversedAmount: alreadyReversed.add(reversedAmount),
+    });
 
     if (overpayment.lessThanOrEqualTo(0)) {
       throw new BadRequestException(
-        'La orden no tiene saldo a favor para devolver',
+        reversedAmount.isZero()
+          ? 'La orden no tiene saldo a favor para devolver'
+          : 'Anular ese valor no deja dinero por devolver: el cliente no ha abonado más de lo que quedaría debiendo',
       );
     }
 
     const refundAmount = new Prisma.Decimal(dto.refundAmount);
     if (refundAmount.greaterThan(overpayment)) {
       throw new BadRequestException(
-        `El monto a devolver (${refundAmount.toString()}) no puede exceder el saldo a favor (${overpayment.toString()})`,
+        `El monto a devolver (${refundAmount.toString()}) no puede exceder el dinero disponible (${overpayment.toString()})`,
       );
     }
 
@@ -199,8 +248,14 @@ export class RefundRequestsService
           data: {
             orderId: dto.orderId,
             refundAmount,
+            reversedAmount,
+            refundReason: dto.refundReason ?? RefundReason.CREDIT_BALANCE,
             paymentMethod: dto.paymentMethod,
             bankEntity: dto.bankEntity,
+            // El comprobante solo tiene sentido en transferencias: en efectivo
+            // el soporte es el recibo de caja que genera la propia ejecución.
+            receiptFileId:
+              dto.paymentMethod === 'TRANSFER' ? dto.receiptFileId ?? null : null,
             observation: dto.observation,
             status: EditRequestStatus.PENDING,
             requestedById: userId,
@@ -229,13 +284,18 @@ export class RefundRequestsService
 
     const amountFormatted = `$${Number(refundAmount).toLocaleString('es-CO')}`;
     const methodLabel = this.formatPaymentMethod(dto.paymentMethod);
+    // Gerencia necesita ver en el mensaje si además se está anulando venta: no
+    // es lo mismo autorizar la salida de un excedente que dar de baja un trabajo.
+    const reversalNote = reversedAmount.greaterThan(0)
+      ? ` Anula $${Number(reversedAmount).toLocaleString('es-CO')} de venta (${this.formatRefundReason(dto.refundReason ?? RefundReason.CREDIT_BALANCE)}).`
+      : '';
 
     await this.notificationsService.notifyUsersWithPermission(
       'approve_refunds',
       {
         type: NotificationType.REFUND_REQUEST_PENDING,
         title: 'Nueva solicitud de devolución',
-        message: `${user?.firstName || user?.email} solicita devolver ${amountFormatted} vía ${methodLabel} de la orden ${order.orderNumber}. Observación: ${dto.observation}`,
+        message: `${user?.firstName || user?.email} solicita devolver ${amountFormatted} vía ${methodLabel} de la orden ${order.orderNumber}.${reversalNote} Observación: ${dto.observation}`,
         relatedId: request.id,
         relatedType: 'RefundRequest',
       },
@@ -251,7 +311,7 @@ export class RefundRequestsService
       request.id,
       requesterName,
       `devolución de ${amountFormatted} vía ${methodLabel} de la orden ${order.orderNumber}`,
-      `Observación: ${dto.observation}`,
+      `${reversalNote.trim()}${reversalNote ? ' ' : ''}Observación: ${dto.observation}`,
     );
 
     // Emitir WS
@@ -261,7 +321,13 @@ export class RefundRequestsService
   }
 
   /**
-   * Aprobar: crea CashMovement EXPENSE y reduce paidAmount.
+   * Aprobar: gerencia autoriza, pero el dinero todavía no se mueve.
+   *
+   * Antes esta operación creaba el egreso de caja en el mismo acto, lo que
+   * obligaba a tener una sesión de caja abierta para poder aprobar. Como
+   * gerencia aprueba desde WhatsApp a cualquier hora, esa exigencia hacía
+   * fallar la aprobación de noche. Ahora la solicitud queda APPROVED con
+   * `executedAt` en null —autorizada, pendiente de pago— y Caja la ejecuta.
    */
   async approve(
     requestId: string,
@@ -272,17 +338,7 @@ export class RefundRequestsService
       where: { id: requestId, status: EditRequestStatus.PENDING },
       include: {
         requestedBy: { select: USER_SELECT },
-        order: {
-          select: {
-            id: true,
-            orderNumber: true,
-            total: true,
-            paidAmount: true,
-            appliedCreditAmount: true,
-            refundedAmount: true,
-            balance: true,
-          },
-        },
+        order: { select: ORDER_SELECT },
       },
     });
 
@@ -292,7 +348,83 @@ export class RefundRequestsService
 
     await this.validateReviewerPermission(reviewerId);
 
-    // Verificar sesión de caja abierta
+    // Se revalida contra el estado actual de la orden: entre la solicitud y la
+    // aprobación pudieron entrar pagos, devoluciones o ediciones de ítems.
+    this.assertRefundStillViable(request);
+
+    const updated = await this.prisma.refundRequest.update({
+      where: { id: requestId },
+      data: {
+        status: EditRequestStatus.APPROVED,
+        reviewedById: reviewerId,
+        reviewedAt: new Date(),
+        reviewNotes: dto.reviewNotes,
+      },
+      include: {
+        requestedBy: { select: USER_SELECT },
+        reviewedBy: { select: USER_SELECT },
+        order: { select: ORDER_SELECT },
+      },
+    });
+
+    await this.notificationsService.create({
+      userId: request.requestedById,
+      type: NotificationType.REFUND_REQUEST_APPROVED,
+      title: 'Devolución autorizada',
+      message: `La devolución de la orden ${request.order.orderNumber} fue autorizada. Queda pendiente de pago en Caja.`,
+      relatedId: request.orderId,
+      relatedType: 'Order',
+    });
+
+    // Caja es quien paga, así que es Caja quien tiene que enterarse de que hay
+    // algo esperando. Sin este aviso la solicitud queda autorizada en silencio.
+    await this.notificationsService.notifyUsersWithPermission(
+      'execute_refunds',
+      {
+        type: NotificationType.REFUND_REQUEST_APPROVED,
+        title: 'Devolución pendiente de pago',
+        message: `La devolución de $${Number(request.refundAmount).toLocaleString('es-CO')} de la orden ${request.order.orderNumber} fue autorizada y espera pago en Caja.`,
+        relatedId: request.id,
+        relatedType: 'RefundRequest',
+      },
+    );
+
+    this.wsEventsGateway.emitApprovalUpdated(updated);
+
+    return updated;
+  }
+
+  /**
+   * Ejecutar: Caja paga la devolución autorizada.
+   *
+   * Es el único punto donde se mueve dinero. Hace cuatro cosas que van juntas o
+   * no van: saca la plata de la caja, la descuenta del abono de la OP, anula la
+   * parte de la venta que corresponda y, si no quedó nada de venta viva, pasa la
+   * orden a "Devolución de dinero".
+   */
+  async execute(
+    requestId: string,
+    executorId: string,
+    dto: ExecuteRefundRequestDto = {},
+  ) {
+    const request = await this.prisma.refundRequest.findFirst({
+      where: { id: requestId, status: EditRequestStatus.APPROVED },
+      include: {
+        requestedBy: { select: USER_SELECT },
+        order: { select: ORDER_SELECT },
+      },
+    });
+
+    if (!request) {
+      throw new NotFoundException(
+        'Solicitud no encontrada o no está autorizada',
+      );
+    }
+
+    if (request.executedAt) {
+      throw new ConflictException('Esta devolución ya fue pagada');
+    }
+
     const activeSession = await this.prisma.cashSession.findFirst({
       where: { status: 'OPEN' },
       select: { id: true },
@@ -304,30 +436,64 @@ export class RefundRequestsService
       );
     }
 
-    // Verificar que el saldo a favor sigue existiendo y es suficiente (descontando
-    // lo que ya se haya aplicado como pago de otras órdenes)
-    const paidAmount = new Prisma.Decimal(request.order.paidAmount);
-    const appliedCredit = new Prisma.Decimal(
-      request.order.appliedCreditAmount ?? 0,
-    );
-    const overpayment = computeAvailableOverpayment(
-      request.order.total,
-      paidAmount,
-      appliedCredit,
-    );
-    const refundAmount = new Prisma.Decimal(request.refundAmount);
+    // El tiempo entre autorizar y pagar puede ser de días: la orden pudo cambiar.
+    this.assertRefundStillViable(request);
 
-    if (refundAmount.greaterThan(overpayment)) {
-      throw new BadRequestException(
-        'El saldo a favor actual es insuficiente para aprobar la devolución',
-      );
-    }
+    const refundAmount = new Prisma.Decimal(request.refundAmount);
+    const reversedAmount = new Prisma.Decimal(request.reversedAmount ?? 0);
+    const order = request.order;
 
     const receiptNumber =
       await this.consecutivesService.generateNumber('CASH_RECEIPT');
 
+    const newReversedAmount = new Prisma.Decimal(order.reversedAmount ?? 0).add(
+      reversedAmount,
+    );
+    // La anulación en la moneda de la comisión. Se acumula, igual que el valor
+    // anulado, porque una OP puede tener varias devoluciones parciales.
+    const newReversedNetAmount = new Prisma.Decimal(
+      order.reversedNetAmount ?? 0,
+    ).add(
+      computeReversedNetAmount(
+        reversedAmount,
+        order.total,
+        order.subtotal,
+        order.discountAmount,
+      ),
+    );
+    const newPaidAmount = new Prisma.Decimal(order.paidAmount).sub(refundAmount);
+    // `refundedAmount` acumula lo devuelto: los Payment no se borran, así que sin
+    // este registro cualquier recálculo posterior de paidAmount desde los pagos
+    // (p. ej. al editar un ítem) resucitaría el dinero ya devuelto.
+    const newRefundedAmount = new Prisma.Decimal(
+      order.refundedAmount ?? 0,
+    ).add(refundAmount);
+    const newBalance = computeOrderBalance({
+      total: order.total,
+      paidAmount: newPaidAmount,
+      appliedCreditAmount: order.appliedCreditAmount,
+      reversedAmount: newReversedAmount,
+    });
+
+    // La OP solo cambia de estado cuando ya no queda nada de venta en pie. Una
+    // devolución parcial de un trabajo entregado a medias conserva su estado:
+    // marcarla como devuelta borraría que la entrega sí ocurrió.
+    const isTotalReversal =
+      newReversedAmount.greaterThanOrEqualTo(order.total) &&
+      new Prisma.Decimal(order.total).greaterThan(0);
+
     const updated = await this.prisma.$transaction(async (tx) => {
-      // 1. Crear CashMovement EXPENSE
+      // El WHERE lleva la condición de no-ejecutada: aprobar dos veces movería
+      // el dinero dos veces, y el `findFirst` de arriba no cierra esa carrera.
+      const claimed = await tx.refundRequest.updateMany({
+        where: { id: requestId, executedAt: null },
+        data: { executedAt: new Date(), executedById: executorId },
+      });
+
+      if (claimed.count === 0) {
+        throw new ConflictException('Esta devolución ya fue pagada');
+      }
+
       const movement = await tx.cashMovement.create({
         data: {
           cashSessionId: activeSession.id,
@@ -335,51 +501,41 @@ export class RefundRequestsService
           movementType: 'EXPENSE',
           paymentMethod: request.paymentMethod,
           amount: refundAmount,
-          description: `Devolución Orden ${request.order.orderNumber} — ${request.observation}`,
+          description: `Devolución Orden ${order.orderNumber} — ${request.observation}`,
           referenceType: 'REFUND',
           referenceId: request.id,
-          performedById: reviewerId,
+          performedById: executorId,
         },
         select: { id: true },
       });
-
-      // 2. Ajustar paidAmount y balance de la OP.
-      //    `refundedAmount` acumula lo devuelto: los Payment no se borran, así que
-      //    sin este registro cualquier recálculo posterior de paidAmount desde los
-      //    pagos (p. ej. al editar un ítem) resucitaría el dinero ya devuelto.
-      const newPaidAmount = paidAmount.sub(refundAmount);
-      const newRefundedAmount = new Prisma.Decimal(
-        request.order.refundedAmount ?? 0,
-      ).add(refundAmount);
-      const newBalance = computeOrderBalance(
-        request.order.total,
-        newPaidAmount,
-        appliedCredit,
-      );
 
       await tx.order.update({
         where: { id: request.orderId },
         data: {
           paidAmount: newPaidAmount,
           refundedAmount: newRefundedAmount,
+          reversedAmount: newReversedAmount,
+          reversedNetAmount: newReversedNetAmount,
           balance: newBalance,
+          ...(isTotalReversal ? { status: OrderStatus.RETURNED } : {}),
         },
       });
 
-      // 3. Actualizar la solicitud a APPROVED
       return tx.refundRequest.update({
         where: { id: requestId },
         data: {
-          status: EditRequestStatus.APPROVED,
-          reviewedById: reviewerId,
-          reviewedAt: new Date(),
-          reviewNotes: dto.reviewNotes,
-          executedAt: new Date(),
           cashMovementId: movement.id,
+          // El comprobante del pago va aparte del que trajera la solicitud: son
+          // dos transferencias distintas en el papel, y guardarlos en el mismo
+          // campo haría que este borrara aquel.
+          ...(request.paymentMethod === 'TRANSFER' && dto.receiptFileId
+            ? { executionReceiptFileId: dto.receiptFileId }
+            : {}),
         },
         include: {
           requestedBy: { select: USER_SELECT },
           reviewedBy: { select: USER_SELECT },
+          executedBy: { select: USER_SELECT },
           order: { select: ORDER_SELECT },
           cashMovement: {
             select: {
@@ -394,12 +550,11 @@ export class RefundRequestsService
       });
     });
 
-    // Notificar al solicitante
     await this.notificationsService.create({
       userId: request.requestedById,
       type: NotificationType.REFUND_REQUEST_APPROVED,
-      title: 'Devolución aprobada',
-      message: `La devolución de la orden ${request.order.orderNumber} ha sido aprobada y registrada en caja.`,
+      title: 'Devolución pagada',
+      message: `La devolución de la orden ${order.orderNumber} fue pagada y registrada en caja.`,
       relatedId: request.orderId,
       relatedType: 'Order',
     });
@@ -407,6 +562,58 @@ export class RefundRequestsService
     this.wsEventsGateway.emitApprovalUpdated(updated);
 
     return updated;
+  }
+
+  /**
+   * ¿La devolución sigue siendo posible contra el estado actual de la orden?
+   *
+   * Se llama al autorizar y al pagar porque entre la solicitud y el pago pueden
+   * pasar días: pagos nuevos, otra devolución, una edición de ítems que cambia
+   * el total. Aprobar a ciegas sacaría de la caja plata que la OP ya no respalda.
+   */
+  private assertRefundStillViable(request: {
+    refundAmount: Prisma.Decimal;
+    reversedAmount: Prisma.Decimal | null;
+    order: {
+      total: Prisma.Decimal;
+      paidAmount: Prisma.Decimal;
+      appliedCreditAmount: Prisma.Decimal;
+      reversedAmount: Prisma.Decimal;
+      status: OrderStatus;
+    };
+  }): void {
+    const { order } = request;
+
+    if (order.status === OrderStatus.ANULADO) {
+      throw new BadRequestException(
+        'La orden fue anulada: la devolución ya no aplica',
+      );
+    }
+
+    const reversedAmount = new Prisma.Decimal(request.reversedAmount ?? 0);
+    const alreadyReversed = new Prisma.Decimal(order.reversedAmount ?? 0);
+    const pendingSaleValue = new Prisma.Decimal(order.total).sub(
+      alreadyReversed,
+    );
+
+    if (reversedAmount.greaterThan(pendingSaleValue)) {
+      throw new BadRequestException(
+        'El valor a anular ya no cabe en la orden: cambió el total o hubo otra devolución',
+      );
+    }
+
+    const available = computeAvailableOverpayment({
+      total: order.total,
+      paidAmount: order.paidAmount,
+      appliedCreditAmount: order.appliedCreditAmount,
+      reversedAmount: alreadyReversed.add(reversedAmount),
+    });
+
+    if (new Prisma.Decimal(request.refundAmount).greaterThan(available)) {
+      throw new BadRequestException(
+        `El dinero disponible en la orden (${available.toString()}) ya no alcanza para esta devolución`,
+      );
+    }
   }
 
   /**
@@ -485,6 +692,32 @@ export class RefundRequestsService
         },
       },
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
+   * Autorizadas por gerencia que todavía esperan el pago de Caja.
+   * Es la segunda sección del panel de Caja.
+   */
+  async findPendingExecution() {
+    return this.prisma.refundRequest.findMany({
+      where: { status: EditRequestStatus.APPROVED, executedAt: null },
+      include: {
+        requestedBy: { select: USER_SELECT },
+        reviewedBy: { select: USER_SELECT },
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true,
+            total: true,
+            paidAmount: true,
+            balance: true,
+            client: { select: { id: true, name: true } },
+          },
+        },
+      },
+      orderBy: { reviewedAt: 'asc' },
     });
   }
 
@@ -581,6 +814,18 @@ export class RefundRequestsService
         'Solo usuarios con permiso approve_refunds pueden aprobar/rechazar devoluciones',
       );
     }
+  }
+
+  private formatRefundReason(reason: RefundReason): string {
+    const labels: Record<RefundReason, string> = {
+      [RefundReason.CREDIT_BALANCE]: 'saldo a favor',
+      [RefundReason.QUALITY]: 'calidad del trabajo',
+      [RefundReason.DELIVERY_DELAY]: 'incumplimiento en la entrega',
+      [RefundReason.FORCE_MAJEURE]: 'fuerza mayor',
+      [RefundReason.CLIENT_WITHDRAWAL]: 'el cliente desistió',
+      [RefundReason.OTHER]: 'otro motivo',
+    };
+    return labels[reason] ?? reason;
   }
 
   private formatPaymentMethod(method: string): string {

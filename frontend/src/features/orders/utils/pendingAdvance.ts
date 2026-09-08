@@ -9,7 +9,7 @@ export interface PendingAdvanceInfo {
   pendingPaymentIds: string[];
   /** Abono realmente aplicado (aprobado por Caja) */
   appliedPaidAmount: number;
-  /** Saldo a cobrar sin descontar los abonos pendientes */
+  /** Saldo a cobrar sin descontar los abonos pendientes, neto de devoluciones */
   effectiveBalance: number;
 }
 
@@ -19,6 +19,17 @@ export interface PendingAdvanceInfo {
  */
 const getAppliedCredit = (order: Order): number =>
   parseFloat(order.appliedCreditAmount || '0') || 0;
+
+/**
+ * Valor de venta anulado por devoluciones ya pagadas.
+ *
+ * Reduce lo que la orden vale, no lo que el cliente abonó. Sin restarlo, una OP
+ * a la que se le devolvió la plata sigue mostrando como saldo a cobrar un
+ * trabajo que ya no existe: es el mismo saldo fantasma que el backend evita en
+ * `computeOrderBalance`, y esta es la copia de esa fórmula que vive en la UI.
+ */
+const getReversedAmount = (order: Order): number =>
+  parseFloat(order.reversedAmount || '0') || 0;
 
 /**
  * Los abonos registrados al crear la orden quedan pendientes de aprobación por
@@ -54,6 +65,10 @@ export const getPendingAdvanceInfo = (order: Order): PendingAdvanceInfo => {
     pendingAmount,
     pendingPaymentIds,
     appliedPaidAmount,
-    effectiveBalance: total - appliedPaidAmount + getAppliedCredit(order),
+    effectiveBalance:
+      total -
+      getReversedAmount(order) -
+      appliedPaidAmount +
+      getAppliedCredit(order),
   };
 };

@@ -88,6 +88,7 @@ export class CashMovementService {
             total: true,
             paidAmount: true,
             appliedCreditAmount: true,
+            reversedAmount: true,
             balance: true,
             status: true,
           },
@@ -116,11 +117,12 @@ export class CashMovementService {
 
         // Update order balance
         const newPaidAmount = new Prisma.Decimal(order.paidAmount.toString()).add(paymentAmount);
-        const newBalance = computeOrderBalance(
-          order.total,
-          newPaidAmount,
-          order.appliedCreditAmount,
-        );
+        const newBalance = computeOrderBalance({
+          total: order.total,
+          paidAmount: newPaidAmount,
+          appliedCreditAmount: order.appliedCreditAmount,
+          reversedAmount: order.reversedAmount,
+        });
         await tx.order.update({
           where: { id: dto.referenceId },
           data: { paidAmount: newPaidAmount, balance: newBalance },
@@ -213,6 +215,7 @@ export class CashMovementService {
         total: true,
         appliedCreditAmount: true,
         refundedAmount: true,
+        reversedAmount: true,
       },
     });
     if (!order) return;
@@ -231,11 +234,12 @@ export class CashMovementService {
       where: { id: payment.orderId },
       data: {
         paidAmount,
-        balance: computeOrderBalance(
-          order.total,
+        balance: computeOrderBalance({
+          total: order.total,
           paidAmount,
-          order.appliedCreditAmount,
-        ),
+          appliedCreditAmount: order.appliedCreditAmount,
+          reversedAmount: order.reversedAmount,
+        }),
       },
     });
   }

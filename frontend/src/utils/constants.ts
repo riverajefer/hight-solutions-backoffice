@@ -89,6 +89,7 @@ export const PERMISSIONS = {
   APPROVE_CLIENT_ADVISOR: 'approve_client_advisor',
   CREATE_REFUND_REQUESTS: 'create_refund_requests',
   APPROVE_REFUNDS: 'approve_refunds',
+  EXECUTE_REFUNDS: 'execute_refunds',
   //READ_COMMERCIAL_CHANNELS
   READ_COMMERCIAL_CHANNELS: 'read_commercial_channels',
   CREATE_COMMERCIAL_CHANNELS: 'create_commercial_channels',

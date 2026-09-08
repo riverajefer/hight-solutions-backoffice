@@ -19,6 +19,13 @@ export const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.ANULADO]: [],
 };
 
+/**
+ * `RETURNED` ("Devolución de dinero") no aparece en `ALLOWED_TRANSITIONS` a
+ * propósito: no es un estado que el usuario elija en el selector, sino la
+ * consecuencia de que Caja pague una devolución que anula la venta completa.
+ * Lo pone el sistema desde `RefundRequestsService.execute()`, y es terminal.
+ */
+
 export function getValidNextStatuses(currentStatus: OrderStatus): OrderStatus[] {
   return ALLOWED_TRANSITIONS[currentStatus] || [];
 }

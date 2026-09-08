@@ -18,6 +18,7 @@ import { RefundRequestsService } from './refund-requests.service';
 import {
   ApproveRefundRequestDto,
   CreateRefundRequestDto,
+  ExecuteRefundRequestDto,
   RejectRefundRequestDto,
 } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -43,6 +44,15 @@ export class RefundRequestsController {
     @Body() dto: CreateRefundRequestDto,
   ) {
     return this.service.create(userId, dto);
+  }
+
+  @Get('pending-execution')
+  @RequirePermissions('execute_refunds')
+  @ApiOperation({
+    summary: 'Devoluciones autorizadas pendientes de pago en Caja',
+  })
+  async findPendingExecution() {
+    return this.service.findPendingExecution();
   }
 
   @Get('pending')
@@ -84,16 +94,38 @@ export class RefundRequestsController {
 
   @Put(':id/approve')
   @RequirePermissions('approve_refunds')
-  @ApiOperation({ summary: 'Aprobar devolución' })
+  @ApiOperation({
+    summary: 'Autorizar devolución (gerencia). No mueve dinero',
+  })
   @ApiParam({ name: 'id' })
-  @ApiResponse({ status: 200, description: 'Devolución aprobada, CashMovement creado' })
-  @ApiResponse({ status: 400, description: 'Sin sesión de caja abierta o saldo insuficiente' })
+  @ApiResponse({
+    status: 200,
+    description: 'Devolución autorizada, pendiente de pago en Caja',
+  })
+  @ApiResponse({ status: 400, description: 'La orden ya no respalda la devolución' })
   async approve(
     @Param('id') id: string,
     @CurrentUser('id') reviewerId: string,
     @Body() dto: ApproveRefundRequestDto,
   ) {
     return this.service.approve(id, reviewerId, dto);
+  }
+
+  @Put(':id/execute')
+  @RequirePermissions('execute_refunds')
+  @ApiOperation({
+    summary: 'Pagar una devolución autorizada (Caja). Crea el CashMovement',
+  })
+  @ApiParam({ name: 'id' })
+  @ApiResponse({ status: 200, description: 'Devolución pagada y registrada en caja' })
+  @ApiResponse({ status: 400, description: 'Sin sesión de caja abierta o saldo insuficiente' })
+  @ApiResponse({ status: 409, description: 'La devolución ya fue pagada' })
+  async execute(
+    @Param('id') id: string,
+    @CurrentUser('id') executorId: string,
+    @Body() dto: ExecuteRefundRequestDto,
+  ) {
+    return this.service.execute(id, executorId, dto);
   }
 
   @Put(':id/reject')

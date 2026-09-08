@@ -163,6 +163,25 @@ const groups: PermissionGroup[] = [
     ],
   },
   {
+    label: '↩️ Devoluciones de dinero',
+    permissions: [
+      {
+        name: 'create_refund_requests',
+        description: 'Solicitar devolución de dinero en una orden de pedido',
+      },
+      {
+        name: 'approve_refunds',
+        description:
+          'Autorizar o rechazar devoluciones de dinero al cliente (gerencia)',
+      },
+      {
+        name: 'execute_refunds',
+        description:
+          'Pagar en caja una devolución ya autorizada por gerencia',
+      },
+    ],
+  },
+  {
     label: '🎯 Ventas por Asesor',
     permissions: [
       {
