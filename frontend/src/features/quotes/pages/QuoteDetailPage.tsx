@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
+  Alert,
   Box,
   Card,
   CardContent,
@@ -49,6 +50,7 @@ import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { useQuotes } from '../hooks/useQuotes';
 import { QuoteStatusChip } from '../components/QuoteStatusChip';
+import { RejectQuoteDialog } from '../components/RejectQuoteDialog';
 import { ToolbarButton } from '../../orders/components/ToolbarButton';
 import {
   QuoteStatus,
@@ -114,6 +116,7 @@ export const QuoteDetailPage: React.FC = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmConvert, setConfirmConvert] = useState(false);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [viewImageDialog, setViewImageDialog] = useState<{
     open: boolean;
@@ -137,11 +140,24 @@ export const QuoteDetailPage: React.FC = () => {
   const handleMenuClose = () => setAnchorEl(null);
 
   const handleChangeStatus = async (newStatus: QuoteStatus) => {
+    // El rechazo exige motivo: se captura en su propio diálogo.
+    if (newStatus === QuoteStatus.REJECTED) {
+      handleMenuClose();
+      setRejectDialogOpen(true);
+      return;
+    }
     await updateQuoteMutation.mutateAsync({
       id: id!,
       data: { status: newStatus },
     });
     handleMenuClose();
+  };
+
+  const handleReject = async (rejectionReason: string) => {
+    await updateQuoteMutation.mutateAsync({
+      id: id!,
+      data: { status: QuoteStatus.REJECTED, rejectionReason },
+    });
   };
 
   const handleConvert = async () => {
@@ -436,6 +452,21 @@ export const QuoteDetailPage: React.FC = () => {
                       <QuoteStatusChip status={quote.status} size='medium' />
                     </Box>
                   </Grid>
+                  {quote.status === QuoteStatus.REJECTED && (
+                    <Grid item xs={12}>
+                      <Alert severity='error' sx={{ mt: 1 }}>
+                        <Typography variant='body2' sx={{ fontWeight: 600 }}>
+                          Motivo del rechazo
+                          {quote.rejectedAt
+                            ? ` · ${formatDateTime(quote.rejectedAt)}`
+                            : ''}
+                        </Typography>
+                        <Typography variant='body2'>
+                          {quote.rejectionReason || 'Sin motivo registrado'}
+                        </Typography>
+                      </Alert>
+                    </Grid>
+                  )}
                   <Grid item xs={12} sm={3}>
                     <Typography variant='body2' color='textSecondary'>
                       Fecha
@@ -633,6 +664,14 @@ export const QuoteDetailPage: React.FC = () => {
 
       {/* Comentarios */}
       <CommentSection entityType="QUOTE" entityId={quote.id} />
+
+      <RejectQuoteDialog
+        open={rejectDialogOpen}
+        quoteNumber={quote.quoteNumber}
+        onClose={() => setRejectDialogOpen(false)}
+        onConfirm={handleReject}
+        isLoading={updateQuoteMutation.isPending}
+      />
 
       <Menu
         anchorEl={anchorEl}

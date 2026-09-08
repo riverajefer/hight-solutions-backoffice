@@ -1,6 +1,7 @@
 export * from './QuoteStatusChip';
 export * from './QuoteItemsTable';
 export * from './ChangeQuoteStatusDialog';
+export * from './RejectQuoteDialog';
 export * from './kanban/QuoteKanbanBoard';
 export * from './kanban/QuoteKanbanCard';
 export * from './kanban/QuoteKanbanColumn';

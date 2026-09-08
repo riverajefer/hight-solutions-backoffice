@@ -8,6 +8,7 @@ export enum QuoteStatus {
   SENT = 'SENT',
   ACCEPTED = 'ACCEPTED',
   NO_RESPONSE = 'NO_RESPONSE',
+  REJECTED = 'REJECTED',
   CONVERTED = 'CONVERTED',
 }
 
@@ -19,6 +20,7 @@ export const QUOTE_STATUS_CONFIG: Record<
   [QuoteStatus.SENT]:        { label: 'Enviada',        color: 'info' },
   [QuoteStatus.ACCEPTED]:    { label: 'Aceptada',       color: 'success' },
   [QuoteStatus.NO_RESPONSE]: { label: 'Sin respuesta',  color: 'warning' },
+  [QuoteStatus.REJECTED]:    { label: 'Rechazada',      color: 'error' },
   [QuoteStatus.CONVERTED]:   { label: 'Convertida',     color: 'gradient' },
 };
 
@@ -26,12 +28,14 @@ export const QUOTE_STATUS_CONFIG: Record<
  * Transiciones válidas de estado de cotización.
  * Flujo: DRAFT → SENT → ACCEPTED → CONVERTED
  *                      ↘ NO_RESPONSE (terminal)
+ *                      ↘ REJECTED    (terminal, requiere motivo)
  */
 export const ALLOWED_QUOTE_TRANSITIONS: Record<QuoteStatus, QuoteStatus[]> = {
   [QuoteStatus.DRAFT]:       [QuoteStatus.SENT],
-  [QuoteStatus.SENT]:        [QuoteStatus.ACCEPTED, QuoteStatus.NO_RESPONSE],
+  [QuoteStatus.SENT]:        [QuoteStatus.ACCEPTED, QuoteStatus.NO_RESPONSE, QuoteStatus.REJECTED],
   [QuoteStatus.ACCEPTED]:    [QuoteStatus.CONVERTED],
   [QuoteStatus.NO_RESPONSE]: [],
+  [QuoteStatus.REJECTED]:    [],
   [QuoteStatus.CONVERTED]:   [],
 };
 
@@ -63,6 +67,8 @@ export interface Quote {
   total: number | string;
   status: QuoteStatus;
   notes?: string;
+  rejectionReason?: string | null;
+  rejectedAt?: string | null;
   createdById: string;
   commercialChannelId?: string;
   createdAt: string;
@@ -102,6 +108,8 @@ export interface CreateQuoteDto {
 
 export interface UpdateQuoteDto extends Partial<CreateQuoteDto> {
   status?: QuoteStatus;
+  /** Obligatorio al pasar la cotización a REJECTED. */
+  rejectionReason?: string;
 }
 
 export interface FilterQuotesDto {

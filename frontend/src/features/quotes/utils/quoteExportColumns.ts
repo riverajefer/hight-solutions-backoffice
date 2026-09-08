@@ -115,4 +115,10 @@ export const QUOTE_EXPORT_COLUMNS: QuoteExportColumn[] = [
     defaultVisible: false,
     getValue: (q) => q.notes ?? '',
   },
+  {
+    key: 'rejectionReason',
+    label: 'Motivo de rechazo',
+    defaultVisible: false,
+    getValue: (q) => q.rejectionReason ?? '',
+  },
 ];

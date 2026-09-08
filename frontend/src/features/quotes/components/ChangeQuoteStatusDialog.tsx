@@ -17,7 +17,7 @@ interface ChangeQuoteStatusDialogProps {
   open: boolean;
   quote: Quote | null;
   onClose: () => void;
-  onConfirm: (newStatus: QuoteStatus) => Promise<void>;
+  onConfirm: (newStatus: QuoteStatus, rejectionReason?: string) => Promise<void>;
   isLoading?: boolean;
 }
 
@@ -29,6 +29,8 @@ export const ChangeQuoteStatusDialog: React.FC<ChangeQuoteStatusDialogProps> = (
   isLoading = false,
 }) => {
   const [selectedStatus, setSelectedStatus] = useState<QuoteStatus | ''>('');
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [reasonTouched, setReasonTouched] = useState(false);
 
   const availableStatuses = useMemo(() => {
     if (!quote) return [];
@@ -43,13 +45,25 @@ export const ChangeQuoteStatusDialog: React.FC<ChangeQuoteStatusDialogProps> = (
     if (quote && open) {
       const nextStatuses = ALLOWED_QUOTE_TRANSITIONS[quote.status] || [];
       setSelectedStatus(nextStatuses.length === 1 ? nextStatuses[0] : '');
+      setRejectionReason('');
+      setReasonTouched(false);
     }
   }, [quote, open]);
 
+  const isRejecting = selectedStatus === QuoteStatus.REJECTED;
+  const reasonMissing = isRejecting && !rejectionReason.trim();
+
   const handleConfirm = async () => {
     if (!selectedStatus) return;
+    if (reasonMissing) {
+      setReasonTouched(true);
+      return;
+    }
     try {
-      await onConfirm(selectedStatus as QuoteStatus);
+      await onConfirm(
+        selectedStatus as QuoteStatus,
+        isRejecting ? rejectionReason.trim() : undefined,
+      );
       onClose();
     } catch (error) {
       // Error handled by mutation
@@ -59,6 +73,8 @@ export const ChangeQuoteStatusDialog: React.FC<ChangeQuoteStatusDialogProps> = (
   const handleClose = () => {
     if (!isLoading) {
       setSelectedStatus('');
+      setRejectionReason('');
+      setReasonTouched(false);
       onClose();
     }
   };
@@ -120,6 +136,28 @@ export const ChangeQuoteStatusDialog: React.FC<ChangeQuoteStatusDialogProps> = (
             </MenuItem>
           )}
         </TextField>
+
+        {isRejecting && (
+          <TextField
+            fullWidth
+            multiline
+            minRows={3}
+            size="small"
+            label="Motivo del rechazo"
+            placeholder="Ej: El cliente eligió otro proveedor por precio"
+            value={rejectionReason}
+            onChange={(e) => setRejectionReason(e.target.value.slice(0, 500))}
+            onBlur={() => setReasonTouched(true)}
+            disabled={isLoading}
+            error={reasonTouched && reasonMissing}
+            helperText={
+              reasonTouched && reasonMissing
+                ? 'El motivo es obligatorio'
+                : `${rejectionReason.length}/500`
+            }
+            sx={{ mt: 2 }}
+          />
+        )}
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose} disabled={isLoading}>
@@ -128,7 +166,7 @@ export const ChangeQuoteStatusDialog: React.FC<ChangeQuoteStatusDialogProps> = (
         <Button
           onClick={handleConfirm}
           variant="contained"
-          disabled={!selectedStatus || isLoading}
+          disabled={!selectedStatus || reasonMissing || isLoading}
         >
           {isLoading ? 'Cambiando...' : 'Confirmar'}
         </Button>
