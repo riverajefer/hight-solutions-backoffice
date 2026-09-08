@@ -475,6 +475,7 @@ enum QuoteStatus {
   SENT
   ACCEPTED
   NO_RESPONSE // Sin respuesta
+  REJECTED // Rechazada por el cliente (requiere motivo)
   CONVERTED
 }
 
@@ -611,6 +612,10 @@ model Quote {
 
   status QuoteStatus @default(DRAFT)
   notes  String?
+
+  // Rechazo (obligatorio al pasar a REJECTED)
+  rejectionReason String?   @map("rejection_reason")
+  rejectedAt      DateTime? @map("rejected_at")
 
   // Auditoría
   createdById String   @map("created_by_id")

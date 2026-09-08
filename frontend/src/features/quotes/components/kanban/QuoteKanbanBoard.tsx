@@ -19,12 +19,17 @@ import { QuoteKanbanColumn } from './QuoteKanbanColumn';
 import { QuoteKanbanCard } from './QuoteKanbanCard';
 import { QuoteKanbanFilters } from './QuoteKanbanFilters';
 import { QuoteKanbanManageColumnsDialog } from './QuoteKanbanManageColumnsDialog';
+import { RejectQuoteDialog } from '../RejectQuoteDialog';
 import { useQuoteKanbanColumns } from '../../hooks/useQuoteKanbanColumns';
 import { useAuthStore } from '../../../../store/authStore';
 import { PERMISSIONS } from '../../../../utils/constants';
 import { quotesApi } from '../../../../api/quotes.api';
 import type { Quote, QuoteStatus } from '../../../../types/quote.types';
-import { ALLOWED_QUOTE_TRANSITIONS, QUOTE_STATUS_CONFIG } from '../../../../types/quote.types';
+import {
+  ALLOWED_QUOTE_TRANSITIONS,
+  QUOTE_STATUS_CONFIG,
+  QuoteStatus as QStatus,
+} from '../../../../types/quote.types';
 import type { BoardFilters } from '../../../../types/quoteKanban.types';
 
 interface QuoteKanbanBoardProps {
@@ -51,6 +56,8 @@ export const QuoteKanbanBoard: React.FC<QuoteKanbanBoardProps> = ({
   const [filters, setFilters] = useState<BoardFilters>(initialFilters ?? {});
   const [activeQuote, setActiveQuote] = useState<Quote | null>(null);
   const [manageColumnsOpen, setManageColumnsOpen] = useState(false);
+  const [rejectingQuote, setRejectingQuote] = useState<Quote | null>(null);
+  const [isRejecting, setIsRejecting] = useState(false);
 
   // Inject createdById filter for users without read_all_quotes permission
   const effectiveFilters: BoardFilters = hasPermission(PERMISSIONS.READ_ALL_QUOTES)
@@ -86,8 +93,25 @@ export const QuoteKanbanBoard: React.FC<QuoteKanbanBoardProps> = ({
       return;
     }
 
+    // El rechazo exige motivo: se captura antes de mover la tarjeta.
+    if (targetStatus === QStatus.REJECTED) {
+      setRejectingQuote(quote);
+      return;
+    }
+
+    await applyStatusChange(quote, targetStatus);
+  };
+
+  const applyStatusChange = async (
+    quote: Quote,
+    targetStatus: QuoteStatus,
+    rejectionReason?: string,
+  ) => {
     try {
-      await quotesApi.update(quote.id, { status: targetStatus });
+      await quotesApi.update(quote.id, {
+        status: targetStatus,
+        ...(rejectionReason ? { rejectionReason } : {}),
+      });
       queryClient.invalidateQueries({ queryKey: ['quotes-board', quote.status] });
       queryClient.invalidateQueries({ queryKey: ['quotes-board', targetStatus] });
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
@@ -96,6 +120,17 @@ export const QuoteKanbanBoard: React.FC<QuoteKanbanBoardProps> = ({
         error?.response?.data?.message || 'No se pudo cambiar el estado',
         { variant: 'error' },
       );
+      throw error;
+    }
+  };
+
+  const handleConfirmReject = async (rejectionReason: string) => {
+    if (!rejectingQuote) return;
+    setIsRejecting(true);
+    try {
+      await applyStatusChange(rejectingQuote, QStatus.REJECTED, rejectionReason);
+    } finally {
+      setIsRejecting(false);
     }
   };
 
@@ -189,6 +224,14 @@ export const QuoteKanbanBoard: React.FC<QuoteKanbanBoardProps> = ({
         open={manageColumnsOpen}
         onClose={() => setManageColumnsOpen(false)}
         columns={columns}
+      />
+
+      <RejectQuoteDialog
+        open={!!rejectingQuote}
+        quoteNumber={rejectingQuote?.quoteNumber}
+        onClose={() => setRejectingQuote(null)}
+        onConfirm={handleConfirmReject}
+        isLoading={isRejecting}
       />
     </Box>
   );
