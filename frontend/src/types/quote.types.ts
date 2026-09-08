@@ -27,14 +27,17 @@ export const QUOTE_STATUS_CONFIG: Record<
 /**
  * Transiciones válidas de estado de cotización.
  * Flujo: DRAFT → SENT → ACCEPTED → CONVERTED
- *                      ↘ NO_RESPONSE (terminal)
- *                      ↘ REJECTED    (terminal, requiere motivo)
+ *                      ↘ NO_RESPONSE → REJECTED
+ *                      ↘ REJECTED (terminal, requiere motivo)
+ *
+ * El rechazo es alcanzable desde Enviada, Aceptada y Sin respuesta.
+ * Debe reflejar exactamente quote-status-transitions.ts del backend.
  */
 export const ALLOWED_QUOTE_TRANSITIONS: Record<QuoteStatus, QuoteStatus[]> = {
   [QuoteStatus.DRAFT]:       [QuoteStatus.SENT],
   [QuoteStatus.SENT]:        [QuoteStatus.ACCEPTED, QuoteStatus.NO_RESPONSE, QuoteStatus.REJECTED],
-  [QuoteStatus.ACCEPTED]:    [QuoteStatus.CONVERTED],
-  [QuoteStatus.NO_RESPONSE]: [],
+  [QuoteStatus.ACCEPTED]:    [QuoteStatus.CONVERTED, QuoteStatus.REJECTED],
+  [QuoteStatus.NO_RESPONSE]: [QuoteStatus.REJECTED],
   [QuoteStatus.REJECTED]:    [],
   [QuoteStatus.CONVERTED]:   [],
 };

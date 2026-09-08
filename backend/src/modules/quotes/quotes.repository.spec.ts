@@ -178,6 +178,19 @@ describe('QuotesRepository', () => {
 
       expect(result).toBeNull();
     });
+
+    // El select es explícito: un campo nuevo del modelo que no se liste aquí
+    // se guarda en la base pero nunca llega al frontend.
+    it('selecciona el motivo y la fecha de rechazo', async () => {
+      prisma.quote.findUnique.mockResolvedValue(mockQuote);
+
+      await repository.findById('quote-1');
+
+      const { select } = prisma.quote.findUnique.mock.calls[0][0];
+      expect(select.rejectionReason).toBe(true);
+      expect(select.rejectedAt).toBe(true);
+      expect(select.status).toBe(true);
+    });
   });
 
   // -------------------------------------------------------------------------

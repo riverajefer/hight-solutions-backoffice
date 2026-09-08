@@ -27,6 +27,14 @@ const READONLY_STATUSES: AccountPayableStatus[] = [
 const ADVANCE_EXPENSE_TYPE = 'personal';
 const ADVANCE_EXPENSE_SUBCATEGORY = 'anticipos';
 
+/** Formato de pesos para los mensajes de error que ve el usuario. */
+const money = (value: unknown) =>
+  Number(String(value)).toLocaleString('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    maximumFractionDigits: 0,
+  });
+
 import { computeExpenseTotals } from '../../common/utils/expense-totals.util';
 import { normalizeRate } from '../../common/utils/rounding.util';
 
@@ -337,6 +345,145 @@ export class AccountsPayableService {
     });
   }
 
+  /**
+   * Dinero que ya salió de caja por la Orden de Gasto asociada.
+   *
+   * La autorización de Caja de una OG crea un `CashMovement` de egreso por cada
+   * ítem: la plata sale sin pasar por `AccountPayablePayment`, así que la CP
+   * espejo se queda con `paidAmount = 0` y su saldo completo. Quien mire solo la
+   * CP ve una deuda viva que en realidad ya se pagó, y volver a pagarla saca el
+   * dinero dos veces (pasó 6 veces entre mayo y junio de 2026, $3.317.400).
+   *
+   * `settleFromExpenseOrderMovements` evita que esto se siga acumulando, pero el
+   * tope se calcula igual desde los movimientos: cubre las CP históricas, que
+   * nunca fueron conciliadas, y cualquier otra ruta que pague por el lado de la
+   * OG sin tocar la CP.
+   */
+  async paidThroughExpenseOrder(accountPayableId: string): Promise<Prisma.Decimal> {
+    // Se lee el vínculo con la OG desde la base y no del objeto que llega: el
+    // `select` del repositorio no expone `expenseOrderId`, y confiar en él haría
+    // que el tope se calcule como si la CP no tuviera OG.
+    const ap = await this.prisma.accountPayable.findUnique({
+      where: { id: accountPayableId },
+      select: { expenseOrderId: true },
+    });
+    const expenseOrderId = ap?.expenseOrderId;
+    if (!expenseOrderId) return new Prisma.Decimal(0);
+
+    const movimientos = await this.prisma.cashMovement.findMany({
+      where: {
+        referenceType: 'EXPENSE_ORDER',
+        referenceId: expenseOrderId,
+        movementType: 'EXPENSE',
+        isVoided: false,
+      },
+      select: { amount: true },
+    });
+
+    return movimientos.reduce((sum, m) => sum.add(m.amount), new Prisma.Decimal(0));
+  }
+
+  /**
+   * Verifica que el monto quepa en lo que realmente falta por pagar.
+   *
+   * El tope no es `balance`: hay que descontar también lo que ya salió por la OG
+   * (ver `paidThroughExpenseOrder`). Cuando la OG cubre todo, el disponible es
+   * cero y no se puede pagar nada.
+   */
+  async assertPayableAmount(ap: { id: string; apNumber: string; balance: unknown }, amount: number) {
+    const balance = new Prisma.Decimal(ap.balance as never);
+    const porOG = await this.paidThroughExpenseOrder(ap.id);
+    const disponible = Prisma.Decimal.max(balance.sub(porOG), new Prisma.Decimal(0));
+
+    if (new Prisma.Decimal(amount).greaterThan(disponible)) {
+      if (porOG.greaterThan(0)) {
+        throw new BadRequestException(
+          `La CP ${ap.apNumber} ya tiene ${money(porOG)} pagados a través de su Orden de Gasto ` +
+            `(salieron de caja al autorizarla). Disponible para pagar: ${money(disponible)}. ` +
+            `Si la cuenta no debe pagarse de nuevo, anúlala en vez de registrar otro pago.`,
+        );
+      }
+      throw new BadRequestException(
+        `El monto del pago (${amount}) supera el saldo pendiente (${balance})`,
+      );
+    }
+  }
+
+  /**
+   * Salda la CP espejo contra los movimientos de caja que acaba de crear la
+   * autorización de Caja de su OG.
+   *
+   * No mueve dinero: los `CashMovement` ya existen, esto solo los refleja como
+   * `AccountPayablePayment` para que la CP deje de aparecer debiendo lo que ya
+   * se pagó y su historial muestre por dónde salió. Idempotente — un movimiento
+   * ya reflejado se salta, porque `cashMovementId` es único en el pago.
+   *
+   * El total de la CP puede no coincidir con la suma de los movimientos: los
+   * movimientos son por ítem (la base) y el total incluye IVA y retenciones. Si
+   * queda saldo, la CP sigue viva por la diferencia, que sí es pagable.
+   */
+  async settleFromExpenseOrderMovements(
+    expenseOrderId: string,
+    registeredById: string,
+  ): Promise<void> {
+    const ap = await this.repository.findByExpenseOrderId(expenseOrderId);
+    if (!ap || ap.status === AccountPayableStatus.CANCELLED) return;
+
+    const movimientos = await this.prisma.cashMovement.findMany({
+      where: {
+        referenceType: 'EXPENSE_ORDER',
+        referenceId: expenseOrderId,
+        movementType: 'EXPENSE',
+        isVoided: false,
+        accountPayablePayment: { is: null },
+      },
+      select: { id: true, amount: true, paymentMethod: true, createdAt: true, performedById: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (movimientos.length === 0) return;
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const mov of movimientos) {
+        await tx.accountPayablePayment.create({
+          data: {
+            accountPayableId: ap.id,
+            amount: mov.amount,
+            paymentMethod: mov.paymentMethod,
+            paymentDate: mov.createdAt,
+            notes: 'Pago registrado en la autorización de Caja de la Orden de Gasto',
+            registeredById: mov.performedById || registeredById,
+            cashMovementId: mov.id,
+          },
+        });
+      }
+
+      // Se recalcula desde los pagos vivos, igual que en `deletePayment`: una CP
+      // que ya venía descuadrada se corrige sola en vez de arrastrar el error.
+      const vivos = await tx.accountPayablePayment.findMany({
+        where: { accountPayableId: ap.id, isReversed: false },
+        select: { amount: true },
+      });
+      const paidAmount = vivos.reduce((sum, p) => sum.add(p.amount), new Prisma.Decimal(0));
+      const balance = new Prisma.Decimal(ap.totalAmount).sub(paidAmount);
+
+      await tx.accountPayable.update({
+        where: { id: ap.id },
+        data: {
+          paidAmount,
+          balance,
+          status: balance.lessThanOrEqualTo(0)
+            ? AccountPayableStatus.PAID
+            : AccountPayableStatus.PARTIAL,
+        },
+      });
+    });
+
+    this.logger.log(
+      `CP ${ap.apNumber} saldada con ${movimientos.length} movimiento(s) de caja de su OG`,
+    );
+  }
+
   async registerPayment(id: string, dto: RegisterPaymentDto, registeredById: string) {
     const ap = await this.findOne(id);
 
@@ -347,12 +494,7 @@ export class AccountsPayableService {
       throw new BadRequestException('La cuenta ya está completamente pagada');
     }
 
-    const currentBalance = Number(ap.balance);
-    if (dto.amount > currentBalance) {
-      throw new BadRequestException(
-        `El monto del pago (${dto.amount}) supera el saldo pendiente (${currentBalance})`,
-      );
-    }
+    await this.assertPayableAmount(ap, dto.amount);
 
     return this.executePayment(id, ap.apNumber, ap.paidAmount, ap.totalAmount, dto, registeredById);
   }
@@ -372,12 +514,7 @@ export class AccountsPayableService {
       throw new BadRequestException('La cuenta ya está completamente pagada');
     }
 
-    const currentBalance = Number(ap.balance);
-    if (dto.amount > currentBalance) {
-      throw new BadRequestException(
-        `El monto del pago (${dto.amount}) supera el saldo pendiente (${currentBalance})`,
-      );
-    }
+    await this.assertPayableAmount(ap, dto.amount);
 
     // Caja: buscar sesión de caja activa automáticamente
     const activeSession = await this.prisma.cashSession.findFirst({

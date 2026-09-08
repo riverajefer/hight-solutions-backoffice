@@ -18,6 +18,8 @@ export class QuotesRepository {
     total: true,
     status: true,
     notes: true,
+    rejectionReason: true,
+    rejectedAt: true,
     createdAt: true,
     updatedAt: true,
     commercialChannelId: true,

@@ -49,7 +49,7 @@ describe('AccountsPayablePaymentAuthRequestsService', () => {
     getPhonesByPermission: jest.Mock;
   };
   let registry: { register: jest.Mock };
-  let accountsPayable: { registerPaymentFromAuthRequest: jest.Mock };
+  let accountsPayable: { registerPaymentFromAuthRequest: jest.Mock; assertPayableAmount: jest.Mock };
 
   beforeEach(async () => {
     prisma = createMockPrismaService();
@@ -66,6 +66,7 @@ describe('AccountsPayablePaymentAuthRequestsService', () => {
     registry = { register: jest.fn() };
     accountsPayable = {
       registerPaymentFromAuthRequest: jest.fn().mockResolvedValue({ id: 'pay-1' }),
+      assertPayableAmount: jest.fn().mockResolvedValue(undefined),
     };
     // Sin admins/caja con teléfono → los helpers de WhatsApp no envían nada.
     prisma.user.findMany.mockResolvedValue([] as any);
@@ -176,11 +177,19 @@ describe('AccountsPayablePaymentAuthRequestsService', () => {
       await expect(service.create('user-1', dto)).rejects.toThrow(/completamente pagada/);
     });
 
-    it('rechaza si el monto supera el saldo', async () => {
-      prisma.accountPayable.findUnique.mockResolvedValue(
-        apStub({ balance: new Prisma.Decimal(30000) }) as any,
+    // El tope lo calcula `AccountsPayableService.assertPayableAmount`, que además
+    // del saldo descuenta lo ya girado por la Orden de Gasto asociada. Acá solo
+    // se verifica que la solicitud pase por ahí y no siga de largo si rechaza.
+    it('delega el tope del monto en AccountsPayableService', async () => {
+      const ap = apStub({ balance: new Prisma.Decimal(30000) });
+      prisma.accountPayable.findUnique.mockResolvedValue(ap as any);
+      accountsPayable.assertPayableAmount.mockRejectedValue(
+        new BadRequestException('El monto del pago (50000) supera el saldo pendiente (30000)'),
       );
+
       await expect(service.create('user-1', dto)).rejects.toThrow(/supera el saldo pendiente/);
+      expect(accountsPayable.assertPayableAmount).toHaveBeenCalledWith(ap, dto.amount);
+      expect(prisma.accountPayablePaymentAuthRequest.create).not.toHaveBeenCalled();
     });
 
     it('rechaza si el usuario ya tiene una solicitud pendiente', async () => {

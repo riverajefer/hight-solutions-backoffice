@@ -30,7 +30,7 @@ export const ChangeQuoteStatusDialog: React.FC<ChangeQuoteStatusDialogProps> = (
 }) => {
   const [selectedStatus, setSelectedStatus] = useState<QuoteStatus | ''>('');
   const [rejectionReason, setRejectionReason] = useState('');
-  const [reasonTouched, setReasonTouched] = useState(false);
+  const [reasonDirty, setReasonDirty] = useState(false);
 
   const availableStatuses = useMemo(() => {
     if (!quote) return [];
@@ -46,7 +46,7 @@ export const ChangeQuoteStatusDialog: React.FC<ChangeQuoteStatusDialogProps> = (
       const nextStatuses = ALLOWED_QUOTE_TRANSITIONS[quote.status] || [];
       setSelectedStatus(nextStatuses.length === 1 ? nextStatuses[0] : '');
       setRejectionReason('');
-      setReasonTouched(false);
+      setReasonDirty(false);
     }
   }, [quote, open]);
 
@@ -56,7 +56,7 @@ export const ChangeQuoteStatusDialog: React.FC<ChangeQuoteStatusDialogProps> = (
   const handleConfirm = async () => {
     if (!selectedStatus) return;
     if (reasonMissing) {
-      setReasonTouched(true);
+      setReasonDirty(true);
       return;
     }
     try {
@@ -74,7 +74,7 @@ export const ChangeQuoteStatusDialog: React.FC<ChangeQuoteStatusDialogProps> = (
     if (!isLoading) {
       setSelectedStatus('');
       setRejectionReason('');
-      setReasonTouched(false);
+      setReasonDirty(false);
       onClose();
     }
   };
@@ -146,12 +146,14 @@ export const ChangeQuoteStatusDialog: React.FC<ChangeQuoteStatusDialogProps> = (
             label="Motivo del rechazo"
             placeholder="Ej: El cliente eligió otro proveedor por precio"
             value={rejectionReason}
-            onChange={(e) => setRejectionReason(e.target.value.slice(0, 500))}
-            onBlur={() => setReasonTouched(true)}
+            onChange={(e) => {
+              setReasonDirty(true);
+              setRejectionReason(e.target.value.slice(0, 500));
+            }}
             disabled={isLoading}
-            error={reasonTouched && reasonMissing}
+            error={reasonDirty && reasonMissing}
             helperText={
-              reasonTouched && reasonMissing
+              reasonDirty && reasonMissing
                 ? 'El motivo es obligatorio'
                 : `${rejectionReason.length}/500`
             }

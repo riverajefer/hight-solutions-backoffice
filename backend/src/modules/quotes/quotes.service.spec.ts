@@ -703,6 +703,28 @@ describe('QuotesService', () => {
         expect(data.rejectedAt).toBeInstanceOf(Date);
       });
 
+      it.each([
+        ['aceptada', QuoteStatus.ACCEPTED],
+        ['sin respuesta', QuoteStatus.NO_RESPONSE],
+      ])('permite rechazar una cotización %s', async (_label, fromStatus) => {
+        const source = { ...mockQuote, status: fromStatus };
+        mockQuotesRepository.findById
+          .mockResolvedValueOnce(source)
+          .mockResolvedValueOnce({ ...source, status: QuoteStatus.REJECTED });
+        mockQuotesRepository.update.mockResolvedValue(source);
+
+        await service.update(
+          'quote-1',
+          { status: QuoteStatus.REJECTED, rejectionReason: 'El cliente se echó atrás' },
+          'user-1',
+        );
+
+        const data = mockQuotesRepository.update.mock.calls[0][1];
+        expect(data.status).toBe(QuoteStatus.REJECTED);
+        expect(data.rejectionReason).toBe('El cliente se echó atrás');
+        expect(data.rejectedAt).toBeInstanceOf(Date);
+      });
+
       it('no permite rechazar una cotización en borrador', async () => {
         mockQuotesRepository.findById.mockResolvedValue({
           ...mockQuote,

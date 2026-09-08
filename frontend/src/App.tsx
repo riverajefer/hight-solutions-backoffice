@@ -7,6 +7,7 @@ import { SnackbarProvider } from 'notistack';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { es } from 'date-fns/locale';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { lightTheme, darkTheme } from './theme';
 import { useUIStore } from './store/uiStore';
 import { useMaintenanceMode } from './hooks/useMaintenanceMode';
@@ -38,7 +39,12 @@ const AppContent: FC = () => {
           {isMaintenanceMode ? (
             <MaintenancePage message={maintenanceMessage} />
           ) : (
-            <RoutesConfig />
+            // Boundary de rutas: cubre las pantallas que no pasan por
+            // MainLayout (login, registro) y los fallos del propio router,
+            // incluidos los chunks que no cargan tras un deploy nuevo.
+            <ErrorBoundary fullScreen>
+              <RoutesConfig />
+            </ErrorBoundary>
           )}
         </SnackbarProvider>
       </LocalizationProvider>
@@ -50,7 +56,15 @@ const App: FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <AppContent />
+        {/*
+          Red de último recurso: si falla algo por encima del router (tema,
+          providers, modo mantenimiento) el usuario ve un mensaje en lugar de
+          una pantalla en blanco. Renderiza con el tema por defecto de MUI
+          porque el ThemeProvider vive más adentro.
+        */}
+        <ErrorBoundary fullScreen>
+          <AppContent />
+        </ErrorBoundary>
       </BrowserRouter>
     </QueryClientProvider>
   );
