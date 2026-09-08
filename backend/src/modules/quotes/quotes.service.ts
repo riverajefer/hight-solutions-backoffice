@@ -201,6 +201,28 @@ export class QuotesService {
     }
 
     const isConverting = updateQuoteDto.status === QuoteStatus.CONVERTED;
+    const isRejecting =
+      updateQuoteDto.status === QuoteStatus.REJECTED &&
+      oldQuote.status !== QuoteStatus.REJECTED;
+
+    if (isRejecting && !updateQuoteDto.rejectionReason?.trim()) {
+      throw new BadRequestException(
+        'Debe indicar el motivo del rechazo para rechazar la cotización',
+      );
+    }
+
+    // El motivo se sella junto con el rechazo. Una cotización ya rechazada puede
+    // corregir su motivo sin volver a cambiar de estado.
+    const rejectionData =
+      isRejecting
+        ? {
+            rejectionReason: updateQuoteDto.rejectionReason!.trim(),
+            rejectedAt: new Date(),
+          }
+        : oldQuote.status === QuoteStatus.REJECTED &&
+            updateQuoteDto.rejectionReason !== undefined
+          ? { rejectionReason: updateQuoteDto.rejectionReason.trim() }
+          : {};
 
     if (updateQuoteDto.items) {
       await this.prisma.$transaction(async (tx) => {
@@ -212,6 +234,7 @@ export class QuotesService {
             ...(updateQuoteDto.validUntil && { validUntil: new Date(updateQuoteDto.validUntil) }),
             ...(updateQuoteDto.notes !== undefined && { notes: updateQuoteDto.notes }),
             ...(updateQuoteDto.status && !isConverting && { status: updateQuoteDto.status }),
+            ...rejectionData,
             ...(updateQuoteDto.commercialChannelId && {
               commercialChannel: { connect: { id: updateQuoteDto.commercialChannelId } },
             }),
@@ -304,6 +327,7 @@ export class QuotesService {
         ...(updateQuoteDto.validUntil && { validUntil: new Date(updateQuoteDto.validUntil) }),
         ...(updateQuoteDto.notes !== undefined && { notes: updateQuoteDto.notes }),
         ...(updateQuoteDto.status && !isConverting && { status: updateQuoteDto.status }),
+        ...rejectionData,
         ...(updateQuoteDto.commercialChannelId && {
           commercialChannel: { connect: { id: updateQuoteDto.commercialChannelId } },
         }),
@@ -328,8 +352,9 @@ export class QuotesService {
     const quote = await this.findOne(id);
     if (quote.status !== QuoteStatus.DRAFT && 
         quote.status !== QuoteStatus.SENT && 
-        quote.status !== QuoteStatus.NO_RESPONSE) {
-      throw new BadRequestException('Only draft, sent or no response quotes can be deleted');
+        quote.status !== QuoteStatus.NO_RESPONSE &&
+        quote.status !== QuoteStatus.REJECTED) {
+      throw new BadRequestException('Only draft, sent, no response or rejected quotes can be deleted');
     }
     await this.quotesRepository.delete(id);
     return { message: 'Quote deleted successfully' };

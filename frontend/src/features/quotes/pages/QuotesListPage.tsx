@@ -72,6 +72,7 @@ const QUOTE_STATUS_OPTIONS: { value: QuoteStatus; label: string }[] = [
   { value: QStatus.SENT,        label: 'Enviada' },
   { value: QStatus.ACCEPTED,    label: 'Aceptada' },
   { value: QStatus.NO_RESPONSE, label: 'Sin respuesta' },
+  { value: QStatus.REJECTED,    label: 'Rechazada' },
   { value: QStatus.CONVERTED,   label: 'Convertida' },
 ];
 
@@ -157,11 +158,11 @@ export const QuotesListPage: React.FC = () => {
     } catch (error) {}
   };
 
-  const handleChangeStatus = async (newStatus: QuoteStatus) => {
+  const handleChangeStatus = async (newStatus: QuoteStatus, rejectionReason?: string) => {
     if (!changeStatusQuote) return;
     await updateQuoteMutation.mutateAsync({
       id: changeStatusQuote.id,
-      data: { status: newStatus },
+      data: { status: newStatus, ...(rejectionReason ? { rejectionReason } : {}) },
     });
   };
 

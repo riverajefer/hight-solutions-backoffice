@@ -4,12 +4,14 @@ import { QuoteStatus } from '../../generated/prisma';
  * Flujo secuencial estricto de estados de cotización:
  * DRAFT → SENT → ACCEPTED → CONVERTED
  *               ↘ NO_RESPONSE (terminal)
+ *               ↘ REJECTED    (terminal, requiere motivo)
  */
 export const ALLOWED_QUOTE_TRANSITIONS: Record<QuoteStatus, QuoteStatus[]> = {
   [QuoteStatus.DRAFT]:       [QuoteStatus.SENT],
-  [QuoteStatus.SENT]:        [QuoteStatus.ACCEPTED, QuoteStatus.NO_RESPONSE],
+  [QuoteStatus.SENT]:        [QuoteStatus.ACCEPTED, QuoteStatus.NO_RESPONSE, QuoteStatus.REJECTED],
   [QuoteStatus.ACCEPTED]:    [QuoteStatus.CONVERTED],
   [QuoteStatus.NO_RESPONSE]: [],
+  [QuoteStatus.REJECTED]:    [],
   [QuoteStatus.CONVERTED]:   [],
 };
 

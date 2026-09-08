@@ -59,6 +59,7 @@ const STATUS_COLORS: Record<string, string> = {
   SENT: '#FBBF24',
   ACCEPTED: '#22D3EE',
   NO_RESPONSE: '#9CA3AF',
+  REJECTED: '#EF4444',
   CONVERTED: '#8B5CF6',
   // Order statuses
   CONFIRMED: '#22D3EE',
@@ -80,6 +81,7 @@ const STATUS_LABELS: Record<string, string> = {
   SENT: 'Enviada',
   ACCEPTED: 'Aceptada',
   NO_RESPONSE: 'Sin respuesta',
+  REJECTED: 'Rechazada',
   CONVERTED: 'Convertida',
   CONFIRMED: 'Confirmada',
   IN_PRODUCTION: 'En Producción',

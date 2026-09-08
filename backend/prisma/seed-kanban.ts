@@ -37,6 +37,7 @@ async function main() {
     { mappedStatus: 'ACCEPTED'    as const, name: 'Aceptada',      color: '#2e7d32', displayOrder: 2 },
     { mappedStatus: 'NO_RESPONSE' as const, name: 'Sin Respuesta', color: '#f57c00', displayOrder: 3 },
     { mappedStatus: 'CONVERTED'   as const, name: 'Convertida',    color: '#7b1fa2', displayOrder: 4 },
+    { mappedStatus: 'REJECTED'    as const, name: 'Rechazada',     color: '#d32f2f', displayOrder: 5 },
   ];
 
   for (const col of defaultKanbanColumns) {

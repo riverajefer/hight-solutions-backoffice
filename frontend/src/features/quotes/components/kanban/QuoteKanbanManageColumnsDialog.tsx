@@ -57,6 +57,7 @@ const STATUS_LABELS: Record<QuoteStatus, string> = {
   [QuoteStatus.SENT]: 'Enviada',
   [QuoteStatus.ACCEPTED]: 'Aceptada',
   [QuoteStatus.NO_RESPONSE]: 'Sin Respuesta',
+  [QuoteStatus.REJECTED]: 'Rechazada',
   [QuoteStatus.CONVERTED]: 'Convertida',
 };
 

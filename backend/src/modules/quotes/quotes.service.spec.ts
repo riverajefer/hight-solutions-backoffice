@@ -652,6 +652,104 @@ describe('QuotesService', () => {
       );
     });
 
+    describe('rechazo (REJECTED)', () => {
+      const sentQuote = { ...mockQuote, status: QuoteStatus.SENT };
+
+      it('rechaza la transición a REJECTED sin motivo', async () => {
+        mockQuotesRepository.findById.mockResolvedValue(sentQuote);
+
+        await expect(
+          service.update('quote-1', { status: QuoteStatus.REJECTED }, 'user-1'),
+        ).rejects.toThrow(BadRequestException);
+        expect(mockQuotesRepository.update).not.toHaveBeenCalled();
+      });
+
+      it('rechaza la transición a REJECTED con motivo en blanco', async () => {
+        mockQuotesRepository.findById.mockResolvedValue(sentQuote);
+
+        await expect(
+          service.update(
+            'quote-1',
+            { status: QuoteStatus.REJECTED, rejectionReason: '   ' },
+            'user-1',
+          ),
+        ).rejects.toThrow(BadRequestException);
+        expect(mockQuotesRepository.update).not.toHaveBeenCalled();
+      });
+
+      it('guarda motivo y fecha de rechazo al rechazar', async () => {
+        const rejected = {
+          ...sentQuote,
+          status: QuoteStatus.REJECTED,
+          rejectionReason: 'El cliente eligió otro proveedor',
+        };
+        mockQuotesRepository.findById
+          .mockResolvedValueOnce(sentQuote)
+          .mockResolvedValueOnce(rejected);
+        mockQuotesRepository.update.mockResolvedValue(rejected);
+
+        await service.update(
+          'quote-1',
+          {
+            status: QuoteStatus.REJECTED,
+            rejectionReason: '  El cliente eligió otro proveedor  ',
+          },
+          'user-1',
+        );
+
+        const data = mockQuotesRepository.update.mock.calls[0][1];
+        expect(data.status).toBe(QuoteStatus.REJECTED);
+        expect(data.rejectionReason).toBe('El cliente eligió otro proveedor');
+        expect(data.rejectedAt).toBeInstanceOf(Date);
+      });
+
+      it('no permite rechazar una cotización en borrador', async () => {
+        mockQuotesRepository.findById.mockResolvedValue({
+          ...mockQuote,
+          status: QuoteStatus.DRAFT,
+        });
+
+        await expect(
+          service.update(
+            'quote-1',
+            { status: QuoteStatus.REJECTED, rejectionReason: 'motivo' },
+            'user-1',
+          ),
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it('no sella rejectedAt en transiciones que no son rechazo', async () => {
+        mockQuotesRepository.findById
+          .mockResolvedValueOnce(sentQuote)
+          .mockResolvedValueOnce({ ...sentQuote, status: QuoteStatus.ACCEPTED });
+        mockQuotesRepository.update.mockResolvedValue(sentQuote);
+
+        await service.update('quote-1', { status: QuoteStatus.ACCEPTED }, 'user-1');
+
+        const data = mockQuotesRepository.update.mock.calls[0][1];
+        expect(data.rejectedAt).toBeUndefined();
+        expect(data.rejectionReason).toBeUndefined();
+      });
+
+      it('permite corregir el motivo de una cotización ya rechazada', async () => {
+        const rejectedQuote = {
+          ...mockQuote,
+          status: QuoteStatus.REJECTED,
+          rejectionReason: 'motivo viejo',
+        };
+        mockQuotesRepository.findById
+          .mockResolvedValueOnce(rejectedQuote)
+          .mockResolvedValueOnce(rejectedQuote);
+        mockQuotesRepository.update.mockResolvedValue(rejectedQuote);
+
+        await service.update('quote-1', { rejectionReason: 'motivo corregido' }, 'user-1');
+
+        const data = mockQuotesRepository.update.mock.calls[0][1];
+        expect(data.rejectionReason).toBe('motivo corregido');
+        expect(data.rejectedAt).toBeUndefined();
+      });
+    });
+
     it('should reconcile items when items are provided in update', async () => {
       mockQuotesRepository.findById
         .mockResolvedValueOnce(mockQuote)   // for update validation
@@ -887,6 +985,17 @@ describe('QuotesService', () => {
       mockQuotesRepository.findById.mockResolvedValue(null);
 
       await expect(service.remove('non-existent')).rejects.toThrow(NotFoundException);
+    });
+
+    it('should allow deletion of REJECTED quotes', async () => {
+      mockQuotesRepository.findById.mockResolvedValue({
+        ...mockQuote,
+        status: QuoteStatus.REJECTED,
+      });
+      mockQuotesRepository.delete.mockResolvedValue(mockQuote);
+
+      await expect(service.remove('quote-1')).resolves.toBeDefined();
+      expect(mockQuotesRepository.delete).toHaveBeenCalledWith('quote-1');
     });
 
     it('should allow deletion of DRAFT quotes', async () => {
