@@ -32,19 +32,22 @@ export const RejectQuoteDialog: React.FC<RejectQuoteDialogProps> = ({
   isLoading = false,
 }) => {
   const [reason, setReason] = useState('');
-  const [touched, setTouched] = useState(false);
+  // El error solo se pinta cuando el usuario ya escribió algo (y lo borró) o
+  // intentó confirmar: el Menu de MUI devuelve el foco al cerrarse, y marcar
+  // el campo en onBlur lo dejaba en rojo antes de tocarlo.
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     if (open) {
       setReason('');
-      setTouched(false);
+      setDirty(false);
     }
   }, [open]);
 
   const isEmpty = !reason.trim();
 
   const handleConfirm = async () => {
-    setTouched(true);
+    setDirty(true);
     if (isEmpty) return;
     try {
       await onConfirm(reason.trim());
@@ -80,12 +83,14 @@ export const RejectQuoteDialog: React.FC<RejectQuoteDialogProps> = ({
           label="Motivo del rechazo"
           placeholder="Ej: El cliente eligió otro proveedor por precio"
           value={reason}
-          onChange={(e) => setReason(e.target.value.slice(0, MAX_REASON_LENGTH))}
-          onBlur={() => setTouched(true)}
+          onChange={(e) => {
+            setDirty(true);
+            setReason(e.target.value.slice(0, MAX_REASON_LENGTH));
+          }}
           disabled={isLoading}
-          error={touched && isEmpty}
+          error={dirty && isEmpty}
           helperText={
-            touched && isEmpty
+            dirty && isEmpty
               ? 'El motivo es obligatorio'
               : `${reason.length}/${MAX_REASON_LENGTH}`
           }
