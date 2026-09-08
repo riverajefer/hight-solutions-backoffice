@@ -109,7 +109,7 @@ const PendingRefundRequestsPanel: React.FC<{ hideWhenEmpty?: boolean }> = ({ hid
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <CurrencyExchangeIcon color="info" fontSize="small" />
               <Typography variant="subtitle2" color="text.secondary">
-                Solicitudes de Devolución Pendientes
+                Devoluciones Pendientes de Autorización
               </Typography>
               {requests.length > 0 && (
                 <Badge badgeContent={requests.length} color="info" sx={{ ml: 1 }} />
@@ -180,6 +180,15 @@ const PendingRefundRequestsPanel: React.FC<{ hideWhenEmpty?: boolean }> = ({ hid
                         <Typography variant="body2" fontWeight={500} noWrap>
                           {clientName}
                         </Typography>
+                        {Number(req.reversedAmount ?? 0) > 0 && (
+                          <Chip
+                            label="Anula venta"
+                            size="small"
+                            color="error"
+                            variant="outlined"
+                            sx={{ fontSize: '0.65rem' }}
+                          />
+                        )}
                       </Box>
 
                       {/* Requester */}
@@ -225,7 +234,7 @@ const PendingRefundRequestsPanel: React.FC<{ hideWhenEmpty?: boolean }> = ({ hid
                         onClick={() => handleAction(req, 'approve')}
                         sx={{ minWidth: 100, fontSize: '0.75rem' }}
                       >
-                        Aprobar
+                        Autorizar
                       </Button>
                       <Button
                         variant="outlined"
@@ -255,7 +264,7 @@ const PendingRefundRequestsPanel: React.FC<{ hideWhenEmpty?: boolean }> = ({ hid
       >
         <DialogTitle>
           {reviewTarget?.action === 'approve'
-            ? 'Aprobar Devolución'
+            ? 'Autorizar Devolución'
             : 'Rechazar Devolución'}
         </DialogTitle>
         <DialogContent>
@@ -279,9 +288,18 @@ const PendingRefundRequestsPanel: React.FC<{ hideWhenEmpty?: boolean }> = ({ hid
               <Typography variant="body2">
                 <strong>Motivo:</strong> {reviewTarget.request.observation}
               </Typography>
+              {Number(reviewTarget.request.reversedAmount ?? 0) > 0 && (
+                <Typography variant="body2" color="error.main" sx={{ mt: 1 }}>
+                  <strong>Anula venta:</strong>{' '}
+                  {formatCurrency(reviewTarget.request.reversedAmount)}. No es
+                  un excedente que se devuelve: es trabajo que deja de
+                  facturarse.
+                </Typography>
+              )}
               {reviewTarget.action === 'approve' && (
                 <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
-                  Al aprobar, se creará un egreso en la caja y se ajustará el saldo de la orden.
+                  Autorizar no mueve dinero: la devolución queda pendiente de
+                  pago y Caja la registra desde su panel.
                 </Typography>
               )}
             </Box>
@@ -315,7 +333,7 @@ const PendingRefundRequestsPanel: React.FC<{ hideWhenEmpty?: boolean }> = ({ hid
               (reviewTarget?.action === 'reject' && !reviewNotes.trim())
             }
           >
-            {reviewTarget?.action === 'approve' ? 'Aprobar' : 'Rechazar'}
+            {reviewTarget?.action === 'approve' ? 'Autorizar' : 'Rechazar'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -55,6 +55,31 @@ describe('buildPivot', () => {
     expect(p.total).toBe(500_000);
   });
 
+  it('deja las devueltas en su columna pero fuera del total de la fila', () => {
+    // Se le devolvió el dinero al cliente: esa plata no se vendió. Antes de
+    // tener columna propia, una OP devuelta desaparecía de la matriz.
+    const [p] = buildPivot(
+      [
+        row({ status: 'DELIVERED', count: 1, netAmount: 500_000 }),
+        row({ status: 'RETURNED', count: 1, netAmount: 238_000 }),
+      ],
+      'amount',
+      'all',
+    );
+
+    expect(p.cells[col('RETURNED')]).toBe(238_000);
+    expect(p.total).toBe(500_000);
+  });
+
+  it('no cuenta las devueltas dentro de la brecha', () => {
+    const rows = [
+      row({ status: 'RETURNED', paid: true, count: 5 }),
+      row({ status: 'READY', paid: true, count: 3 }),
+    ];
+
+    expect(buildPivot(rows, 'count', 'all')[0].gapCount).toBe(3);
+  });
+
   it('el corte «solo pagadas» deja fuera las que tienen saldo', () => {
     const rows = [
       row({ status: 'DRAFT', count: 3, paid: true }),

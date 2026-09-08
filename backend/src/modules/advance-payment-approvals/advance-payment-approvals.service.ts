@@ -176,6 +176,7 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
           total: true,
           appliedCreditAmount: true,
           refundedAmount: true,
+          reversedAmount: true,
         },
       });
       if (!order) return;
@@ -198,11 +199,12 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
         where: { id: orderId },
         data: {
           paidAmount,
-          balance: computeOrderBalance(
-            order.total,
+          balance: computeOrderBalance({
+            total: order.total,
             paidAmount,
-            order.appliedCreditAmount,
-          ),
+            appliedCreditAmount: order.appliedCreditAmount,
+            reversedAmount: order.reversedAmount,
+          }),
         },
       });
 

@@ -75,6 +75,8 @@ export class OrdersRepository {
     paidAmount: true,
     appliedCreditAmount: true,
     refundedAmount: true,
+    reversedAmount: true,
+    reversedNetAmount: true,
     balance: true,
     advancePaymentStatus: true,
     advancePaymentRejectedReason: true,
@@ -90,14 +92,28 @@ export class OrdersRepository {
       }
     },
     refundRequests: {
-      where: { status: 'PENDING' as const },
+      // Los dos estados que el detalle de la OP necesita anunciar: la que espera
+      // autorización y la que ya se autorizó pero Caja todavía no ha pagado.
+      // Filtrar solo por PENDING dejaba la segunda invisible, que es justo la
+      // que le dice al usuario que hay plata comprometida sin salir.
+      where: {
+        OR: [
+          { status: 'PENDING' as const },
+          { status: 'APPROVED' as const, executedAt: null },
+        ],
+      },
       select: {
         id: true,
         refundAmount: true,
+        reversedAmount: true,
+        refundReason: true,
         paymentMethod: true,
         bankEntity: true,
+        receiptFileId: true,
+        executionReceiptFileId: true,
         observation: true,
         status: true,
+        executedAt: true,
         requestedAt: true,
         requestedBy: {
           select: { id: true, email: true, firstName: true, lastName: true },

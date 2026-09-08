@@ -52,31 +52,83 @@ export function computeNetPaidAmount(
 }
 
 /**
+ * Entrada de los cálculos de saldo.
+ *
+ * Es un objeto y no una lista de posicionales a propósito: `reversedAmount` es
+ * obligatorio, así que TypeScript obliga a decidir qué hacer con él en cada
+ * lugar que calcule un saldo. Si fuera opcional, olvidarlo en un solo servicio
+ * devolvería un saldo silenciosamente equivocado —una OP mostrando como deuda un
+ * trabajo que ya se anuló— que es exactamente el error que este campo existe
+ * para evitar.
+ */
+export interface OrderBalanceInput {
+  total: DecimalLike;
+  paidAmount: DecimalLike;
+  /**
+   * Parte del excedente de esta orden que ya se aplicó como pago de otras
+   * órdenes: al sumarla, ese saldo deja de figurar como saldo a favor y no
+   * puede volver a gastarse ni devolverse.
+   */
+  appliedCreditAmount?: DecimalLike;
+  /**
+   * Valor de venta anulado por devoluciones de reversión. Reduce lo que la orden
+   * vale, no lo que el cliente pagó: por eso resta del total y no del abono.
+   */
+  reversedAmount: DecimalLike;
+}
+
+/**
  * Saldo pendiente de una orden.
  *
- * `appliedCreditAmount` es la parte del excedente de esta orden que ya se aplicó
- * como pago de otras órdenes: al sumarla, ese saldo deja de figurar como saldo a
- * favor y no puede volver a gastarse ni devolverse.
- *
- * balance = total - paidAmount + appliedCreditAmount
+ * balance = (total - reversedAmount) - paidAmount + appliedCreditAmount
  */
-export function computeOrderBalance(
-  total: DecimalLike,
-  paidAmount: DecimalLike,
-  appliedCreditAmount: DecimalLike = 0,
-): Prisma.Decimal {
-  return toDecimal(total).sub(toDecimal(paidAmount)).add(toDecimal(appliedCreditAmount));
+export function computeOrderBalance({
+  total,
+  paidAmount,
+  appliedCreditAmount = 0,
+  reversedAmount,
+}: OrderBalanceInput): Prisma.Decimal {
+  return toDecimal(total)
+    .sub(toDecimal(reversedAmount))
+    .sub(toDecimal(paidAmount))
+    .add(toDecimal(appliedCreditAmount));
 }
 
 /**
  * Saldo a favor disponible de una orden (0 si no hay excedente).
  * Es el inverso del balance cuando este es negativo.
+ *
+ * Pasarle un `reversedAmount` mayor que cero responde la pregunta "si anulo esta
+ * parte de la venta, ¿cuánto dinero le queda sobrando al cliente?", que es el
+ * tope de lo que puede salir de la caja en una devolución.
  */
 export function computeAvailableOverpayment(
-  total: DecimalLike,
-  paidAmount: DecimalLike,
-  appliedCreditAmount: DecimalLike = 0,
+  input: OrderBalanceInput,
 ): Prisma.Decimal {
-  const balance = computeOrderBalance(total, paidAmount, appliedCreditAmount);
+  const balance = computeOrderBalance(input);
   return balance.lessThan(0) ? balance.negated() : new Prisma.Decimal(0);
+}
+
+/**
+ * Porción de venta anulada llevada a la base comisionable (`subtotal - descuento`).
+ *
+ * `reversedAmount` está en pesos con IVA y con el redondeo comercial del total,
+ * mientras que la comisión se liquida sobre el subtotal sin IVA. Restar uno del
+ * otro directamente le quitaría al asesor más de lo que ganó. El prorrateo
+ * mantiene la proporción: si se anula la mitad de la venta, se anula la mitad de
+ * la base.
+ *
+ * Un total en cero (OP de $0) no tiene nada que prorratear.
+ */
+export function computeReversedNetAmount(
+  reversedAmount: DecimalLike,
+  total: DecimalLike,
+  subtotal: DecimalLike,
+  discountAmount: DecimalLike = 0,
+): Prisma.Decimal {
+  const totalDecimal = toDecimal(total);
+  if (totalDecimal.isZero()) return new Prisma.Decimal(0);
+
+  const commissionBase = toDecimal(subtotal).sub(toDecimal(discountAmount));
+  return toDecimal(reversedAmount).mul(commissionBase).div(totalDecimal);
 }

@@ -573,6 +573,7 @@ export class PaymentEditApprovalsService
           total: true,
           appliedCreditAmount: true,
           refundedAmount: true,
+          reversedAmount: true,
         },
       }),
       tx.payment.findMany({
@@ -589,11 +590,12 @@ export class PaymentEditApprovalsService
     // Neto de devoluciones: los pagos siguen ahí, pero ese dinero ya salió.
     const paidAmount = computeNetPaidAmount(paymentsTotal, order?.refundedAmount);
 
-    const balance = computeOrderBalance(
-      order?.total ?? 0,
+    const balance = computeOrderBalance({
+      total: order?.total ?? 0,
       paidAmount,
-      order?.appliedCreditAmount,
-    );
+      appliedCreditAmount: order?.appliedCreditAmount,
+      reversedAmount: order?.reversedAmount ?? 0,
+    });
 
     await tx.order.update({
       where: { id: orderId },

@@ -951,9 +951,26 @@ export const OrderDetailPage: React.FC = () => {
     (r) => r.status === 'PENDING',
   );
   const hasPendingRefund = !!pendingRefund;
+  // Autorizada por gerencia pero todavía sin pagar en Caja. La OP conserva su
+  // estado en esta ventana: el dinero aún no se ha movido.
+  const authorizedRefund = order.refundRequests?.find(
+    (r) => r.status === 'APPROVED' && !r.executedAt,
+  );
+
+  // Venta ya anulada por devoluciones anteriores, y lo que queda vivo de la OP.
+  const reversedAmount = parseFloat(order.reversedAmount ?? '0') || 0;
+  const pendingSaleValue = Math.max(0, parseFloat(order.total) - reversedAmount);
+  const netPaidAmount = parseFloat(order.paidAmount) || 0;
+  const isReturned = order.status === 'RETURNED';
+
+  // La devolución ya no exige saldo a favor: una OP sin excedente puede
+  // devolverse anulando parte de la venta (el trabajo no cumplió, no se
+  // entregó, se fue la luz). Lo único que la impide es que no haya nada que
+  // devolver —ni excedente ni abono— o que la orden ya esté cerrada.
   const canCreateRefund =
     !isAnulado &&
-    hasOverpayment &&
+    !isReturned &&
+    (hasOverpayment || (netPaidAmount > 0 && pendingSaleValue > 0)) &&
     !hasPendingRefund &&
     permissions.includes('create_refund_requests');
 
@@ -1094,6 +1111,26 @@ export const OrderDetailPage: React.FC = () => {
           pendingRefund.bankEntity
             ? ` · ${pendingRefund.bankEntity}`
             : ''}
+        </Alert>
+      )}
+      {authorizedRefund && (
+        <Alert severity='info' icon={<HourglassEmptyIcon />} sx={{ mt: 2 }}>
+          <strong>Devolución autorizada, pendiente de pago.</strong> Gerencia
+          aprobó devolver {formatCurrency(authorizedRefund.refundAmount)}. Caja
+          debe registrar el pago para que el dinero salga.
+        </Alert>
+      )}
+      {isReturned && (
+        <Alert severity='error' sx={{ mt: 2 }}>
+          <strong>Devolución de dinero.</strong> Se anuló la venta completa de
+          esta orden y el dinero fue devuelto al cliente. No admite más cambios.
+        </Alert>
+      )}
+      {reversedAmount > 0 && !isReturned && (
+        <Alert severity='warning' sx={{ mt: 2 }}>
+          <strong>Devolución parcial.</strong> Se anularon{' '}
+          {formatCurrency(reversedAmount.toString())} de esta orden. Su valor
+          vigente es {formatCurrency(pendingSaleValue.toString())}.
         </Alert>
       )}
       {hasOverpayment && !hasPendingRefund && (
@@ -1237,7 +1274,11 @@ export const OrderDetailPage: React.FC = () => {
               secondaryLabel='Registrar'
               onClick={() => setRefundDialogOpen(true)}
               color={theme.palette.warning.main}
-              tooltip={`Registrar devolución al cliente (saldo a favor: ${formatCurrency(overpayment.toString())})`}
+              tooltip={
+                hasOverpayment
+                  ? `Registrar devolución al cliente (saldo a favor: ${formatCurrency(overpayment.toString())})`
+                  : 'Registrar devolución al cliente anulando parte de la venta'
+              }
             />
           )}
 
@@ -2148,6 +2189,26 @@ export const OrderDetailPage: React.FC = () => {
                         {formatCurrency(parseFloat(order.total))}
                       </Typography>
                     </Box>
+                    {reversedAmount > 0 && (
+                      <>
+                        {/* Sin esta línea el usuario ve un total que no cuadra
+                            con lo que el cliente pagó. */}
+                        <Box display='flex' justifyContent='space-between'>
+                          <Typography color='error.main'>
+                            Devolución:
+                          </Typography>
+                          <Typography fontWeight={500} color='error.main'>
+                            -{formatCurrency(reversedAmount)}
+                          </Typography>
+                        </Box>
+                        <Box display='flex' justifyContent='space-between'>
+                          <Typography fontWeight={600}>Valor neto:</Typography>
+                          <Typography fontWeight={600} color='primary.main'>
+                            {formatCurrency(pendingSaleValue)}
+                          </Typography>
+                        </Box>
+                      </>
+                    )}
                     <Box display='flex' justifyContent='space-between'>
                       <Typography>Abono:</Typography>
                       <Typography fontWeight={500} color='success.main'>
@@ -3421,6 +3482,8 @@ export const OrderDetailPage: React.FC = () => {
         orderId={id!}
         orderNumber={order.orderNumber}
         maxAmount={overpayment}
+        pendingSaleValue={pendingSaleValue}
+        paidAmount={netPaidAmount}
       />
 
       {/* Dialog: Ver Comprobante */}

@@ -58,4 +58,27 @@ describe('getPendingAdvanceInfo', () => {
     expect(info.pendingAmount).toBe(40000);
     expect(info.effectiveBalance).toBe(100000);
   });
+
+  it('la venta anulada por una devolución no queda como saldo a cobrar', () => {
+    // OP de 595.000 con 150.000 abonados que se cae entera: se devuelven los
+    // 150.000 y se anula la venta. El cliente no debe los 445.000 restantes.
+    const info = getPendingAdvanceInfo({
+      total: '595000',
+      paidAmount: '0',
+      reversedAmount: '595000',
+    } as any);
+
+    expect(info.effectiveBalance).toBe(0);
+  });
+
+  it('la devolución parcial deja pendiente solo lo que sigue vivo', () => {
+    // Total 6.300, se anularon 3.000, el cliente abonó 3.300 de los 3.300 vivos.
+    const info = getPendingAdvanceInfo({
+      total: '6300',
+      paidAmount: '3300',
+      reversedAmount: '3000',
+    } as any);
+
+    expect(info.effectiveBalance).toBe(0);
+  });
 });

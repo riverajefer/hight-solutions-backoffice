@@ -54,6 +54,7 @@ export const STATUS_COLUMNS: { value: OrderStatus; label: string; full?: string 
   { value: 'DELIVERED', label: 'Entregada' },
   { value: 'DELIVERED_ON_CREDIT', label: 'Ent. créd.', full: 'Entregada a crédito' },
   { value: 'WARRANTY', label: 'Garantía' },
+  { value: 'RETURNED', label: 'Devuelta', full: 'Devolución de dinero' },
   { value: 'ANULADO', label: 'Anulada' },
 ];
 
@@ -68,21 +69,33 @@ export const DELIVERED_STATUSES: OrderStatus[] = [
 
 /** ¿La OP está pagada al 100% pero todavía sin marcar como entregada? */
 export const isGapRow = (r: AdvisorTrackingRow) =>
-  r.paid && !DELIVERED_STATUSES.includes(r.status) && r.status !== 'ANULADO';
+  r.paid &&
+  !DELIVERED_STATUSES.includes(r.status) &&
+  !NON_SALE_STATUSES.includes(r.status);
 
 /**
- * Una OP anulada no es una venta. Conserva su columna en la matriz —interesa ver
- * cuántas se anularon en el mes— pero queda fuera de los totales y de los
- * indicadores: sumarla infla lo vendido y, si quedó con saldo, aparece además
- * como cartera por cobrar que nadie va a cobrar.
+ * Estados que no son una venta. Conservan su columna en la matriz —interesa ver
+ * cuántas se anularon o se devolvieron en el mes— pero quedan fuera de los
+ * totales y de los indicadores: sumarlas infla lo vendido y, si quedaron con
+ * saldo, aparecen además como cartera por cobrar que nadie va a cobrar.
+ *
+ * `RETURNED` entra acá por la misma razón que `ANULADO`: se le devolvió el
+ * dinero al cliente, así que esa plata no se vendió.
  */
-export const isVoidedRow = (r: AdvisorTrackingRow) => r.status === 'ANULADO';
+const NON_SALE_STATUSES: OrderStatus[] = ['ANULADO', 'RETURNED'];
+
+export const isVoidedRow = (r: AdvisorTrackingRow) =>
+  NON_SALE_STATUSES.includes(r.status);
 
 /** Filtro base de los indicadores: todo lo que sí cuenta como venta del mes. */
 export const countsAsSale = (r: AdvisorTrackingRow) => !isVoidedRow(r);
 
-/** Índice de la columna «Anulada», la única que no entra en los totales. */
-const VOIDED_COLUMN_INDEX = STATUS_COLUMNS.findIndex((c) => c.value === 'ANULADO');
+/** Columnas que no entran en el total de la fila. */
+const NON_SALE_COLUMN_INDEXES = STATUS_COLUMNS.reduce<number[]>(
+  (acc, column, index) =>
+    NON_SALE_STATUSES.includes(column.value) ? [...acc, index] : acc,
+  [],
+);
 
 export interface PivotRow {
   advisorId: string;
@@ -126,7 +139,8 @@ export function buildPivot(
         advisorName: mine[0]?.advisorName || advisorId,
         cells,
         total: cells.reduce(
-          (acc, v, i) => (i === VOIDED_COLUMN_INDEX ? acc : acc + v),
+          (acc, v, i) =>
+            NON_SALE_COLUMN_INDEXES.includes(i) ? acc : acc + v,
           0,
         ),
         gapCount: gapRows.reduce((acc, r) => acc + r.count, 0),

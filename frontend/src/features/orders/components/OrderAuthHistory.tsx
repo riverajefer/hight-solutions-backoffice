@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSnackbar } from 'notistack';
 import {
   Card,
   CardHeader,
@@ -10,6 +11,12 @@ import {
   Chip,
   Avatar,
   Divider,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Stack,
 } from '@mui/material';
 import { lighten } from '@mui/material/styles';
 import {
@@ -20,8 +27,11 @@ import {
   Edit as EditIcon,
   Block as BlockIcon,
   Person as PersonIcon,
+  CurrencyExchange as CurrencyExchangeIcon,
+  ReceiptLong as ReceiptLongIcon,
 } from '@mui/icons-material';
 import { ordersApi } from '../../../api/orders.api';
+import { storageApi } from '../../../api/storage.api';
 import type {
   OrderAuthHistoryEvent,
   OrderAuthEventType,
@@ -100,6 +110,27 @@ const TYPE_CONFIG: Record<
     icon: <EditIcon fontSize="small" />,
     verb: 'Solicitó permiso para editar la orden',
   },
+  REFUND: {
+    label: 'Devolución',
+    icon: <CurrencyExchangeIcon fontSize="small" />,
+    verb: 'Solicitó autorización para una devolución',
+  },
+};
+
+/**
+ * Estado de una devolución tal como se lee.
+ *
+ * `APPROVED` es ambiguo en una devolución: gerencia autoriza y Caja paga
+ * después, así que una solicitud aprobada puede tener el dinero todavía en la
+ * caja. Mostrar "Aprobada" en ese caso haría creer que la plata ya salió.
+ */
+const refundStatusChip = (
+  event: OrderAuthHistoryEvent,
+): { label: string; color: 'warning' | 'success' | 'error' | 'default' } | null => {
+  if (event.type !== 'REFUND' || event.status !== 'APPROVED') return null;
+  return event.executedAt
+    ? { label: 'Pagada', color: 'success' }
+    : { label: 'Autorizada · falta pago', color: 'warning' };
 };
 
 const STATUS_CONFIG: Record<
@@ -163,11 +194,31 @@ interface OrderAuthHistoryProps {
 export const OrderAuthHistory: React.FC<OrderAuthHistoryProps> = ({
   orderId,
 }) => {
+  const { enqueueSnackbar } = useSnackbar();
   const { data, isLoading, isError } = useQuery({
     queryKey: ['order-authorization-history', orderId],
     queryFn: () => ordersApi.getAuthorizationHistory(orderId),
     enabled: !!orderId,
   });
+
+  // Comprobante de una devolución por transferencia. La URL es prefirmada, así
+  // que se pide al abrir y no se guarda en el estado del listado.
+  const [receipt, setReceipt] = useState<{
+    url: string;
+    mimeType: string;
+  } | null>(null);
+
+  const openReceipt = async (fileId: string) => {
+    try {
+      const [{ url }, file] = await Promise.all([
+        storageApi.getFileUrl(fileId),
+        storageApi.getFile(fileId),
+      ]);
+      setReceipt({ url, mimeType: file.mimeType });
+    } catch {
+      enqueueSnackbar('No se pudo abrir el comprobante', { variant: 'error' });
+    }
+  };
 
   const events: OrderAuthHistoryEvent[] = data ?? [];
 
@@ -237,7 +288,8 @@ export const OrderAuthHistory: React.FC<OrderAuthHistoryProps> = ({
               (event.type === 'ADVANCE_PAYMENT' ||
                 event.type === 'PAYMENT_EDIT' ||
                 event.type === 'PAYMENT_VOID' ||
-                event.type === 'DISCOUNT');
+                event.type === 'DISCOUNT' ||
+                event.type === 'REFUND');
             // Caja anulando con la caja abierta no "solicitó" nada: lo hizo.
             const verbText =
               event.type === 'PAYMENT_VOID' && event.direct
@@ -260,6 +312,18 @@ export const OrderAuthHistory: React.FC<OrderAuthHistoryProps> = ({
                 {event.type === 'CLIENT_OWNERSHIP' && event.advisor
                   ? ` para ${userName(event.advisor)}`
                   : ''}
+                {event.type === 'REFUND' && event.reversedAmount && (
+                  <>
+                    {', anulando '}
+                    <Box
+                      component="span"
+                      sx={{ fontWeight: 800, color: 'error.main' }}
+                    >
+                      {formatCurrency(event.reversedAmount)}
+                    </Box>
+                    {' de la venta'}
+                  </>
+                )}
                 {'.'}
               </>
             );
@@ -274,7 +338,11 @@ export const OrderAuthHistory: React.FC<OrderAuthHistoryProps> = ({
             } else if (event.status !== 'PENDING') {
               const verb =
                 event.status === 'APPROVED'
-                  ? 'Aprobada por'
+                  ? // En una devolución quien aprueba no es quien paga: decir
+                    // "aprobada" a secas se confundiría con el pago.
+                    event.type === 'REFUND'
+                    ? 'Autorizada por'
+                    : 'Aprobada por'
                   : event.status === 'REJECTED'
                     ? 'Rechazada por'
                     : 'Resuelta';
@@ -287,6 +355,20 @@ export const OrderAuthHistory: React.FC<OrderAuthHistoryProps> = ({
                         : ''
                     }`;
             }
+
+            // Tercer hito de la devolución: gerencia autoriza, Caja paga. Sin
+            // esta línea el timeline no dice si el dinero ya salió de la caja.
+            let executionLine: string | null = null;
+            if (event.type === 'REFUND' && event.status === 'APPROVED') {
+              executionLine = event.executedAt
+                ? `Pagada en caja por: ${userName(event.executedBy)} · ${formatDateTime(event.executedAt)}`
+                : 'Pendiente de pago en Caja — el dinero aún no ha salido.';
+            }
+
+            const statusChip = refundStatusChip(event) ?? {
+              label: statusCfg.label,
+              color: statusCfg.color,
+            };
 
             return (
               <Box
@@ -368,8 +450,8 @@ export const OrderAuthHistory: React.FC<OrderAuthHistoryProps> = ({
                         sx={{ height: 22, fontSize: '0.7rem', fontWeight: 600 }}
                       />
                       <Chip
-                        label={statusCfg.label}
-                        color={statusCfg.color}
+                        label={statusChip.label}
+                        color={statusChip.color}
                         size="small"
                         sx={{
                           fontWeight: 700,
@@ -409,6 +491,19 @@ export const OrderAuthHistory: React.FC<OrderAuthHistoryProps> = ({
                       </Typography>
                     )}
 
+                    {executionLine && (
+                      <Typography
+                        variant="caption"
+                        color={
+                          event.executedAt ? 'text.secondary' : 'warning.main'
+                        }
+                        display="block"
+                        sx={{ mt: 0.5, fontWeight: event.executedAt ? 400 : 600 }}
+                      >
+                        {executionLine}
+                      </Typography>
+                    )}
+
                     {event.reviewNotes && (
                       <Typography
                         variant="caption"
@@ -419,6 +514,48 @@ export const OrderAuthHistory: React.FC<OrderAuthHistoryProps> = ({
                         <strong>Notas:</strong> {event.reviewNotes}
                       </Typography>
                     )}
+
+                    {/* Una devolución por transferencia puede tener dos
+                        soportes: el que adjuntó quien la solicitó y el que
+                        adjuntó Caja al hacer el giro. Se distinguen solo cuando
+                        existen los dos; con uno solo, el rótulo genérico. */}
+                    {(event.receiptFileId || event.executionReceiptFileId) && (
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        flexWrap="wrap"
+                        sx={{ mt: 0.5 }}
+                      >
+                        {event.receiptFileId && (
+                          <Button
+                            size="small"
+                            variant="text"
+                            startIcon={<ReceiptLongIcon />}
+                            onClick={() => openReceipt(event.receiptFileId!)}
+                            sx={{ textTransform: 'none', px: 0.5 }}
+                          >
+                            {event.executionReceiptFileId
+                              ? 'Comprobante de la solicitud'
+                              : 'Ver comprobante de la transferencia'}
+                          </Button>
+                        )}
+                        {event.executionReceiptFileId && (
+                          <Button
+                            size="small"
+                            variant="text"
+                            startIcon={<ReceiptLongIcon />}
+                            onClick={() =>
+                              openReceipt(event.executionReceiptFileId!)
+                            }
+                            sx={{ textTransform: 'none', px: 0.5 }}
+                          >
+                            {event.receiptFileId
+                              ? 'Comprobante del pago'
+                              : 'Ver comprobante de la transferencia'}
+                          </Button>
+                        )}
+                      </Stack>
+                    )}
                   </Box>
 
                   {!isLast && <Divider sx={{ mt: 3, opacity: 0.4 }} />}
@@ -428,6 +565,37 @@ export const OrderAuthHistory: React.FC<OrderAuthHistoryProps> = ({
           })}
         </Box>
       </CardContent>
+
+      <Dialog
+        open={!!receipt}
+        onClose={() => setReceipt(null)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Comprobante de la transferencia</DialogTitle>
+        <DialogContent dividers>
+          {receipt?.mimeType === 'application/pdf' ? (
+            <Box
+              component="iframe"
+              src={receipt.url}
+              title="Comprobante"
+              sx={{ width: '100%', height: '70vh', border: 0 }}
+            />
+          ) : (
+            receipt && (
+              <Box
+                component="img"
+                src={receipt.url}
+                alt="Comprobante de la transferencia"
+                sx={{ display: 'block', maxWidth: '100%', mx: 'auto' }}
+              />
+            )
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReceipt(null)}>Cerrar</Button>
+        </DialogActions>
+      </Dialog>
     </Card>
   );
 };

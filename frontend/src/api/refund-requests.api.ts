@@ -4,6 +4,7 @@ import type {
   CreateRefundRequestDto,
   ApproveRefundRequestDto,
   RejectRefundRequestDto,
+  ExecuteRefundRequestDto,
 } from '../types/refund-request.types';
 
 export const refundRequestsApi = {
@@ -24,6 +25,16 @@ export const refundRequestsApi = {
   findPending: async () => {
     const { data } = await axiosInstance.get<RefundRequest[]>(
       '/refund-requests/pending',
+    );
+    return data;
+  },
+
+  /**
+   * Autorizadas por gerencia que esperan el pago de Caja (requiere execute_refunds)
+   */
+  findPendingExecution: async () => {
+    const { data } = await axiosInstance.get<RefundRequest[]>(
+      '/refund-requests/pending-execution',
     );
     return data;
   },
@@ -74,6 +85,17 @@ export const refundRequestsApi = {
   approve: async (id: string, dto: ApproveRefundRequestDto = {}) => {
     const { data } = await axiosInstance.put<RefundRequest>(
       `/refund-requests/${id}/approve`,
+      dto,
+    );
+    return data;
+  },
+
+  /**
+   * Pagar una devolución ya autorizada (Caja)
+   */
+  execute: async (id: string, dto: ExecuteRefundRequestDto = {}) => {
+    const { data } = await axiosInstance.put<RefundRequest>(
+      `/refund-requests/${id}/execute`,
       dto,
     );
     return data;
