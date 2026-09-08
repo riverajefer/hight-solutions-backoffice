@@ -320,6 +320,7 @@ async function main() {
     // Refund Requests (Devoluciones de dinero al cliente en OP)
     { name: 'create_refund_requests', description: 'Solicitar devolución de saldo a favor en órdenes de pedido' },
     { name: 'approve_refunds', description: 'Aprobar o rechazar devoluciones de dinero al cliente' },
+    { name: 'execute_refunds', description: 'Pagar en caja una devolución ya autorizada por gerencia' },
 
     // Client Ownership Authorization
     { name: 'approve_client_ownership_auth', description: 'Aprobar solicitudes de autorización de propiedad de cliente en órdenes' },
@@ -593,6 +594,7 @@ async function main() {
     'edit_order_payments',
     'delete_payment_receipts',
     'approve_refunds',
+    'execute_refunds',
     'read_orders',
     'read_clients',
     'read_users',

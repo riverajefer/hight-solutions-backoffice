@@ -82,6 +82,7 @@ import PendingApprovalsPanel from '../components/PendingApprovalsPanel';
 import PendingVoidRequestsPanel from '../components/PendingVoidRequestsPanel';
 import PendingOgAuthorizationsPanel from '../components/PendingOgAuthorizationsPanel';
 import PendingRefundRequestsPanel from '../components/PendingRefundRequestsPanel';
+import ApprovedRefundsToPayPanel from '../components/ApprovedRefundsToPayPanel';
 import PendingApAuthorizationsPanel from '../components/PendingApAuthorizationsPanel';
 import PendingApReversalsCajaPanel from '../components/PendingApReversalsCajaPanel';
 import { useApprovalSocket } from '../hooks/useApprovalSocket';
@@ -516,6 +517,9 @@ const ActiveSessionPage: React.FC = () => {
               )}
               {hasPermission(PERMISSIONS.APPROVE_REFUNDS) && (
                 <PendingRefundRequestsPanel hideWhenEmpty />
+              )}
+              {hasPermission(PERMISSIONS.EXECUTE_REFUNDS) && (
+                <ApprovedRefundsToPayPanel hideWhenEmpty />
               )}
               {hasPermission(PERMISSIONS.REGISTER_AP_PAYMENT) && (
                 <PendingApAuthorizationsPanel hideWhenEmpty />

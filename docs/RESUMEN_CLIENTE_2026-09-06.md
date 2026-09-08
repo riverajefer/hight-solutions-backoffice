@@ -45,6 +45,12 @@
   caja. Además el pago ya no se borra: queda registrado como anulado, con quién
   lo hizo y cuándo, y se ve tachado en el historial.
 
+- **Totales con decimales de más.** El porcentaje de retención se guardaba con
+  un arrastre mínimo (0,01104 quedaba como 0,011040000000000001), y eso hacía que
+  el total de la orden terminara con decimales imposibles. Afectó a 3 órdenes.
+  Corregido de raíz: el porcentaje ahora se guarda limpio, en órdenes de pedido,
+  órdenes de gasto y cuentas por pagar.
+
 ## ⚙️ Mejoras y seguridad
 
 - **Permisos en Cotizaciones.** El módulo no estaba verificando permisos en el
@@ -61,9 +67,16 @@
   clic, órdenes de pedido y abonos llevan ahora un identificador que evita que se
   dupliquen si se pierde la conexión y la pantalla reintenta.
 
+- **Revisión automática de la coherencia de los datos.** Se creó una
+  herramienta que verifica, contra la base real, diez cosas que siempre deben
+  cuadrar: que todo pago deje rastro en caja, que el saldo de una orden coincida
+  con sus pagos, que la numeración no se repita, que no haya dos cajas abiertas a
+  la vez. Se puede correr cuando se quiera y no modifica nada. Las decisiones 4 y 5
+  de abajo salieron de ahí.
+
 ---
 
-## 📌 Tres decisiones que necesitamos de ustedes
+## 📌 Cinco decisiones que necesitamos de ustedes
 
 ### 1. ¿Los operarios deben poder crear cotizaciones?
 
@@ -95,6 +108,32 @@ Dos caminos, y es decisión de ustedes porque cambia lo que dice el documento:
 - **Redondear el total** de la cuenta por pagar a peso entero cuando se crea
   desde la orden de gasto.
 
+### 4. Tres órdenes con un saldo a favor que no existe
+
+Por el problema de los decimales de arriba, tres órdenes quedaron con el total
+mal guardado:
+
+| Orden | Muestra hoy | Debería mostrar |
+|---|---|---|
+| OP-2026-2041 | Saldo a favor de $0,30 | Saldada, en cero |
+| OP-2026-1465 | Saldo a favor de $0,32 | Saldada, en cero |
+| OP-2026-1907 | Saldo a favor de $21.314,000000000003 | Saldo a favor de $21.314 |
+
+Corregirlo significa ajustar el total de tres facturas ya cobradas. El cliente
+pagó exactamente lo que se le cobró; lo que está mal es el número guardado, no la
+plata. **No lo tocamos sin su visto bueno.**
+
+### 5. Pagos antiguos sin registro en caja
+
+**808 pagos registrados entre marzo y el 14 de agosto no quedaron reflejados en
+el arqueo de caja.** El error que los causaba ya está corregido: de los 905 pagos
+registrados desde el 15 de agosto, los 905 quedaron bien.
+
+Lo que falta es decidir qué hacer con los viejos. La forma de arreglarlo ya está
+definida —registrarlos en sesiones de caja de ajuste, cerradas, en una caja
+aparte, sin tocar los arqueos ya firmados— pero nunca se ejecutó. Mientras tanto,
+cualquier cuadre histórico de caja anterior al 15 de agosto va a dar corto.
+
 ---
 
 ## Resumen general
@@ -102,11 +141,15 @@ Dos caminos, y es decisión de ustedes porque cambia lo que dice el documento:
 Esta jornada no agregó funcionalidades nuevas: fue una revisión completa del
 sistema buscando errores, con foco en los flujos donde se mueve dinero. Se
 revisaron uno por uno los puntos donde el sistema registra pagos, mueve caja,
-numera documentos y filtra por fechas, y se corrigieron trece problemas, varios
+numera documentos y filtra por fechas, y se corrigieron catorce problemas, varios
 de ellos invisibles hasta que se comparan las cifras con lo que hay en la base de
 datos.
 
 El resultado es un sistema que no puede cobrar dos veces por un clic, que no
 descuadra el arqueo al anular un pago, y cuyos filtros muestran lo que uno pide.
-Las decisiones de arriba son las únicas que no podemos tomar nosotros, porque son
-de operación, no técnicas.
+Además quedó una herramienta que revisa la coherencia de los datos cuando se
+quiera, así que este tipo de problemas ya no dependen de que alguien los note.
+
+Las cinco decisiones de arriba son las únicas que no podemos tomar nosotros:
+tres son de operación —quién puede hacer qué— y dos son sobre corregir datos
+históricos, que es plata ya cobrada y arqueos ya firmados.

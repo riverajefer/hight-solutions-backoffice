@@ -101,9 +101,10 @@ describe('mutaciones de devoluciones', () => {
       await result.current.mutateAsync({ id: 'r1', dto: { notes: 'ok' } as any });
     });
     expect(refundRequestsApi.approve).toHaveBeenCalledWith('r1', { notes: 'ok' });
-    expect(enqueueMock).toHaveBeenCalledWith('Devolución aprobada correctamente', {
-      variant: 'success',
-    });
+    expect(enqueueMock).toHaveBeenCalledWith(
+      'Devolución autorizada. Queda pendiente de pago en Caja.',
+      { variant: 'success' },
+    );
   });
 
   it('reject rechaza con variante info', async () => {

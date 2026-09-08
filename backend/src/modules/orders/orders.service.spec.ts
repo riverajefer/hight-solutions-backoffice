@@ -164,6 +164,7 @@ const mockPrisma = {
   paymentEditApproval: { findMany: jest.fn().mockResolvedValue([]) },
   orderEditRequest: { findMany: jest.fn().mockResolvedValue([]) },
   cashMovementVoidRequest: { findMany: jest.fn().mockResolvedValue([]) },
+  refundRequest: { findMany: jest.fn().mockResolvedValue([]) },
   cashSession: {
     findFirst: jest.fn(),
   },
@@ -554,12 +555,19 @@ describe('OrdersService', () => {
       mockPrisma.user.findMany.mockResolvedValue([]);
     });
 
-    const grupo = (createdById: string, subtotal: number, discount: number, count: number) => ({
+    const grupo = (
+      createdById: string,
+      subtotal: number,
+      discount: number,
+      count: number,
+      reversedNet = 0,
+    ) => ({
       createdById,
       _sum: {
         total: new Prisma.Decimal(subtotal),
         subtotal: new Prisma.Decimal(subtotal),
         discountAmount: new Prisma.Decimal(discount),
+        reversedNetAmount: new Prisma.Decimal(reversedNet),
       },
       _count: { id: count },
     });
@@ -583,17 +591,38 @@ describe('OrdersService', () => {
       expect(comisionable.balance).toEqual({ lte: 0 });
     });
 
-    it('la brecha son las pagadas sin entregar, sin contar anuladas', async () => {
+    it('la brecha son las pagadas sin entregar, sin contar anuladas ni devueltas', async () => {
       await service.getSalesSummary({});
 
       const brecha = wheres().find((w: any) => w.status?.notIn);
+      // `RETURNED` va junto a `ANULADO`: una OP devuelta queda con balance en
+      // cero, así que sin excluirla figuraría como un trabajo pagado esperando
+      // entrega que nunca se va a entregar.
       expect(brecha.status.notIn).toEqual([
         OrderStatus.DELIVERED,
         OrderStatus.DELIVERED_ON_CREDIT,
         OrderStatus.WARRANTY,
         OrderStatus.ANULADO,
+        OrderStatus.RETURNED,
       ]);
       expect(brecha.balance).toEqual({ lte: 0 });
+    });
+
+    it('la venta devuelta no comisiona aunque la OP siga entregada', async () => {
+      // Devolución parcial: la OP se entregó y conserva su estado, pero de los
+      // 1.000 de base se le devolvieron 300 al cliente. El asesor comisiona 700.
+      mockPrisma.order.groupBy
+        .mockResolvedValueOnce([grupo('a1', 1000, 0, 1)])
+        .mockResolvedValueOnce([grupo('a1', 1000, 0, 1, 300)])
+        .mockResolvedValueOnce([]);
+      mockPrisma.user.findMany.mockResolvedValue([
+        { id: 'a1', firstName: 'Laura', lastName: 'Maldonado' },
+      ]);
+
+      const result = await service.getSalesSummary({});
+
+      expect(result.commissionableNetSubtotal).toBe(700);
+      expect(result.advisorBreakdown[0].commissionableNetSubtotal).toBe(700);
     });
 
     it('reparte comisionable y brecha en la fila de cada asesor', async () => {
@@ -3196,6 +3225,69 @@ describe('OrdersService', () => {
 
       expect(voids).toHaveLength(1);
       expect(voids[0].amount).toBe('50000');
+    });
+
+    const refund = (overrides = {}) => ({
+      id: 'ref-1',
+      status: 'APPROVED',
+      observation: 'El UV salió con mala resolución',
+      refundAmount: new Prisma.Decimal(200000),
+      reversedAmount: new Prisma.Decimal(0),
+      createdAt: new Date('2026-09-05T10:00:00Z'),
+      reviewedAt: new Date('2026-09-05T12:00:00Z'),
+      reviewNotes: null,
+      requestedBy: user,
+      reviewedBy: user,
+      executedAt: null,
+      executedBy: null,
+      ...overrides,
+    });
+
+    it('incluye la devolución con su monto', async () => {
+      mockPrisma.refundRequest.findMany.mockResolvedValue([refund()]);
+
+      const events = await service.getAuthorizationHistory('order-1');
+      const refunds = events.filter((e) => e.type === 'REFUND');
+
+      expect(refunds).toHaveLength(1);
+      expect(refunds[0].amount).toBe('200000');
+      expect(refunds[0].reason).toBe('El UV salió con mala resolución');
+    });
+
+    it('distingue la devolución que anula venta de la de saldo a favor', async () => {
+      mockPrisma.refundRequest.findMany.mockResolvedValue([
+        refund({ id: 'ref-saldo' }),
+        refund({ id: 'ref-reversion', reversedAmount: new Prisma.Decimal(595000) }),
+      ]);
+
+      const events = await service.getAuthorizationHistory('order-1');
+      const porId = new Map(events.map((e) => [e.id, e]));
+
+      // Un cero no es "anuló cero de venta": es que no anuló nada. Si viajara
+      // como '0' el timeline diría "anulando $ 0 de la venta".
+      expect(porId.get('ref-saldo')?.reversedAmount).toBeNull();
+      expect(porId.get('ref-reversion')?.reversedAmount).toBe('595000');
+    });
+
+    it('expone el pago como hito aparte de la autorización', async () => {
+      // Gerencia autoriza y Caja paga: son dos momentos, y entre uno y otro el
+      // dinero sigue en la caja.
+      const pagador = { id: 'u2', email: 'caja2@x.com', firstName: 'Luis', lastName: 'Ruiz' };
+      mockPrisma.refundRequest.findMany.mockResolvedValue([
+        refund({ id: 'ref-sin-pagar' }),
+        refund({
+          id: 'ref-pagada',
+          executedAt: new Date('2026-09-06T09:00:00Z'),
+          executedBy: pagador,
+        }),
+      ]);
+
+      const events = await service.getAuthorizationHistory('order-1');
+      const porId = new Map(events.map((e) => [e.id, e]));
+
+      expect(porId.get('ref-sin-pagar')?.executedAt).toBeNull();
+      expect(porId.get('ref-sin-pagar')?.executedBy).toBeNull();
+      expect(porId.get('ref-pagada')?.executedBy).toMatchObject({ id: 'u2' });
     });
   });
 

@@ -238,7 +238,8 @@ export const PERMISSION_LABELS: Record<string, string> = {
   caja_authorize_expense_orders: 'Autorizar Órdenes de Gasto en Caja',
 
   // Devoluciones
-  approve_refunds: 'Aprobar Devoluciones',
+  approve_refunds: 'Autorizar Devoluciones (Gerencia)',
+  execute_refunds: 'Pagar Devoluciones en Caja',
   create_refund_requests: 'Crear Solicitudes de Devolución',
 
   // Cuentas por Pagar

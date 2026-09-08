@@ -16,7 +16,7 @@ import {
   createMockPrismaService,
   MockPrismaService,
 } from '../../database/prisma.service.mock';
-import { EditRequestStatus } from '../../generated/prisma';
+import { EditRequestStatus, OrderStatus } from '../../generated/prisma';
 
 describe('RefundRequestsService', () => {
   let service: RefundRequestsService;
@@ -267,6 +267,47 @@ describe('RefundRequestsService', () => {
     });
   });
 
+  /**
+   * OP de 500 con 700 abonados: 200 de saldo a favor, que es el escenario
+   * histórico del módulo. Los overrides sirven para armar los demás.
+   */
+  const orden = (overrides: Record<string, unknown> = {}) => ({
+    id: 'o1',
+    orderNumber: 'OP-1',
+    status: OrderStatus.DELIVERED,
+    subtotal: '500',
+    discountAmount: '0',
+    total: '500',
+    paidAmount: '700',
+    appliedCreditAmount: '0',
+    refundedAmount: '0',
+    reversedAmount: '0',
+    reversedNetAmount: '0',
+    balance: '-200',
+    ...overrides,
+  });
+
+  const solicitud = (overrides: Record<string, unknown> = {}) => ({
+    id: 'req-1',
+    orderId: 'o1',
+    requestedById: 'u1',
+    refundAmount: '100',
+    reversedAmount: '0',
+    paymentMethod: 'CASH',
+    observation: 'cliente pagó de más',
+    executedAt: null,
+    order: orden(),
+    ...overrides,
+  });
+
+  const pendiente = solicitud;
+  const aprobada = (overrides: Record<string, unknown> = {}) =>
+    solicitud({ status: EditRequestStatus.APPROVED, ...overrides });
+
+  const revisorConPermiso = () => ({
+    role: { permissions: [{ permission: { name: 'approve_refunds' } }] },
+  });
+
   describe('approve', () => {
     const reviewerId = 'reviewer-1';
     const requestId = 'req-1';
@@ -307,58 +348,12 @@ describe('RefundRequestsService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('throws BadRequestException if no open cash session', async () => {
-      prisma.refundRequest.findFirst.mockResolvedValue({
-        id: requestId,
-        orderId: 'o1',
-        requestedById: 'u1',
-        refundAmount: '100',
-        paymentMethod: 'CASH',
-        observation: 'x',
-        order: {
-          id: 'o1',
-          orderNumber: 'OP-1',
-          total: '500',
-          paidAmount: '700',
-          balance: '-200',
-        },
-      });
-      prisma.user.findUnique.mockResolvedValue({
-        role: {
-          permissions: [{ permission: { name: 'approve_refunds' } }],
-        },
-      });
+    it('autoriza sin exigir sesión de caja abierta', async () => {
+      // Gerencia aprueba desde WhatsApp a cualquier hora: si la autorización
+      // exigiera caja abierta, de noche fallaría.
+      prisma.refundRequest.findFirst.mockResolvedValue(pendiente());
+      prisma.user.findUnique.mockResolvedValue(revisorConPermiso());
       prisma.cashSession.findFirst.mockResolvedValue(null);
-
-      await expect(
-        service.approve(requestId, reviewerId, {}),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('approves: creates CashMovement, reduces paidAmount, updates request', async () => {
-      prisma.refundRequest.findFirst.mockResolvedValue({
-        id: requestId,
-        orderId: 'o1',
-        requestedById: 'u1',
-        refundAmount: '100',
-        paymentMethod: 'CASH',
-        observation: 'cliente pagó de más',
-        order: {
-          id: 'o1',
-          orderNumber: 'OP-1',
-          total: '500',
-          paidAmount: '700',
-          balance: '-200',
-        },
-      });
-      prisma.user.findUnique.mockResolvedValue({
-        role: {
-          permissions: [{ permission: { name: 'approve_refunds' } }],
-        },
-      });
-      prisma.cashSession.findFirst.mockResolvedValue({ id: 'session-1' });
-      prisma.cashMovement.create.mockResolvedValue({ id: 'mov-1' });
-      prisma.order.update.mockResolvedValue({});
       prisma.refundRequest.update.mockResolvedValue({
         id: requestId,
         status: EditRequestStatus.APPROVED,
@@ -369,69 +364,14 @@ describe('RefundRequestsService', () => {
         reviewNotes: 'OK',
       });
 
-      expect(consecutives.generateNumber).toHaveBeenCalledWith('CASH_RECEIPT');
-      expect(prisma.cashMovement.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            cashSessionId: 'session-1',
-            movementType: 'EXPENSE',
-            paymentMethod: 'CASH',
-            referenceType: 'REFUND',
-            referenceId: requestId,
-            performedById: reviewerId,
-          }),
-        }),
-      );
-      expect(prisma.order.update).toHaveBeenCalledWith({
-        where: { id: 'o1' },
-        data: expect.objectContaining({
-          paidAmount: expect.anything(),
-          balance: expect.anything(),
-        }),
-      });
-      expect(prisma.refundRequest.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: requestId },
-          data: expect.objectContaining({
-            status: EditRequestStatus.APPROVED,
-            reviewedById: reviewerId,
-            cashMovementId: 'mov-1',
-          }),
-        }),
-      );
-      expect(notifications.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'REFUND_REQUEST_APPROVED',
-          userId: 'u1',
-        }),
-      );
-      expect(wsGateway.emitApprovalUpdated).toHaveBeenCalled();
       expect(result.status).toBe(EditRequestStatus.APPROVED);
+      expect(prisma.cashMovement.create).not.toHaveBeenCalled();
+      expect(prisma.order.update).not.toHaveBeenCalled();
     });
 
-    it('registra el monto devuelto en refundedAmount para que sobreviva a un recálculo', async () => {
-      prisma.refundRequest.findFirst.mockResolvedValue({
-        id: requestId,
-        orderId: 'o1',
-        requestedById: 'u1',
-        refundAmount: '200',
-        paymentMethod: 'CASH',
-        observation: 'cliente pagó de más',
-        order: {
-          id: 'o1',
-          orderNumber: 'OP-1',
-          total: '500',
-          paidAmount: '700',
-          refundedAmount: '0',
-          balance: '-200',
-        },
-      });
-      prisma.user.findUnique.mockResolvedValue({
-        role: { permissions: [{ permission: { name: 'approve_refunds' } }] },
-      });
-      prisma.cashSession.findFirst.mockResolvedValue({ id: 'session-1' });
-      prisma.cashMovement.create.mockResolvedValue({ id: 'mov-1' });
-      prisma.order.update.mockResolvedValue({});
+    it('autorizar no mueve un peso: eso lo hace Caja al ejecutar', async () => {
+      prisma.refundRequest.findFirst.mockResolvedValue(pendiente());
+      prisma.user.findUnique.mockResolvedValue(revisorConPermiso());
       prisma.refundRequest.update.mockResolvedValue({
         id: requestId,
         status: EditRequestStatus.APPROVED,
@@ -439,6 +379,104 @@ describe('RefundRequestsService', () => {
       });
 
       await service.approve(requestId, reviewerId, {});
+
+      expect(prisma.refundRequest.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: requestId },
+          data: expect.objectContaining({
+            status: EditRequestStatus.APPROVED,
+            reviewedById: reviewerId,
+          }),
+        }),
+      );
+      // Ni consecutivo de recibo, ni egreso, ni cambio en la orden.
+      expect(consecutives.generateNumber).not.toHaveBeenCalled();
+      expect(prisma.cashMovement.create).not.toHaveBeenCalled();
+      expect(prisma.order.update).not.toHaveBeenCalled();
+      expect(wsGateway.emitApprovalUpdated).toHaveBeenCalled();
+    });
+
+    it('avisa a Caja que hay una devolución esperando pago', async () => {
+      prisma.refundRequest.findFirst.mockResolvedValue(pendiente());
+      prisma.user.findUnique.mockResolvedValue(revisorConPermiso());
+      prisma.refundRequest.update.mockResolvedValue({
+        id: requestId,
+        status: EditRequestStatus.APPROVED,
+        orderId: 'o1',
+      });
+
+      await service.approve(requestId, reviewerId, {});
+
+      expect(notifications.notifyUsersWithPermission).toHaveBeenCalledWith(
+        'execute_refunds',
+        expect.objectContaining({ relatedType: 'RefundRequest' }),
+      );
+    });
+
+    it('rechaza la autorización si la orden ya no respalda el monto', async () => {
+      // Entre la solicitud y la aprobación entró otro pago que consumió el saldo.
+      prisma.refundRequest.findFirst.mockResolvedValue(
+        pendiente({ order: orden({ paidAmount: '500', balance: '0' }) }),
+      );
+      prisma.user.findUnique.mockResolvedValue(revisorConPermiso());
+
+      await expect(service.approve(requestId, reviewerId, {})).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  describe('execute', () => {
+    const executorId = 'cajero-1';
+    const requestId = 'req-1';
+
+    beforeEach(() => {
+      prisma.$transaction.mockImplementation((fn: any) => fn(prisma));
+      prisma.cashSession.findFirst.mockResolvedValue({ id: 'session-1' });
+      prisma.cashMovement.create.mockResolvedValue({ id: 'mov-1' });
+      prisma.order.update.mockResolvedValue({});
+      prisma.refundRequest.updateMany.mockResolvedValue({ count: 1 });
+      prisma.refundRequest.update.mockResolvedValue({
+        id: requestId,
+        status: EditRequestStatus.APPROVED,
+        orderId: 'o1',
+      });
+    });
+
+    it('exige sesión de caja abierta', async () => {
+      prisma.refundRequest.findFirst.mockResolvedValue(aprobada());
+      prisma.cashSession.findFirst.mockResolvedValue(null);
+
+      await expect(service.execute(requestId, executorId)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('crea el egreso y registra quién pagó', async () => {
+      prisma.refundRequest.findFirst.mockResolvedValue(aprobada());
+
+      await service.execute(requestId, executorId);
+
+      expect(consecutives.generateNumber).toHaveBeenCalledWith('CASH_RECEIPT');
+      expect(prisma.cashMovement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            cashSessionId: 'session-1',
+            movementType: 'EXPENSE',
+            referenceType: 'REFUND',
+            referenceId: requestId,
+            performedById: executorId,
+          }),
+        }),
+      );
+    });
+
+    it('registra el monto devuelto en refundedAmount para que sobreviva a un recálculo', async () => {
+      prisma.refundRequest.findFirst.mockResolvedValue(
+        aprobada({ refundAmount: '200' }),
+      );
+
+      await service.execute(requestId, executorId);
 
       const { data } = prisma.order.update.mock.calls[0][0];
       expect(Number(data.paidAmount.toString())).toBe(500);
@@ -447,38 +485,157 @@ describe('RefundRequestsService', () => {
     });
 
     it('acumula sobre devoluciones previas de la misma orden', async () => {
-      prisma.refundRequest.findFirst.mockResolvedValue({
-        id: requestId,
-        orderId: 'o1',
-        requestedById: 'u1',
-        refundAmount: '100',
-        paymentMethod: 'CASH',
-        observation: 'segunda devolución',
-        order: {
-          id: 'o1',
-          orderNumber: 'OP-1',
-          total: '500',
-          paidAmount: '650',
-          refundedAmount: '50',
-          balance: '-150',
-        },
-      });
-      prisma.user.findUnique.mockResolvedValue({
-        role: { permissions: [{ permission: { name: 'approve_refunds' } }] },
-      });
-      prisma.cashSession.findFirst.mockResolvedValue({ id: 'session-1' });
-      prisma.cashMovement.create.mockResolvedValue({ id: 'mov-1' });
-      prisma.order.update.mockResolvedValue({});
-      prisma.refundRequest.update.mockResolvedValue({
-        id: requestId,
-        status: EditRequestStatus.APPROVED,
-        orderId: 'o1',
-      });
+      prisma.refundRequest.findFirst.mockResolvedValue(
+        aprobada({
+          refundAmount: '100',
+          order: orden({ paidAmount: '650', refundedAmount: '50' }),
+        }),
+      );
 
-      await service.approve(requestId, reviewerId, {});
+      await service.execute(requestId, executorId);
 
       const { data } = prisma.order.update.mock.calls[0][0];
       expect(Number(data.refundedAmount.toString())).toBe(150);
+    });
+
+    it('una devolución de saldo a favor no toca el valor de la venta', async () => {
+      prisma.refundRequest.findFirst.mockResolvedValue(aprobada());
+
+      await service.execute(requestId, executorId);
+
+      const { data } = prisma.order.update.mock.calls[0][0];
+      expect(Number(data.reversedAmount.toString())).toBe(0);
+      expect(data.status).toBeUndefined();
+    });
+
+    it('la reversión parcial anula venta pero conserva el estado de la orden', async () => {
+      // OP de 500 entregada, pagada completa. Se anulan 200 y salen 200.
+      prisma.refundRequest.findFirst.mockResolvedValue(
+        aprobada({
+          refundAmount: '200',
+          reversedAmount: '200',
+          order: orden({ paidAmount: '500', balance: '0' }),
+        }),
+      );
+
+      await service.execute(requestId, executorId);
+
+      const { data } = prisma.order.update.mock.calls[0][0];
+      expect(Number(data.reversedAmount.toString())).toBe(200);
+      expect(Number(data.paidAmount.toString())).toBe(300);
+      expect(Number(data.balance.toString())).toBe(0);
+      // Sigue entregada: la entrega ocurrió sobre la parte buena del trabajo.
+      expect(data.status).toBeUndefined();
+    });
+
+    it('anular la venta completa pasa la OP a Devolución de dinero', async () => {
+      prisma.refundRequest.findFirst.mockResolvedValue(
+        aprobada({
+          refundAmount: '500',
+          reversedAmount: '500',
+          order: orden({ paidAmount: '500', balance: '0' }),
+        }),
+      );
+
+      await service.execute(requestId, executorId);
+
+      const { data } = prisma.order.update.mock.calls[0][0];
+      expect(data.status).toBe(OrderStatus.RETURNED);
+      expect(Number(data.balance.toString())).toBe(0);
+    });
+
+    it('el cliente que abonó menos del total no queda debiendo la diferencia', async () => {
+      // El caso que motivó todo: OP de 500 con 200 abonados, el trabajo se cae
+      // entero. Se le devuelven sus 200 y la OP no queda cobrando los otros 300.
+      prisma.refundRequest.findFirst.mockResolvedValue(
+        aprobada({
+          refundAmount: '200',
+          reversedAmount: '500',
+          order: orden({ paidAmount: '200', balance: '300' }),
+        }),
+      );
+
+      await service.execute(requestId, executorId);
+
+      const { data } = prisma.order.update.mock.calls[0][0];
+      expect(Number(data.balance.toString())).toBe(0);
+      expect(Number(data.paidAmount.toString())).toBe(0);
+      expect(data.status).toBe(OrderStatus.RETURNED);
+    });
+
+    it('prorratea la anulación a la base comisionable sin IVA', async () => {
+      // Total 595 (500 + IVA 19%). Anular la mitad del total anula la mitad de
+      // la base: restar los 297,5 directamente le quitaría de más al asesor.
+      prisma.refundRequest.findFirst.mockResolvedValue(
+        aprobada({
+          refundAmount: '297.5',
+          reversedAmount: '297.5',
+          order: orden({
+            subtotal: '500',
+            total: '595',
+            paidAmount: '595',
+            balance: '0',
+          }),
+        }),
+      );
+
+      await service.execute(requestId, executorId);
+
+      const { data } = prisma.order.update.mock.calls[0][0];
+      expect(Number(data.reversedNetAmount.toString())).toBe(250);
+    });
+
+    it('guarda el comprobante que adjunta Caja aparte del de la solicitud', async () => {
+      // Son dos transferencias distintas en el papel: la que documentó quien
+      // solicitó y la que acaba de hacer Caja. Una no puede pisar a la otra.
+      prisma.refundRequest.findFirst.mockResolvedValue(
+        aprobada({ paymentMethod: 'TRANSFER', receiptFileId: 'file-solicitud' }),
+      );
+
+      await service.execute(requestId, executorId, {
+        receiptFileId: 'file-pago',
+      });
+
+      const { data } = prisma.refundRequest.update.mock.calls[0][0];
+      expect(data.executionReceiptFileId).toBe('file-pago');
+      expect(data.receiptFileId).toBeUndefined();
+    });
+
+    it('ignora el comprobante en una devolución en efectivo', async () => {
+      // En efectivo el soporte es el recibo de caja que genera la ejecución.
+      prisma.refundRequest.findFirst.mockResolvedValue(
+        aprobada({ paymentMethod: 'CASH' }),
+      );
+
+      await service.execute(requestId, executorId, {
+        receiptFileId: 'file-pago',
+      });
+
+      const { data } = prisma.refundRequest.update.mock.calls[0][0];
+      expect(data.executionReceiptFileId).toBeUndefined();
+    });
+
+    it('no paga dos veces si la solicitud ya fue ejecutada', async () => {
+      prisma.refundRequest.findFirst.mockResolvedValue(
+        aprobada({ executedAt: new Date() }),
+      );
+
+      await expect(service.execute(requestId, executorId)).rejects.toThrow(
+        ConflictException,
+      );
+      expect(prisma.cashMovement.create).not.toHaveBeenCalled();
+    });
+
+    it('si otra petición gana la carrera, no crea un segundo egreso', async () => {
+      // Dos cajeros dando clic a la vez: el `findFirst` de arriba las deja pasar
+      // a las dos, y es el WHERE del updateMany el que corta la segunda.
+      prisma.refundRequest.findFirst.mockResolvedValue(aprobada());
+      prisma.refundRequest.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.execute(requestId, executorId)).rejects.toThrow(
+        ConflictException,
+      );
+      expect(prisma.cashMovement.create).not.toHaveBeenCalled();
     });
   });
 

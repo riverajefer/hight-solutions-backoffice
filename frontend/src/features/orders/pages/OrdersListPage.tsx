@@ -64,6 +64,7 @@ import type {
   OrderStatus,
   FilterOrdersDto,
 } from '../../../types/order.types';
+import { ORDER_STATUS_OPTIONS } from '../../../types/order.types';
 import type { Client } from '../../../types/client.types';
 import { parseDateFilter, toDateFilterOrUndefined } from '../../../utils/dateFilters';
 
@@ -100,18 +101,6 @@ function getDeliveryAlert(order: Order): DeliveryAlert {
   if (delivery.getTime() === today.getTime()) return 'due-today';
   return null;
 }
-
-const ORDER_STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
-  { value: 'DRAFT', label: 'Borrador' },
-  { value: 'CONFIRMED', label: 'Confirmada' },
-  { value: 'IN_PRODUCTION', label: 'En Producción' },
-  { value: 'READY', label: 'Lista para entrega' },
-  { value: 'DELIVERED', label: 'Entregada' },
-  { value: 'DELIVERED_ON_CREDIT', label: 'Entregado a Crédito' },
-  { value: 'WARRANTY', label: 'Garantía' },
-  { value: 'PAID', label: 'Pagada' },
-  { value: 'ANULADO', label: 'Anulada' },
-];
 
 /**
  * Los filtros de esta pantalla se recuerdan entre visitas. El asesor suele

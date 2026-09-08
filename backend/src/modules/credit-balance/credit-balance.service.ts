@@ -51,6 +51,7 @@ export class CreditBalanceService {
         total: true,
         paidAmount: true,
         appliedCreditAmount: true,
+        reversedAmount: true,
       },
       orderBy: { orderDate: 'asc' },
     });
@@ -60,11 +61,12 @@ export class CreditBalanceService {
         orderId: order.id,
         orderNumber: order.orderNumber,
         orderDate: order.orderDate,
-        available: computeAvailableOverpayment(
-          order.total,
-          order.paidAmount,
-          order.appliedCreditAmount,
-        ),
+        available: computeAvailableOverpayment({
+          total: order.total,
+          paidAmount: order.paidAmount,
+          appliedCreditAmount: order.appliedCreditAmount,
+          reversedAmount: order.reversedAmount,
+        }),
       }))
       .filter((source) => source.available.greaterThan(0));
   }
@@ -228,7 +230,12 @@ export class CreditBalanceService {
   ): Promise<void> {
     const order = await tx.order.findUnique({
       where: { id: orderId },
-      select: { total: true, paidAmount: true, appliedCreditAmount: true },
+      select: {
+        total: true,
+        paidAmount: true,
+        appliedCreditAmount: true,
+        reversedAmount: true,
+      },
     });
 
     if (!order) {
@@ -245,7 +252,12 @@ export class CreditBalanceService {
       where: { id: orderId },
       data: {
         appliedCreditAmount: applied,
-        balance: computeOrderBalance(order.total, order.paidAmount, applied),
+        balance: computeOrderBalance({
+          total: order.total,
+          paidAmount: order.paidAmount,
+          appliedCreditAmount: applied,
+          reversedAmount: order.reversedAmount,
+        }),
       },
     });
   }

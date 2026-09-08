@@ -6,15 +6,24 @@ import { Prisma } from '../../generated/prisma';
 export class DashboardRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Ventas del período, netas de devoluciones.
+   *
+   * `reversedAmount` es la parte de la venta que se anuló al devolverle el dinero
+   * al cliente. Sin restarla, una OP devuelta seguiría contando como ingreso
+   * completo aunque la plata ya salió de la caja.
+   */
   async getTotalVentas(gte: Date, lte: Date): Promise<number> {
     const result = await this.prisma.order.aggregate({
-      _sum: { total: true },
+      _sum: { total: true, reversedAmount: true },
       where: {
         status: { not: 'ANULADO' },
         createdAt: { gte, lte },
       },
     });
-    return Number(result._sum.total ?? 0);
+    return (
+      Number(result._sum.total ?? 0) - Number(result._sum.reversedAmount ?? 0)
+    );
   }
 
   async getTotalGastos(gte: Date, lte: Date): Promise<number> {
@@ -54,7 +63,7 @@ export class DashboardRepository {
   async getMonthlyData(): Promise<Array<{ month: string; ventas: number; gastos: number }>> {
     const ventasRaw = await this.prisma.$queryRaw<Array<{ month: string; total: string }>>`
       SELECT TO_CHAR(DATE_TRUNC('month', created_at), 'YYYY-MM') AS month,
-             COALESCE(SUM(total), 0)::text AS total
+             COALESCE(SUM(total - reversed_amount), 0)::text AS total
       FROM "orders"
       WHERE status != 'ANULADO'
         AND created_at >= NOW() - INTERVAL '12 months'
@@ -160,7 +169,9 @@ export class DashboardRepository {
   async getTopClients(limit = 5, gte: Date, lte: Date) {
     const grouped = await this.prisma.order.groupBy({
       by: ['clientId'],
-      _sum: { total: true },
+      // Neto de devoluciones, igual que el total de ventas: un cliente al que se
+      // le devolvió la plata no compró ese monto.
+      _sum: { total: true, reversedAmount: true },
       _count: { id: true },
       where: {
         status: { not: 'ANULADO' },
@@ -181,7 +192,8 @@ export class DashboardRepository {
     return grouped.map((g) => ({
       clientId: g.clientId,
       clientName: clientMap.get(g.clientId) ?? 'Desconocido',
-      totalCompras: Number(g._sum.total ?? 0),
+      totalCompras:
+        Number(g._sum.total ?? 0) - Number(g._sum.reversedAmount ?? 0),
       orderCount: g._count.id,
     }));
   }

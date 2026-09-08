@@ -38,25 +38,10 @@ import { EXPORT_LIMIT } from '../../../utils/excelExport';
 import { ORDER_EXPORT_COLUMNS } from '../utils/orderExportColumns';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS, ROUTES } from '../../../utils/constants';
-import type {
-  FilterOrdersDto,
-  Order,
-  OrderStatus,
-} from '../../../types/order.types';
+import type { FilterOrdersDto, Order } from '../../../types/order.types';
+import { ORDER_STATUS_OPTIONS } from '../../../types/order.types';
 import type { Client } from '../../../types/client.types';
 import { parseDateFilter, toDateFilterOrUndefined } from '../../../utils/dateFilters';
-
-const ORDER_STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
-  { value: 'DRAFT', label: 'Borrador' },
-  { value: 'CONFIRMED', label: 'Confirmada' },
-  { value: 'IN_PRODUCTION', label: 'En Producción' },
-  { value: 'READY', label: 'Lista para entrega' },
-  { value: 'DELIVERED', label: 'Entregada' },
-  { value: 'DELIVERED_ON_CREDIT', label: 'Entregado a Crédito' },
-  { value: 'WARRANTY', label: 'Garantía' },
-  { value: 'PAID', label: 'Pagada' },
-  { value: 'ANULADO', label: 'Anulada' },
-];
 
 const formatCurrency = (value: number): string =>
   new Intl.NumberFormat('es-CO', {

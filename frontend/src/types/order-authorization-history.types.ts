@@ -1,7 +1,7 @@
 /**
  * Tipos del historial unificado de aprobaciones y solicitudes de autorización
  * de una OP (anticipos, descuentos, propiedad de cliente, edición y anulación
- * de pagos, y solicitudes de edición general).
+ * de pagos, devoluciones de dinero, y solicitudes de edición general).
  */
 
 export type OrderAuthEventType =
@@ -10,7 +10,8 @@ export type OrderAuthEventType =
   | 'CLIENT_OWNERSHIP'
   | 'PAYMENT_EDIT'
   | 'PAYMENT_VOID'
-  | 'EDIT_REQUEST';
+  | 'EDIT_REQUEST'
+  | 'REFUND';
 
 export type OrderAuthEventStatus =
   | 'PENDING'
@@ -45,4 +46,23 @@ export interface OrderAuthHistoryEvent {
    * revisión: nadie aprobó nada, alguien lo hizo.
    */
   direct?: boolean;
+  /**
+   * Valor de venta anulado (solo `REFUND`); null si fue un simple saldo a favor.
+   * Devolver un excedente y dar de baja un trabajo se leen muy distinto.
+   */
+  reversedAmount?: string | null;
+  /**
+   * Tercer hito de una devolución (solo `REFUND`): gerencia autoriza y Caja
+   * paga. "Autorizada" no significa que el dinero ya salió; null mientras siga
+   * pendiente de pago.
+   */
+  executedAt?: string | null;
+  executedBy?: AuthHistoryUser | null;
+  /**
+   * Comprobante adjuntado al solicitar (solo `REFUND` por transferencia). En
+   * efectivo el soporte es el recibo de caja, así que no hay archivo.
+   */
+  receiptFileId?: string | null;
+  /** Comprobante que adjuntó Caja al pagar. Son dos momentos distintos. */
+  executionReceiptFileId?: string | null;
 }

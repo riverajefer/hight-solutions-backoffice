@@ -88,7 +88,11 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   'Sesiones de Caja': ['open_cash_session', 'close_cash_session', 'read_cash_sessions'],
   'Movimientos de Caja': ['create_cash_movements', 'void_cash_movements', 'read_cash_movements', 'approve_cash_movements', 'request_payment_void'],
   'Pagos de CP en Caja': ['caja_authorize_ap_payment'],
-  Devoluciones: ['approve_refunds', 'create_refund_requests'],
+  Devoluciones: [
+    'create_refund_requests',
+    'approve_refunds',
+    'execute_refunds',
+  ],
 
   // Gastos y Cuentas por Pagar
   'Tipos de Gasto': ['create_expense_types', 'read_expense_types', 'update_expense_types', 'delete_expense_types'],
