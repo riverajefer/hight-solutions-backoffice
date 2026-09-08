@@ -141,12 +141,11 @@ export class AccountsPayablePaymentAuthRequestsService implements OnModuleInit, 
       throw new BadRequestException('La cuenta ya está completamente pagada');
     }
 
+    // El tope descuenta lo que ya salió de caja por la OG asociada: la CP espejo
+    // de una OG pagada muestra su saldo completo aunque el dinero ya se giró, y
+    // sin esta verificación la solicitud llega hasta Caja y se paga dos veces.
     const amountNum = dto.amount;
-    if (amountNum > Number(ap.balance)) {
-      throw new BadRequestException(
-        `El monto solicitado (${amountNum}) supera el saldo pendiente (${ap.balance})`,
-      );
-    }
+    await this.accountsPayableService.assertPayableAmount(ap, amountNum);
 
     const existing = await this.prisma.accountPayablePaymentAuthRequest.findFirst({
       where: {

@@ -9,7 +9,14 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     outDir: 'dist',
-    sourcemap: false,
+    // Los stacks minificados ("index-4f2a.js:1:88231") son inservibles para
+    // diagnosticar un fallo reportado desde producción. Con sourcemaps, tanto
+    // la consola del navegador como los reportes que llegan a Loki apuntan al
+    // archivo y la línea reales.
+    // Es un backoffice interno tras autenticación, así que se acepta exponer
+    // el mapa del código. Para dejar de publicarlo, cambiar a 'hidden': los
+    // .map se siguen generando pero el bundle no los referencia.
+    sourcemap: true,
     chunkSizeWarningLimit: 900,
     rollupOptions: {
       output: {

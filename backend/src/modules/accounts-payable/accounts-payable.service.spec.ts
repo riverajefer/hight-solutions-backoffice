@@ -709,6 +709,151 @@ describe('AccountsPayableService', () => {
     });
   });
 
+  /**
+   * La CP espejo de una OG y la OG misma pagan por rutas distintas: los ítems de
+   * la OG generan su `CashMovement` al autorizar Caja, la CP genera el suyo al
+   * registrar un pago. Ninguna miraba a la otra, así que una OG pagada dejaba su
+   * CP con el saldo completo y volvía a ser pagable.
+   */
+  describe('pagos girados por la Orden de Gasto', () => {
+    /** Deja la CP `ap-1` vinculada a `og-1` con los movimientos de caja dados. */
+    const conMovimientosDeOG = (movimientos: Array<Record<string, unknown>>) => {
+      prisma.accountPayable.findUnique.mockResolvedValue({ expenseOrderId: 'og-1' } as any);
+      prisma.cashMovement.findMany.mockResolvedValue(movimientos as any);
+    };
+
+    describe('assertPayableAmount', () => {
+      it('descuenta del tope lo ya girado por la OG', async () => {
+        conMovimientosDeOG([{ amount: new Prisma.Decimal(100000) }]);
+
+        await expect(
+          service.assertPayableAmount(apStub(), 100000),
+        ).rejects.toThrow(/ya tiene .* pagados a través de su Orden de Gasto/);
+      });
+
+      it('deja pasar la diferencia cuando la OG solo cubre una parte', async () => {
+        conMovimientosDeOG([{ amount: new Prisma.Decimal(80000) }]);
+
+        await expect(service.assertPayableAmount(apStub(), 20000)).resolves.toBeUndefined();
+        await expect(service.assertPayableAmount(apStub(), 20001)).rejects.toThrow(
+          BadRequestException,
+        );
+      });
+
+      it('ignora los movimientos anulados', async () => {
+        // El filtro `isVoided: false` va en la consulta: acá se comprueba que se
+        // pida así, porque un movimiento anulado es dinero que volvió a la caja.
+        conMovimientosDeOG([]);
+
+        await expect(service.assertPayableAmount(apStub(), 100000)).resolves.toBeUndefined();
+        expect(prisma.cashMovement.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({ isVoided: false, referenceId: 'og-1' }),
+          }),
+        );
+      });
+
+      it('sin OG asociada mantiene el mensaje de saldo de siempre', async () => {
+        prisma.accountPayable.findUnique.mockResolvedValue({ expenseOrderId: null } as any);
+
+        await expect(service.assertPayableAmount(apStub(), 150000)).rejects.toThrow(
+          /supera el saldo pendiente/,
+        );
+      });
+
+      it('bloquea el pago en registerPayment cuando la OG ya lo cubrió', async () => {
+        repository.findById!.mockResolvedValue(apStub() as any);
+        conMovimientosDeOG([{ amount: new Prisma.Decimal(100000) }]);
+
+        await expect(
+          service.registerPayment('ap-1', { amount: 50000, paymentMethod: 'CASH', paymentDate: '2026-09-08' } as any, 'user-1'),
+        ).rejects.toThrow(/Orden de Gasto/);
+        expect(repository.createPayment).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('settleFromExpenseOrderMovements', () => {
+      const movStub = (extra: Record<string, unknown> = {}) => ({
+        id: 'mov-1',
+        amount: new Prisma.Decimal(100000),
+        paymentMethod: 'CASH',
+        createdAt: new Date('2026-09-08T22:32:37Z'),
+        performedById: 'caja-1',
+        ...extra,
+      });
+
+      const conTransaccion = (pagosVivos: Array<{ amount: Prisma.Decimal }>) => {
+        prisma.accountPayablePayment.create.mockResolvedValue({} as any);
+        prisma.accountPayablePayment.findMany.mockResolvedValue(pagosVivos as any);
+        prisma.accountPayable.update.mockResolvedValue({} as any);
+        (prisma.$transaction as jest.Mock).mockImplementation((cb: any) => cb(prisma));
+      };
+
+      it('refleja el movimiento como abono y deja la CP en PAID', async () => {
+        repository.findByExpenseOrderId!.mockResolvedValue(apStub() as any);
+        prisma.cashMovement.findMany.mockResolvedValue([movStub()] as any);
+        conTransaccion([{ amount: new Prisma.Decimal(100000) }]);
+
+        await service.settleFromExpenseOrderMovements('og-1', 'user-1');
+
+        expect(prisma.accountPayablePayment.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              accountPayableId: 'ap-1',
+              cashMovementId: 'mov-1',
+              registeredById: 'caja-1',
+            }),
+          }),
+        );
+        expect(prisma.accountPayable.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              balance: monto(0),
+              status: AccountPayableStatus.PAID,
+            }),
+          }),
+        );
+      });
+
+      it('deja PARTIAL cuando los movimientos no cubren el total (IVA)', async () => {
+        repository.findByExpenseOrderId!.mockResolvedValue(apStub({ totalAmount: 119000 }) as any);
+        prisma.cashMovement.findMany.mockResolvedValue([movStub()] as any);
+        conTransaccion([{ amount: new Prisma.Decimal(100000) }]);
+
+        await service.settleFromExpenseOrderMovements('og-1', 'user-1');
+
+        expect(prisma.accountPayable.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              balance: monto(19000),
+              status: AccountPayableStatus.PARTIAL,
+            }),
+          }),
+        );
+      });
+
+      it('no crea nada si los movimientos ya están reflejados', async () => {
+        repository.findByExpenseOrderId!.mockResolvedValue(apStub() as any);
+        prisma.cashMovement.findMany.mockResolvedValue([] as any);
+
+        await service.settleFromExpenseOrderMovements('og-1', 'user-1');
+
+        expect(prisma.accountPayablePayment.create).not.toHaveBeenCalled();
+        expect(prisma.accountPayable.update).not.toHaveBeenCalled();
+      });
+
+      it('no toca una CP anulada', async () => {
+        repository.findByExpenseOrderId!.mockResolvedValue(
+          apStub({ status: AccountPayableStatus.CANCELLED }) as any,
+        );
+
+        await service.settleFromExpenseOrderMovements('og-1', 'user-1');
+
+        expect(prisma.cashMovement.findMany).not.toHaveBeenCalled();
+      });
+    });
+  });
+
   describe('attachments', () => {
     it('agrega un adjunto', async () => {
       repository.findById!.mockResolvedValue(apStub() as any);
