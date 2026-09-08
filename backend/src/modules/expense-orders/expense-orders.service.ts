@@ -525,6 +525,12 @@ export class ExpenseOrdersService {
       currentUser.id,
     );
 
+    // La CP espejo se crea al nacer la OG y nadie la conciliaba después: el
+    // dinero salía por los movimientos de arriba y la cuenta seguía mostrando su
+    // saldo completo, lista para que alguien la volviera a pagar. Reflejar esos
+    // movimientos como abonos de la CP la deja saldada sin mover un peso más.
+    await this.accountsPayableService.settleFromExpenseOrderMovements(id, currentUser.id);
+
     return paid;
   }
 
