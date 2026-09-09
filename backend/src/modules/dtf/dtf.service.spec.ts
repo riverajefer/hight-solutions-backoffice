@@ -2,12 +2,14 @@
 jest.mock('uuid', () => ({ v4: jest.fn(() => 'mock-uuid') }));
 
 import { Test, TestingModule } from '@nestjs/testing';
+import { BadRequestException } from '@nestjs/common';
 import { DtfService } from './dtf.service';
 import { DtfRepository } from './dtf.repository';
 import { PrismaService } from '../../database/prisma.service';
 import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { StorageService } from '../storage/storage.service';
 import { OrdersService } from '../orders/orders.service';
+import { CreditBalanceService } from '../credit-balance/credit-balance.service';
 import { DtfStatus, PaymentMethod, Prisma } from '../../generated/prisma';
 
 const mockDtfRepository = {
@@ -30,6 +32,7 @@ const mockPrisma = {
 
 const mockStorageService = { getFilesByEntity: jest.fn() };
 const mockOrdersService = { create: jest.fn() };
+const mockCreditBalanceService = { assertEnoughCredit: jest.fn() };
 const mockConsecutivesService = { generateNumber: jest.fn(), syncCounter: jest.fn() };
 
 const makeRecord = (overrides = {}) => ({
@@ -62,6 +65,7 @@ describe('DtfService.convertToOrder', () => {
         { provide: ConsecutivesService, useValue: mockConsecutivesService },
         { provide: StorageService, useValue: mockStorageService },
         { provide: OrdersService, useValue: mockOrdersService },
+        { provide: CreditBalanceService, useValue: mockCreditBalanceService },
       ],
     }).compile();
 
@@ -181,11 +185,12 @@ describe('DtfService.convertToOrder', () => {
   });
 });
 
-// El abono se cobra en el mostrador antes de que exista la OP. Si se recibe el
-// valor exacto con IVA (35.000 × 1,19 = 41.650) y la OP redondea su total a
-// 41.700, la orden nace con $50 de saldo que el cliente ya no debe. El total a
-// cobrar en DTF es el mismo de la OP, y el abono no puede superarlo.
-describe('DtfService — abono contra el total a cobrar', () => {
+// El abono se cobra en el mostrador antes de que exista la OP y puede superar
+// el total a cobrar: igual que en el formulario de OP, el excedente queda como
+// saldo a favor del cliente. El total a cobrar de la DTF sigue siendo el mismo
+// de la OP (con IVA y redondeo comercial), así que el excedente que se guarda
+// aquí es exactamente el saldo a favor con el que nacerá la orden.
+describe('DtfService — abono por encima del total a cobrar', () => {
   let service: DtfService;
 
   const buildService = async () => {
@@ -197,6 +202,7 @@ describe('DtfService — abono contra el total a cobrar', () => {
         { provide: ConsecutivesService, useValue: mockConsecutivesService },
         { provide: StorageService, useValue: mockStorageService },
         { provide: OrdersService, useValue: mockOrdersService },
+        { provide: CreditBalanceService, useValue: mockCreditBalanceService },
       ],
     }).compile();
     return module.get<DtfService>(DtfService);
@@ -227,13 +233,18 @@ describe('DtfService — abono contra el total a cobrar', () => {
     ).resolves.toBeDefined();
   });
 
-  it('rechaza un abono que supera el total a cobrar', async () => {
+  it('acepta un abono que supera el total y lo guarda completo', async () => {
     await expect(
-      service.bulkCreate({ items: [createDto(41800)] } as never, 'user-1'),
-    ).rejects.toThrow(/no puede superar el total a cobrar/);
+      service.bulkCreate({ items: [createDto(50000)] } as never, 'user-1'),
+    ).resolves.toBeDefined();
+
+    // El excedente ($8.300) no se recorta al guardar: es el saldo a favor con el
+    // que nacerá la OP al convertir.
+    const created = mockDtfRepository.create.mock.calls[0][0] as { abono: Prisma.Decimal };
+    expect(Number(created.abono)).toBe(50000);
   });
 
-  it('valida la edición contra los valores que quedan guardados, no los previos', async () => {
+  it('permite editar dejando el abono por encima del total', async () => {
     mockDtfRepository.findByIdRaw.mockResolvedValue(
       makeRecord({
         status: DtfStatus.BORRADOR,
@@ -246,9 +257,112 @@ describe('DtfService — abono contra el total a cobrar', () => {
     );
 
     // Baja la cantidad a la mitad: el total a cobrar cae a $20.800 y el abono
-    // de $41.700 que ya estaba guardado deja de caber.
-    await expect(service.update('dtf-1', { quantity: 25 } as never)).rejects.toThrow(
-      /no puede superar el total a cobrar/,
+    // de $41.700 pasa a ser saldo a favor del cliente en vez de un error.
+    await service.update('dtf-1', { quantity: 25 } as never);
+
+    expect(mockDtfRepository.update).toHaveBeenCalledWith(
+      'dtf-1',
+      expect.objectContaining({ quantity: expect.anything() }),
     );
+  });
+});
+
+// El abono también puede pagarse con el saldo a favor que el cliente dejó en
+// otras OPs. Ese saldo se consume al convertir en OP, así que la DTF valida
+// antes de guardarse: si no, quedaría un registro imposible de convertir.
+describe('DtfService — abono pagado con saldo a favor', () => {
+  let service: DtfService;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        DtfService,
+        { provide: DtfRepository, useValue: mockDtfRepository },
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: ConsecutivesService, useValue: mockConsecutivesService },
+        { provide: StorageService, useValue: mockStorageService },
+        { provide: OrdersService, useValue: mockOrdersService },
+        { provide: CreditBalanceService, useValue: mockCreditBalanceService },
+      ],
+    }).compile();
+    service = module.get<DtfService>(DtfService);
+
+    mockPrisma.product.findUnique.mockResolvedValue({ id: 'product-1', name: 'DTF UV' });
+    mockPrisma.client.findUnique.mockResolvedValue({ id: 'client-1' });
+    mockConsecutivesService.generateNumber.mockResolvedValue('DTF-UV-2026-0549');
+    mockDtfRepository.create.mockImplementation((data: unknown) => Promise.resolve(data));
+  });
+
+  // 50 cm × $70.000/m con IVA = $41.700 de total a cobrar.
+  const createDto = (abono: number) => ({
+    productId: 'product-1',
+    clientId: 'client-1',
+    quantity: 50,
+    unitPrice: 70000,
+    applyIva: true,
+    abono,
+    abonoPaymentMethod: PaymentMethod.CREDIT_BALANCE,
+  });
+
+  it('valida contra el saldo disponible del cliente antes de guardar', async () => {
+    await service.bulkCreate({ items: [createDto(30000)] } as never, 'user-1');
+
+    expect(mockCreditBalanceService.assertEnoughCredit).toHaveBeenCalledWith(
+      'client-1',
+      expect.objectContaining({ constructor: Prisma.Decimal }),
+    );
+    const [, amount] = mockCreditBalanceService.assertEnoughCredit.mock.calls[0];
+    expect(Number(amount)).toBe(30000);
+  });
+
+  it('propaga el rechazo cuando el cliente no tiene saldo suficiente', async () => {
+    mockCreditBalanceService.assertEnoughCredit.mockRejectedValueOnce(
+      new BadRequestException('El saldo a favor disponible del cliente (0) es insuficiente'),
+    );
+
+    await expect(
+      service.bulkCreate({ items: [createDto(30000)] } as never, 'user-1'),
+    ).rejects.toThrow(/insuficiente/);
+
+    expect(mockDtfRepository.create).not.toHaveBeenCalled();
+  });
+
+  // Mover saldo a favor de una OP a otra no le devuelve nada al cliente: solo
+  // deja su plata atrapada en una orden que no la necesita.
+  it('no deja que el saldo a favor supere el total a cobrar', async () => {
+    await expect(
+      service.bulkCreate({ items: [createDto(50000)] } as never, 'user-1'),
+    ).rejects.toThrow(/no puede superar el total a cobrar/);
+
+    expect(mockCreditBalanceService.assertEnoughCredit).not.toHaveBeenCalled();
+  });
+
+  it('no consulta el saldo cuando el abono se paga en efectivo', async () => {
+    await service.bulkCreate(
+      { items: [{ ...createDto(30000), abonoPaymentMethod: PaymentMethod.CASH }] } as never,
+      'user-1',
+    );
+
+    expect(mockCreditBalanceService.assertEnoughCredit).not.toHaveBeenCalled();
+  });
+
+  it('revalida el saldo al editar el abono', async () => {
+    mockDtfRepository.findByIdRaw.mockResolvedValue(
+      makeRecord({
+        status: DtfStatus.BORRADOR,
+        quantity: new Prisma.Decimal(50),
+        unitPrice: new Prisma.Decimal(70000),
+        value: new Prisma.Decimal(35000),
+        abono: new Prisma.Decimal(10000),
+        applyIva: true,
+        abonoPaymentMethod: PaymentMethod.CREDIT_BALANCE,
+      }),
+    );
+
+    await service.update('dtf-1', { abono: 20000 } as never);
+
+    const [, amount] = mockCreditBalanceService.assertEnoughCredit.mock.calls[0];
+    expect(Number(amount)).toBe(20000);
   });
 });

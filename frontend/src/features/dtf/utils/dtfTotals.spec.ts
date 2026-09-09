@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { dtfIvaAmount, dtfPendingBalance, dtfTotalToCharge } from './dtfTotals';
+import {
+  dtfCreditBalance,
+  dtfIvaAmount,
+  dtfPendingBalance,
+  dtfTotalToCharge,
+} from './dtfTotals';
 
 describe('dtfTotalToCharge', () => {
   it('cobra el total redondeado, igual que la OP', () => {
@@ -34,5 +39,19 @@ describe('dtfPendingBalance', () => {
 
   it('deja el residuo visible si se abona el valor sin redondear', () => {
     expect(dtfPendingBalance(35000, true, 41650)).toBe(50);
+  });
+});
+
+describe('dtfCreditBalance', () => {
+  it('devuelve el excedente cuando el cliente abona de más', () => {
+    // Caso del formulario: total 280.000 y abono de 300.000.
+    expect(dtfCreditBalance(280000, false, 300000)).toBe(20000);
+    expect(dtfCreditBalance(35000, true, 50000)).toBe(8300);
+  });
+
+  it('es cero mientras el abono no supere el total', () => {
+    expect(dtfCreditBalance(35000, true, 41700)).toBe(0);
+    expect(dtfCreditBalance(35000, true, 10000)).toBe(0);
+    expect(dtfCreditBalance(35000, true, 0)).toBe(0);
   });
 });

@@ -19,7 +19,7 @@ import { useDtfDetail, useDtfStatusHistory, useDtfMutations } from '../hooks/use
 import { DtfStatusChip } from './DtfStatusChip';
 import { DtfStatusStepper } from './DtfStatusStepper';
 import { formatCurrency, formatDate } from '../../../utils/formatters';
-import { dtfPendingBalance, dtfTotalToCharge } from '../utils/dtfTotals';
+import { dtfCreditBalance, dtfPendingBalance, dtfTotalToCharge } from '../utils/dtfTotals';
 import { PATHS } from '../../../router/paths';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
@@ -80,6 +80,11 @@ export function DtfQuickPreviewModal({ id, onClose }: DtfQuickPreviewModalProps)
   const detailQuery = useDtfDetail(id ?? '');
   const historyQuery = useDtfStatusHistory(id ?? undefined);
   const record = detailQuery.data;
+  // Un abono mayor al total no es saldo pendiente en negativo: es saldo a favor
+  // del cliente, que viaja a la OP al convertir.
+  const saldoAFavor = record
+    ? dtfCreditBalance(Number(record.value), record.applyIva, Number(record.abono ?? 0))
+    : 0;
 
   const handleGoToDetail = () => {
     if (id) {
@@ -244,15 +249,21 @@ export function DtfQuickPreviewModal({ id, onClose }: DtfQuickPreviewModalProps)
                   }
                 />
                 <Row
-                  label="Saldo pendiente"
+                  label={saldoAFavor > 0 ? 'Saldo a favor' : 'Saldo pendiente'}
                   value={
-                    <Typography variant="body2" fontWeight={600} color="warning.main">
+                    <Typography
+                      variant="body2"
+                      fontWeight={600}
+                      color={saldoAFavor > 0 ? 'info.main' : 'warning.main'}
+                    >
                       {formatCurrency(
-                        dtfPendingBalance(
-                          Number(record.value),
-                          record.applyIva,
-                          Number(record.abono ?? 0),
-                        ),
+                        saldoAFavor > 0
+                          ? saldoAFavor
+                          : dtfPendingBalance(
+                              Number(record.value),
+                              record.applyIva,
+                              Number(record.abono ?? 0),
+                            ),
                       )}
                     </Typography>
                   }
