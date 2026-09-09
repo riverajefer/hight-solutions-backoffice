@@ -35,7 +35,12 @@ import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
 import { PATHS } from '../../../router/paths';
 import { formatCurrency, formatDate } from '../../../utils/formatters';
-import { dtfIvaAmount, dtfPendingBalance, dtfTotalToCharge } from '../utils/dtfTotals';
+import {
+  dtfCreditBalance,
+  dtfIvaAmount,
+  dtfPendingBalance,
+  dtfTotalToCharge,
+} from '../utils/dtfTotals';
 import { useIsCashOpen } from '../../cash-register/hooks/useCashRegister';
 import { useSnackbar } from 'notistack';
 import axiosInstance from '../../../api/axios';
@@ -126,6 +131,12 @@ export const DtfDetailPage = () => {
       </Box>
     );
   }
+
+  const saldoAFavor = dtfCreditBalance(
+    Number(record.value),
+    record.applyIva,
+    Number(record.abono ?? 0),
+  );
 
   const nextStatuses = NEXT_STATUSES[record.status] ?? [];
   const canEdit =
@@ -409,16 +420,24 @@ export const DtfDetailPage = () => {
                     </Typography>
                   }
                 />
+                {/* Si el cliente abonó de más, lo que queda no es saldo
+                    pendiente sino saldo a favor: viaja a la OP al convertir. */}
                 <Row
-                  label="Saldo pendiente"
+                  label={saldoAFavor > 0 ? 'Saldo a favor' : 'Saldo pendiente'}
                   value={
-                    <Typography fontWeight={600} variant="body2" color="warning.main">
+                    <Typography
+                      fontWeight={600}
+                      variant="body2"
+                      color={saldoAFavor > 0 ? 'info.main' : 'warning.main'}
+                    >
                       {formatCurrency(
-                        dtfPendingBalance(
-                          Number(record.value),
-                          record.applyIva,
-                          Number(record.abono ?? 0),
-                        ),
+                        saldoAFavor > 0
+                          ? saldoAFavor
+                          : dtfPendingBalance(
+                              Number(record.value),
+                              record.applyIva,
+                              Number(record.abono ?? 0),
+                            ),
                       )}
                     </Typography>
                   }

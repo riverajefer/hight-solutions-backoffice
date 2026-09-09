@@ -13,11 +13,17 @@ export const DTF_STATUS_LABELS: Record<DtfStatus, string> = {
   CONVERTIDA_EN_OP: 'Convertida en OP',
 };
 
-export type DtfPaymentMethod = 'CASH' | 'TRANSFER';
+/**
+ * `CREDIT_BALANCE` no es dinero que entra: paga el abono con el saldo a favor
+ * que el cliente dejó en otras OPs sobrepagadas. Se consume al convertir la DTF
+ * en OP, así que solo se ofrece cuando el cliente tiene saldo disponible.
+ */
+export type DtfPaymentMethod = 'CASH' | 'TRANSFER' | 'CREDIT_BALANCE';
 
 export const DTF_PAYMENT_METHOD_LABELS: Record<DtfPaymentMethod, string> = {
   CASH: 'Efectivo',
   TRANSFER: 'Transferencia',
+  CREDIT_BALANCE: 'Saldo a favor',
 };
 
 export interface DtfProduct {
