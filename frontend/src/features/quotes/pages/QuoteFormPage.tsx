@@ -334,7 +334,10 @@ export const QuoteFormPage: React.FC = () => {
       setValue('applyTax', taxRateValue > 0, { shouldValidate: true });
       // If the DB has 0.19, multiplying by 100 gives 19. If it already has 19, it gives 1900.
       // Most of our backend logic seems to use 0.19 as default but Prisma.Decimal might return it differently.
-      const displayTaxRate = taxRateValue <= 1 ? taxRateValue * 100 : taxRateValue;
+      // Una cotización guardada sin IVA trae taxRate 0: hay que dejar el 19 por
+      // defecto en el campo, o al marcar "Aplicar IVA" el cálculo daría 0%.
+      const displayTaxRate =
+        taxRateValue <= 0 ? 19 : taxRateValue <= 1 ? taxRateValue * 100 : taxRateValue;
       setValue('taxRate', displayTaxRate, { shouldValidate: true });
       setValue('commercialChannelId', currentQuote.commercialChannelId || '', { shouldValidate: true });
       // En edición todos los pasos ya fueron completados
