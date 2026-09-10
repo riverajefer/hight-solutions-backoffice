@@ -185,6 +185,11 @@ export const PERMISSION_LABELS: Record<string, string> = {
   update_payroll_periods: 'Editar Periodos y Registros de Nómina',
   delete_payroll_periods: 'Eliminar Periodos de Nómina',
 
+  // Nómina — Descuento de órdenes
+  read_payroll_deductions: 'Ver Descuento de Órdenes en Nómina',
+  approve_payroll_deductions: 'Aprobar Descuento de Órdenes en Nómina',
+  apply_payroll_deductions: 'Aplicar Descuentos sobre la Nómina',
+
   // Asistencia
   use_attendance: 'Marcar Entrada/Salida',
   read_attendance: 'Ver Registros de Asistencia',

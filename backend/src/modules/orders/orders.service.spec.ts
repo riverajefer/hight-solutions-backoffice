@@ -21,6 +21,7 @@ import { AdvancePaymentApprovalsService } from '../advance-payment-approvals/adv
 import { PaymentEditApprovalsService } from '../payment-edit-approvals/payment-edit-approvals.service';
 import { DiscountApprovalsService } from '../discount-approvals/discount-approvals.service';
 import { ClientOwnershipAuthRequestsService } from '../client-ownership-auth-requests/client-ownership-auth-requests.service';
+import { PayrollDeductionsService } from '../payroll-deductions/payroll-deductions.service';
 import { CreditBalanceService } from '../credit-balance/credit-balance.service';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma, OrderStatus, PaymentMethod, EditRequestStatus } from '../../generated/prisma';
@@ -91,6 +92,13 @@ const mockClientOwnershipAuthRequestsService = {
   create: jest.fn(),
   requiresAuth: jest.fn().mockResolvedValue({ required: false }),
   createFromOrderCreation: jest.fn(),
+};
+
+// Solo entra en juego cuando algún pago inicial es PAYROLL_DEDUCTION; en el
+// resto de las pruebas queda inerte.
+const mockPayrollDeductionsService = {
+  assertClientIsEmployee: jest.fn(),
+  notifyCreated: jest.fn().mockResolvedValue(undefined),
 };
 
 const mockCreditBalanceService = {
@@ -251,6 +259,10 @@ describe('OrdersService', () => {
           useValue: mockClientOwnershipAuthRequestsService,
         },
         { provide: CreditBalanceService, useValue: mockCreditBalanceService },
+        {
+          provide: PayrollDeductionsService,
+          useValue: mockPayrollDeductionsService,
+        },
         { provide: PrismaService, useValue: mockPrisma },
       ],
     }).compile();

@@ -52,6 +52,7 @@ import { MaintenanceMiddleware } from './common/middleware/maintenance.middlewar
 import { WhatsappModule } from './modules/whatsapp/whatsapp.module';
 import { HealthModule } from './health/health.module';
 import { PayrollModule } from './modules/payroll/payroll.module';
+import { PayrollDeductionsModule } from './modules/payroll-deductions/payroll-deductions.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { ApprovalExpiryModule } from './modules/approval-expiry/approval-expiry.module';
@@ -160,6 +161,7 @@ import { ClientErrorsModule } from './modules/client-errors/client-errors.module
     OrderTimelineModule,
     // Módulo de Nómina
     PayrollModule,
+    PayrollDeductionsModule,
     // Módulo de Control de Asistencia y Tiempo
     AttendanceModule,
     // Módulo de Inventario y Movimientos de Insumos

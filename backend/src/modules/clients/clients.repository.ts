@@ -42,6 +42,18 @@ export class ClientsRepository {
         encargado: true,
         landlinePhone: true,
         specialCondition: true,
+        // Habilita el método de pago "Descuento por nómina" en la OP. Sin
+        // listarlo acá el campo se guarda pero nunca llega al frontend, y la
+        // opción no aparecería nunca.
+        employeeId: true,
+        employee: {
+          select: {
+            id: true,
+            status: true,
+            firstName: true,
+            firstLastName: true,
+          },
+        },
         isActive: true,
         advisors: {
           select: {
@@ -109,6 +121,18 @@ export class ClientsRepository {
         encargado: true,
         landlinePhone: true,
         specialCondition: true,
+        // Habilita el método de pago "Descuento por nómina" en la OP. Sin
+        // listarlo acá el campo se guarda pero nunca llega al frontend, y la
+        // opción no aparecería nunca.
+        employeeId: true,
+        employee: {
+          select: {
+            id: true,
+            status: true,
+            firstName: true,
+            firstLastName: true,
+          },
+        },
         isActive: true,
         advisors: {
           select: {
@@ -229,6 +253,18 @@ export class ClientsRepository {
         encargado: true,
         landlinePhone: true,
         specialCondition: true,
+        // Habilita el método de pago "Descuento por nómina" en la OP. Sin
+        // listarlo acá el campo se guarda pero nunca llega al frontend, y la
+        // opción no aparecería nunca.
+        employeeId: true,
+        employee: {
+          select: {
+            id: true,
+            status: true,
+            firstName: true,
+            firstLastName: true,
+          },
+        },
         isActive: true,
         advisors: {
           select: {
@@ -283,6 +319,18 @@ export class ClientsRepository {
         encargado: true,
         landlinePhone: true,
         specialCondition: true,
+        // Habilita el método de pago "Descuento por nómina" en la OP. Sin
+        // listarlo acá el campo se guarda pero nunca llega al frontend, y la
+        // opción no aparecería nunca.
+        employeeId: true,
+        employee: {
+          select: {
+            id: true,
+            status: true,
+            firstName: true,
+            firstLastName: true,
+          },
+        },
         isActive: true,
         advisors: {
           select: {
@@ -318,6 +366,21 @@ export class ClientsRepository {
   /**
    * Update only the special condition field
    */
+  /**
+   * Ficha de empleado con el cliente que ya la esté usando, si lo hay.
+   * `clientProfile` es la relación inversa del `employeeId @unique` de Client.
+   */
+  async findEmployeeWithClient(employeeId: string) {
+    return this.prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: {
+        id: true,
+        status: true,
+        clientProfile: { select: { id: true, name: true } },
+      },
+    });
+  }
+
   async updateSpecialCondition(id: string, specialCondition: string | null) {
     return this.prisma.client.update({
       where: { id },

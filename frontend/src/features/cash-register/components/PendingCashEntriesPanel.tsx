@@ -18,15 +18,8 @@ import CreditCardIcon from '@mui/icons-material/CreditCard';
 import { usePendingCashEntries } from '../hooks/useCashRegister';
 import { formatCurrency } from '../../../utils/formatters';
 import type { PendingCashEntry } from '../../../types/cash-register.types';
+import { PAYMENT_METHOD_LABELS } from '../../../utils/paymentMethods';
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  CASH: 'Efectivo',
-  TRANSFER: 'Transferencia',
-  CARD: 'Tarjeta',
-  CHECK: 'Cheque',
-  CREDIT: 'Crédito',
-  OTHER: 'Otro',
-};
 
 const PAYMENT_METHOD_ICONS: Record<string, React.ReactNode> = {
   CASH: <LocalAtmIcon fontSize="inherit" />,

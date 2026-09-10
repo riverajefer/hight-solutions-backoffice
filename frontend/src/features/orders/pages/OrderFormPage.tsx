@@ -59,6 +59,7 @@ import { enqueueSnackbar } from 'notistack';
 import { storageApi } from '../../../api/storage.api';
 import { useQueryClient } from '@tanstack/react-query';
 import { applyColombianRounding, roundToWholePeso } from '../../../utils/formatters';
+import { paymentMethodLabel, requiresZeroAmount } from '../../../utils/paymentMethods';
 
 // ============================================================
 // VALIDATION SCHEMA
@@ -79,7 +80,14 @@ const orderItemSchema = z.object({
 const initialPaymentSchema = z
   .object({
     amount: z.number().min(0, 'El monto del abono inicial no puede ser negativo'),
-    paymentMethod: z.enum(['CASH', 'TRANSFER', 'CARD', 'CREDIT', 'CREDIT_BALANCE']),
+    paymentMethod: z.enum([
+      'CASH',
+      'TRANSFER',
+      'CARD',
+      'CREDIT',
+      'CREDIT_BALANCE',
+      'PAYROLL_DEDUCTION',
+    ]),
     reference: z.string().optional(),
     notes: z.string().optional(),
     bankEntity: z.string().nullable().optional(),
@@ -92,14 +100,19 @@ const initialPaymentSchema = z
       // El crédito no registra dinero: es la marca de "se entrega y el cliente
       // paga después". Si se le pone monto, la OP nace pagada sin que haya
       // entrado un peso y el abono real posterior queda duplicado.
-      if (data.paymentMethod === 'CREDIT') return data.amount === 0;
+      //
+      // El descuento por nómina va igual y por el mismo motivo: cuando se crea
+      // la OP el descuento todavía no ha ocurrido. El abono con el valor real lo
+      // genera nómina al aplicarlo sobre la quincena del empleado.
+      if (requiresZeroAmount(data.paymentMethod)) return data.amount === 0;
       return data.amount > 0;
     },
     (data) => ({
-      message:
-        data.paymentMethod === 'CREDIT'
-          ? 'Un pago a crédito no registra dinero: el monto debe ser 0'
-          : 'El monto del abono inicial debe ser mayor a cero',
+      message: requiresZeroAmount(data.paymentMethod)
+        ? data.paymentMethod === 'PAYROLL_DEDUCTION'
+          ? 'El descuento por nómina no registra dinero al crear la orden: el monto debe ser 0'
+          : 'Un pago a crédito no registra dinero: el monto debe ser 0'
+        : 'El monto del abono inicial debe ser mayor a cero',
       path: ['amount'],
     })
   );
@@ -1403,6 +1416,7 @@ export const OrderFormPage: React.FC = () => {
             disabled={!isClientSelected || (isEdit && !canEditPaymentHere)}
             required={true}
             creditBalance={saldoAFavor}
+            clientIsEmployee={Boolean(selectedClient?.employeeId)}
           />
         )}
       />
@@ -1598,7 +1612,7 @@ export const OrderFormPage: React.FC = () => {
                 {formatCurrency(p.amount || 0)}{' '}
                 <Typography component="span" variant="body2" color="text.secondary" fontWeight={400}>
                   ({
-                    { CASH: 'Efectivo', TRANSFER: 'Transferencia', CARD: 'Tarjeta', CHECK: 'Cheque', CREDIT: 'Crédito', OTHER: 'Otro', CREDIT_BALANCE: 'Saldo a favor' }[p.paymentMethod] || p.paymentMethod
+                    paymentMethodLabel(p.paymentMethod)
                   })
                 </Typography>
               </Typography>

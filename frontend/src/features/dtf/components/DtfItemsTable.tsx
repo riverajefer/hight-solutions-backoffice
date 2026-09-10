@@ -45,7 +45,12 @@ import { useProducts } from '../../portfolio/products/hooks/useProducts';
 import { useClients } from '../../clients/hooks/useClients';
 import { useDtfDetail } from '../hooks/useDtf';
 import { formatCurrency } from '../../../utils/formatters';
-import { dtfIvaAmount, dtfPendingBalance, dtfTotalToCharge } from '../utils/dtfTotals';
+import {
+  dtfCreditBalance,
+  dtfIvaAmount,
+  dtfPendingBalance,
+  dtfTotalToCharge,
+} from '../utils/dtfTotals';
 import { DtfStatusChip } from './DtfStatusChip';
 import { CreateClientModal } from '../../orders/components/CreateClientModal';
 import { BankSelector } from '../../../components/common/BankSelector';
@@ -167,6 +172,13 @@ export const DtfItemsTable = ({
         if (patch.productId !== undefined || patch.quantity !== undefined || patch.unitPrice !== undefined) {
           updated.value = updated.unitPrice * ((updated.quantity || 0) / 100);
         }
+        // El saldo a favor es de un cliente concreto: al cambiar de cliente el
+        // abono deja de tener respaldo y se limpia en vez de viajar al backend.
+        if (patch.clientId !== undefined && updated.abonoPaymentMethod === 'CREDIT_BALANCE') {
+          updated.abonoPaymentMethod = '';
+          updated.abono = 0;
+          setAbonoInputs((prev) => { const n = { ...prev }; delete n[localId]; return n; });
+        }
         // El comprobante solo aplica a transferencias: si se cambia el método de pago
         // o se anula el abono, se descarta el archivo cargado.
         if (patch.abono !== undefined || patch.abonoPaymentMethod !== undefined) {
@@ -276,14 +288,23 @@ export const DtfItemsTable = ({
         .join(', ') || 'desconocido'
     );
   };
-  const canSaveItem = (item: DtfFormItem) =>
-    !isSaved(item) &&
-    !!item.productId &&
-    !!item.clientId &&
-    item.quantity > 0 &&
-    // El backend rechaza un abono mayor al total a cobrar; no dejamos que el
-    // usuario llegue hasta el error.
-    item.abono <= dtfTotalToCharge(item.value, item.applyIva);
+  // Saldo a favor que el cliente arrastra de otras OPs sobrepagadas.
+  const getSaldoAFavor = (clientId: string): number =>
+    (clientId && allClients.find((c) => c.id === clientId)?.saldoAFavor) || 0;
+
+  // El abono puede superar el total a cobrar: el excedente queda como saldo a
+  // favor del cliente, igual que en el formulario de OP. Lo único que sí se
+  // bloquea es pagar con más saldo a favor del que el cliente tiene (o del que
+  // cabe en el total): el backend rechazaría la conversión en OP.
+  const canSaveItem = (item: DtfFormItem) => {
+    if (isSaved(item) || !item.productId || !item.clientId || item.quantity <= 0) return false;
+    if (item.abonoPaymentMethod !== 'CREDIT_BALANCE') return true;
+    const maxAplicable = Math.min(
+      getSaldoAFavor(item.clientId),
+      dtfTotalToCharge(item.value, item.applyIva),
+    );
+    return item.abono > 0 && item.abono <= maxAplicable;
+  };
 
   // Zona de carga (imagen o comprobante) para pantalla de creación, tamaño tarjeta.
   // `lockedReason` deshabilita la carga y muestra el motivo (ej. comprobante solo en transferencia).
@@ -454,7 +475,15 @@ export const DtfItemsTable = ({
     const saving = isItemSaving(item);
     const abono = item.abono;
     const totalToCharge = dtfTotalToCharge(item.value, item.applyIva);
-    const abonoExcedeTotal = abono > totalToCharge;
+    // Abonar de más no es un error: el excedente queda como saldo a favor del
+    // cliente y viaja a la OP con el abono.
+    const excedenteAFavor = dtfCreditBalance(item.value, item.applyIva, abono);
+    // Saldo a favor que el cliente ya tiene en otras OPs y puede usar para pagar
+    // este abono.
+    const saldoDisponible = getSaldoAFavor(item.clientId);
+    const usaSaldoAFavor = item.abonoPaymentMethod === 'CREDIT_BALANCE';
+    const maxSaldoAplicable = Math.min(saldoDisponible, totalToCharge);
+    const saldoInsuficiente = usaSaldoAFavor && abono > maxSaldoAplicable;
     const foreignAdvisorName = getForeignAdvisorName(item.clientId);
 
     return (
@@ -677,6 +706,52 @@ export const DtfItemsTable = ({
 
         <Divider sx={{ my: 1.5 }} />
 
+        {/* Saldo a favor del cliente — se aplica como abono al convertir en OP */}
+        {saldoDisponible > 0 && (
+          <Box sx={{ mb: 1 }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  size="small"
+                  checked={usaSaldoAFavor}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      const aplicable = Math.min(saldoDisponible, totalToCharge);
+                      setAbonoInputs((prev) => ({
+                        ...prev,
+                        [item._localId]: formatCurrencyInput(String(aplicable)),
+                      }));
+                      updateItem(item._localId, {
+                        abonoPaymentMethod: 'CREDIT_BALANCE',
+                        abono: aplicable,
+                      });
+                    } else {
+                      setAbonoInputs((prev) => {
+                        const next = { ...prev };
+                        delete next[item._localId];
+                        return next;
+                      });
+                      updateItem(item._localId, { abonoPaymentMethod: '', abono: 0 });
+                    }
+                  }}
+                  disabled={disabled || saving || totalToCharge <= 0}
+                />
+              }
+              label={
+                <Typography variant="body2">
+                  Usar saldo a favor del cliente ({formatCurrency(saldoDisponible)})
+                </Typography>
+              }
+            />
+            {usaSaldoAFavor && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', pl: 3.75 }}>
+                Se descontará del saldo a favor al convertir en OP (aplica hasta{' '}
+                {formatCurrency(maxSaldoAplicable)}).
+              </Typography>
+            )}
+          </Box>
+        )}
+
         {/* Abono + Método + Saldo */}
         <Grid container spacing={1.5} alignItems="flex-start">
           <Grid item xs={12} sm={4}>
@@ -706,34 +781,47 @@ export const DtfItemsTable = ({
                 })
               }
               disabled={disabled || saving}
-              error={abonoExcedeTotal}
+              error={saldoInsuficiente}
+              color={excedenteAFavor > 0 ? 'warning' : 'primary'}
               helperText={
-                abonoExcedeTotal
-                  ? `Supera el total a cobrar (${formatCurrency(totalToCharge)})`
+                saldoInsuficiente
+                  ? `Supera el saldo a favor aplicable (${formatCurrency(maxSaldoAplicable)})`
+                  : excedenteAFavor > 0
+                  ? `Quedará un saldo a favor al cliente de ${formatCurrency(excedenteAFavor)}`
                   : undefined
               }
+              FormHelperTextProps={{
+                sx: { color: saldoInsuficiente ? 'error.main' : 'warning.main', fontWeight: 600 },
+              }}
               InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
               inputProps={{ style: { textAlign: 'right' } }}
             />
             {/* Atajo para cobrar el total: teclear a mano el valor con IVA sin
-                redondear era justo lo que dejaba las OP con saldos de $50. */}
-            {totalToCharge > 0 && abono !== totalToCharge && (
-              <Button
-                size="small"
-                variant="text"
-                sx={{ mt: 0.25, px: 0.5, minWidth: 0, fontSize: '0.7rem' }}
-                disabled={disabled || saving}
-                onClick={() => {
-                  setAbonoInputs((prev) => ({
-                    ...prev,
-                    [item._localId]: formatCurrencyInput(String(totalToCharge)),
-                  }));
-                  updateItem(item._localId, { abono: totalToCharge });
-                }}
-              >
-                Abonar total ({formatCurrency(totalToCharge)})
-              </Button>
-            )}
+                redondear era justo lo que dejaba las OP con saldos de $50.
+                Pagando con saldo a favor el tope es lo que el cliente tenga. */}
+            {(() => {
+              const atajo = usaSaldoAFavor ? maxSaldoAplicable : totalToCharge;
+              if (atajo <= 0 || abono === atajo) return null;
+              return (
+                <Button
+                  size="small"
+                  variant="text"
+                  sx={{ mt: 0.25, px: 0.5, minWidth: 0, fontSize: '0.7rem' }}
+                  disabled={disabled || saving}
+                  onClick={() => {
+                    setAbonoInputs((prev) => ({
+                      ...prev,
+                      [item._localId]: formatCurrencyInput(String(atajo)),
+                    }));
+                    updateItem(item._localId, { abono: atajo });
+                  }}
+                >
+                  {usaSaldoAFavor
+                    ? `Aplicar saldo (${formatCurrency(atajo)})`
+                    : `Abonar total (${formatCurrency(atajo)})`}
+                </Button>
+              );
+            })()}
           </Grid>
           {abono > 0 && (
             <Grid item xs={12} sm={4}>
@@ -749,9 +837,18 @@ export const DtfItemsTable = ({
                 >
                   <MenuItem value="" disabled>Método...</MenuItem>
                   {(Object.entries(DTF_PAYMENT_METHOD_LABELS) as [DtfPaymentMethod, string][]).map(
-                    ([method, label]) => (
-                      <MenuItem key={method} value={method}>{label}</MenuItem>
-                    ),
+                    ([method, label]) => {
+                      // El saldo a favor se activa con su checkbox, no eligiéndolo
+                      // a mano: así el abono nace con el tope correcto.
+                      if (method === 'CREDIT_BALANCE' && !usaSaldoAFavor) return null;
+                      return (
+                        <MenuItem key={method} value={method}>
+                          {method === 'CREDIT_BALANCE'
+                            ? `${label} (${formatCurrency(saldoDisponible)})`
+                            : label}
+                        </MenuItem>
+                      );
+                    },
                   )}
                 </Select>
               </FormControl>
@@ -771,14 +868,20 @@ export const DtfItemsTable = ({
           )}
           {abono > 0 && (
             <Grid item xs={12} sm={4}>
-              <Typography component="label" sx={fieldLabelSx}>Saldo</Typography>
+              <Typography component="label" sx={fieldLabelSx}>
+                {excedenteAFavor > 0 ? 'Saldo a favor' : 'Saldo'}
+              </Typography>
               <Typography
                 variant="body1"
                 fontWeight={600}
-                color={abonoExcedeTotal ? 'error.main' : 'success.main'}
+                color={excedenteAFavor > 0 ? 'warning.main' : 'success.main'}
                 sx={{ mt: 0.75 }}
               >
-                {formatCurrency(dtfPendingBalance(item.value, item.applyIva, abono))}
+                {formatCurrency(
+                  excedenteAFavor > 0
+                    ? excedenteAFavor
+                    : dtfPendingBalance(item.value, item.applyIva, abono),
+                )}
               </Typography>
             </Grid>
           )}
@@ -821,7 +924,15 @@ export const DtfItemsTable = ({
           >
             {item.notes ? 'Editar notas' : 'Agregar notas'}
           </Button>
-          <Tooltip title={canSaveItem(item) ? 'Guardar este registro' : 'Completa producto, cliente y cantidad, y revisa que el abono no supere el total'}>
+          <Tooltip
+            title={
+              canSaveItem(item)
+                ? 'Guardar este registro'
+                : saldoInsuficiente
+                ? 'El abono supera el saldo a favor aplicable del cliente'
+                : 'Completa producto, cliente y cantidad'
+            }
+          >
             <span>
               <Button
                 variant="contained"

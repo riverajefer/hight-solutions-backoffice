@@ -29,6 +29,7 @@ import {
   EditRequestStatus,
   NotificationType,
   OrderStatus,
+  PayrollDeductionStatus,
   Prisma,
   RefundReason,
 } from '../../generated/prisma';
@@ -58,6 +59,10 @@ const ORDER_SELECT = {
   reversedAmount: true,
   reversedNetAmount: true,
   balance: true,
+  // El descuento por nómina no es dinero que haya entrado por caja: se le restó
+  // al empleado de su quincena. Devolvérselo en efectivo sacaría de la caja una
+  // plata que nunca llegó.
+  payrollDeduction: { select: { id: true, status: true } },
 } as const;
 
 @Injectable()
@@ -172,6 +177,31 @@ export class RefundRequestsService
     if (order.status === OrderStatus.RETURNED) {
       throw new BadRequestException(
         'La orden ya fue devuelta en su totalidad: no queda nada por devolver',
+      );
+    }
+
+    // Órdenes pagadas con descuento por nómina: la devolución no sale de la
+    // caja, se reversa el descuento y el empleado recupera el valor en su
+    // liquidación. Dejar pasar la solicitud haría que Caja pagara en efectivo un
+    // trabajo que nunca cobró en efectivo.
+    const deduction = order.payrollDeduction;
+    if (deduction && deduction.status === PayrollDeductionStatus.APPLIED) {
+      throw new BadRequestException(
+        'Esta orden se pagó con descuento por nómina, así que no hay dinero en ' +
+          'caja que devolver. Cancélalo desde Nómina › Descuento de Órdenes: ' +
+          'el valor se le reversa al empleado en su liquidación y la orden ' +
+          'vuelve a quedar con saldo.',
+      );
+    }
+    const sinAplicar: PayrollDeductionStatus[] = [
+      PayrollDeductionStatus.PENDING,
+      PayrollDeductionStatus.APPROVED,
+    ];
+    if (deduction && sinAplicar.includes(deduction.status)) {
+      throw new BadRequestException(
+        'Esta orden tiene un descuento por nómina sin aplicar y todavía no se ha ' +
+          'cobrado nada. Cancélalo desde Nómina › Descuento de Órdenes en vez ' +
+          'de pedir una devolución.',
       );
     }
 

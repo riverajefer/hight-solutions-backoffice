@@ -9,6 +9,7 @@ import { DtfRepository } from './dtf.repository';
 import { ConsecutivesService } from '../consecutives/consecutives.service';
 import { StorageService } from '../storage/storage.service';
 import { OrdersService } from '../orders/orders.service';
+import { CreditBalanceService } from '../credit-balance/credit-balance.service';
 import { CreateDtfRecordDto, BulkCreateDtfDto } from './dto/create-dtf-record.dto';
 import { UpdateDtfRecordDto } from './dto/update-dtf-record.dto';
 import { ChangeDtfStatusDto } from './dto/change-dtf-status.dto';
@@ -26,6 +27,7 @@ export class DtfService {
     private readonly consecutivesService: ConsecutivesService,
     private readonly storageService: StorageService,
     private readonly ordersService: OrdersService,
+    private readonly creditBalanceService: CreditBalanceService,
   ) {}
 
   async findAll(filters: FilterDtfDto) {
@@ -76,8 +78,13 @@ export class DtfService {
     // Price is per 100 cm (per meter), so value = unitPrice × quantity / 100
     const value = unitPrice.mul(quantity).div(100);
 
-    const applyIva = dto.applyIva ?? false;
-    this.assertAbonoWithinTotal(dto.abono, value, applyIva);
+    await this.assertCreditBalanceAbonoIsValid({
+      clientId: dto.clientId,
+      abono: dto.abono,
+      abonoPaymentMethod: dto.abonoPaymentMethod,
+      value,
+      applyIva: dto.applyIva ?? false,
+    });
 
     const buildData = (consecutive: string) => ({
       consecutive,
@@ -145,37 +152,52 @@ export class DtfService {
       updates.value = price.mul(qty).div(100);
     }
 
-    // El abono se valida contra los valores que quedarán guardados, no contra
-    // los que tenía el registro: en la misma edición pueden cambiar la cantidad,
-    // el precio o el IVA.
-    this.assertAbonoWithinTotal(
-      updates.abono ?? record.abono,
-      updates.value ?? record.value,
-      updates.applyIva ?? record.applyIva,
-    );
+    // El abono con saldo a favor se valida contra los valores que quedarán
+    // guardados: en la misma edición pueden cambiar el cliente, la cantidad, el
+    // precio o el IVA.
+    await this.assertCreditBalanceAbonoIsValid({
+      clientId: updates.clientId ?? record.clientId,
+      abono: updates.abono ?? record.abono,
+      abonoPaymentMethod: updates.abonoPaymentMethod ?? record.abonoPaymentMethod,
+      value: updates.value ?? record.value,
+      applyIva: updates.applyIva ?? record.applyIva,
+    });
 
     return this.dtfRepository.update(id, updates);
   }
 
   /**
-   * El abono no puede superar el total que se le cobra al cliente. El total es
-   * el mismo que tendrá la OP al convertirse —con redondeo comercial incluido—
-   * porque el abono viaja como pago inicial de esa OP: si se recibiera de más,
-   * la orden nacería con un saldo a favor que nadie pidió.
+   * El abono puede pagarse con el saldo a favor que el cliente dejó en otras OPs
+   * sobrepagadas. Ese saldo no se consume aquí sino al convertir en OP (el abono
+   * viaja como pago `CREDIT_BALANCE` y `ordersService.create` lo aplica FIFO),
+   * así que se valida ahora para no guardar una DTF que después no se pueda
+   * convertir.
+   *
+   * A diferencia del abono en dinero, este no puede superar el total a cobrar:
+   * mover saldo a favor de una OP a otra no le devuelve nada al cliente, solo
+   * bloquea plata suya en una orden que no la necesita.
    */
-  private assertAbonoWithinTotal(
-    abono: Prisma.Decimal | number | string | null | undefined,
-    value: Prisma.Decimal | number | string,
-    applyIva: boolean,
-  ) {
-    if (abono == null) return;
-    const abonoAmount = new Prisma.Decimal(abono);
-    const totalToCharge = computeDtfTotalToCharge(value, applyIva);
-    if (abonoAmount.gt(totalToCharge)) {
+  private async assertCreditBalanceAbonoIsValid(params: {
+    clientId: string;
+    abono: Prisma.Decimal | number | string | null | undefined;
+    abonoPaymentMethod: PaymentMethod | null | undefined;
+    value: Prisma.Decimal | number | string;
+    applyIva: boolean;
+  }) {
+    if (params.abonoPaymentMethod !== PaymentMethod.CREDIT_BALANCE) return;
+    if (params.abono == null) return;
+
+    const abono = new Prisma.Decimal(params.abono);
+    if (abono.lessThanOrEqualTo(0)) return;
+
+    const totalToCharge = computeDtfTotalToCharge(params.value, params.applyIva);
+    if (abono.gt(totalToCharge)) {
       throw new BadRequestException(
-        `El abono (${abonoAmount.toFixed(0)}) no puede superar el total a cobrar (${totalToCharge.toFixed(0)}).`,
+        `El abono con saldo a favor (${abono.toFixed(0)}) no puede superar el total a cobrar (${totalToCharge.toFixed(0)}).`,
       );
     }
+
+    await this.creditBalanceService.assertEnoughCredit(params.clientId, abono);
   }
 
   async changeStatus(id: string, dto: ChangeDtfStatusDto, changedById: string) {
@@ -241,6 +263,11 @@ export class DtfService {
     // abonos DTF nunca llegaron al historial de caja. Esa maquinaria ya se
     // recupera sola de las colisiones de consecutivo (retry + syncCounter en
     // `create`), así que el atajo dejó de tener motivo.
+    //
+    // El abono puede superar el total a cobrar: igual que en el formulario de
+    // OP, el excedente queda como saldo a favor del cliente (la OP nace con
+    // balance negativo y ese excedente se consume en otra OP o se devuelve por
+    // el flujo de RefundRequest).
     const abonoAmount = Number(record.abono);
     const hasAbono = abonoAmount > 0;
 

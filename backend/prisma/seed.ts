@@ -341,6 +341,11 @@ async function main() {
     { name: 'update_payroll_periods', description: 'Editar periodos de nómina' },
     { name: 'delete_payroll_periods', description: 'Eliminar periodos de nómina' },
 
+    // Payroll Deductions (Descuento de OP por nómina)
+    { name: 'read_payroll_deductions', description: 'Ver las órdenes que se van a descontar de la nómina de un empleado' },
+    { name: 'approve_payroll_deductions', description: 'Aprobar o rechazar que el valor de una orden se descuente de la nómina' },
+    { name: 'apply_payroll_deductions', description: 'Aplicar un descuento ya aprobado sobre la nómina del periodo en curso' },
+
     // Production Module — Plantillas de Producto
     { name: 'read_product_templates', description: 'Ver plantillas de producto' },
     { name: 'create_product_templates', description: 'Crear plantillas de producto' },

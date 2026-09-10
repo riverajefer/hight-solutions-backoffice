@@ -26,9 +26,10 @@ import UploadIcon from '@mui/icons-material/Upload';
 import CloseIcon from '@mui/icons-material/Close';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { useDtfDetail, useDtfFiles, useDtfMutations } from '../hooks/useDtf';
+import { useClient } from '../../clients/hooks/useClients';
 import { PATHS } from '../../../router/paths';
 import { formatCurrency } from '../../../utils/formatters';
-import { dtfTotalToCharge } from '../utils/dtfTotals';
+import { dtfCreditBalance, dtfTotalToCharge } from '../utils/dtfTotals';
 import axiosInstance from '../../../api/axios';
 import { DTF_PAYMENT_METHOD_LABELS } from '../../../types/dtf.types';
 import type { DtfPaymentMethod } from '../../../types/dtf.types';
@@ -67,6 +68,10 @@ export const DtfEditPage = () => {
   const detailQuery = useDtfDetail(id!);
   const filesQuery = useDtfFiles(id!);
   const record = detailQuery.data;
+  // Saldo a favor que el cliente arrastra de otras OPs sobrepagadas: puede pagar
+  // el abono de esta DTF y se consume al convertirla en OP.
+  const clientQuery = useClient(record?.client?.id ?? '');
+  const saldoDisponible = clientQuery.data?.saldoAFavor ?? 0;
 
   const [quantity, setQuantity] = useState<string>('');
   const [abono, setAbono] = useState<string>('');
@@ -155,11 +160,31 @@ export const DtfEditPage = () => {
   const isSaving = update.isPending;
 
   // El abono se compara contra el total que verá la OP (con IVA y redondeo
-  // comercial), no contra el valor base: es el mismo número que el backend valida.
+  // comercial), no contra el valor base. Abonar de más está permitido: el
+  // excedente queda como saldo a favor del cliente, igual que en la OP.
   const abonoValue = Number(parseCurrencyInput(abono) || 0);
   const editedValue = (Number(record.unitPrice) * (Number(quantity) || 0)) / 100;
   const totalToCharge = dtfTotalToCharge(editedValue, applyIva);
-  const abonoExcedeTotal = abonoValue > totalToCharge;
+  const excedenteAFavor = dtfCreditBalance(editedValue, applyIva, abonoValue);
+
+  // Pagar el abono con el saldo a favor del cliente: no puede pasarse del saldo
+  // que tiene ni del total, o la conversión en OP fallaría.
+  const usaSaldoAFavor = abonoPaymentMethod === 'CREDIT_BALANCE';
+  const maxSaldoAplicable = Math.min(saldoDisponible, totalToCharge);
+  const saldoInsuficiente = usaSaldoAFavor && abonoValue > maxSaldoAplicable;
+
+  const setAbonoAmount = (value: number) => setAbono(formatCurrencyInput(String(value)));
+
+  const toggleSaldoAFavor = (checked: boolean) => {
+    if (checked) {
+      setAbonoPaymentMethod('CREDIT_BALANCE');
+      setAbonoBankEntity(null);
+      setAbonoAmount(maxSaldoAplicable);
+    } else {
+      setAbonoPaymentMethod('');
+      setAbono('');
+    }
+  };
 
   return (
     <Box p={3}>
@@ -192,6 +217,31 @@ export const DtfEditPage = () => {
                   disabled={isSaving}
                   fullWidth
                 />
+                {saldoDisponible > 0 && (
+                  <Box>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          size="small"
+                          checked={usaSaldoAFavor}
+                          onChange={(e) => toggleSaldoAFavor(e.target.checked)}
+                          disabled={isSaving || totalToCharge <= 0}
+                        />
+                      }
+                      label={
+                        <Typography variant="body2">
+                          Usar saldo a favor del cliente ({formatCurrency(saldoDisponible)})
+                        </Typography>
+                      }
+                    />
+                    {usaSaldoAFavor && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', pl: 3.75 }}>
+                        Se descontará del saldo a favor al convertir en OP (aplica hasta{' '}
+                        {formatCurrency(maxSaldoAplicable)}).
+                      </Typography>
+                    )}
+                  </Box>
+                )}
                 <TextField
                   label="Abono"
                   size="small"
@@ -200,12 +250,25 @@ export const DtfEditPage = () => {
                   placeholder="0"
                   disabled={isSaving}
                   fullWidth
-                  error={abonoExcedeTotal}
+                  error={saldoInsuficiente}
+                  color={excedenteAFavor > 0 ? 'warning' : 'primary'}
                   helperText={
-                    abonoExcedeTotal
-                      ? `Supera el total a cobrar (${formatCurrency(totalToCharge)})`
+                    saldoInsuficiente
+                      ? `Supera el saldo a favor aplicable (${formatCurrency(maxSaldoAplicable)})`
+                      : excedenteAFavor > 0
+                      ? `Quedará un saldo a favor al cliente de ${formatCurrency(excedenteAFavor)}`
                       : `Total a cobrar: ${formatCurrency(totalToCharge)}`
                   }
+                  FormHelperTextProps={{
+                    sx: {
+                      color: saldoInsuficiente
+                        ? 'error.main'
+                        : excedenteAFavor > 0
+                        ? 'warning.main'
+                        : 'text.secondary',
+                      fontWeight: saldoInsuficiente || excedenteAFavor > 0 ? 600 : 400,
+                    },
+                  }}
                   InputProps={{
                     startAdornment: <InputAdornment position="start">$</InputAdornment>,
                   }}
@@ -227,9 +290,18 @@ export const DtfEditPage = () => {
                       fullWidth
                     >
                       {(Object.entries(DTF_PAYMENT_METHOD_LABELS) as [DtfPaymentMethod, string][]).map(
-                        ([method, label]) => (
-                          <MenuItem key={method} value={method}>{label}</MenuItem>
-                        ),
+                        ([method, label]) => {
+                          // El saldo a favor se activa con su checkbox, no
+                          // eligiéndolo a mano: así el abono nace con el tope correcto.
+                          if (method === 'CREDIT_BALANCE' && !usaSaldoAFavor) return null;
+                          return (
+                            <MenuItem key={method} value={method}>
+                              {method === 'CREDIT_BALANCE'
+                                ? `${label} (${formatCurrency(saldoDisponible)})`
+                                : label}
+                            </MenuItem>
+                          );
+                        },
                       )}
                     </TextField>
                     {abonoPaymentMethod === 'TRANSFER' && (
@@ -401,7 +473,7 @@ export const DtfEditPage = () => {
           variant="contained"
           startIcon={isSaving ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />}
           onClick={handleSave}
-          disabled={isSaving || !quantity || Number(quantity) <= 0 || abonoExcedeTotal}
+          disabled={isSaving || !quantity || Number(quantity) <= 0 || saldoInsuficiente}
         >
           Guardar cambios
         </Button>

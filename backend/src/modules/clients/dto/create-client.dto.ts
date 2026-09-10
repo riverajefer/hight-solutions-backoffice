@@ -141,6 +141,16 @@ export class CreateClientDto {
 
   @ApiPropertyOptional({
     description:
+      'ID de la ficha de nómina cuando el cliente es a la vez empleado de la ' +
+      'empresa. Habilita el método de pago "Descuento por nómina" en sus ' +
+      'órdenes. Es único: una ficha de empleado no puede estar en dos clientes.',
+  })
+  @IsString()
+  @IsOptional()
+  employeeId?: string | null;
+
+  @ApiPropertyOptional({
+    description:
       'IDs de los asesores dueños del cliente (co-propiedad). Solo aplicable para administradores; los asesores quedan como dueño automáticamente al crear.',
     example: ['550e8400-e29b-41d4-a716-446655440000'],
     type: [String],

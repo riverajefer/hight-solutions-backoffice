@@ -21,6 +21,7 @@ import { AdvancePaymentApprovalsService } from '../advance-payment-approvals/adv
 import { PaymentEditApprovalsService } from '../payment-edit-approvals/payment-edit-approvals.service';
 import { DiscountApprovalsService } from '../discount-approvals/discount-approvals.service';
 import { ClientOwnershipAuthRequestsService } from '../client-ownership-auth-requests/client-ownership-auth-requests.service';
+import { PayrollDeductionsService } from '../payroll-deductions/payroll-deductions.service';
 import {
   CreateOrderDto,
   UpdateOrderDto,
@@ -202,6 +203,7 @@ export class OrdersService {
     private readonly paymentEditApprovalsService: PaymentEditApprovalsService,
     private readonly discountApprovalsService: DiscountApprovalsService,
     private readonly clientOwnershipAuthRequestsService: ClientOwnershipAuthRequestsService,
+    private readonly payrollDeductionsService: PayrollDeductionsService,
     private readonly creditBalanceService: CreditBalanceService,
   ) {}
 
@@ -736,6 +738,29 @@ export class OrdersService {
       });
     }
 
+    // Descuento por nómina: el cliente es un empleado y el trabajo se le resta
+    // de la quincena en vez de cobrárselo. Se valida ANTES de crear la OP —si el
+    // cliente no está vinculado a una ficha de nómina no hay a quién
+    // descontarle— y el descuento nace anidado en la misma transacción, para que
+    // no pueda existir una orden marcada así sin su cuenta por cobrar.
+    const payrollDeductionPayments = allInitialPayments.filter(
+      (p) => p.paymentMethod === PaymentMethod.PAYROLL_DEDUCTION,
+    );
+
+    if (payrollDeductionPayments.length > 1) {
+      throw new BadRequestException(
+        'Una orden solo se puede descontar una vez de la nómina: deja un solo ' +
+          'pago con ese método.',
+      );
+    }
+
+    const payrollEmployee =
+      payrollDeductionPayments.length > 0
+        ? await this.payrollDeductionsService.assertClientIsEmployee(
+            createOrderDto.clientId,
+          )
+        : null;
+
     // Helper: construye los datos de pagos generando nuevos receiptNumbers en cada llamada.
     // Se invoca al inicio de cada intento del bucle de reintento para que, ante una colisión
     // en receipt_number, el siguiente intento use un número fresco.
@@ -827,6 +852,18 @@ export class OrdersService {
             create: items,
           },
           ...(payments && { payments }),
+          ...(payrollEmployee && {
+            payrollDeduction: {
+              create: {
+                employee: { connect: { id: payrollEmployee.id } },
+                // Se descuenta el total de la orden, no el monto del pago: ese
+                // va en 0 porque el descuento todavía no ha ocurrido.
+                amount: total,
+                requestedBy: { connect: { id: createdById } },
+                notes: payrollDeductionPayments[0]?.notes ?? null,
+              },
+            },
+          }),
         });
         break; // Éxito, salir del bucle
       } catch (error: any) {
@@ -970,9 +1007,18 @@ export class OrdersService {
       const approvalCheck = await this.advancePaymentApprovalsService.requiresApproval(createdById);
 
       if (approvalCheck.required) {
-        // Buscar todos los pagos creados (en orden de creación)
+        // Buscar todos los pagos creados (en orden de creación).
+        //
+        // El descuento por nómina queda por fuera: no entra dinero a caja ni
+        // ahora ni después —la empresa recupera el trabajo pagándole menos al
+        // empleado—, así que pedirle autorización a Caja es hacerla responder
+        // por plata que nunca va a ver. Su aprobación es la de nómina/gerencia,
+        // en el módulo `payroll-deductions`.
         const createdPayments = await this.prisma.payment.findMany({
-          where: { orderId: newOrder.id },
+          where: {
+            orderId: newOrder.id,
+            paymentMethod: { not: PaymentMethod.PAYROLL_DEDUCTION },
+          },
           orderBy: { createdAt: 'asc' },
         });
 
@@ -991,6 +1037,27 @@ export class OrdersService {
           );
           needsRefetch = true;
         }
+      }
+    }
+
+    // Avisar a nómina que hay un descuento por aprobar. Va fuera de la
+    // transacción: la OP ya existe con su descuento anidado, así que si la
+    // notificación falla el flujo no se pierde —queda en la bandeja— y no tiene
+    // por qué tumbar la creación de la orden.
+    if (newOrder && payrollEmployee) {
+      const deduction = await this.prisma.payrollDeduction.findUnique({
+        where: { orderId: newOrder.id },
+        select: { id: true },
+      });
+      if (deduction) {
+        this.payrollDeductionsService
+          .notifyCreated(deduction.id)
+          .catch((error) =>
+            this.logger.error(
+              `No se pudo notificar el descuento por nómina de la orden ${newOrder.orderNumber}`,
+              error instanceof Error ? error.stack : String(error),
+            ),
+          );
       }
     }
 

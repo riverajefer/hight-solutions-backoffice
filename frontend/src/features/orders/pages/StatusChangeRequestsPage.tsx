@@ -72,6 +72,7 @@ import { apPaymentReversalRequestsApi } from '../../../api/accounts-payable-paym
 import type { AccountPayablePaymentReversalRequest } from '../../../types/accounts-payable-payment-reversal.types';
 import { AP_REVERSAL_STATUS_CONFIG } from '../../../types/accounts-payable-payment-reversal.types';
 import UndoIcon from '@mui/icons-material/Undo';
+import { paymentMethodLabel } from '../../../utils/paymentMethods';
 
 // ============================================================
 // CONSTANTES
@@ -2433,12 +2434,6 @@ export const StatusChangeRequestsPage: React.FC = () => {
   // COLUMNAS - REFUND REQUESTS
   // ============================================================
 
-  const REFUND_METHOD_LABELS: Record<string, string> = {
-    CASH: 'Efectivo',
-    TRANSFER: 'Transferencia',
-    CARD: 'Tarjeta',
-  };
-
   const refundColumns: GridColDef<RefundRequest>[] = [
     {
       field: 'orderNumber',
@@ -2472,7 +2467,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
       headerName: 'Método',
       width: 130,
       renderCell: (params) => (
-        <Chip label={REFUND_METHOD_LABELS[params.value] || params.value} size="small" />
+        <Chip label={paymentMethodLabel(params.value)} size="small" />
       ),
     },
     {
@@ -3751,7 +3746,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
               </Typography>
               <Typography variant="body2" gutterBottom>
                 <strong>Método:</strong>{' '}
-                {({ CASH: 'Efectivo', TRANSFER: 'Transferencia', CARD: 'Tarjeta' } as Record<string, string>)[refundReviewDialog.request.paymentMethod] || refundReviewDialog.request.paymentMethod}
+                {paymentMethodLabel(refundReviewDialog.request.paymentMethod)}
               </Typography>
               <Typography variant="body2" gutterBottom>
                 <strong>Solicitado por:</strong>{' '}
