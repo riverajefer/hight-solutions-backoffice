@@ -26,6 +26,7 @@ import { useInventory } from '../hooks/useInventory';
 import { suppliesApi } from '../../../api/supplies.api';
 import { ROUTES } from '../../../utils/constants';
 import type { InventoryMovementType } from '../../../types';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 
 const MANUAL_TYPES: { value: InventoryMovementType; label: string }[] = [
   { value: 'ENTRY', label: 'Entrada (Compra / Reposición)' },
@@ -288,20 +289,14 @@ const InventoryMovementFormPage: React.FC = () => {
                 >
                   Cancelar
                 </Button>
-                <Button
+                <LoadingButton
+                  loading={isSubmitting || createMutation.isPending}
                   type="submit"
                   variant="contained"
-                  startIcon={
-                    isSubmitting || createMutation.isPending ? (
-                      <CircularProgress size={18} color="inherit" />
-                    ) : (
-                      <SaveIcon />
-                    )
-                  }
-                  disabled={isSubmitting || createMutation.isPending}
+                  startIcon={<SaveIcon />}
                 >
                   Registrar Movimiento
-                </Button>
+                </LoadingButton>
               </Stack>
             </Stack>
           </form>

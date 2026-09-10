@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -38,6 +37,7 @@ import {
 import { storageApi } from '../../../api/storage.api';
 import { BankSelector } from '../../../components/common/BankSelector';
 import { useSingleFlight } from '../../../hooks/useSingleFlight';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 
 const schema = z.object({
   amount: z.string().min(1, 'Ingresa el monto del pago'),
@@ -409,14 +409,14 @@ export const RegisterPaymentDialog: React.FC<RegisterPaymentDialogProps> = ({
         <Button onClick={handleClose} disabled={loading || uploadingReceipt}>
           Cancelar
         </Button>
-        <Button
+        <LoadingButton
+          loading={loading || uploadingReceipt}
           variant="contained"
           onClick={handleSubmit(handleFormSubmit)}
-          disabled={loading || uploadingReceipt || (watchedAmountNum > 0 && watchedAmountNum > balance)}
-          startIcon={(loading || uploadingReceipt) ? <CircularProgress size={16} /> : null}
+          disabled={watchedAmountNum > 0 && watchedAmountNum > balance}
         >
           {uploadingReceipt ? 'Subiendo comprobante...' : 'Registrar Pago'}
-        </Button>
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   );

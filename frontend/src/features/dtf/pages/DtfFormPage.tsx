@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useBeforeUnload } from 'react-router-dom';
 import {
-  Box, Button, Stack, CircularProgress, Typography,
+  Box, Button, Stack, Typography,
   Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
 } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
@@ -13,6 +13,7 @@ import { useDtfMutations } from '../hooks/useDtf';
 import { PATHS } from '../../../router/paths';
 import { dtfApi } from '../../../api/dtf.api';
 import type { DtfFormItem } from '../../../types/dtf.types';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 
 const newItem = (): DtfFormItem => ({
   _localId: uuidv4(),
@@ -187,18 +188,14 @@ export const DtfFormPage = () => {
         </Button>
 
         {!allSaved && (
-          <Button
+          <LoadingButton
+            loading={bulkCreate.isPending && !savingItemId}
             variant="contained"
-            startIcon={
-              bulkCreate.isPending && !savingItemId ? (
-                <CircularProgress size={18} color="inherit" />
-              ) : undefined
-            }
             onClick={handleSaveAll}
             disabled={!!savingItemId || unsavedItems.every((i) => !i.productId || !i.clientId || i.quantity <= 0)}
           >
             Guardar todos ({unsavedItems.length})
-          </Button>
+          </LoadingButton>
         )}
       </Stack>
 

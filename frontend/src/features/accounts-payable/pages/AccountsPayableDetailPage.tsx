@@ -6,7 +6,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -61,6 +60,7 @@ import { apPaymentReversalRequestsApi } from '../../../api/accounts-payable-paym
 import UndoIcon from '@mui/icons-material/Undo';
 import { useSnackbar } from 'notistack';
 import { PAYMENT_METHOD_LABELS } from '../../../utils/paymentMethods';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 
 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
@@ -811,19 +811,15 @@ export default function AccountsPayableDetailPage() {
           >
             Cancelar
           </Button>
-          <Button
+          <LoadingButton
             variant="contained"
             color={adminAction === 'approve' ? 'success' : 'error'}
-            disabled={adminApproveMutation.isPending || adminRejectMutation.isPending}
-            startIcon={
-              (adminApproveMutation.isPending || adminRejectMutation.isPending)
-                ? <CircularProgress size={16} />
-                : adminAction === 'approve' ? <CheckCircleIcon /> : <CloseIcon />
-            }
+            loading={adminApproveMutation.isPending || adminRejectMutation.isPending}
+            startIcon={adminAction === 'approve' ? <CheckCircleIcon /> : <CloseIcon />}
             onClick={handleAdminAction}
           >
             {adminAction === 'approve' ? 'Aprobar' : 'Rechazar'}
-          </Button>
+          </LoadingButton>
         </DialogActions>
       </Dialog>
 

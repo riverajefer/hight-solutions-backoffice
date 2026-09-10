@@ -46,6 +46,7 @@ import { useSnackbar } from 'notistack';
 import axiosInstance from '../../../api/axios';
 import type { DtfStatus, DtfPaymentMethod } from '../../../types/dtf.types';
 import { DTF_PAYMENT_METHOD_LABELS } from '../../../types/dtf.types';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 
 const NEXT_STATUSES: Record<DtfStatus, DtfStatus[]> = {
   BORRADOR: ['ENVIADA'],
@@ -269,7 +270,8 @@ export const DtfDetailPage = () => {
               </Button>
             )}
             {canChangeStatus && nextStatuses.filter((s) => s !== 'CONVERTIDA_EN_OP').map((s) => (
-              <Button
+              <LoadingButton
+                loading={changeStatus.isPending}
                 key={s}
                 variant={s === 'BORRADOR' ? 'outlined' : 'contained'}
                 color={s !== 'COMPLETADA' ? STATUS_ACTION_COLORS[s] : undefined}
@@ -283,12 +285,11 @@ export const DtfDetailPage = () => {
                     boxShadow: '0 0 18px 4px rgba(0, 200, 83, 0.9)',
                   },
                 } : undefined}
-                startIcon={changeStatus.isPending ? <CircularProgress size={16} color="inherit" /> : <SwapHorizIcon />}
+                startIcon={<SwapHorizIcon />}
                 onClick={() => handleChangeStatusDirect(s)}
-                disabled={changeStatus.isPending}
               >
                 {STATUS_ACTION_LABELS[s]}
-              </Button>
+              </LoadingButton>
             ))}
             <Button
               variant={record.status === 'COMPLETADA' ? 'contained' : 'outlined'}

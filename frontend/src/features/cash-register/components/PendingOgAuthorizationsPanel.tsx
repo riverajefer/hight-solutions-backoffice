@@ -29,6 +29,7 @@ import { expenseOrdersApi } from '../../../api/expense-orders.api';
 import { ExpenseOrderStatus } from '../../../types/expense-order.types';
 import type { ExpenseOrder } from '../../../types/expense-order.types';
 import { useSingleFlight } from '../../../hooks/useSingleFlight';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('es-CO', {
@@ -248,40 +249,30 @@ const PendingOgAuthorizationsPanel: React.FC<{ hideWhenEmpty?: boolean }> = ({ h
                     </Box>
 
                     <Stack spacing={0.5} sx={{ flexShrink: 0 }}>
-                      <Button
+                      <LoadingButton
+                        loading={isAuthorizing}
                         variant="contained"
                         color="success"
                         size="small"
-                        startIcon={
-                          isAuthorizing ? (
-                            <CircularProgress size={14} color="inherit" />
-                          ) : (
-                            <CheckCircleIcon />
-                          )
-                        }
+                        startIcon={<CheckCircleIcon />}
                         onClick={() => handleAuthorize(og.id)}
                         disabled={isBusy}
                         sx={{ minWidth: 110, fontSize: '0.75rem' }}
                       >
                         {isAuthorizing ? 'Autorizando...' : 'Autorizar'}
-                      </Button>
-                      <Button
+                      </LoadingButton>
+                      <LoadingButton
+                        loading={isRejecting}
                         variant="outlined"
                         color="error"
                         size="small"
-                        startIcon={
-                          isRejecting ? (
-                            <CircularProgress size={14} color="inherit" />
-                          ) : (
-                            <CancelIcon />
-                          )
-                        }
+                        startIcon={<CancelIcon />}
                         onClick={() => handleOpenReject(og)}
                         disabled={isBusy}
                         sx={{ minWidth: 110, fontSize: '0.75rem' }}
                       >
                         {isRejecting ? 'Rechazando...' : 'Rechazar'}
-                      </Button>
+                      </LoadingButton>
                     </Stack>
                   </Box>
                 </Box>

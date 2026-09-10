@@ -1,10 +1,11 @@
 import React from 'react';
-import { Box, Typography, Button, Chip, CircularProgress } from '@mui/material';
+import { Box, Typography, Button, Chip } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import PreviewIcon from '@mui/icons-material/Visibility';
 import type { FormBuilderState, FormBuilderAction } from './types/formBuilder';
 import type { UpdateFieldSchemaPayload } from '../../../../types/production.types';
 import { serializeToPayload } from './utils/schemaSerializer';
+import { LoadingButton } from '../../../../components/common/LoadingButton';
 
 interface FormBuilderToolbarProps {
   stepDefName: string;
@@ -92,15 +93,16 @@ export const FormBuilderToolbar: React.FC<FormBuilderToolbarProps> = ({
       </Button>
 
       {/* Save button */}
-      <Button
+      <LoadingButton
+        loading={isSaving}
         variant="contained"
         size="small"
-        startIcon={isSaving ? <CircularProgress size={14} color="inherit" /> : <SaveIcon />}
+        startIcon={<SaveIcon />}
         onClick={handleSave}
-        disabled={!state.isDirty || isSaving}
+        disabled={!state.isDirty}
       >
         {isSaving ? 'Guardando...' : 'Guardar cambios'}
-      </Button>
+      </LoadingButton>
     </Box>
   );
 };

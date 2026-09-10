@@ -34,6 +34,7 @@ import axiosInstance from '../../../api/axios';
 import { DTF_PAYMENT_METHOD_LABELS } from '../../../types/dtf.types';
 import type { DtfPaymentMethod } from '../../../types/dtf.types';
 import { BankSelector } from '../../../components/common/BankSelector';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 
 // Formatea un valor numérico (como string) a pesos con separador de miles (es-CO)
 const formatCurrencyInput = (value: string): string => {
@@ -469,14 +470,15 @@ export const DtfEditPage = () => {
         >
           Cancelar
         </Button>
-        <Button
+        <LoadingButton
+          loading={isSaving}
           variant="contained"
-          startIcon={isSaving ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />}
+          startIcon={<SaveIcon />}
           onClick={handleSave}
-          disabled={isSaving || !quantity || Number(quantity) <= 0 || saldoInsuficiente}
+          disabled={!quantity || Number(quantity) <= 0 || saldoInsuficiente}
         >
           Guardar cambios
-        </Button>
+        </LoadingButton>
       </Stack>
 
       <Dialog

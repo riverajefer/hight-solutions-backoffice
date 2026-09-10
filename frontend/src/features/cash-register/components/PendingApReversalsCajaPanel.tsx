@@ -6,7 +6,6 @@ import {
   Card,
   CardContent,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -28,6 +27,7 @@ import { useSnackbar } from 'notistack';
 import { apPaymentReversalRequestsApi } from '../../../api/accounts-payable-payment-reversal-requests.api';
 import type { AccountPayablePaymentReversalRequest } from '../../../types/accounts-payable-payment-reversal.types';
 import { useSingleFlight } from '../../../hooks/useSingleFlight';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 
 const formatCurrency = (value: number | string) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(Number(value));
@@ -266,26 +266,26 @@ const PendingApReversalsCajaPanel: React.FC<{ hideWhenEmpty?: boolean }> = ({ hi
                 >
                   Rechazar
                 </Button>
-                <Button
+                <LoadingButton
+                  loading={isLoading2}
                   variant="contained" color="error"
-                  startIcon={isLoading2 ? <CircularProgress size={16} /> : <CheckCircleIcon />}
+                  startIcon={<CheckCircleIcon />}
                   onClick={handleApprove}
-                  disabled={isLoading2}
                 >
                   Confirmar Reversión
-                </Button>
+                </LoadingButton>
               </>
             ) : (
               <>
                 <Button onClick={() => setMode('view')} disabled={isLoading2}>Volver</Button>
-                <Button
+                <LoadingButton
+                  loading={isLoading2}
                   variant="contained" color="error"
-                  startIcon={isLoading2 ? <CircularProgress size={16} /> : <CancelIcon />}
+                  startIcon={<CancelIcon />}
                   onClick={handleReject}
-                  disabled={isLoading2}
                 >
                   Confirmar Rechazo
-                </Button>
+                </LoadingButton>
               </>
             )}
           </DialogActions>

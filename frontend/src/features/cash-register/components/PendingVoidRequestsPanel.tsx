@@ -6,7 +6,6 @@ import {
   Card,
   CardContent,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -30,6 +29,7 @@ import {
 } from '../../../hooks/useVoidRequests';
 import type { CashMovementVoidRequest } from '../../../types/void-request.types';
 import { useSingleFlight } from '../../../hooks/useSingleFlight';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 
 const MOVEMENT_TYPE_LABELS: Record<string, string> = {
   INCOME: 'Ingreso',
@@ -278,19 +278,14 @@ const PendingVoidRequestsPanel: React.FC<{ hideWhenEmpty?: boolean }> = ({ hideW
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setReviewTarget(null)}>Cancelar</Button>
-          <Button
+          <LoadingButton
+            loading={approveMutation.isPending || rejectMutation.isPending}
             variant="contained"
             color={reviewTarget?.action === 'approve' ? 'success' : 'error'}
             onClick={handleSubmitReview}
-            disabled={approveMutation.isPending || rejectMutation.isPending}
-            startIcon={
-              approveMutation.isPending || rejectMutation.isPending ? (
-                <CircularProgress size={16} />
-              ) : undefined
-            }
           >
             {reviewTarget?.action === 'approve' ? 'Aprobar' : 'Rechazar'}
-          </Button>
+          </LoadingButton>
         </DialogActions>
       </Dialog>
     </>

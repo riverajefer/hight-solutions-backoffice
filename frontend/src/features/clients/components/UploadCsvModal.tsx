@@ -15,7 +15,6 @@ import {
   TableContainer,
   Paper,
   Chip,
-  CircularProgress,
   IconButton,
   Tooltip,
 } from '@mui/material';
@@ -25,6 +24,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import ErrorIcon from '@mui/icons-material/Error';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { UploadClientsResponse } from '../../../types';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 
 interface UploadCsvModalProps {
   open: boolean;
@@ -352,17 +352,15 @@ export const UploadCsvModal: React.FC<UploadCsvModalProps> = ({
           {result ? 'Cerrar' : 'Cancelar'}
         </Button>
         {!result && selectedFile && (
-          <Button
+          <LoadingButton
             variant="contained"
             color="primary"
             onClick={handleUpload}
-            disabled={isUploading}
-            startIcon={
-              isUploading ? <CircularProgress size={18} /> : <UploadFileIcon />
-            }
+            loading={isUploading}
+            startIcon={<UploadFileIcon />}
           >
             {isUploading ? 'Subiendo...' : 'Subir Clientes'}
-          </Button>
+          </LoadingButton>
         )}
       </DialogActions>
     </Dialog>

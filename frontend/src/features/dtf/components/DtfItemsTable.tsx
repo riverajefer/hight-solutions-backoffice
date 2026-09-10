@@ -18,7 +18,6 @@ import {
   DialogContent,
   DialogTitle,
   Chip,
-  CircularProgress,
   Paper,
   Grid,
   Divider,
@@ -58,6 +57,7 @@ import type { DtfFormItem, DtfPaymentMethod } from '../../../types/dtf.types';
 import { DTF_PAYMENT_METHOD_LABELS } from '../../../types/dtf.types';
 import type { Client } from '../../../types/client.types';
 import type { Product } from '../../../types/product.types';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 
 interface DtfItemsTableProps {
   items: DtfFormItem[];
@@ -934,15 +934,16 @@ export const DtfItemsTable = ({
             }
           >
             <span>
-              <Button
+              <LoadingButton
+                loading={saving}
                 variant="contained"
                 color="success"
-                startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
-                disabled={disabled || saving || !canSaveItem(item)}
+                startIcon={<SaveIcon />}
+                disabled={disabled || !canSaveItem(item)}
                 onClick={() => onSaveItem?.(item._localId)}
               >
                 Guardar ítem
-              </Button>
+              </LoadingButton>
             </span>
           </Tooltip>
         </Stack>

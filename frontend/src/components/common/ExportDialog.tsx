@@ -14,7 +14,6 @@ import {
   Radio,
   RadioGroup,
   Divider,
-  CircularProgress,
 } from '@mui/material';
 import { FileDownload as FileDownloadIcon } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
@@ -25,6 +24,7 @@ import {
   type DetailSheet,
 } from '../../utils/excelExport';
 import { toDateFilter } from '../../utils/dateFilters';
+import { LoadingButton } from './LoadingButton';
 
 /** Rango de fechas ya normalizado a inicio y fin de día. */
 export interface DateRange {
@@ -476,20 +476,14 @@ export function ExportDialog<T>({
         <Button onClick={onClose} disabled={isExporting}>
           Cancelar
         </Button>
-        <Button
+        <LoadingButton
+          loading={isExporting}
           variant='contained'
-          startIcon={
-            isExporting ? (
-              <CircularProgress size={16} color='inherit' />
-            ) : (
-              <FileDownloadIcon />
-            )
-          }
+          startIcon={<FileDownloadIcon />}
           onClick={handleExport}
-          disabled={isExporting}
         >
           {isExporting ? 'Generando...' : 'Exportar'}
-        </Button>
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   );

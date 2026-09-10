@@ -42,6 +42,7 @@ import { ROUTES, PERMISSIONS } from '../../../utils/constants';
 import { storageApi } from '../../../api/storage.api';
 import { CreateSupplyModal } from '../components/CreateSupplyModal';
 import type { Order } from '../../../types/order.types';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 import type {
   CreateWorkOrderDto,
   CreateWorkOrderItemDto,
@@ -721,12 +722,12 @@ export const WorkOrderFormPage = () => {
             </IconButton>
           </Box>
         ) : (
-          <Button
+          <LoadingButton
+            loading={isUploading}
             component="label"
             variant="outlined"
             size="small"
-            startIcon={isUploading ? <CircularProgress size={16} /> : <CloudUploadIcon />}
-            disabled={isUploading}
+            startIcon={<CloudUploadIcon />}
             fullWidth
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -755,7 +756,7 @@ export const WorkOrderFormPage = () => {
               hidden
               onChange={handleFileUpload}
             />
-          </Button>
+          </LoadingButton>
         )}
         {uploadError && (
           <Typography color="error" variant="caption" display="block" sx={{ mt: 1 }}>
@@ -801,12 +802,12 @@ export const WorkOrderFormPage = () => {
             </IconButton>
           </Box>
         ) : (
-          <Button
+          <LoadingButton
+            loading={isUploading2}
             component="label"
             variant="outlined"
             size="small"
-            startIcon={isUploading2 ? <CircularProgress size={16} /> : <CloudUploadIcon />}
-            disabled={isUploading2}
+            startIcon={<CloudUploadIcon />}
             fullWidth
             onDragOver={(e) => handleDragOver(e, true)}
             onDragLeave={(e) => handleDragLeave(e, true)}
@@ -835,7 +836,7 @@ export const WorkOrderFormPage = () => {
               hidden
               onChange={(e) => handleFileUpload(e, true)}
             />
-          </Button>
+          </LoadingButton>
         )}
         {uploadError2 && (
           <Typography color="error" variant="caption" display="block" sx={{ mt: 1 }}>

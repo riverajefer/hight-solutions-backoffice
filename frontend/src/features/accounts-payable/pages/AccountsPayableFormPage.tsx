@@ -7,7 +7,6 @@ import {
   Autocomplete,
   Box,
   Button,
-  CircularProgress,
   Divider,
   FormControl,
   FormControlLabel,
@@ -45,6 +44,7 @@ import { useExpenseTypes } from '../../expense-orders/hooks/useExpenseOrders';
 import { accountsPayableApi } from '../../../api/accounts-payable.api';
 import { CreateSupplierModal } from '../../suppliers/components/CreateSupplierModal';
 import { WithholdingsFields } from '../../../components/common/WithholdingsFields';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 import {
   EMPTY_WITHHOLDINGS,
   computeExpenseTotals,
@@ -696,14 +696,13 @@ export default function AccountsPayableFormPage() {
               >
                 Cancelar
               </Button>
-              <Button
+              <LoadingButton
+                loading={isSubmitting}
                 type="submit"
                 variant="contained"
-                disabled={isSubmitting}
-                startIcon={isSubmitting ? <CircularProgress size={16} /> : null}
               >
                 {isEditing ? 'Guardar cambios' : 'Crear Cuenta'}
-              </Button>
+              </LoadingButton>
             </Stack>
           </Grid>
         </Grid>
