@@ -332,8 +332,18 @@ export class ClientsService {
     if (updateClientDto.employeeId !== undefined) {
       if (updateClientDto.employeeId) {
         await this.assertEmployeeAvailable(updateClientDto.employeeId, id);
+        // Va anidado, NO como escalar `employeeId`: el update de Prisma es la
+        // variante "checked" y rechaza la llave foránea suelta cuando el modelo
+        // declara la relación (`Unknown argument employeeId`). `updateData` es
+        // `any`, así que TypeScript no lo detecta: revienta en runtime.
+        updateData.employee = {
+          connect: { id: updateClientDto.employeeId },
+        };
+      } else {
+        // `null` explícito desvincula. `disconnect` es la forma anidada de
+        // poner la columna en NULL.
+        updateData.employee = { disconnect: true };
       }
-      updateData.employeeId = updateClientDto.employeeId || null;
     }
 
     // Handle NIT and Cedula based on personType
