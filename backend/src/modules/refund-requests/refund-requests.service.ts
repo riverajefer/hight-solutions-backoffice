@@ -188,7 +188,7 @@ export class RefundRequestsService
     if (deduction && deduction.status === PayrollDeductionStatus.APPLIED) {
       throw new BadRequestException(
         'Esta orden se pagó con descuento por nómina, así que no hay dinero en ' +
-          'caja que devolver. Cancela el descuento desde Descuentos por Nómina: ' +
+          'caja que devolver. Cancélalo desde Nómina › Descuento de Órdenes: ' +
           'el valor se le reversa al empleado en su liquidación y la orden ' +
           'vuelve a quedar con saldo.',
       );
@@ -200,7 +200,7 @@ export class RefundRequestsService
     if (deduction && sinAplicar.includes(deduction.status)) {
       throw new BadRequestException(
         'Esta orden tiene un descuento por nómina sin aplicar y todavía no se ha ' +
-          'cobrado nada. Cancela el descuento desde Descuentos por Nómina en vez ' +
+          'cobrado nada. Cancélalo desde Nómina › Descuento de Órdenes en vez ' +
           'de pedir una devolución.',
       );
     }

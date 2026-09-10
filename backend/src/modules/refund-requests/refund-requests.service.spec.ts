@@ -120,7 +120,7 @@ describe('RefundRequestsService', () => {
       });
 
       await expect(service.create(userId, baseDto)).rejects.toThrow(
-        /Cancela el descuento desde Descuentos por Nómina/,
+        /Cancélalo desde Nómina › Descuento de Órdenes/,
       );
     });
 
