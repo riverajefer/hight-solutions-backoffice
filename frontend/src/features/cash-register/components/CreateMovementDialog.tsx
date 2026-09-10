@@ -13,7 +13,6 @@ import {
   Stack,
   Typography,
   InputAdornment,
-  CircularProgress,
   Autocomplete,
 } from '@mui/material';
 import { z } from 'zod';
@@ -23,6 +22,7 @@ import type { CashMovementType } from '../../../types/cash-register.types';
 import axiosInstance from '../../../api/axios';
 import type { Order } from '../../../types/order.types';
 import { useSingleFlight } from '../../../hooks/useSingleFlight';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 
 const schema = z.object({
   amount: z
@@ -258,15 +258,14 @@ const CreateMovementDialog: React.FC<Props> = ({
           <Button onClick={onClose} disabled={isLoading}>
             Cancelar
           </Button>
-          <Button
+          <LoadingButton
+            loading={isLoading}
             type="submit"
             variant="contained"
             color={color}
-            disabled={isLoading}
-            startIcon={isLoading ? <CircularProgress size={16} /> : undefined}
           >
             Registrar {label}
-          </Button>
+          </LoadingButton>
         </DialogActions>
       </form>
     </Dialog>

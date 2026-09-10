@@ -23,6 +23,7 @@ import {
 import { ROUTES } from '../../../utils/constants';
 import { useTemplateBuilderStore } from '../store/useTemplateBuilderStore';
 import { TemplateBuilderContainer } from '../components/TemplateBuilder/TemplateBuilderContainer';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 
 const CATEGORY_OPTIONS = [
   { value: 'cuadernos', label: 'Cuadernos' },
@@ -163,14 +164,13 @@ const ProductTemplateFormPage: React.FC = () => {
             >
               Cancelar
             </Button>
-            <Button 
+            <LoadingButton 
+              loading={isSaving}
               variant="contained" 
               onClick={handleSave}
-              disabled={isSaving}
-              startIcon={isSaving ? <CircularProgress size={20} color="inherit" /> : null}
             >
               {isSaving ? 'Guardando...' : 'Guardar Plantilla'}
-            </Button>
+            </LoadingButton>
           </Stack>
         }
       />

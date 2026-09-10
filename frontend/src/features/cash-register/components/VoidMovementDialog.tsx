@@ -9,7 +9,6 @@ import {
   Stack,
   Typography,
   Divider,
-  CircularProgress,
   Chip,
   Box,
 } from '@mui/material';
@@ -18,6 +17,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { CashMovement } from '../../../types/cash-register.types';
 import { useSingleFlight } from '../../../hooks/useSingleFlight';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 
 const schema = z.object({
   voidReason: z.string().min(1, 'El motivo es requerido').max(500),
@@ -169,15 +169,14 @@ const VoidMovementDialog: React.FC<Props> = ({
           <Button onClick={onClose} disabled={isLoading}>
             Cancelar
           </Button>
-          <Button
+          <LoadingButton
+            loading={isLoading}
             type="submit"
             variant="contained"
             color={isRequestMode ? 'warning' : 'error'}
-            disabled={isLoading}
-            startIcon={isLoading ? <CircularProgress size={16} /> : undefined}
           >
             {isRequestMode ? 'Enviar Solicitud' : 'Confirmar Anulación'}
-          </Button>
+          </LoadingButton>
         </DialogActions>
       </form>
     </Dialog>

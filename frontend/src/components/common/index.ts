@@ -14,3 +14,5 @@ export { QueueReviewActions } from './QueueReviewActions';
 export { BankSelector } from './BankSelector';
 export { WithholdingsFields } from './WithholdingsFields';
 export { ErrorBoundary } from './ErrorBoundary';
+export { LoadingButton, IconLoadingButton } from './LoadingButton';
+export type { LoadingButtonProps, IconLoadingButtonProps } from './LoadingButton';

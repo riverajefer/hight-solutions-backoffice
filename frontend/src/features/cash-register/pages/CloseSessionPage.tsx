@@ -24,6 +24,7 @@ import ConciliationSummary from '../components/ConciliationSummary';
 import { PATHS } from '../../../router/paths';
 import type { BalancePreview } from '../../../types/cash-register.types';
 import { useSingleFlight } from '../../../hooks/useSingleFlight';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 
 type Phase = 'counting' | 'reviewing';
 
@@ -135,21 +136,15 @@ const CloseSessionPage: React.FC = () => {
               >
                 Volver
               </Button>
-              <Button
+              <LoadingButton
+                loading={loadingPreview}
                 variant="contained"
                 color="primary"
-                startIcon={
-                  loadingPreview ? (
-                    <CircularProgress size={18} color="inherit" />
-                  ) : (
-                    <VisibilityIcon />
-                  )
-                }
+                startIcon={<VisibilityIcon />}
                 onClick={handleProceedToReview}
-                disabled={loadingPreview}
               >
                 Ver Conciliación
-              </Button>
+              </LoadingButton>
             </Box>
           </>
         )}
@@ -182,21 +177,15 @@ const CloseSessionPage: React.FC = () => {
               >
                 Rehacer Conteo
               </Button>
-              <Button
+              <LoadingButton
+                loading={closeSession.isPending}
                 variant="contained"
                 color="warning"
-                startIcon={
-                  closeSession.isPending ? (
-                    <CircularProgress size={18} color="inherit" />
-                  ) : (
-                    <LockIcon />
-                  )
-                }
+                startIcon={<LockIcon />}
                 onClick={handleConfirmClose}
-                disabled={closeSession.isPending}
               >
                 Confirmar Cierre
-              </Button>
+              </LoadingButton>
             </Box>
           </>
         )}

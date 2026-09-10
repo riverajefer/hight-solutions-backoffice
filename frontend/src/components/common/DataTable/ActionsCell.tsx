@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { 
   Box, 
   IconButton, 
-  Tooltip, 
   Menu, 
   MenuItem, 
   ListItemIcon, 
@@ -14,22 +13,32 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import CircularProgress from '@mui/material/CircularProgress';
+import { IconLoadingButton } from '../LoadingButton';
 
-interface Action {
+export interface RowAction {
   icon: React.ReactNode;
   label: string;
   onClick: () => void;
   color?: "inherit" | "primary" | "secondary" | "success" | "error" | "info" | "warning";
   tooltip?: string;
   showInMenu?: boolean;
+  /** Muestra el spinner en esta acción mientras su petición está en vuelo. */
+  loading?: boolean;
+  disabled?: boolean;
 }
+
+/** @deprecated Usa `RowAction`: el nombre viejo es muy genérico para un barrel. */
+export type Action = RowAction;
 
 interface ActionsCellProps {
   onView?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
   onPermissions?: () => void;
-  extraActions?: Action[];
+  extraActions?: RowAction[];
+  /** Spinner en las acciones integradas. En la práctica solo `delete` muta. */
+  loading?: { view?: boolean; edit?: boolean; delete?: boolean; permissions?: boolean };
 }
 
 export const ActionsCell: React.FC<ActionsCellProps> = ({
@@ -37,7 +46,8 @@ export const ActionsCell: React.FC<ActionsCellProps> = ({
   onEdit,
   onDelete,
   onPermissions,
-  extraActions = []
+  extraActions = [],
+  loading = {}
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const theme = useTheme();
@@ -52,7 +62,7 @@ export const ActionsCell: React.FC<ActionsCellProps> = ({
     setAnchorEl(null);
   };
 
-  const actions: Action[] = [];
+  const actions: RowAction[] = [];
 
   if (onView) {
     actions.push({
@@ -60,6 +70,7 @@ export const ActionsCell: React.FC<ActionsCellProps> = ({
       label: 'Ver',
       tooltip: 'Ver detalles',
       onClick: onView,
+      loading: loading.view,
       color: 'info'
     });
   }
@@ -70,6 +81,7 @@ export const ActionsCell: React.FC<ActionsCellProps> = ({
       label: 'Permisos',
       tooltip: 'Gestionar permisos',
       onClick: onPermissions,
+      loading: loading.permissions,
       color: 'primary'
     });
   }
@@ -80,6 +92,7 @@ export const ActionsCell: React.FC<ActionsCellProps> = ({
       label: 'Editar',
       tooltip: 'Editar registro',
       onClick: onEdit,
+      loading: loading.edit,
       color: 'primary'
     });
   }
@@ -90,6 +103,7 @@ export const ActionsCell: React.FC<ActionsCellProps> = ({
       label: 'Eliminar',
       tooltip: 'Eliminar registro',
       onClick: onDelete,
+      loading: loading.delete,
       color: 'error'
     });
   }
@@ -112,13 +126,14 @@ export const ActionsCell: React.FC<ActionsCellProps> = ({
           {actions.map((action, index) => (
             <MenuItem 
               key={index} 
+              disabled={action.disabled || action.loading}
               onClick={() => {
                 action.onClick();
                 handleClose();
               }}
             >
               <ListItemIcon sx={{ color: action.color ? `${action.color}.main` : 'inherit' }}>
-                {action.icon}
+                {action.loading ? <CircularProgress size={18} color="inherit" /> : action.icon}
               </ListItemIcon>
               <ListItemText primary={action.label} />
             </MenuItem>
@@ -136,18 +151,20 @@ export const ActionsCell: React.FC<ActionsCellProps> = ({
       onClick={(e) => e.stopPropagation()}
     >
       {actions.map((action, index) => (
-        <Tooltip key={index} title={action.tooltip || action.label}>
-          <IconButton
-            size="small"
-            color={action.color}
-            onClick={(e) => {
-              e.stopPropagation();
-              action.onClick();
-            }}
-          >
-            {action.icon}
-          </IconButton>
-        </Tooltip>
+        <IconLoadingButton
+          key={index}
+          tooltip={action.tooltip || action.label}
+          size="small"
+          color={action.color}
+          loading={action.loading}
+          disabled={action.disabled}
+          onClick={(e) => {
+            e.stopPropagation();
+            action.onClick();
+          }}
+        >
+          {action.icon}
+        </IconLoadingButton>
       ))}
     </Box>
   );

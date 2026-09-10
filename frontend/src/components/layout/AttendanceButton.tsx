@@ -27,6 +27,7 @@ import { attendanceApi } from '../../api';
 import { ATTENDANCE_STATUS_QUERY_KEY } from '../../features/attendance/hooks/useAttendance';
 import { ROUTES } from '../../utils/constants';
 import { neonColors, neonAccents } from '../../theme';
+import { LoadingButton } from '../../components/common/LoadingButton';
 
 /**
  * Formatea la diferencia de tiempo desde clockIn en "HH:MM:SS"
@@ -252,12 +253,12 @@ export const AttendanceButton: React.FC = () => {
         {/* Botón principal de marcaje */}
         {!isActive ? (
           <Tooltip title="Marcar entrada de asistencia">
-            <Button
+            <LoadingButton
+              loading={isWorking}
               variant="outlined"
               size="small"
-              startIcon={isWorking ? <CircularProgress size={14} color="inherit" /> : <PlayCircleIcon />}
+              startIcon={<PlayCircleIcon />}
               onClick={handleClockIn}
-              disabled={isWorking}
               sx={{
                 borderColor: isDark
                   ? alpha(theme.palette.success.main, 0.6)
@@ -278,15 +279,16 @@ export const AttendanceButton: React.FC = () => {
               }}
             >
               Marcar Entrada
-            </Button>
+            </LoadingButton>
           </Tooltip>
         ) : (
           <>
             <Tooltip title="Tomar una pausa (almuerzo, descanso, etc.)">
-              <Button
+              <LoadingButton
+                loading={pauseMutation.isPending}
                 variant="outlined"
                 size="small"
-                startIcon={pauseMutation.isPending ? <CircularProgress size={14} color="inherit" /> : <PauseCircleIcon />}
+                startIcon={<PauseCircleIcon />}
                 onClick={() => pauseMutation.mutate()}
                 disabled={isWorking}
                 sx={{
@@ -309,13 +311,14 @@ export const AttendanceButton: React.FC = () => {
                 }}
               >
                 Pausar
-              </Button>
+              </LoadingButton>
             </Tooltip>
             <Tooltip title="Marcar salida de asistencia">
-              <Button
+              <LoadingButton
+                loading={clockOutMutation.isPending}
                 variant="outlined"
                 size="small"
-                startIcon={clockOutMutation.isPending ? <CircularProgress size={14} color="inherit" /> : <StopCircleIcon />}
+                startIcon={<StopCircleIcon />}
                 onClick={handleOpenClockOut}
                 disabled={isWorking}
                 sx={{
@@ -338,7 +341,7 @@ export const AttendanceButton: React.FC = () => {
                 }}
               >
                 Marcar Salida
-              </Button>
+              </LoadingButton>
             </Tooltip>
           </>
         )}
@@ -384,19 +387,15 @@ export const AttendanceButton: React.FC = () => {
           >
             Cancelar
           </Button>
-          <Button
+          <LoadingButton
             variant="contained"
             color="error"
             onClick={handleConfirmClockOut}
-            disabled={clockOutMutation.isPending}
-            startIcon={
-              clockOutMutation.isPending
-                ? <CircularProgress size={14} color="inherit" />
-                : <StopCircleIcon />
-            }
+            loading={clockOutMutation.isPending}
+            startIcon={<StopCircleIcon />}
           >
             Confirmar Salida
-          </Button>
+          </LoadingButton>
         </DialogActions>
       </Dialog>
     </>
