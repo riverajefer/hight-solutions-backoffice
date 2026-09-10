@@ -272,7 +272,7 @@ const PayrollDeductionsPage: React.FC = () => {
   return (
     <Box>
       <PageHeader
-        title="Descuentos por Nómina"
+        title="Descuento de Órdenes"
         subtitle="Órdenes de empleados que se descuentan de su quincena en vez de cobrarse en caja"
       />
 

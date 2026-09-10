@@ -413,7 +413,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           permission: PERMISSIONS.READ_PAYROLL_PERIODS,
         },
         {
-          label: 'Descuentos por Nómina',
+          label: 'Descuento de Órdenes',
           icon: <ReceiptLongIcon />,
           path: ROUTES.PAYROLL_DEDUCTIONS,
           permission: PERMISSIONS.READ_PAYROLL_DEDUCTIONS,
