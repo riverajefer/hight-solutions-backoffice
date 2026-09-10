@@ -8,6 +8,7 @@ import {
   PDF_LAYOUT,
 } from '../../../utils/pdfConstants';
 import type { CashSession, CashMovement, CashMovementType } from '../../../types/cash-register.types';
+import { PAYMENT_METHOD_LABELS } from '../../../utils/paymentMethods';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -20,13 +21,6 @@ const MOVEMENT_TYPE_LABELS: Record<CashMovementType, string> = {
   DEPOSIT: 'Depósito',
 };
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  CASH: 'Efectivo',
-  TRANSFER: 'Transferencia',
-  CARD: 'Tarjeta',
-  CHECK: 'Cheque',
-  OTHER: 'Otro',
-};
 
 // ---------------------------------------------------------------------------
 // Helpers

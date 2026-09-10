@@ -16,7 +16,23 @@ export type OrderStatus =
   | 'RETURNED'
   | 'ANULADO';
 
-export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'CREDIT' | 'CREDIT_BALANCE';
+/**
+ * Métodos con los que se puede registrar un pago de una OP.
+ *
+ * `CHECK` y `OTHER` existen en la base pero no se ofrecen acá: nunca se usaron
+ * desde el módulo de órdenes. Los nombres para mostrar viven en
+ * `utils/paymentMethods`, que sí cubre el enum completo — un pago viejo con uno
+ * de esos métodos se sigue viendo bien.
+ */
+export type PaymentMethod =
+  | 'CASH'
+  | 'TRANSFER'
+  | 'CARD'
+  | 'CREDIT'
+  | 'CREDIT_BALANCE'
+  // El cliente es un empleado y el trabajo se le descuenta de la quincena. No
+  // mueve caja y se registra en $0: el abono real lo genera nómina al aplicarlo.
+  | 'PAYROLL_DEDUCTION';
 
 // ============================================================
 // ENTITIES
@@ -599,12 +615,19 @@ export const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   ANULADO: [],
 };
 
+/**
+ * Nombres de los métodos dentro del módulo de órdenes.
+ *
+ * Se conserva aparte de `utils/paymentMethods` porque acá el saldo a favor se
+ * llama "Saldo a favor (Cliente)", que solo tiene sentido frente a una OP.
+ */
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   CASH: 'Efectivo',
   TRANSFER: 'Transferencia',
   CARD: 'Tarjeta',
   CREDIT: 'Crédito',
   CREDIT_BALANCE: 'Saldo a favor (Cliente)',
+  PAYROLL_DEDUCTION: 'Descuento por nómina',
 };
 
 // ============================================================

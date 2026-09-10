@@ -30,6 +30,7 @@ import { useDuplicateClientCheck } from '../hooks/useDuplicateClientCheck';
 import { extractDuplicateMatches } from '../utils/duplicateError';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
+import { usePayrollEmployees } from '../../payroll/hooks/usePayrollEmployees';
 
 // Zod validation schema with conditional validations
 const clientSchema = z.object({
@@ -91,6 +92,14 @@ const ClientFormPage: React.FC = () => {
   // Advisor state (managed outside Zod schema — admin-only field).
   // Co-propiedad: un cliente puede tener varios asesores. `undefined` = aún no cargado.
   const [selectedAdvisorIds, setSelectedAdvisorIds] = useState<string[] | undefined>(undefined);
+
+  // Ficha de nómina del cliente, cuando además es empleado. Va fuera de Zod por
+  // lo mismo que los asesores: solo lo edita quien administra nómina.
+  // `undefined` = aún no cargado; `null` = sin vincular.
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null | undefined>(undefined);
+  const canLinkEmployee = hasPermission(PERMISSIONS.READ_PAYROLL_EMPLOYEES);
+  const { employeesQuery } = usePayrollEmployees();
+  const payrollEmployees = canLinkEmployee ? employeesQuery.data ?? [] : [];
 
   const isEdit = !!id;
   const { data: client, isLoading: isLoadingClient } = useClient(id || '');
@@ -204,6 +213,7 @@ const ClientFormPage: React.FC = () => {
       });
       // Pre-populate advisor set
       setSelectedAdvisorIds(client.advisors?.map((a) => a.advisor.id) ?? []);
+      setSelectedEmployeeId(client.employeeId ?? null);
     }
   }, [client, isEdit, reset]);
 
@@ -270,6 +280,9 @@ const ClientFormPage: React.FC = () => {
         const updatePayload: UpdateClientDto = {
           ...(cleanedData as UpdateClientDto),
           // Include advisorIds only if admin/authorized and the set was loaded
+          ...(canLinkEmployee && selectedEmployeeId !== undefined
+            ? { employeeId: selectedEmployeeId }
+            : {}),
           ...(canAssignAdvisor && selectedAdvisorIds !== undefined
             ? { advisorIds: selectedAdvisorIds }
             : {}),
@@ -290,6 +303,9 @@ const ClientFormPage: React.FC = () => {
         const createPayload: CreateClientDto = {
           ...(cleanedData as CreateClientDto),
           // Admin may assign co-owner advisors at creation time
+          ...(canLinkEmployee && selectedEmployeeId
+            ? { employeeId: selectedEmployeeId }
+            : {}),
           ...(canAssignAdvisor && selectedAdvisorIds && selectedAdvisorIds.length > 0
             ? { advisorIds: selectedAdvisorIds }
             : {}),
@@ -684,6 +700,56 @@ const ClientFormPage: React.FC = () => {
                     )}
                     isOptionEqualToValue={(option, value) => option.id === value.id}
                     noOptionsText="No se encontraron usuarios"
+                  />
+                </Grid>
+              )}
+
+              {/* Ficha de nómina — habilita el descuento por nómina en sus OPs */}
+              {canLinkEmployee && (
+                <Grid item xs={12} md={6}>
+                  <Autocomplete
+                    options={payrollEmployees}
+                    getOptionLabel={(option) => {
+                      const nombre = [option.firstName, option.firstLastName]
+                        .filter(Boolean)
+                        .join(' ');
+                      const fallback =
+                        [option.user?.firstName, option.user?.lastName]
+                          .filter(Boolean)
+                          .join(' ') || option.user?.email || 'Sin nombre';
+                      const documento = option.identificationNumber
+                        ? ` — ${option.identificationNumber}`
+                        : '';
+                      return `${nombre || fallback}${documento}`;
+                    }}
+                    value={
+                      payrollEmployees.find((e) => e.id === selectedEmployeeId) ?? null
+                    }
+                    onChange={(_, newValue) => {
+                      setSelectedEmployeeId(newValue?.id ?? null);
+                    }}
+                    loading={employeesQuery.isLoading}
+                    getOptionDisabled={(option) => option.status !== 'ACTIVE'}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Empleado de la empresa"
+                        helperText="Vincúlalo si este cliente es empleado: solo entonces sus órdenes se pueden descontar de la nómina. Déjalo vacío si no lo es."
+                        InputProps={{
+                          ...params.InputProps,
+                          endAdornment: (
+                            <>
+                              {employeesQuery.isLoading ? (
+                                <CircularProgress color="inherit" size={20} />
+                              ) : null}
+                              {params.InputProps.endAdornment}
+                            </>
+                          ),
+                        }}
+                      />
+                    )}
+                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                    noOptionsText="No hay empleados en nómina"
                   />
                 </Grid>
               )}

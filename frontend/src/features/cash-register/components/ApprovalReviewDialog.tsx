@@ -16,15 +16,8 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import { advancePaymentApprovalsApi } from '../../../api/advance-payment-approvals.api';
 import type { AdvancePaymentApproval } from '../../../types/advance-payment-approval.types';
+import { PAYMENT_METHOD_LABELS } from '../../../utils/paymentMethods';
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  CASH: 'Efectivo',
-  TRANSFER: 'Transferencia',
-  CARD: 'Tarjeta',
-  CHECK: 'Cheque',
-  CREDIT: 'Crédito',
-  OTHER: 'Otro',
-};
 
 const formatCurrency = (value: string | number) =>
   new Intl.NumberFormat('es-CO', {

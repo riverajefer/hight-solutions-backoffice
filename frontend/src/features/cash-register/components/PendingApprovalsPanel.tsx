@@ -26,15 +26,8 @@ import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import { advancePaymentApprovalsApi } from '../../../api/advance-payment-approvals.api';
 import type { AdvancePaymentApproval } from '../../../types/advance-payment-approval.types';
 import ApprovalReviewDialog from './ApprovalReviewDialog';
+import { PAYMENT_METHOD_LABELS } from '../../../utils/paymentMethods';
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  CASH: 'Efectivo',
-  TRANSFER: 'Transferencia',
-  CARD: 'Tarjeta',
-  CHECK: 'Cheque',
-  CREDIT: 'Crédito',
-  OTHER: 'Otro',
-};
 
 const PAYMENT_METHOD_ICONS: Record<string, React.ReactNode> = {
   CASH: <LocalAtmIcon fontSize="inherit" />,

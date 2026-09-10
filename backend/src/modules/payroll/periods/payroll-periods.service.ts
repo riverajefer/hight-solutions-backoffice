@@ -61,7 +61,10 @@ export class PayrollPeriodsService {
    * Las novedades del periodo anterior —horas extras, comisiones, préstamos,
    * anticipos, descuento de jornada, días no pagados, turnos extra y
    * observaciones— NO se copian: son propias de cada quincena y el usuario las
-   * ingresa de nuevo. El clon siempre nace en DRAFT para no chocar con la regla
+   * ingresa de nuevo. Las órdenes descontadas (`orderDeductions`) siguen la
+   * misma regla, y con más razón: copiarlas le cobraría al empleado dos veces
+   * el mismo trabajo. El clon nace sin ellas y el módulo de descuentos las
+   * vuelve a aplicar si quedan pendientes. El clon siempre nace en DRAFT para no chocar con la regla
    * de "un solo periodo IN_PROGRESS a la vez".
    */
   async clone(sourceId: string, dto: ClonePayrollPeriodDto) {

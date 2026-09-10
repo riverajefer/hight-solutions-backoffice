@@ -251,7 +251,8 @@ export const getItemColumns = (
           Number(row.advances ?? 0) +
           Number(row.nonPaidDays ?? 0) +
           Number(row.epsAndPensionDiscount ?? 0) +
-          Number(row.employeeFundSavings ?? 0),
+          Number(row.employeeFundSavings ?? 0) +
+          Number(row.orderDeductions ?? 0),
       ),
   },
   {

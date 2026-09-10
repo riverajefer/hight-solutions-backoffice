@@ -22,6 +22,7 @@ import { apPaymentAuthRequestsApi } from '../../../api/accounts-payable-payment-
 import type { AccountPayablePaymentAuthRequest } from '../../../types/accounts-payable.types';
 import { CajaApprovePaymentDialog } from '../../accounts-payable/components/CajaApprovePaymentDialog';
 import { useSingleFlight } from '../../../hooks/useSingleFlight';
+import { PAYMENT_METHOD_LABELS } from '../../../utils/paymentMethods';
 
 const formatCurrency = (value: number | string) =>
   new Intl.NumberFormat('es-CO', {
@@ -30,12 +31,6 @@ const formatCurrency = (value: number | string) =>
     minimumFractionDigits: 0,
   }).format(Number(value));
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  CASH: 'Efectivo',
-  TRANSFER: 'Transferencia',
-  CARD: 'Tarjeta',
-  CREDIT: 'Crédito',
-};
 
 const userName = (user?: { firstName?: string | null; lastName?: string | null; email: string } | null) => {
   if (!user) return '—';

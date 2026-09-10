@@ -155,6 +155,16 @@ export class UpdateClientDto {
 
   @ApiPropertyOptional({
     description:
+      'ID de la ficha de nómina cuando el cliente es a la vez empleado. ' +
+      'Mandar `null` desvincula al empleado: sus órdenes futuras dejan de poder ' +
+      'descontarse por nómina (las ya aprobadas siguen su curso).',
+  })
+  @IsString()
+  @IsOptional()
+  employeeId?: string | null;
+
+  @ApiPropertyOptional({
+    description:
       'IDs de los asesores dueños del cliente (co-propiedad). Reemplaza el conjunto completo. Solo editable por administradores.',
     example: ['550e8400-e29b-41d4-a716-446655440000'],
     type: [String],

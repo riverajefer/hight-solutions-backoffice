@@ -35,12 +35,8 @@ import {
 import type { RefundRequest } from '../../../types/refund-request.types';
 import { useSingleFlight } from '../../../hooks/useSingleFlight';
 import { storageApi } from '../../../api/storage.api';
+import { PAYMENT_METHOD_LABELS } from '../../../utils/paymentMethods';
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  CASH: 'Efectivo',
-  TRANSFER: 'Transferencia',
-  CARD: 'Tarjeta',
-};
 
 const PAYMENT_METHOD_ICONS: Record<string, React.ReactNode> = {
   CASH: <LocalAtmIcon fontSize='inherit' />,

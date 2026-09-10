@@ -52,6 +52,7 @@ export class PayrollPeriodsRepository {
             nonPaidDays: true,
             epsAndPensionDiscount: true,
             employeeFundSavings: true,
+            orderDeductions: true,
             totalPayment: true,
             observations: true,
             createdAt: true,
@@ -169,6 +170,7 @@ export class PayrollPeriodsRepository {
         baseSalary: true,
         epsAndPensionDiscount: true,
         employeeFundSavings: true,
+        orderDeductions: true,
       },
     });
 
@@ -188,6 +190,10 @@ export class PayrollPeriodsRepository {
       (acc, item) => acc + Number(item.employeeFundSavings ?? 0),
       0,
     );
+    const totalOrderDeductions = items.reduce(
+      (acc, item) => acc + Number(item.orderDeductions ?? 0),
+      0,
+    );
 
     return {
       employeeCount: items.length,
@@ -195,10 +201,22 @@ export class PayrollPeriodsRepository {
       totalPayment,
       totalEpsAndPension,
       totalEmployeeFundSavings,
+      // Trabajos que los empleados mandaron a hacer en la empresa y se les
+      // descuentan acá. A diferencia de los otros descuentos, este no se gira a
+      // un tercero: la empresa se lo queda porque es el cobro de esas órdenes.
+      totalOrderDeductions,
       // Costo bruto: lo que se le consigna al empleado mas lo que se le retiene
       // y se gira por el (seguridad social y ahorro al fondo de empleados).
+      //
+      // Las órdenes descontadas también suman: el empleado se ganó ese dinero y
+      // la empresa se lo debía; que se lo haya cobrado contra una OP en vez de
+      // consignárselo no abarata la nómina. Dejarlas por fuera haría que un
+      // periodo con muchos descuentos pareciera más barato de lo que fue.
       totalPayrollCost:
-        totalPayment + totalEpsAndPension + totalEmployeeFundSavings,
+        totalPayment +
+        totalEpsAndPension +
+        totalEmployeeFundSavings +
+        totalOrderDeductions,
     };
   }
 }

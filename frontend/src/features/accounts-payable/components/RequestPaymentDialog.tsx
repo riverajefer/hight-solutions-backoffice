@@ -38,13 +38,15 @@ import {
   toCurrencyInputValue,
 } from '../../../utils/currencyInput';
 import { useSingleFlight } from '../../../hooks/useSingleFlight';
+import { paymentMethodLabel } from '../../../utils/paymentMethods';
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  CASH: 'Efectivo',
-  TRANSFER: 'Transferencia',
-  CARD: 'Tarjeta',
-  CREDIT: 'Crédito',
-};
+/**
+ * Con qué se puede pagar una cuenta por pagar. Es una lista de opciones, no un
+ * mapa de nombres: acá NO caben los métodos que no mueven dinero (saldo a favor
+ * y descuento por nómina existen del lado de las ventas, no de los pagos a
+ * proveedores). Los textos salen del catálogo único para que no se desfasen.
+ */
+const AP_PAYMENT_METHODS = ['CASH', 'TRANSFER', 'CARD', 'CREDIT'] as const;
 
 const schema = z.object({
   amount: z.string().min(1, 'El monto es requerido'),
@@ -255,8 +257,10 @@ export const RequestPaymentDialog: React.FC<Props> = ({
               <FormControl fullWidth required error={!!errors.paymentMethod}>
                 <InputLabel>Método de pago</InputLabel>
                 <Select {...field} label="Método de pago">
-                  {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => (
-                    <MenuItem key={value} value={value}>{label}</MenuItem>
+                  {AP_PAYMENT_METHODS.map((value) => (
+                    <MenuItem key={value} value={value}>
+                      {paymentMethodLabel(value)}
+                    </MenuItem>
                   ))}
                 </Select>
                 {errors.paymentMethod && (

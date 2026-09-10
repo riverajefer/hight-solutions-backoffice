@@ -60,13 +60,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apPaymentReversalRequestsApi } from '../../../api/accounts-payable-payment-reversal-requests.api';
 import UndoIcon from '@mui/icons-material/Undo';
 import { useSnackbar } from 'notistack';
+import { PAYMENT_METHOD_LABELS } from '../../../utils/paymentMethods';
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  CASH: 'Efectivo',
-  TRANSFER: 'Transferencia',
-  CARD: 'Tarjeta',
-  CREDIT: 'Crédito',
-};
 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (

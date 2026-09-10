@@ -27,6 +27,7 @@ const itemSelect = {
   nonPaidDays: true,
   epsAndPensionDiscount: true,
   employeeFundSavings: true,
+  orderDeductions: true,
   totalPayment: true,
   observations: true,
   createdAt: true,

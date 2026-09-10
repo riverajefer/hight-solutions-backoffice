@@ -196,6 +196,10 @@ export class ClientsService {
       ? [...new Set(createClientDto.advisorIds ?? [])]
       : [creatorId];
 
+    if (createClientDto.employeeId) {
+      await this.assertEmployeeAvailable(createClientDto.employeeId);
+    }
+
     return this.clientsRepository.create({
       name: createClientDto.name,
       manager: createClientDto.manager,
@@ -209,6 +213,9 @@ export class ClientsService {
       cedula,
       department: { connect: { id: createClientDto.departmentId } },
       city: { connect: { id: createClientDto.cityId } },
+      ...(createClientDto.employeeId && {
+        employee: { connect: { id: createClientDto.employeeId } },
+      }),
       ...(advisorIds.length > 0 && {
         advisors: {
           create: advisorIds.map((advisorId) => ({
@@ -217,6 +224,38 @@ export class ClientsService {
         },
       }),
     });
+  }
+
+  /**
+   * Valida el vínculo con una ficha de nómina antes de guardarlo.
+   *
+   * La columna es `@unique`, así que sin esta comprobación el usuario recibiría
+   * un P2002 crudo. Y el P2002 llega con `meta.target` vacío por el adaptador de
+   * pg, de modo que ni siquiera se podría identificar de qué restricción se
+   * trata: mejor rechazarlo acá, con el nombre del cliente que ya lo tiene.
+   */
+  private async assertEmployeeAvailable(
+    employeeId: string,
+    excludeClientId?: string,
+  ) {
+    const employee = await this.clientsRepository.findEmployeeWithClient(employeeId);
+
+    if (!employee) {
+      throw new BadRequestException(
+        'La ficha de empleado seleccionada no existe',
+      );
+    }
+
+    if (
+      employee.clientProfile &&
+      employee.clientProfile.id !== excludeClientId
+    ) {
+      throw new BadRequestException(
+        `Ese empleado ya está vinculado al cliente "${employee.clientProfile.name}". ` +
+          'Un empleado solo puede tener una ficha de cliente, o se le terminaría ' +
+          'descontando dos veces.',
+      );
+    }
   }
 
   /**
@@ -287,6 +326,15 @@ export class ClientsService {
     if (updateClientDto.email !== undefined) updateData.email = updateClientDto.email;
     if (updateClientDto.personType !== undefined) updateData.personType = updateClientDto.personType;
     if (updateClientDto.isActive !== undefined) updateData.isActive = updateClientDto.isActive;
+
+    // `null` explícito desvincula al empleado; `undefined` deja el vínculo como
+    // está. Son casos distintos y el `!== undefined` es lo que los separa.
+    if (updateClientDto.employeeId !== undefined) {
+      if (updateClientDto.employeeId) {
+        await this.assertEmployeeAvailable(updateClientDto.employeeId, id);
+      }
+      updateData.employeeId = updateClientDto.employeeId || null;
+    }
 
     // Handle NIT and Cedula based on personType
     if (updateClientDto.nit !== undefined) {

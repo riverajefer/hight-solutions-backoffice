@@ -123,6 +123,7 @@ describe('PayrollPeriodsRepository', () => {
         totalPayment: 3000,
         totalEpsAndPension: 300,
         totalEmployeeFundSavings: 100,
+        totalOrderDeductions: 0,
         totalPayrollCost: 3400,
       });
       expect(prisma.payrollItem.findMany).toHaveBeenCalledWith({
@@ -130,6 +131,7 @@ describe('PayrollPeriodsRepository', () => {
         select: {
           totalPayment: true,
           baseSalary: true,
+          orderDeductions: true,
           epsAndPensionDiscount: true,
           employeeFundSavings: true,
         },
@@ -151,6 +153,28 @@ describe('PayrollPeriodsRepository', () => {
       expect(result.totalPayrollCost).toBe(500);
     });
 
+    // Las órdenes descontadas se retienen pero NO se giran a un tercero: la
+    // empresa se las queda. Aun así suman al costo bruto, porque el empleado se
+    // ganó ese dinero y la nómina costó lo mismo — solo que una parte se cobró
+    // contra una OP en vez de consignarse.
+    it('cuenta las órdenes descontadas dentro del costo bruto', async () => {
+      prisma.payrollItem.findMany.mockResolvedValue([
+        {
+          totalPayment: 750,
+          baseSalary: 1000,
+          epsAndPensionDiscount: 0,
+          employeeFundSavings: 0,
+          orderDeductions: 250,
+        },
+      ]);
+
+      const result = await repository.getSummary('p1');
+
+      expect(result.totalOrderDeductions).toBe(250);
+      // Se le consignan 750 y se le descuentan 250: la nómina costó los 1000.
+      expect(result.totalPayrollCost).toBe(1000);
+    });
+
     it('should return zeros for empty period', async () => {
       prisma.payrollItem.findMany.mockResolvedValue([]);
       const result = await repository.getSummary('p1');
@@ -160,6 +184,7 @@ describe('PayrollPeriodsRepository', () => {
         totalPayment: 0,
         totalEpsAndPension: 0,
         totalEmployeeFundSavings: 0,
+        totalOrderDeductions: 0,
         totalPayrollCost: 0,
       });
     });

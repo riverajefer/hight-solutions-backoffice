@@ -6,6 +6,7 @@ import {
   PDF_FONTS,
 } from '../../../utils/pdfConstants';
 import type { CashMovement, CashMovementType } from '../../../types/cash-register.types';
+import { PAYMENT_METHOD_LABELS } from '../../../utils/paymentMethods';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -18,13 +19,6 @@ const MOVEMENT_TYPE_LABELS: Record<CashMovementType, string> = {
   DEPOSIT: 'Depósito',
 };
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  CASH: 'Efectivo',
-  TRANSFER: 'Transferencia',
-  CARD: 'Tarjeta',
-  CHECK: 'Cheque',
-  OTHER: 'Otro',
-};
 
 // Receipt is 80mm wide (thermal printer standard) × flexible height
 const PAGE_W = 80;
