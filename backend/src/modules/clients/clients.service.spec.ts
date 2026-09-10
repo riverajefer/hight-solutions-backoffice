@@ -24,6 +24,7 @@ const mockClientsRepository = {
   createMany: jest.fn(),
   update: jest.fn(),
   updateSpecialCondition: jest.fn(),
+  findEmployeeWithClient: jest.fn(),
   findUserWithPermissions: jest.fn().mockResolvedValue({
     role: {
       permissions: [{ permission: { name: 'approve_client_ownership_auth' } }],
@@ -366,6 +367,84 @@ describe('ClientsService', () => {
   // ---------------------------------------------------------------------------
   // update
   // ---------------------------------------------------------------------------
+  // El vínculo con la ficha de nómina habilita el pago "Descuento por nómina".
+  //
+  // Estas pruebas fijan la FORMA del payload, no solo el valor: `updateData` es
+  // `any`, así que mandar la llave foránea suelta (`employeeId`) compila sin
+  // problema y revienta en runtime con "Unknown argument `employeeId`" —el
+  // update de Prisma es la variante "checked" y exige la relación anidada.
+  describe('update — vínculo con empleado', () => {
+    const client = {
+      id: 'client-1',
+      departmentId: 'dep-1',
+      cityId: 'city-1',
+      personType: 'NATURAL',
+      nit: null,
+      cedula: '123',
+      email: null,
+    };
+
+    beforeEach(() => {
+      mockClientsRepository.findById.mockResolvedValue(client);
+      mockClientsRepository.update.mockResolvedValue(client);
+      mockClientsRepository.findEmployeeWithClient.mockResolvedValue({
+        id: 'emp-1',
+        status: 'ACTIVE',
+        clientProfile: null,
+      });
+    });
+
+    it('vincula al empleado con la relación anidada, no con la llave suelta', async () => {
+      await service.update('client-1', { employeeId: 'emp-1' });
+
+      const data = mockClientsRepository.update.mock.calls[0][1];
+      expect(data.employee).toEqual({ connect: { id: 'emp-1' } });
+      expect(data.employeeId).toBeUndefined();
+    });
+
+    it('desvincula con disconnect cuando llega null', async () => {
+      await service.update('client-1', { employeeId: null });
+
+      const data = mockClientsRepository.update.mock.calls[0][1];
+      expect(data.employee).toEqual({ disconnect: true });
+      expect(data.employeeId).toBeUndefined();
+    });
+
+    it('no toca el vínculo cuando el campo no viene', async () => {
+      await service.update('client-1', { name: 'Otro nombre' });
+
+      const data = mockClientsRepository.update.mock.calls[0][1];
+      expect(data.employee).toBeUndefined();
+      expect(data.employeeId).toBeUndefined();
+    });
+
+    // Un empleado en dos fichas de cliente terminaría con dos descuentos por el
+    // mismo trabajo sin que nadie lo note.
+    it('rechaza un empleado que ya está en otro cliente', async () => {
+      mockClientsRepository.findEmployeeWithClient.mockResolvedValue({
+        id: 'emp-1',
+        status: 'ACTIVE',
+        clientProfile: { id: 'otro-cliente', name: 'Juan Pérez' },
+      });
+
+      await expect(
+        service.update('client-1', { employeeId: 'emp-1' }),
+      ).rejects.toThrow(/ya está vinculado al cliente "Juan Pérez"/);
+    });
+
+    it('permite reasignar el mismo empleado al cliente que ya lo tiene', async () => {
+      mockClientsRepository.findEmployeeWithClient.mockResolvedValue({
+        id: 'emp-1',
+        status: 'ACTIVE',
+        clientProfile: { id: 'client-1', name: 'El mismo' },
+      });
+
+      await expect(
+        service.update('client-1', { employeeId: 'emp-1' }),
+      ).resolves.toBeDefined();
+    });
+  });
+
   describe('update', () => {
     it('should throw NotFoundException when client does not exist', async () => {
       mockClientsRepository.findById.mockResolvedValue(null);
