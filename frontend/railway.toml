@@ -5,11 +5,10 @@
 builder = "RAILPACK"
 
 [deploy]
-# Start command for preview server
-# Note: For production, you might want to use a static server like 'serve'
-# Install serve: npm install -g serve
-# Then use: serve -s dist -l 3000
-startCommand = "npx serve -s dist -l $PORT"
+# Servidor estático propio (frontend/server.js).
+# Reemplaza a `npx serve -s dist`, que devolvía index.html con status 200 para
+# los chunks inexistentes tras un despliegue y no enviaba Cache-Control.
+startCommand = "node server.js"
 
 # Restart policy
 restartPolicyType = "ON_FAILURE"

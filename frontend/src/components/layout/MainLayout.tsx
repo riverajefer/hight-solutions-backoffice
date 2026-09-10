@@ -6,6 +6,7 @@ import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { EnvironmentBanner } from './EnvironmentBanner';
 import { AttendanceReminderBanner } from './AttendanceReminderBanner';
+import { UpdateAvailableBanner } from './UpdateAvailableBanner';
 import { useHeartbeat } from '../../hooks/useHeartbeat';
 import { GlobalSearchModal } from '../GlobalSearch';
 import { useUIStore } from '../../store/uiStore';
@@ -92,6 +93,7 @@ export const MainLayout: FC<MainLayoutProps> = ({ children }) => {
         <EnvironmentBanner />
         <Topbar onMenuClick={handleMenuClick} />
         <AttendanceReminderBanner />
+        <UpdateAvailableBanner />
 
         <Box
           component="main"

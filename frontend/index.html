@@ -4,24 +4,70 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- Prevent Caching -->
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
-    
     <title>High Solutions CRM</title>
-    
-    <!-- Auto-reload on ChunkLoadError (New Deployment) -->
+
+    <!--
+      Recuperación ante un asset que ya no existe (despliegue nuevo).
+
+      Este script corre antes que el bundle, así que atiende el caso en el que
+      falla la carga del propio <script> de entrada y la app nunca llega a
+      arrancar. Los import() dinámicos los cubre `src/utils/chunkError.ts`.
+
+      IMPORTANTE: la clave de sessionStorage y el cooldown están duplicados a
+      propósito respecto a `src/utils/chunkError.ts` (aquí no se puede importar
+      el módulo). Si se cambian allí, hay que cambiarlos aquí también.
+
+      La guardia no es opcional: sin ella, un asset que falle de forma
+      persistente recarga la página en bucle infinito.
+    -->
     <script>
-      window.addEventListener('error', function(e) {
-        if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
-          const url = e.target.src || e.target.href;
-          if (url && (url.includes('.js') || url.includes('.css'))) {
-            console.warn('Resource failed to load, likely due to a new deployment. Reloading...');
-            window.location.reload();
+      (function () {
+        var RELOAD_FLAG_KEY = 'hs:chunk-reload-at';
+        var RELOAD_COOLDOWN_MS = 30000;
+
+        function canReload() {
+          try {
+            var lastReloadAt = parseInt(
+              sessionStorage.getItem(RELOAD_FLAG_KEY) || '',
+              10
+            );
+            if (!isFinite(lastReloadAt)) return true;
+            return Date.now() - lastReloadAt > RELOAD_COOLDOWN_MS;
+          } catch (e) {
+            // Sin sessionStorage no hay forma de evitar el bucle: no recargamos
+            // y dejamos que la pantalla de error ofrezca el botón manual.
+            return false;
           }
         }
-      }, true);
+
+        window.addEventListener(
+          'error',
+          function (e) {
+            var target = e.target;
+            if (!target) return;
+            if (target.tagName !== 'SCRIPT' && target.tagName !== 'LINK') return;
+
+            var url = target.src || target.href;
+            if (!url || (url.indexOf('.js') === -1 && url.indexOf('.css') === -1))
+              return;
+
+            if (!canReload()) {
+              console.warn('Asset no disponible y ya se recargó hace poco:', url);
+              return;
+            }
+
+            try {
+              sessionStorage.setItem(RELOAD_FLAG_KEY, String(Date.now()));
+            } catch (err) {
+              return;
+            }
+
+            console.warn('Asset no disponible, probablemente por un despliegue nuevo. Recargando:', url);
+            window.location.reload();
+          },
+          true
+        );
+      })();
     </script>
     <!-- Google Fonts - Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
