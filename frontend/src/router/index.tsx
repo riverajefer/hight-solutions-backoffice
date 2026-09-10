@@ -1,142 +1,143 @@
-import { lazy, Suspense, type FC } from 'react';
+import { Suspense, type FC } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
+import { lazyWithRetry } from '../utils/lazyWithRetry';
 import { AuthGuard, PermissionGuard } from '../components/guards';
 import { MainLayout, AuthLayout } from '../components/layout';
 import { PATHS } from './paths';
 import { PERMISSIONS } from '../utils/constants';
 
 // Lazy load componentes
-const LoginPage = lazy(() => import('../features/auth/pages/LoginPage'));
-const RegisterPage = lazy(() => import('../features/auth/pages/RegisterPage'));
-const DashboardPage = lazy(() => import('../features/dashboard/pages/DashboardPage'));
-const UsersListPage = lazy(() => import('../features/users/pages/UsersListPage'));
-const UserFormPage = lazy(() => import('../features/users/pages/UserFormPage'));
-const UserViewPage = lazy(() => import('../features/users/pages/UserViewPage'));
-const RolesListPage = lazy(() => import('../features/roles/pages/RolesListPage'));
-const RoleFormPage = lazy(() => import('../features/roles/pages/RoleFormPage'));
-const RolePermissionsPage = lazy(() => import('../features/roles/pages/RolePermissionsPage'));
-const PermissionsListPage = lazy(() => import('../features/permissions/pages/PermissionsListPage'));
-const PermissionFormPage = lazy(() => import('../features/permissions/pages/PermissionFormPage'));
-const AuditLogsListPage = lazy(() => import('../features/audit-logs/pages/AuditLogsListPage'));
-const ProductionAreasListPage = lazy(() => import('../features/production-areas/pages/ProductionAreasListPage'));
-const ProductionAreaFormPage = lazy(() => import('../features/production-areas/pages/ProductionAreaFormPage'));
-const ProductionAreaDetailPage = lazy(() => import('../features/production-areas/pages/ProductionAreaDetailPage'));
-const CargosListPage = lazy(() => import('../features/cargos/pages/CargosListPage'));
-const CargoFormPage = lazy(() => import('../features/cargos/pages/CargoFormPage'));
-const CargoDetailPage = lazy(() => import('../features/cargos/pages/CargoDetailPage'));
-const ClientsListPage = lazy(() => import('../features/clients/pages/ClientsListPage'));
-const ClientFormPage = lazy(() => import('../features/clients/pages/ClientFormPage'));
-const ClientDetailPage = lazy(() => import('../features/clients/pages/ClientDetailPage'));
-const SuppliersListPage = lazy(() => import('../features/suppliers/pages/SuppliersListPage'));
-const SupplierFormPage = lazy(() => import('../features/suppliers/pages/SupplierFormPage'));
-const SupplierDetailPage = lazy(() => import('../features/suppliers/pages/SupplierDetailPage'));
-const SessionLogsPage = lazy(() => import('../features/session-logs/pages/SessionLogsPage'));
-const AttendancePage = lazy(() => import('../features/attendance/pages/AttendancePage'));
-const MyAttendancePage = lazy(() => import('../features/attendance/pages/MyAttendancePage'));
-const ProfilePage = lazy(() => import('../features/settings/pages/ProfilePage'));
+const LoginPage = lazyWithRetry(() => import('../features/auth/pages/LoginPage'));
+const RegisterPage = lazyWithRetry(() => import('../features/auth/pages/RegisterPage'));
+const DashboardPage = lazyWithRetry(() => import('../features/dashboard/pages/DashboardPage'));
+const UsersListPage = lazyWithRetry(() => import('../features/users/pages/UsersListPage'));
+const UserFormPage = lazyWithRetry(() => import('../features/users/pages/UserFormPage'));
+const UserViewPage = lazyWithRetry(() => import('../features/users/pages/UserViewPage'));
+const RolesListPage = lazyWithRetry(() => import('../features/roles/pages/RolesListPage'));
+const RoleFormPage = lazyWithRetry(() => import('../features/roles/pages/RoleFormPage'));
+const RolePermissionsPage = lazyWithRetry(() => import('../features/roles/pages/RolePermissionsPage'));
+const PermissionsListPage = lazyWithRetry(() => import('../features/permissions/pages/PermissionsListPage'));
+const PermissionFormPage = lazyWithRetry(() => import('../features/permissions/pages/PermissionFormPage'));
+const AuditLogsListPage = lazyWithRetry(() => import('../features/audit-logs/pages/AuditLogsListPage'));
+const ProductionAreasListPage = lazyWithRetry(() => import('../features/production-areas/pages/ProductionAreasListPage'));
+const ProductionAreaFormPage = lazyWithRetry(() => import('../features/production-areas/pages/ProductionAreaFormPage'));
+const ProductionAreaDetailPage = lazyWithRetry(() => import('../features/production-areas/pages/ProductionAreaDetailPage'));
+const CargosListPage = lazyWithRetry(() => import('../features/cargos/pages/CargosListPage'));
+const CargoFormPage = lazyWithRetry(() => import('../features/cargos/pages/CargoFormPage'));
+const CargoDetailPage = lazyWithRetry(() => import('../features/cargos/pages/CargoDetailPage'));
+const ClientsListPage = lazyWithRetry(() => import('../features/clients/pages/ClientsListPage'));
+const ClientFormPage = lazyWithRetry(() => import('../features/clients/pages/ClientFormPage'));
+const ClientDetailPage = lazyWithRetry(() => import('../features/clients/pages/ClientDetailPage'));
+const SuppliersListPage = lazyWithRetry(() => import('../features/suppliers/pages/SuppliersListPage'));
+const SupplierFormPage = lazyWithRetry(() => import('../features/suppliers/pages/SupplierFormPage'));
+const SupplierDetailPage = lazyWithRetry(() => import('../features/suppliers/pages/SupplierDetailPage'));
+const SessionLogsPage = lazyWithRetry(() => import('../features/session-logs/pages/SessionLogsPage'));
+const AttendancePage = lazyWithRetry(() => import('../features/attendance/pages/AttendancePage'));
+const MyAttendancePage = lazyWithRetry(() => import('../features/attendance/pages/MyAttendancePage'));
+const ProfilePage = lazyWithRetry(() => import('../features/settings/pages/ProfilePage'));
 // Portfolio - Units of Measure
-const UnitsOfMeasureListPage = lazy(() => import('../features/portfolio/units-of-measure/pages/UnitsOfMeasureListPage'));
-const UnitOfMeasureFormPage = lazy(() => import('../features/portfolio/units-of-measure/pages/UnitOfMeasureFormPage'));
+const UnitsOfMeasureListPage = lazyWithRetry(() => import('../features/portfolio/units-of-measure/pages/UnitsOfMeasureListPage'));
+const UnitOfMeasureFormPage = lazyWithRetry(() => import('../features/portfolio/units-of-measure/pages/UnitOfMeasureFormPage'));
 // Portfolio - Product Categories
-const ProductCategoriesListPage = lazy(() => import('../features/portfolio/product-categories/pages/ProductCategoriesListPage'));
-const ProductCategoryFormPage = lazy(() => import('../features/portfolio/product-categories/pages/ProductCategoryFormPage'));
+const ProductCategoriesListPage = lazyWithRetry(() => import('../features/portfolio/product-categories/pages/ProductCategoriesListPage'));
+const ProductCategoryFormPage = lazyWithRetry(() => import('../features/portfolio/product-categories/pages/ProductCategoryFormPage'));
 // Portfolio - Products
-const ProductsListPage = lazy(() => import('../features/portfolio/products/pages/ProductsListPage'));
-const ProductFormPage = lazy(() => import('../features/portfolio/products/pages/ProductFormPage'));
+const ProductsListPage = lazyWithRetry(() => import('../features/portfolio/products/pages/ProductsListPage'));
+const ProductFormPage = lazyWithRetry(() => import('../features/portfolio/products/pages/ProductFormPage'));
 // Portfolio - Supply Categories
-const SupplyCategoriesListPage = lazy(() => import('../features/portfolio/supply-categories/pages/SupplyCategoriesListPage'));
-const SupplyCategoryFormPage = lazy(() => import('../features/portfolio/supply-categories/pages/SupplyCategoryFormPage'));
+const SupplyCategoriesListPage = lazyWithRetry(() => import('../features/portfolio/supply-categories/pages/SupplyCategoriesListPage'));
+const SupplyCategoryFormPage = lazyWithRetry(() => import('../features/portfolio/supply-categories/pages/SupplyCategoryFormPage'));
 // Portfolio - Supplies
-const SuppliesListPage = lazy(() => import('../features/portfolio/supplies/pages/SuppliesListPage'));
-const SupplyFormPage = lazy(() => import('../features/portfolio/supplies/pages/SupplyFormPage'));
+const SuppliesListPage = lazyWithRetry(() => import('../features/portfolio/supplies/pages/SuppliesListPage'));
+const SupplyFormPage = lazyWithRetry(() => import('../features/portfolio/supplies/pages/SupplyFormPage'));
 // Orders
-const OrdersListPage = lazy(() => import('../features/orders/pages/OrdersListPage'));
-const OrderFormPage = lazy(() => import('../features/orders/pages/OrderFormPage'));
-const OrderDetailPage = lazy(() => import('../features/orders/pages/OrderDetailPage'));
-const PendingPaymentOrdersPage = lazy(() => import('../features/orders/pages/PendingPaymentOrdersPage'));
-const StatusChangeRequestsPage = lazy(() => import('../features/orders/pages/StatusChangeRequestsPage'));
-const ProfitabilityPage = lazy(() => import('../features/orders/pages/ProfitabilityPage'));
+const OrdersListPage = lazyWithRetry(() => import('../features/orders/pages/OrdersListPage'));
+const OrderFormPage = lazyWithRetry(() => import('../features/orders/pages/OrderFormPage'));
+const OrderDetailPage = lazyWithRetry(() => import('../features/orders/pages/OrderDetailPage'));
+const PendingPaymentOrdersPage = lazyWithRetry(() => import('../features/orders/pages/PendingPaymentOrdersPage'));
+const StatusChangeRequestsPage = lazyWithRetry(() => import('../features/orders/pages/StatusChangeRequestsPage'));
+const ProfitabilityPage = lazyWithRetry(() => import('../features/orders/pages/ProfitabilityPage'));
 // Commercial Channels
-const CommercialChannelsListPage = lazy(() => import('../features/commercial-channels/pages/CommercialChannelsListPage'));
-const CommercialChannelFormPage = lazy(() => import('../features/commercial-channels/pages/CommercialChannelFormPage'));
-const CommercialChannelDetailPage = lazy(() => import('../features/commercial-channels/pages/CommercialChannelDetailPage'));
+const CommercialChannelsListPage = lazyWithRetry(() => import('../features/commercial-channels/pages/CommercialChannelsListPage'));
+const CommercialChannelFormPage = lazyWithRetry(() => import('../features/commercial-channels/pages/CommercialChannelFormPage'));
+const CommercialChannelDetailPage = lazyWithRetry(() => import('../features/commercial-channels/pages/CommercialChannelDetailPage'));
 // Quotes
-const ProspectsListPage = lazy(() =>
+const ProspectsListPage = lazyWithRetry(() =>
   import('../features/prospects/pages/ProspectsListPage').then((m) => ({
     default: m.ProspectsListPage,
   })),
 );
-const ProspectMetricsPage = lazy(() =>
+const ProspectMetricsPage = lazyWithRetry(() =>
   import('../features/prospects/pages/ProspectMetricsPage').then((m) => ({
     default: m.ProspectMetricsPage,
   })),
 );
-const QuotesListPage = lazy(() => import('../features/quotes/pages/QuotesListPage'));
-const QuoteFormPage = lazy(() => import('../features/quotes/pages/QuoteFormPage'));
-const QuoteDetailPage = lazy(() => import('../features/quotes/pages/QuoteDetailPage'));
-const NotificationsPage = lazy(() => import('../features/notifications/pages/NotificationsPage'));
-const CompanyPage = lazy(() => import('../features/company/pages/CompanyPage'));
+const QuotesListPage = lazyWithRetry(() => import('../features/quotes/pages/QuotesListPage'));
+const QuoteFormPage = lazyWithRetry(() => import('../features/quotes/pages/QuoteFormPage'));
+const QuoteDetailPage = lazyWithRetry(() => import('../features/quotes/pages/QuoteDetailPage'));
+const NotificationsPage = lazyWithRetry(() => import('../features/notifications/pages/NotificationsPage'));
+const CompanyPage = lazyWithRetry(() => import('../features/company/pages/CompanyPage'));
 // Work Orders
-const WorkOrdersListPage = lazy(() => import('../features/work-orders/pages/WorkOrdersListPage'));
-const WorkOrderFormPage = lazy(() => import('../features/work-orders/pages/WorkOrderFormPage'));
-const WorkOrderDetailPage = lazy(() => import('../features/work-orders/pages/WorkOrderDetailPage'));
+const WorkOrdersListPage = lazyWithRetry(() => import('../features/work-orders/pages/WorkOrdersListPage'));
+const WorkOrderFormPage = lazyWithRetry(() => import('../features/work-orders/pages/WorkOrderFormPage'));
+const WorkOrderDetailPage = lazyWithRetry(() => import('../features/work-orders/pages/WorkOrderDetailPage'));
 // Expense Types & Subcategories
-const ExpenseTypesListPage = lazy(() => import('../features/expense-types/pages/ExpenseTypesListPage'));
-const ExpenseTypeFormPage = lazy(() => import('../features/expense-types/pages/ExpenseTypeFormPage'));
-const ExpenseSubcategoriesListPage = lazy(() => import('../features/expense-types/pages/ExpenseSubcategoriesListPage'));
-const ExpenseSubcategoryFormPage = lazy(() => import('../features/expense-types/pages/ExpenseSubcategoryFormPage'));
+const ExpenseTypesListPage = lazyWithRetry(() => import('../features/expense-types/pages/ExpenseTypesListPage'));
+const ExpenseTypeFormPage = lazyWithRetry(() => import('../features/expense-types/pages/ExpenseTypeFormPage'));
+const ExpenseSubcategoriesListPage = lazyWithRetry(() => import('../features/expense-types/pages/ExpenseSubcategoriesListPage'));
+const ExpenseSubcategoryFormPage = lazyWithRetry(() => import('../features/expense-types/pages/ExpenseSubcategoryFormPage'));
 // Expense Orders
-const ExpenseOrdersListPage = lazy(() => import('../features/expense-orders/pages/ExpenseOrdersListPage'));
-const ExpenseOrderFormPage = lazy(() => import('../features/expense-orders/pages/ExpenseOrderFormPage'));
-const ExpenseOrderDetailPage = lazy(() => import('../features/expense-orders/pages/ExpenseOrderDetailPage'));
+const ExpenseOrdersListPage = lazyWithRetry(() => import('../features/expense-orders/pages/ExpenseOrdersListPage'));
+const ExpenseOrderFormPage = lazyWithRetry(() => import('../features/expense-orders/pages/ExpenseOrderFormPage'));
+const ExpenseOrderDetailPage = lazyWithRetry(() => import('../features/expense-orders/pages/ExpenseOrderDetailPage'));
 // Order Timeline
-const OrderFlowPage = lazy(() => import('../features/order-timeline/pages/OrderFlowPage'));
+const OrderFlowPage = lazyWithRetry(() => import('../features/order-timeline/pages/OrderFlowPage'));
 // Payroll
-const PayrollEmployeesListPage = lazy(() => import('../features/payroll/pages/PayrollEmployeesListPage'));
-const PayrollEmployeeFormPage = lazy(() => import('../features/payroll/pages/PayrollEmployeeFormPage'));
-const PayrollPeriodsListPage = lazy(() => import('../features/payroll/pages/PayrollPeriodsListPage'));
-const PayrollDeductionsPage = lazy(() => import('../features/payroll/pages/PayrollDeductionsPage'));
-const PayrollPeriodFormPage = lazy(() => import('../features/payroll/pages/PayrollPeriodFormPage'));
-const PayrollPeriodDetailPage = lazy(() => import('../features/payroll/pages/PayrollPeriodDetailPage'));
-const PayrollItemFormPage = lazy(() => import('../features/payroll/pages/PayrollItemFormPage'));
-const EmployeePayrollHistoryPage = lazy(() => import('../features/payroll/pages/EmployeePayrollHistoryPage'));
-const ChangePasswordPage = lazy(() => import('../features/auth/pages/ChangePasswordPage'));
+const PayrollEmployeesListPage = lazyWithRetry(() => import('../features/payroll/pages/PayrollEmployeesListPage'));
+const PayrollEmployeeFormPage = lazyWithRetry(() => import('../features/payroll/pages/PayrollEmployeeFormPage'));
+const PayrollPeriodsListPage = lazyWithRetry(() => import('../features/payroll/pages/PayrollPeriodsListPage'));
+const PayrollDeductionsPage = lazyWithRetry(() => import('../features/payroll/pages/PayrollDeductionsPage'));
+const PayrollPeriodFormPage = lazyWithRetry(() => import('../features/payroll/pages/PayrollPeriodFormPage'));
+const PayrollPeriodDetailPage = lazyWithRetry(() => import('../features/payroll/pages/PayrollPeriodDetailPage'));
+const PayrollItemFormPage = lazyWithRetry(() => import('../features/payroll/pages/PayrollItemFormPage'));
+const EmployeePayrollHistoryPage = lazyWithRetry(() => import('../features/payroll/pages/EmployeePayrollHistoryPage'));
+const ChangePasswordPage = lazyWithRetry(() => import('../features/auth/pages/ChangePasswordPage'));
 // Inventory - Movimientos de Inventario
-const InventoryMovementsListPage = lazy(() => import('../features/inventory/pages/InventoryMovementsListPage'));
-const InventoryMovementFormPage = lazy(() => import('../features/inventory/pages/InventoryMovementFormPage'));
-const LowStockAlertsPage = lazy(() => import('../features/inventory/pages/LowStockAlertsPage'));
+const InventoryMovementsListPage = lazyWithRetry(() => import('../features/inventory/pages/InventoryMovementsListPage'));
+const InventoryMovementFormPage = lazyWithRetry(() => import('../features/inventory/pages/InventoryMovementFormPage'));
+const LowStockAlertsPage = lazyWithRetry(() => import('../features/inventory/pages/LowStockAlertsPage'));
 // Production Module
-const ProductTemplatesListPage = lazy(() => import('../features/production/pages/ProductTemplatesListPage'));
-const ProductTemplateDetailPage = lazy(() => import('../features/production/pages/ProductTemplateDetailPage'));
-const ProductTemplateFormPage = lazy(() => import('../features/production/pages/ProductTemplateFormPage'));
-const ProductionOrdersListPage = lazy(() => import('../features/production/pages/ProductionOrdersListPage'));
-const ProductionOrderDetailPage = lazy(() => import('../features/production/pages/ProductionOrderDetailPage'));
-const ProductionOrderFormPage = lazy(() => import('../features/production/pages/ProductionOrderFormPage'));
-const StepDefinitionsListPage = lazy(() => import('../features/production/pages/StepDefinitionsListPage'));
-const FormBuilderPage = lazy(() => import('../features/production/pages/FormBuilderPage'));
+const ProductTemplatesListPage = lazyWithRetry(() => import('../features/production/pages/ProductTemplatesListPage'));
+const ProductTemplateDetailPage = lazyWithRetry(() => import('../features/production/pages/ProductTemplateDetailPage'));
+const ProductTemplateFormPage = lazyWithRetry(() => import('../features/production/pages/ProductTemplateFormPage'));
+const ProductionOrdersListPage = lazyWithRetry(() => import('../features/production/pages/ProductionOrdersListPage'));
+const ProductionOrderDetailPage = lazyWithRetry(() => import('../features/production/pages/ProductionOrderDetailPage'));
+const ProductionOrderFormPage = lazyWithRetry(() => import('../features/production/pages/ProductionOrderFormPage'));
+const StepDefinitionsListPage = lazyWithRetry(() => import('../features/production/pages/StepDefinitionsListPage'));
+const FormBuilderPage = lazyWithRetry(() => import('../features/production/pages/FormBuilderPage'));
 // Cash Register (POS)
-const CashRegistersListPage = lazy(() => import('../features/cash-register/pages/CashRegistersListPage'));
-const OpenSessionPage = lazy(() => import('../features/cash-register/pages/OpenSessionPage'));
-const ActiveSessionRedirectPage = lazy(() => import('../features/cash-register/pages/ActiveSessionRedirectPage'));
-const ActiveSessionPage = lazy(() => import('../features/cash-register/pages/ActiveSessionPage'));
-const CloseSessionPage = lazy(() => import('../features/cash-register/pages/CloseSessionPage'));
-const SessionHistoryPage = lazy(() => import('../features/cash-register/pages/SessionHistoryPage'));
-const SessionDetailPage = lazy(() => import('../features/cash-register/pages/SessionDetailPage'));
+const CashRegistersListPage = lazyWithRetry(() => import('../features/cash-register/pages/CashRegistersListPage'));
+const OpenSessionPage = lazyWithRetry(() => import('../features/cash-register/pages/OpenSessionPage'));
+const ActiveSessionRedirectPage = lazyWithRetry(() => import('../features/cash-register/pages/ActiveSessionRedirectPage'));
+const ActiveSessionPage = lazyWithRetry(() => import('../features/cash-register/pages/ActiveSessionPage'));
+const CloseSessionPage = lazyWithRetry(() => import('../features/cash-register/pages/CloseSessionPage'));
+const SessionHistoryPage = lazyWithRetry(() => import('../features/cash-register/pages/SessionHistoryPage'));
+const SessionDetailPage = lazyWithRetry(() => import('../features/cash-register/pages/SessionDetailPage'));
 
-const AccountsPayableListPage = lazy(() => import('../features/accounts-payable/pages/AccountsPayableListPage'));
-const AccountsPayableDetailPage = lazy(() => import('../features/accounts-payable/pages/AccountsPayableDetailPage'));
-const AccountsPayableFormPage = lazy(() => import('../features/accounts-payable/pages/AccountsPayableFormPage'));
+const AccountsPayableListPage = lazyWithRetry(() => import('../features/accounts-payable/pages/AccountsPayableListPage'));
+const AccountsPayableDetailPage = lazyWithRetry(() => import('../features/accounts-payable/pages/AccountsPayableDetailPage'));
+const AccountsPayableFormPage = lazyWithRetry(() => import('../features/accounts-payable/pages/AccountsPayableFormPage'));
 
-const DtfListPage = lazy(() => import('../features/dtf/pages/DtfListPage'));
-const DtfFormPage = lazy(() => import('../features/dtf/pages/DtfFormPage'));
-const DtfDetailPage = lazy(() => import('../features/dtf/pages/DtfDetailPage'));
-const DtfEditPage = lazy(() => import('../features/dtf/pages/DtfEditPage'));
+const DtfListPage = lazyWithRetry(() => import('../features/dtf/pages/DtfListPage'));
+const DtfFormPage = lazyWithRetry(() => import('../features/dtf/pages/DtfFormPage'));
+const DtfDetailPage = lazyWithRetry(() => import('../features/dtf/pages/DtfDetailPage'));
+const DtfEditPage = lazyWithRetry(() => import('../features/dtf/pages/DtfEditPage'));
 // Approval Redirect
-const ApprovalRedirectPage = lazy(() => import('../features/approvals/pages/ApprovalRedirectPage'));
+const ApprovalRedirectPage = lazyWithRetry(() => import('../features/approvals/pages/ApprovalRedirectPage'));
 // Ventas por Asesor
-const SalesByAdvisorPage = lazy(() => import('../features/orders/pages/SalesByAdvisorPage'));
-const AdvisorDetailPage = lazy(() => import('../features/orders/pages/AdvisorDetailPage'));
+const SalesByAdvisorPage = lazyWithRetry(() => import('../features/orders/pages/SalesByAdvisorPage'));
+const AdvisorDetailPage = lazyWithRetry(() => import('../features/orders/pages/AdvisorDetailPage'));
 
 const RoutesConfig: FC = () => {
   return (
