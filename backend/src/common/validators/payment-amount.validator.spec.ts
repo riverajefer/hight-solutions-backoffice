@@ -40,6 +40,30 @@ describe('IsValidPaymentAmount', () => {
     });
   });
 
+  // El descuento por nómina sigue la misma regla que el crédito y por el mismo
+  // motivo: cuando el asesor crea la OP el descuento todavía no ha ocurrido
+  // —falta que nómina lo apruebe y lo aplique sobre un periodo—, así que darlo
+  // por cobrado deja la orden pagada sin que la empresa haya recuperado nada.
+  describe('método PAYROLL_DEDUCTION', () => {
+    it('acepta monto 0', () => {
+      expect(build(0, PaymentMethod.PAYROLL_DEDUCTION)).toHaveLength(0);
+    });
+
+    it('rechaza cualquier monto mayor a cero', () => {
+      const errors = build(160000, PaymentMethod.PAYROLL_DEDUCTION);
+      expect(errors).toHaveLength(1);
+      expect(Object.values(errors[0].constraints ?? {})[0]).toContain(
+        'el monto debe ser 0',
+      );
+    });
+
+    it('rechaza montos negativos y valores que no son número', () => {
+      expect(build(-1, PaymentMethod.PAYROLL_DEDUCTION)).toHaveLength(1);
+      expect(build('la quincena', PaymentMethod.PAYROLL_DEDUCTION)).toHaveLength(1);
+      expect(build(undefined, PaymentMethod.PAYROLL_DEDUCTION)).toHaveLength(1);
+    });
+  });
+
   describe('métodos que mueven dinero', () => {
     it.each([
       PaymentMethod.CASH,

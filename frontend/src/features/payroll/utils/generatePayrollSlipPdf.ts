@@ -241,6 +241,9 @@ export function buildDeductions(item: PayrollItem): Concept[] {
       amount: num(item.nonPaidDays),
     },
     { label: 'Descuento día laboral', amount: num(item.workdayDiscount) },
+    // Trabajos que el empleado mandó a hacer en la empresa y pidió que se le
+    // descontaran. Tiene que salir en la colilla: es plata que él ve de menos.
+    { label: 'Órdenes descontadas', amount: num(item.orderDeductions) },
   ];
 
   return rows.filter((r) => r.amount !== 0);

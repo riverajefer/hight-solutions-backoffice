@@ -96,6 +96,7 @@ const OrderFlowPage = lazy(() => import('../features/order-timeline/pages/OrderF
 const PayrollEmployeesListPage = lazy(() => import('../features/payroll/pages/PayrollEmployeesListPage'));
 const PayrollEmployeeFormPage = lazy(() => import('../features/payroll/pages/PayrollEmployeeFormPage'));
 const PayrollPeriodsListPage = lazy(() => import('../features/payroll/pages/PayrollPeriodsListPage'));
+const PayrollDeductionsPage = lazy(() => import('../features/payroll/pages/PayrollDeductionsPage'));
 const PayrollPeriodFormPage = lazy(() => import('../features/payroll/pages/PayrollPeriodFormPage'));
 const PayrollPeriodDetailPage = lazy(() => import('../features/payroll/pages/PayrollPeriodDetailPage'));
 const PayrollItemFormPage = lazy(() => import('../features/payroll/pages/PayrollItemFormPage'));
@@ -1294,6 +1295,18 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.READ_PAYROLL_PERIODS}>
                   <PayrollPeriodsListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.PAYROLL_DEDUCTIONS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_PAYROLL_DEDUCTIONS}>
+                  <PayrollDeductionsPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

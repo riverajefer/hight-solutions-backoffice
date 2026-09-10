@@ -29,7 +29,7 @@ pagos_huerfanos AS (
          count(*) FILTER (WHERE p.created_at >= now() - interval '30 days') AS n30
   FROM payments p
   WHERE NOT p.is_voided
-    AND p.payment_method NOT IN ('CREDIT_BALANCE', 'CREDIT')
+    AND p.payment_method NOT IN ('CREDIT_BALANCE', 'CREDIT', 'PAYROLL_DEDUCTION')
     AND p.cash_movement_id IS NULL
     AND NOT COALESCE(p.pending_cash_entry, false)
 ),
@@ -162,6 +162,44 @@ montos_con_mas_de_dos_decimales AS (
   + (SELECT count(*) FROM accounts_payable WHERE paid_amount <> round(paid_amount, 2) OR balance <> round(balance, 2))
   + (SELECT count(*) FROM payments WHERE amount <> round(amount, 2))
   AS n, NULL::bigint AS n30
+),
+
+-- ── Descuento de órdenes por nómina ─────────────────────────────────────────
+
+-- Un descuento aplicado SIEMPRE generó el abono que salda la orden. Sin abono,
+-- al empleado ya se le restó el valor de su quincena pero la OP sigue debiendo:
+-- se le cobra dos veces.
+descuentos_aplicados_sin_abono AS (
+  SELECT count(*) AS n,
+         count(*) FILTER (WHERE created_at >= now() - interval '30 days') AS n30
+  FROM payroll_deductions
+  WHERE status = 'APPLIED' AND payment_id IS NULL
+),
+
+-- El descuento por nómina no mueve caja: la empresa recupera el trabajo
+-- pagándole menos al empleado, no cobrándole. Un movimiento de caja atado a uno
+-- de estos pagos es dinero inventado en el arqueo.
+descuentos_con_movimiento_de_caja AS (
+  SELECT count(*) AS n,
+         count(*) FILTER (WHERE created_at >= now() - interval '30 days') AS n30
+  FROM payments
+  WHERE payment_method = 'PAYROLL_DEDUCTION' AND cash_movement_id IS NOT NULL
+),
+
+-- Lo descontado en la nómina del empleado tiene que ser exactamente la suma de
+-- sus descuentos aplicados en ese periodo. Si no cuadra, alguien editó el
+-- renglón a mano y la colilla ya no corresponde con las órdenes que la
+-- originaron.
+nomina_descuentos_descuadrados AS (
+  SELECT count(*) AS n, NULL::bigint AS n30
+  FROM (
+    SELECT i.id
+    FROM payroll_items i
+    LEFT JOIN payroll_deductions d
+      ON d."payroll_item_id" = i.id AND d.status = 'APPLIED'
+    GROUP BY i.id, i."orderDeductions"
+    HAVING COALESCE(i."orderDeductions", 0) <> COALESCE(sum(d.amount), 0)
+  ) t
 )
 
 -- ── Resultado ───────────────────────────────────────────────────────────────
@@ -174,6 +212,9 @@ SELECT * FROM (
   UNION ALL SELECT 'CRITICA', 'Pagos de CP revertidos con movimiento de caja vivo', n, n30 FROM cp_pagos_revertidos_con_caja_viva
   UNION ALL SELECT 'CRITICA', 'Consecutivos por detrás del último documento emitido', n, n30 FROM consecutivos_atrasados
   UNION ALL SELECT 'CRITICA', 'Cajas con más de una sesión abierta', n, n30 FROM cajas_con_dos_sesiones_abiertas
+  UNION ALL SELECT 'CRITICA', 'Descuentos de nómina aplicados sin el abono que salda la OP', n, n30 FROM descuentos_aplicados_sin_abono
+  UNION ALL SELECT 'CRITICA', 'Descuentos por nómina con movimiento de caja', n, n30 FROM descuentos_con_movimiento_de_caja
+  UNION ALL SELECT 'ALTA', 'Nóminas cuyo descuento no cuadra con sus órdenes', n, COALESCE(n30, n) FROM nomina_descuentos_descuadrados
   UNION ALL SELECT 'ALTA', 'Solicitudes pendientes duplicadas', n, COALESCE(n30, n) FROM solicitudes_pendientes_duplicadas
   UNION ALL SELECT 'ALTA', 'Montos guardados con más de dos decimales', n, COALESCE(n30, n) FROM montos_con_mas_de_dos_decimales
   UNION ALL SELECT 'AVISO', 'Cuentas por pagar atrapadas por centavos', n, n30 FROM cp_atrapadas_por_centavos

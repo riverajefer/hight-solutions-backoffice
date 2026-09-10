@@ -30,6 +30,9 @@ export interface PayrollItem {
   nonPaidDays: string | null;
   epsAndPensionDiscount: string | null;
   employeeFundSavings: string | null;
+  /** Suma de las OP del empleado descontadas en este periodo. La mantiene el
+   *  módulo de descuentos por nómina; no se digita a mano. */
+  orderDeductions: string | null;
   totalPayment: string;
   observations: string | null;
   extraShifts?: PayrollExtraShift[];
@@ -92,6 +95,7 @@ export interface CreatePayrollItemDto {
   nonPaidDays?: number;
   epsAndPensionDiscount?: number;
   employeeFundSavings?: number;
+  orderDeductions?: number;
   totalPayment: number;
   observations?: string;
   extraShifts?: PayrollExtraShiftInput[];
@@ -113,6 +117,7 @@ export interface UpdatePayrollItemDto {
   nonPaidDays?: number;
   epsAndPensionDiscount?: number;
   employeeFundSavings?: number;
+  orderDeductions?: number;
   totalPayment?: number;
   observations?: string;
   extraShifts?: PayrollExtraShiftInput[];

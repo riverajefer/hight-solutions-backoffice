@@ -53,6 +53,7 @@ import { exportMovementsPdf, exportMovementsExcel } from '../utils/exportMovemen
 import { exportSessionPdf, exportSessionExcel } from '../utils/exportSession';
 import { generateMovementReceipt } from '../utils/generateMovementReceipt';
 import type { CashMovementType } from '../../../types/cash-register.types';
+import { PAYMENT_METHOD_LABELS } from '../../../utils/paymentMethods';
 
 const MOVEMENT_TYPE_LABELS: Record<CashMovementType, string> = {
   INCOME: 'Ingreso',
@@ -75,13 +76,6 @@ const MOVEMENT_TYPE_COLORS: Record<CashMovementType, 'success' | 'error' | 'warn
   DEPOSIT: 'info',
 };
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  CASH: 'Efectivo',
-  TRANSFER: 'Transferencia',
-  CARD: 'Tarjeta',
-  CHECK: 'Cheque',
-  OTHER: 'Otro',
-};
 
 const PAYMENT_METHOD_INFO: Record<string, { icon: React.ReactNode, color: string, bgcolor: string }> = {
   CASH: { icon: <LocalAtmIcon fontSize="inherit" />, color: '#2e7d32', bgcolor: 'rgba(46, 125, 50, 0.08)' },

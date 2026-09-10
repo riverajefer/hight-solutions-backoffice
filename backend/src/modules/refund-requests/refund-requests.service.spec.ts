@@ -103,6 +103,68 @@ describe('RefundRequestsService', () => {
       );
     });
 
+    // El descuento por nómina no entra por caja: se le resta al empleado de su
+    // quincena. Pagar la devolución en efectivo sacaría del cajón una plata que
+    // nunca llegó; lo que corresponde es reversar el descuento.
+    it('rechaza devolver en efectivo una OP pagada con descuento por nómina', async () => {
+      prisma.order.findUnique.mockResolvedValue({
+        id: orderId,
+        orderNumber: 'OP-001',
+        status: 'DELIVERED',
+        total: 250000,
+        paidAmount: 250000,
+        refundedAmount: 0,
+        reversedAmount: 0,
+        balance: 0,
+        payrollDeduction: { id: 'ded-1', status: 'APPLIED' },
+      });
+
+      await expect(service.create(userId, baseDto)).rejects.toThrow(
+        /Cancela el descuento desde Descuentos por Nómina/,
+      );
+    });
+
+    it('rechaza la devolución si el descuento aún no se ha aplicado', async () => {
+      prisma.order.findUnique.mockResolvedValue({
+        id: orderId,
+        orderNumber: 'OP-001',
+        status: 'CONFIRMED',
+        total: 250000,
+        paidAmount: 0,
+        refundedAmount: 0,
+        reversedAmount: 0,
+        balance: 250000,
+        payrollDeduction: { id: 'ded-1', status: 'PENDING' },
+      });
+
+      await expect(service.create(userId, baseDto)).rejects.toThrow(
+        /todavía no se ha cobrado nada/,
+      );
+    });
+
+    // Un descuento rechazado significa que la OP se cobró por otro medio, así
+    // que la devolución vuelve a ser un asunto de caja como cualquier otra.
+    it('permite la devolución si el descuento fue rechazado', async () => {
+      prisma.order.findUnique.mockResolvedValue({
+        id: orderId,
+        orderNumber: 'OP-001',
+        status: 'DELIVERED',
+        total: 250000,
+        paidAmount: 250000,
+        refundedAmount: 0,
+        reversedAmount: 0,
+        balance: 0,
+        payrollDeduction: { id: 'ded-1', status: 'REJECTED' },
+      });
+      prisma.refundRequest.findFirst.mockResolvedValue(null);
+
+      // Sigue de largo hasta las validaciones normales de saldo: lo que importa
+      // es que el descuento rechazado NO la frene.
+      await expect(service.create(userId, baseDto)).rejects.toThrow(
+        /no tiene saldo a favor/,
+      );
+    });
+
     it('throws ConflictException if there is an existing PENDING request', async () => {
       prisma.order.findUnique.mockResolvedValue({
         id: orderId,

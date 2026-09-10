@@ -31,6 +31,17 @@ export interface Client {
   nit?: string;
   cedula?: string;
   specialCondition?: string | null;
+  /**
+   * Ficha de nómina cuando el cliente es a la vez empleado de la empresa.
+   * Su presencia es lo que habilita el método de pago "Descuento por nómina".
+   */
+  employeeId?: string | null;
+  employee?: {
+    id: string;
+    status: string;
+    firstName?: string | null;
+    firstLastName?: string | null;
+  } | null;
   isActive: boolean;
   /** Asesores dueños del cliente (co-propiedad). */
   advisors?: ClientAdvisor[];
@@ -62,6 +73,8 @@ export interface CreateClientDto {
   nit?: string;
   cedula?: string;
   specialCondition?: string;
+  /** Ficha de nómina, si el cliente es empleado. */
+  employeeId?: string | null;
   /** IDs de asesores dueños (solo aplicable para administradores). */
   advisorIds?: string[];
 }

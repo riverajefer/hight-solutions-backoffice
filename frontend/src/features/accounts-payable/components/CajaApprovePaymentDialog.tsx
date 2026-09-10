@@ -17,13 +17,8 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import type { AccountPayablePaymentAuthRequest } from '../../../types/accounts-payable.types';
 import { formatCurrency, formatDate } from '../../../utils/formatters';
+import { PAYMENT_METHOD_LABELS } from '../../../utils/paymentMethods';
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  CASH: 'Efectivo',
-  TRANSFER: 'Transferencia',
-  CARD: 'Tarjeta',
-  CREDIT: 'Crédito',
-};
 
 interface Props {
   open: boolean;

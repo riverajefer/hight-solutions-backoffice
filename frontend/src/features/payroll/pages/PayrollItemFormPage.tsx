@@ -48,7 +48,7 @@ type FieldName =
   | 'overtimeDaytimeValue' | 'overtimeNighttimeValue'
   | 'commissions' | 'restDayValue' | 'transportAllowance'
   | 'workdayDiscount' | 'loans' | 'advances' | 'nonPaidDays'
-  | 'epsAndPensionDiscount' | 'employeeFundSavings'
+  | 'epsAndPensionDiscount' | 'employeeFundSavings' | 'orderDeductions'
   | 'totalPayment' | 'observations';
 
 type FormValues = Record<FieldName, string>;
@@ -86,7 +86,8 @@ const calcTotal = (v: Partial<FormValues>, extraShiftsTotal = 0): number =>
   rawNum(v.advances) -
   rawNum(v.nonPaidDays) -
   rawNum(v.epsAndPensionDiscount) -
-  rawNum(v.employeeFundSavings);
+  rawNum(v.employeeFundSavings) -
+  rawNum(v.orderDeductions);
 
 // Sum of extra-shift amounts (raw digits)
 const sumShifts = (rows: ExtraShiftRow[]): number =>
@@ -228,7 +229,7 @@ const PayrollItemFormPage: React.FC = () => {
     overtimeDaytimeValue: '', overtimeNighttimeValue: '',
     commissions: '', restDayValue: '', transportAllowance: '',
     workdayDiscount: '', loans: '', advances: '', nonPaidDays: '',
-    epsAndPensionDiscount: '', employeeFundSavings: '',
+    epsAndPensionDiscount: '', employeeFundSavings: '', orderDeductions: '',
     totalPayment: '', observations: '',
   };
 
@@ -292,7 +293,8 @@ const PayrollItemFormPage: React.FC = () => {
     values.baseSalary, values.overtimeDaytimeValue, values.overtimeNighttimeValue,
     values.commissions, values.restDayValue, values.transportAllowance,
     values.workdayDiscount, values.loans, values.advances, values.nonPaidDays,
-    values.epsAndPensionDiscount, values.employeeFundSavings, extraShiftsTotal,
+    values.epsAndPensionDiscount, values.employeeFundSavings, values.orderDeductions,
+    extraShiftsTotal,
   ]);
 
   // Load existing item
@@ -318,6 +320,7 @@ const PayrollItemFormPage: React.FC = () => {
         nonPaidDays: toRaw(item.nonPaidDays),
         epsAndPensionDiscount: toRaw(item.epsAndPensionDiscount),
         employeeFundSavings: toRaw(item.employeeFundSavings),
+        orderDeductions: toRaw(item.orderDeductions),
         totalPayment: toRaw(item.totalPayment),
         observations: item.observations ?? '',
       });
@@ -355,6 +358,9 @@ const PayrollItemFormPage: React.FC = () => {
       nonPaidDays: num('nonPaidDays'),
       epsAndPensionDiscount: num('epsAndPensionDiscount'),
       employeeFundSavings: num('employeeFundSavings'),
+      // `orderDeductions` NO se manda: es de solo lectura y lo mantiene el
+      // módulo de descuentos. El backend lo rechazaría (`forbidNonWhitelisted`),
+      // y su valor ya está incluido en el `totalPayment` que sí se envía.
       totalPayment: num('totalPayment'),
       observations: vals.observations || undefined,
       extraShifts: shifts
@@ -609,6 +615,17 @@ const PayrollItemFormPage: React.FC = () => {
                 control={control}
                 name="employeeFundSavings"
                 label="Ahorro fondo de empleados"
+              />
+            </Grid>
+            {/* Solo lectura: lo mantiene el módulo de descuentos por nómina, no
+                se digita acá. Editarlo a mano dejaría el renglón peleado con la
+                orden que lo originó y con el abono que la saldó. */}
+            <Grid item xs={6} md={3}>
+              <CurrencyField
+                control={control}
+                name="orderDeductions"
+                label="Órdenes descontadas"
+                readOnly
               />
             </Grid>
           </Grid>

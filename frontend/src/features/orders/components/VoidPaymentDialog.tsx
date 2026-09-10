@@ -20,6 +20,7 @@ import { z } from 'zod';
 import type { Payment } from '../../../types/order.types';
 import { formatCurrency, formatDateTime } from '../../../utils/formatters';
 import { useSingleFlight } from '../../../hooks/useSingleFlight';
+import { PAYMENT_METHOD_LABELS } from '../../../utils/paymentMethods';
 
 const schema = z.object({
   // El backend exige lo mismo: el motivo es lo único que le explica a quien lea
@@ -32,13 +33,6 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  CASH: 'Efectivo',
-  TRANSFER: 'Transferencia',
-  CARD: 'Tarjeta',
-  CREDIT: 'Crédito',
-  CREDIT_BALANCE: 'Saldo a favor',
-};
 
 interface Props {
   open: boolean;

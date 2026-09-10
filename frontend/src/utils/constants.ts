@@ -145,6 +145,10 @@ export const PERMISSIONS = {
   READ_PAYROLL_PERIODS: 'read_payroll_periods',
   UPDATE_PAYROLL_PERIODS: 'update_payroll_periods',
   DELETE_PAYROLL_PERIODS: 'delete_payroll_periods',
+  // Descuentos de OP por nómina
+  READ_PAYROLL_DEDUCTIONS: 'read_payroll_deductions',
+  APPROVE_PAYROLL_DEDUCTIONS: 'approve_payroll_deductions',
+  APPLY_PAYROLL_DEDUCTIONS: 'apply_payroll_deductions',
   // Attendance - Control de Asistencia
   USE_ATTENDANCE: 'use_attendance',
   READ_ATTENDANCE: 'read_attendance',
@@ -307,6 +311,7 @@ export const ROUTES = {
   PAYROLL_EMPLOYEES_CREATE: '/payroll/employees/create',
   PAYROLL_EMPLOYEES_EDIT: '/payroll/employees/:id/edit',
   PAYROLL_EMPLOYEES_HISTORY: '/payroll/employees/:id/history',
+  PAYROLL_DEDUCTIONS: '/payroll/deductions',
   PAYROLL_PERIODS: '/payroll/periods',
   PAYROLL_PERIODS_CREATE: '/payroll/periods/create',
   PAYROLL_PERIODS_EDIT: '/payroll/periods/:id/edit',

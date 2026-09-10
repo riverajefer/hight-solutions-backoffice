@@ -50,6 +50,7 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import GroupsIcon from '@mui/icons-material/Groups';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
@@ -411,10 +412,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           path: ROUTES.PAYROLL_PERIODS,
           permission: PERMISSIONS.READ_PAYROLL_PERIODS,
         },
+        {
+          label: 'Descuentos por Nómina',
+          icon: <ReceiptLongIcon />,
+          path: ROUTES.PAYROLL_DEDUCTIONS,
+          permission: PERMISSIONS.READ_PAYROLL_DEDUCTIONS,
+        },
       ],
       permissions: [
         PERMISSIONS.READ_PAYROLL_EMPLOYEES,
         PERMISSIONS.READ_PAYROLL_PERIODS,
+        PERMISSIONS.READ_PAYROLL_DEDUCTIONS,
       ],
     },
     {

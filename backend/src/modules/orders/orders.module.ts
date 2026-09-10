@@ -12,13 +12,14 @@ import { PaymentEditApprovalsModule } from '../payment-edit-approvals/payment-ed
 import { DiscountApprovalsModule } from '../discount-approvals/discount-approvals.module';
 import { ClientOwnershipAuthRequestsModule } from '../client-ownership-auth-requests/client-ownership-auth-requests.module';
 import { CreditBalanceModule } from '../credit-balance/credit-balance.module';
+import { PayrollDeductionsModule } from '../payroll-deductions/payroll-deductions.module';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { OrdersRepository } from './orders.repository';
 import { CanEditOrderGuard } from '../../common/guards/can-edit-order.guard';
 
 @Module({
-  imports: [DatabaseModule, ConsecutivesModule, OrderEditRequestsModule, OrderStatusChangeRequestsModule, AuditLogsModule, StorageModule, AdvancePaymentApprovalsModule, PaymentEditApprovalsModule, DiscountApprovalsModule, ClientOwnershipAuthRequestsModule, CreditBalanceModule, CashMovementModule, CashMovementVoidRequestsModule],
+  imports: [DatabaseModule, ConsecutivesModule, OrderEditRequestsModule, OrderStatusChangeRequestsModule, AuditLogsModule, StorageModule, AdvancePaymentApprovalsModule, PaymentEditApprovalsModule, DiscountApprovalsModule, ClientOwnershipAuthRequestsModule, CreditBalanceModule, CashMovementModule, CashMovementVoidRequestsModule, PayrollDeductionsModule],
   controllers: [OrdersController],
   providers: [OrdersService, OrdersRepository, CanEditOrderGuard],
   exports: [OrdersService, OrdersRepository],

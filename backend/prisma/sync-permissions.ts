@@ -182,6 +182,54 @@ const groups: PermissionGroup[] = [
     ],
   },
   {
+    label: '👔 Nómina',
+    permissions: [
+      {
+        name: 'create_payroll_employees',
+        description: 'Agregar usuarios a nómina',
+      },
+      { name: 'read_payroll_employees', description: 'Ver empleados de nómina' },
+      {
+        name: 'update_payroll_employees',
+        description: 'Editar empleados de nómina',
+      },
+      {
+        name: 'delete_payroll_employees',
+        description: 'Eliminar empleados de nómina',
+      },
+      { name: 'create_payroll_periods', description: 'Crear periodos de nómina' },
+      { name: 'read_payroll_periods', description: 'Ver periodos de nómina' },
+      {
+        name: 'update_payroll_periods',
+        description: 'Editar periodos de nómina',
+      },
+      {
+        name: 'delete_payroll_periods',
+        description: 'Eliminar periodos de nómina',
+      },
+    ],
+  },
+  {
+    label: '🧾 Descuentos por nómina',
+    permissions: [
+      {
+        name: 'read_payroll_deductions',
+        description:
+          'Ver las órdenes que se van a descontar de la nómina de un empleado',
+      },
+      {
+        name: 'approve_payroll_deductions',
+        description:
+          'Aprobar o rechazar que el valor de una orden se descuente de la nómina',
+      },
+      {
+        name: 'apply_payroll_deductions',
+        description:
+          'Aplicar un descuento ya aprobado sobre la nómina del periodo en curso',
+      },
+    ],
+  },
+  {
     label: '🎯 Ventas por Asesor',
     permissions: [
       {

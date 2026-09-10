@@ -100,6 +100,7 @@ export const PATHS = {
   PAYROLL_EMPLOYEES_CREATE: '/payroll/employees/create',
   PAYROLL_EMPLOYEES_EDIT: '/payroll/employees/:id/edit',
   PAYROLL_EMPLOYEES_HISTORY: '/payroll/employees/:id/history',
+  PAYROLL_DEDUCTIONS: '/payroll/deductions',
   PAYROLL_PERIODS: '/payroll/periods',
   PAYROLL_PERIODS_CREATE: '/payroll/periods/create',
   PAYROLL_PERIODS_EDIT: '/payroll/periods/:id/edit',

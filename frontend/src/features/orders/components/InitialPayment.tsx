@@ -37,6 +37,7 @@ import type {
   PaymentMethod,
 } from '../../../types/order.types';
 import { PAYMENT_METHOD_LABELS } from '../../../types/order.types';
+import { requiresZeroAmount } from '../../../utils/paymentMethods';
 import { BankSelector } from '../../../components/common/BankSelector';
 
 const MAX_PAYMENTS = 3;
@@ -51,6 +52,12 @@ interface InitialPaymentProps {
   disabled?: boolean;
   required?: boolean;
   creditBalance?: number;
+  /**
+   * El cliente está vinculado a una ficha de nómina. Solo entonces se ofrece
+   * "Descuento por nómina": para el resto de los clientes no hay quincena de
+   * dónde restar y la opción sería una promesa que el backend rechaza.
+   */
+  clientIsEmployee?: boolean;
 }
 
 const formatCurrency = (value: number): string => {
@@ -86,6 +93,7 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
   disabled = false,
   required = false,
   creditBalance,
+  clientIsEmployee = false,
 }) => {
   // Estado de la caja: define si el abono entra directo al arqueo o a la cola.
   const { data: isCashOpen } = useIsCashOpen();
@@ -98,6 +106,24 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
   const [viewReceipt, setViewReceipt] = useState<{ open: boolean; url: string; mimeType: string }>({
     open: false, url: '', mimeType: '',
   });
+
+  // Si el asesor cambia a un cliente que no es empleado, el descuento por
+  // nómina deja de tener sentido: no hay quincena de dónde restar. Sin este
+  // reseteo el método se queda pegado del cliente anterior —el select lo sigue
+  // mostrando para no quedar en blanco— y el asesor solo se entera al guardar,
+  // cuando el backend le responde que ese cliente no está vinculado a nómina.
+  useEffect(() => {
+    if (clientIsEmployee) return;
+    if (!values.some((p) => p.paymentMethod === 'PAYROLL_DEDUCTION')) return;
+
+    onChange(
+      values.map((p) =>
+        p.paymentMethod === 'PAYROLL_DEDUCTION'
+          ? { ...p, paymentMethod: 'CASH' as PaymentMethod, amount: 0 }
+          : p,
+      ),
+    );
+  }, [clientIsEmployee, values]);
 
   useEffect(() => {
     const fileIds = values
@@ -127,10 +153,11 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
     const updated = values.map((p, i) => {
       if (i !== index) return p;
       const updatedPayment = { ...p, [field]: newValue };
-      // El crédito no registra dinero: el valor del trabajo queda como saldo
-      // pendiente de la OP y se cobra después. Dejar que conserve un monto hacía
-      // que la orden naciera pagada y que el abono real se duplicara.
-      if (field === 'paymentMethod' && newValue === 'CREDIT') {
+      // Ni el crédito ni el descuento por nómina registran dinero al crear la
+      // OP: el valor del trabajo queda como saldo pendiente. Dejar que
+      // conserven un monto hacía que la orden naciera pagada y que el abono real
+      // se duplicara.
+      if (field === 'paymentMethod' && requiresZeroAmount(newValue)) {
         updatedPayment.amount = 0;
       }
       // Limpiar banco de origen si deja de ser transferencia
@@ -174,10 +201,23 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
         </Typography>
         <Divider sx={{ mb: 2 }} />
 
-        {/* Alerta: todo anticipo requiere autorización de Caja, sin importar el rol */}
-        {enabled && (
+        {/* Alerta: todo anticipo requiere autorización de Caja, sin importar el
+            rol. El descuento por nómina es la excepción: no entra dinero a caja
+            en ningún momento, así que quien lo autoriza es nómina. Decirle al
+            asesor que espere a Caja lo dejaría esperando una aprobación que
+            nunca va a llegar. */}
+        {enabled && !values.every((p) => p.paymentMethod === 'PAYROLL_DEDUCTION') && (
           <Alert severity="info" sx={{ mb: 2 }}>
             El anticipo debe ser aprobado por Caja antes de que la orden pueda avanzar de estado.
+          </Alert>
+        )}
+
+        {enabled && values.some((p) => p.paymentMethod === 'PAYROLL_DEDUCTION') && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            <AlertTitle>El descuento lo aprueba Nómina, no Caja</AlertTitle>
+            No entra dinero a la caja: el valor se le resta al empleado de su
+            quincena. La orden queda con saldo pendiente hasta que Nómina aplique
+            el descuento.
           </Alert>
         )}
 
@@ -246,6 +286,16 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
                           if (method === 'CREDIT_BALANCE' && payment.paymentMethod !== 'CREDIT_BALANCE') {
                             return null;
                           }
+                          // Solo para clientes con ficha de nómina. Se sigue
+                          // mostrando si ya está elegido, para no dejar el
+                          // select en blanco al editar una OP existente.
+                          if (
+                            method === 'PAYROLL_DEDUCTION' &&
+                            !clientIsEmployee &&
+                            payment.paymentMethod !== 'PAYROLL_DEDUCTION'
+                          ) {
+                            return null;
+                          }
                           const displayLabel = method === 'CREDIT_BALANCE' ? `${label} (${formatCurrency(creditBalance || 0)})` : label;
                           return (
                             <MenuItem
@@ -266,10 +316,10 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
                   <Grid item xs={12} sm={6}>
                     <TextField
                       fullWidth
-                      required={payment.paymentMethod !== 'CREDIT'}
+                      required={!requiresZeroAmount(payment.paymentMethod)}
                       label="Monto del Abono"
                       value={
-                        (payment.amount === 0 && payment.paymentMethod !== 'CREDIT')
+                        (payment.amount === 0 && !requiresZeroAmount(payment.paymentMethod))
                           ? ''
                           : payment.amount !== undefined && payment.amount !== null
                           ? formatCurrencyInput(payment.amount)
@@ -282,7 +332,9 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
                       }}
                       color={totalPaid > total ? 'warning' : 'primary'}
                       helperText={
-                        payment.paymentMethod === 'CREDIT'
+                        payment.paymentMethod === 'PAYROLL_DEDUCTION'
+                          ? `Se le descontarán ${formatCurrency(total)} de la nómina cuando se apruebe. La orden queda con saldo pendiente hasta entonces.`
+                          : payment.paymentMethod === 'CREDIT'
                           ? `El crédito no registra dinero: quedan ${formatCurrency(total)} como saldo pendiente por cobrar`
                           : totalPaid > total
                           ? `Quedará un saldo a favor al cliente de ${formatCurrency(totalPaid - total)}`
@@ -296,7 +348,7 @@ export const InitialPayment: React.FC<InitialPaymentProps> = ({
                           fontWeight: totalPaid > total ? 600 : 400
                         }
                       }}
-                      disabled={disabled || payment.paymentMethod === 'CREDIT'}
+                      disabled={disabled || requiresZeroAmount(payment.paymentMethod)}
                       InputProps={{
                         startAdornment: (
                           <Typography sx={{ mr: 1, color: 'text.secondary', fontWeight: 500 }}>
