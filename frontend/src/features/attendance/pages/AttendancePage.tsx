@@ -13,7 +13,6 @@ import {
   Grid,
   alpha,
   useTheme,
-  CircularProgress,
   IconButton,
   Tooltip,
   List,
@@ -43,6 +42,7 @@ import {
   AdjustAttendanceDto,
 } from '../../../types';
 import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../hooks';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 
 /**
  * Formatea una fecha ISO (Solo Fecha)
@@ -456,18 +456,14 @@ const AttendancePage: React.FC = () => {
           >
             Cancelar
           </Button>
-          <Button
+          <LoadingButton
             variant="contained"
             onClick={handleConfirmAdjust}
-            disabled={adjustMutation.isPending || !adjustForm.reason.trim()}
-            startIcon={
-              adjustMutation.isPending
-                ? <CircularProgress size={14} color="inherit" />
-                : undefined
-            }
+            loading={adjustMutation.isPending}
+            disabled={!adjustForm.reason.trim()}
           >
             Guardar Ajuste
-          </Button>
+          </LoadingButton>
         </DialogActions>
       </Dialog>
 

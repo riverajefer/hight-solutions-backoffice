@@ -28,6 +28,8 @@ import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
 import { formatCurrency, formatDate } from '../../../utils/formatters';
 import { useSingleFlight } from '../../../hooks/useSingleFlight';
+import { LoadingButton } from '../../../components/common/LoadingButton';
+import { isRowPending, isAnyRowPending } from '../../../utils/mutationState';
 import { usePayrollDeductions } from '../hooks/usePayrollDeductions';
 import { usePayrollPeriods } from '../hooks/usePayrollPeriods';
 import {
@@ -194,57 +196,72 @@ const PayrollDeductionsPage: React.FC = () => {
       headerName: 'Acciones',
       width: 170,
       sortable: false,
-      renderCell: ({ row }) => (
+      renderCell: ({ row }) => {
+        // Solo la fila que se tocó gira; las demás siguen usables. El resto de
+        // acciones de *esta* fila se bloquean para que no se solapen.
+        const approving = isRowPending(approveMutation, row.id);
+        const rowBusy = isAnyRowPending(
+          [approveMutation, rejectMutation, applyMutation, cancelMutation],
+          row.id,
+        );
+
+        return (
         <Stack direction="row" spacing={0.5}>
           {canApprove && row.status === 'PENDING' && (
             <Tooltip title="Aprobar el descuento">
-              <Button
+              <LoadingButton
                 size="small"
                 color="success"
                 startIcon={<CheckCircleIcon />}
+                loading={approving}
+                disabled={rowBusy}
                 onClick={() => handleApprove(row)}
               >
                 Aprobar
-              </Button>
+              </LoadingButton>
             </Tooltip>
           )}
           {canApprove && row.status === 'PENDING' && (
             <Tooltip title="Rechazar: la orden se cobra por otro medio">
-              <Button
+              <LoadingButton
                 size="small"
                 color="error"
                 startIcon={<CancelIcon />}
+                disabled={rowBusy}
                 onClick={() => setDialog({ kind: 'reject', deduction: row })}
               >
                 Rechazar
-              </Button>
+              </LoadingButton>
             </Tooltip>
           )}
           {canApply && row.status === 'APPROVED' && (
             <Tooltip title="Restar de la nómina y saldar la orden">
-              <Button
+              <LoadingButton
                 size="small"
                 startIcon={<ApplyIcon />}
+                disabled={rowBusy}
                 onClick={() => setDialog({ kind: 'apply', deduction: row })}
               >
                 Aplicar
-              </Button>
+              </LoadingButton>
             </Tooltip>
           )}
           {canApprove && ['APPROVED', 'APPLIED'].includes(row.status) && (
             <Tooltip title="Deshacer el descuento">
-              <Button
+              <LoadingButton
                 size="small"
                 color="warning"
                 startIcon={<UndoIcon />}
+                disabled={rowBusy}
                 onClick={() => setDialog({ kind: 'cancel', deduction: row })}
               >
                 Cancelar
-              </Button>
+              </LoadingButton>
             </Tooltip>
           )}
         </Stack>
-      ),
+        );
+      },
     },
   ];
 
@@ -268,6 +285,17 @@ const PayrollDeductionsPage: React.FC = () => {
 
   const canConfirm =
     dialog?.kind === 'apply' ? Boolean(periodId) : reason.trim().length >= 5;
+
+  // El diálogo es uno solo para tres acciones distintas, así que el spinner
+  // sale de la mutación que corresponda al tipo abierto.
+  const confirming =
+    dialog?.kind === 'reject'
+      ? rejectMutation.isPending
+      : dialog?.kind === 'cancel'
+        ? cancelMutation.isPending
+        : dialog?.kind === 'apply'
+          ? applyMutation.isPending
+          : false;
 
   return (
     <Box>
@@ -368,14 +396,17 @@ const PayrollDeductionsPage: React.FC = () => {
               )}
             </DialogContent>
             <DialogActions>
-              <Button onClick={closeDialog}>Cerrar</Button>
-              <Button
+              <Button onClick={closeDialog} disabled={confirming}>
+                Cerrar
+              </Button>
+              <LoadingButton
                 variant="contained"
+                loading={confirming}
                 disabled={!canConfirm}
                 onClick={() => handleConfirm()}
               >
                 Confirmar
-              </Button>
+              </LoadingButton>
             </DialogActions>
           </>
         )}

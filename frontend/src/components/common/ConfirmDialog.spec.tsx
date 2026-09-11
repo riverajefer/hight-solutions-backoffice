@@ -63,4 +63,40 @@ describe('ConfirmDialog', () => {
     expect(screen.getByRole('button', { name: 'Confirmar' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Cancelar' })).toBeDisabled();
   });
+
+  it('muestra el spinner en confirmar mientras isLoading es true', () => {
+    render(<ConfirmDialog {...baseProps} isLoading onConfirm={vi.fn()} onCancel={vi.fn()} />);
+
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Confirmar/ })).toHaveAttribute(
+      'aria-busy',
+      'true',
+    );
+  });
+
+  it('sin isLoading no muestra spinner', () => {
+    render(<ConfirmDialog {...baseProps} onConfirm={vi.fn()} onCancel={vi.fn()} />);
+
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+  });
+
+  it('no vuelve a llamar a onConfirm si se pulsa mientras carga', () => {
+    const onConfirm = vi.fn();
+    render(<ConfirmDialog {...baseProps} isLoading onConfirm={onConfirm} onCancel={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar/ }));
+
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it('no cierra con Escape mientras carga', () => {
+    // Si cerrara, el usuario creería que canceló cuando la petición ya va en
+    // camino y el cambio se aplicaría igual, a sus espaldas.
+    const onCancel = vi.fn();
+    render(<ConfirmDialog {...baseProps} isLoading onConfirm={vi.fn()} onCancel={onCancel} />);
+
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape', code: 'Escape' });
+
+    expect(onCancel).not.toHaveBeenCalled();
+  });
 });

@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Box,
-  Button,
   CircularProgress,
   Grid,
   Paper,
@@ -24,6 +23,7 @@ import { PageHeader } from '../../../components/common/PageHeader';
 import { useCompany } from '../hooks/useCompany';
 import { storageApi } from '../../../api/storage.api';
 import type { UpsertCompanyDto } from '../../../types/company.types';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 
 const currentYear = new Date().getFullYear();
 
@@ -313,14 +313,15 @@ export const CompanyPage: React.FC = () => {
         subtitle="Gestiona los datos institucionales de tu empresa"
         icon={<BusinessIcon />}
         action={
-          <Button
+          <LoadingButton
+            loading={isSaving}
             variant="contained"
-            startIcon={isSaving ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />}
+            startIcon={<SaveIcon />}
             onClick={handleSubmit(onSubmit)}
-            disabled={isSaving || isLoading || logoLight.uploading || logoDark.uploading}
+            disabled={isLoading || logoLight.uploading || logoDark.uploading}
           >
             {isSaving ? 'Guardando...' : 'Guardar'}
-          </Button>
+          </LoadingButton>
         }
       />
 
@@ -631,15 +632,16 @@ export const CompanyPage: React.FC = () => {
           </Grid>
 
           <Box display="flex" justifyContent="flex-end" mt={3}>
-            <Button
+            <LoadingButton
+              loading={isSaving}
               type="submit"
               variant="contained"
               size="large"
-              startIcon={isSaving ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />}
-              disabled={isSaving || isLoading || logoLight.uploading || logoDark.uploading}
+              startIcon={<SaveIcon />}
+              disabled={isLoading || logoLight.uploading || logoDark.uploading}
             >
               {isSaving ? 'Guardando...' : 'Guardar información'}
-            </Button>
+            </LoadingButton>
           </Box>
         </Box>
       )}

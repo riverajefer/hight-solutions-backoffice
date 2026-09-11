@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
+import { LoadingButton } from './LoadingButton';
 
 interface QueueReviewActionsProps {
   /** Descripción corta de lo que se aprueba, para el diálogo de rechazo. */
@@ -54,17 +55,17 @@ export const QueueReviewActions: React.FC<QueueReviewActionsProps> = ({
   return (
     <>
       <Stack direction="row" spacing={1}>
-        <Button
+        <LoadingButton
           size="small"
           variant="outlined"
           color="success"
           startIcon={<CheckCircleIcon />}
           onClick={() => onApprove()}
-          disabled={isPending}
+          loading={isPending}
         >
           Aprobar
-        </Button>
-        <Button
+        </LoadingButton>
+        <LoadingButton
           size="small"
           variant="outlined"
           color="error"
@@ -73,7 +74,7 @@ export const QueueReviewActions: React.FC<QueueReviewActionsProps> = ({
           disabled={isPending}
         >
           Rechazar
-        </Button>
+        </LoadingButton>
       </Stack>
 
       <Dialog open={rejectOpen} onClose={() => setRejectOpen(false)} maxWidth="sm" fullWidth>
@@ -95,14 +96,15 @@ export const QueueReviewActions: React.FC<QueueReviewActionsProps> = ({
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setRejectOpen(false)}>Cancelar</Button>
-          <Button
+          <LoadingButton
             variant="contained"
             color="error"
             onClick={handleReject}
-            disabled={!notes.trim() || isPending}
+            loading={isPending}
+            disabled={!notes.trim()}
           >
             Rechazar
-          </Button>
+          </LoadingButton>
         </DialogActions>
       </Dialog>
     </>

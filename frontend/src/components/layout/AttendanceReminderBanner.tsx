@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import {
   Alert,
-  Button,
-  CircularProgress,
   Collapse,
   useTheme,
   alpha,
@@ -14,6 +12,7 @@ import { attendanceApi } from '../../api';
 import { ATTENDANCE_STATUS_QUERY_KEY } from '../../features/attendance/hooks/useAttendance';
 import { useAuthStore } from '../../store/authStore';
 import { PERMISSIONS } from '../../utils/constants';
+import { LoadingButton } from '../../components/common/LoadingButton';
 
 /**
  * Banner recordatorio que aparece cuando el usuario está usando la aplicación
@@ -162,18 +161,12 @@ export const AttendanceReminderBanner: React.FC = () => {
           },
         }}
         action={
-          <Button
+          <LoadingButton
+            loading={clockInMutation.isPending}
             color="warning"
             size="small"
             variant="contained"
-            startIcon={
-              clockInMutation.isPending ? (
-                <CircularProgress size={12} color="inherit" />
-              ) : (
-                <PlayCircleIcon sx={{ fontSize: 16 }} />
-              )
-            }
-            disabled={clockInMutation.isPending}
+            startIcon={<PlayCircleIcon sx={{ fontSize: 16 }} />}
             onClick={handleClockIn}
             sx={{
               whiteSpace: 'nowrap',
@@ -184,7 +177,7 @@ export const AttendanceReminderBanner: React.FC = () => {
             }}
           >
             Marcar Entrada
-          </Button>
+          </LoadingButton>
         }
       >
         No has marcado tu entrada de asistencia. Recuerda marcarla al iniciar tu

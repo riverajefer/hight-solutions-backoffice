@@ -5,7 +5,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -39,6 +38,7 @@ import {
 } from '../../../utils/currencyInput';
 import { useSingleFlight } from '../../../hooks/useSingleFlight';
 import { paymentMethodLabel } from '../../../utils/paymentMethods';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 
 /**
  * Con qué se puede pagar una cuenta por pagar. Es una lista de opciones, no un
@@ -357,14 +357,14 @@ export const RequestPaymentDialog: React.FC<Props> = ({
         <Button onClick={handleClose} disabled={isBusy}>
           Cancelar
         </Button>
-        <Button
+        <LoadingButton
+          loading={isBusy}
           variant="contained"
           onClick={handleSubmit(handleFormSubmit)}
-          disabled={isBusy || exceedsBalance}
-          startIcon={isBusy ? <CircularProgress size={16} /> : undefined}
+          disabled={exceedsBalance}
         >
           {uploadingReceipt ? 'Subiendo comprobantes...' : 'Enviar solicitud'}
-        </Button>
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   );

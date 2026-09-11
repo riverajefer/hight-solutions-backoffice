@@ -33,6 +33,7 @@ import { useAuthStore } from '../../../store/authStore';
 import { authApi } from '../../../api/auth.api';
 import { cashRegisterApi } from '../../../api/cash-register.api';
 import { useSingleFlight } from '../../../hooks/useSingleFlight';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 
 const OpenSessionPage: React.FC = () => {
   const navigate = useNavigate();
@@ -209,20 +210,15 @@ const OpenSessionPage: React.FC = () => {
                       ),
                     }}
                   />
-                  <Button
+                  <LoadingButton
+                    loading={verifyingPassword}
                     variant="contained"
                     onClick={handleVerifyPassword}
-                    disabled={verifyingPassword || !password.trim()}
-                    startIcon={
-                      verifyingPassword ? (
-                        <CircularProgress size={18} color="inherit" />
-                      ) : (
-                        <PersonIcon />
-                      )
-                    }
+                    disabled={!password.trim()}
+                    startIcon={<PersonIcon />}
                   >
                     Verificar Identidad
-                  </Button>
+                  </LoadingButton>
                 </>
               )}
             </Stack>
@@ -320,22 +316,16 @@ const OpenSessionPage: React.FC = () => {
             >
               Cancelar
             </Button>
-            <Button
+            <LoadingButton
+              loading={openSession.isPending}
               variant="contained"
               color="success"
               size="large"
-              startIcon={
-                openSession.isPending ? (
-                  <CircularProgress size={18} color="inherit" />
-                ) : (
-                  <LockOpenIcon />
-                )
-              }
+              startIcon={<LockOpenIcon />}
               onClick={handleSubmit}
-              disabled={openSession.isPending}
             >
               Abrir Sesión
-            </Button>
+            </LoadingButton>
           </Box>
         )}
       </Stack>

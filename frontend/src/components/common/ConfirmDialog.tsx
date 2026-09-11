@@ -8,6 +8,7 @@ import {
   Box,
 } from '@mui/material';
 import WarningIcon from '@mui/icons-material/Warning';
+import { LoadingButton } from './LoadingButton';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -40,7 +41,9 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   return (
     <Dialog
       open={open}
-      onClose={onCancel}
+      // Mientras la acción corre, ni ESC ni el clic afuera cierran: si se
+      // cerrara, el usuario creería que se canceló cuando ya va en camino.
+      onClose={isLoading ? undefined : onCancel}
       maxWidth="sm"
       fullWidth
       sx={{
@@ -72,14 +75,14 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         <Button onClick={onCancel} disabled={isLoading}>
           {cancelText}
         </Button>
-        <Button
+        <LoadingButton
           onClick={onConfirm}
           variant="contained"
           color={severityColor}
-          disabled={isLoading}
+          loading={isLoading}
         >
           {confirmText}
-        </Button>
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   );

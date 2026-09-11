@@ -3,7 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -15,6 +14,7 @@ import {
 import UndoIcon from '@mui/icons-material/Undo';
 import type { AccountPayablePaymentAuthRequest } from '../../../types/accounts-payable.types';
 import { formatCurrency, formatDate } from '../../../utils/formatters';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 
 interface Props {
   open: boolean;
@@ -87,15 +87,16 @@ export const RequestPaymentReversalDialog: React.FC<Props> = ({
         <Button onClick={handleClose} disabled={loading}>
           Cancelar
         </Button>
-        <Button
+        <LoadingButton
+          loading={loading}
           variant="contained"
           color="warning"
-          startIcon={loading ? <CircularProgress size={16} /> : <UndoIcon />}
+          startIcon={<UndoIcon />}
           onClick={handleSubmit}
-          disabled={loading || !reason.trim()}
+          disabled={!reason.trim()}
         >
           Enviar Solicitud
-        </Button>
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   );

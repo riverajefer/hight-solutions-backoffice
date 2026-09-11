@@ -9,12 +9,12 @@ import {
   FormControlLabel,
   Switch,
   Stack,
-  CircularProgress,
 } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { CashRegister } from '../../../types/cash-register.types';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 
 const schema = z.object({
   name: z
@@ -133,14 +133,13 @@ const CashRegisterFormDialog: React.FC<Props> = ({
           <Button onClick={onClose} disabled={isLoading}>
             Cancelar
           </Button>
-          <Button
+          <LoadingButton
+            loading={isLoading}
             type="submit"
             variant="contained"
-            disabled={isLoading}
-            startIcon={isLoading ? <CircularProgress size={16} /> : undefined}
           >
             {isEditing ? 'Guardar Cambios' : 'Crear Caja'}
-          </Button>
+          </LoadingButton>
         </DialogActions>
       </form>
     </Dialog>

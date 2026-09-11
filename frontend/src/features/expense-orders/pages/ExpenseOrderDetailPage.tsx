@@ -96,6 +96,7 @@ import {
 } from '../../../types/expense-order.types';
 import { WORK_ORDER_STATUS_CONFIG, WorkOrderStatus } from '../../../types/work-order.types';
 import { ORDER_STATUS_CONFIG, type OrderStatus } from '../../../types/order.types';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -1368,15 +1369,16 @@ export const ExpenseOrderDetailPage = () => {
           <Button onClick={handleCloseInvoiceDialog} disabled={invoiceLoading}>
             Cancelar
           </Button>
-          <Button
+          <LoadingButton
+            loading={invoiceLoading}
             onClick={handleRegisterInvoice}
             variant="contained"
             color="info"
-            disabled={invoiceLoading || !invoiceNumber.trim()}
-            startIcon={invoiceLoading ? <CircularProgress size={16} /> : <ReceiptIcon />}
+            disabled={!invoiceNumber.trim()}
+            startIcon={<ReceiptIcon />}
           >
             {invoiceLoading ? 'Guardando...' : 'Guardar'}
-          </Button>
+          </LoadingButton>
         </DialogActions>
       </Dialog>
 
@@ -1717,15 +1719,16 @@ export const ExpenseOrderDetailPage = () => {
           <Button onClick={handleCloseItemDialog} disabled={addExpenseItemMutation.isPending}>
             Cancelar
           </Button>
-          <Button
+          <LoadingButton
+            loading={addExpenseItemMutation.isPending}
             variant="contained"
             color="primary"
             onClick={handleAddItem}
-            disabled={!isItemFormValid || addExpenseItemMutation.isPending}
-            startIcon={addExpenseItemMutation.isPending ? <CircularProgress size={16} /> : <AddIcon />}
+            disabled={!isItemFormValid}
+            startIcon={<AddIcon />}
           >
             {addExpenseItemMutation.isPending ? 'Guardando...' : 'Agregar Ítem'}
-          </Button>
+          </LoadingButton>
         </DialogActions>
       </Dialog>
       {/* ── Auth request dialog ──────────────────────────────────────────────── */}

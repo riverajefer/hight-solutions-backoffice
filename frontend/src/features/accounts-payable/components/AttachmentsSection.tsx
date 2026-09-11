@@ -1,9 +1,7 @@
 import { useRef, useState } from 'react';
 import {
   Box,
-  Button,
   Chip,
-  CircularProgress,
   IconButton,
   List,
   ListItem,
@@ -23,6 +21,7 @@ import { storageApi } from '../../../api/storage.api';
 import { formatDate } from '../../../utils/formatters';
 import type { AccountPayable } from '../../../types/accounts-payable.types';
 import { useAccountPayable } from '../hooks/useAccountsPayable';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 
 interface Props {
   accountPayable: AccountPayable;
@@ -85,15 +84,15 @@ export const AttachmentsSection: React.FC<Props> = ({ accountPayable, canEdit })
               hidden
               onChange={handleFileChange}
             />
-            <Button
+            <LoadingButton
+              loading={uploading}
               size="small"
               variant="outlined"
-              startIcon={uploading ? <CircularProgress size={14} /> : <AttachFileIcon />}
+              startIcon={<AttachFileIcon />}
               onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
             >
               Adjuntar
-            </Button>
+            </LoadingButton>
           </>
         )}
       </Stack>

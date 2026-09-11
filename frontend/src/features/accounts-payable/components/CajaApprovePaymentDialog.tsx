@@ -3,7 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -18,6 +17,7 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import type { AccountPayablePaymentAuthRequest } from '../../../types/accounts-payable.types';
 import { formatCurrency, formatDate } from '../../../utils/formatters';
 import { PAYMENT_METHOD_LABELS } from '../../../utils/paymentMethods';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 
 
 interface Props {
@@ -148,30 +148,30 @@ export const CajaApprovePaymentDialog: React.FC<Props> = ({
             >
               Rechazar
             </Button>
-            <Button
+            <LoadingButton
+              loading={loading}
               variant="contained"
               color="success"
-              startIcon={loading ? <CircularProgress size={16} /> : <CheckCircleIcon />}
+              startIcon={<CheckCircleIcon />}
               onClick={handleApprove}
-              disabled={loading}
             >
               Aprobar y Registrar Pago
-            </Button>
+            </LoadingButton>
           </>
         ) : (
           <>
             <Button onClick={() => setMode('view')} disabled={loading}>
               Volver
             </Button>
-            <Button
+            <LoadingButton
+              loading={loading}
               variant="contained"
               color="error"
-              startIcon={loading ? <CircularProgress size={16} /> : <CancelIcon />}
+              startIcon={<CancelIcon />}
               onClick={handleReject}
-              disabled={loading}
             >
               Confirmar Rechazo
-            </Button>
+            </LoadingButton>
           </>
         )}
       </DialogActions>

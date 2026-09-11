@@ -25,6 +25,7 @@ import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS } from '../../../utils/constants';
 import type { DtfStatus, DtfPaymentMethod } from '../../../types/dtf.types';
 import { DTF_PAYMENT_METHOD_LABELS } from '../../../types/dtf.types';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 
 const NEXT_STATUSES: Record<DtfStatus, DtfStatus[]> = {
   BORRADOR: ['ENVIADA'],
@@ -156,7 +157,7 @@ export function DtfQuickPreviewModal({ id, onClose }: DtfQuickPreviewModalProps)
                   </Typography>
                   <Stack direction="row" spacing={1} flexWrap="wrap">
                     {actionableStatuses.map((s) => (
-                      <Button
+                      <LoadingButton
                         key={s}
                         size="small"
                         variant={s === 'BORRADOR' ? 'outlined' : 'contained'}
@@ -170,16 +171,12 @@ export function DtfQuickPreviewModal({ id, onClose }: DtfQuickPreviewModalProps)
                             background: 'linear-gradient(135deg, #69F0AE, #00C853)',
                           },
                         } : undefined}
-                        startIcon={
-                          changeStatus.isPending
-                            ? <CircularProgress size={14} color="inherit" />
-                            : <SwapHorizIcon fontSize="small" />
-                        }
-                        disabled={changeStatus.isPending}
+                        startIcon={<SwapHorizIcon fontSize="small" />}
+                        loading={changeStatus.isPending}
                         onClick={() => handleChangeStatus(s)}
                       >
                         {STATUS_ACTION_LABELS[s]}
-                      </Button>
+                      </LoadingButton>
                     ))}
                   </Stack>
                 </Stack>
