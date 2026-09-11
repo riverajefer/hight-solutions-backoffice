@@ -3,9 +3,9 @@ import { Prisma } from '../generated/prisma';
 /**
  * Modelos con llave primaria compuesta (`@@id([...])` en schema.prisma).
  *
- * `@explita/prisma-audit-log` arma el `recordId` con `record.id`. Estos modelos
- * no tienen `id`: en delete/deleteMany/update el log se descartaba, porque
- * `AuditLog.recordId` es obligatorio, y en createMany quedaba como 'unknown'.
+ * Estos modelos no tienen `id`. `withAuditLog` arma su `recordId` con esta
+ * llave; en createMany, que no devuelve filas y cuya entrada puede no traerla
+ * completa, llega sin `recordId` y lo resuelve `auditRecordIdExtension`.
  *
  * El spec compara esta tabla con schema.prisma, así que un `@@id` nuevo que no
  * se registre aquí hace fallar los tests.
@@ -32,7 +32,7 @@ function asObject(value: unknown): Record<string, unknown> {
 }
 
 /**
- * `recordId` de un log de auditoría: el que trae la librería si es real; si no,
+ * `recordId` de un log de auditoría: el que trae `withAuditLog` si es real; si no,
  * la llave compuesta (`orderItemId:productionAreaId`) sacada del snapshot; y como
  * último recurso 'unknown', que al menos deja el log guardado en vez de perderlo.
  */
@@ -63,8 +63,8 @@ export function withResolvedRecordIds<T extends AuditLogDraft>(
 /**
  * Completa el `recordId` antes de que Prisma valide el `auditLog.createMany`.
  *
- * Tiene que aplicarse *debajo* de `auditLogExtension`: la librería escribe los
- * logs con el cliente que extiende, y solo así esa escritura pasa por aquí.
+ * Tiene que aplicarse *debajo* de `withAuditLog`: escribe los logs con el
+ * cliente que recibe, y solo así esa escritura pasa por aquí.
  */
 export const auditRecordIdExtension = Prisma.defineExtension({
   name: 'auditRecordIdFallback',

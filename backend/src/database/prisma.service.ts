@@ -1,7 +1,7 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '../generated/prisma';
-import { auditLogExtension } from '@explita/prisma-audit-log';
 import { getAuditContext } from '../common/utils/audit-context';
+import { withAuditLog } from './audit-log.extension';
 import { auditRecordIdExtension } from './audit-record-id.extension';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
@@ -45,55 +45,51 @@ export class PrismaService
 
     this.pool = pool;
 
-    // Aplicar extensión de auditoría. `auditRecordIdExtension` va debajo porque la
-    // librería escribe el AuditLog con el cliente que extiende: así esa escritura
-    // pasa por ella y los modelos con llave compuesta no pierden el log.
-    const extended = this.$extends(auditRecordIdExtension).$extends(
-      auditLogExtension({
-        // Obtener contexto para los registros de auditoría
-        getContext: () => {
-          const context = getAuditContext();
-          return {
-            userId: context.userId,
-            ipAddress: context.ipAddress,
-            metadata: {
-              userAgent: context.userAgent,
-            },
-          };
-        },
-
-        // Enmascarar campos sensibles
-        maskFields: ['password', 'refreshToken'],
-        maskValue: '[REDACTED]',
-
-        // Configurar inclusión/exclusión de campos por modelo
-        fieldFilters: {
-          User: {
-            exclude: ['password', 'refreshToken'],
+    // Aplicar extensión de auditoría. `auditRecordIdExtension` va debajo porque
+    // `withAuditLog` escribe el AuditLog con el cliente que recibe: así esa escritura
+    // pasa por ella y los modelos con llave compuesta no pierden el log. Dentro de una
+    // transacción interactiva los logs se escriben después del commit.
+    const extended = withAuditLog(this.$extends(auditRecordIdExtension), {
+      // Obtener contexto para los registros de auditoría
+      getContext: () => {
+        const context = getAuditContext();
+        return {
+          userId: context.userId,
+          ipAddress: context.ipAddress,
+          metadata: {
+            userAgent: context.userAgent,
           },
-        },
+        };
+      },
 
-        // Registrador personalizado (opcional)
-        logger: (log) => {
-          // Solo loguear en desarrollo
-          if (process.env.NODE_ENV === 'development') {
-            const logs = Array.isArray(log) ? log : [log];
-            if (logs.length > 0) {
-              console.log('AUDIT LOG:', logs.length === 1 ? logs[0] : logs);
-            }
-          }
-        },
+      // Enmascarar campos sensibles
+      maskFields: ['password', 'refreshToken'],
+      maskValue: '[REDACTED]',
 
-        // Saltar registro para operaciones específicas
-        skip: ({ model }) => {
-          return (
-            model === 'AuditLog' ||
-            model === 'audit_logs' ||
-            model === 'Consecutive' // Excluir consecutivos (operación crítica de concurrencia)
-          );
+      // Configurar inclusión/exclusión de campos por modelo
+      fieldFilters: {
+        User: {
+          exclude: ['password', 'refreshToken'],
         },
-      })
-    );
+      },
+
+      // Registrador personalizado (opcional): recibe los logs ya guardados
+      logger: (logs) => {
+        // Solo loguear en desarrollo
+        if (process.env.NODE_ENV === 'development' && logs.length > 0) {
+          console.log('AUDIT LOG:', logs.length === 1 ? logs[0] : logs);
+        }
+      },
+
+      // Saltar registro para operaciones específicas
+      skip: ({ model }) => {
+        return (
+          model === 'AuditLog' ||
+          model === 'audit_logs' ||
+          model === 'Consecutive' // Excluir consecutivos (operación crítica de concurrencia)
+        );
+      },
+    });
 
     // Asegurar que el pool y métodos de NestJS estén en el proxy devuelto
     Object.assign(extended, {
