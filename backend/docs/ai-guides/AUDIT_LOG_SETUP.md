@@ -85,7 +85,7 @@ const extended = withAuditLog(this.$extends(auditRecordIdExtension), {
   maskValue: '[REDACTED]',
   fieldFilters: { User: { exclude: ['password', 'refreshToken'] } },
   logger: (logs) => { /* solo en development */ },
-  skip: ({ model }) => model === 'AuditLog' || model === 'Consecutive',
+  skip: ({ model }) => UNAUDITED_MODELS.has(model),
 });
 ```
 
@@ -93,9 +93,16 @@ const extended = withAuditLog(this.$extends(auditRecordIdExtension), {
 
 - Operaciones: `create`, `createMany`, `createManyAndReturn`, `delete`, `deleteMany`,
   `update`, `updateMany`, `updateManyAndReturn`, `upsert`. Las lecturas no.
-- Nunca se audita `AuditLog`. `Consecutive` se excluye con `skip` (operación crítica de
-  concurrencia).
-- Un `UPDATE` en el que solo cambió `updatedAt` no deja log.
+- `UNAUDITED_MODELS` (en `prisma.service.ts`) no se audita:
+  - `AuditLog` y `Consecutive` (operación crítica de concurrencia);
+  - `ActivityHeartbeat`, `Notification`, `WhatsappActionContext` y `SessionLog`: ya son un
+    registro en sí mismas y el log solo duplicaba cada fila. Al 2026-09-10 eran el ~75 % de
+    `audit_logs` en PRD (los heartbeats solos, el 64 %).
+  Antes de auditar una tabla nueva de alta frecuencia (heartbeats, colas, contextos
+  técnicos), agrégala aquí.
+- Un `UPDATE` en el que solo cambió `updatedAt` no deja log. Tampoco uno cuyos cambios
+  reales quedaron todos fuera por `fieldFilters` (`isAuditable`): la rotación del
+  `refreshToken` de `User` generaba un log con solo `["updatedAt"]` en cada login/refresh.
 - `createMany` no devuelve filas: el log sale de los datos de entrada, así que si el id lo
   genera la base queda `'unknown'`. Usa `createManyAndReturn` si necesitas el id en el log.
 
@@ -127,10 +134,32 @@ y `tx[Symbol.for('prisma.client.transaction.id')]` (en el cliente `tx`). No son 
 así que un upgrade de Prisma que las rompa hace fallar los tests. Corre `npx jest src/database`
 después de cada upgrade de `prisma` / `@prisma/client`.
 
+## Retención
+
+`AuditLogsScheduler` corre todos los días a las 3:30 AM (hora Colombia) y borra los logs de
+`AUDIT_RETENTION_MODELS` con más de `AUDIT_RETENTION_MONTHS` (3) meses. Ambas constantes
+están en `audit-logs.service.ts`.
+
+- Solo entran modelos operativos: `DtfRecord`, `DtfStatusHistory`, `ProductionOrder*`,
+  `Prospect`, `ProspectContact`.
+- Todo lo demás se conserva sin límite: dinero, órdenes, clientes, permisos, aprobaciones,
+  comprobantes (`UploadedFile`) y asistencia (alimenta la nómina). Un modelo que no esté en
+  la lista no se purga nunca; el spec del servicio falla si se agrega uno de dinero u órdenes.
+- Con réplicas el cron corre una vez por réplica; el borrado es idempotente.
+
+La depuración inicial (heartbeats, notificaciones y los `User` UPDATE vacíos) la hizo la
+migración `20260911000000_audit_logs_noise_purge_and_indexes`. El `DELETE` no devuelve el
+espacio al disco, Postgres lo reutiliza. Para devolverlo, a mano y de noche (bloquea la
+tabla unos segundos):
+
+```sql
+VACUUM (FULL, ANALYZE) audit_logs;
+```
+
 ## Consultar Registros de Auditoría
 
-`audit_logs` solo tiene índice en `id`. Sobre todo el histórico, filtrar por `model` o
-`record_id` vence el timeout: acota siempre por `createdAt`.
+Índices: `record_id`, `(model, created_at)` y `created_at`. Filtra por esas columnas; una
+búsqueda dentro de `old_data`/`new_data` sin acotar por `model` recorre la tabla entera.
 
 ```typescript
 const recordChanges = await this.prisma.auditLog.findMany({
