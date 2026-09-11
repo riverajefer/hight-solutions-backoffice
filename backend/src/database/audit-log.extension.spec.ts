@@ -6,7 +6,7 @@ import type {
   Transaction,
 } from '@prisma/driver-adapter-utils';
 import { Prisma, PrismaClient } from '../generated/prisma';
-import { changedFieldsOf, toAuditLog, withAuditLog } from './audit-log.extension';
+import { changedFieldsOf, isAuditable, toAuditLog, withAuditLog } from './audit-log.extension';
 import { auditRecordIdExtension } from './audit-record-id.extension';
 
 /**
@@ -328,5 +328,51 @@ describe('toAuditLog', () => {
       userId: 'user-1',
       metadata: { userAgent: 'jest', password: '[REDACTED]' },
     });
+  });
+});
+
+describe('isAuditable', () => {
+  const userFilters = { fieldFilters: { User: { exclude: ['refreshToken'] } } };
+
+  it('drops an update whose only real change was filtered out', () => {
+    // La rotación del refreshToken: llegó a ser el 11 % de audit_logs en PRD.
+    const log = toAuditLog(
+      {
+        action: 'UPDATE',
+        model: 'User',
+        recordId: 'u-1',
+        oldData: { refreshToken: 'viejo', updatedAt: 'ayer' },
+        newData: { refreshToken: 'nuevo', updatedAt: 'hoy' },
+        changedFields: ['refreshToken', 'updatedAt'],
+      },
+      userFilters,
+    );
+
+    expect(log.changedFields).toEqual(['updatedAt']);
+    expect(isAuditable(log)).toBe(false);
+  });
+
+  it('keeps an update with a real change left after the filters', () => {
+    const log = toAuditLog(
+      {
+        action: 'UPDATE',
+        model: 'User',
+        recordId: 'u-1',
+        oldData: { email: 'a@x.co', refreshToken: 'viejo', updatedAt: 'ayer' },
+        newData: { email: 'b@x.co', refreshToken: 'nuevo', updatedAt: 'hoy' },
+        changedFields: ['email', 'refreshToken', 'updatedAt'],
+      },
+      userFilters,
+    );
+
+    expect(isAuditable(log)).toBe(true);
+  });
+
+  it('keeps creates and deletes, which carry no changed fields', () => {
+    const create = toAuditLog({ action: 'CREATE', model: 'Payment', recordId: 'p-1', newData: {} }, {});
+    const remove = toAuditLog({ action: 'DELETE', model: 'Payment', recordId: 'p-1', oldData: {} }, {});
+
+    expect(isAuditable(create)).toBe(true);
+    expect(isAuditable(remove)).toBe(true);
   });
 });

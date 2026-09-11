@@ -126,6 +126,11 @@ function keyWhere(model: string, rows: Row[]): Row {
   return { OR: rows.map((row) => Object.fromEntries(keys.map((key) => [key, row[key]]))) };
 }
 
+/** Solo cambió el timestamp de actualización, o nada: no merece un log. */
+function isTimestampOnly(fields: string[]): boolean {
+  return fields.every((field) => field === 'updatedAt' || field === 'updated_at');
+}
+
 /**
  * Campos que cambiaron entre dos versiones de una fila. Vacío si no cambió nada
  * o si solo cambió el timestamp de actualización, que no merece un log.
@@ -134,9 +139,17 @@ export function changedFieldsOf(before: Row, after: Row): string[] {
   const changed = Object.keys(after).filter(
     (key) => JSON.stringify(before[key]) !== JSON.stringify(after[key]),
   );
-  const onlyTimestamp =
-    changed.length === 1 && (changed[0] === 'updatedAt' || changed[0] === 'updated_at');
-  return onlyTimestamp ? [] : changed;
+  return isTimestampOnly(changed) ? [] : changed;
+}
+
+/**
+ * Un UPDATE cuyos cambios reales quedaron todos fuera por `fieldFilters` solo
+ * diría "cambió updatedAt": no se guarda. Así pasaba con la rotación del
+ * `refreshToken` de User, que llegó a ser el 11 % de `audit_logs` en PRD.
+ */
+export function isAuditable(log: Row): boolean {
+  const fields = log.changedFields;
+  return !Array.isArray(fields) || !isTimestampOnly(fields as string[]);
 }
 
 function pick(row: Row, fields: string[]): Row {
@@ -366,7 +379,7 @@ function auditLogExtension(
             query: query as Query,
             reader: inTransaction ? inTransaction.tx : client,
             save: async (drafts) => {
-              const logs = drafts.map((draft) => toAuditLog(draft, options));
+              const logs = drafts.map((draft) => toAuditLog(draft, options)).filter(isAuditable);
               if (inTransaction) inTransaction.logs.push(...logs);
               else await writeAuditLogs(client, logs, options);
             },

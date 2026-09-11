@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AuditLogsService } from './audit-logs.service';
+import { AUDIT_RETENTION_MODELS, AuditLogsService } from './audit-logs.service';
 import { PrismaService } from '../../database/prisma.service';
 import {
   createMockPrismaService,
@@ -24,6 +24,46 @@ describe('AuditLogsService', () => {
   });
 
   afterEach(() => jest.clearAllMocks());
+
+  // ---------------------------------------------------------------------------
+  // purgeExpiredLogs
+  // ---------------------------------------------------------------------------
+  describe('purgeExpiredLogs', () => {
+    it('deletes only the retention models older than three months', async () => {
+      prisma.auditLog.deleteMany.mockResolvedValue({ count: 7 });
+
+      const count = await service.purgeExpiredLogs(new Date('2026-09-11T08:30:00.000Z'));
+
+      expect(count).toBe(7);
+      expect(prisma.auditLog.deleteMany).toHaveBeenCalledWith({
+        where: {
+          model: { in: [...AUDIT_RETENTION_MODELS] },
+          createdAt: { lt: new Date('2026-06-11T08:30:00.000Z') },
+        },
+      });
+    });
+
+    it('never purges money, orders, approvals, receipts or attendance', () => {
+      const keptForever = [
+        'Order',
+        'OrderItem',
+        'Payment',
+        'CashMovement',
+        'CashSession',
+        'AccountPayable',
+        'ExpenseOrder',
+        'AdvancePaymentApproval',
+        'Client',
+        'User',
+        'RolePermission',
+        'UploadedFile',
+        'AttendanceRecord',
+      ];
+      for (const model of keptForever) {
+        expect(AUDIT_RETENTION_MODELS).not.toContain(model);
+      }
+    });
+  });
 
   // ---------------------------------------------------------------------------
   // logCreate
