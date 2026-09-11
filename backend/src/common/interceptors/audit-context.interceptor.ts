@@ -5,49 +5,24 @@ import {
   CallHandler,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
-import { setAuditContextFromRequest, clearAuditContext } from '../utils/audit-context';
 import { Request } from 'express';
+import { setAuditUserId } from '../utils/audit-context';
 
 /**
- * Interceptor que establece el contexto de auditoría desde la solicitud HTTP
- * Captura el ID del usuario (si está autenticado), IP y User-Agent
+ * Completa el usuario autenticado en el contexto de auditoría del request.
+ *
+ * El contexto (IP, User-Agent) lo abre `AuditContextMiddleware`; aquí solo se
+ * agrega el usuario, que existe en `req.user` después de los guards. No hay que
+ * limpiar nada al terminar: el contexto vive y muere con su propio request.
  */
 @Injectable()
 export class AuditContextInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-    const request = context.switchToHttp().getRequest<Request>();
-    
-    // Obtener el ID del usuario del contexto de autenticación si existe
-    const userId = (request as any)?.user?.id;
-    
-    // Establecer el contexto de auditoría
-    setAuditContextFromRequest(request, userId);
+    if (context.getType() === 'http') {
+      const request = context.switchToHttp().getRequest<Request>();
+      setAuditUserId((request as any)?.user?.id);
+    }
 
-    // Limpiar el contexto después de completar la solicitud
-    return next.handle().pipe(
-      tap(() => {
-        clearAuditContext();
-      }),
-      // También capturar errores para limpiar el contexto
-      (observable) =>
-        new Observable((subscriber) => {
-          const subscription = observable.subscribe({
-            next: (value) => subscriber.next(value),
-            error: (error) => {
-              clearAuditContext();
-              subscriber.error(error);
-            },
-            complete: () => {
-              clearAuditContext();
-              subscriber.complete();
-            },
-          });
-          return () => {
-            subscription.unsubscribe();
-            clearAuditContext();
-          };
-        }),
-    );
+    return next.handle();
   }
 }

@@ -13,7 +13,9 @@ import { getAuditContext } from '../utils/audit-context';
  *   configuradas. Si no lo están, cae a stdout en JSON (Railway lo captura igual).
  *
  * Los logs se enriquecen con userId/ip/userAgent reutilizando el contexto de
- * auditoría (AsyncLocalStorage-like) ya poblado por AuditContextInterceptor.
+ * auditoría (AsyncLocalStorage) que abre AuditContextMiddleware y completa
+ * AuditContextInterceptor. El log de inicio de request sale sin userId porque
+ * los guards todavía no han corrido; el de fin de request ya lo trae.
  */
 export function buildLoggerConfig(): Params {
   const level = process.env.LOG_LEVEL ?? 'info';

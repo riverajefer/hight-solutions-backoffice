@@ -1,77 +1,51 @@
 import { AuditContextInterceptor } from './audit-context.interceptor';
 import { ExecutionContext, CallHandler } from '@nestjs/common';
-import { of, throwError, lastValueFrom } from 'rxjs';
-import * as auditContext from '../utils/audit-context';
+import { of, lastValueFrom } from 'rxjs';
+import { getAuditContext, runWithAuditContext } from '../utils/audit-context';
 
 describe('AuditContextInterceptor', () => {
-  let interceptor: AuditContextInterceptor;
-  let setAuditSpy: jest.SpyInstance;
-  let clearAuditSpy: jest.SpyInstance;
+  const interceptor = new AuditContextInterceptor();
+  const callHandler: CallHandler = { handle: () => of('result') };
 
-  const mockRequest = {
-    user: { id: 'user-1' },
-    headers: { 'user-agent': 'test-agent' },
-    socket: { remoteAddress: '127.0.0.1' },
-  };
+  const httpContext = (request: unknown) =>
+    ({
+      getType: () => 'http',
+      switchToHttp: () => ({ getRequest: () => request }),
+    }) as unknown as ExecutionContext;
 
-  const mockExecutionContext = {
-    switchToHttp: () => ({
-      getRequest: () => mockRequest,
-    }),
-  } as unknown as ExecutionContext;
+  it('adds the authenticated user to the current request context', async () => {
+    await runWithAuditContext({ ipAddress: '10.0.0.1', userAgent: 'test-agent' }, async () => {
+      const value = await lastValueFrom(
+        interceptor.intercept(httpContext({ user: { id: 'user-1' } }), callHandler),
+      );
 
-  beforeEach(() => {
-    interceptor = new AuditContextInterceptor();
-    setAuditSpy = jest.spyOn(auditContext, 'setAuditContextFromRequest').mockImplementation(jest.fn());
-    clearAuditSpy = jest.spyOn(auditContext, 'clearAuditContext').mockImplementation(jest.fn());
+      expect(value).toBe('result');
+      expect(getAuditContext()).toEqual({
+        userId: 'user-1',
+        ipAddress: '10.0.0.1',
+        userAgent: 'test-agent',
+      });
+    });
   });
 
-  afterEach(() => {
-    jest.restoreAllMocks();
+  it('leaves userId undefined for unauthenticated requests', async () => {
+    await runWithAuditContext({ ipAddress: '10.0.0.1' }, async () => {
+      await lastValueFrom(interceptor.intercept(httpContext({}), callHandler));
+
+      expect(getAuditContext().userId).toBeUndefined();
+    });
   });
 
-  it('should be defined', () => {
-    expect(interceptor).toBeDefined();
-  });
-
-  it('should set audit context from request with userId', async () => {
-    const callHandler: CallHandler = { handle: () => of('result') };
-
-    const result$ = interceptor.intercept(mockExecutionContext, callHandler);
-    const value = await lastValueFrom(result$);
-
-    expect(setAuditSpy).toHaveBeenCalledWith(mockRequest, 'user-1');
-    expect(value).toBe('result');
-  });
-
-  it('should set audit context with undefined userId when no user', async () => {
-    const noUserRequest = { headers: {}, socket: { remoteAddress: '::1' } };
-    const ctx = {
-      switchToHttp: () => ({ getRequest: () => noUserRequest }),
+  it('ignores non-HTTP execution contexts', async () => {
+    const wsContext = {
+      getType: () => 'ws',
+      switchToHttp: () => {
+        throw new Error('switchToHttp must not be called');
+      },
     } as unknown as ExecutionContext;
-    const callHandler: CallHandler = { handle: () => of('ok') };
 
-    await lastValueFrom(interceptor.intercept(ctx, callHandler));
-
-    expect(setAuditSpy).toHaveBeenCalledWith(noUserRequest, undefined);
-  });
-
-  it('should clear audit context on completion', async () => {
-    const callHandler: CallHandler = { handle: () => of('done') };
-
-    const result$ = interceptor.intercept(mockExecutionContext, callHandler);
-    await lastValueFrom(result$);
-
-    expect(clearAuditSpy).toHaveBeenCalled();
-  });
-
-  it('should clear audit context on error', async () => {
-    const error = new Error('test error');
-    const callHandler: CallHandler = { handle: () => throwError(() => error) };
-
-    const result$ = interceptor.intercept(mockExecutionContext, callHandler);
-
-    await expect(lastValueFrom(result$)).rejects.toThrow('test error');
-    expect(clearAuditSpy).toHaveBeenCalled();
+    await expect(lastValueFrom(interceptor.intercept(wsContext, callHandler))).resolves.toBe(
+      'result',
+    );
   });
 });
