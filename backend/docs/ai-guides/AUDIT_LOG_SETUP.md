@@ -1,19 +1,28 @@
-# Configuración del Registro de Auditoría (@explita/prisma-audit-log)
+# Registro de Auditoría (`withAuditLog`)
 
 ## Descripción General
 
-Se ha instalado y configurado el plugin `@explita/prisma-audit-log` para proporcionar registro automático de auditoría en todas las operaciones de base de datos (crear, actualizar, eliminar).
+Toda escritura por Prisma (crear, actualizar, eliminar) deja un registro en `audit_logs`
+de forma automática. Lo hace una extensión propia, `withAuditLog`
+(`src/database/audit-log.extension.ts`), que reemplazó a `@explita/prisma-audit-log` 0.2.1
+el 2026-09-10.
 
-## Componentes Instalados
+### Por qué se reemplazó la librería
 
-### 1. Paquete NPM
-- **Paquete**: `@explita/prisma-audit-log`
-- **Versión**: 0.2.1
-- **Instalación**: `npm install @explita/prisma-audit-log`
+La librería hacía la pre-lectura y el `auditLog.createMany` con el cliente base, **fuera**
+de la transacción interactiva:
 
-### 2. Modelo de Base de Datos
+- Cada transacción que tocaba un modelo auditado pedía una segunda conexión al pool sin
+  soltar la suya. Con tantas transacciones concurrentes como conexiones tiene el pool
+  (3 por defecto), se bloqueaban hasta el timeout de 45 s → 500 y rollback.
+- Los logs sobrevivían al rollback: `audit_logs` registraba operaciones que nunca ocurrieron.
 
-Se agregó el modelo `AuditLog` a `prisma/schema.prisma`:
+El formato de los registros no cambió (mismas `action`, mismos snapshots), así que los
+logs anteriores y posteriores se leen igual.
+
+## Componentes
+
+### 1. Modelo de Base de Datos
 
 ```prisma
 model AuditLog {
@@ -35,220 +44,155 @@ model AuditLog {
 ```
 
 **Campos:**
-- `id`: Identificador único del registro de auditoría
-- `userId`: ID del usuario que realizó la operación (si existe)
-- `recordId`: ID del registro afectado
-- `action`: Tipo de operación (create, update, delete)
-- `model`: Nombre del modelo que fue modificado
-- `oldData`: Datos anteriores (para updates)
-- `newData`: Datos nuevos
-- `changedFields`: Campos que fueron modificados (como JSON)
-- `ipAddress`: Dirección IP del cliente
-- `userAgent`: User-Agent del navegador/cliente
-- `metadata`: Metadatos adicionales en formato JSON
-- `createdAt`: Timestamp del registro
+- `userId`: usuario que hizo la operación (del contexto del request, ver abajo)
+- `recordId`: id del registro afectado. En modelos con llave compuesta es `llave1:llave2`
+  (p. ej. `orderItemId:productionAreaId`); `'unknown'` solo si no se pudo resolver
+- `action`: en mayúsculas — `CREATE`, `UPDATE`, `DELETE`, `CREATE_upsert`, `UPDATE_upsert`
+- `model`: nombre del modelo de Prisma (`Order`, `Payment`...)
+- `oldData` / `newData`: en `UPDATE`, solo los campos que cambiaron; en `CREATE`, la fila
+  creada; en `DELETE`, la fila eliminada
+- `changedFields`: lista de campos modificados (solo `UPDATE`)
+- `ipAddress`, `metadata.userAgent`: del request
+- `createdAt`: momento en que se escribió el log
 
-### 3. Configuración de Auditoría
+### 2. Contexto del request (`src/common/utils/audit-context.ts`)
 
-#### a. `src/common/utils/audit-context.ts`
+El contexto vive en `AsyncLocalStorage`, así que los requests concurrentes no se pisan:
 
-Utilidades para manejar el contexto de auditoría:
-- `getAuditContext()`: Obtiene el contexto actual
-- `setAuditContextFromRequest()`: Establece el contexto desde una solicitud HTTP
-- `clearAuditContext()`: Limpia el contexto después de completar una solicitud
+- `buildAuditContextFromRequest(req)`: arma IP y User-Agent desde el request
+- `runWithAuditContext(context, fn)`: ejecuta `fn` con ese contexto
+- `setAuditUserId(userId)`: agrega el usuario cuando ya pasó la autenticación
+- `getAuditContext()`: lo lee `withAuditLog` al construir cada log
 
-#### b. `src/common/interceptors/audit-context.interceptor.ts`
+Cableado en `src/app.module.ts`:
+- `AuditContextMiddleware` (`src/common/middleware/`) abre el contexto al inicio del request
+- `AuditContextInterceptor` (`src/common/interceptors/`, registrado con `APP_INTERCEPTOR`)
+  agrega el `userId` después del guard de JWT
 
-Interceptor global que:
-- Captura información de la solicitud HTTP (IP, User-Agent, ID del usuario)
-- Establece el contexto de auditoría al inicio de cada solicitud
-- Limpia el contexto al finalizar la solicitud
+### 3. Extensiones de Prisma (`src/database/`)
 
-#### c. `src/database/prisma.service.ts`
-
-Servicio de Prisma actualizado con:
-- Extensión de auditoría aplicada mediante `$extends()`
-- Enmascaramiento de campos sensibles: `password`, `refreshToken`
-- Exclusión de campos sensibles del registro: campos de User
-- Configuración para evitar registrar cambios en el modelo AuditLog
-
-### 4. Integración en Módulo Principal
-
-El `AuditContextInterceptor` se registró globalmente en `src/app.module.ts` usando `APP_INTERCEPTOR`.
-
-## Características Configuradas
-
-✅ **Registro automático** de operaciones create, update y delete  
-✅ **Enmascaramiento** de campos sensibles (password, tokens)  
-✅ **Captura de contexto**: Usuario, IP, User-Agent  
-✅ **Registro de cambios**: Qué campos fueron modificados  
-✅ **Datos antes/después**: Comparación de datos para auditoría  
-✅ **Exclusión inteligente**: No registra cambios de solo `updatedAt`  
-✅ **Soporte para operaciones batch**: Procesa múltiples operaciones
-
-## Campos Enmascarados
-
-Los siguientes campos NO aparecerán en los registros de auditoría:
-- `password` (User)
-- `refreshToken` (User)
-
-Se reemplazan con: `[REDACTED]`
-
-## Uso en la Aplicación
-
-Las operaciones se registran automáticamente. Ejemplos:
+- `audit-log.extension.ts` — `withAuditLog(client, options)`: el hook de auditoría y el
+  envoltorio de `$transaction`
+- `audit-record-id.extension.ts` — `auditRecordIdExtension`: completa el `recordId` de los
+  modelos con llave compuesta (`COMPOSITE_PRIMARY_KEYS`). Va **debajo** de `withAuditLog`
+  porque este escribe los logs con el cliente que recibe
+- `prisma.service.ts` — los compone:
 
 ```typescript
-// Crear un usuario (se registra automáticamente)
-await this.prisma.user.create({
-  data: {
-    email: 'user@example.com',
-    password: 'hashed_password',
-    roleId: 'role-id',
-  },
-});
-
-// Actualizar un usuario (se registra automáticamente)
-await this.prisma.user.update({
-  where: { id: 'user-id' },
-  data: { email: 'newemail@example.com' },
-});
-
-// Eliminar un usuario (se registra automáticamente)
-await this.prisma.user.delete({
-  where: { id: 'user-id' },
+const extended = withAuditLog(this.$extends(auditRecordIdExtension), {
+  getContext: () => { /* userId, ipAddress, metadata.userAgent */ },
+  maskFields: ['password', 'refreshToken'],
+  maskValue: '[REDACTED]',
+  fieldFilters: { User: { exclude: ['password', 'refreshToken'] } },
+  logger: (logs) => { /* solo en development */ },
+  skip: ({ model }) => model === 'AuditLog' || model === 'Consecutive',
 });
 ```
 
-### Consultar Registros de Auditoría
+## Qué se audita
+
+- Operaciones: `create`, `createMany`, `createManyAndReturn`, `delete`, `deleteMany`,
+  `update`, `updateMany`, `updateManyAndReturn`, `upsert`. Las lecturas no.
+- Nunca se audita `AuditLog`. `Consecutive` se excluye con `skip` (operación crítica de
+  concurrencia).
+- Un `UPDATE` en el que solo cambió `updatedAt` no deja log.
+- `createMany` no devuelve filas: el log sale de los datos de entrada, así que si el id lo
+  genera la base queda `'unknown'`. Usa `createManyAndReturn` si necesitas el id en el log.
+
+## Transacciones
+
+| Caso | Pre-lectura | Escritura del log |
+|------|-------------|-------------------|
+| Operación suelta | cliente base | inmediata |
+| `$transaction(async (tx) => ...)` | cliente `tx` (misma conexión) | en un solo `createMany`, **después del commit** |
+| `$transaction(async ...)` con rollback | cliente `tx` | se descarta: no queda log |
+| `$transaction([...])` (por lotes) | cliente base | inmediata, como una operación suelta |
+
+Consecuencias:
+
+- Una transacción auditada ya no pide una segunda conexión: N transacciones concurrentes
+  caben en un pool de cualquier tamaño (esperan su turno, no se bloquean entre sí).
+- Si el proceso muere justo entre el commit y la escritura del log, ese log se pierde. Es
+  el costo elegido: preferimos un dato sin log a un log sin dato.
+- Un fallo al escribir el log se registra con el `Logger` de Nest (contexto `AuditLog`) y
+  **no** se propaga: la operación de negocio ya está hecha.
+- Los logs aparecen en `audit_logs` un instante después del commit, no durante la
+  transacción: no los consultes dentro de la misma `tx` esperando verlos.
+
+### Dependencia de APIs internas de Prisma
+
+`withAuditLog` reconoce la transacción con `params.__internalParams.transaction` (en el hook)
+y `tx[Symbol.for('prisma.client.transaction.id')]` (en el cliente `tx`). No son API pública.
+`audit-log.extension.spec.ts` corre el runtime real de Prisma con un driver adapter falso,
+así que un upgrade de Prisma que las rompa hace fallar los tests. Corre `npx jest src/database`
+después de cada upgrade de `prisma` / `@prisma/client`.
+
+## Consultar Registros de Auditoría
+
+`audit_logs` solo tiene índice en `id`. Sobre todo el histórico, filtrar por `model` o
+`record_id` vence el timeout: acota siempre por `createdAt`.
 
 ```typescript
-// Obtener todos los registros de auditoría de un usuario
-const auditLogs = await this.prisma.auditLog.findMany({
-  where: { userId: 'user-id' },
-  orderBy: { createdAt: 'desc' },
-});
-
-// Obtener cambios en un modelo específico
-const userChanges = await this.prisma.auditLog.findMany({
-  where: { model: 'User' },
-  orderBy: { createdAt: 'desc' },
-});
-
-// Obtener cambios en un registro específico
 const recordChanges = await this.prisma.auditLog.findMany({
-  where: { 
+  where: {
+    model: 'Order',
     recordId: 'specific-record-id',
-    model: 'User',
+    createdAt: { gte: desde },
   },
   orderBy: { createdAt: 'desc' },
 });
 ```
 
-## Ejemplo de Registro de Auditoría
+Además de los logs automáticos, `AuditLogsService.logOrderChange` escribe logs manuales de
+órdenes. En el frontend se ven en `features/audit-logs` y en la pestaña de historial de la OP
+(`OrderChangeHistoryTab`), que interpreta `CREATE`/`UPDATE`/`DELETE`.
 
-Cuando un usuario actualiza su email, se genera un registro como:
+## Ejemplo de Registro
 
 ```json
 {
   "id": "clzxx1234...",
   "userId": "user-123",
   "recordId": "user-456",
-  "action": "update",
+  "action": "UPDATE",
   "model": "User",
-  "oldData": {
-    "email": "oldemail@example.com",
-    "password": "[REDACTED]"
-  },
-  "newData": {
-    "email": "newemail@example.com",
-    "password": "[REDACTED]"
-  },
+  "oldData": { "email": "oldemail@example.com" },
+  "newData": { "email": "newemail@example.com" },
   "changedFields": ["email"],
   "ipAddress": "192.168.1.100",
-  "userAgent": "Mozilla/5.0...",
-  "metadata": {
-    "userAgent": "Mozilla/5.0..."
-  },
-  "createdAt": "2026-01-17T10:30:00Z"
+  "metadata": { "userAgent": "Mozilla/5.0..." },
+  "createdAt": "2026-09-10T10:30:00Z"
 }
 ```
 
-## Configuración Personalizada
+`password` y `refreshToken` de `User` se excluyen por `fieldFilters`; en cualquier otro
+modelo o en `metadata`, `maskFields` los reemplaza por `[REDACTED]` a cualquier profundidad.
 
-Para modificar el comportamiento de la auditoría, edita `src/database/prisma.service.ts`:
+## Opciones de `withAuditLog`
 
-```typescript
-auditLogExtension({
-  // Incluir solo modelos específicos
-  includeModels: ['User', 'Role'], // Opcional
+| Opción | Uso |
+|--------|-----|
+| `getContext` | Campos extra del log (`userId`, `ipAddress`, `metadata`) |
+| `maskFields` / `maskValue` | Claves a enmascarar en `oldData`/`newData`/`metadata` |
+| `fieldFilters` | `include`/`exclude` de campos por modelo |
+| `logger` | Se llama con el array de logs ya guardados |
+| `skip` | `({ model, operation, args }) => boolean` para no auditar |
 
-  // Excluir modelos específicos
-  excludeModels: ['Session'], // Opcional
-
-  // Campos a enmascarar
-  maskFields: ['password', 'refreshToken'],
-
-  // Filtros por modelo (incluir/excluir campos)
-  fieldFilters: {
-    User: {
-      exclude: ['password', 'refreshToken'], // No registrar estos campos
-    },
-  },
-
-  // Truncar valores largos
-  maxStringLength: 1000,
-  maxArrayLength: 50,
-
-  // Logger personalizado
-  logger: (log) => {
-    // Enviar a servicio de logging
-    console.log('AUDIT:', log);
-  },
-
-  // Saltar registro para operaciones específicas
-  skip: ({ model, operation, args }) => {
-    if (model === 'AuditLog') return true;
-    return false;
-  },
-})
-```
-
-## Notas Importantes
-
-1. **Contexto de Usuario**: El ID del usuario se obtiene de `request.user.id`. Asegúrate de que la autenticación establece este valor correctamente.
-
-2. **Base de Datos SQLite**: Como se usa SQLite, los campos de array se almacenan como JSON.
-
-3. **Rendimiento**: La auditoría se procesa automáticamente, pero el volumen de registros puede crecer significativamente. Considera implementar políticas de retención.
-
-4. **Sensibilidad**: Los campos enmascarados no se pueden recuperar de los registros de auditoría por seguridad.
-
-5. **Migración**: Se creó la tabla `audit_logs` con la migración `add_audit_log`.
-
-## Próximos Pasos (Opcional)
-
-1. **Crear un servicio de AuditLog**: Desarrollar un módulo específico para consultas y análisis de auditoría
-2. **API de Auditoría**: Exponer endpoints para consultar registros de auditoría
-3. **Política de Retención**: Implementar limpieza automática de registros antiguos
-4. **Dashboard de Auditoría**: Crear interfaz visual para revisar logs
-5. **Alertas**: Configurar notificaciones para operaciones críticas
+Las opciones de la librería que no se usaban (`maskPaths`, `maxStringLength`,
+`maxArrayLength`, `maxPayloadBytes`, `includeModels`, `excludeModels`) no existen aquí.
 
 ## Troubleshooting
 
-### El contexto de usuario es `undefined`
+### Error 500 "Transaction already closed" / timeout de transacción bajo carga
+Antes de este cambio, la causa típica era la auditoría ahogando el pool. Si reaparece,
+revisa el tamaño del pool (`connection_limit` en `DATABASE_URL`, 3 por defecto) y si alguna
+consulta dentro de una `tx` usa `this.prisma` en vez de `tx`.
 
-Verifica que:
-- El middleware de autenticación se ejecute antes del interceptor de auditoría
-- `request.user.id` se establece correctamente en la autenticación
+### `userId` vacío en los logs
+El log se escribió fuera de un request (cron, script) o antes de que el
+`AuditContextInterceptor` agregara el usuario. Los logs anteriores al 2026-09-10 no son
+confiables para atribuir acciones a una persona (el contexto era una variable global).
 
-### Los registros de auditoría no se crean
-
-Verifica:
-- La tabla `audit_logs` existe en la base de datos
-- El servicio de Prisma está usando la extensión correctamente
-- No hay errores en los logs de la aplicación
-
-### Campos sensibles se están registrando
-
-Agrega los campos a `maskFields` y/o `fieldFilters` en la configuración de la extensión.
+### `recordId = 'unknown'`
+`createMany` con ids generados por la base, o un modelo con `@@id([...])` nuevo que no se
+registró en `COMPOSITE_PRIMARY_KEYS` (el spec de `audit-record-id.extension` lo detecta).
