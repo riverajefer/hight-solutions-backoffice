@@ -49,6 +49,7 @@ import { OrderTimelineModule } from './modules/order-timeline/order-timeline.mod
 import { AuditContextInterceptor } from './common/interceptors/audit-context.interceptor';
 import { HeartbeatInterceptor } from './common/interceptors/heartbeat.interceptor';
 import { MaintenanceMiddleware } from './common/middleware/maintenance.middleware';
+import { AuditContextMiddleware } from './common/middleware/audit-context.middleware';
 import { WhatsappModule } from './modules/whatsapp/whatsapp.module';
 import { HealthModule } from './health/health.module';
 import { PayrollModule } from './modules/payroll/payroll.module';
@@ -212,7 +213,7 @@ import { ClientErrorsModule } from './modules/client-errors/client-errors.module
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
     consumer
-      .apply(MaintenanceMiddleware)
+      .apply(AuditContextMiddleware, MaintenanceMiddleware)
       .forRoutes('*');
   }
 }

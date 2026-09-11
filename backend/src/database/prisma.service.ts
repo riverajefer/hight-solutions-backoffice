@@ -2,6 +2,7 @@ import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '../generated/prisma';
 import { auditLogExtension } from '@explita/prisma-audit-log';
 import { getAuditContext } from '../common/utils/audit-context';
+import { auditRecordIdExtension } from './audit-record-id.extension';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 
@@ -44,8 +45,10 @@ export class PrismaService
 
     this.pool = pool;
 
-    // Aplicar extensión de auditoría
-    const extended = this.$extends(
+    // Aplicar extensión de auditoría. `auditRecordIdExtension` va debajo porque la
+    // librería escribe el AuditLog con el cliente que extiende: así esa escritura
+    // pasa por ella y los modelos con llave compuesta no pierden el log.
+    const extended = this.$extends(auditRecordIdExtension).$extends(
       auditLogExtension({
         // Obtener contexto para los registros de auditoría
         getContext: () => {
