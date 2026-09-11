@@ -6,6 +6,24 @@ import { auditRecordIdExtension } from './audit-record-id.extension';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 
+/**
+ * Modelos que no pasan por la auditoría automática:
+ * - la auditoría misma y los consecutivos (operación crítica de concurrencia);
+ * - tablas que ya son un registro en sí mismas, cuyo log solo duplicaba cada
+ *   fila. Los heartbeats llegaron a ser el 64 % de `audit_logs` en PRD.
+ * Lo que alcanzaron a acumular lo borró la migración
+ * 20260911000000_audit_logs_noise_purge_and_indexes.
+ */
+const UNAUDITED_MODELS = new Set([
+  'AuditLog',
+  'audit_logs',
+  'Consecutive',
+  'ActivityHeartbeat',
+  'Notification',
+  'WhatsappActionContext',
+  'SessionLog',
+]);
+
 @Injectable()
 export class PrismaService
   extends PrismaClient
@@ -82,13 +100,7 @@ export class PrismaService
       },
 
       // Saltar registro para operaciones específicas
-      skip: ({ model }) => {
-        return (
-          model === 'AuditLog' ||
-          model === 'audit_logs' ||
-          model === 'Consecutive' // Excluir consecutivos (operación crítica de concurrencia)
-        );
-      },
+      skip: ({ model }) => UNAUDITED_MODELS.has(model),
     });
 
     // Asegurar que el pool y métodos de NestJS estén en el proxy devuelto

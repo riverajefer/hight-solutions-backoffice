@@ -179,6 +179,9 @@ model AuditLog {
   metadata      Json?
   createdAt     DateTime @default(now()) @map("created_at")
 
+  @@index([recordId])
+  @@index([model, createdAt])
+  @@index([createdAt])
   @@map("audit_logs")
 }
 
