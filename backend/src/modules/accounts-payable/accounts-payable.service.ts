@@ -346,7 +346,8 @@ export class AccountsPayableService {
   }
 
   /**
-   * Dinero que ya salió de caja por la Orden de Gasto asociada.
+   * Dinero que salió de caja por la Orden de Gasto asociada y que la CP todavía
+   * no refleja como pago.
    *
    * La autorización de Caja de una OG crea un `CashMovement` de egreso por cada
    * ítem: la plata sale sin pasar por `AccountPayablePayment`, así que la CP
@@ -354,10 +355,12 @@ export class AccountsPayableService {
    * CP ve una deuda viva que en realidad ya se pagó, y volver a pagarla saca el
    * dinero dos veces (pasó 6 veces entre mayo y junio de 2026, $3.317.400).
    *
-   * `settleFromExpenseOrderMovements` evita que esto se siga acumulando, pero el
-   * tope se calcula igual desde los movimientos: cubre las CP históricas, que
-   * nunca fueron conciliadas, y cualquier otra ruta que pague por el lado de la
-   * OG sin tocar la CP.
+   * Solo cuenta los movimientos SIN pago de CP asociado. Los que ya reflejó
+   * `settleFromExpenseOrderMovements` están descontados de `balance`, y
+   * restarlos otra vez dejaba el disponible en $0: el IVA de 83 CP en PRD
+   * (32 PARTIAL y 51 OVERDUE, $1.945.120) quedó impagable hasta 2026-09-14.
+   * Lo que queda por contar son las CP históricas nunca conciliadas y cualquier
+   * otra ruta que pague por el lado de la OG sin tocar la CP.
    */
   async paidThroughExpenseOrder(accountPayableId: string): Promise<Prisma.Decimal> {
     // Se lee el vínculo con la OG desde la base y no del objeto que llega: el
@@ -376,6 +379,7 @@ export class AccountsPayableService {
         referenceId: expenseOrderId,
         movementType: 'EXPENSE',
         isVoided: false,
+        accountPayablePayment: { is: null },
       },
       select: { amount: true },
     });
@@ -386,9 +390,10 @@ export class AccountsPayableService {
   /**
    * Verifica que el monto quepa en lo que realmente falta por pagar.
    *
-   * El tope no es `balance`: hay que descontar también lo que ya salió por la OG
-   * (ver `paidThroughExpenseOrder`). Cuando la OG cubre todo, el disponible es
-   * cero y no se puede pagar nada.
+   * El tope no es `balance`: hay que descontar también lo que salió por la OG y
+   * la CP todavía no refleja (ver `paidThroughExpenseOrder`). Cuando la OG cubre
+   * todo, el disponible es cero y no se puede pagar nada; cuando la CP ya está
+   * conciliada, el tope es su saldo, que es el IVA o las retenciones pendientes.
    */
   async assertPayableAmount(ap: { id: string; apNumber: string; balance: unknown }, amount: number) {
     const balance = new Prisma.Decimal(ap.balance as never);

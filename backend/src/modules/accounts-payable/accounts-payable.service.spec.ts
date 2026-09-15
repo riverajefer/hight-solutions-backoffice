@@ -753,6 +753,43 @@ describe('AccountsPayableService', () => {
         );
       });
 
+      it('no vuelve a descontar los movimientos que la CP ya refleja como pagos', async () => {
+        // CP-2026-633 en PRD: la OG giró la base ($1.368.855), la conciliación la
+        // reflejó como pago de la CP y en `balance` quedó solo el IVA ($260.082).
+        // Restar otra vez la base dejaba el disponible en $0 y el IVA impagable.
+        prisma.accountPayable.findUnique.mockResolvedValue({ expenseOrderId: 'og-1' } as any);
+        const movimientos = [
+          { amount: new Prisma.Decimal(1368855), accountPayablePayment: { id: 'pay-1' } },
+        ];
+        // Replica el filtro de la base: con `accountPayablePayment: { is: null }`
+        // solo vuelven los movimientos que ningún pago de CP refleja todavía.
+        prisma.cashMovement.findMany.mockImplementation((async (args: any) =>
+          args?.where?.accountPayablePayment?.is === null
+            ? movimientos.filter((m) => !m.accountPayablePayment)
+            : movimientos) as any);
+        const ap = apStub({ totalAmount: 1628937, paidAmount: 1368855, balance: 260082 });
+
+        await expect(service.assertPayableAmount(ap, 260082)).resolves.toBeUndefined();
+        await expect(service.assertPayableAmount(ap, 260083)).rejects.toThrow(
+          /supera el saldo pendiente/,
+        );
+      });
+
+      it('sigue descontando lo girado por la OG en una CP histórica sin conciliar', async () => {
+        // La otra mitad del filtro: un movimiento sin pago de CP es dinero que ya
+        // salió y la CP no muestra, así que el tope lo sigue restando.
+        prisma.accountPayable.findUnique.mockResolvedValue({ expenseOrderId: 'og-1' } as any);
+        const movimientos = [{ amount: new Prisma.Decimal(100000), accountPayablePayment: null }];
+        prisma.cashMovement.findMany.mockImplementation((async (args: any) =>
+          args?.where?.accountPayablePayment?.is === null
+            ? movimientos.filter((m) => !m.accountPayablePayment)
+            : movimientos) as any);
+
+        await expect(service.assertPayableAmount(apStub(), 1)).rejects.toThrow(
+          /ya tiene .* pagados a través de su Orden de Gasto/,
+        );
+      });
+
       it('sin OG asociada mantiene el mensaje de saldo de siempre', async () => {
         prisma.accountPayable.findUnique.mockResolvedValue({ expenseOrderId: null } as any);
 
