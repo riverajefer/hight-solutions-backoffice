@@ -1,9 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHmac } from 'crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { ApprovalRequestType } from '../../generated/prisma';
-import { isProduction, isProductionLike } from '../../common/utils/environment.util';
+import { isProduction } from '../../common/utils/environment.util';
 
 @Injectable()
 export class WhatsappService {
@@ -13,7 +12,6 @@ export class WhatsappService {
   private readonly phoneNumberId: string;
   private readonly frontendUrl: string;
   private readonly isConfigured: boolean;
-  private readonly actionSecret: string;
 
   constructor(
     private readonly configService: ConfigService,
@@ -30,24 +28,11 @@ export class WhatsappService {
     this.frontendUrl =
       this.configService.get<string>('app.frontendUrl') ||
       'http://localhost:5173';
-    this.actionSecret =
-      this.configService.get<string>('whatsapp.actionSecret') || '';
     this.isConfigured = !!(this.accessToken && this.phoneNumberId);
 
     if (!this.isConfigured) {
       this.logger.warn(
         'WhatsApp Cloud API credentials not configured. Messages will not be sent.',
-      );
-    }
-
-    // Sin secreto, el HMAC de cada botón se firma con clave vacía y cualquiera
-    // puede calcularlo. Hoy lo contiene la firma de Meta del webhook, pero es la
-    // segunda defensa y tiene que existir en todo despliegue real. No se tumba el
-    // arranque: definirla invalida los botones ya enviados, así que es una
-    // decisión de operación, no del código.
-    if (!this.actionSecret && isProductionLike()) {
-      this.logger.error(
-        'WHATSAPP_ACTION_SECRET no está configurado: los botones de aprobación se firman con una clave vacía.',
       );
     }
   }
@@ -285,35 +270,6 @@ export class WhatsappService {
   }
 
   /**
-   * Genera un HMAC-SHA256 para firmar una acción de botón.
-   * El token vincula action + requestId + adminPhone para evitar replay y spoofing.
-   * Retorna los primeros 32 caracteres en base64url.
-   */
-  generateActionHmac(
-    action: string,
-    requestId: string,
-    adminPhone: string,
-  ): string {
-    return createHmac('sha256', this.actionSecret)
-      .update(`${action}:${requestId}:${adminPhone}`)
-      .digest('base64url')
-      .slice(0, 32);
-  }
-
-  /**
-   * Valida un HMAC de acción de botón.
-   */
-  validateActionHmac(
-    action: string,
-    requestId: string,
-    adminPhone: string,
-    receivedHmac: string,
-  ): boolean {
-    const expected = this.generateActionHmac(action, requestId, adminPhone);
-    return expected === receivedHmac;
-  }
-
-  /**
    * Retorna el nombre de la plantilla de aprobación según el ambiente.
    * - production  → solicitud_aprobacion_general_prod_v2
    * - dev/staging → solicitud_aprobacion_v1
@@ -333,75 +289,6 @@ export class WhatsappService {
     return isProduction()
       ? 'solicitud_edicion_op_v4_prod'
       : 'solicitud_edicion_op_v2';
-  }
-
-  /**
-   * Envía un mensaje interactivo con hasta 3 botones de respuesta rápida.
-   * A diferencia de los templates, los IDs de botón son dinámicos — pueden
-   * incluir HMAC y contexto de la solicitud.
-   */
-  async sendInteractiveButtonMessage(
-    to: string,
-    bodyText: string,
-    buttons: Array<{ id: string; title: string }>,
-  ): Promise<string | null> {
-    if (!this.isConfigured) {
-      this.logger.warn(
-        `WhatsApp not configured. Skipping interactive message to ${to}`,
-      );
-      return null;
-    }
-
-    const normalizedTo = this.normalizePhone(to);
-
-    const body = {
-      messaging_product: 'whatsapp',
-      recipient_type: 'individual',
-      to: normalizedTo,
-      type: 'interactive',
-      interactive: {
-        type: 'button',
-        body: { text: bodyText },
-        action: {
-          buttons: buttons.map((btn) => ({
-            type: 'reply',
-            reply: { id: btn.id, title: btn.title },
-          })),
-        },
-      },
-    };
-
-    try {
-      const response = await fetch(this.baseUrl, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${this.accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        const metaError = data?.error?.message || response.statusText;
-        this.logger.error(
-          `Failed to send interactive message to ${normalizedTo}: ${metaError}`,
-        );
-        return null;
-      }
-
-      const messageId = data?.messages?.[0]?.id;
-      this.logger.log(
-        `Interactive button message sent to ${normalizedTo}. MessageId: ${messageId}`,
-      );
-      return messageId || null;
-    } catch (error) {
-      this.logger.error(
-        `Failed to send interactive message to ${normalizedTo}: ${error.message}`,
-      );
-      return null;
-    }
   }
 
   /**

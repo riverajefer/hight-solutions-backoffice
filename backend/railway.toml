@@ -9,6 +9,14 @@ builder = "RAILPACK"
 # Fija NODE_ENV=production -> los logs se etiquetan con env="production" en Grafana/Loki
 startCommand = "npx prisma migrate deploy && npm run start:prod"
 
+# Health check: Railway solo pasa el tráfico al despliegue nuevo cuando esta ruta
+# responde 200. Si el backend no arranca (migración fallida, variable faltante),
+# el despliegue falla y la versión anterior sigue atendiendo.
+# `/health` va sin el prefijo /api/v1, no toca la base y pasa aunque esté activo
+# el modo mantenimiento. El timeout cubre `prisma migrate deploy` + el arranque.
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+
 # Restart policy
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
@@ -18,10 +26,3 @@ restartPolicyMaxRetries = 10
 # El nombre "staging" debe coincidir con el nombre del ambiente en Railway.
 [environments.staging.deploy]
 startCommand = "npx prisma migrate deploy && npm run start:staging"
-
-# Health check configuration (optional)
-# Uncomment and configure if you have a health check endpoint
-# [deploy.healthcheck]
-# path = "/api/v1/health"
-# timeout = 100
-# interval = 60

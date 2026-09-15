@@ -10,12 +10,12 @@ builder = "RAILPACK"
 # los chunks inexistentes tras un despliegue y no enviaba Cache-Control.
 startCommand = "node server.js"
 
+# Health check: Railway solo pasa el tráfico al despliegue nuevo cuando `/`
+# responde 200 (server.js entrega index.html). Si el servidor no arranca, la
+# versión anterior sigue atendiendo.
+healthcheckPath = "/"
+healthcheckTimeout = 120
+
 # Restart policy
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
-
-# Health check configuration (optional)
-# [deploy.healthcheck]
-# path = "/"
-# timeout = 100
-# interval = 60
