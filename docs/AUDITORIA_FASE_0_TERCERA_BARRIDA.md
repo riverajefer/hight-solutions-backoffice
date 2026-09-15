@@ -332,33 +332,45 @@ sanean: mañana ya les corresponde estar vencidas.
 
 ## 6. WhatsApp aceptaba webhooks falsos si faltaban los secretos — **Media, riesgo para el fork** · ✅ Corregido
 
+Había dos candados, y los dos podían quedar abiertos por configuración:
+
 - Sin `WHATSAPP_APP_SECRET`, la firma de Meta **no se validaba**: solo quedaba
   un `warn` en el log.
-- Sin `WHATSAPP_ACTION_SECRET`, el HMAC de cada botón se firma con **clave
-  vacía**, que cualquiera puede calcular.
+- `WHATSAPP_ACTION_SECRET` firmaba un segundo formato de botón: mensajes
+  interactivos con la solicitud y un HMAC en el id (`approve:{id}:{hmac}`). En
+  PRD **la variable no existe**, así que esa firma se calculaba con clave vacía.
 
-> **Corrección a la primera versión de este informe**, que decía que en
-> producción las dos variables estaban configuradas. No es así. En PRD
-> `WHATSAPP_APP_SECRET` está, pero **`WHATSAPP_ACTION_SECRET` no**: los botones
-> de aprobación de producción se firman hoy con clave vacía. Lo que impide un
-> webhook falso es la firma de Meta. En staging están las dos.
+> **Corrección a dos versiones anteriores de este informe.** La primera decía
+> que en PRD estaban las dos variables: falta `WHATSAPP_ACTION_SECRET`. La
+> segunda decía que por eso los botones de aprobación de producción se firmaban
+> con clave vacía y que definirla invalidaría los ya enviados. Tampoco: los
+> botones actuales no usan esa firma.
+
+**Cómo funcionan de verdad los botones.** Las plantillas mandan `APPROVE` o
+`REJECT`. Al enviarlas se guarda el `wamid` del mensaje, el teléfono del admin y
+un vencimiento de 48 horas (`WhatsappActionContext`). Cuando tocan el botón, el
+webhook exige la firma de Meta, busca la solicitud por ese `wamid` y comprueba
+vencimiento y teléfono.
+
+El formato interactivo firmado era **código muerto por un solo lado**:
+`sendInteractiveButtonMessage` y `generateActionHmac` no tenían ninguna llamada,
+pero el webhook seguía aceptando esos mensajes (`handleButtonReply`). No era
+explotable mientras la firma de Meta estuviera configurada, pero era una
+entrada sin uso, protegida por un secreto que nadie había definido.
 
 ### Corrección aplicada
 
 - **Staging y producción sin `WHATSAPP_APP_SECRET`**: el webhook se rechaza
   (401) en vez de saltarse la firma, con pruebas por ambiente. PRD y staging la
   tienen, así que no hay regresión.
-- **Sin `WHATSAPP_ACTION_SECRET`**: queda un error en el log al arrancar, sin
-  tumbar el servicio.
+- **Se eliminó el formato interactivo firmado** de punta a punta: la rama del
+  webhook, `handleButtonReply`, `handleViewOrder`, `generateActionHmac`,
+  `validateActionHmac`, `sendInteractiveButtonMessage`, la variable
+  `WHATSAPP_ACTION_SECRET` (config y `.env.example`) y sus pruebas. Una prueba
+  nueva comprueba que un mensaje con ese formato se ignora.
 
-No se hizo obligatoria al arrancar por dos razones: el healthcheck de
-`railway.toml` está comentado, así que un backend que no arranca tumba PRD, y
-la variable hoy no existe allí.
-
-**Pendiente de tu lado**: definir `WHATSAPP_ACTION_SECRET` en PRD
-(`openssl rand -base64 32`). Los botones de solicitudes ya enviadas quedan
-firmados con la clave vacía y dejan de validar: esas se aprueban desde el
-sistema. Conviene hacerlo con la bandeja de solicitudes vacía.
+**No hay nada que configurar**, ni en PRD ni en el clon de Zoom. La variable
+que existe en el ambiente de staging de Railway quedó sin uso y se puede borrar.
 
 ---
 
@@ -438,8 +450,6 @@ nómina. Inventario, producción y cartera tampoco se tocaron.
 1. **Desplegar** backend y frontend. El hallazgo 1 sigue abierto en producción
    hasta que salga el backend.
 2. **Revisar en Loki** si hubo llamadas a `POST /api/v1/auth/register`.
-3. **Definir `WHATSAPP_ACTION_SECRET` en PRD** con la bandeja de solicitudes
-   vacía (hallazgo 6).
-4. **Preguntarle al cliente** si el cierre de asistencia debe seguir a las
+3. **Preguntarle al cliente** si el cierre de asistencia debe seguir a las
    7 p. m. o pasar a medianoche (hallazgo 5).
-5. **Hallazgo 8** durante el rebranding del fork.
+4. **Hallazgo 8** durante el rebranding del fork.
