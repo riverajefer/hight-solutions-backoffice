@@ -29,6 +29,18 @@ export class AttendanceRepository {
   }
 
   /**
+   * Último registro cerrado del usuario desde `since`: cuándo se cerró y quién lo
+   * cerró. Sirve para saber si el sistema le cerró hoy la jornada.
+   */
+  async findLastClosedRecordSince(userId: string, since: Date) {
+    return this.prisma.attendanceRecord.findFirst({
+      where: { userId, clockOut: { gte: since } },
+      orderBy: { clockOut: 'desc' },
+      select: { clockOut: true, source: true },
+    });
+  }
+
+  /**
    * Crea un registro de clock-in
    */
   async createClockIn(userId: string, now: Date, notes?: string, metadata?: any) {

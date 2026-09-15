@@ -36,6 +36,11 @@ export interface AttendanceRecord {
 export interface AttendanceStatus {
   active: boolean;
   record: AttendanceRecord | null;
+  /**
+   * Hora en que el sistema cerró hoy el registro (cierre de jornada o tope de
+   * horas extra), si no hay entrada activa. Muestra el aviso de horas extra.
+   */
+  autoClosedAt?: string | null;
 }
 
 export interface AttendanceMeta {
