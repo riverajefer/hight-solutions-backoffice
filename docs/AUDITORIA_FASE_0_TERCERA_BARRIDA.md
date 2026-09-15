@@ -19,9 +19,9 @@ Esta apunta a lo que ninguna tocó:
 Cada hallazgo trae evidencia en el código y, cuando aplica, verificación contra
 producción en solo lectura.
 
-**Estado**: los hallazgos 1, 2, 3, 4, 6 y 7 se corrigieron el mismo día. El 5
-quedó a medias, porque el cierre de asistencia lo decide el cliente. El 8 se
-resuelve durante el rebranding del fork.
+**Estado**: los hallazgos 1 a 7 están corregidos; el 5 se cerró el 2026-09-15
+con la decisión del cliente sobre asistencia. Del 8, el Swagger ya está resuelto
+y el resto se hace durante el rebranding del fork.
 
 ---
 
@@ -293,24 +293,59 @@ rechaza.
 
 ---
 
-## 5. Tres crons corrían en hora UTC — **Media** · 🟡 Corregido a medias
+## 5. Tres crons corrían en hora UTC — **Media** · ✅ Corregido
 
 Railway corre en UTC y `ScheduleModule.forRoot()` no fija zona, así que todo
 `@Cron` sin `timeZone` se dispara 5 horas antes de lo que dice.
 
 | Cron | Dice | Corría en Colombia | Estado |
 |---|---|---|---|
-| Cierre de asistencia de fin de día | 11:59 p. m. | **6:59 p. m.** | ⏸ Pendiente del cliente |
+| Cierre de asistencia de fin de día | 11:59 p. m. | **6:59 p. m.** | ✅ 7:00 p. m. por decisión del cliente, con horas extra |
 | Marcar CP vencidas | 12:00 a. m. | 7:00 p. m. del día anterior | ✅ |
 | Alerta de stock bajo | 8:00 a. m. | 3:00 a. m. | ✅ |
 
-**Asistencia, verificado contra producción**: los 91 cierres de "fin de día"
-de los últimos 60 días pasaron a las 6:59 p. m., sobre 8 usuarios, con
-registros de 8,9 horas en promedio. Son personas con la pestaña todavía
-activa, porque a quien se va ya lo cierra antes el cron de inactividad.
-**No se tocó**: moverlo a medianoche cambia las horas que ven los usuarios, y
-hay que preguntarle al cliente si el cierre de las 7 p. m. se volvió la regla
-de hecho.
+### Asistencia: la jornada termina a las 7 p. m., con horas extra
+
+**Verificado contra producción**: los 91 cierres de "fin de día" de los últimos
+60 días pasaron a las 6:59 p. m., sobre 8 usuarios. En los últimos 7 días (lo
+que se conserva de los avisos del navegador), **ninguna** de esas personas usó
+el CRM ni tenía la pestaña abierta después del cierre: se habían ido entre las
+6 y las 7 sin marcar salida. El cierre no estaba cortando trabajo real.
+
+> **Corrección a la versión anterior**, que decía que eran personas con la
+> pestaña todavía activa. La consulta de 7 días muestra lo contrario.
+
+Moverlo a medianoche, como decía el código, habría inflado horas. El cierre por
+inactividad registra la hora en que lo detecta, entre 60 y 75 minutos después
+del último aviso, y una pestaña abierta en un equipo encendido cuenta como
+presente.
+
+**Decisión del cliente (2026-09-15)**: la jornada termina a las 7 p. m., pero
+hay personal que hace horas extra. Para ese caso había dos problemas:
+
+- El aviso después del cierre era el recordatorio genérico de marcar entrada,
+  que se puede descartar por sesión. Nada decía que la jornada se había cerrado.
+- Un registro de horas extra marcado después de las 7 no lo cerraba nadie. Con
+  la pestaña abierta, el cierre por inactividad no actúa, así que quedaba
+  abierto hasta el cierre del día siguiente.
+
+### Corrección aplicada a asistencia
+
+- **Cierre de jornada a las 7:00 p. m. hora Colombia**, explícito y
+  configurable con `ATTENDANCE_WORKDAY_END` (`HH:mm`), pensando en las sedes de
+  Zoom. Se registra en `onModuleInit` con `SchedulerRegistry`: el decorador
+  `@Cron` se evalúa al cargar la clase, antes de que se lea el `.env`.
+- **Horas extra = marcar entrada de nuevo.** Si el sistema cerró la jornada,
+  `GET /attendance/my-status` devuelve `autoClosedAt`, y el banner muestra un
+  aviso que no se puede descartar: *"Tu jornada se cerró automáticamente a las
+  7:00 p. m. Si vas a hacer horas extra, marca entrada de nuevo."* Ese segundo
+  registro es la hora extra, separado y visible en los reportes.
+- **Tope a las 11:59 p. m.**: cierra el registro de horas extra que nadie cerró.
+- `cron` 4.3.5 queda declarado como dependencia directa, la misma versión que
+  trae `@nestjs/schedule`.
+
+Estos registros no alimentan la nómina: las horas extra de la liquidación se
+siguen digitando en el registro de nómina.
 
 ### Corrección aplicada a CP vencidas: el `timeZone` solo no bastaba
 
@@ -450,6 +485,4 @@ nómina. Inventario, producción y cartera tampoco se tocaron.
 1. **Desplegar** backend y frontend. El hallazgo 1 sigue abierto en producción
    hasta que salga el backend.
 2. **Revisar en Loki** si hubo llamadas a `POST /api/v1/auth/register`.
-3. **Preguntarle al cliente** si el cierre de asistencia debe seguir a las
-   7 p. m. o pasar a medianoche (hallazgo 5).
-4. **Hallazgo 8** durante el rebranding del fork.
+3. **Hallazgo 8** durante el rebranding del fork (el Swagger ya está resuelto).

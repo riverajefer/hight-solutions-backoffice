@@ -268,13 +268,6 @@ export const QuoteFormPage: React.FC = () => {
     },
   });
 
-  useEffect(() => {
-    if (Object.keys(errors).length > 0) {
-      console.log('Validation Errors:', errors);
-      console.log('Current Values:', getValues());
-    }
-  }, [errors, getValues]);
-
   const selectedClient = watch('client');
   const items = watch('items');
   const applyTax = watch('applyTax');
