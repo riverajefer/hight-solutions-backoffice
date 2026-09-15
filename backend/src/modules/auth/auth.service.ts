@@ -10,7 +10,6 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../database/prisma.service';
 import { JwtPayload, TokenPair, AuthenticatedUser } from '../../common/interfaces';
-import { RegisterDto } from './dto';
 import { SessionLogsService } from '../session-logs/session-logs.service';
 import { AttendanceService } from '../attendance/attendance.service';
 
@@ -139,68 +138,6 @@ export class AuthService {
       user,
       permissions,
     };
-  }
-
-  /**
-   * Registra un nuevo usuario
-   */
-  async register(registerDto: RegisterDto): Promise<TokenPair> {
-    // Verificar si el email ya existe (si se proporcionó)
-    if (registerDto.email) {
-      const existingUser = await this.prisma.user.findUnique({
-        where: { email: registerDto.email },
-      });
-
-      if (existingUser) {
-        throw new BadRequestException('Email already registered');
-      }
-    }
-
-    // Verificar si el rol existe
-    const role = await this.prisma.role.findUnique({
-      where: { id: registerDto.roleId },
-    });
-
-    if (!role) {
-      throw new BadRequestException('Invalid role ID');
-    }
-
-    // Hashear el password
-    const hashedPassword = await bcrypt.hash(
-      registerDto.password,
-      this.SALT_ROUNDS,
-    );
-
-    // Generar username desde email si no se proporciona uno
-    const usernameBase = registerDto.email
-      ? registerDto.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '')
-      : 'user';
-    let username = usernameBase;
-    let counter = 1;
-    while (await this.prisma.user.findUnique({ where: { username } })) {
-      username = `${usernameBase}${counter}`;
-      counter++;
-    }
-
-    // Crear el usuario
-    const user = await this.prisma.user.create({
-      data: {
-        username,
-        email: registerDto.email,
-        password: hashedPassword,
-        roleId: registerDto.roleId,
-      },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        isActive: true,
-        roleId: true,
-      },
-    });
-
-    // Generar y retornar tokens
-    return this.login({ ...user, username: user.username! } as AuthenticatedUser);
   }
 
   /**

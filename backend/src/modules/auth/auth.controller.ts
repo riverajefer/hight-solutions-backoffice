@@ -14,7 +14,7 @@ import { Request } from 'express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard, JwtAuthGuard } from './guards';
-import { LoginDto, RefreshTokenDto, RegisterDto, UpdateProfilePhotoDto, ChangePasswordDto, VerifyPasswordDto } from './dto';
+import { LoginDto, RefreshTokenDto, UpdateProfilePhotoDto, ChangePasswordDto, VerifyPasswordDto } from './dto';
 import { CurrentUser, Public } from '../../common/decorators';
 import { AuthenticatedUser, TokenPair } from '../../common/interfaces';
 
@@ -47,19 +47,6 @@ export class AuthController {
     const userAgent = request.headers['user-agent'];
 
     return this.authService.loginWithPermissions(user, ipAddress, userAgent);
-  }
-
-  /**
-   * POST /api/v1/auth/register
-   * Registra un nuevo usuario
-   * Retorna access token y refresh token
-   */
-  @Throttle({ default: { ttl: 60_000, limit: 5 } })
-  @Public()
-  @Post('register')
-  @HttpCode(HttpStatus.CREATED)
-  async register(@Body() registerDto: RegisterDto): Promise<TokenPair> {
-    return this.authService.register(registerDto);
   }
 
   /**

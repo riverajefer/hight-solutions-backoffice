@@ -386,65 +386,6 @@ describe('AuthService', () => {
   });
 
   // ─────────────────────────────────────────────
-  // register
-  // ─────────────────────────────────────────────
-  describe('register', () => {
-    const registerDto = {
-      email: 'new@example.com',
-      password: 'plain-password',
-      roleId: 'role-1',
-    };
-
-    it('should create user with hashed password and return token pair', async () => {
-      (prisma.user.findUnique as jest.Mock).mockResolvedValueOnce(null); // email check
-      (prisma.role.findUnique as jest.Mock).mockResolvedValue({ id: 'role-1', name: 'user' });
-      // register() hashes password first, then login() hashes the refresh token
-      (bcrypt.hash as jest.Mock)
-        .mockResolvedValueOnce('hashed-password')
-        .mockResolvedValueOnce('hashed-refresh-token');
-      (mockJwtService.signAsync as jest.Mock)
-        .mockResolvedValueOnce('access-token')
-        .mockResolvedValueOnce('refresh-token');
-      (prisma.user.create as jest.Mock).mockResolvedValue({
-        id: 'new-user-id',
-        email: registerDto.email,
-        roleId: registerDto.roleId,
-      });
-      (prisma.user.update as jest.Mock).mockResolvedValue({});
-
-      const result = await service.register(registerDto);
-
-      expect(bcrypt.hash).toHaveBeenCalledWith(registerDto.password, 12);
-      expect(prisma.user.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            email: registerDto.email,
-            password: 'hashed-password',
-            roleId: registerDto.roleId,
-          }),
-        }),
-      );
-      expect(result).toEqual({ accessToken: 'access-token', refreshToken: 'refresh-token' });
-    });
-
-    it('should throw BadRequestException when email already exists', async () => {
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ id: 'existing', email: registerDto.email });
-
-      await expect(service.register(registerDto)).rejects.toThrow(BadRequestException);
-      await expect(service.register(registerDto)).rejects.toThrow('Email already registered');
-      expect(prisma.user.create).not.toHaveBeenCalled();
-    });
-
-    it('should throw BadRequestException when roleId is invalid', async () => {
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
-      (prisma.role.findUnique as jest.Mock).mockResolvedValue(null);
-
-      await expect(service.register(registerDto)).rejects.toThrow(BadRequestException);
-      await expect(service.register(registerDto)).rejects.toThrow('Invalid role ID');
-    });
-  });
-
-  // ─────────────────────────────────────────────
   // getUserProfile
   // ─────────────────────────────────────────────
   describe('getUserProfile', () => {

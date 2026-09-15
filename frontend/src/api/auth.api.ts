@@ -1,5 +1,5 @@
 import axiosInstance from './axios';
-import { AuthResponse, LoginDto, RegisterDto, ProfileResponse, UpdateProfilePhotoDto } from '../types';
+import { AuthResponse, LoginDto, ProfileResponse, UpdateProfilePhotoDto } from '../types';
 
 export const authApi = {
   /**
@@ -7,14 +7,6 @@ export const authApi = {
    */
   login: async (credentials: LoginDto): Promise<AuthResponse> => {
     const response = await axiosInstance.post<AuthResponse>('/auth/login', credentials);
-    return response.data;
-  },
-
-  /**
-   * Registrar nuevo usuario
-   */
-  register: async (data: RegisterDto): Promise<AuthResponse> => {
-    const response = await axiosInstance.post<AuthResponse>('/auth/register', data);
     return response.data;
   },
 
