@@ -10,6 +10,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { WhatsappService } from './whatsapp.service';
 import { ApprovalRequestRegistry } from './approval-request-registry';
 import { EditRequestStatus, NotificationType, ApprovalRequestType } from '../../generated/prisma';
+import { isProductionLike } from '../../common/utils/environment.util';
 
 @Injectable()
 export class WhatsappWebhookService {
@@ -31,18 +32,32 @@ export class WhatsappWebhookService {
       'http://localhost:5173';
 
     if (!this.appSecret) {
-      this.logger.warn(
-        'WHATSAPP_APP_SECRET not configured. Webhook signature validation will be skipped.',
-      );
+      if (isProductionLike()) {
+        this.logger.error(
+          'WHATSAPP_APP_SECRET no está configurado: se rechazarán todos los webhooks de WhatsApp hasta definirlo.',
+        );
+      } else {
+        this.logger.warn(
+          'WHATSAPP_APP_SECRET not configured. Webhook signature validation will be skipped.',
+        );
+      }
     }
   }
 
   /**
    * Verifica la firma X-Hub-Signature-256 enviada por Meta en cada webhook.
    * Meta firma el body raw con HMAC-SHA256 usando el App Secret de la aplicación.
+   *
+   * Sin App Secret, saltarse la firma solo se permite en desarrollo. En staging y
+   * producción el webhook se rechaza: un POST falso con un botón de "Aprobar"
+   * autorizaría pagos, y la variable es fácil de olvidar al montar otro
+   * despliegue (el clon de Zoom).
    */
   verifyMetaSignature(rawBody: Buffer, signature: string): void {
     if (!this.appSecret) {
+      if (isProductionLike()) {
+        throw new UnauthorizedException('Webhook signature validation is not configured');
+      }
       this.logger.warn('Skipping Meta signature validation (no appSecret)');
       return;
     }

@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder, SwaggerDocumentOptions } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
+import { resolveCorsOrigins } from './common/utils/cors-origins.util';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true, bufferLogs: true });
@@ -28,7 +29,7 @@ async function bootstrap() {
       'JWT-auth',
     )
     .build();
-    
+
   const options: SwaggerDocumentOptions = {
     operationIdFactory: (
       controllerKey: string,
@@ -36,7 +37,7 @@ async function bootstrap() {
     ) => methodKey
   };
   const documentFactory = () => SwaggerModule.createDocument(app, config, options);
-  SwaggerModule.setup('api', app, documentFactory);    
+  SwaggerModule.setup('api', app, documentFactory);
 
 
 
@@ -57,12 +58,8 @@ async function bootstrap() {
     exclude: ['health'],
   });
 
-  // CORS
-  const allowedOrigins = [
-    'http://localhost:5173',
-    'https://pruebas.crmhighsolutions.com',
-    'https://crmhighsolutions.com',
-  ];
+  // CORS — los orígenes salen de CORS_ORIGINS o FRONTEND_URL (ver cors-origins.util)
+  const allowedOrigins = resolveCorsOrigins();
   app.enableCors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
       if (!origin || allowedOrigins.includes(origin)) {
@@ -82,6 +79,11 @@ async function bootstrap() {
   const logger = app.get(Logger);
   logger.log(`🚀 Application is running on: http://localhost:${port}/api/v1`);
   logger.log(`❤️  Health check available at: http://localhost:${port}/health`);
+  if (allowedOrigins.length) {
+    logger.log(`🌐 CORS habilitado para: ${allowedOrigins.join(', ')}`);
+  } else {
+    logger.error('CORS sin orígenes: define FRONTEND_URL o CORS_ORIGINS o el frontend no podrá llamar al API');
+  }
 }
 
 bootstrap();

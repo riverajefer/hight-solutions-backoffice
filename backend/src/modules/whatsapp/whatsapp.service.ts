@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { createHmac } from 'crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { ApprovalRequestType } from '../../generated/prisma';
-import { isProduction } from '../../common/utils/environment.util';
+import { isProduction, isProductionLike } from '../../common/utils/environment.util';
 
 @Injectable()
 export class WhatsappService {
@@ -37,6 +37,17 @@ export class WhatsappService {
     if (!this.isConfigured) {
       this.logger.warn(
         'WhatsApp Cloud API credentials not configured. Messages will not be sent.',
+      );
+    }
+
+    // Sin secreto, el HMAC de cada botón se firma con clave vacía y cualquiera
+    // puede calcularlo. Hoy lo contiene la firma de Meta del webhook, pero es la
+    // segunda defensa y tiene que existir en todo despliegue real. No se tumba el
+    // arranque: definirla invalida los botones ya enviados, así que es una
+    // decisión de operación, no del código.
+    if (!this.actionSecret && isProductionLike()) {
+      this.logger.error(
+        'WHATSAPP_ACTION_SECRET no está configurado: los botones de aprobación se firman con una clave vacía.',
       );
     }
   }
