@@ -16,7 +16,6 @@ import { isProductionLike } from '../../common/utils/environment.util';
 export class WhatsappWebhookService {
   private readonly logger = new Logger(WhatsappWebhookService.name);
   private readonly appSecret: string;
-  private readonly frontendUrl: string;
 
   constructor(
     private readonly configService: ConfigService,
@@ -27,9 +26,6 @@ export class WhatsappWebhookService {
   ) {
     this.appSecret =
       this.configService.get<string>('whatsapp.appSecret') || '';
-    this.frontendUrl =
-      this.configService.get<string>('app.frontendUrl') ||
-      'http://localhost:5173';
 
     if (!this.appSecret) {
       if (isProductionLike()) {
@@ -86,9 +82,13 @@ export class WhatsappWebhookService {
 
   /**
    * Procesa el payload del webhook de Meta.
-   * Maneja dos tipos de respuestas de botones:
-   *   - type: "button"       → respuesta a quick-reply de template (flujo principal)
-   *   - type: "interactive"  → respuesta a mensaje interactivo (legacy / fallback)
+   * Solo atiende respuestas a quick-reply de template (type: "button"): la
+   * solicitud se resuelve por el `wamid` guardado al enviar, con vencimiento y
+   * teléfono del admin. Cualquier otro tipo se ignora.
+   *
+   * Hubo un segundo formato, mensajes interactivos con la solicitud y un HMAC en
+   * el id del botón (`approve:{id}:{hmac}`). Ningún envío lo producía y su secreto
+   * no estaba configurado en PRD, así que se eliminó (tercera barrida, hallazgo 6).
    * Responde siempre HTTP 200 para evitar reintentos de Meta.
    */
   async processWebhook(body: Record<string, any>): Promise<void> {
@@ -112,19 +112,6 @@ export class WhatsappWebhookService {
           `Template button reply from=${fromPhone} payload=${payload} contextId=${contextMessageId}`,
         );
         await this.handleTemplateButtonReply(fromPhone, payload, contextMessageId);
-        return;
-      }
-
-      // Caso 2: Interactive message button_reply (legacy, por si se usa en el futuro)
-      if (
-        message.type === 'interactive' &&
-        message?.interactive?.type === 'button_reply'
-      ) {
-        const buttonId: string = message.interactive.button_reply.id;
-        this.logger.debug(
-          `Interactive button reply from=${fromPhone} buttonId=${buttonId}`,
-        );
-        await this.handleButtonReply(fromPhone, buttonId);
         return;
       }
 
@@ -369,131 +356,6 @@ export class WhatsappWebhookService {
       `+${clean}`,
       clean.startsWith('57') ? clean.slice(2) : null,
     ].filter(Boolean) as string[];
-  }
-
-  /**
-   * Procesa un botón presionado por un administrador.
-   * Parsea el buttonId, valida HMAC, identifica la solicitud y ejecuta la acción.
-   *
-   * Formato de buttonId:
-   *   "view:{requestId}"
-   *   "approve:{requestId}:{hmac32}"
-   *   "reject:{requestId}:{hmac32}"
-   */
-  private async handleButtonReply(
-    fromPhone: string,
-    buttonId: string,
-  ): Promise<void> {
-    const parts = buttonId.split(':');
-    const action = parts[0];
-
-    if (!['view', 'approve', 'reject'].includes(action)) {
-      this.logger.warn(`Unknown button action: ${action}`);
-      return;
-    }
-
-    const requestId = parts[1];
-    if (!requestId) {
-      this.logger.warn(`Button ID missing requestId: ${buttonId}`);
-      return;
-    }
-
-    if (action === 'view') {
-      await this.handleViewOrder(fromPhone, requestId);
-      return;
-    }
-
-    // Para approve y reject: validar HMAC
-    const receivedHmac = parts[2];
-    if (!receivedHmac) {
-      this.logger.warn(`Button ID missing HMAC for action ${action}`);
-      return;
-    }
-
-    if (!this.whatsappService.validateActionHmac(action, requestId, fromPhone, receivedHmac)) {
-      this.logger.warn(
-        `Invalid HMAC for action="${action}" requestId="${requestId}" from="${fromPhone}"`,
-      );
-      await this.whatsappService.sendTextMessage(
-        fromPhone,
-        '⚠️ Token inválido o expirado. Por favor accede al sistema para gestionar la solicitud.',
-      );
-      return;
-    }
-
-    // Buscar la solicitud en DB
-    const request = await this.prisma.orderEditRequest.findFirst({
-      where: { id: requestId },
-      include: {
-        requestedBy: {
-          select: { id: true, email: true, firstName: true, lastName: true },
-        },
-        order: { select: { id: true, orderNumber: true } },
-      },
-    });
-
-    if (!request) {
-      this.logger.warn(`Order edit request not found: ${requestId}`);
-      await this.whatsappService.sendTextMessage(
-        fromPhone,
-        '⚠️ Solicitud no encontrada.',
-      );
-      return;
-    }
-
-    if (request.status !== EditRequestStatus.PENDING) {
-      const statusLabel =
-        request.status === EditRequestStatus.APPROVED ? 'aprobada' : 'rechazada';
-      await this.whatsappService.sendTextMessage(
-        fromPhone,
-        `ℹ️ La solicitud de edición de la Orden *${request.order.orderNumber}* ya fue ${statusLabel} anteriormente.`,
-      );
-      return;
-    }
-
-    // Buscar el admin por número de teléfono
-    const adminByPhone = await this.findAdminByPhone(fromPhone);
-
-    if (!adminByPhone) {
-      this.logger.warn(
-        `No admin found with phone ${fromPhone}. Ignoring action.`,
-      );
-      await this.whatsappService.sendTextMessage(
-        fromPhone,
-        '⚠️ No tienes permisos para realizar esta acción.',
-      );
-      return;
-    }
-
-    if (action === 'approve') {
-      await this.approveRequest(request, adminByPhone.id, fromPhone);
-    } else if (action === 'reject') {
-      await this.rejectRequest(request, adminByPhone.id, fromPhone);
-    }
-  }
-
-  private async handleViewOrder(
-    fromPhone: string,
-    requestId: string,
-  ): Promise<void> {
-    const request = await this.prisma.orderEditRequest.findFirst({
-      where: { id: requestId },
-      include: { order: { select: { id: true, orderNumber: true } } },
-    });
-
-    if (!request) {
-      await this.whatsappService.sendTextMessage(
-        fromPhone,
-        '⚠️ Solicitud no encontrada.',
-      );
-      return;
-    }
-
-    const url = `${this.frontendUrl}/orders/${request.order.id}`;
-    await this.whatsappService.sendTextMessage(
-      fromPhone,
-      `🔗 *Orden de Pedido ${request.order.orderNumber}*\n${url}`,
-    );
   }
 
   private async approveRequest(
