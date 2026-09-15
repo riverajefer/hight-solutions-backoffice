@@ -17,8 +17,11 @@ Esta apunta a lo que ninguna tocó:
 - **Lo que el fork arrastraría con nombre propio**: dominios, marca y secretos.
 
 Cada hallazgo trae evidencia en el código y, cuando aplica, verificación contra
-producción en solo lectura. **Los hallazgos 1 y 2 se corrigieron el mismo día;
-el resto sigue pendiente.**
+producción en solo lectura.
+
+**Estado**: los hallazgos 1, 2, 3, 4, 6 y 7 se corrigieron el mismo día. El 5
+quedó a medias, porque el cierre de asistencia lo decide el cliente. El 8 se
+resuelve durante el rebranding del fork.
 
 ---
 
@@ -94,9 +97,6 @@ falta algo que lo hiciera ruidoso.
 - Login con credenciales inválidas → 401, así que la autenticación sigue
   funcionando.
 - `/register` en el frontend cae en el login.
-- `tsc` limpio en backend y frontend. Los 2729 tests del backend pasan.
-
-**Queda de tu lado**: desplegar a producción y revisar Loki.
 
 ---
 
@@ -143,26 +143,22 @@ En la primera, $260.082 es exactamente el 19 % de $1.368.855.
 
 ### Corrección aplicada
 
-[paidThroughExpenseOrder](../backend/src/modules/accounts-payable/accounts-payable.service.ts#L365)
+[paidThroughExpenseOrder](../backend/src/modules/accounts-payable/accounts-payable.service.ts)
 ahora suma solo los movimientos **sin** pago de CP asociado
 (`accountPayablePayment: { is: null }`), el mismo filtro que ya usaba
-`settleFromExpenseOrderMovements`.
-
-Así las dos mitades del problema original quedan cubiertas:
+`settleFromExpenseOrderMovements`. Así quedan cubiertas las dos mitades:
 
 - Una CP ya conciliada tiene como tope su saldo, que es el IVA pendiente.
 - Una CP histórica nunca conciliada sigue restando lo que salió por la OG. Esa
   es la protección contra el doble pago que `84e8adc` fue a poner.
 
-**Dos pruebas nuevas** en
-[accounts-payable.service.spec.ts](../backend/src/modules/accounts-payable/accounts-payable.service.spec.ts),
-con un mock que replica el filtro de la base:
+**Dos pruebas nuevas**, con un mock que replica el filtro de la base:
 
 - La CP-2026-633 de PRD: el IVA exacto se puede pagar y un peso más no.
 - La CP histórica: sigue bloqueando lo que salió por la OG.
 
 La primera se corrió contra la consulta anterior y **falla**; con la nueva
-pasa. Así se comprobó que atrapa el bug y no solo describe el arreglo.
+pasa.
 
 **Verificación contra producción** (solo lectura), aplicando la consulta nueva
 a las 190 CP espejo con saldo:
@@ -174,92 +170,91 @@ a las 190 CP espejo con saldo:
 ```
 
 La diferencia pagable es exactamente $1.945.120,37. **No requiere saneamiento
-de datos**: las 83 CP quedan pagables en cuanto sale el despliegue.
+de datos.**
 
 ---
 
-## 3. El descuento por nómina no sigue el ciclo de vida de la OP — **Alta, latente**
+## 3. El descuento por nómina no seguía el ciclo de vida de la OP — **Alta, latente** · ✅ Corregido
 
 `d1d353d` (2026-09-09). **En producción hay 0 descuentos**, así que nada de
-esto ha causado daño todavía. Es el momento más barato para corregirlo: después
+esto había causado daño. Era el momento más barato para corregirlo: después
 del fork se corrige dos veces, y después del primer uso real hay que sanear
 datos.
 
-### 3a. Anular la OP no cancela el descuento
+### 3a. Anular la OP no cancelaba el descuento
 
-La rama de `ANULADO` en
-[orders.service.ts:1655](../backend/src/modules/orders/orders.service.ts#L1655)
-no toca `payroll_deductions`, y
-[`apply()`](../backend/src/modules/payroll-deductions/payroll-deductions.service.ts#L324)
-no mira el estado de la OP.
+La rama de `ANULADO` de `orders.service.ts` no tocaba `payroll_deductions`, y
+`apply()` no miraba el estado de la OP. Un descuento APROBADO sobre una OP que
+después se anulaba seguía en la bandeja de nómina. Si alguien lo aplicaba,
+**se le descontaba al empleado de su salario un trabajo anulado**.
 
-Un descuento APROBADO sobre una OP que después se anula sigue en la bandeja de
-nómina. Si alguien lo aplica, **se le descuenta al empleado de su salario un
-trabajo anulado** y se registra un pago sobre una OP ANULADA.
-
-Devoluciones sí lo contempla
+Devoluciones sí lo contemplaba
 ([refund-requests.service.ts:187](../backend/src/modules/refund-requests/refund-requests.service.ts#L187));
-la anulación quedó por fuera.
+la anulación había quedado por fuera.
 
-### 3b. El monto se congela, pero la OP se sigue pudiendo editar
+### 3b. El monto se congelaba, pero la OP se seguía pudiendo editar
 
-[`createFromOrder`](../backend/src/modules/payroll-deductions/payroll-deductions.service.ts#L154)
-congela el valor y el comentario dice que, si la OP cambia, *"el descuento hay
-que cancelarlo y volver a pedirlo"*. Ese flujo no existe:
+`createFromOrder` congela el valor, y el comentario decía que si la OP cambia
+*"el descuento hay que cancelarlo y volver a pedirlo"*. Ese flujo no existe:
+ninguna edición revisaba el descuento, no hay endpoint para pedirlo sobre una
+OP existente, y `order_id` es único. Quitarle un ítem a la OP después de
+aprobado el descuento la dejaba sobrepagada con plata del empleado.
 
-- `update`, `updateItem`, `removeItem` y los descuentos de la OP no revisan si
-  hay un descuento vivo.
-- No hay endpoint para pedir un descuento sobre una OP existente: solo nace al
-  crear la OP.
-- `order_id` es único en `payroll_deductions`, así que después de cancelar
-  **no se puede volver a pedir**.
+### 3c. Borrar un periodo o registro de nómina dejaba el descuento huérfano
 
-Si le quitan un ítem a la OP después de aprobado el descuento, al aplicarlo la
-OP queda sobrepagada. Ese saldo a favor es plata que el empleado ya perdió de
-su quincena.
+Los registros caen en cascada y la llave `payroll_item_id` es `ON DELETE SET
+NULL`: el descuento quedaba `APPLIED` y la OP pagada, sin registro de nómina
+que lo descontara.
 
-### 3c. Borrar un periodo o registro de nómina deja el descuento huérfano
+### 3d. La concurrencia de `apply()` no estaba protegida como decía el comentario
 
-[payroll-periods.service.ts:148](../backend/src/modules/payroll/periods/payroll-periods.service.ts#L148)
-borra el periodo sin mirar su estado (se puede borrar uno **PAGADO**), y los
-registros caen en cascada. La llave `payroll_item_id` es `ON DELETE SET NULL`,
-así que el descuento queda `APPLIED` y la OP pagada, pero ya no hay registro
-de nómina que lo descuente. La empresa pierde el valor y nada lo marca.
+- El comentario confiaba en el índice único de `payment_id`, pero cada
+  aplicación crea **su propio** pago: el índice nunca chocaba. Lo que frenaba
+  el doble descuento era la llave de idempotencia del frontend, y su colisión
+  llegaba como un **500**.
+- El `PayrollItem` se leía **fuera** de la transacción: dos descuentos del
+  mismo empleado aplicados a la vez se pisaban la suma.
+- `approve`, `reject` y `cancel` hacían `update where { id }` sin condición de
+  estado.
 
-### 3d. La concurrencia de `apply()` no está protegida como dice el comentario
+### Corrección aplicada
 
-- El comentario (líneas 327 y 436) confía en el índice único de `payment_id`.
-  Pero cada aplicación crea **su propio** pago, así que ese índice nunca choca.
-  Lo que hoy evita el doble descuento es la llave de idempotencia
-  determinística que manda el frontend. Esa sí choca, pero contra
-  `idempotency_key`, y como el `catch` solo reconoce `payment_id`, el segundo
-  clic recibe un **500** en vez del 409 amable.
-- El `PayrollItem` se lee **fuera** de la transacción. Si se aplican a la vez
-  dos descuentos distintos del mismo empleado, el segundo pisa la suma del
-  primero: las dos OP quedan pagadas y en nómina solo aparece uno.
-- `approve`, `reject` y `cancel` hacen `update where { id }` sin condición de
-  estado, así que un aprobar y un cancelar simultáneos pueden terminar en
-  cualquier orden.
+- **3a** — Anular una OP con el descuento **aplicado** se bloquea antes de
+  consumir la autorización de anulación, con el mismo mensaje de devoluciones:
+  hay que cancelar el descuento, que es lo que se lo devuelve al empleado. Si
+  el descuento estaba pendiente o aprobado, se cancela al anular. `approve()` y
+  `apply()` rechazan OP anuladas o devueltas.
+- **3b** — `recalculateOrderTotals` llama a `assertOrderValueMatches` con el
+  total nuevo, dentro de la transacción que lo guarda. Si hay un descuento vivo
+  y el total cambia, el cambio se revierte entero. Por ahí pasan los siete
+  caminos que cambian el valor: ítems, descuentos de OP y tasas. Las tasas y la
+  prueba de color se guardan fuera de transacción, así que ahí la guarda va
+  antes de escribir (`assertNoLiveDeduction`). Una edición que no mueve el
+  total sigue permitida.
+- **3c** — Borrar un periodo o un registro de nómina con descuentos aplicados
+  se bloquea.
+- **3d** — Los cuatro cambios de estado usan `updateMany` condicionado, y quien
+  pierde la carrera recibe un conflicto en vez de pisar al otro. `apply()`
+  reclama el descuento **antes** de tocar la nómina. La suma y la resta sobre
+  `orderDeductions` son incrementos atómicos de la base. La colisión de
+  `idempotency_key` devuelve el descuento ya aplicado.
 
-### Corrección propuesta
+**Pruebas**: el spec de descuentos se reescribió con 38 casos, entre ellos las
+carreras de aplicar y de cancelar, la colisión de la llave con la forma real
+del P2002 del adaptador, las OP anuladas y cada guarda de ciclo de vida. Se
+suman pruebas de cableado en órdenes (anulación y tasas) y en periodos y
+registros de nómina.
 
-- **3a**: en la rama `ANULADO`, cancelar el descuento PENDING/APPROVED; y si
-  está APPLIED, bloquear la anulación con el mismo mensaje de devoluciones. En
-  `apply()`, rechazar OP anuladas o devueltas.
-- **3b**: bloquear la edición de valores de una OP con descuento vivo, o
-  permitir crear un descuento nuevo después de cancelar (el índice único
-  pasaría a ser parcial, solo sobre estados vivos).
-- **3c**: bloquear el borrado de periodos PAID y de registros con descuentos
-  aplicados.
-- **3d**: mover la lectura del `PayrollItem` dentro de la transacción,
-  convertir los `update` de estado en `updateMany` condicionados, y reconocer
-  el P2002 de `idempotency_key`.
+> **Límite de la verificación**: a diferencia del hallazgo 2, no se pudo correr
+> el spec nuevo contra el servicio anterior: no compila, porque llama funciones
+> que antes no existían. Las carreras están cubiertas con mocks de las
+> escrituras condicionadas, no reproducidas contra Postgres.
 
 ---
 
-## 4. CORS con los dominios de High Solutions escritos en código — **Media, bloquea el fork**
+## 4. CORS con los dominios de High Solutions escritos en código — **Media, bloqueaba el fork** · ✅ Corregido
 
-[main.ts:61](../backend/src/main.ts#L61):
+`main.ts` tenía la lista escrita en código:
 
 ```ts
 const allowedOrigins = [
@@ -269,96 +264,132 @@ const allowedOrigins = [
 ];
 ```
 
-`FRONTEND_URL` ya existe en `.env.example`, pero CORS no lo lee. El backend de
-Zoom rechazaría las peticiones de su propio frontend y el login fallaría, con
-un error de CORS en consola que no dice nada útil.
+El backend de Zoom habría rechazado las peticiones de su propio frontend.
 
-**Corrección propuesta**: armar la lista desde `FRONTEND_URL`, que acepte
-varios orígenes separados por coma. Así el clon solo cambia variables de
-entorno.
+### Corrección aplicada
 
----
+[cors-origins.util.ts](../backend/src/common/utils/cors-origins.util.ts) arma
+la lista desde `CORS_ORIGINS` (varios orígenes, separados por coma) o, si no
+existe, desde `FRONTEND_URL`. En desarrollo se suma el Vite local. El arranque
+deja en el log los orígenes que quedaron permitidos, o un error si no quedó
+ninguno.
 
-## 5. Tres crons corren en hora UTC — **Media**
+**Lo que evitó revisar Railway antes de tocar el código**: `FRONTEND_URL` está
+guardada **sin esquema** (`crmhighsolutions.com` en PRD,
+`pruebas.crmhighsolutions.com` en staging). El navegador manda
+`Origin: https://crmhighsolutions.com`, así que leer la variable tal cual
+habría tumbado el login de todos. Por eso `normalizeOrigin` agrega `https://`,
+y `app.config.ts` la normaliza también para los enlaces de WhatsApp.
 
-La segunda barrida verificó los filtros de fecha y el cron de expiración de
-aprobaciones, pero no los demás crons. Railway corre en UTC y
-`ScheduleModule.forRoot()` no fija zona, así que todo `@Cron` sin `timeZone`
-se dispara 5 horas antes de lo que dice.
+**Cambio de comportamiento**: fuera de desarrollo ya no se aceptan
+`localhost` ni el frontend del otro ambiente. PRD solo acepta
+`https://crmhighsolutions.com`, y staging solo el de pruebas. Si alguien
+apuntaba un frontend local contra el API de producción, eso deja de funcionar.
 
-| Cron | Dice | Corre en Colombia |
-|---|---|---|
-| [attendance.scheduler.ts:31](../backend/src/modules/attendance/attendance.scheduler.ts#L31) — cierre de fin de día | 11:59 p. m. | **6:59 p. m.** |
-| [accounts-payable.service.ts:881](../backend/src/modules/accounts-payable/accounts-payable.service.ts#L881) — marcar CP vencidas | 12:00 a. m. | 7:00 p. m. del día anterior |
-| [inventory.scheduler.ts:15](../backend/src/modules/inventory/inventory.scheduler.ts#L15) — alerta de stock | 8:00 a. m. | 3:00 a. m. |
-
-**Verificado contra producción** — cierres automáticos de asistencia de los
-últimos 60 días, por hora de Colombia:
-
-```
- hora_cot | count
-----------+-------
- 18       |    91
-```
-
-Los 91 cierres de "fin de día" pasaron a las 6:59 p. m., sobre 8 usuarios, con
-registros de 8,9 horas en promedio. Son personas con la pestaña **todavía
-activa** a esa hora: a quien se va, ya lo cierra antes el cron de inactividad
-de 60 minutos. Cualquier trabajo después de las 7 p. m. no se registra.
-
-Las CP, por su parte, pasan a vencidas la noche del mismo día de vencimiento y
-no al terminar el día.
-
-**Corrección propuesta**: `{ timeZone: BUSINESS_TIMEZONE }` en los tres, como
-ya hacen `audit-logs.scheduler` y `approval-expiry`. La de asistencia **cambia
-lo que ven los usuarios**: pregúntale al cliente si el cierre de las 7 p. m.
-se volvió la regla de hecho antes de moverlo a medianoche.
+**Verificación**: pruebas del útil con los valores reales de Railway. Con el
+backend levantado en local, un preflight desde `http://localhost:5173` responde
+204 con su cabecera, y desde `https://crmhighsolutions.com` o un origen ajeno se
+rechaza.
 
 ---
 
-## 6. WhatsApp acepta webhooks falsos si faltan los secretos — **Media, riesgo para el fork**
+## 5. Tres crons corrían en hora UTC — **Media** · 🟡 Corregido a medias
 
-- [whatsapp-webhook.service.ts:45](../backend/src/modules/whatsapp/whatsapp-webhook.service.ts#L45)
-  — sin `WHATSAPP_APP_SECRET`, la firma de Meta **no se valida**. Solo queda un
-  `warn` en el log.
-- [whatsapp.service.ts:33](../backend/src/modules/whatsapp/whatsapp.service.ts#L33)
-  — sin `WHATSAPP_ACTION_SECRET`, el HMAC de cada botón se firma con **clave
+Railway corre en UTC y `ScheduleModule.forRoot()` no fija zona, así que todo
+`@Cron` sin `timeZone` se dispara 5 horas antes de lo que dice.
+
+| Cron | Dice | Corría en Colombia | Estado |
+|---|---|---|---|
+| Cierre de asistencia de fin de día | 11:59 p. m. | **6:59 p. m.** | ⏸ Pendiente del cliente |
+| Marcar CP vencidas | 12:00 a. m. | 7:00 p. m. del día anterior | ✅ |
+| Alerta de stock bajo | 8:00 a. m. | 3:00 a. m. | ✅ |
+
+**Asistencia, verificado contra producción**: los 91 cierres de "fin de día"
+de los últimos 60 días pasaron a las 6:59 p. m., sobre 8 usuarios, con
+registros de 8,9 horas en promedio. Son personas con la pestaña todavía
+activa, porque a quien se va ya lo cierra antes el cron de inactividad.
+**No se tocó**: moverlo a medianoche cambia las horas que ven los usuarios, y
+hay que preguntarle al cliente si el cierre de las 7 p. m. se volvió la regla
+de hecho.
+
+### Corrección aplicada a CP vencidas: el `timeZone` solo no bastaba
+
+En PRD, `due_date` se guarda como la medianoche de Colombia (**05:00 UTC** en
+236 CP). El cron comparaba `dueDate < now`:
+
+- A las 7 p. m. de Colombia, la CP pasaba a vencida **la noche de su propio día
+  de vencimiento**. En PRD había **3 CP en OVERDUE con vencimiento hoy**.
+- Con solo agregar `timeZone`, a las 00:00 de Colombia `dueDate < now` la
+  habría vencido **desde el primer segundo de su día**: peor.
+
+Ahora corre a medianoche de Colombia y corta en el inicio de hoy en hora
+Colombia (`startOfDay(businessToday())`). Lo que vence hoy no está vencido
+hasta mañana. Dos pruebas con reloj fijo cubren el borde de las 11:30 p. m.,
+cuando en UTC ya es el día siguiente. Las 3 CP marcadas antes de tiempo no se
+sanean: mañana ya les corresponde estar vencidas.
+
+---
+
+## 6. WhatsApp aceptaba webhooks falsos si faltaban los secretos — **Media, riesgo para el fork** · ✅ Corregido
+
+- Sin `WHATSAPP_APP_SECRET`, la firma de Meta **no se validaba**: solo quedaba
+  un `warn` en el log.
+- Sin `WHATSAPP_ACTION_SECRET`, el HMAC de cada botón se firma con **clave
   vacía**, que cualquiera puede calcular.
 
-En producción las dos variables están configuradas (las aprobaciones funcionan
-con firma). El riesgo es el clon: el montaje de WhatsApp para Zoom es la fase
-más lenta, y un despliegue sin esos dos secretos aceptaría un POST falso que
-aprueba pagos.
+> **Corrección a la primera versión de este informe**, que decía que en
+> producción las dos variables estaban configuradas. No es así. En PRD
+> `WHATSAPP_APP_SECRET` está, pero **`WHATSAPP_ACTION_SECRET` no**: los botones
+> de aprobación de producción se firman hoy con clave vacía. Lo que impide un
+> webhook falso es la firma de Meta. En staging están las dos.
 
-**Corrección propuesta**: en staging y producción, negarse a arrancar si falta
-cualquiera de los dos. Falla ruidosa en el deploy, no silenciosa en ejecución.
+### Corrección aplicada
+
+- **Staging y producción sin `WHATSAPP_APP_SECRET`**: el webhook se rechaza
+  (401) en vez de saltarse la firma, con pruebas por ambiente. PRD y staging la
+  tienen, así que no hay regresión.
+- **Sin `WHATSAPP_ACTION_SECRET`**: queda un error en el log al arrancar, sin
+  tumbar el servicio.
+
+No se hizo obligatoria al arrancar por dos razones: el healthcheck de
+`railway.toml` está comentado, así que un backend que no arranca tumba PRD, y
+la variable hoy no existe allí.
+
+**Pendiente de tu lado**: definir `WHATSAPP_ACTION_SECRET` en PRD
+(`openssl rand -base64 32`). Los botones de solicitudes ya enviadas quedan
+firmados con la clave vacía y dejan de validar: esas se aprueban desde el
+sistema. Conviene hacerlo con la bandeja de solicitudes vacía.
 
 ---
 
-## 7. La autorización de Caja de una OG puede dejarla atascada — **Baja, latente**
+## 7. La autorización de Caja de una OG podía dejarla atascada — **Baja, latente** · ✅ Corregido
 
-[expense-orders.service.ts:481](../backend/src/modules/expense-orders/expense-orders.service.ts#L481):
-
-- Marca la OG `AUTHORIZED` **antes** de verificar que haya una caja abierta
-  (línea 491). Si no la hay, responde error, pero la OG ya salió de
-  `ADMIN_AUTHORIZED`: Caja no puede reintentar, y la OG no tiene pago ni
-  movimientos. El mensaje de error lo reconoce.
-- Los movimientos, el paso a `PAID`, la CP y la conciliación van **sin
-  transacción**: una falla a mitad de camino deja egresos de caja a medias.
-- La verificación de estado es leer-y-luego-escribir. Dos autorizaciones
-  simultáneas crearían los egresos dos veces. Hoy lo frena el candado del
-  frontend de la primera barrida, pero la base no.
+`cajaAuthorize` marcaba la OG `AUTHORIZED` **antes** de verificar que hubiera
+una caja abierta. Sin caja, la OG salía de `ADMIN_AUTHORIZED` sin pago ni
+movimientos y Caja no podía reintentar. Además, la verificación de estado era
+leer-y-luego-escribir: dos autorizaciones simultáneas creaban los egresos dos
+veces.
 
 **Verificado contra producción**: 0 OG atascadas en `AUTHORIZED`, y las 366
-pagadas tienen sus movimientos. No ha pasado.
+pagadas tienen sus movimientos.
 
-**Corrección propuesta**: verificar la sesión primero, todo en una
-transacción, y la transición como `updateMany where status = ADMIN_AUTHORIZED`
-comprobando que afectó una fila.
+### Corrección aplicada
+
+La caja abierta se verifica primero. La transición a `AUTHORIZED` es un
+`updateMany` condicionado
+([claimCajaAuthorization](../backend/src/modules/expense-orders/expense-orders.repository.ts)),
+y si otra autorización ya la tomó, esta responde conflicto sin crear egresos.
+Tres pruebas nuevas: la autorización normal, sin caja y la carrera perdida.
+
+**Queda fuera, a propósito**: los egresos, el paso a `PAID`, la CP y la
+conciliación siguen sin una transacción común. Una falla a mitad de camino
+puede dejar egresos a medias. Unirlos pide que `generateNumber`,
+`createFromExpenseOrder` y `settleFromExpenseOrderMovements` acepten un cliente
+de transacción: es un refactor aparte.
 
 ---
 
-## 8. Marca de High Solutions escrita en código — **Mejora para el fork**
+## 8. Marca de High Solutions escrita en código — **Mejora para el fork** · Pendiente
 
 Lo que el rebranding por grep tiene que encontrar, ordenado por lo fácil que
 es pasarlo por alto:
@@ -367,10 +398,9 @@ es pasarlo por alto:
 |---|---|---|
 | Rol `admin` buscado **por nombre** | `notifications.service.ts:115`, `whatsapp.service.ts:97`, `whatsapp-webhook.service.ts:570`, `advisor-change-requests.service.ts:153`, `DtfItemsTable.tsx:136`, `ClientDetailPage` | No es marca, pero si el seed de Zoom renombra el rol, las notificaciones a admin fallan en silencio. Mantener el nombre `admin` o migrar a permisos |
 | Sitios web en el pie de 4 PDF | `generateOrderPdf.ts:170`, `generateQuotePdf.ts:169`, `generateExpenseOrderPdf.ts:169`, `generateWorkOrderPdf.ts:124` | Leerlos del módulo Company, que ya guarda los logos |
-| Dominios de CORS | `main.ts:61` | Hallazgo 4 |
 | Página de mantenimiento | `maintenance.middleware.ts:43` | Nombre desde `VITE_APP_NAME`/config |
 | Contacto de la empresa | `seed.ts:2571` | Datos del seed de Zoom |
-| Swagger "BackOffice example", público en producción | `main.ts:15` | Título real y desactivarlo fuera de desarrollo: publica el mapa completo de la API |
+| Swagger "BackOffice example", público en producción | `main.ts` | Título real y desactivarlo fuera de desarrollo: publica el mapa completo de la API |
 
 ---
 
@@ -393,7 +423,7 @@ es pasarlo por alto:
 - **Clonar un periodo de nómina** no copia `orderDeductions`: no hay doble
   descuento por esa vía.
 - **`.env.example`**: completo; el diff contra el código solo muestra variables
-  internas de Prisma y Node.
+  internas de Prisma y Node. Ahora documenta `CORS_ORIGINS`.
 - **Coma flotante**: solo quedan sumas de presentación en
   `dashboard.repository.ts`; nada que se guarde.
 
@@ -403,15 +433,13 @@ nómina. Inventario, producción y cartera tampoco se tocaron.
 
 ---
 
-## Orden sugerido
+## Qué falta
 
-1. ~~**Hallazgo 1**~~ ✅ — falta desplegar y revisar en Loki si hubo llamadas.
-2. ~~**Hallazgo 2**~~ ✅ — falta desplegar; desbloquea $1.945.120 en 83 CP.
-3. **Hallazgos 4 y 6** antes de forkear: sin el 4 el clon no arranca, y el 6
-   es la red de seguridad para cuando se monte su WhatsApp.
-4. **Hallazgo 3** mientras siga en cero filas.
-5. **Hallazgo 5**, previa pregunta al cliente sobre el cierre de asistencia.
-6. **Hallazgos 7 y 8** durante el rebranding.
-
-Los hallazgos 3, 4 y 6 son los que el clon heredaría y habría que corregir dos
-veces.
+1. **Desplegar** backend y frontend. El hallazgo 1 sigue abierto en producción
+   hasta que salga el backend.
+2. **Revisar en Loki** si hubo llamadas a `POST /api/v1/auth/register`.
+3. **Definir `WHATSAPP_ACTION_SECRET` en PRD** con la bandeja de solicitudes
+   vacía (hallazgo 6).
+4. **Preguntarle al cliente** si el cierre de asistencia debe seguir a las
+   7 p. m. o pasar a medianoche (hallazgo 5).
+5. **Hallazgo 8** durante el rebranding del fork.
