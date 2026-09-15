@@ -138,6 +138,13 @@ export class PayrollItemsRepository {
     return this.prisma.payrollItem.delete({ where: { id } });
   }
 
+  /** Descuentos por nómina ya aplicados sobre este registro. */
+  async countAppliedDeductions(payrollItemId: string) {
+    return this.prisma.payrollDeduction.count({
+      where: { status: 'APPLIED', payrollItemId },
+    });
+  }
+
   async createMany(items: Prisma.PayrollItemCreateManyInput[]) {
     return this.prisma.payrollItem.createMany({ data: items, skipDuplicates: true });
   }
