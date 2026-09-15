@@ -823,7 +823,6 @@ export const OrderDetailPage: React.FC = () => {
 
       // Obtener nombre del archivo del header Content-Disposition
       const contentDisposition = response.headers['content-disposition'];
-      console.log('Content-Disposition:', contentDisposition);
 
       let fileName = 'comprobante';
 
@@ -834,18 +833,14 @@ export const OrderDetailPage: React.FC = () => {
         );
         if (rfc5987Match && rfc5987Match[1]) {
           fileName = decodeURIComponent(rfc5987Match[1]);
-          console.log('Filename from RFC 5987:', fileName);
         } else {
           // Fallback a filename regular
           const regularMatch = /filename="([^"]+)"/i.exec(contentDisposition);
           if (regularMatch && regularMatch[1]) {
             fileName = regularMatch[1];
-            console.log('Filename from regular:', fileName);
           }
         }
       }
-
-      console.log('Final filename:', fileName);
 
       // Crear blob URL y descargar
       const blob = new Blob([response.data]);

@@ -282,7 +282,6 @@ const AttendancePage: React.FC = () => {
           sortable: false,
           renderCell: (params: GridRenderCellParams<AttendanceRecord>) => {
             const hasMetadata = params.row.metadata && Object.keys(params.row.metadata).length > 0;
-            if (params.row.metadata) console.log('Row Metadata:', params.row.metadata);
             return (
             <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center', width: '100%' }}>
               <Tooltip title={hasMetadata ? "Ver detalles de conexión" : "Sin detalles de conexión"}>
