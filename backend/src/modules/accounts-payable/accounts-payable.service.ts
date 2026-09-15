@@ -37,6 +37,11 @@ const money = (value: unknown) =>
 
 import { computeExpenseTotals } from '../../common/utils/expense-totals.util';
 import { normalizeRate } from '../../common/utils/rounding.util';
+import {
+  BUSINESS_TIMEZONE,
+  businessToday,
+  startOfDay,
+} from '../../common/utils/date-range.util';
 
 @Injectable()
 export class AccountsPayableService {
@@ -883,10 +888,20 @@ export class AccountsPayableService {
     return { success: true };
   }
 
-  @Cron('0 0 * * *')
+  /**
+   * Medianoche en Colombia: marca vencidas las CP cuyo día de vencimiento ya
+   * terminó.
+   *
+   * Antes corría a medianoche UTC (7:00 p. m. en Colombia) y comparaba contra
+   * `now`, así que una CP pasaba a vencida la noche de su propio día de
+   * vencimiento. El corte es el inicio de hoy en hora Colombia: `dueDate` se
+   * guarda como la medianoche de ese día (05:00 UTC), y compararlo contra `now`
+   * a las 00:00 la habría vencido desde el primer segundo de su día.
+   */
+  @Cron('0 0 * * *', { timeZone: BUSINESS_TIMEZONE })
   async markOverdueAccounts() {
     this.logger.log('Ejecutando tarea: marcar cuentas vencidas como OVERDUE');
-    const result = await this.repository.markOverdue();
+    const result = await this.repository.markOverdue(startOfDay(businessToday())!);
     this.logger.log(`Cuentas marcadas como OVERDUE: ${result.count}`);
   }
 }

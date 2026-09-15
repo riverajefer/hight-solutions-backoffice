@@ -996,10 +996,32 @@ describe('AccountsPayableService', () => {
   });
 
   describe('markOverdueAccounts', () => {
-    it('delega el marcado de vencidas al repositorio', async () => {
+    afterEach(() => jest.useRealTimers());
+
+    // `dueDate` se guarda como la medianoche de Colombia (05:00 UTC). El corte
+    // es el inicio de hoy en Colombia: lo que vence hoy todavía no está vencido.
+    it('corta en el inicio del día de hoy en hora Colombia', async () => {
+      jest.useFakeTimers({ now: new Date('2026-09-15T00:30:00-05:00') });
       repository.markOverdue!.mockResolvedValue({ count: 3 } as any);
+
       await service.markOverdueAccounts();
-      expect(repository.markOverdue).toHaveBeenCalled();
+
+      expect(repository.markOverdue).toHaveBeenCalledWith(
+        new Date('2026-09-15T05:00:00.000Z'),
+      );
+    });
+
+    // A las 11:30 p. m. de Colombia en UTC ya es el día siguiente: con el
+    // calendario del servidor, lo que vence mañana quedaría vencido esta noche.
+    it('no usa el calendario UTC del servidor', async () => {
+      jest.useFakeTimers({ now: new Date('2026-09-14T23:30:00-05:00') });
+      repository.markOverdue!.mockResolvedValue({ count: 0 } as any);
+
+      await service.markOverdueAccounts();
+
+      expect(repository.markOverdue).toHaveBeenCalledWith(
+        new Date('2026-09-14T05:00:00.000Z'),
+      );
     });
   });
 });

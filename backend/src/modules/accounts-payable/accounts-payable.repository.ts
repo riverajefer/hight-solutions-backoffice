@@ -325,11 +325,15 @@ export class AccountsPayableRepository {
     });
   }
 
-  async markOverdue() {
+  /**
+   * Marca OVERDUE las CP pendientes que vencieron antes de `dueBefore`. El corte
+   * lo decide el servicio: el inicio del día de hoy en hora Colombia.
+   */
+  async markOverdue(dueBefore: Date) {
     return this.prisma.accountPayable.updateMany({
       where: {
         status: { in: [AccountPayableStatus.PENDING, AccountPayableStatus.PARTIAL] },
-        dueDate: { lt: new Date() },
+        dueDate: { lt: dueBefore },
       },
       data: { status: AccountPayableStatus.OVERDUE },
     });
