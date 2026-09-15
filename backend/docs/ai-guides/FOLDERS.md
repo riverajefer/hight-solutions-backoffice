@@ -134,10 +134,10 @@ Special structure for authentication:
 ```
 auth/
 ├── auth.module.ts           # Module configuration
-├── auth.controller.ts       # Auth endpoints (login, register, etc.)
+├── auth.controller.ts       # Auth endpoints (login, refresh, logout, etc.; sin registro público)
 ├── auth.service.ts          # Authentication logic
 ├── dto/
-│   ├── auth.dto.ts          # LoginDto, RegisterDto, RefreshTokenDto
+│   ├── auth.dto.ts          # LoginDto, RefreshTokenDto, ChangePasswordDto
 │   └── index.ts
 ├── guards/
 │   ├── jwt-auth.guard.ts    # JWT token validation guard

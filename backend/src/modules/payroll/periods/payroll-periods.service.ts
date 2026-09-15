@@ -147,6 +147,17 @@ export class PayrollPeriodsService {
 
   async remove(id: string) {
     await this.findOne(id);
+
+    // Sus registros caen en cascada y la llave del descuento queda en NULL: la
+    // OP seguiría pagada sin que a nadie se le hubiera descontado el valor.
+    const applied = await this.periodsRepository.countAppliedDeductions(id);
+    if (applied > 0) {
+      throw new BadRequestException(
+        `El periodo tiene ${applied} descuento(s) por nómina aplicado(s). ` +
+          'Cancélalos desde Nómina › Descuento de Órdenes antes de eliminarlo.',
+      );
+    }
+
     await this.periodsRepository.delete(id);
     return { message: `Periodo de nómina con ID ${id} eliminado` };
   }

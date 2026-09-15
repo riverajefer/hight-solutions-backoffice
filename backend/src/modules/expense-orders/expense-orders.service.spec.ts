@@ -27,6 +27,7 @@ describe('ExpenseOrdersService', () => {
       replaceItems: jest.fn(),
       addItem: jest.fn(),
       updateStatus: jest.fn(),
+      claimCajaAuthorization: jest.fn().mockResolvedValue(true),
       delete: jest.fn(),
     } as any;
 
@@ -55,6 +56,12 @@ describe('ExpenseOrdersService', () => {
       expenseOrder: {
         delete: jest.fn(),
       },
+      cashSession: {
+        findFirst: jest.fn(),
+      },
+      cashMovement: {
+        create: jest.fn(),
+      },
       // `remove` borra la CxP y la OG en una transacción; el mock ejecuta el
       // callback contra el mismo cliente simulado.
       $transaction: jest.fn((callback: any) => callback(prisma)),
@@ -71,6 +78,7 @@ describe('ExpenseOrdersService', () => {
       createFromExpenseOrder: jest.fn(),
       findByExpenseOrderId: jest.fn(),
       syncFromExpenseOrder: jest.fn(),
+      settleFromExpenseOrderMovements: jest.fn().mockResolvedValue(undefined),
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -89,6 +97,64 @@ describe('ExpenseOrdersService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('cajaAuthorize', () => {
+    const currentUser = { id: 'caja-1' } as any;
+    const adminAuthorized = {
+      id: 'og-1',
+      ogNumber: 'OG-2026-0500',
+      status: ExpenseOrderStatus.ADMIN_AUTHORIZED,
+      items: [
+        { total: 100000, paymentMethod: 'CASH' },
+        { total: 50000, paymentMethod: 'TRANSFER' },
+      ],
+    };
+
+    beforeEach(() => {
+      (repository.findById as jest.Mock).mockResolvedValue(adminAuthorized);
+      (prisma.cashSession.findFirst as jest.Mock).mockResolvedValue({ id: 'session-1' });
+      (repository.updateStatus as jest.Mock).mockResolvedValue({
+        ...adminAuthorized,
+        status: ExpenseOrderStatus.PAID,
+      });
+    });
+
+    it('crea un egreso por ítem, deja la OG pagada y concilia su CP', async () => {
+      await service.cajaAuthorize('og-1', currentUser);
+
+      expect(repository.claimCajaAuthorization).toHaveBeenCalledWith('og-1', 'caja-1');
+      expect(prisma.cashMovement.create).toHaveBeenCalledTimes(2);
+      expect(repository.updateStatus).toHaveBeenCalledWith('og-1', ExpenseOrderStatus.PAID);
+      expect(accountsPayableService.settleFromExpenseOrderMovements).toHaveBeenCalledWith(
+        'og-1',
+        'caja-1',
+      );
+    });
+
+    // Antes marcaba AUTHORIZED y después descubría que no había caja: la OG
+    // quedaba fuera de ADMIN_AUTHORIZED, sin pago y sin forma de reintentar.
+    it('sin caja abierta no toca el estado de la OG', async () => {
+      (prisma.cashSession.findFirst as jest.Mock).mockResolvedValue(null);
+
+      await expect(service.cajaAuthorize('og-1', currentUser)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(repository.claimCajaAuthorization).not.toHaveBeenCalled();
+      expect(repository.updateStatus).not.toHaveBeenCalled();
+    });
+
+    // Dos autorizaciones simultáneas leían ADMIN_AUTHORIZED y creaban los
+    // egresos de caja dos veces.
+    it('si otra autorización ganó la carrera, no crea egresos', async () => {
+      (repository.claimCajaAuthorization as jest.Mock).mockResolvedValue(false);
+
+      await expect(service.cajaAuthorize('og-1', currentUser)).rejects.toThrow(
+        /ya fue autorizada/,
+      );
+      expect(prisma.cashMovement.create).not.toHaveBeenCalled();
+      expect(repository.updateStatus).not.toHaveBeenCalled();
+    });
   });
 
   describe('idempotencia al crear', () => {

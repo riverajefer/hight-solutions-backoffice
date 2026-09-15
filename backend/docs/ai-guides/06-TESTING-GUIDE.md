@@ -256,7 +256,6 @@ const createMockContext = (user: any): ExecutionContext =>
 - `loginWithPermissions` — tokens + permisos + session log
 - `refreshTokens` — token válido, usuario no encontrado, hash inválido, token null
 - `logout` — limpieza de refreshToken, session log
-- `register` — creación con password hasheado, email duplicado, roleId inválido
 - `getUserProfile` — permisos aplanados, usuario no encontrado
 
 ### Qué cubre `jwt.strategy.spec.ts`

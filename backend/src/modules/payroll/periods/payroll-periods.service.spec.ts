@@ -21,6 +21,7 @@ describe('PayrollPeriodsService', () => {
       update: jest.fn(),
       delete: jest.fn(),
       getSummary: jest.fn(),
+      countAppliedDeductions: jest.fn().mockResolvedValue(0),
     } as any;
 
     itemsRepository = {
@@ -232,6 +233,18 @@ describe('PayrollPeriodsService', () => {
       const result = await service.remove('p1');
       expect(periodsRepository.delete).toHaveBeenCalledWith('p1');
       expect(result).toEqual({ message: 'Periodo de nómina con ID p1 eliminado' });
+    });
+  });
+
+  // Los registros caen en cascada y la llave del descuento queda en NULL: la OP
+  // seguiría pagada sin que a nadie se le hubiera descontado el valor.
+  describe('remove con descuentos por nómina aplicados', () => {
+    it('bloquea el borrado', async () => {
+      periodsRepository.findById.mockResolvedValue({ id: 'p1' } as any);
+      periodsRepository.countAppliedDeductions.mockResolvedValue(2);
+
+      await expect(service.remove('p1')).rejects.toThrow(BadRequestException);
+      expect(periodsRepository.delete).not.toHaveBeenCalled();
     });
   });
 

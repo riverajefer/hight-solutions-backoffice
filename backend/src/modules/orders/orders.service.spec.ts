@@ -99,6 +99,10 @@ const mockClientOwnershipAuthRequestsService = {
 const mockPayrollDeductionsService = {
   assertClientIsEmployee: jest.fn(),
   notifyCreated: jest.fn().mockResolvedValue(undefined),
+  assertOrderValueMatches: jest.fn().mockResolvedValue(undefined),
+  assertNoLiveDeduction: jest.fn().mockResolvedValue(undefined),
+  assertOrderCanBeAnnulled: jest.fn().mockResolvedValue(undefined),
+  cancelForAnnulledOrder: jest.fn().mockResolvedValue(0),
 };
 
 const mockCreditBalanceService = {
@@ -1734,6 +1738,39 @@ describe('OrdersService', () => {
   // ─────────────────────────────────────────────
   // updateStatus
   // ─────────────────────────────────────────────
+  // El descuento por nómina congela el valor de la OP. Tasas y prueba de color
+  // se guardan fuera de transacción, así que la guarda tiene que ir antes.
+  describe('update con descuento por nómina vivo', () => {
+    it('no cambia las tasas ni escribe nada', async () => {
+      mockOrdersRepository.findById.mockResolvedValue(
+        buildOrder({ status: OrderStatus.CONFIRMED }),
+      );
+      mockPayrollDeductionsService.assertNoLiveDeduction.mockRejectedValueOnce(
+        new BadRequestException('Cancela el descuento'),
+      );
+
+      await expect(
+        service.update('order-1', { taxRate: 0 } as any, 'user-1'),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPayrollDeductionsService.assertNoLiveDeduction).toHaveBeenCalledWith(
+        'order-1',
+        expect.any(String),
+      );
+      expect(mockOrdersRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('no consulta el descuento si el cambio no toca el valor', async () => {
+      mockOrdersRepository.findById.mockResolvedValue(
+        buildOrder({ status: OrderStatus.CONFIRMED }),
+      );
+      mockOrdersRepository.update.mockResolvedValue(buildOrder());
+
+      await service.update('order-1', { notes: 'Entregar en portería' } as any, 'user-1');
+
+      expect(mockPayrollDeductionsService.assertNoLiveDeduction).not.toHaveBeenCalled();
+    });
+  });
+
   describe('updateStatus', () => {
     beforeEach(() => {
       mockOrdersRepository.findById.mockResolvedValue(mockConfirmedOrder);
@@ -1881,6 +1918,40 @@ describe('OrdersService', () => {
       );
       // No debe consumir ninguna solicitud si no es requerida
       expect(mockStatusChangeRequestsService.consumeApprovedRequest).not.toHaveBeenCalled();
+    });
+
+    // Con el descuento por nómina ya aplicado, al empleado ya se le restó el
+    // valor: la anulación se bloquea antes de gastar la autorización.
+    it('no anula ni consume la autorización si el descuento por nómina ya se aplicó', async () => {
+      mockOrdersRepository.findById.mockResolvedValue(
+        buildOrder({ status: OrderStatus.CONFIRMED }),
+      );
+      mockPayrollDeductionsService.assertOrderCanBeAnnulled.mockRejectedValueOnce(
+        new BadRequestException('Cancélalo desde Nómina'),
+      );
+
+      await expect(
+        service.updateStatus('order-1', OrderStatus.ANULADO, 'user-1'),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockStatusChangeRequestsService.requiresAuthorization).not.toHaveBeenCalled();
+      expect(mockOrdersRepository.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('al anular cancela el descuento por nómina que seguía sin aplicar', async () => {
+      const draftOrder = buildOrder({ status: OrderStatus.DRAFT });
+      const anuladoOrder = buildOrder({ status: OrderStatus.ANULADO });
+      mockOrdersRepository.findById
+        .mockResolvedValueOnce(draftOrder)
+        .mockResolvedValueOnce(anuladoOrder);
+      mockOrdersRepository.updateStatus.mockResolvedValue(anuladoOrder);
+      mockStatusChangeRequestsService.requiresAuthorization.mockResolvedValue({ required: false });
+
+      await service.updateStatus('order-1', OrderStatus.ANULADO, 'user-1');
+
+      expect(mockPayrollDeductionsService.cancelForAnnulledOrder).toHaveBeenCalledWith(
+        'order-1',
+        draftOrder.orderNumber,
+      );
     });
 
     it('should throw ForbiddenException for non-admin ANULADO without approved request', async () => {

@@ -409,6 +409,26 @@ export class ExpenseOrdersRepository {
     });
   }
 
+  /**
+   * Pasa la OG de ADMIN_AUTHORIZED a AUTHORIZED solo si sigue en ese estado, y
+   * dice si lo logró.
+   *
+   * Es la guarda contra dos autorizaciones de Caja simultáneas: con un `update`
+   * simple las dos leían ADMIN_AUTHORIZED y creaban los egresos de caja dos
+   * veces. La segunda ahora encuentra la OG ya autorizada y no toca nada.
+   */
+  async claimCajaAuthorization(id: string, cajaAuthorizedById: string): Promise<boolean> {
+    const { count } = await this.prisma.expenseOrder.updateMany({
+      where: { id, status: ExpenseOrderStatus.ADMIN_AUTHORIZED },
+      data: {
+        status: ExpenseOrderStatus.AUTHORIZED,
+        cajaAuthorizedById,
+        cajaAuthorizedAt: new Date(),
+      },
+    });
+    return count === 1;
+  }
+
   async registerElectronicInvoice(id: string, electronicInvoiceNumber: string) {
     return this.prisma.expenseOrder.update({
       where: { id },

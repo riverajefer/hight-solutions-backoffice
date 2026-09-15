@@ -94,6 +94,16 @@ export class PayrollItemsService {
     if (item.periodId !== periodId) {
       throw new BadRequestException('El registro no pertenece al periodo indicado');
     }
+    // Borrarlo deja la llave del descuento en NULL: la OP seguiría pagada sin
+    // que a nadie se le hubiera descontado el valor.
+    const applied = await this.itemsRepository.countAppliedDeductions(itemId);
+    if (applied > 0) {
+      throw new BadRequestException(
+        `El registro tiene ${applied} descuento(s) por nómina aplicado(s). ` +
+          'Cancélalos desde Nómina › Descuento de Órdenes antes de eliminarlo.',
+      );
+    }
+
     await this.itemsRepository.delete(itemId);
     return { message: `Registro de nómina con ID ${itemId} eliminado` };
   }

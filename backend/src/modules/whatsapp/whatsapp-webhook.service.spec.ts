@@ -113,6 +113,45 @@ describe('WhatsappWebhookService', () => {
       const rawBody = Buffer.from('test');
       expect(() => service.verifyMetaSignature(rawBody, '')).toThrow(UnauthorizedException);
     });
+
+    // Olvidar la variable en un despliegue real no puede abrir la puerta: un
+    // POST falso con un botón de "Aprobar" autorizaría pagos.
+    describe('sin WHATSAPP_APP_SECRET', () => {
+      const originalNodeEnv = process.env.NODE_ENV;
+
+      afterEach(() => {
+        process.env.NODE_ENV = originalNodeEnv;
+      });
+
+      const serviceWithoutSecret = () =>
+        new WhatsappWebhookService(
+          {
+            get: jest.fn((key: string) =>
+              key === 'app.frontendUrl' ? 'http://localhost:3000' : null,
+            ),
+          } as any,
+          prisma,
+          notificationsService,
+          whatsappService,
+          approvalRegistry,
+        );
+
+      it.each(['production', 'staging'])('rechaza el webhook en %s', (nodeEnv) => {
+        process.env.NODE_ENV = nodeEnv;
+
+        expect(() =>
+          serviceWithoutSecret().verifyMetaSignature(Buffer.from('{}'), ''),
+        ).toThrow(UnauthorizedException);
+      });
+
+      it('lo deja pasar en desarrollo', () => {
+        process.env.NODE_ENV = 'development';
+
+        expect(() =>
+          serviceWithoutSecret().verifyMetaSignature(Buffer.from('{}'), ''),
+        ).not.toThrow();
+      });
+    });
   });
 
   describe('processWebhook', () => {

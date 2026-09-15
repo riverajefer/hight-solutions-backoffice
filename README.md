@@ -99,17 +99,10 @@ Content-Type: application/json
 }
 ```
 
-### Registro
-```http
-POST /api/v1/auth/register
-Content-Type: application/json
+### Alta de usuarios
 
-{
-  "email": "nuevo@example.com",
-  "password": "password123",
-  "roleId": "uuid-del-rol"
-}
-```
+No hay autoregistro. Los usuarios los crea un administrador desde el módulo de
+Usuarios (`POST /api/v1/users`, permiso `create_users`).
 
 ### Logout
 ```http
@@ -188,7 +181,6 @@ export class UsersController {
 | Método | Endpoint | Descripción | Auth |
 |--------|----------|-------------|------|
 | POST | `/api/v1/auth/login` | Iniciar sesión | ❌ |
-| POST | `/api/v1/auth/register` | Registrar usuario | ❌ |
 | POST | `/api/v1/auth/refresh` | Refrescar token | ❌ |
 | POST | `/api/v1/auth/logout` | Cerrar sesión | ✅ |
 | POST | `/api/v1/auth/me` | Usuario actual | ✅ |

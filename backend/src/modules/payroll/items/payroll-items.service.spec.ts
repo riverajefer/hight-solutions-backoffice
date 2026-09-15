@@ -19,6 +19,7 @@ describe('PayrollItemsService', () => {
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
+      countAppliedDeductions: jest.fn().mockResolvedValue(0),
     } as any;
 
     periodsRepository = {
@@ -132,6 +133,16 @@ describe('PayrollItemsService', () => {
     it('should throw BadRequestException if item does not belong to period', async () => {
       itemsRepository.findById.mockResolvedValue({ id: 'i1', periodId: 'p2' } as any);
       await expect(service.remove('p1', 'i1')).rejects.toThrow(BadRequestException);
+    });
+
+    // Borrarlo deja la llave del descuento en NULL: la OP seguiría pagada sin
+    // que a nadie se le hubiera descontado el valor.
+    it('bloquea el borrado si el registro tiene descuentos por nómina aplicados', async () => {
+      itemsRepository.findById.mockResolvedValue({ id: 'i1', periodId: 'p1' } as any);
+      itemsRepository.countAppliedDeductions.mockResolvedValue(1);
+
+      await expect(service.remove('p1', 'i1')).rejects.toThrow(BadRequestException);
+      expect(itemsRepository.delete).not.toHaveBeenCalled();
     });
   });
 });
