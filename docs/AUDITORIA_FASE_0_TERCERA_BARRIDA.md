@@ -412,7 +412,7 @@ es pasarlo por alto:
 | Sitios web en el pie de 4 PDF | `generateOrderPdf.ts:170`, `generateQuotePdf.ts:169`, `generateExpenseOrderPdf.ts:169`, `generateWorkOrderPdf.ts:124` | Leerlos del módulo Company, que ya guarda los logos |
 | Página de mantenimiento | `maintenance.middleware.ts:43` | Nombre desde `VITE_APP_NAME`/config |
 | Contacto de la empresa | `seed.ts:2571` | Datos del seed de Zoom |
-| Swagger "BackOffice example", público en producción | `main.ts` | Título real y desactivarlo fuera de desarrollo: publica el mapa completo de la API |
+| ~~Swagger "BackOffice example", público en producción~~ | `main.ts` | ✅ Corregido: título neutro ("Backoffice API") y solo se publica en desarrollo, salvo `SWAGGER_ENABLED=true` (`swagger.util.ts`) |
 
 ---
 

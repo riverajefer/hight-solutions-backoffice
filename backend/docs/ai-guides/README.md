@@ -126,6 +126,10 @@ NODE_ENV=development
 
 Access API documentation at: `http://localhost:3000/api`
 
+Solo se publica en desarrollo. En staging y producción está apagado porque expondría el
+mapa completo del API; para habilitarlo en otro ambiente, define `SWAGGER_ENABLED=true`
+(ver `src/common/utils/swagger.util.ts`).
+
 PROMPT
 
 ### Opción 2: Usar directamente con IA
