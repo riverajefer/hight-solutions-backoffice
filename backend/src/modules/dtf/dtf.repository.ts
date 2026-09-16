@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { DtfStatus, PaymentMethod, Prisma } from '../../generated/prisma';
+import { clampPageSize, MAX_PAGE_SIZE } from '../../common/dto/pagination.dto';
 
 const selectFields = {
   id: true,
@@ -59,7 +60,8 @@ export class DtfRepository {
       page = 1,
       limit = 50,
     } = filters;
-    const skip = (page - 1) * limit;
+    const take = clampPageSize(limit, 50, MAX_PAGE_SIZE);
+    const skip = (page - 1) * take;
 
     const where: Prisma.DtfRecordWhereInput = {
       ...(status && { status }),
@@ -79,12 +81,12 @@ export class DtfRepository {
         select: selectFields,
         orderBy: { createdAt: 'desc' },
         skip,
-        take: limit,
+        take,
       }),
       this.prisma.dtfRecord.count({ where }),
     ]);
 
-    return { data, total, page, limit };
+    return { data, total, page, limit: take };
   }
 
   async findById(id: string) {

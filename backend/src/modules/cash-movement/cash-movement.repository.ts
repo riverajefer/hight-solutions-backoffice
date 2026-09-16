@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma';
 import { FilterCashMovementsDto } from './dto';
+import { clampPageSize, MAX_CASH_PAGE_SIZE } from '../../common/dto/pagination.dto';
 
 const MOVEMENT_SELECT = {
   id: true,
@@ -157,7 +158,8 @@ export class CashMovementRepository {
         : {}),
     };
 
-    const skip = (page - 1) * limit;
+    const take = clampPageSize(limit, 50, MAX_CASH_PAGE_SIZE);
+    const skip = (page - 1) * take;
 
     const [raw, total] = await Promise.all([
       this.prisma.cashMovement.findMany({
@@ -165,7 +167,7 @@ export class CashMovementRepository {
         select: MOVEMENT_SELECT,
         orderBy: { createdAt: 'desc' },
         skip,
-        take: limit,
+        take,
       }),
       this.prisma.cashMovement.count({ where }),
     ]);

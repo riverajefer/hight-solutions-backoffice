@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma, WorkOrderStatus, WorkOrderTimeEntryType } from '../../generated/prisma';
 import { FilterWorkOrdersDto } from './dto';
+import { clampPageSize, MAX_PAGE_SIZE } from '../../common/dto/pagination.dto';
 
 @Injectable()
 export class WorkOrdersRepository {
@@ -183,7 +184,8 @@ export class WorkOrdersRepository {
       page = 1,
       limit = 20,
     } = filters;
-    const skip = (page - 1) * limit;
+    const take = clampPageSize(limit, 20, MAX_PAGE_SIZE);
+    const skip = (page - 1) * take;
 
     const where: Record<string, unknown> = {};
 
@@ -224,7 +226,7 @@ export class WorkOrdersRepository {
         select: this.selectFields,
         orderBy: { createdAt: 'desc' },
         skip,
-        take: limit,
+        take,
       }),
       this.prisma.workOrder.count({ where }),
     ]);
@@ -234,8 +236,8 @@ export class WorkOrdersRepository {
       meta: {
         total,
         page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        limit: take,
+        totalPages: Math.ceil(total / take),
       },
     };
   }

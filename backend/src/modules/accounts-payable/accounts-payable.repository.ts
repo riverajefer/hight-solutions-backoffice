@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, AccountPayableStatus } from '../../generated/prisma';
 import { PrismaService } from '../../database/prisma.service';
 import { FilterAccountPayableDto, InstallmentItemDto } from './dto';
+import { clampPageSize, MAX_EXPORT_PAGE_SIZE } from '../../common/dto/pagination.dto';
 
 @Injectable()
 export class AccountsPayableRepository {
@@ -76,7 +77,8 @@ export class AccountsPayableRepository {
       orderDir = 'desc',
     } = filters;
 
-    const skip = (page - 1) * limit;
+    const take = clampPageSize(limit, 20, MAX_EXPORT_PAGE_SIZE);
+    const skip = (page - 1) * take;
 
     const where: Prisma.AccountPayableWhereInput = {
       ...(status && { status }),
@@ -103,7 +105,7 @@ export class AccountsPayableRepository {
         where,
         select: this.selectFields,
         skip,
-        take: limit,
+        take,
         orderBy: { [orderBy]: orderDir },
       }),
       this.prisma.accountPayable.count({ where }),
@@ -114,8 +116,8 @@ export class AccountsPayableRepository {
       meta: {
         total,
         page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        limit: take,
+        totalPages: Math.ceil(total / take),
       },
     };
   }

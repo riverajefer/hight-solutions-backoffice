@@ -8,8 +8,9 @@ porque ahí está el hallazgo que más pesa para el clon de Zoom.
 Las cifras de producción salen de `scripts/db-query.sh` en modo solo lectura,
 consultado el 2026-09-15.
 
-Corregidos: los hallazgos **1, 2, 3, 4 y 5** (la caja y todo el bloque de
-inventario). Los demás siguen en diagnóstico; el orden sugerido está al final.
+Corregidos: los hallazgos **1, 2, 3, 4, 5 y 8** (la caja, todo el bloque de
+inventario y el tope de paginación). Los demás siguen en diagnóstico; el orden
+sugerido está al final.
 
 ---
 
@@ -308,7 +309,7 @@ abreviatura donde dice mostrar el nombre.
 
 ---
 
-## 8. Once de quince filtros paginados no tienen tope de `limit` — **Media**
+## 8. Once de quince filtros paginados no tienen tope de `limit` — **Media** · ✅ Corregido
 
 Estos DTO declaran `limit` con `@Min(1)` y sin `@Max`:
 
@@ -326,6 +327,43 @@ réplicas para amortiguarlo.
 
 La corrección es un `@Max(100)` en el DTO base y un `Math.min` en el repositorio,
 por si alguien construye el filtro sin pasar por la validación.
+
+### Corrección aplicada
+
+Los topes viven en
+[`common/dto/pagination.dto.ts`](../backend/src/common/dto/pagination.dto.ts),
+un archivo que existía **vacío desde enero**. Dos constantes y un `clampPageSize()`.
+
+`@Max(MAX_PAGE_SIZE)` —100— en los once filtros, y `clampPageSize()` en los ocho
+repositorios que pasaban `take: limit` a Prisma. Son dos líneas de defensa
+distintas y las dos hacen falta: la validación devuelve un 400 legible al que
+pide de más, y el clamp cubre a quien arme el filtro desde un servicio sin pasar
+por el `ValidationPipe`.
+
+El techo de 100 no le quita nada a la interfaz: **ninguna tabla del frontend
+ofrece más de 100 filas por página**, revisado uno por uno.
+
+Órdenes es la excepción, con `MAX_REPORT_PAGE_SIZE` = 1.000, porque hay dos
+pantallas que piden 500 y 1.000 filas para filtrar del lado del cliente. Bajarlas
+a 100 las habría roto; dejarlas sin techo no arregla nada. El tope alto acota el
+daño de 3.209 filas a 1.000 sin tocar lo que hoy funciona, y el comentario de la
+constante dice cuándo bajarlo. Esas dos pantallas son el hallazgo 13.
+
+De paso, el `meta` de la respuesta ahora informa el límite **efectivo**: antes
+habría dicho `limit: 5000` junto a 100 filas, con un `totalPages` calculado sobre
+una cifra que nunca se usó.
+
+Al revisar los repositorios aparecieron cuatro más que el conteo inicial no vio,
+porque escribían el `take` de otra forma: producción (`take: filters.limit`),
+movimientos de caja, sesiones de caja e inventario —este último ya acotaba con
+un `Math.min(limit, 100)` suelto, que se unificó con el helper—. Los tres
+primeros sí pasaban el valor crudo.
+
+**Cuentas por Pagar queda como la excepción documentada**, con
+`MAX_EXPORT_PAGE_SIZE` = 100.000: su filtro ya llevaba ese techo a propósito para
+la exportación a Excel, que se trae el rango completo sin paginar. Se respetó,
+pero su comentario decía «el resto de listados del sistema no acota `limit`» y
+eso dejó de ser cierto con este cambio, así que se actualizó.
 
 ---
 
@@ -380,6 +418,45 @@ un salto obliga a explicar por qué.
 
 ---
 
+## 13. Dos reportes de órdenes ya salen incompletos — **Media**
+
+Apareció al ponerle techo a la paginación: son las dos pantallas que obligaron a
+subir el tope de órdenes a 1.000.
+
+**Producción tiene 3.209 órdenes.**
+
+[SalesByAdvisorPage.tsx:146](../frontend/src/features/orders/pages/SalesByAdvisorPage.tsx#L146)
+pide las primeras 1.000 órdenes, con todos sus `include`, **solo para sacar la
+lista de asesores que han creado alguna**:
+
+```ts
+queryFn: () => ordersApi.getAll({ page: 1, limit: 1000 })
+```
+
+Es un `SELECT DISTINCT created_by_id` disfrazado de página de 1.000 filas. Y como
+son 1.000 de 3.209, un asesor cuyas órdenes estén todas en las 2.209 más
+antiguas **no aparece en el filtro**. No hay forma de notarlo desde la pantalla:
+simplemente no está.
+
+[PendingPaymentOrdersPage.tsx:76](../frontend/src/features/orders/pages/PendingPaymentOrdersPage.tsx#L76)
+trae 500 órdenes sin filtrar por estado y decide del lado del cliente cuáles
+tienen saldo. El `clientId` arranca en `undefined`, así que **al abrir la
+pantalla el listado de cartera pendiente sale de las primeras 500 de 3.209**. El
+comentario del código dice «limit alto para cubrir todas las pendientes»: cubría,
+cuando había menos órdenes.
+
+Las dos se arreglan del lado del servidor, no subiendo el límite:
+
+- un endpoint que devuelva los asesores con órdenes (`DISTINCT`), que además
+  ahorra traerse 1.000 órdenes completas en cada carga;
+- mover el filtro de cartera pendiente al backend, como `paymentStatus`, que ya
+  existe en `FilterOrdersDto`.
+
+Mientras tanto ninguna de las dos empeora: el tope de 1.000 las deja exactamente
+como estaban.
+
+---
+
 ## 12. Mejoras menores
 
 - ~~**`ADJUSTMENT` solo resta.**~~ ✅ Corregido junto con el hallazgo 2: se
@@ -418,8 +495,9 @@ Probado extremo a extremo en desarrollo, no solo con tests:
 Sin errores nuevos en consola. Los datos de prueba quedan en desarrollo con
 nombres reconocibles («PRUEBA QA …»).
 
-`tsc --noEmit` limpio en backend y frontend. Backend: 184 suites y 2.794 tests en
-verde. Frontend: 59 archivos y 497 tests en verde.
+`tsc --noEmit` limpio en backend y frontend. Backend: 185 suites y 2.806 tests en
+verde (incluye las 15 pruebas del tope de paginación). Frontend: 59 archivos y
+497 tests en verde.
 
 ---
 
@@ -464,7 +542,9 @@ escrita en código.
 2. ~~**Hallazgos 1, 2, 4, 5** — inventario.~~ ✅ Hecho, los cuatro juntos, más
    el sentido del ajuste (hallazgo 12) que hacía falta para que el 2 fuera
    usable.
-3. **Hallazgo 8** — el tope de paginación, que es una línea por DTO.
-4. **Hallazgos 6, 9, 10** — requieren decisión del cliente: cómo valorizar, si
+3. ~~**Hallazgo 8** — el tope de paginación.~~ ✅ Hecho.
+4. **Hallazgo 13** — los dos reportes incompletos. Es el más visible para el
+   cliente de los que quedan: hoy muestran cifras de menos sin avisar.
+5. **Hallazgos 6, 9, 10** — requieren decisión del cliente: cómo valorizar, si
    hace falta omitir pasos, y si vale la pena cerrar la ventana de la devolución.
-5. **Hallazgos 7, 11 y las mejoras menores** — cuando haya espacio.
+6. **Hallazgos 7, 11 y las mejoras menores** — cuando haya espacio.

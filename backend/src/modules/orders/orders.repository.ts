@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma, OrderStatus, EditRequestStatus } from '../../generated/prisma';
+import { clampPageSize, MAX_REPORT_PAGE_SIZE } from '../../common/dto/pagination.dto';
 
 /**
  * Resuelve el filtro de estado. Las pantallas de ventas piden `excludeAnulado`
@@ -407,7 +408,8 @@ export class OrdersRepository {
       };
     }
 
-    const skip = (page - 1) * limit;
+    const take = clampPageSize(limit, 20, MAX_REPORT_PAGE_SIZE);
+    const skip = (page - 1) * take;
 
     const [orders, total] = await Promise.all([
       this.prisma.order.findMany({
@@ -415,7 +417,7 @@ export class OrdersRepository {
         select: this.selectFields,
         orderBy: { orderDate: 'desc' },
         skip,
-        take: limit,
+        take,
       }),
       this.prisma.order.count({ where }),
     ]);
@@ -439,8 +441,8 @@ export class OrdersRepository {
       meta: {
         total,
         page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        limit: take,
+        totalPages: Math.ceil(total / take),
       },
     };
   }
@@ -822,7 +824,8 @@ export class OrdersRepository {
       if (orderDateTo) (where.orderDate as Prisma.DateTimeFilter).lte = orderDateTo;
     }
 
-    const skip = (page - 1) * limit;
+    const take = clampPageSize(limit, 20, MAX_REPORT_PAGE_SIZE);
+    const skip = (page - 1) * take;
 
     const [orders, total] = await Promise.all([
       this.prisma.order.findMany({
@@ -846,7 +849,7 @@ export class OrdersRepository {
         },
         orderBy: { orderDate: 'desc' },
         skip,
-        take: limit,
+        take,
       }),
       this.prisma.order.count({ where }),
     ]);

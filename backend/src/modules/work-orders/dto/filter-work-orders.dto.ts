@@ -1,7 +1,8 @@
-import { IsDateString, IsEnum, IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { IsDateString, IsEnum, IsNumber, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { WorkOrderStatus } from '../../../generated/prisma';
+import { MAX_PAGE_SIZE } from '../../../common/dto/pagination.dto';
 
 export class FilterWorkOrdersDto {
   @ApiPropertyOptional({ description: 'Filtrar por estado', enum: WorkOrderStatus })
@@ -41,5 +42,6 @@ export class FilterWorkOrdersDto {
   @Type(() => Number)
   @IsNumber()
   @Min(1)
+  @Max(MAX_PAGE_SIZE)
   limit?: number = 20;
 }

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { SessionLogsFilterDto } from './dto';
+import { clampPageSize, MAX_PAGE_SIZE } from '../../common/dto/pagination.dto';
 
 @Injectable()
 export class SessionLogsRepository {
@@ -71,13 +72,14 @@ export class SessionLogsRepository {
       where.userId = userId;
     }
 
-    const skip = (page - 1) * limit;
+    const take = clampPageSize(limit, 10, MAX_PAGE_SIZE);
+    const skip = (page - 1) * take;
 
     const [data, total] = await Promise.all([
       this.prisma.sessionLog.findMany({
         where,
         skip,
-        take: limit,
+        take,
         orderBy: {
           loginAt: 'desc',
         },
@@ -112,8 +114,8 @@ export class SessionLogsRepository {
       meta: {
         total,
         page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        limit: take,
+        totalPages: Math.ceil(total / take),
       },
     };
   }
@@ -122,13 +124,14 @@ export class SessionLogsRepository {
    * Find session logs by user ID
    */
   async findByUserId(userId: string, page = 1, limit = 10) {
-    const skip = (page - 1) * limit;
+    const take = clampPageSize(limit, 10, MAX_PAGE_SIZE);
+    const skip = (page - 1) * take;
 
     const [data, total] = await Promise.all([
       this.prisma.sessionLog.findMany({
         where: { userId },
         skip,
-        take: limit,
+        take,
         orderBy: {
           loginAt: 'desc',
         },
@@ -163,8 +166,8 @@ export class SessionLogsRepository {
       meta: {
         total,
         page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        limit: take,
+        totalPages: Math.ceil(total / take),
       },
     };
   }

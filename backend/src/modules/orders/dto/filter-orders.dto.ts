@@ -1,16 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsBoolean,
-  IsEnum,
-  IsIn,
-  IsOptional,
-  IsUUID,
-  IsDateString,
-  IsInt,
-  Min,
-} from 'class-validator';
+import { IsBoolean, IsDateString, IsEnum, IsIn, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { EditRequestStatus, OrderStatus } from '../../../generated/prisma';
+import { MAX_REPORT_PAGE_SIZE } from '../../../common/dto/pagination.dto';
 
 export class FilterOrdersDto {
   @ApiPropertyOptional({
@@ -91,6 +83,7 @@ export class FilterOrdersDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(MAX_REPORT_PAGE_SIZE)
   limit?: number = 20;
 
   @ApiPropertyOptional({

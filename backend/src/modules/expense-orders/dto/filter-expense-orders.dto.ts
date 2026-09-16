@@ -1,7 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsEnum, IsOptional, IsString, IsUUID, IsInt, Min } from 'class-validator';
+import { IsDateString, IsEnum, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ExpenseOrderStatus } from '../../../generated/prisma';
+import { MAX_PAGE_SIZE } from '../../../common/dto/pagination.dto';
 
 export class FilterExpenseOrdersDto {
   @ApiPropertyOptional({ enum: ExpenseOrderStatus, description: 'Filtrar por estado' })
@@ -45,6 +46,7 @@ export class FilterExpenseOrdersDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(MAX_PAGE_SIZE)
   @IsOptional()
   limit?: number = 20;
 }
