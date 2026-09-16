@@ -8,20 +8,30 @@ import { Prisma, InventoryMovementType, NotificationType } from '../../generated
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { InventoryRepository } from './inventory.repository';
-import { CreateInventoryMovementDto, FilterInventoryMovementsDto } from './dto';
+import {
+  AdjustmentDirection,
+  CreateInventoryMovementDto,
+  FilterInventoryMovementsDto,
+} from './dto';
 
-// Tipos que incrementan el stock
+// Tipos que siempre incrementan el stock.
 const STOCK_INCREASE_TYPES: InventoryMovementType[] = [
   InventoryMovementType.ENTRY,
   InventoryMovementType.RETURN,
   InventoryMovementType.INITIAL,
 ];
 
-// Tipos que decrementan el stock
-const STOCK_DECREASE_TYPES: InventoryMovementType[] = [
-  InventoryMovementType.EXIT,
-  InventoryMovementType.ADJUSTMENT,
-];
+/**
+ * Insumo que quedó bajo el mínimo tras un movimiento. Se acumula para avisar
+ * DESPUÉS del commit: notificar dentro de la transacción manda alertas de
+ * consumos que pueden terminar revertidos.
+ */
+export interface LowStockAlert {
+  supplyId: string;
+  supplyName: string;
+  currentStock: number;
+  minimumStock: number;
+}
 
 @Injectable()
 export class InventoryService {
@@ -48,12 +58,15 @@ export class InventoryService {
   /**
    * Crea movimientos de salida (EXIT) para todos los insumos de una OT al completarla.
    * Se ejecuta dentro de la transacción de updateStatus en WorkOrdersService.
+   *
+   * Devuelve los insumos que quedaron bajo el mínimo, para que el llamador avise
+   * una vez confirmada la transacción.
    */
   async createExitFromWorkOrder(
     workOrderId: string,
     performedById: string,
     tx: Prisma.TransactionClient,
-  ) {
+  ): Promise<LowStockAlert[]> {
     // Obtener todos los insumos de la OT con sus cantidades
     const supplies = await tx.workOrderItemSupply.findMany({
       where: {
@@ -61,19 +74,34 @@ export class InventoryService {
         quantity: { not: null, gt: 0 },
       },
       include: {
-        supply: { select: { id: true, name: true, currentStock: true, minimumStock: true } },
+        supply: { select: { id: true, name: true, minimumStock: true } },
       },
     });
 
-    if (supplies.length === 0) return;
+    if (supplies.length === 0) return [];
+
+    const alerts: LowStockAlert[] = [];
 
     for (const ws of supplies) {
       if (!ws.quantity) continue;
 
       const qty = new Prisma.Decimal(ws.quantity);
-      const previousStock = new Prisma.Decimal(ws.supply.currentStock);
-      const newStock = Prisma.Decimal.max(previousStock.sub(qty), new Prisma.Decimal(0));
 
+      // El consumo se descuenta con `decrement`, no leyendo y volviendo a
+      // escribir: dos OT que consumen el mismo insumo a la vez se pisaban.
+      const { previousStock, newStock } = await this.applyStockDelta(
+        tx,
+        ws.supplyId,
+        qty,
+        false,
+      );
+
+      // A diferencia del movimiento manual, aquí NO se rechaza el consumo ni se
+      // recorta el stock a cero. El trabajo ya se hizo: negarlo no devuelve el
+      // material a la bodega, y recortar dejaba `previousStock - quantity`
+      // distinto de `newStock`, es decir un kardex que no cuadra consigo mismo.
+      // Un stock negativo es la señal honesta de que el registro venía atrasado
+      // respecto a la bodega, y la alerta de mínimo lo hace visible.
       await tx.inventoryMovement.create({
         data: {
           supplyId: ws.supplyId,
@@ -88,88 +116,154 @@ export class InventoryService {
         },
       });
 
-      await tx.supply.update({
-        where: { id: ws.supplyId },
-        data: { currentStock: newStock },
-      });
-
-      // Alerta de stock bajo (fire & forget, fuera de la tx para no bloquearla)
-      if (newStock.lt(ws.supply.minimumStock)) {
-        this.notifyLowStock(ws.supply.id, ws.supply.name, Number(newStock), Number(ws.supply.minimumStock)).catch(
-          (err) => this.logger.error(`Error notificando stock bajo para ${ws.supply.name}`, err),
-        );
+      if (newStock.lessThan(ws.supply.minimumStock)) {
+        alerts.push({
+          supplyId: ws.supply.id,
+          supplyName: ws.supply.name,
+          currentStock: Number(newStock),
+          minimumStock: Number(ws.supply.minimumStock),
+        });
       }
     }
+
+    return alerts;
   }
 
   /**
-   * Crea un movimiento de inventario con toda la logica de negocio.
-   * Puede recibir un cliente de transaccion opcional.
+   * Crea un movimiento de inventario con toda la lógica de negocio.
+   *
+   * El movimiento y el cambio de stock van juntos en una transacción: antes eran
+   * dos consultas sueltas bajo un `Promise.all` que el comentario llamaba
+   * "atómico", así que un fallo al actualizar el stock dejaba en el kardex un
+   * movimiento que declaraba un saldo que nunca se escribió.
    */
-  async createMovement(
-    dto: CreateInventoryMovementDto,
-    performedById: string,
-    tx?: Prisma.TransactionClient,
-  ) {
-    const client = tx ?? this.prisma;
+  async createMovement(dto: CreateInventoryMovementDto, performedById: string) {
+    const { movement, alert } = await this.prisma.$transaction(async (tx) => {
+      const supply = await tx.supply.findUnique({
+        where: { id: dto.supplyId },
+        select: { id: true, name: true, minimumStock: true, isActive: true },
+      });
 
-    const supply = await client.supply.findUnique({
-      where: { id: dto.supplyId },
-      select: { id: true, name: true, currentStock: true, minimumStock: true, isActive: true },
-    });
+      if (!supply) throw new NotFoundException(`Insumo con id ${dto.supplyId} no encontrado`);
+      if (!supply.isActive) throw new BadRequestException(`El insumo "${supply.name}" no está activo`);
 
-    if (!supply) throw new NotFoundException(`Insumo con id ${dto.supplyId} no encontrado`);
-    if (!supply.isActive) throw new BadRequestException(`El insumo "${supply.name}" no está activo`);
+      if (dto.type === InventoryMovementType.ADJUSTMENT) {
+        if (!dto.reason) {
+          throw new BadRequestException(
+            'El campo "reason" es requerido para ajustes manuales (ADJUSTMENT)',
+          );
+        }
+        if (!dto.direction) {
+          throw new BadRequestException(
+            'El campo "direction" es requerido para ajustes manuales (ADJUSTMENT): ' +
+              'un conteo físico puede quedar por encima o por debajo del sistema.',
+          );
+        }
+      }
 
-    if (dto.type === InventoryMovementType.ADJUSTMENT && !dto.reason) {
-      throw new BadRequestException('El campo "reason" es requerido para ajustes manuales (ADJUSTMENT)');
-    }
+      const qty = new Prisma.Decimal(dto.quantity);
+      const increases = this.increasesStock(dto.type, dto.direction);
 
-    const qty = new Prisma.Decimal(dto.quantity);
-    const previousStock = new Prisma.Decimal(supply.currentStock);
+      const { previousStock, newStock } = await this.applyStockDelta(
+        tx,
+        dto.supplyId,
+        qty,
+        increases,
+      );
 
-    let newStock: Prisma.Decimal;
-    if (STOCK_INCREASE_TYPES.includes(dto.type)) {
-      newStock = previousStock.add(qty);
-    } else {
-      newStock = previousStock.sub(qty);
-      if (newStock.lt(0)) {
+      // El stock no puede quedar negativo por un movimiento manual. El throw
+      // revierte el descuento junto con el resto de la transacción, así que la
+      // comprobación es sobre el saldo real y no sobre una lectura previa que
+      // otro movimiento simultáneo pudo dejar vieja.
+      if (newStock.lessThan(0)) {
         throw new BadRequestException(
           `Stock insuficiente. Stock actual: ${previousStock}, cantidad solicitada: ${qty}`,
         );
       }
-    }
 
-    const movementData: Prisma.InventoryMovementUncheckedCreateInput = {
-      supplyId: dto.supplyId,
-      type: dto.type,
-      quantity: qty,
-      unitCost: dto.unitCost !== undefined ? new Prisma.Decimal(dto.unitCost) : undefined,
-      previousStock,
-      newStock,
-      referenceType: 'MANUAL',
-      reason: dto.reason,
-      notes: dto.notes,
-      performedById,
-    };
+      const movementData: Prisma.InventoryMovementUncheckedCreateInput = {
+        supplyId: dto.supplyId,
+        type: dto.type,
+        quantity: qty,
+        unitCost: dto.unitCost !== undefined ? new Prisma.Decimal(dto.unitCost) : undefined,
+        previousStock,
+        newStock,
+        referenceType: 'MANUAL',
+        reason: dto.reason,
+        notes: dto.notes,
+        performedById,
+      };
 
-    // Crear movimiento y actualizar stock atomicamente
-    const [movement] = await Promise.all([
-      this.repository.create(movementData, client as any),
-      client.supply.update({
-        where: { id: dto.supplyId },
-        data: { currentStock: newStock },
-      }),
-    ]);
+      const created = await this.repository.create(movementData, tx);
 
-    // Alerta de stock bajo (fire & forget)
-    if (newStock.lt(supply.minimumStock)) {
-      this.notifyLowStock(supply.id, supply.name, Number(newStock), Number(supply.minimumStock)).catch(
-        (err) => this.logger.error(`Error notificando stock bajo para ${supply.name}`, err),
-      );
+      return {
+        movement: created,
+        alert: newStock.lessThan(supply.minimumStock)
+          ? {
+              supplyId: supply.id,
+              supplyName: supply.name,
+              currentStock: Number(newStock),
+              minimumStock: Number(supply.minimumStock),
+            }
+          : null,
+      };
+    });
+
+    if (alert) {
+      // Fuera de la transacción y sin bloquearla: el movimiento ya está firme.
+      void this.notifyLowStockBatch([alert]);
     }
 
     return movement;
+  }
+
+  /**
+   * Aplica el cambio de stock con la operación atómica del motor y devuelve el
+   * saldo antes y después.
+   *
+   * Leer `currentStock`, calcular en memoria y escribir el valor absoluto
+   * —que es lo que se hacía— pierde actualizaciones: dos movimientos
+   * simultáneos sobre el mismo insumo leen el mismo saldo y el segundo pisa al
+   * primero, dejando un movimiento registrado cuyo efecto desaparece.
+   *
+   * `previousStock` se deriva del saldo resultante, no de una lectura previa,
+   * así que refleja el valor real en el instante del cambio.
+   */
+  private async applyStockDelta(
+    tx: Prisma.TransactionClient,
+    supplyId: string,
+    qty: Prisma.Decimal,
+    increases: boolean,
+  ): Promise<{ previousStock: Prisma.Decimal; newStock: Prisma.Decimal }> {
+    const updated = await tx.supply.update({
+      where: { id: supplyId },
+      data: {
+        currentStock: increases ? { increment: qty } : { decrement: qty },
+      },
+      select: { currentStock: true },
+    });
+
+    const newStock = new Prisma.Decimal(updated.currentStock);
+    const previousStock = increases ? newStock.sub(qty) : newStock.add(qty);
+
+    return { previousStock, newStock };
+  }
+
+  /**
+   * ¿El movimiento suma o resta?
+   *
+   * `ADJUSTMENT` es el único que va en los dos sentidos: un conteo físico puede
+   * quedar por encima o por debajo del sistema, y antes solo podía restar, así
+   * que una diferencia a favor no tenía cómo registrarse.
+   */
+  private increasesStock(
+    type: InventoryMovementType,
+    direction?: AdjustmentDirection,
+  ): boolean {
+    if (type === InventoryMovementType.ADJUSTMENT) {
+      return direction === AdjustmentDirection.INCREASE;
+    }
+    return STOCK_INCREASE_TYPES.includes(type);
   }
 
   async findAll(filters: FilterInventoryMovementsDto) {
@@ -198,13 +292,35 @@ export class InventoryService {
     const lowStock = await this.repository.getLowStockSuppliesRaw();
     if (lowStock.length === 0) return 0;
 
+    return this.notifyLowStockBatch(
+      lowStock.map((supply) => ({
+        supplyId: supply.id,
+        supplyName: supply.name,
+        currentStock: supply.current_stock,
+        minimumStock: supply.minimum_stock,
+      })),
+    );
+  }
+
+  /**
+   * Notifica un lote de alertas de stock bajo. Un fallo de notificación nunca
+   * debe tumbar el movimiento que la originó, así que cada una se aísla.
+   *
+   * Devuelve cuántas se enviaron.
+   */
+  async notifyLowStockBatch(alerts: LowStockAlert[]): Promise<number> {
     let notified = 0;
-    for (const supply of lowStock) {
+    for (const alert of alerts) {
       try {
-        await this.notifyLowStock(supply.id, supply.name, supply.current_stock, supply.minimum_stock);
+        await this.notifyLowStock(
+          alert.supplyId,
+          alert.supplyName,
+          alert.currentStock,
+          alert.minimumStock,
+        );
         notified++;
       } catch (err) {
-        this.logger.error(`Error notificando stock bajo para ${supply.name}`, err);
+        this.logger.error(`Error notificando stock bajo para ${alert.supplyName}`, err);
       }
     }
     return notified;

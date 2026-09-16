@@ -11,6 +11,7 @@ import {
   TextField,
   Autocomplete,
   Chip,
+  InputAdornment,
   Divider,
   CircularProgress,
   Alert,
@@ -278,7 +279,15 @@ export const WorkOrderFormPage = () => {
   );
   const availableUsers = (usersQuery.data as { id: string; firstName?: string | null; lastName?: string | null; email: string }[]) ?? [];
   const productionAreas = (productionAreasQuery.data as { id: string; name: string }[]) ?? [];
-  const supplies = (suppliesQuery.data as { id: string; name: string; sku?: string | null }[]) ?? [];
+  // La unidad de consumo se muestra junto a la cantidad: sin ella no se sabe si
+  // el número son metros o rollos. La API ya la devuelve.
+  const supplies =
+    (suppliesQuery.data as {
+      id: string;
+      name: string;
+      sku?: string | null;
+      consumptionUnit?: { abbreviation: string } | null;
+    }[]) ?? [];
 
   // Load edit data
   useEffect(() => {
@@ -454,6 +463,29 @@ export const WorkOrderFormPage = () => {
     setItemsForms((prev) => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  /**
+   * Cantidad a consumir de un insumo en un ítem.
+   *
+   * Se guarda como `undefined` cuando el campo queda vacío: el backend solo
+   * descuenta inventario de los insumos con cantidad mayor que cero, así que
+   * dejarlo en blanco significa "no descontar", no "descontar cero".
+   */
+  const updateSupplyQuantity = (index: number, supplyId: string, raw: string) => {
+    const parsed = raw === '' ? undefined : Number(raw);
+    setItemsForms((prev) => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        supplies: updated[index].supplies.map((si) =>
+          si.supplyId === supplyId
+            ? { ...si, quantity: Number.isFinite(parsed as number) ? parsed : undefined }
+            : si,
+        ),
+      };
       return updated;
     });
   };
@@ -935,7 +967,19 @@ export const WorkOrderFormPage = () => {
                     getOptionLabel={(s) => s.sku ? `${s.name} (${s.sku})` : s.name}
                     value={supplies.filter((s) => itemForm.supplies.some((si) => si.supplyId === s.id))}
                     onChange={(_, value) =>
-                      updateItemForm(i, 'supplies', value.map((v) => ({ supplyId: v.id })))
+                      updateItemForm(
+                        i,
+                        'supplies',
+                        // Se conserva la cantidad ya escrita de los insumos que
+                        // siguen seleccionados: remapear a `{ supplyId }` la
+                        // borraba en cada cambio de la selección.
+                        value.map(
+                          (v) =>
+                            itemForm.supplies.find((si) => si.supplyId === v.id) ?? {
+                              supplyId: v.id,
+                            },
+                        ),
+                      )
                     }
                     renderTags={(value, getTagProps) =>
                       value.map((option, ti) => (
@@ -965,6 +1009,55 @@ export const WorkOrderFormPage = () => {
                     </Button>
                   )}
                 </Stack>
+
+                {itemForm.supplies.length > 0 && (
+                  <Stack
+                    spacing={1}
+                    sx={{
+                      pl: 1.5,
+                      borderLeft: 2,
+                      borderColor: 'divider',
+                    }}
+                  >
+                    <Typography variant="caption" color="text.secondary">
+                      Cantidad a consumir de cada insumo. El stock se descuenta al
+                      completar la OT; si la dejas vacía, no se descuenta nada.
+                    </Typography>
+                    {itemForm.supplies.map((si) => {
+                      const supply = supplies.find((s) => s.id === si.supplyId);
+                      return (
+                        <Stack
+                          key={si.supplyId}
+                          direction="row"
+                          spacing={1}
+                          alignItems="center"
+                        >
+                          <Typography variant="body2" sx={{ flex: 1 }}>
+                            {supply?.name ?? si.supplyId}
+                          </Typography>
+                          <TextField
+                            label="Cantidad"
+                            type="number"
+                            size="small"
+                            value={si.quantity ?? ''}
+                            onChange={(e) =>
+                              updateSupplyQuantity(i, si.supplyId, e.target.value)
+                            }
+                            inputProps={{ min: 0, step: 'any' }}
+                            InputProps={{
+                              endAdornment: supply?.consumptionUnit ? (
+                                <InputAdornment position="end">
+                                  {supply.consumptionUnit.abbreviation}
+                                </InputAdornment>
+                              ) : undefined,
+                            }}
+                            sx={{ width: 160 }}
+                          />
+                        </Stack>
+                      );
+                    })}
+                  </Stack>
+                )}
 
                 <TextField
                   label="Observaciones del ítem"

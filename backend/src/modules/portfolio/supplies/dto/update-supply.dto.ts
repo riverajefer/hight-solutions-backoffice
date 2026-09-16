@@ -81,15 +81,12 @@ export class UpdateSupplyDto {
   @Min(0.0001)
   conversionFactor?: number;
 
-  @ApiPropertyOptional({
-    description: 'Stock actual del insumo',
-    type: 'number',
-  })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
-  currentStock?: number;
+  // `currentStock` NO se acepta aquí a propósito. Escribirlo directo saltaba
+  // por encima de `InventoryMovement`, que es justo la tabla que responde quién
+  // cambió el stock, cuándo y por qué: quedaba sin saldo anterior, sin saldo
+  // nuevo, sin motivo y sin responsable. Toda corrección posterior a la carga
+  // inicial entra como movimiento `ADJUSTMENT`, que exige motivo y ahora
+  // admite los dos sentidos.
 
   @ApiPropertyOptional({
     description: 'Stock mínimo requerido',

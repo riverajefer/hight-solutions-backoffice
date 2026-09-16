@@ -8,12 +8,12 @@ porque ahí está el hallazgo que más pesa para el clon de Zoom.
 Las cifras de producción salen de `scripts/db-query.sh` en modo solo lectura,
 consultado el 2026-09-15.
 
-El hallazgo 3 ya está corregido. Los demás siguen en diagnóstico; el orden
-sugerido está al final.
+Corregidos: los hallazgos **1, 2, 3, 4 y 5** (la caja y todo el bloque de
+inventario). Los demás siguen en diagnóstico; el orden sugerido está al final.
 
 ---
 
-## 1. El inventario nunca descuenta: la OT no manda la cantidad — **Alta**
+## 1. El inventario nunca descuenta: la OT no manda la cantidad — **Alta** · ✅ Corregido
 
 El backend está completo. Al pasar una OT a `COMPLETED`,
 [work-orders.service.ts:227](../backend/src/modules/work-orders/work-orders.service.ts#L227)
@@ -47,13 +47,22 @@ Lo que dice producción:
 39 OT completadas y ni un solo movimiento. El módulo de inventario lleva toda la
 vida del sistema sin ejecutarse una vez.
 
-**Qué falta**: un campo de cantidad por insumo en el paso de insumos de la OT, y
-decidir si la cantidad es obligatoria (si lo es, hay que migrar los 9 vínculos
-existentes o dejarlos en cero explícito).
+### Corrección aplicada
+
+Cada insumo seleccionado muestra ahora su propia casilla de cantidad, con la
+abreviatura de la unidad de consumo al lado —sin ella no se sabe si el número
+son metros o rollos—. Se dejó **opcional a propósito**: dejarla vacía significa
+"no descontar", que es exactamente el comportamiento de los 9 vínculos que ya
+existen. Así no hace falta migrar nada ni bloquear OT viejas.
+
+De paso se corrigió un detalle que habría vuelto el campo inservible: el
+`onChange` del selector remapeaba la lista a `{ supplyId }` en cada cambio, así
+que agregar un segundo insumo borraba la cantidad del primero. Ahora conserva la
+que ya estaba escrita.
 
 ---
 
-## 2. Editar un insumo reescribe el stock sin dejar movimiento — **Alta**
+## 2. Editar un insumo reescribe el stock sin dejar movimiento — **Alta** · ✅ Corregido
 
 `PUT /supplies/:id` acepta `currentStock` y lo escribe directo sobre la tabla:
 
@@ -68,10 +77,22 @@ Combinado con el hallazgo 1, esto explica el dato raro de producción: 11 insumo
 con stock distinto de cero y cero movimientos. **Hoy el stock se mantiene a mano
 editando el insumo.** Es el único camino que quedó vivo.
 
-**Propuesta**: sacar `currentStock` del DTO de actualización. El stock inicial en
-la creación sí tiene sentido, pero debería nacer como movimiento `INITIAL`.
-Cualquier corrección posterior es un `ADJUSTMENT` con motivo, que ya está
-implementado y exige `reason`.
+### Corrección aplicada
+
+`currentStock` salió del DTO de actualización. Con `forbidNonWhitelisted: true`
+el backend ahora responde 400 si alguien lo manda, así que el frontend dejó de
+enviarlo: en edición el campo queda deshabilitado y su texto de ayuda dice
+«Para corregirlo, registra un movimiento de ajuste en Inventario».
+
+Al crear sí se acepta, pero ya no se escribe a pelo: el insumo y su movimiento
+`INITIAL` nacen en la misma transacción, con saldo anterior 0, motivo y
+responsable. El campo se llama «Stock Inicial» en ese modo.
+
+Eso dejaba un hueco: `ADJUSTMENT` solo sabía restar, así que un conteo físico
+que saliera **por encima** del sistema no tenía cómo registrarse y habría
+obligado a volver a la puerta de atrás que acabábamos de cerrar. Se añadió
+`direction` (`INCREASE` / `DECREASE`), obligatorio para los ajustes. Es el
+hallazgo 12 adelantado: sin él, la corrección de este no era usable.
 
 ---
 
@@ -163,7 +184,7 @@ migraron a `findMany`.
 
 ---
 
-## 4. Lectura‑modificación‑escritura sobre el stock: actualizaciones perdidas — **Media**
+## 4. Lectura‑modificación‑escritura sobre el stock: actualizaciones perdidas — **Media** · ✅ Corregido
 
 [inventory.service.ts:128‑163](../backend/src/modules/inventory/inventory.service.ts#L128)
 lee `currentStock`, calcula en memoria y escribe el valor absoluto:
@@ -188,9 +209,25 @@ manual, porque `createManualMovement` no abre transacción— el `Promise.all` s
 dos consultas sueltas. Si falla la segunda, queda un movimiento en el kardex que
 declara un stock que nunca se escribió.
 
+### Corrección aplicada
+
+Un único `applyStockDelta()` hace el cambio con `increment` / `decrement` y
+**deriva el saldo anterior del resultado**, no de una lectura previa: así refleja
+el valor real en el instante del cambio aunque otro movimiento haya entrado
+entremedio.
+
+La comprobación de stock insuficiente se movió después del descuento: se mira el
+saldo resultante y, si quedó negativo, el `throw` revierte la transacción
+completa. Comprobar antes, contra una lectura vieja, era justo lo que permitía
+que dos movimientos simultáneos dejaran el stock bajo cero.
+
+El `Promise.all` que se llamaba atómico sin serlo desapareció: `createMovement`
+abre siempre su propia transacción. El parámetro `tx` opcional se eliminó porque
+nadie lo usaba, y era la trampa que hacía creer lo contrario.
+
 ---
 
-## 5. La salida por OT recorta el stock a cero y descuadra el kardex — **Media**
+## 5. La salida por OT recorta el stock a cero y descuadra el kardex — **Media** · ✅ Corregido
 
 ```ts
 const newStock = Prisma.Decimal.max(previousStock.sub(qty), new Prisma.Decimal(0));
@@ -207,6 +244,26 @@ criterios distintos para la misma situación.
 Como el hallazgo 1 tiene esta ruta apagada, hoy no ha ocurrido nunca. Pero se
 activa el día que se agregue el campo de cantidad, así que conviene resolver los
 dos juntos.
+
+### Corrección aplicada
+
+Se quitó el recorte: el consumo se registra completo y el stock puede quedar
+negativo.
+
+**Es una decisión de negocio, y la dejo explícita para que el cliente pueda
+cambiarla.** El trabajo ya se hizo: negar el cierre de la OT no devuelve el
+material a la bodega, y solo trasladaría el problema a producción. Un saldo
+negativo es la señal honesta de que el registro venía atrasado respecto a la
+bodega, y la alerta de mínimo lo hace visible ese mismo día. La alternativa
+—rechazar el cierre— bloquearía trabajo real por un dato de inventario que hoy
+no es confiable.
+
+El movimiento manual mantiene el criterio contrario y sí rechaza el sobregiro:
+ahí no hay un hecho consumado que registrar.
+
+De paso, las alertas de stock bajo salen ahora **después** del commit. Se
+disparaban desde dentro de la transacción, así que avisaban de consumos que
+todavía podían revertirse.
 
 ---
 
@@ -325,11 +382,8 @@ un salto obliga a explicar por qué.
 
 ## 12. Mejoras menores
 
-- **`ADJUSTMENT` solo resta.** Está en `STOCK_DECREASE_TYPES`
-  ([inventory.service.ts:21](../backend/src/modules/inventory/inventory.service.ts#L21)),
-  así que un ajuste nunca puede subir el stock. Un conteo físico que sale por
-  encima del sistema no tiene cómo registrarse. O se admite cantidad con signo,
-  o se separa en `ADJUSTMENT_IN` / `ADJUSTMENT_OUT`.
+- ~~**`ADJUSTMENT` solo resta.**~~ ✅ Corregido junto con el hallazgo 2: se
+  añadió `direction` (`INCREASE` / `DECREASE`), obligatorio para los ajustes.
 - **`getLowStockSupplies()` es código muerto** y además está roto: compara con
   `this.prisma.supply.fields.minimumStock as any`. Nadie la llama; la versión
   `Raw` es la que se usa. Conviene borrarla antes de que alguien la adopte.
@@ -341,6 +395,31 @@ un salto obliga a explicar por qué.
   de la transacción sin necesidad; `createMany` lo resuelve.
 - **`validateRequiredExecutionFields` confía en el esquema**: si `fieldSchema`
   viniera nulo o sin `fields`, revienta con un 500 en vez de un mensaje claro.
+
+---
+
+## Verificación del bloque de inventario
+
+Probado extremo a extremo en desarrollo, no solo con tests:
+
+1. Se creó la OT **OT-2026-0152** desde OP-2026-0295 con dos insumos: Lona
+   Brillante 10 oz (2,5 m²) y Propalcote 300 gr (4 plg). Las cantidades quedaron
+   guardadas en `work_order_item_supplies` — lo que nunca había pasado.
+2. Se agregó el segundo insumo **después** de escribir la cantidad del primero,
+   para confirmar que ya no se borra.
+3. Al pasar la OT a Completada se crearon los dos movimientos `EXIT`. El stock
+   bajó de 80 a 77,5 y de 500 a 496, y en ambos
+   `previous_stock - quantity = new_stock`.
+4. Crear un insumo con stock inicial 150 generó su movimiento `INITIAL` con saldo
+   anterior 0, motivo y responsable (`adminsistema`).
+5. Editar un insumo responde 200 y ya no manda el stock; el campo aparece
+   deshabilitado con la indicación de usar un ajuste.
+
+Sin errores nuevos en consola. Los datos de prueba quedan en desarrollo con
+nombres reconocibles («PRUEBA QA …»).
+
+`tsc --noEmit` limpio en backend y frontend. Backend: 184 suites y 2.794 tests en
+verde. Frontend: 59 archivos y 497 tests en verde.
 
 ---
 
@@ -382,9 +461,9 @@ escrita en código.
 1. ~~**Hallazgo 3** — la caja.~~ ✅ Hecho. La decisión de si las 3 sedes
    comparten instancia sigue pendiente, pero ya no es un riesgo de dinero:
    el sistema falla en vez de adivinar.
-2. **Hallazgos 1, 2, 4, 5** — inventario, los cuatro juntos. Por separado no
-   sirven de mucho: el 1 enciende una ruta que el 4 y el 5 tienen que soportar,
-   y el 2 es la puerta de atrás que hay que cerrar al mismo tiempo.
+2. ~~**Hallazgos 1, 2, 4, 5** — inventario.~~ ✅ Hecho, los cuatro juntos, más
+   el sentido del ajuste (hallazgo 12) que hacía falta para que el 2 fuera
+   usable.
 3. **Hallazgo 8** — el tope de paginación, que es una línea por DTO.
 4. **Hallazgos 6, 9, 10** — requieren decisión del cliente: cómo valorizar, si
    hace falta omitir pasos, y si vale la pena cerrar la ventana de la devolución.

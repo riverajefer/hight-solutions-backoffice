@@ -101,9 +101,9 @@ describe('SuppliesController', () => {
       const dto = { name: 'Tela Roja', sku: 'TR-001' } as any;
       mockSuppliesService.create.mockResolvedValue({ id: 'supply-2', ...dto });
 
-      const result = await controller.create(dto);
+      const result = await controller.create(dto, 'user-1');
 
-      expect(mockSuppliesService.create).toHaveBeenCalledWith(dto);
+      expect(mockSuppliesService.create).toHaveBeenCalledWith(dto, 'user-1');
       expect(result).toMatchObject({ name: 'Tela Roja' });
     });
   });
