@@ -6,6 +6,7 @@ import {
 import { AttendanceRepository } from './attendance.repository';
 import { AttendanceSource } from '../../generated/prisma';
 import { ClockInDto, ClockOutDto, AttendanceFilterDto, AdjustAttendanceDto, AttendanceSummaryFilterDto } from './dto';
+import { businessToday, startOfDay } from '../../common/utils/date-range.util';
 
 @Injectable()
 export class AttendanceService {
@@ -55,10 +56,28 @@ export class AttendanceService {
 
   /**
    * Devuelve el estado actual de asistencia del usuario.
+   *
+   * `autoClosedAt` es la hora en que el sistema le cerró hoy el registro (cierre
+   * de jornada o tope de horas extra) cuando no tiene entrada activa. El frontend
+   * lo usa para avisarle que, si va a hacer horas extra, marque entrada de nuevo.
+   * Es nulo si el último cierre de hoy fue suyo (botón o logout) o por inactividad.
    */
-  async getMyStatus(userId: string): Promise<{ active: boolean; record: any | null }> {
+  async getMyStatus(
+    userId: string,
+  ): Promise<{ active: boolean; record: any | null; autoClosedAt: Date | null }> {
     const record = await this.repository.findActiveRecord(userId);
-    return { active: !!record, record: record ?? null };
+    if (record) {
+      return { active: true, record, autoClosedAt: null };
+    }
+
+    const lastClosed = await this.repository.findLastClosedRecordSince(
+      userId,
+      startOfDay(businessToday())!,
+    );
+    const autoClosedAt =
+      lastClosed?.source === AttendanceSource.SYSTEM ? lastClosed.clockOut : null;
+
+    return { active: false, record: null, autoClosedAt };
   }
 
   /**
@@ -135,8 +154,9 @@ export class AttendanceService {
    * también en segundo plano, así que este auto-cierre es solo una RED DE
    * SEGURIDAD para sesiones realmente abandonadas (navegador cerrado / equipo
    * suspendido). Umbral relajado a 60 min para absorber el throttling/freezing
-   * de timers en pestañas ocultas y no cerrar a usuarios presentes. El cierre de
-   * fin de día (23:59) es el tope final.
+   * de timers en pestañas ocultas y no cerrar a usuarios presentes. Los topes
+   * finales son el cierre de jornada (19:00 hora Colombia, configurable) y, para
+   * las horas extra marcadas después, el de las 23:59 (ver AttendanceScheduler).
    * Retorna el número de registros cerrados.
    */
   async autoCloseInactiveRecords(): Promise<number> {

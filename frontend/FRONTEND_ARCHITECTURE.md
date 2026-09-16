@@ -23,8 +23,7 @@ El frontend sigue una arquitectura modular y escalable:
 App.tsx (root)
   ├── Router (React Router)
   │   ├── AuthLayout
-  │   │   ├── LoginPage
-  │   │   └── RegisterPage
+  │   │   └── LoginPage
   │   └── MainLayout
   │       ├── Sidebar
   │       ├── Topbar

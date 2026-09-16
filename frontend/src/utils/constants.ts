@@ -216,7 +216,6 @@ export const PERMISSIONS = {
 
 export const ROUTES = {
   LOGIN: '/login',
-  REGISTER: '/register',
   DASHBOARD: '/dashboard',
   USERS: '/users',
   USERS_CREATE: '/users/create',

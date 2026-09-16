@@ -20,8 +20,6 @@ describe('WhatsappWebhookService', () => {
     const mockConfigService = {
       get: jest.fn((key: string) => {
         if (key === 'whatsapp.appSecret') return 'test_secret';
-        if (key === 'whatsapp.actionSecret') return 'action_secret';
-        if (key === 'app.frontendUrl') return 'http://localhost:3000';
         return null;
       }),
     };
@@ -53,7 +51,6 @@ describe('WhatsappWebhookService', () => {
     const mockWhatsappService = {
       sendTemplateMessage: jest.fn(),
       sendTextMessage: jest.fn(),
-      validateActionHmac: jest.fn(),
     };
 
     const mockApprovalRegistry = {
@@ -113,6 +110,45 @@ describe('WhatsappWebhookService', () => {
       const rawBody = Buffer.from('test');
       expect(() => service.verifyMetaSignature(rawBody, '')).toThrow(UnauthorizedException);
     });
+
+    // Olvidar la variable en un despliegue real no puede abrir la puerta: un
+    // POST falso con un botón de "Aprobar" autorizaría pagos.
+    describe('sin WHATSAPP_APP_SECRET', () => {
+      const originalNodeEnv = process.env.NODE_ENV;
+
+      afterEach(() => {
+        process.env.NODE_ENV = originalNodeEnv;
+      });
+
+      const serviceWithoutSecret = () =>
+        new WhatsappWebhookService(
+          {
+            get: jest.fn((key: string) =>
+              key === 'app.frontendUrl' ? 'http://localhost:3000' : null,
+            ),
+          } as any,
+          prisma,
+          notificationsService,
+          whatsappService,
+          approvalRegistry,
+        );
+
+      it.each(['production', 'staging'])('rechaza el webhook en %s', (nodeEnv) => {
+        process.env.NODE_ENV = nodeEnv;
+
+        expect(() =>
+          serviceWithoutSecret().verifyMetaSignature(Buffer.from('{}'), ''),
+        ).toThrow(UnauthorizedException);
+      });
+
+      it('lo deja pasar en desarrollo', () => {
+        process.env.NODE_ENV = 'development';
+
+        expect(() =>
+          serviceWithoutSecret().verifyMetaSignature(Buffer.from('{}'), ''),
+        ).not.toThrow();
+      });
+    });
   });
 
   describe('processWebhook', () => {
@@ -121,8 +157,10 @@ describe('WhatsappWebhookService', () => {
       // Should not throw, just returns void
     });
 
-    it('should handle view action properly', async () => {
-      prisma.orderEditRequest.findFirst.mockResolvedValue({ id: '123', order: { id: 'o_123', orderNumber: '1234' } });
+    // El formato viejo de botón interactivo (`approve:{id}:{hmac}`) se eliminó:
+    // ningún envío lo producía y su secreto no existía en PRD. Un mensaje así,
+    // aunque llegue con firma de Meta, no puede aprobar nada.
+    it('ignora las respuestas a botones interactivos del formato viejo', async () => {
       const body = {
         entry: [
           {
@@ -135,9 +173,7 @@ describe('WhatsappWebhookService', () => {
                       type: 'interactive',
                       interactive: {
                         type: 'button_reply',
-                        button_reply: {
-                          id: 'view:123',
-                        },
+                        button_reply: { id: 'approve:123:cualquierhmac' },
                       },
                     },
                   ],
@@ -149,61 +185,10 @@ describe('WhatsappWebhookService', () => {
       };
 
       await service.processWebhook(body);
-      expect(prisma.orderEditRequest.findFirst).toHaveBeenCalledWith({
-        where: { id: '123' },
-        include: { order: { select: { id: true, orderNumber: true } } },
-      });
-      expect(whatsappService.sendTextMessage).toHaveBeenCalledWith('57300000000', expect.stringContaining('http://localhost:3000'));
-    });
 
-    it('should handle interactive approve with valid hmac', async () => {
-      // Return true to pass hmac validation
-      whatsappService.validateActionHmac.mockReturnValue(true);
-      
-      // Setup mock data - handleButtonReply queries orderEditRequest directly (no registry)
-      const mockRequest = {
-        id: '123',
-        status: 'PENDING',
-        requestedById: 'uid1',
-        orderId: 'o1',
-        order: { id: 'o1', orderNumber: 'OP-001' },
-        requestedBy: { id: 'uid1', email: 'u@e.com', firstName: 'U', lastName: 'L' },
-      };
-      prisma.orderEditRequest.findFirst.mockResolvedValue(mockRequest);
-      prisma.orderEditRequest.update.mockResolvedValue(mockRequest);
-      prisma.user.findFirst.mockResolvedValue({ id: 'admin1', name: 'Admin', role: { name: 'admin' } });
-
-      const body = {
-        entry: [
-          {
-            changes: [
-              {
-                value: {
-                  messages: [
-                    {
-                      from: '57300000000',
-                      type: 'interactive',
-                      interactive: {
-                        type: 'button_reply',
-                        button_reply: {
-                          id: 'approve:123:validhmac',
-                        },
-                      },
-                    },
-                  ],
-                },
-              },
-            ],
-          },
-        ],
-      };
-
-      await service.processWebhook(body);
-      
-      expect(whatsappService.validateActionHmac).toHaveBeenCalledWith('approve', '123', '57300000000', 'validhmac');
-      expect(prisma.orderEditRequest.findFirst).toHaveBeenCalled();
-      expect(prisma.user.findFirst).toHaveBeenCalled();
-      expect(prisma.orderEditRequest.update).toHaveBeenCalled();
+      expect(prisma.orderEditRequest.findFirst).not.toHaveBeenCalled();
+      expect(prisma.orderEditRequest.update).not.toHaveBeenCalled();
+      expect(whatsappService.sendTextMessage).not.toHaveBeenCalled();
     });
 
     it('should handle template button reply APPROVE', async () => {
@@ -543,110 +528,4 @@ describe('WhatsappWebhookService', () => {
     });
   });
 
-  describe('handleButtonReply (interactive, via processWebhook)', () => {
-    const buildInteractiveBody = (buttonId: string, from = '57300000000') => ({
-      entry: [{ changes: [{ value: { messages: [{ from, type: 'interactive', interactive: { type: 'button_reply', button_reply: { id: buttonId } } }] } }] }],
-    });
-
-    it('should ignore unknown button actions', async () => {
-      await service.processWebhook(buildInteractiveBody('something:abc'));
-      expect(whatsappService.sendTextMessage).not.toHaveBeenCalled();
-    });
-
-    it('should warn when button ID has no requestId', async () => {
-      await service.processWebhook(buildInteractiveBody('approve'));
-      expect(whatsappService.sendTextMessage).not.toHaveBeenCalled();
-    });
-
-    it('should warn when approve/reject button has no HMAC', async () => {
-      await service.processWebhook(buildInteractiveBody('approve:req1'));
-      expect(whatsappService.sendTextMessage).not.toHaveBeenCalled();
-    });
-
-    it('should send warning when HMAC is invalid', async () => {
-      whatsappService.validateActionHmac.mockReturnValue(false);
-      await service.processWebhook(buildInteractiveBody('approve:req1:badhmac'));
-      expect(whatsappService.sendTextMessage).toHaveBeenCalledWith(
-        '57300000000', expect.stringContaining('Token inválido'),
-      );
-    });
-
-    it('should send warning when request not found on approve', async () => {
-      whatsappService.validateActionHmac.mockReturnValue(true);
-      prisma.orderEditRequest.findFirst.mockResolvedValue(null);
-      await service.processWebhook(buildInteractiveBody('approve:req1:validhmac'));
-      expect(whatsappService.sendTextMessage).toHaveBeenCalledWith(
-        '57300000000', expect.stringContaining('Solicitud no encontrada'),
-      );
-    });
-
-    it('should send info when request already processed on reject', async () => {
-      whatsappService.validateActionHmac.mockReturnValue(true);
-      prisma.orderEditRequest.findFirst.mockResolvedValue({
-        id: 'req1', status: 'APPROVED', order: { id: 'o1', orderNumber: 'OP-001' },
-        requestedBy: { id: 'uid1', email: 'u@e.com', firstName: 'U', lastName: 'L' },
-      });
-      await service.processWebhook(buildInteractiveBody('reject:req1:validhmac'));
-      expect(whatsappService.sendTextMessage).toHaveBeenCalledWith(
-        '57300000000', expect.stringContaining('aprobada'),
-      );
-    });
-
-    it('should send warning when no admin found by phone', async () => {
-      whatsappService.validateActionHmac.mockReturnValue(true);
-      prisma.orderEditRequest.findFirst.mockResolvedValue({
-        id: 'req1', status: 'PENDING', requestedById: 'uid1', orderId: 'o1',
-        order: { id: 'o1', orderNumber: 'OP-001' },
-        requestedBy: { id: 'uid1', email: 'u@e.com', firstName: 'U', lastName: 'L' },
-      });
-      prisma.user.findFirst.mockResolvedValue(null);
-      await service.processWebhook(buildInteractiveBody('approve:req1:validhmac'));
-      expect(whatsappService.sendTextMessage).toHaveBeenCalledWith(
-        '57300000000', expect.stringContaining('No tienes permisos'),
-      );
-    });
-
-    it('should reject via interactive button successfully', async () => {
-      whatsappService.validateActionHmac.mockReturnValue(true);
-      prisma.orderEditRequest.findFirst.mockResolvedValue({
-        id: 'req1', status: 'PENDING', requestedById: 'uid1', orderId: 'o1',
-        order: { id: 'o1', orderNumber: 'OP-001' },
-        requestedBy: { id: 'uid1', email: 'u@e.com', firstName: 'U', lastName: 'L' },
-      });
-      prisma.user.findFirst.mockResolvedValue({ id: 'admin1', role: { name: 'admin' } });
-      prisma.orderEditRequest.update.mockResolvedValue({});
-      await service.processWebhook(buildInteractiveBody('reject:req1:validhmac'));
-      expect(prisma.orderEditRequest.update).toHaveBeenCalledWith({
-        where: { id: 'req1' },
-        data: expect.objectContaining({ status: 'REJECTED' }),
-      });
-    });
-  });
-
-  describe('handleViewOrder (via processWebhook)', () => {
-    const buildViewBody = (requestId: string) => ({
-      entry: [{ changes: [{ value: { messages: [{ from: '57300000000', type: 'interactive', interactive: { type: 'button_reply', button_reply: { id: `view:${requestId}` } } }] } }] }],
-    });
-
-    it('should send warning when request not found', async () => {
-      prisma.orderEditRequest.findFirst.mockResolvedValue(null);
-      await service.processWebhook(buildViewBody('req404'));
-      expect(whatsappService.sendTextMessage).toHaveBeenCalledWith(
-        '57300000000', expect.stringContaining('Solicitud no encontrada'),
-      );
-    });
-
-    it('should send order link when found', async () => {
-      prisma.orderEditRequest.findFirst.mockResolvedValue({
-        id: 'req1', order: { id: 'o1', orderNumber: 'OP-005' },
-      });
-      await service.processWebhook(buildViewBody('req1'));
-      expect(whatsappService.sendTextMessage).toHaveBeenCalledWith(
-        '57300000000', expect.stringContaining('OP-005'),
-      );
-      expect(whatsappService.sendTextMessage).toHaveBeenCalledWith(
-        '57300000000', expect.stringContaining('http://localhost:3000/orders/o1'),
-      );
-    });
-  });
 });

@@ -18,8 +18,10 @@ import { WhatsappWebhookService } from './whatsapp-webhook.service';
 /**
  * Webhook receptor de eventos entrantes de WhatsApp (Meta Cloud API).
  * Este controller es público — la seguridad se maneja mediante:
- *   1. Verificación de firma X-Hub-Signature-256 (Meta App Secret)
- *   2. HMAC por botón (WHATSAPP_ACTION_SECRET)
+ *   1. Verificación de firma X-Hub-Signature-256 (Meta App Secret). En staging
+ *      y producción, sin App Secret se rechaza todo.
+ *   2. El botón se resuelve por el `wamid` del mensaje enviado, con vencimiento
+ *      de 48 h y validación del teléfono del admin (WhatsappActionContext).
  *
  * NO requiere JWT porque Meta no puede enviar tokens de usuario.
  */

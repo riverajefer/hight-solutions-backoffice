@@ -1578,6 +1578,23 @@ export class OrdersService {
       }
     }
 
+    // Tasas y prueba de color se escriben aquí fuera de una transacción: si el
+    // recálculo de abajo chocara con un descuento por nómina vivo, ya habrían
+    // quedado guardadas con el total viejo. Por eso se frena antes de escribir.
+    if (
+      updateOrderDto.colorProofPrice !== undefined ||
+      updateOrderDto.requiresColorProof !== undefined ||
+      updateOrderDto.taxRate !== undefined ||
+      updateOrderDto.retefuenteRate !== undefined ||
+      updateOrderDto.reteICARate !== undefined ||
+      updateOrderDto.reteIVARate !== undefined
+    ) {
+      await this.payrollDeductionsService.assertNoLiveDeduction(
+        id,
+        'cambiar las tasas o la prueba de color',
+      );
+    }
+
     await this.ordersRepository.update(id, {
       ...(updateOrderDto.clientId && {
         client: { connect: { id: updateOrderDto.clientId } },
@@ -1659,6 +1676,10 @@ export class OrdersService {
         );
       }
 
+      // Antes de consumir cualquier autorización: con el descuento por nómina ya
+      // aplicado, al empleado ya se le restó el valor y hay que cancelarlo antes.
+      await this.payrollDeductionsService.assertOrderCanBeAnnulled(id);
+
       const authCheck = await this.statusChangeRequestsService.requiresAuthorization(
         id,
         status,
@@ -1694,6 +1715,10 @@ export class OrdersService {
         status,
         userId,
       );
+
+      // El descuento por nómina sin aplicar seguía en la bandeja de nómina, listo
+      // para descontarle al empleado un trabajo anulado.
+      await this.payrollDeductionsService.cancelForAnnulledOrder(id, order.orderNumber);
 
       const updatedOrder = await this.findOne(id);
       this.auditLogsService.logOrderChange('UPDATE', id, order, updatedOrder, userId);
@@ -2797,6 +2822,11 @@ export class OrdersService {
     const total = hasRetenciones
       ? roundToWholePeso(rawTotal)
       : applyColombianRounding(rawTotal);
+
+    // Un descuento por nómina vivo congeló el valor de la OP. Si el total nuevo
+    // no coincide, se lanza aquí, dentro de la transacción que guarda el cambio,
+    // y se revierte entero en vez de dejar un descuento por otro monto.
+    await this.payrollDeductionsService.assertOrderValueMatches(tx, orderId, total);
 
     // Calcular paidAmount sumando todos los pagos, neto de lo ya devuelto:
     // los Payment no se borran al aprobar una devolución.

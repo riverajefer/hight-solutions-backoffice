@@ -1,6 +1,5 @@
 export const PATHS = {
   LOGIN: '/login',
-  REGISTER: '/register',
   DASHBOARD: '/dashboard',
   USERS: '/users',
   USERS_CREATE: '/users/create',

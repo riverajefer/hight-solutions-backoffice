@@ -4,7 +4,6 @@ import { AuthService } from './auth.service';
 
 const mockAuthService = {
   loginWithPermissions: jest.fn(),
-  register: jest.fn(),
   refreshTokens: jest.fn(),
   logout: jest.fn(),
   getUserProfile: jest.fn(),
@@ -60,17 +59,19 @@ describe('AuthController', () => {
   });
 
   // -------------------------------------------------------------------------
-  // register
+  // register (eliminado)
   // -------------------------------------------------------------------------
+  // El autoregistro público aceptaba el `roleId` del cliente y el rol admin usa
+  // un UUID fijo del seed: una petición sin token creaba un administrador. Los
+  // usuarios se crean desde el módulo de Usuarios, con `create_users`.
   describe('register', () => {
-    it('should delegate to authService.register', async () => {
-      const dto = { email: 'new@test.com', password: 'pass123' } as any;
-      mockAuthService.register.mockResolvedValue({ accessToken: 'tok' });
-
-      const result = await controller.register(dto);
-
-      expect(mockAuthService.register).toHaveBeenCalledWith(dto);
-      expect(result).toEqual({ accessToken: 'tok' });
+    it('no expone un endpoint de registro', () => {
+      expect((controller as unknown as Record<string, unknown>).register).toBeUndefined();
+      expect(
+        Object.getOwnPropertyNames(AuthController.prototype).filter((name) =>
+          /register|signup/i.test(name),
+        ),
+      ).toEqual([]);
     });
   });
 

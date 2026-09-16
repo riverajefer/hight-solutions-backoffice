@@ -10,6 +10,7 @@ describe('AttendanceService', () => {
 
   const mockRepository = {
     findActiveRecord: jest.fn(),
+    findLastClosedRecordSince: jest.fn(),
     createClockIn: jest.fn(),
     updateClockOut: jest.fn(),
     findMyRecords: jest.fn(),
@@ -31,7 +32,7 @@ describe('AttendanceService', () => {
 
     service = module.get<AttendanceService>(AttendanceService);
     repository = module.get<AttendanceRepository>(AttendanceRepository) as jest.Mocked<AttendanceRepository>;
-    
+
     jest.clearAllMocks();
   });
 
@@ -59,7 +60,7 @@ describe('AttendanceService', () => {
     it('should update clock out for active record', async () => {
       repository.findActiveRecord.mockResolvedValue({ id: 'active-id' } as any);
       repository.updateClockOut.mockResolvedValue({ id: 'active-id', clockOut: new Date() } as any);
-      
+
       const result = await service.clockOut('user-1', { notes: 'done' });
       expect(result.id).toEqual('active-id');
       expect(repository.updateClockOut).toHaveBeenCalledWith('active-id', expect.any(Date), AttendanceSource.BUTTON, 'done');
@@ -67,17 +68,67 @@ describe('AttendanceService', () => {
   });
 
   describe('getMyStatus', () => {
+    afterEach(() => jest.useRealTimers());
+
     it('should return { active: true, record } if active', async () => {
       const record = { id: 'uuid' };
       repository.findActiveRecord.mockResolvedValue(record as any);
       const result = await service.getMyStatus('u-1');
-      expect(result).toEqual({ active: true, record });
+      expect(result).toEqual({ active: true, record, autoClosedAt: null });
+      expect(repository.findLastClosedRecordSince).not.toHaveBeenCalled();
     });
 
     it('should return { active: false, record: null } if inactive', async () => {
       repository.findActiveRecord.mockResolvedValue(null);
+      repository.findLastClosedRecordSince.mockResolvedValue(null);
       const result = await service.getMyStatus('u-1');
-      expect(result).toEqual({ active: false, record: null });
+      expect(result).toEqual({ active: false, record: null, autoClosedAt: null });
+    });
+
+    // Es lo que hace aparecer el aviso de horas extra en el frontend.
+    it('informa la hora del cierre automático de hoy', async () => {
+      const closedAt = new Date('2026-09-15T19:00:00-05:00');
+      repository.findActiveRecord.mockResolvedValue(null);
+      repository.findLastClosedRecordSince.mockResolvedValue({
+        clockOut: closedAt,
+        source: AttendanceSource.SYSTEM,
+      } as any);
+
+      const result = await service.getMyStatus('u-1');
+
+      expect(result).toEqual({ active: false, record: null, autoClosedAt: closedAt });
+    });
+
+    // Si marcó salida él mismo después del cierre (p. ej. terminó sus horas
+    // extra), no hay nada que avisarle.
+    it.each([AttendanceSource.BUTTON, AttendanceSource.LOGOUT, AttendanceSource.INACTIVITY])(
+      'no avisa si el último cierre de hoy fue %s',
+      async (source) => {
+        repository.findActiveRecord.mockResolvedValue(null);
+        repository.findLastClosedRecordSince.mockResolvedValue({
+          clockOut: new Date(),
+          source,
+        } as any);
+
+        const result = await service.getMyStatus('u-1');
+
+        expect(result.autoClosedAt).toBeNull();
+      },
+    );
+
+    // A las 11:30 p. m. de Colombia en UTC ya es el día siguiente: "hoy" tiene
+    // que ser el día de Colombia.
+    it('busca los cierres desde el inicio del día en hora Colombia', async () => {
+      jest.useFakeTimers({ now: new Date('2026-09-15T23:30:00-05:00') });
+      repository.findActiveRecord.mockResolvedValue(null);
+      repository.findLastClosedRecordSince.mockResolvedValue(null);
+
+      await service.getMyStatus('u-1');
+
+      expect(repository.findLastClosedRecordSince).toHaveBeenCalledWith(
+        'u-1',
+        new Date('2026-09-15T05:00:00.000Z'),
+      );
     });
   });
 

@@ -9,7 +9,6 @@ import { PERMISSIONS } from '../utils/constants';
 
 // Lazy load componentes
 const LoginPage = lazyWithRetry(() => import('../features/auth/pages/LoginPage'));
-const RegisterPage = lazyWithRetry(() => import('../features/auth/pages/RegisterPage'));
 const DashboardPage = lazyWithRetry(() => import('../features/dashboard/pages/DashboardPage'));
 const UsersListPage = lazyWithRetry(() => import('../features/users/pages/UsersListPage'));
 const UserFormPage = lazyWithRetry(() => import('../features/users/pages/UserFormPage'));
@@ -149,14 +148,6 @@ const RoutesConfig: FC = () => {
           element={
             <AuthLayout>
               <LoginPage />
-            </AuthLayout>
-          }
-        />
-        <Route
-          path={PATHS.REGISTER}
-          element={
-            <AuthLayout>
-              <RegisterPage />
             </AuthLayout>
           }
         />

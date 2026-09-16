@@ -149,12 +149,13 @@ están en `audit-logs.service.ts`.
 
 La depuración inicial (heartbeats, notificaciones y los `User` UPDATE vacíos) la hizo la
 migración `20260911000000_audit_logs_noise_purge_and_indexes`. El `DELETE` no devuelve el
-espacio al disco, Postgres lo reutiliza. Para devolverlo, a mano y de noche (bloquea la
-tabla unos segundos):
+espacio al disco: Postgres lo reutiliza para las filas nuevas, y con eso basta.
 
-```sql
-VACUUM (FULL, ANALYZE) audit_logs;
-```
+> **No corras `VACUUM FULL` en PRD.** Reescribe la tabla completa y genera WAL del mismo
+> tamaño: necesita libre al menos dos veces lo que ocupa la tabla. El 2026-09-11, justo
+> después de esta migración, llenó el volumen de 1 GB de Postgres y dejó la base caída
+> ~40 minutos hasta que se agrandó el volumen (ahora 10 GB). Si algún día hace falta
+> devolver espacio, primero mide el libre del volumen en Railway y el tamaño de la tabla.
 
 ## Consultar Registros de Auditoría
 

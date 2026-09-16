@@ -322,8 +322,7 @@ hight-solutions-backoffice/
 App.tsx (root)
   ├── Router (React Router)
   │   ├── AuthLayout
-  │   │   ├── LoginPage
-  │   │   └── RegisterPage
+  │   │   └── LoginPage
   │   └── MainLayout
   │       ├── Sidebar
   │       ├── Topbar
@@ -836,8 +835,7 @@ npm run lint                # Ejecutar ESLint
 ## Endpoints Principales
 
 ### Auth
-- `POST /api/v1/auth/login` - Login
-- `POST /api/v1/auth/register` - Registro
+- `POST /api/v1/auth/login` - Login (no hay autoregistro: los usuarios se crean en `POST /api/v1/users`)
 - `POST /api/v1/auth/refresh` - Refresh token
 - `POST /api/v1/auth/logout` - Logout
 - `GET /api/v1/auth/me` - Usuario actual

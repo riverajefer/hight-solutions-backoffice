@@ -162,6 +162,13 @@ export class PayrollPeriodsRepository {
     return this.prisma.payrollPeriod.delete({ where: { id } });
   }
 
+  /** Descuentos por nómina ya aplicados sobre los registros del periodo. */
+  async countAppliedDeductions(periodId: string) {
+    return this.prisma.payrollDeduction.count({
+      where: { status: 'APPLIED', payrollItem: { periodId } },
+    });
+  }
+
   async getSummary(id: string) {
     const items = await this.prisma.payrollItem.findMany({
       where: { periodId: id },

@@ -14,16 +14,30 @@ import { useAuthStore } from '../../store/authStore';
 import { PERMISSIONS } from '../../utils/constants';
 import { LoadingButton } from '../../components/common/LoadingButton';
 
+/** Hora de Colombia en formato corto, p. ej. "7:00 p. m.". */
+const formatBusinessTime = (iso: string) =>
+  new Intl.DateTimeFormat('es-CO', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'America/Bogota',
+  }).format(new Date(iso));
+
 /**
  * Banner recordatorio que aparece cuando el usuario está usando la aplicación
- * pero NO ha marcado su entrada de asistencia.
+ * pero NO tiene una entrada de asistencia activa.
  *
  * Contexto: la asistencia es manual (botón "Marcar Entrada"). Es posible estar
  * trabajando/activo en la app sin haber marcado entrada, lo que genera registros
  * con hora de entrada posterior a la hora real de inicio. Este banner recuerda
  * marcar entrada al iniciar la jornada.
  *
- * Se oculta automáticamente al marcar entrada y puede descartarse por sesión.
+ * Ojo: el `onClose` del recordatorio normal no pinta ninguna X. MUI solo muestra
+ * el botón de cerrar cuando el Alert no tiene `action`, y aquí siempre lleva
+ * "Marcar Entrada". El descarte por sesión solo aplica si la marca ya existe en
+ * `sessionStorage`.
+ *
+ * Si el sistema le cerró la jornada hoy (`autoClosedAt`), el aviso cambia e ignora
+ * esa marca: las horas extra se registran marcando entrada de nuevo.
  */
 export const AttendanceReminderBanner: React.FC = () => {
   const theme = useTheme();
@@ -112,16 +126,19 @@ export const AttendanceReminderBanner: React.FC = () => {
     setDismissed(true);
   };
 
-  // No mostrar si: sin permiso, cargando, descartado, o ya tiene entrada activa
-  const shouldShow =
-    canUseAttendance && !isLoading && !dismissed && status?.active === false;
+  const inactive = canUseAttendance && !isLoading && status?.active === false;
+  const autoClosedAt = inactive ? status?.autoClosedAt ?? null : null;
+
+  // Sin permiso, cargando o con entrada activa no se muestra. El aviso de jornada
+  // cerrada por el sistema ignora el descarte; el recordatorio normal no.
+  const shouldShow = inactive && (Boolean(autoClosedAt) || !dismissed);
 
   return (
     <Collapse in={shouldShow} unmountOnExit>
       <Alert
-        severity="warning"
+        severity={autoClosedAt ? 'info' : 'warning'}
         variant="outlined"
-        onClose={handleDismiss}
+        onClose={autoClosedAt ? undefined : handleDismiss}
         icon={<PlayCircleIcon fontSize="small" />}
         sx={{
           borderRadius: 0,
@@ -129,8 +146,8 @@ export const AttendanceReminderBanner: React.FC = () => {
           borderRight: 'none',
           borderTop: 'none',
           backgroundColor: isDark
-            ? alpha(theme.palette.warning.main, 0.12)
-            : alpha(theme.palette.warning.main, 0.08),
+            ? alpha(theme.palette[autoClosedAt ? 'info' : 'warning'].main, 0.12)
+            : alpha(theme.palette[autoClosedAt ? 'info' : 'warning'].main, 0.08),
           alignItems: 'center',
           py: 0.25,
           px: 2,
@@ -163,7 +180,7 @@ export const AttendanceReminderBanner: React.FC = () => {
         action={
           <LoadingButton
             loading={clockInMutation.isPending}
-            color="warning"
+            color={autoClosedAt ? 'info' : 'warning'}
             size="small"
             variant="contained"
             startIcon={<PlayCircleIcon sx={{ fontSize: 16 }} />}
@@ -180,8 +197,9 @@ export const AttendanceReminderBanner: React.FC = () => {
           </LoadingButton>
         }
       >
-        No has marcado tu entrada de asistencia. Recuerda marcarla al iniciar tu
-        jornada para que tus horas queden registradas correctamente.
+        {autoClosedAt
+          ? `Tu jornada se cerró automáticamente a las ${formatBusinessTime(autoClosedAt)}. Si vas a hacer horas extra, marca entrada de nuevo.`
+          : 'No has marcado tu entrada de asistencia. Recuerda marcarla al iniciar tu jornada para que tus horas queden registradas correctamente.'}
       </Alert>
     </Collapse>
   );

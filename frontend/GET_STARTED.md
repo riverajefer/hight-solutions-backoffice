@@ -300,7 +300,7 @@ npm run dev -- --port 3001
 
 ```bash
 # Verificar que está corriendo
-curl http://localhost:3000/api/v1/health
+curl http://localhost:3000/health
 
 # Si no funciona, reiniciar
 # (Detén con Ctrl+C y ejecuta npm run start de nuevo)

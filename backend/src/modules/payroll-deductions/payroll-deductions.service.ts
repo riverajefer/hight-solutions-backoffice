@@ -10,6 +10,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import {
   EmployeeStatus,
   NotificationType,
+  OrderStatus,
   PaymentMethod,
   PayrollDeductionStatus,
   PayrollPeriodStatus,
@@ -34,6 +35,18 @@ import {
 const CANCELLABLE_BEFORE_APPLY: PayrollDeductionStatus[] = [
   PayrollDeductionStatus.PENDING,
   PayrollDeductionStatus.APPROVED,
+];
+
+/** Estados en los que el descuento sigue vivo: se va a cobrar o ya se cobró. */
+const LIVE_STATUSES: PayrollDeductionStatus[] = [
+  ...CANCELLABLE_BEFORE_APPLY,
+  PayrollDeductionStatus.APPLIED,
+];
+
+/** Estados de la OP sobre los que ya no hay trabajo que descontarle a nadie. */
+const NON_BILLABLE_ORDER_STATUSES: OrderStatus[] = [
+  OrderStatus.ANULADO,
+  OrderStatus.RETURNED,
 ];
 
 const USER_SELECT = {
@@ -151,9 +164,10 @@ export class PayrollDeductionsService {
       data: {
         orderId: params.orderId,
         employeeId: params.employeeId,
-        // Se congela el valor de la orden al momento de pedirlo. Si la OP cambia
-        // de valor después, el descuento hay que cancelarlo y volver a pedirlo:
-        // aprobar un monto y descontar otro es justo lo que nadie puede auditar.
+        // Se congela el valor de la orden al momento de pedirlo, y mientras el
+        // descuento esté vivo la OP no puede cambiar de valor
+        // (`assertOrderValueMatches`): aprobar un monto y descontar otro es
+        // justo lo que nadie puede auditar.
         amount: params.amount,
         status: PayrollDeductionStatus.PENDING,
         requestedById: params.requestedById,
@@ -190,6 +204,102 @@ export class PayrollDeductionsService {
         relatedId: deduction.id,
         relatedType: 'PayrollDeduction',
       },
+    );
+  }
+
+  // ─── Ciclo de vida de la OP (lo llama orders.service) ─────────────────────
+
+  /**
+   * Verifica que la OP se pueda anular. Un descuento ya aplicado significa que
+   * al empleado ya se le restó el valor de su quincena: anular la OP dejaría ese
+   * dinero descontado por un trabajo que ya no existe. Hay que cancelar primero
+   * el descuento, que es lo que se lo devuelve en su liquidación.
+   *
+   * Se llama antes de consumir cualquier autorización de anulación, para no
+   * gastarla en una anulación que después se bloquea.
+   */
+  async assertOrderCanBeAnnulled(orderId: string) {
+    const deduction = await this.prisma.payrollDeduction.findUnique({
+      where: { orderId },
+      select: { status: true },
+    });
+
+    if (deduction?.status === PayrollDeductionStatus.APPLIED) {
+      throw new BadRequestException(
+        'Esta orden se pagó con un descuento por nómina ya aplicado. Cancélalo ' +
+          'desde Nómina › Descuento de Órdenes (se le reversa al empleado en su ' +
+          'liquidación) y después anula la orden.',
+      );
+    }
+  }
+
+  /**
+   * Cancela el descuento sin aplicar de una OP que se acaba de anular. Sin esto
+   * seguía en la bandeja de nómina, listo para descontarle al empleado un
+   * trabajo anulado.
+   */
+  async cancelForAnnulledOrder(orderId: string, orderNumber: string) {
+    const { count } = await this.prisma.payrollDeduction.updateMany({
+      where: { orderId, status: { in: CANCELLABLE_BEFORE_APPLY } },
+      data: {
+        status: PayrollDeductionStatus.CANCELLED,
+        cancelledAt: new Date(),
+        cancelReason: `La orden ${orderNumber} se anuló`,
+      },
+    });
+    return count;
+  }
+
+  /**
+   * Bloquea de entrada un cambio que alteraría el valor de la OP si tiene un
+   * descuento vivo. Es para los caminos que guardan el cambio fuera de una
+   * transacción (tasas, prueba de color): ahí no se puede revertir después de
+   * recalcular, así que se frena antes de escribir nada.
+   */
+  async assertNoLiveDeduction(orderId: string, operation: string) {
+    const deduction = await this.prisma.payrollDeduction.findUnique({
+      where: { orderId },
+      select: { status: true },
+    });
+
+    if (deduction && LIVE_STATUSES.includes(deduction.status)) {
+      throw new BadRequestException(
+        `No se puede ${operation}: la orden tiene un descuento por nómina ` +
+          `${this.statusLabel(deduction.status)} por su valor actual. Cancela el ` +
+          'descuento desde Nómina › Descuento de Órdenes antes de cambiar el ' +
+          'valor, y cobra la orden por otro medio.',
+      );
+    }
+  }
+
+  /**
+   * Bloquea un cambio de valor de la OP mientras tenga un descuento vivo cuyo
+   * monto congelado ya no coincidiría. Se llama con el total recalculado, dentro
+   * de la transacción que lo guarda, así que el cambio se revierte entero.
+   *
+   * No hay forma de volver a pedir el descuento sobre una OP existente: si la OP
+   * tiene que cambiar de valor, se cancela el descuento y se cobra por otro
+   * medio.
+   */
+  async assertOrderValueMatches(
+    tx: Prisma.TransactionClient,
+    orderId: string,
+    newTotal: Prisma.Decimal | number | string,
+  ) {
+    const deduction = await tx.payrollDeduction.findUnique({
+      where: { orderId },
+      select: { status: true, amount: true },
+    });
+
+    if (!deduction || !LIVE_STATUSES.includes(deduction.status)) return;
+    if (new Prisma.Decimal(deduction.amount).equals(new Prisma.Decimal(newTotal))) return;
+
+    throw new BadRequestException(
+      `La orden tiene un descuento por nómina ${this.statusLabel(deduction.status)} ` +
+        `por ${this.formatAmount(deduction.amount)} y este cambio la dejaría en ` +
+        `${this.formatAmount(new Prisma.Decimal(newTotal))}. Cancela el descuento desde ` +
+        'Nómina › Descuento de Órdenes antes de cambiar el valor, y cobra la orden ' +
+        'por otro medio.',
     );
   }
 
@@ -265,17 +375,15 @@ export class PayrollDeductionsService {
   async approve(id: string, reviewerId: string) {
     const deduction = await this.findOne(id);
     this.assertStatus(deduction.status, [PayrollDeductionStatus.PENDING]);
+    this.assertOrderIsBillable(deduction.order);
 
-    const updated = await this.prisma.payrollDeduction.update({
-      where: { id },
-      data: {
-        status: PayrollDeductionStatus.APPROVED,
-        approvedById: reviewerId,
-        approvedAt: new Date(),
-        rejectionReason: null,
-      },
-      include: DEDUCTION_INCLUDE,
+    await this.transition(this.prisma, id, [PayrollDeductionStatus.PENDING], {
+      status: PayrollDeductionStatus.APPROVED,
+      approvedById: reviewerId,
+      approvedAt: new Date(),
+      rejectionReason: null,
     });
+    const updated = await this.findOne(id);
 
     await this.notificationsService.notifyUsersWithPermission(
       'apply_payroll_deductions',
@@ -297,18 +405,15 @@ export class PayrollDeductionsService {
     const deduction = await this.findOne(id);
     this.assertStatus(deduction.status, [PayrollDeductionStatus.PENDING]);
 
-    return this.prisma.payrollDeduction.update({
-      where: { id },
-      data: {
-        status: PayrollDeductionStatus.REJECTED,
-        approvedById: reviewerId,
-        approvedAt: new Date(),
-        rejectionReason: dto.rejectionReason,
-      },
-      include: DEDUCTION_INCLUDE,
+    await this.transition(this.prisma, id, [PayrollDeductionStatus.PENDING], {
+      status: PayrollDeductionStatus.REJECTED,
+      approvedById: reviewerId,
+      approvedAt: new Date(),
+      rejectionReason: dto.rejectionReason,
     });
     // La OP queda como estaba: con saldo pendiente. El asesor tendrá que
     // cobrarla por otro medio, que es exactamente lo que significa el rechazo.
+    return this.findOne(id);
   }
 
   // ─── Aplicación sobre la nómina ───────────────────────────────────────────
@@ -325,12 +430,13 @@ export class PayrollDeductionsService {
     const existing = await this.findOne(id);
 
     // Idempotencia: el segundo clic encuentra el descuento ya aplicado y sale
-    // sin tocar nada. El índice único sobre `payment_id` es la red de abajo.
+    // sin tocar nada.
     if (existing.status === PayrollDeductionStatus.APPLIED) {
       return existing;
     }
 
     this.assertStatus(existing.status, [PayrollDeductionStatus.APPROVED]);
+    this.assertOrderIsBillable(existing.order);
 
     const period = await this.prisma.payrollPeriod.findUnique({
       where: { id: dto.periodId },
@@ -358,7 +464,7 @@ export class PayrollDeductionsService {
           employeeId: existing.employeeId,
         },
       },
-      include: { extraShifts: { select: { amount: true } } },
+      select: { id: true },
     });
     if (!item) {
       throw new BadRequestException(
@@ -367,34 +473,53 @@ export class PayrollDeductionsService {
       );
     }
 
-    const newOrderDeductions = new Prisma.Decimal(
-      item.orderDeductions ?? 0,
-    ).add(existing.amount);
-
-    const newTotal = computePayrollTotal({
-      ...item,
-      orderDeductions: newOrderDeductions,
-      extraShifts: item.extraShifts,
-    });
-
-    // Advertencia, no bloqueo: la decisión de repartir el cobro es de nómina, no
-    // del sistema. Pero tiene que quedar en el log, porque el art. 149 del CST
-    // protege el salario del trabajador y un total negativo significa que la
-    // quincena no alcanza a cubrir el trabajo.
-    if (newTotal.lessThan(0)) {
-      this.logger.warn(
-        `El descuento ${id} (${this.formatAmount(existing.amount)}) deja el pago ` +
-          `del empleado ${existing.employeeId} en ${this.formatAmount(newTotal)} ` +
-          `en el periodo "${period.name}"`,
-      );
-    }
-
     try {
       return await this.prisma.$transaction(async (tx) => {
-        // El abono que salda la OP. Lleva el monto real —a diferencia del pago
-        // de $0 con que nació la orden— y NO genera movimiento de caja:
-        // `PAYROLL_DEDUCTION` está en `NON_CASH_METHODS` justamente porque este
-        // dinero nunca entra por la ventanilla.
+        // 1. Reclamar el descuento. Es la guarda contra dos aplicaciones en
+        //    paralelo: la segunda espera el bloqueo de la fila, encuentra el
+        //    descuento ya APPLIED y no toca nada. Cada aplicación crea su propio
+        //    pago, así que el índice único de `payment_id` nunca las frenaba.
+        await this.transition(tx, id, [PayrollDeductionStatus.APPROVED], {
+          status: PayrollDeductionStatus.APPLIED,
+          payrollItemId: item.id,
+          appliedById: userId,
+          appliedAt: new Date(),
+        });
+
+        // 2. Sumarlo a la nómina con un incremento atómico. Leer el valor,
+        //    sumarle en memoria y escribirlo dejaba que dos descuentos del mismo
+        //    empleado aplicados a la vez se pisaran: las dos OP quedaban pagadas
+        //    y en la quincena solo se restaba uno.
+        const updatedItem = await tx.payrollItem.update({
+          where: { id: item.id },
+          data: { orderDeductions: { increment: existing.amount } },
+          include: { extraShifts: { select: { amount: true } } },
+        });
+        const newTotal = computePayrollTotal({
+          ...updatedItem,
+          extraShifts: updatedItem.extraShifts,
+        });
+        await tx.payrollItem.update({
+          where: { id: item.id },
+          data: { totalPayment: newTotal },
+        });
+
+        // Advertencia, no bloqueo: la decisión de repartir el cobro es de
+        // nómina, no del sistema. Pero tiene que quedar en el log, porque el
+        // art. 149 del CST protege el salario del trabajador y un total negativo
+        // significa que la quincena no alcanza a cubrir el trabajo.
+        if (newTotal.lessThan(0)) {
+          this.logger.warn(
+            `El descuento ${id} (${this.formatAmount(existing.amount)}) deja el pago ` +
+              `del empleado ${existing.employeeId} en ${this.formatAmount(newTotal)} ` +
+              `en el periodo "${period.name}"`,
+          );
+        }
+
+        // 3. El abono que salda la OP. Lleva el monto real —a diferencia del
+        //    pago de $0 con que nació la orden— y NO genera movimiento de caja:
+        //    `PAYROLL_DEDUCTION` está en `NON_CASH_METHODS` justamente porque
+        //    este dinero nunca entra por la ventanilla.
         const payment = await tx.payment.create({
           data: {
             orderId: existing.orderId,
@@ -408,23 +533,9 @@ export class PayrollDeductionsService {
           },
         });
 
-        await tx.payrollItem.update({
-          where: { id: item.id },
-          data: {
-            orderDeductions: newOrderDeductions,
-            totalPayment: newTotal,
-          },
-        });
-
         const deduction = await tx.payrollDeduction.update({
           where: { id },
-          data: {
-            status: PayrollDeductionStatus.APPLIED,
-            payrollItemId: item.id,
-            paymentId: payment.id,
-            appliedById: userId,
-            appliedAt: new Date(),
-          },
+          data: { paymentId: payment.id },
           include: DEDUCTION_INCLUDE,
         });
 
@@ -433,12 +544,22 @@ export class PayrollDeductionsService {
         return deduction;
       });
     } catch (error) {
-      // Dos aplicaciones en paralelo: la segunda choca contra el índice único de
-      // `payment_id` y devuelve el estado real en vez de un 500.
-      if (isUniqueViolationOn(error, 'payment_id')) {
-        throw new ConflictException(
-          'El descuento ya se aplicó. Refresca la página para ver el estado actual.',
-        );
+      // Perdió la carrera contra otra aplicación del mismo descuento: por el
+      // reclamo del paso 1 o, si el cliente mandó la misma llave, por el índice
+      // único de `idempotency_key`. Si la otra terminó, se devuelve su resultado
+      // en vez de un error, que es lo que promete la idempotencia.
+      if (
+        error instanceof ConflictException ||
+        isUniqueViolationOn(error, 'idempotency_key') ||
+        isUniqueViolationOn(error, 'payment_id')
+      ) {
+        const current = await this.findOne(id);
+        if (current.status === PayrollDeductionStatus.APPLIED) return current;
+        throw error instanceof ConflictException
+          ? error
+          : new ConflictException(
+              'El descuento ya se aplicó. Refresca la página para ver el estado actual.',
+            );
       }
       throw error;
     }
@@ -459,15 +580,12 @@ export class PayrollDeductionsService {
     }
 
     if (CANCELLABLE_BEFORE_APPLY.includes(existing.status)) {
-      return this.prisma.payrollDeduction.update({
-        where: { id },
-        data: {
-          status: PayrollDeductionStatus.CANCELLED,
-          cancelledAt: new Date(),
-          cancelReason: dto.cancelReason,
-        },
-        include: DEDUCTION_INCLUDE,
+      await this.transition(this.prisma, id, CANCELLABLE_BEFORE_APPLY, {
+        status: PayrollDeductionStatus.CANCELLED,
+        cancelledAt: new Date(),
+        cancelReason: dto.cancelReason,
       });
+      return this.findOne(id);
     }
 
     if (existing.status !== PayrollDeductionStatus.APPLIED) {
@@ -485,32 +603,38 @@ export class PayrollDeductionsService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      // Reclamar primero: dos cancelaciones en paralelo devolverían el valor a
+      // la nómina dos veces.
+      await this.transition(tx, id, [PayrollDeductionStatus.APPLIED], {
+        status: PayrollDeductionStatus.CANCELLED,
+        cancelledAt: new Date(),
+        cancelReason: dto.cancelReason,
+      });
+
       if (existing.payrollItemId) {
-        const item = await tx.payrollItem.findUnique({
+        // Decremento atómico, por la misma razón que el incremento de `apply()`.
+        const decremented = await tx.payrollItem.update({
           where: { id: existing.payrollItemId },
+          data: { orderDeductions: { decrement: existing.amount } },
           include: { extraShifts: { select: { amount: true } } },
         });
 
-        if (item) {
-          const restored = new Prisma.Decimal(item.orderDeductions ?? 0).sub(
-            existing.amount,
-          );
-          const orderDeductions = restored.lessThan(0)
-            ? new Prisma.Decimal(0)
-            : restored;
+        const restored = new Prisma.Decimal(decremented.orderDeductions ?? 0);
+        const orderDeductions = restored.lessThan(0)
+          ? new Prisma.Decimal(0)
+          : restored;
 
-          await tx.payrollItem.update({
-            where: { id: item.id },
-            data: {
+        await tx.payrollItem.update({
+          where: { id: decremented.id },
+          data: {
+            orderDeductions,
+            totalPayment: computePayrollTotal({
+              ...decremented,
               orderDeductions,
-              totalPayment: computePayrollTotal({
-                ...item,
-                orderDeductions,
-                extraShifts: item.extraShifts,
-              }),
-            },
-          });
-        }
+              extraShifts: decremented.extraShifts,
+            }),
+          },
+        });
       }
 
       // El abono no se borra: se anula. La fila sobrevive marcada para que el
@@ -527,23 +651,61 @@ export class PayrollDeductionsService {
         });
       }
 
-      const deduction = await tx.payrollDeduction.update({
-        where: { id },
-        data: {
-          status: PayrollDeductionStatus.CANCELLED,
-          cancelledAt: new Date(),
-          cancelReason: dto.cancelReason,
-        },
-        include: DEDUCTION_INCLUDE,
-      });
-
       await this.recalculateOrder(tx, existing.orderId);
 
-      return deduction;
+      return tx.payrollDeduction.findUniqueOrThrow({
+        where: { id },
+        include: DEDUCTION_INCLUDE,
+      });
     });
   }
 
   // ─── Auxiliares ───────────────────────────────────────────────────────────
+
+  /**
+   * Cambia el estado solo si el descuento sigue en uno de `from`.
+   *
+   * Es un `updateMany` condicionado y no un `update`: entre la lectura y la
+   * escritura otra petición pudo aprobar, rechazar, aplicar o cancelar el mismo
+   * descuento, y sin la condición la segunda escritura pisaba a la primera.
+   */
+  private async transition(
+    client: Prisma.TransactionClient,
+    id: string,
+    from: PayrollDeductionStatus[],
+    data: Prisma.PayrollDeductionUncheckedUpdateManyInput,
+  ) {
+    const { count } = await client.payrollDeduction.updateMany({
+      where: { id, status: { in: from } },
+      data,
+    });
+
+    if (count === 0) {
+      const current = await client.payrollDeduction.findUnique({
+        where: { id },
+        select: { status: true },
+      });
+      throw new ConflictException(
+        current
+          ? `El descuento ya está ${this.statusLabel(current.status)}. Refresca la página para ver el estado actual.`
+          : `Descuento con id ${id} no encontrado`,
+      );
+    }
+  }
+
+  /**
+   * Una OP anulada o devuelta ya no tiene trabajo que cobrar: aprobar o aplicar
+   * su descuento le restaría al empleado de su salario algo que no debe.
+   */
+  private assertOrderIsBillable(order: { orderNumber: string; status: OrderStatus }) {
+    if (NON_BILLABLE_ORDER_STATUSES.includes(order.status)) {
+      const estado = order.status === OrderStatus.ANULADO ? 'anulada' : 'devuelta';
+      throw new BadRequestException(
+        `La orden ${order.orderNumber} está ${estado}: no hay nada que descontarle ` +
+          'al empleado. Cancela el descuento.',
+      );
+    }
+  }
 
   /**
    * Recalcula `paidAmount` y `balance` de la OP con las utilidades canónicas,

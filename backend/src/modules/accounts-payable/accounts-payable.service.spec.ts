@@ -753,6 +753,43 @@ describe('AccountsPayableService', () => {
         );
       });
 
+      it('no vuelve a descontar los movimientos que la CP ya refleja como pagos', async () => {
+        // CP-2026-633 en PRD: la OG giró la base ($1.368.855), la conciliación la
+        // reflejó como pago de la CP y en `balance` quedó solo el IVA ($260.082).
+        // Restar otra vez la base dejaba el disponible en $0 y el IVA impagable.
+        prisma.accountPayable.findUnique.mockResolvedValue({ expenseOrderId: 'og-1' } as any);
+        const movimientos = [
+          { amount: new Prisma.Decimal(1368855), accountPayablePayment: { id: 'pay-1' } },
+        ];
+        // Replica el filtro de la base: con `accountPayablePayment: { is: null }`
+        // solo vuelven los movimientos que ningún pago de CP refleja todavía.
+        prisma.cashMovement.findMany.mockImplementation((async (args: any) =>
+          args?.where?.accountPayablePayment?.is === null
+            ? movimientos.filter((m) => !m.accountPayablePayment)
+            : movimientos) as any);
+        const ap = apStub({ totalAmount: 1628937, paidAmount: 1368855, balance: 260082 });
+
+        await expect(service.assertPayableAmount(ap, 260082)).resolves.toBeUndefined();
+        await expect(service.assertPayableAmount(ap, 260083)).rejects.toThrow(
+          /supera el saldo pendiente/,
+        );
+      });
+
+      it('sigue descontando lo girado por la OG en una CP histórica sin conciliar', async () => {
+        // La otra mitad del filtro: un movimiento sin pago de CP es dinero que ya
+        // salió y la CP no muestra, así que el tope lo sigue restando.
+        prisma.accountPayable.findUnique.mockResolvedValue({ expenseOrderId: 'og-1' } as any);
+        const movimientos = [{ amount: new Prisma.Decimal(100000), accountPayablePayment: null }];
+        prisma.cashMovement.findMany.mockImplementation((async (args: any) =>
+          args?.where?.accountPayablePayment?.is === null
+            ? movimientos.filter((m) => !m.accountPayablePayment)
+            : movimientos) as any);
+
+        await expect(service.assertPayableAmount(apStub(), 1)).rejects.toThrow(
+          /ya tiene .* pagados a través de su Orden de Gasto/,
+        );
+      });
+
       it('sin OG asociada mantiene el mensaje de saldo de siempre', async () => {
         prisma.accountPayable.findUnique.mockResolvedValue({ expenseOrderId: null } as any);
 
@@ -959,10 +996,32 @@ describe('AccountsPayableService', () => {
   });
 
   describe('markOverdueAccounts', () => {
-    it('delega el marcado de vencidas al repositorio', async () => {
+    afterEach(() => jest.useRealTimers());
+
+    // `dueDate` se guarda como la medianoche de Colombia (05:00 UTC). El corte
+    // es el inicio de hoy en Colombia: lo que vence hoy todavía no está vencido.
+    it('corta en el inicio del día de hoy en hora Colombia', async () => {
+      jest.useFakeTimers({ now: new Date('2026-09-15T00:30:00-05:00') });
       repository.markOverdue!.mockResolvedValue({ count: 3 } as any);
+
       await service.markOverdueAccounts();
-      expect(repository.markOverdue).toHaveBeenCalled();
+
+      expect(repository.markOverdue).toHaveBeenCalledWith(
+        new Date('2026-09-15T05:00:00.000Z'),
+      );
+    });
+
+    // A las 11:30 p. m. de Colombia en UTC ya es el día siguiente: con el
+    // calendario del servidor, lo que vence mañana quedaría vencido esta noche.
+    it('no usa el calendario UTC del servidor', async () => {
+      jest.useFakeTimers({ now: new Date('2026-09-14T23:30:00-05:00') });
+      repository.markOverdue!.mockResolvedValue({ count: 0 } as any);
+
+      await service.markOverdueAccounts();
+
+      expect(repository.markOverdue).toHaveBeenCalledWith(
+        new Date('2026-09-14T05:00:00.000Z'),
+      );
     });
   });
 });
