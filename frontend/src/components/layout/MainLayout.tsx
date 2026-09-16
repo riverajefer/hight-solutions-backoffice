@@ -1,7 +1,8 @@
-import { useState, useEffect, type FC, type ReactNode } from 'react';
+import { useState, useEffect, Suspense, type FC, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Box, useMediaQuery, useTheme } from '@mui/material';
 import { ErrorBoundary } from '../common/ErrorBoundary';
+import { LoadingSpinner } from '../common/LoadingSpinner';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { EnvironmentBanner } from './EnvironmentBanner';
@@ -109,7 +110,19 @@ export const MainLayout: FC<MainLayoutProps> = ({ children }) => {
             no debe dejar bloqueado el resto del sistema. El sidebar y el topbar
             quedan fuera para que la navegación siga disponible.
           */}
-          <ErrorBoundary resetKey={location.pathname}>{children}</ErrorBoundary>
+          <ErrorBoundary resetKey={location.pathname}>
+            {/*
+              Cada página se carga con `lazy`, así que al navegar el árbol
+              suspende. Sin este boundary la espera sube hasta el <Suspense>
+              que envuelve todo el router: React oculta el layout completo
+              (sidebar y topbar con `display: none`) y descarta ese commit,
+              con lo que los efectos pendientes del topbar —por ejemplo el
+              cierre del menú de usuario— nunca llegan a ejecutarse y el
+              popover queda colgado sobre la pantalla. Suspendiendo aquí solo
+              se reemplaza el contenido y el layout sigue vivo.
+            */}
+            <Suspense fallback={<LoadingSpinner />}>{children}</Suspense>
+          </ErrorBoundary>
         </Box>
 
       </Box>
