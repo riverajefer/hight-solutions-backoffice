@@ -20,6 +20,7 @@ import { CreateSupplyDto, UpdateSupplyDto } from './dto';
 import { JwtAuthGuard } from '../../auth/guards';
 import { PermissionsGuard } from '../../../common/guards';
 import { RequirePermissions } from '../../../common/decorators';
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 
 @ApiTags('supplies')
 @ApiBearerAuth('JWT-auth')
@@ -90,8 +91,11 @@ export class SuppliesController {
   @Post()
   @RequirePermissions('create_supplies')
   @ApiOperation({ summary: 'Crear nuevo insumo' })
-  create(@Body() createSupplyDto: CreateSupplyDto) {
-    return this.suppliesService.create(createSupplyDto);
+  create(
+    @Body() createSupplyDto: CreateSupplyDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.suppliesService.create(createSupplyDto, userId);
   }
 
   /**

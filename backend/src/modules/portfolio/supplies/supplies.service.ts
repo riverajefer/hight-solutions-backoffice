@@ -5,11 +5,15 @@ import {
 } from '@nestjs/common';
 import { CreateSupplyDto, UpdateSupplyDto } from './dto';
 import { SuppliesRepository } from './supplies.repository';
-import { Prisma } from '../../../generated/prisma';
+import { PrismaService } from '../../../database/prisma.service';
+import { InventoryMovementType, Prisma } from '../../../generated/prisma';
 
 @Injectable()
 export class SuppliesService {
-  constructor(private readonly suppliesRepository: SuppliesRepository) {}
+  constructor(
+    private readonly suppliesRepository: SuppliesRepository,
+    private readonly prisma: PrismaService,
+  ) {}
 
   /**
    * Obtiene todos los insumos
@@ -41,7 +45,7 @@ export class SuppliesService {
   /**
    * Crea un nuevo insumo
    */
-  async create(createSupplyDto: CreateSupplyDto) {
+  async create(createSupplyDto: CreateSupplyDto, createdById: string) {
     // Verificar SKU único si se proporciona
     if (createSupplyDto.sku) {
       const existingSku = await this.suppliesRepository.findBySku(
@@ -85,23 +89,49 @@ export class SuppliesService {
       ? new Prisma.Decimal(createSupplyDto.minimumStock)
       : new Prisma.Decimal(0);
 
-    return this.suppliesRepository.create({
-      name: createSupplyDto.name,
-      sku: createSupplyDto.sku,
-      description: createSupplyDto.description,
-      purchasePrice: purchasePriceDecimal,
-      conversionFactor: conversionFactorDecimal,
-      currentStock: currentStockDecimal,
-      minimumStock: minimumStockDecimal,
-      category: {
-        connect: { id: createSupplyDto.categoryId },
-      },
-      purchaseUnit: {
-        connect: { id: createSupplyDto.purchaseUnitId },
-      },
-      consumptionUnit: {
-        connect: { id: createSupplyDto.consumptionUnitId },
-      },
+    // El insumo y su carga inicial nacen juntos. Antes el stock inicial se
+    // escribía directo y no dejaba rastro en el kardex: el insumo aparecía con
+    // saldo y cero movimientos que lo explicaran.
+    return this.prisma.$transaction(async (tx) => {
+      const supply = await this.suppliesRepository.create(
+        {
+          name: createSupplyDto.name,
+          sku: createSupplyDto.sku,
+          description: createSupplyDto.description,
+          purchasePrice: purchasePriceDecimal,
+          conversionFactor: conversionFactorDecimal,
+          currentStock: currentStockDecimal,
+          minimumStock: minimumStockDecimal,
+          category: {
+            connect: { id: createSupplyDto.categoryId },
+          },
+          purchaseUnit: {
+            connect: { id: createSupplyDto.purchaseUnitId },
+          },
+          consumptionUnit: {
+            connect: { id: createSupplyDto.consumptionUnitId },
+          },
+        },
+        tx,
+      );
+
+      if (currentStockDecimal.greaterThan(0)) {
+        await tx.inventoryMovement.create({
+          data: {
+            supplyId: supply.id,
+            type: InventoryMovementType.INITIAL,
+            quantity: currentStockDecimal,
+            unitCost: purchasePriceDecimal ?? undefined,
+            previousStock: new Prisma.Decimal(0),
+            newStock: currentStockDecimal,
+            referenceType: 'MANUAL',
+            reason: 'Carga inicial al crear el insumo',
+            performedById: createdById,
+          },
+        });
+      }
+
+      return supply;
     });
   }
 
@@ -165,9 +195,6 @@ export class SuppliesService {
       }),
       ...(updateSupplyDto.conversionFactor !== undefined && {
         conversionFactor: new Prisma.Decimal(updateSupplyDto.conversionFactor),
-      }),
-      ...(updateSupplyDto.currentStock !== undefined && {
-        currentStock: new Prisma.Decimal(updateSupplyDto.currentStock),
       }),
       ...(updateSupplyDto.minimumStock !== undefined && {
         minimumStock: new Prisma.Decimal(updateSupplyDto.minimumStock),

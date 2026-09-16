@@ -4,7 +4,8 @@ import { InventoryRepository } from './inventory.repository';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { BadRequestException } from '@nestjs/common';
-import { InventoryMovementType, NotificationType } from '../../generated/prisma';
+import { InventoryMovementType, NotificationType, Prisma } from '../../generated/prisma';
+import { AdjustmentDirection } from './dto';
 
 describe('InventoryService', () => {
   let service: InventoryService;
@@ -115,11 +116,17 @@ describe('InventoryService', () => {
   });
 
   describe('createExitFromWorkOrder', () => {
+    const woSupply = (overrides: any = {}) => ({
+      supplyId: 's1',
+      quantity: '10',
+      supply: { id: 's1', name: 'S1', minimumStock: '5' },
+      ...overrides,
+    });
+
     it('should perform work order exits within a transaction', async () => {
-      mockPrisma.workOrderItemSupply.findMany.mockResolvedValue([
-        { supplyId: 's1', quantity: '10', supply: { currentStock: '20', minimumStock: '5' } }
-      ] as any);
-      
+      mockPrisma.workOrderItemSupply.findMany.mockResolvedValue([woSupply()] as any);
+      mockPrisma.supply.update.mockResolvedValue({ currentStock: 10 } as any);
+
       await service.createExitFromWorkOrder('order-1', 'user-1', mockPrisma as any);
 
       expect(mockPrisma.inventoryMovement.create).toHaveBeenCalledWith(
@@ -132,6 +139,63 @@ describe('InventoryService', () => {
           }),
         })
       );
+    });
+
+    it('descuenta con `decrement`, no escribiendo un saldo calculado en memoria', async () => {
+      mockPrisma.workOrderItemSupply.findMany.mockResolvedValue([woSupply()] as any);
+      mockPrisma.supply.update.mockResolvedValue({ currentStock: 10 } as any);
+
+      await service.createExitFromWorkOrder('order-1', 'user-1', mockPrisma as any);
+
+      const data = mockPrisma.supply.update.mock.calls[0][0].data;
+      expect(data.currentStock).toEqual({ decrement: expect.any(Prisma.Decimal) });
+    });
+
+    // El trabajo ya se hizo: negarlo no devuelve el material. Recortar a cero
+    // dejaba `previousStock - quantity` distinto de `newStock`.
+    it('permite stock negativo y deja el kardex cuadrado', async () => {
+      mockPrisma.workOrderItemSupply.findMany.mockResolvedValue([woSupply()] as any);
+      mockPrisma.supply.update.mockResolvedValue({ currentStock: -4 } as any);
+
+      await service.createExitFromWorkOrder('order-1', 'user-1', mockPrisma as any);
+
+      const data = mockPrisma.inventoryMovement.create.mock.calls[0][0].data;
+      expect(Number(data.newStock)).toBe(-4);
+      expect(Number(data.previousStock)).toBe(6);
+      expect(Number(data.previousStock) - Number(data.quantity)).toBe(
+        Number(data.newStock),
+      );
+    });
+
+    // Avisar desde dentro de la transacción mandaba alertas de consumos que
+    // todavía podían revertirse.
+    it('devuelve las alertas en vez de notificar dentro de la transacción', async () => {
+      mockPrisma.workOrderItemSupply.findMany.mockResolvedValue([woSupply()] as any);
+      mockPrisma.supply.update.mockResolvedValue({ currentStock: 2 } as any);
+
+      const alerts = await service.createExitFromWorkOrder(
+        'order-1',
+        'user-1',
+        mockPrisma as any,
+      );
+
+      expect(alerts).toEqual([
+        { supplyId: 's1', supplyName: 'S1', currentStock: 2, minimumStock: 5 },
+      ]);
+      expect(mockNotificationsService.notifyUsersWithPermission).not.toHaveBeenCalled();
+    });
+
+    it('no avisa si el saldo queda por encima del mínimo', async () => {
+      mockPrisma.workOrderItemSupply.findMany.mockResolvedValue([woSupply()] as any);
+      mockPrisma.supply.update.mockResolvedValue({ currentStock: 9 } as any);
+
+      const alerts = await service.createExitFromWorkOrder(
+        'order-1',
+        'user-1',
+        mockPrisma as any,
+      );
+
+      expect(alerts).toEqual([]);
     });
   });
 
@@ -182,17 +246,106 @@ describe('InventoryService', () => {
       expect(mockRepository.create).toHaveBeenCalled();
     });
 
+    // El descuento se aplica y se comprueba el saldo resultante: el throw
+    // revierte la transacción. Comprobar antes, sobre una lectura previa, es lo
+    // que permitía que dos movimientos simultáneos dejaran el stock negativo.
     it('should throw out of supply error if trying to EXIT above available stock', async () => {
       const dto = { supplyId: 's1', type: InventoryMovementType.EXIT, quantity: 15 } as any;
       mockPrisma.supply.findUnique.mockResolvedValue({
-        id: 's1', name: 'S1', currentStock: 10, minimumStock: 5, purchasePrice: 50, isActive: true,
+        id: 's1', name: 'S1', minimumStock: 5, isActive: true,
       } as any);
+      mockPrisma.supply.update.mockResolvedValue({ currentStock: -5 } as any);
 
       await expect(
         service.createMovement(dto, 'user-1')
       ).rejects.toThrow('Stock insuficiente. Stock actual: 10, cantidad solicitada: 15');
 
-      expect(mockPrisma.supply.update).not.toHaveBeenCalled();
+      expect(mockRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('usa `increment` en vez de escribir un saldo calculado en memoria', async () => {
+      const dto = { supplyId: 's1', type: InventoryMovementType.ENTRY, quantity: 5 } as any;
+      mockPrisma.supply.findUnique.mockResolvedValue({
+        id: 's1', name: 'S1', minimumStock: 5, isActive: true,
+      } as any);
+      mockPrisma.supply.update.mockResolvedValue({ currentStock: 15 } as any);
+      mockRepository.create.mockResolvedValue({ id: 'm1' } as any);
+
+      await service.createMovement(dto, 'user-1');
+
+      const data = mockPrisma.supply.update.mock.calls[0][0].data;
+      expect(data.currentStock).toEqual({ increment: expect.any(Prisma.Decimal) });
+    });
+
+    it('registra el saldo anterior derivado del resultado, no de la lectura previa', async () => {
+      const dto = { supplyId: 's1', type: InventoryMovementType.ENTRY, quantity: 5 } as any;
+      mockPrisma.supply.findUnique.mockResolvedValue({
+        id: 's1', name: 'S1', minimumStock: 5, isActive: true,
+      } as any);
+      // Otro movimiento entró entremedio: el saldo real quedó en 30, no en 15.
+      mockPrisma.supply.update.mockResolvedValue({ currentStock: 30 } as any);
+      mockRepository.create.mockResolvedValue({ id: 'm1' } as any);
+
+      await service.createMovement(dto, 'user-1');
+
+      const data = mockRepository.create.mock.calls[0][0];
+      expect(Number(data.newStock)).toBe(30);
+      expect(Number(data.previousStock)).toBe(25);
+    });
+
+    describe('ADJUSTMENT', () => {
+      const base = {
+        supplyId: 's1',
+        type: InventoryMovementType.ADJUSTMENT,
+        quantity: 3,
+        reason: 'Conteo físico',
+      };
+
+      beforeEach(() => {
+        mockPrisma.supply.findUnique.mockResolvedValue({
+          id: 's1', name: 'S1', minimumStock: 5, isActive: true,
+        } as any);
+        mockRepository.create.mockResolvedValue({ id: 'm-adj' } as any);
+      });
+
+      it('exige motivo', async () => {
+        await expect(
+          service.createMovement(
+            { ...base, reason: undefined, direction: AdjustmentDirection.DECREASE } as any,
+            'user-1',
+          ),
+        ).rejects.toThrow('"reason" es requerido');
+      });
+
+      it('exige sentido: un conteo físico puede quedar por encima o por debajo', async () => {
+        await expect(
+          service.createMovement(base as any, 'user-1'),
+        ).rejects.toThrow('"direction" es requerido');
+      });
+
+      it('suma cuando el conteo quedó por encima del sistema', async () => {
+        mockPrisma.supply.update.mockResolvedValue({ currentStock: 13 } as any);
+
+        await service.createMovement(
+          { ...base, direction: AdjustmentDirection.INCREASE } as any,
+          'user-1',
+        );
+
+        const data = mockPrisma.supply.update.mock.calls[0][0].data;
+        expect(data.currentStock).toEqual({ increment: expect.any(Prisma.Decimal) });
+      });
+
+      it('resta cuando el conteo quedó por debajo', async () => {
+        mockPrisma.supply.update.mockResolvedValue({ currentStock: 7 } as any);
+
+        await service.createMovement(
+          { ...base, direction: AdjustmentDirection.DECREASE } as any,
+          'user-1',
+        );
+
+        const data = mockPrisma.supply.update.mock.calls[0][0].data;
+        expect(data.currentStock).toEqual({ decrement: expect.any(Prisma.Decimal) });
+      });
     });
 
     it('should compute decreasing stock on EXIT', async () => {

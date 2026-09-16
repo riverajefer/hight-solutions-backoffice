@@ -15,6 +15,18 @@ const axiosInstance: AxiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  /**
+   * Los arreglos viajan como claves repetidas (`?statuses=A&statuses=B`), no con
+   * corchetes.
+   *
+   * Por defecto axios manda `statuses[]=A`, y el parser de query del backend
+   * toma `statuses[]` como el nombre literal del campo: con
+   * `forbidNonWhitelisted: true` eso responde 400 «property statuses[] should
+   * not exist». El resto de los parámetros se serializan igual que siempre.
+   */
+  paramsSerializer: {
+    indexes: null,
+  },
 });
 
 // Interceptor de solicitud: agrega el token de acceso

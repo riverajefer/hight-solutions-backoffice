@@ -28,7 +28,7 @@ import { useProfitabilityList } from '../hooks';
 import type { FilterProfitabilityDto, OrderProfitabilityListItem } from '../../../types/order.types';
 import { neonColors } from '../../../theme';
 import { ExportDialog } from '../../../components/common/ExportDialog';
-import { EXPORT_LIMIT } from '../../../utils/excelExport';
+import { fetchAllPages } from '../../../utils/excelExport';
 import { PROFITABILITY_EXPORT_COLUMNS } from '../utils/profitabilityExportColumns';
 import { ordersApi } from '../../../api/orders.api';
 import { useAuthStore } from '../../../store/authStore';
@@ -435,15 +435,17 @@ export const ProfitabilityPage: React.FC = () => {
           defaultDateFrom={dateFrom ?? undefined}
           defaultDateTo={dateTo ?? undefined}
           fetchRows={async ({ fromDate, toDate }) => {
-            const { page, limit, ...activeFilters } = filters;
-            const response = await ordersApi.getProfitabilityList({
-              ...activeFilters,
-              orderDateFrom: fromDate,
-              orderDateTo: toDate,
-              page: 1,
-              limit: EXPORT_LIMIT,
+            const { page: _p, limit: _l, ...activeFilters } = filters;
+            return fetchAllPages(async (page, limit) => {
+              const response = await ordersApi.getProfitabilityList({
+                ...activeFilters,
+                orderDateFrom: fromDate,
+                orderDateTo: toDate,
+                page,
+                limit,
+              });
+              return response.data ?? [];
             });
-            return response.data ?? [];
           }}
         />
       )}

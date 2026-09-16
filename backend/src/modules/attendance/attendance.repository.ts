@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { AttendanceSource, AttendanceType } from '../../generated/prisma';
 import { AttendanceFilterDto, AdjustAttendanceDto } from './dto';
+import { clampPageSize, MAX_PAGE_SIZE } from '../../common/dto/pagination.dto';
 
 @Injectable()
 export class AttendanceRepository {
@@ -115,7 +116,8 @@ export class AttendanceRepository {
    */
   async findAll(filters: AttendanceFilterDto) {
     const { startDate, endDate, userId, productionAreaId, cargoId, type, source, page = 1, limit = 20 } = filters;
-    const skip = (page - 1) * limit;
+    const take = clampPageSize(limit, 20, MAX_PAGE_SIZE);
+    const skip = (page - 1) * take;
 
     const where: any = {};
 
@@ -135,7 +137,7 @@ export class AttendanceRepository {
       this.prisma.attendanceRecord.findMany({
         where,
         skip,
-        take: limit,
+        take,
         orderBy: { clockIn: 'desc' },
         include: {
           user: {
@@ -155,7 +157,7 @@ export class AttendanceRepository {
 
     return {
       data,
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      meta: { total, page, limit: take, totalPages: Math.ceil(total / take) },
     };
   }
 

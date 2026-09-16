@@ -7,6 +7,7 @@ import {
 } from '../../generated/prisma';
 import { startOfDay, endOfDay } from '../../common/utils/date-range.util';
 import { FilterProspectsDto } from './dto';
+import { clampPageSize, MAX_PAGE_SIZE } from '../../common/dto/pagination.dto';
 
 @Injectable()
 export class ProspectsRepository {
@@ -121,7 +122,7 @@ export class ProspectsRepository {
 
   async findAll(filters: FilterProspectsDto, forcedAdvisorId?: string) {
     const page = filters.page ?? 1;
-    const limit = filters.limit ?? 20;
+    const take = clampPageSize(filters.limit, 20, MAX_PAGE_SIZE);
     const where = this.buildWhere(filters, forcedAdvisorId);
 
     const [data, total] = await Promise.all([
@@ -131,15 +132,15 @@ export class ProspectsRepository {
         // Los que llevan más tiempo sin contacto primero; los nunca contactados
         // encabezan la lista gracias a `nulls: 'first'`.
         orderBy: [{ lastContactAt: { sort: 'asc', nulls: 'first' } }, { createdAt: 'desc' }],
-        skip: (page - 1) * limit,
-        take: limit,
+        skip: (page - 1) * take,
+        take,
       }),
       this.prisma.prospect.count({ where }),
     ]);
 
     return {
       data,
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      meta: { total, page, limit: take, totalPages: Math.ceil(total / take) },
     };
   }
 

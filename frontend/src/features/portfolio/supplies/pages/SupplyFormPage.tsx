@@ -145,16 +145,20 @@ const SupplyFormPage: React.FC = () => {
         ...data,
         purchasePrice: data.purchasePrice ? Number(data.purchasePrice) : undefined,
         conversionFactor: data.conversionFactor ? Number(data.conversionFactor) : undefined,
-        currentStock: data.currentStock ? Number(data.currentStock) : undefined,
+        // El stock solo se envía al crear, como carga inicial. Editarlo aquí
+        // saltaba el kardex: el backend ya no acepta el campo y responde 400.
+        currentStock:
+          !isEdit && data.currentStock ? Number(data.currentStock) : undefined,
         minimumStock: data.minimumStock ? Number(data.minimumStock) : undefined,
         sku: data.sku || undefined,
         description: data.description || undefined,
       };
 
       if (isEdit && id) {
+        const { currentStock: _ignored, ...updateData } = submitData;
         await updateSupplyMutation.mutateAsync({
           id,
-          data: submitData as UpdateSupplyDto,
+          data: updateData as UpdateSupplyDto,
         });
         enqueueSnackbar('Insumo actualizado correctamente', {
           variant: 'success',
@@ -419,11 +423,17 @@ const SupplyFormPage: React.FC = () => {
                     render={({ field }) => (
                       <TextField
                         {...field}
-                        label="Stock Actual"
+                        label={isEdit ? 'Stock Actual' : 'Stock Inicial'}
                         fullWidth
                         type="number"
+                        disabled={isEdit}
                         error={!!errors.currentStock}
-                        helperText={errors.currentStock?.message || 'Cantidad actual en inventario'}
+                        helperText={
+                          errors.currentStock?.message ||
+                          (isEdit
+                            ? 'Para corregirlo, registra un movimiento de ajuste en Inventario'
+                            : 'Queda registrado como movimiento de carga inicial')
+                        }
                         placeholder="Ej: 100"
                       />
                     )}

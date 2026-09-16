@@ -129,8 +129,9 @@ export class SuppliesRepository {
   /**
    * Crea un nuevo insumo
    */
-  async create(data: Prisma.SupplyCreateInput) {
-    return this.prisma.supply.create({
+  async create(data: Prisma.SupplyCreateInput, tx?: Prisma.TransactionClient) {
+    const client = tx ?? this.prisma;
+    return client.supply.create({
       data,
       include: {
         category: {

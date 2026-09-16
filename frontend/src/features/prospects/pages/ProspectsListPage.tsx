@@ -32,7 +32,7 @@ import { useAuthStore } from '../../../store/authStore';
 import { useUsers } from '../../users/hooks/useUsers';
 import { PERMISSIONS, ROUTES } from '../../../utils/constants';
 import { formatDate } from '../../../utils/formatters';
-import { EXPORT_LIMIT } from '../../../utils/excelExport';
+import { fetchAllPages } from '../../../utils/excelExport';
 import { prospectsApi } from '../../../api/prospects.api';
 import {
   CONTACT_MEDIUM_LABELS,
@@ -605,14 +605,16 @@ export const ProspectsListPage: React.FC = () => {
           dateRangeLabel="Rango de fechas (fecha de registro)"
           helperText="Se respetan los filtros de estado, medio y vendedora de la pantalla."
           fetchRows={async ({ fromDate, toDate }) => {
-            const res = await prospectsApi.findAll({
-              ...filters,
-              dateFrom: fromDate,
-              dateTo: toDate,
-              page: 1,
-              limit: EXPORT_LIMIT,
+            return fetchAllPages(async (page, limit) => {
+              const res = await prospectsApi.findAll({
+                ...filters,
+                dateFrom: fromDate,
+                dateTo: toDate,
+                page,
+                limit,
+              });
+              return res.data ?? [];
             });
-            return res.data;
           }}
         />
       )}

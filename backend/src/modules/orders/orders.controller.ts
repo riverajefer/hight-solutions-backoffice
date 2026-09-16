@@ -106,6 +106,25 @@ export class OrdersController {
     return this.ordersService.getDashboardSummary(query);
   }
 
+  @Get('pending-payment-summary')
+  @RequirePermissions('read_orders')
+  @ApiOperation({
+    summary: 'Totales de cartera pendiente (saldo > 0 en estados de venta en firme)',
+  })
+  @ApiQuery({ name: 'clientId', required: false, type: String })
+  @ApiResponse({ status: 200, description: 'Totales obtenidos correctamente' })
+  getPendingPaymentSummary(@Query() filters: FilterOrdersDto) {
+    return this.ordersService.getPendingPaymentSummary(filters);
+  }
+
+  @Get('advisors')
+  @RequirePermissions('read_orders')
+  @ApiOperation({ summary: 'Asesores que han creado al menos una orden' })
+  @ApiResponse({ status: 200, description: 'Asesores obtenidos correctamente' })
+  getAdvisorsWithOrders() {
+    return this.ordersService.getAdvisorsWithOrders();
+  }
+
   @Get('sales-summary')
   @RequirePermissions('read_sales_by_advisor')
   @ApiOperation({ summary: 'Get sales summary grouped by advisor' })

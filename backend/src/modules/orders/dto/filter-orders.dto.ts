@@ -1,16 +1,19 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsArray,
   IsBoolean,
+  IsDateString,
   IsEnum,
   IsIn,
+  IsInt,
   IsOptional,
   IsUUID,
-  IsDateString,
-  IsInt,
+  Max,
   Min,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { EditRequestStatus, OrderStatus } from '../../../generated/prisma';
+import { MAX_REPORT_PAGE_SIZE } from '../../../common/dto/pagination.dto';
 
 export class FilterOrdersDto {
   @ApiPropertyOptional({
@@ -20,6 +23,35 @@ export class FilterOrdersDto {
   @IsOptional()
   @IsEnum(OrderStatus)
   status?: OrderStatus;
+
+  /**
+   * Varios estados a la vez, para los listados que no se pueden expresar con un
+   * solo `status` —la cartera pendiente vive en cinco—. Antes esos listados se
+   * traían páginas enormes y filtraban del lado del cliente, así que mostraban
+   * solo lo que cupiera en la página.
+   *
+   * En query string llega como `?statuses=CONFIRMED&statuses=READY`, y con un
+   * solo valor llega suelto: el `@Transform` lo normaliza. El `@Type(() => String)`
+   * va antes porque `enableImplicitConversion` toca el valor si no se le dice
+   * de qué tipo es.
+   */
+  @ApiPropertyOptional({
+    description: 'Filtrar por varios estados a la vez',
+    enum: OrderStatus,
+    isArray: true,
+  })
+  @IsOptional()
+  @Type(() => String)
+  @Transform(({ value }) =>
+    value === undefined || value === null
+      ? value
+      : Array.isArray(value)
+        ? value
+        : [value],
+  )
+  @IsArray()
+  @IsEnum(OrderStatus, { each: true })
+  statuses?: OrderStatus[];
 
   @ApiPropertyOptional({
     description: 'Búsqueda general (número de orden, cliente, etc.)',
@@ -91,6 +123,7 @@ export class FilterOrdersDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(MAX_REPORT_PAGE_SIZE)
   limit?: number = 20;
 
   @ApiPropertyOptional({

@@ -1,6 +1,7 @@
-import { IsOptional, IsString, IsInt, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { MAX_PAGE_SIZE } from '../../../common/dto/pagination.dto';
 
 export class SessionLogsFilterDto {
   @ApiPropertyOptional({ description: 'Fecha de inicio (ISO 8601)' })
@@ -30,5 +31,6 @@ export class SessionLogsFilterDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(MAX_PAGE_SIZE)
   limit?: number = 10;
 }

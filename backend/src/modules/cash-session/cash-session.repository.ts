@@ -3,6 +3,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { CashSessionStatus, Prisma } from '../../generated/prisma';
 import { FilterCashSessionsDto } from './dto';
 import { EXCLUDE_REVERSALS } from '../cash-movement/cash-movement.helpers';
+import { clampPageSize, MAX_PAGE_SIZE } from '../../common/dto/pagination.dto';
 
 const SESSION_SELECT = {
   id: true,
@@ -89,7 +90,8 @@ export class CashSessionRepository {
         : {}),
     };
 
-    const skip = (page - 1) * limit;
+    const take = clampPageSize(limit, 20, MAX_PAGE_SIZE);
+    const skip = (page - 1) * take;
 
     const [data, total] = await Promise.all([
       this.prisma.cashSession.findMany({
@@ -97,7 +99,7 @@ export class CashSessionRepository {
         select: SESSION_SELECT,
         orderBy: { openedAt: 'desc' },
         skip,
-        take: limit,
+        take,
       }),
       this.prisma.cashSession.count({ where }),
     ]);
