@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma, OrderStatus, EditRequestStatus } from '../../generated/prisma';
+import { clampPageSize, MAX_REPORT_PAGE_SIZE } from '../../common/dto/pagination.dto';
 
 /**
  * Resuelve el filtro de estado. Las pantallas de ventas piden `excludeAnulado`
@@ -12,8 +13,11 @@ import { Prisma, OrderStatus, EditRequestStatus } from '../../generated/prisma';
 export function buildOrderStatusFilter(
   status?: OrderStatus,
   excludeAnulado?: boolean,
+  statuses?: OrderStatus[],
 ): Prisma.OrderWhereInput['status'] | undefined {
+  // Un `status` explícito manda sobre la lista, igual que sobre `excludeAnulado`.
   if (status) return status;
+  if (statuses?.length) return { in: statuses };
   if (excludeAnulado) return { not: OrderStatus.ANULADO };
   return undefined;
 }
@@ -300,6 +304,7 @@ export class OrdersRepository {
 
   async findAllWithFilters(filters: {
     status?: OrderStatus;
+    statuses?: OrderStatus[];
     search?: string;
     clientId?: string;
     orderDateFrom?: Date;
@@ -317,11 +322,11 @@ export class OrdersRepository {
     advancePaymentStatus?: EditRequestStatus;
     excludeAnulado?: boolean;
   }) {
-    const { status, search, clientId, orderDateFrom, orderDateTo, paymentDateFrom, paymentDateTo, page = 1, limit = 20, excludeWithWorkOrder, productionAreaId, createdById, hasBalance, paymentStatus, deliveryStatus, advancePaymentStatus, excludeAnulado } = filters;
+    const { status, statuses, search, clientId, orderDateFrom, orderDateTo, paymentDateFrom, paymentDateTo, page = 1, limit = 20, excludeWithWorkOrder, productionAreaId, createdById, hasBalance, paymentStatus, deliveryStatus, advancePaymentStatus, excludeAnulado } = filters;
 
     const where: Prisma.OrderWhereInput = {};
 
-    const statusFilter = buildOrderStatusFilter(status, excludeAnulado);
+    const statusFilter = buildOrderStatusFilter(status, excludeAnulado, statuses);
     if (statusFilter !== undefined) {
       where.status = statusFilter;
     }
@@ -407,7 +412,8 @@ export class OrdersRepository {
       };
     }
 
-    const skip = (page - 1) * limit;
+    const take = clampPageSize(limit, 20, MAX_REPORT_PAGE_SIZE);
+    const skip = (page - 1) * take;
 
     const [orders, total] = await Promise.all([
       this.prisma.order.findMany({
@@ -415,7 +421,7 @@ export class OrdersRepository {
         select: this.selectFields,
         orderBy: { orderDate: 'desc' },
         skip,
-        take: limit,
+        take,
       }),
       this.prisma.order.count({ where }),
     ]);
@@ -439,8 +445,8 @@ export class OrdersRepository {
       meta: {
         total,
         page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        limit: take,
+        totalPages: Math.ceil(total / take),
       },
     };
   }
@@ -822,7 +828,8 @@ export class OrdersRepository {
       if (orderDateTo) (where.orderDate as Prisma.DateTimeFilter).lte = orderDateTo;
     }
 
-    const skip = (page - 1) * limit;
+    const take = clampPageSize(limit, 20, MAX_REPORT_PAGE_SIZE);
+    const skip = (page - 1) * take;
 
     const [orders, total] = await Promise.all([
       this.prisma.order.findMany({
@@ -846,11 +853,78 @@ export class OrdersRepository {
         },
         orderBy: { orderDate: 'desc' },
         skip,
-        take: limit,
+        take,
       }),
       this.prisma.order.count({ where }),
     ]);
 
     return { orders, total };
+  }
+
+  /**
+   * Estados en los que una orden con saldo es cartera por cobrar: la venta ya
+   * está en firme. Quedan fuera `DRAFT` —todavía no es una venta; en producción
+   * hay 239 borradores con saldo que no le debe nadie—, `ANULADO` y `RETURNED`.
+   *
+   * Vive aquí, en el backend, porque tenerlo en la pantalla fue justo lo que
+   * permitió que se desactualizara: la lista del frontend no incluía
+   * `DELIVERED_ON_CREDIT`, que por definición es una entrega con saldo.
+   */
+  static readonly RECEIVABLE_STATUSES: OrderStatus[] = [
+    OrderStatus.CONFIRMED,
+    OrderStatus.IN_PRODUCTION,
+    OrderStatus.READY,
+    OrderStatus.DELIVERED,
+    OrderStatus.DELIVERED_ON_CREDIT,
+    OrderStatus.WARRANTY,
+  ];
+
+  /**
+   * Totales de la cartera pendiente para el encabezado de la pantalla.
+   *
+   * Va aparte del listado porque el listado se pagina: sumar los saldos de la
+   * página visible daría una cifra que cambia al pasar de página. La suma la
+   * hace el motor sobre el conjunto completo.
+   */
+  async getPendingPaymentSummary(filters: { clientId?: string }) {
+    const where: Prisma.OrderWhereInput = {
+      status: { in: OrdersRepository.RECEIVABLE_STATUSES },
+      balance: { gt: 0 },
+      ...(filters.clientId ? { clientId: filters.clientId } : {}),
+    };
+
+    const [aggregate, count] = await Promise.all([
+      this.prisma.order.aggregate({ where, _sum: { balance: true } }),
+      this.prisma.order.count({ where }),
+    ]);
+
+    return {
+      count,
+      totalBalance: aggregate._sum.balance?.toString() ?? '0',
+    };
+  }
+
+  /**
+   * Los asesores que han creado al menos una orden.
+   *
+   * La pantalla de ventas por asesor se traía 1.000 órdenes completas solo para
+   * deducir esta lista, así que con 3.209 órdenes en producción se le quedaban
+   * asesores por fuera del filtro. Esto es la consulta que de verdad hacía
+   * falta.
+   */
+  async findAdvisorsWithOrders() {
+    const grouped = await this.prisma.order.groupBy({ by: ['createdById'] });
+
+    const ids = grouped
+      .map((row) => row.createdById)
+      .filter((id): id is string => Boolean(id));
+
+    if (ids.length === 0) return [];
+
+    return this.prisma.user.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, firstName: true, lastName: true, username: true },
+      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+    });
   }
 }

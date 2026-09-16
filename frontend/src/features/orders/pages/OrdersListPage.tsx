@@ -34,7 +34,7 @@ import { useProductionAreas } from '../../production-areas/hooks/useProductionAr
 import { useUsers } from '../../users/hooks/useUsers';
 import { OrderStatusChip, ChangeStatusDialog, OrdersDashboardCards } from '../components';
 import { ExportDialog } from '../../../components/common/ExportDialog';
-import { EXPORT_LIMIT } from '../../../utils/excelExport';
+import { fetchAllPages } from '../../../utils/excelExport';
 import { ORDER_EXPORT_COLUMNS } from '../utils/orderExportColumns';
 import {
   ORDER_ITEM_EXPORT_COLUMNS,
@@ -1025,22 +1025,24 @@ export const OrdersListPage: React.FC = () => {
           }
           fetchRows={async ({ fromDate, toDate, dateField }) => {
             // Se descartan page/limit de la pantalla para usar los del export.
-            const { page, limit, ...activeFilters } = filters;
+            const { page: _p, limit: _l, ...activeFilters } = filters;
             // El rango se aplica a la fecha de orden o a la de abono según lo
             // elegido en el diálogo; nunca a las dos a la vez.
             const dateRangeFilter =
               dateField === 'payment'
                 ? { paymentDateFrom: fromDate, paymentDateTo: toDate }
                 : { orderDateFrom: fromDate, orderDateTo: toDate };
-            const response = await ordersApi.getAll({
-              ...activeFilters,
-              orderDateFrom: undefined,
-              orderDateTo: undefined,
-              ...dateRangeFilter,
-              page: 1,
-              limit: EXPORT_LIMIT,
+            const orders = await fetchAllPages(async (page, limit) => {
+              const response = await ordersApi.getAll({
+                ...activeFilters,
+                orderDateFrom: undefined,
+                orderDateTo: undefined,
+                ...dateRangeFilter,
+                page,
+                limit,
+              });
+              return response.data ?? [];
             });
-            const orders = response.data ?? [];
 
             // La hoja «Pagos» enlaza el soporte de cada abono. Las URLs se piden
             // en UN solo request (no una por pago) y se adjuntan al pago para

@@ -219,6 +219,137 @@ describe('OrdersRepository', () => {
   // ─────────────────────────────────────────────
   // findById
   // ─────────────────────────────────────────────
+  describe('filtro por varios estados', () => {
+    beforeEach(() => {
+      (prisma.order.findMany as jest.Mock).mockResolvedValue([mockOrderRow]);
+      (prisma.order.count as jest.Mock).mockResolvedValue(1);
+    });
+
+    it('traduce `statuses` a un `in`', async () => {
+      await repository.findAllWithFilters({
+        statuses: [OrderStatus.CONFIRMED, OrderStatus.READY],
+      });
+
+      expect(prisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: { in: [OrderStatus.CONFIRMED, OrderStatus.READY] },
+          }),
+        }),
+      );
+    });
+
+    // Mismo criterio que con `excludeAnulado`: lo explícito manda.
+    it('un `status` suelto manda sobre la lista', async () => {
+      await repository.findAllWithFilters({
+        status: OrderStatus.PAID,
+        statuses: [OrderStatus.CONFIRMED],
+      });
+
+      expect(prisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: OrderStatus.PAID }),
+        }),
+      );
+    });
+
+    it('una lista vacía no filtra nada', async () => {
+      await repository.findAllWithFilters({ statuses: [] });
+
+      const where = (prisma.order.findMany as jest.Mock).mock.calls[0][0].where;
+      expect(where.status).toBeUndefined();
+    });
+  });
+
+  describe('getPendingPaymentSummary', () => {
+    it('suma los saldos del conjunto completo, no de una página', async () => {
+      (prisma.order.aggregate as jest.Mock).mockResolvedValue({
+        _sum: { balance: '88541161' },
+      });
+      (prisma.order.count as jest.Mock).mockResolvedValue(324);
+
+      const result = await repository.getPendingPaymentSummary({});
+
+      expect(result).toEqual({ count: 324, totalBalance: '88541161' });
+      expect(prisma.order.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ balance: { gt: 0 } }),
+        }),
+      );
+    });
+
+    it('solo cuenta estados de venta en firme: el borrador no le debe a nadie', async () => {
+      (prisma.order.aggregate as jest.Mock).mockResolvedValue({
+        _sum: { balance: null },
+      });
+      (prisma.order.count as jest.Mock).mockResolvedValue(0);
+
+      await repository.getPendingPaymentSummary({});
+
+      const where = (prisma.order.aggregate as jest.Mock).mock.calls[0][0].where;
+      expect(where.status.in).not.toContain(OrderStatus.DRAFT);
+      expect(where.status.in).not.toContain(OrderStatus.ANULADO);
+      // La entrega a crédito es, por definición, una entrega con saldo.
+      expect(where.status.in).toContain(OrderStatus.DELIVERED_ON_CREDIT);
+    });
+
+    it('devuelve cero cuando no hay cartera, en vez de null', async () => {
+      (prisma.order.aggregate as jest.Mock).mockResolvedValue({
+        _sum: { balance: null },
+      });
+      (prisma.order.count as jest.Mock).mockResolvedValue(0);
+
+      await expect(repository.getPendingPaymentSummary({})).resolves.toEqual({
+        count: 0,
+        totalBalance: '0',
+      });
+    });
+
+    it('acota por cliente cuando se indica', async () => {
+      (prisma.order.aggregate as jest.Mock).mockResolvedValue({
+        _sum: { balance: '1000' },
+      });
+      (prisma.order.count as jest.Mock).mockResolvedValue(1);
+
+      await repository.getPendingPaymentSummary({ clientId: 'client-1' });
+
+      expect(prisma.order.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ clientId: 'client-1' }),
+        }),
+      );
+    });
+  });
+
+  describe('findAdvisorsWithOrders', () => {
+    it('agrupa por creador en vez de recorrer las órdenes', async () => {
+      (prisma.order.groupBy as jest.Mock).mockResolvedValue([
+        { createdById: 'u1' },
+        { createdById: 'u2' },
+      ]);
+      (prisma.user.findMany as jest.Mock).mockResolvedValue([
+        { id: 'u1', firstName: 'Ana', lastName: 'Ruiz', username: 'aruiz' },
+        { id: 'u2', firstName: 'Beto', lastName: 'Paz', username: 'bpaz' },
+      ]);
+
+      const result = await repository.findAdvisorsWithOrders();
+
+      expect(result).toHaveLength(2);
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: { in: ['u1', 'u2'] } },
+        }),
+      );
+    });
+
+    it('no consulta usuarios si no hay órdenes', async () => {
+      (prisma.order.groupBy as jest.Mock).mockResolvedValue([]);
+
+      await expect(repository.findAdvisorsWithOrders()).resolves.toEqual([]);
+      expect(prisma.user.findMany).not.toHaveBeenCalled();
+    });
+  });
+
   describe('findById', () => {
     it('should return order when found and deliveryDateChangedBy is null', async () => {
       (prisma.order.findUnique as jest.Mock).mockResolvedValue(mockOrderRow);

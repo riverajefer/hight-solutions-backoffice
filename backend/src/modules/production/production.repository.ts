@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { ComponentPhase, ProductionOrderStatus, ProductionStepStatus } from '../../generated/prisma';
+import { clampPageSize, MAX_PAGE_SIZE } from '../../common/dto/pagination.dto';
 
 // Select for full template detail with components and steps
 const templateWithComponentsSelect = {
@@ -224,7 +225,8 @@ export class ProductionRepository {
   // ─── Production Orders ───────────────────────────────────────────────────────
 
   findAllOrders(filters: { status?: ProductionOrderStatus; search?: string; workOrderId?: string; page: number; limit: number }) {
-    const skip = (filters.page - 1) * filters.limit;
+    const take = clampPageSize(filters.limit, 20, MAX_PAGE_SIZE);
+    const skip = (filters.page - 1) * take;
     const where = {
       ...(filters.status && { status: filters.status }),
       ...(filters.workOrderId && { workOrderId: filters.workOrderId }),
@@ -240,7 +242,7 @@ export class ProductionRepository {
       this.prisma.productionOrder.findMany({
         where,
         skip,
-        take: filters.limit,
+        take,
         orderBy: { createdAt: 'desc' },
         select: {
           id: true, oprodNumber: true, status: true, notes: true, createdAt: true,

@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Box, Button, Paper, Typography, useTheme, alpha, Autocomplete, TextField } from '@mui/material';
 import { GridColDef } from '@mui/x-data-grid';
@@ -9,11 +10,11 @@ import { DataTable } from '../../../components/common/DataTable';
 import { useOrders } from '../hooks';
 import { useClients } from '../../clients/hooks/useClients';
 import { OrderStatusChip } from '../components';
-import type { Order } from '../../../types/order.types';
+import type { Order, OrderStatus } from '../../../types/order.types';
 import type { Client } from '../../../types/client.types';
 import { neonColors } from '../../../theme';
 import { ExportDialog } from '../../../components/common/ExportDialog';
-import { EXPORT_LIMIT } from '../../../utils/excelExport';
+import { fetchAllPages } from '../../../utils/excelExport';
 import { ORDER_EXPORT_COLUMNS } from '../utils/orderExportColumns';
 import { ordersApi } from '../../../api/orders.api';
 import { useAuthStore } from '../../../store/authStore';
@@ -41,12 +42,21 @@ const formatDate = (date: string): string => {
 // CONSTANTES
 // ============================================================
 
-/** Estados que califica como "pendientes de pago" */
-const PENDING_PAYMENT_STATUSES: string[] = [
+/**
+ * Estados en los que una orden con saldo es cartera por cobrar.
+ *
+ * `DELIVERED_ON_CREDIT` faltaba: una entrega a crédito es, por definición, una
+ * entrega con saldo. El backend tiene la misma lista en
+ * `OrdersRepository.RECEIVABLE_STATUSES`, que es la que usa el total del
+ * encabezado; las dos consultas de esta pantalla mandan estos mismos estados,
+ * así que la tabla y el total no pueden discrepar.
+ */
+const PENDING_PAYMENT_STATUSES: OrderStatus[] = [
   'CONFIRMED',
   'IN_PRODUCTION',
   'READY',
   'DELIVERED',
+  'DELIVERED_ON_CREDIT',
   'WARRANTY',
 ];
 
@@ -71,27 +81,30 @@ export const PendingPaymentOrdersPage: React.FC = () => {
     ? clients.find((c) => c.id === clientId) || null
     : null;
 
-  // Obtener todas las órdenes sin filtro de status (limit alto para cubrir
-  // todas las pendientes). El filtro se aplica client-side.
-  const { ordersQuery } = useOrders({ limit: 500, clientId });
+  // El filtro lo resuelve el backend. Antes se pedían 500 órdenes sin filtrar y
+  // se descartaban en el navegador: con 3.209 en producción, la pantalla veía
+  // 37 de 324 pendientes y mostraba $16,1 M de $88,5 M reales.
+  const [pagination, setPagination] = useState({ page: 1, limit: 20 });
 
-  // Filtro client-side: status activo + balance > 0
-  const pendingOrders: Order[] = useMemo(() => {
-    const allOrders = ordersQuery.data?.data || [];
-    return allOrders.filter(
-      (order) =>
-        PENDING_PAYMENT_STATUSES.includes(order.status) &&
-        parseFloat(order.balance) > 0,
-    );
-  }, [ordersQuery.data]);
+  const { ordersQuery } = useOrders({
+    ...pagination,
+    clientId,
+    statuses: PENDING_PAYMENT_STATUSES,
+    paymentStatus: 'PENDING',
+  });
 
-  // Total pendiente por cobrar (suma de balances)
-  const totalPendiente: number = useMemo(() => {
-    return pendingOrders.reduce(
-      (sum, order) => sum + parseFloat(order.balance),
-      0,
-    );
-  }, [pendingOrders]);
+  const pendingOrders: Order[] = ordersQuery.data?.data ?? [];
+
+  // Los totales se piden aparte: sumar los saldos de la página visible daría
+  // una cifra que cambia al pasar de página.
+  const summaryQuery = useQuery({
+    queryKey: ['orders', 'pending-payment-summary', clientId],
+    queryFn: () => ordersApi.getPendingPaymentSummary({ clientId }),
+    placeholderData: keepPreviousData,
+  });
+
+  const totalPendiente = parseFloat(summaryQuery.data?.totalBalance ?? '0');
+  const totalOrdenes = summaryQuery.data?.count ?? 0;
 
   // Clic en fila → detalle de la orden existente
   const handleRowClick = (order: Order) => {
@@ -293,8 +306,7 @@ export const PendingPaymentOrdersPage: React.FC = () => {
             variant="body2"
             sx={{ color: 'text.secondary', fontWeight: 500 }}
           >
-            {pendingOrders.length}{' '}
-            {pendingOrders.length === 1 ? 'orden' : 'órdenes'}
+            {totalOrdenes} {totalOrdenes === 1 ? 'orden' : 'órdenes'}
           </Typography>
           <Typography
             variant="caption"
@@ -312,7 +324,10 @@ export const PendingPaymentOrdersPage: React.FC = () => {
           size='small'
           options={clients}
           value={selectedClient}
-          onChange={(_, newValue) => setClientId(newValue?.id)}
+          onChange={(_, newValue) => {
+            setClientId(newValue?.id);
+            setPagination((prev) => ({ ...prev, page: 1 }));
+          }}
           getOptionLabel={(option: Client) => option.name}
           renderInput={(params) => (
             <TextField
@@ -332,6 +347,13 @@ export const PendingPaymentOrdersPage: React.FC = () => {
         loading={ordersQuery.isLoading}
         getRowId={(row) => row.id}
         onRowClick={handleRowClick}
+        pageSize={pagination.limit}
+        pageSizeOptions={[20, 50, 100]}
+        rowCount={ordersQuery.data?.meta.total ?? 0}
+        currentPage={pagination.page - 1}
+        onPaginationModelChange={(model) =>
+          setPagination({ page: model.page + 1, limit: model.pageSize })
+        }
         emptyMessage="No hay órdenes pendientes por cobrar"
       />
 
@@ -349,19 +371,19 @@ export const PendingPaymentOrdersPage: React.FC = () => {
           dateRangeLabel="Rango de fechas (fecha de orden)"
           helperText="Se respeta el filtro de cliente y solo se incluyen órdenes activas con saldo pendiente."
           fetchRows={async ({ fromDate, toDate }) => {
-            const response = await ordersApi.getAll({
-              clientId,
-              orderDateFrom: fromDate,
-              orderDateTo: toDate,
-              page: 1,
-              limit: EXPORT_LIMIT,
+            // Mismo filtro que la tabla, pero resuelto en el backend.
+            return fetchAllPages(async (page, limit) => {
+              const response = await ordersApi.getAll({
+                clientId,
+                orderDateFrom: fromDate,
+                orderDateTo: toDate,
+                statuses: PENDING_PAYMENT_STATUSES,
+                paymentStatus: 'PENDING',
+                page,
+                limit,
+              });
+              return response.data ?? [];
             });
-            // Mismo filtro client-side que la tabla: estado activo + saldo > 0.
-            return (response.data ?? []).filter(
-              (order) =>
-                PENDING_PAYMENT_STATUSES.includes(order.status) &&
-                parseFloat(order.balance) > 0,
-            );
           }}
         />
       )}

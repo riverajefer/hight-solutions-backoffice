@@ -415,7 +415,7 @@ describe('RefundRequestsService', () => {
       // exigiera caja abierta, de noche fallaría.
       prisma.refundRequest.findFirst.mockResolvedValue(pendiente());
       prisma.user.findUnique.mockResolvedValue(revisorConPermiso());
-      prisma.cashSession.findFirst.mockResolvedValue(null);
+      prisma.cashSession.findMany.mockResolvedValue([]);
       prisma.refundRequest.update.mockResolvedValue({
         id: requestId,
         status: EditRequestStatus.APPROVED,
@@ -494,7 +494,7 @@ describe('RefundRequestsService', () => {
 
     beforeEach(() => {
       prisma.$transaction.mockImplementation((fn: any) => fn(prisma));
-      prisma.cashSession.findFirst.mockResolvedValue({ id: 'session-1' });
+      prisma.cashSession.findMany.mockResolvedValue([{ id: 'session-1', cashRegisterId: 'cr-1' }]);
       prisma.cashMovement.create.mockResolvedValue({ id: 'mov-1' });
       prisma.order.update.mockResolvedValue({});
       prisma.refundRequest.updateMany.mockResolvedValue({ count: 1 });
@@ -507,7 +507,7 @@ describe('RefundRequestsService', () => {
 
     it('exige sesión de caja abierta', async () => {
       prisma.refundRequest.findFirst.mockResolvedValue(aprobada());
-      prisma.cashSession.findFirst.mockResolvedValue(null);
+      prisma.cashSession.findMany.mockResolvedValue([]);
 
       await expect(service.execute(requestId, executorId)).rejects.toThrow(
         BadRequestException,

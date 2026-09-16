@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { ExpenseOrderStatus } from '../../generated/prisma';
 import { FilterExpenseOrdersDto } from './dto';
+import { clampPageSize, MAX_PAGE_SIZE } from '../../common/dto/pagination.dto';
 
 @Injectable()
 export class ExpenseOrdersRepository {
@@ -121,7 +122,8 @@ export class ExpenseOrdersRepository {
       page = 1,
       limit = 20,
     } = filters;
-    const skip = (page - 1) * limit;
+    const take = clampPageSize(limit, 20, MAX_PAGE_SIZE);
+    const skip = (page - 1) * take;
 
     const where: Record<string, unknown> = {};
 
@@ -152,7 +154,7 @@ export class ExpenseOrdersRepository {
         select: this.selectFields,
         orderBy: { createdAt: 'desc' },
         skip,
-        take: limit,
+        take,
       }),
       this.prisma.expenseOrder.count({ where }),
     ]);
@@ -162,8 +164,8 @@ export class ExpenseOrdersRepository {
       meta: {
         total,
         page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        limit: take,
+        totalPages: Math.ceil(total / take),
       },
     };
   }

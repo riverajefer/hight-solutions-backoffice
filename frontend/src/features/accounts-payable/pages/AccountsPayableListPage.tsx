@@ -40,7 +40,7 @@ import { AccountPayableStatusChip } from '../components/AccountPayableStatusChip
 import { AccountPayableSummaryCards } from '../components/AccountPayableSummaryCards';
 import { useAccountsPayable } from '../hooks/useAccountsPayable';
 import { ExportDialog } from '../../../components/common/ExportDialog';
-import { EXPORT_LIMIT } from '../../../utils/excelExport';
+import { fetchAllPages } from '../../../utils/excelExport';
 import { ACCOUNT_PAYABLE_EXPORT_COLUMNS } from '../utils/accountPayableExportColumns';
 import { accountsPayableApi } from '../../../api/accounts-payable.api';
 import { parseDateFilter, toDateFilterOrUndefined } from '../../../utils/dateFilters';
@@ -513,15 +513,17 @@ export default function AccountsPayableListPage() {
             parseDateFilter(filters.dueDateTo)
           }
           fetchRows={async ({ fromDate, toDate }) => {
-            const { page, limit, ...activeFilters } = filters;
-            const response = await accountsPayableApi.getAll({
-              ...activeFilters,
-              dueDateFrom: fromDate,
-              dueDateTo: toDate,
-              page: 1,
-              limit: EXPORT_LIMIT,
+            const { page: _p, limit: _l, ...activeFilters } = filters;
+            return fetchAllPages(async (page, limit) => {
+              const response = await accountsPayableApi.getAll({
+                ...activeFilters,
+                dueDateFrom: fromDate,
+                dueDateTo: toDate,
+                page,
+                limit,
+              });
+              return response.data ?? [];
             });
-            return response.data ?? [];
           }}
         />
       )}

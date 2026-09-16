@@ -34,7 +34,7 @@ import { useProductionAreas } from '../../production-areas/hooks/useProductionAr
 import { useUsers } from '../../users/hooks/useUsers';
 import { OrderStatusChip, SalesGoalsSection, OrderTrackingSection } from '../components';
 import { ExportDialog } from '../../../components/common/ExportDialog';
-import { EXPORT_LIMIT } from '../../../utils/excelExport';
+import { fetchAllPages } from '../../../utils/excelExport';
 import { ORDER_EXPORT_COLUMNS } from '../utils/orderExportColumns';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS, ROUTES } from '../../../utils/constants';
@@ -140,21 +140,22 @@ export const SalesByAdvisorPage: React.FC = () => {
     ? users.find((u: any) => u.id === filters.createdById) ?? null
     : null;
 
-  // Query to get all orders (unfiltered) for extracting advisor IDs
-  const allOrdersForAdvisorsQuery = useQuery({
-    queryKey: ['orders-all-advisors'],
-    queryFn: () => ordersApi.getAll({ page: 1, limit: 1000 }),
+  // Los asesores con órdenes los resuelve el backend con un `groupBy`.
+  //
+  // Antes esto se traía las primeras 1.000 órdenes completas solo para deducir
+  // la lista. Con 3.209 órdenes en producción, un asesor cuyas órdenes
+  // estuvieran todas entre las 2.209 más antiguas no aparecía en el filtro, y
+  // no había forma de notarlo desde la pantalla.
+  const advisorsWithOrdersQuery = useQuery({
+    queryKey: ['orders', 'advisors'],
+    queryFn: () => ordersApi.getAdvisors(),
     staleTime: 5 * 60 * 1000,
   });
 
-  // Set of user IDs who have created at least one order
-  const orderCreatorIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const order of allOrdersForAdvisorsQuery.data?.data ?? []) {
-      if (order.createdBy?.id) ids.add(order.createdBy.id);
-    }
-    return ids;
-  }, [allOrdersForAdvisorsQuery.data]);
+  const orderCreatorIds = useMemo(
+    () => new Set((advisorsWithOrdersQuery.data ?? []).map((a) => a.id)),
+    [advisorsWithOrdersQuery.data],
+  );
 
   // Users who have role "Comercial" OR have created at least one order
   const advisorOptions = useMemo(() => {
@@ -529,15 +530,17 @@ export const SalesByAdvisorPage: React.FC = () => {
             parseDateFilter(filters.orderDateTo)
           }
           fetchRows={async ({ fromDate, toDate }) => {
-            const { page, limit, ...activeFilters } = filters;
-            const response = await ordersApi.getAll({
-              ...activeFilters,
-              orderDateFrom: fromDate,
-              orderDateTo: toDate,
-              page: 1,
-              limit: EXPORT_LIMIT,
+            const { page: _p, limit: _l, ...activeFilters } = filters;
+            return fetchAllPages(async (page, limit) => {
+              const response = await ordersApi.getAll({
+                ...activeFilters,
+                orderDateFrom: fromDate,
+                orderDateTo: toDate,
+                page,
+                limit,
+              });
+              return response.data ?? [];
             });
-            return response.data ?? [];
           }}
         />
       )}

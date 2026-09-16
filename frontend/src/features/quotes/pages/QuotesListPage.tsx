@@ -36,7 +36,7 @@ import { QuoteKanbanBoard } from '../components/kanban/QuoteKanbanBoard';
 import type { Quote, QuoteStatus, FilterQuotesDto } from '../../../types/quote.types';
 import { QuoteStatus as QStatus } from '../../../types/quote.types';
 import { ExportDialog } from '../../../components/common/ExportDialog';
-import { EXPORT_LIMIT } from '../../../utils/excelExport';
+import { fetchAllPages } from '../../../utils/excelExport';
 import { QUOTE_EXPORT_COLUMNS } from '../utils/quoteExportColumns';
 import { quotesApi } from '../../../api/quotes.api';
 import { useAuthStore } from '../../../store/authStore';
@@ -464,15 +464,17 @@ export const QuotesListPage: React.FC = () => {
           }
           defaultDateTo={parseDateFilter(filters.dateTo)}
           fetchRows={async ({ fromDate, toDate }) => {
-            const { page, limit, ...activeFilters } = filters;
-            const response = await quotesApi.findAll({
-              ...activeFilters,
-              dateFrom: fromDate,
-              dateTo: toDate,
-              page: 1,
-              limit: EXPORT_LIMIT,
+            const { page: _p, limit: _l, ...activeFilters } = filters;
+            return fetchAllPages(async (page, limit) => {
+              const response = await quotesApi.findAll({
+                ...activeFilters,
+                dateFrom: fromDate,
+                dateTo: toDate,
+                page,
+                limit,
+              });
+              return response.data ?? [];
             });
-            return response.data ?? [];
           }}
         />
       )}

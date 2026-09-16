@@ -25,6 +25,7 @@ import { ExpenseOrderAuthRequestsService } from '../expense-order-auth-requests/
 import { AccountsPayableService } from '../accounts-payable/accounts-payable.service';
 import { computeExpenseTotals } from '../../common/utils/expense-totals.util';
 import { normalizeRate } from '../../common/utils/rounding.util';
+import { findActiveCashSession } from '../cash-session/active-cash-session.util';
 
 const ALLOWED_TRANSITIONS: Record<ExpenseOrderStatus, ExpenseOrderStatus[]> = {
   [ExpenseOrderStatus.DRAFT]: [ExpenseOrderStatus.CREATED, ExpenseOrderStatus.ADMIN_AUTHORIZED],
@@ -480,9 +481,7 @@ export class ExpenseOrdersService {
     // La caja abierta se verifica ANTES de tocar el estado. Al revés, una OG sin
     // caja quedaba en AUTHORIZED sin pago ni movimientos, y como ya no estaba en
     // ADMIN_AUTHORIZED, Caja no podía volver a intentarlo.
-    const activeSession = await this.prisma.cashSession.findFirst({
-      where: { status: 'OPEN' },
-    });
+    const activeSession = await findActiveCashSession(this.prisma);
 
     if (!activeSession) {
       throw new BadRequestException(

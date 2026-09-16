@@ -1,7 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsUUID, IsDateString, IsNumber, IsString, Min } from 'class-validator';
+import { IsDateString, IsEnum, IsNumber, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { QuoteStatus } from '../../../generated/prisma';
+import { MAX_PAGE_SIZE } from '../../../common/dto/pagination.dto';
 
 export class FilterQuotesDto {
   @ApiPropertyOptional({ enum: QuoteStatus })
@@ -35,6 +36,7 @@ export class FilterQuotesDto {
   @IsOptional()
   @IsNumber()
   @Min(1)
+  @Max(MAX_PAGE_SIZE)
   @Type(() => Number)
   limit?: number;
 

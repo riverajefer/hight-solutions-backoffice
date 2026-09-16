@@ -57,7 +57,8 @@ export class FilterAccountPayableDto {
   page?: number = 1;
 
   // El tope alto habilita la exportación a Excel, que trae todo el rango sin
-  // paginar. El resto de listados del sistema no acota `limit`.
+  // paginar. Es la excepción: el resto de los listados se acota en
+  // `MAX_PAGE_SIZE` (100).
   @ApiPropertyOptional({ description: 'Resultados por página', default: 20, minimum: 1, maximum: 100000 })
   @Type(() => Number)
   @IsInt()

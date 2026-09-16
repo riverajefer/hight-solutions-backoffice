@@ -11,6 +11,17 @@ import {
 } from 'class-validator';
 import { InventoryMovementType } from '../../../generated/prisma';
 
+/**
+ * Sentido de un ajuste manual. Un conteo físico puede quedar por encima o por
+ * debajo de lo que dice el sistema; `ADJUSTMENT` solo sabía restar, así que una
+ * diferencia a favor no tenía cómo registrarse y terminaba editando el insumo
+ * a mano, por fuera del kardex.
+ */
+export enum AdjustmentDirection {
+  INCREASE = 'INCREASE',
+  DECREASE = 'DECREASE',
+}
+
 export class CreateInventoryMovementDto {
   @ApiProperty({ description: 'ID del insumo', example: 'uuid-del-insumo' })
   @IsUUID()
@@ -37,6 +48,17 @@ export class CreateInventoryMovementDto {
   @IsNumber()
   @IsOptional()
   unitCost?: number;
+
+  @ApiPropertyOptional({
+    enum: AdjustmentDirection,
+    description:
+      'Sentido del ajuste (requerido para ADJUSTMENT). El resto de los tipos ' +
+      'tienen sentido fijo: ENTRY, RETURN e INITIAL suman; EXIT resta.',
+    example: AdjustmentDirection.DECREASE,
+  })
+  @IsEnum(AdjustmentDirection)
+  @IsOptional()
+  direction?: AdjustmentDirection;
 
   @ApiPropertyOptional({
     description: 'Motivo del movimiento (requerido para ADJUSTMENT)',

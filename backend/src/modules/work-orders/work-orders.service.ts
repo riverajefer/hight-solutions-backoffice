@@ -219,14 +219,31 @@ export class WorkOrdersService {
 
     // Al completar la OT, descontar insumos del inventario en una transaccion atomica
     if (dto.status === WorkOrderStatus.COMPLETED && currentUser) {
-      return this.prisma.$transaction(async (tx) => {
-        await tx.workOrder.update({
-          where: { id },
-          data: { status: dto.status },
-        });
-        await this.inventoryService.createExitFromWorkOrder(id, currentUser.id, tx);
-        return this.workOrdersRepository.findById(id);
-      });
+      const { workOrder: updated, lowStock } = await this.prisma.$transaction(
+        async (tx) => {
+          await tx.workOrder.update({
+            where: { id },
+            data: { status: dto.status },
+          });
+          const alerts = await this.inventoryService.createExitFromWorkOrder(
+            id,
+            currentUser.id,
+            tx,
+          );
+          return {
+            workOrder: await this.workOrdersRepository.findById(id),
+            lowStock: alerts,
+          };
+        },
+      );
+
+      // Las alertas salen con la transacción ya confirmada: avisar desde dentro
+      // mandaba correos de consumos que todavía podían revertirse.
+      if (lowStock.length > 0) {
+        void this.inventoryService.notifyLowStockBatch(lowStock);
+      }
+
+      return updated;
     }
 
     return this.workOrdersRepository.updateStatus(id, dto.status);

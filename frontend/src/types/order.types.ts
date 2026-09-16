@@ -452,6 +452,11 @@ export interface ApplyDiscountDto {
 
 export interface FilterOrdersDto {
   status?: OrderStatus;
+  /**
+   * Varios estados a la vez. Un `status` explícito manda sobre esta lista.
+   * Axios lo serializa como `?statuses=A&statuses=B`.
+   */
+  statuses?: OrderStatus[];
   search?: string;
   clientId?: string;
   orderDateFrom?: string; // ISO date string
@@ -770,4 +775,19 @@ export interface AdvisorTracking {
   /** true cuando el usuario no tiene `read_all_advisors_tracking` y solo ve lo suyo */
   scopedToOwn: boolean;
   rows: AdvisorTrackingRow[];
+}
+
+/** Totales de la cartera pendiente, calculados en el backend sobre el conjunto completo. */
+export interface PendingPaymentSummary {
+  count: number;
+  /** Suma de saldos, como cadena para no perder precisión. */
+  totalBalance: string;
+}
+
+/** Asesor que ha creado al menos una orden. */
+export interface OrderAdvisor {
+  id: string;
+  firstName: string;
+  lastName: string;
+  username: string;
 }

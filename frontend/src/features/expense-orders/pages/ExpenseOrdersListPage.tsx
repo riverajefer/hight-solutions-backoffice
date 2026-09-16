@@ -28,7 +28,7 @@ import {
   type FilterExpenseOrdersDto,
 } from '../../../types/expense-order.types';
 import { ExportDialog } from '../../../components/common/ExportDialog';
-import { EXPORT_LIMIT } from '../../../utils/excelExport';
+import { fetchAllPages } from '../../../utils/excelExport';
 import { EXPENSE_ORDER_EXPORT_COLUMNS } from '../utils/expenseOrderExportColumns';
 import {
   EXPENSE_ORDER_ITEM_EXPORT_COLUMNS,
@@ -293,15 +293,17 @@ export const ExpenseOrdersListPage = () => {
             parseDateFilter(filters.createdAtTo)
           }
           fetchRows={async ({ fromDate, toDate }) => {
-            const { page, limit, ...activeFilters } = filters;
-            const response = await expenseOrdersApi.getAll({
-              ...activeFilters,
-              createdAtFrom: fromDate,
-              createdAtTo: toDate,
-              page: 1,
-              limit: EXPORT_LIMIT,
+            const { page: _p, limit: _l, ...activeFilters } = filters;
+            return fetchAllPages(async (page, limit) => {
+              const response = await expenseOrdersApi.getAll({
+                ...activeFilters,
+                createdAtFrom: fromDate,
+                createdAtTo: toDate,
+                page,
+                limit,
+              });
+              return response.data ?? [];
             });
-            return response.data ?? [];
           }}
           detailSheets={[
             {

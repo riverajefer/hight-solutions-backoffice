@@ -2,7 +2,17 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { SuppliesService } from './supplies.service';
 import { SuppliesRepository } from './supplies.repository';
+import { PrismaService } from '../../../database/prisma.service';
 import { Prisma } from '../../../generated/prisma';
+
+const mockPrisma: any = {
+  $transaction: jest.fn(),
+  inventoryMovement: { create: jest.fn() },
+};
+// La transacción ejecuta el callback con el mismo mock, así el servicio ve un
+// `tx` funcional.
+const runTransaction = (cb: any) => cb(mockPrisma);
+mockPrisma.$transaction.mockImplementation(runTransaction);
 
 const mockSuppliesRepository = {
   findAll: jest.fn(),
@@ -45,6 +55,7 @@ describe('SuppliesService', () => {
       providers: [
         SuppliesService,
         { provide: SuppliesRepository, useValue: mockSuppliesRepository },
+        { provide: PrismaService, useValue: mockPrisma },
       ],
     }).compile();
 
@@ -53,6 +64,7 @@ describe('SuppliesService', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation(runTransaction);
   });
 
   // ─────────────────────────────────────────────
@@ -156,8 +168,8 @@ describe('SuppliesService', () => {
     it('should throw BadRequestException when SKU already exists', async () => {
       mockSuppliesRepository.findBySku.mockResolvedValue({ id: 'other' });
 
-      await expect(service.create(createDto)).rejects.toThrow(BadRequestException);
-      await expect(service.create(createDto)).rejects.toThrow(
+      await expect(service.create(createDto, 'user-1')).rejects.toThrow(BadRequestException);
+      await expect(service.create(createDto, 'user-1')).rejects.toThrow(
         `Ya existe un insumo con el SKU "${createDto.sku}"`,
       );
       expect(mockSuppliesRepository.create).not.toHaveBeenCalled();
@@ -165,7 +177,7 @@ describe('SuppliesService', () => {
 
     it('should not check SKU uniqueness when sku is not provided', async () => {
       const { sku: _, ...dtoWithoutSku } = createDto;
-      await service.create(dtoWithoutSku as any);
+      await service.create(dtoWithoutSku as any, 'user-1');
 
       expect(mockSuppliesRepository.findBySku).not.toHaveBeenCalled();
     });
@@ -173,15 +185,15 @@ describe('SuppliesService', () => {
     it('should throw BadRequestException when name already exists in the same category', async () => {
       mockSuppliesRepository.findByNameAndCategory.mockResolvedValue({ id: 'other' });
 
-      await expect(service.create(createDto)).rejects.toThrow(BadRequestException);
-      await expect(service.create(createDto)).rejects.toThrow(
+      await expect(service.create(createDto, 'user-1')).rejects.toThrow(BadRequestException);
+      await expect(service.create(createDto, 'user-1')).rejects.toThrow(
         `Ya existe un insumo con el nombre "${createDto.name}" en esta categoría`,
       );
       expect(mockSuppliesRepository.create).not.toHaveBeenCalled();
     });
 
     it('should convert purchasePrice to Prisma.Decimal when provided', async () => {
-      await service.create(createDto);
+      await service.create(createDto, 'user-1');
 
       const callArg = mockSuppliesRepository.create.mock.calls[0][0];
       expect(callArg.purchasePrice).toBeInstanceOf(Prisma.Decimal);
@@ -190,14 +202,14 @@ describe('SuppliesService', () => {
 
     it('should set purchasePrice to null when not provided', async () => {
       const { purchasePrice: _, ...dtoWithoutPrice } = createDto;
-      await service.create(dtoWithoutPrice as any);
+      await service.create(dtoWithoutPrice as any, 'user-1');
 
       const callArg = mockSuppliesRepository.create.mock.calls[0][0];
       expect(callArg.purchasePrice).toBeNull();
     });
 
     it('should convert conversionFactor to Prisma.Decimal when provided', async () => {
-      await service.create(createDto);
+      await service.create(createDto, 'user-1');
 
       const callArg = mockSuppliesRepository.create.mock.calls[0][0];
       expect(callArg.conversionFactor).toBeInstanceOf(Prisma.Decimal);
@@ -206,14 +218,14 @@ describe('SuppliesService', () => {
 
     it('should default conversionFactor to Decimal(1) when not provided', async () => {
       const { conversionFactor: _, ...dtoWithoutFactor } = createDto;
-      await service.create(dtoWithoutFactor as any);
+      await service.create(dtoWithoutFactor as any, 'user-1');
 
       const callArg = mockSuppliesRepository.create.mock.calls[0][0];
       expect(Number(callArg.conversionFactor.toString())).toBe(1);
     });
 
     it('should convert currentStock to Prisma.Decimal when provided', async () => {
-      await service.create(createDto);
+      await service.create(createDto, 'user-1');
 
       const callArg = mockSuppliesRepository.create.mock.calls[0][0];
       expect(callArg.currentStock).toBeInstanceOf(Prisma.Decimal);
@@ -222,14 +234,14 @@ describe('SuppliesService', () => {
 
     it('should default currentStock to Decimal(0) when not provided', async () => {
       const { currentStock: _, ...dtoWithoutStock } = createDto;
-      await service.create(dtoWithoutStock as any);
+      await service.create(dtoWithoutStock as any, 'user-1');
 
       const callArg = mockSuppliesRepository.create.mock.calls[0][0];
       expect(Number(callArg.currentStock.toString())).toBe(0);
     });
 
     it('should convert minimumStock to Prisma.Decimal when provided', async () => {
-      await service.create(createDto);
+      await service.create(createDto, 'user-1');
 
       const callArg = mockSuppliesRepository.create.mock.calls[0][0];
       expect(callArg.minimumStock).toBeInstanceOf(Prisma.Decimal);
@@ -238,14 +250,14 @@ describe('SuppliesService', () => {
 
     it('should default minimumStock to Decimal(0) when not provided', async () => {
       const { minimumStock: _, ...dtoWithoutMin } = createDto;
-      await service.create(dtoWithoutMin as any);
+      await service.create(dtoWithoutMin as any, 'user-1');
 
       const callArg = mockSuppliesRepository.create.mock.calls[0][0];
       expect(Number(callArg.minimumStock.toString())).toBe(0);
     });
 
     it('should connect category, purchaseUnit and consumptionUnit via relations', async () => {
-      await service.create(createDto);
+      await service.create(createDto, 'user-1');
 
       expect(mockSuppliesRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -253,11 +265,12 @@ describe('SuppliesService', () => {
           purchaseUnit: { connect: { id: 'unit-1' } },
           consumptionUnit: { connect: { id: 'unit-2' } },
         }),
+        expect.anything(),
       );
     });
 
     it('should return the created supply', async () => {
-      const result = await service.create(createDto);
+      const result = await service.create(createDto, 'user-1');
 
       expect(result).toEqual(mockSupply);
     });
@@ -361,12 +374,13 @@ describe('SuppliesService', () => {
       expect(Number(callArg.conversionFactor.toString())).toBeCloseTo(3.78);
     });
 
-    it('should convert currentStock to Decimal when updating', async () => {
-      await service.update('supply-1', { currentStock: 20 });
+    // El stock ya no se puede tocar por aquí: escribirlo directo saltaba el
+    // kardex. La corrección entra como movimiento ADJUSTMENT.
+    it('ignora currentStock aunque llegue en el cuerpo de la petición', async () => {
+      await service.update('supply-1', { currentStock: 20 } as any);
 
       const callArg = mockSuppliesRepository.update.mock.calls[0][1];
-      expect(callArg.currentStock).toBeInstanceOf(Prisma.Decimal);
-      expect(Number(callArg.currentStock.toString())).toBe(20);
+      expect(callArg.currentStock).toBeUndefined();
     });
 
     it('should convert minimumStock to Decimal when updating', async () => {

@@ -487,7 +487,7 @@ describe('AccountsPayableService', () => {
 
     it('busca la sesión de caja abierta y vincula la solicitud de autorización', async () => {
       repository.findById!.mockResolvedValue(apStub() as any);
-      prisma.cashSession.findFirst.mockResolvedValue({ id: 'cs-open' } as any);
+      prisma.cashSession.findMany.mockResolvedValue([{ id: 'cs-open', cashRegisterId: 'cr-1' }] as any);
       prisma.cashSession.findUnique.mockResolvedValue({ id: 'cs-open', status: 'OPEN' } as any);
       prisma.cashMovement.create.mockResolvedValue({ id: 'cm-1' } as any);
       repository.createPayment!.mockResolvedValue({ id: 'pay-1' } as any);

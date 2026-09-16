@@ -1,14 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsDateString,
-  IsEnum,
-  IsInt,
-  IsOptional,
-  IsUUID,
-  Min,
-} from 'class-validator';
+import { IsDateString, IsEnum, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { DtfStatus } from '../../../generated/prisma';
+import { MAX_PAGE_SIZE } from '../../../common/dto/pagination.dto';
 
 export class FilterDtfDto {
   @ApiPropertyOptional({ enum: DtfStatus, description: 'Filtrar por estado' })
@@ -47,6 +41,7 @@ export class FilterDtfDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(MAX_PAGE_SIZE)
   @IsOptional()
   limit?: number = 50;
 }

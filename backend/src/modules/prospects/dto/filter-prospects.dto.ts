@@ -1,15 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsDateString,
-  IsEnum,
-  IsNumber,
-  IsOptional,
-  IsString,
-  IsUUID,
-  Min,
-} from 'class-validator';
+import { IsDateString, IsEnum, IsNumber, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ContactMedium, ProspectStatus } from '../../../generated/prisma';
+import { MAX_PAGE_SIZE } from '../../../common/dto/pagination.dto';
 
 export class FilterProspectsDto {
   @ApiPropertyOptional({ enum: ProspectStatus })
@@ -66,6 +59,7 @@ export class FilterProspectsDto {
   @IsOptional()
   @IsNumber()
   @Min(1)
+  @Max(MAX_PAGE_SIZE)
   @Type(() => Number)
   limit?: number;
 }

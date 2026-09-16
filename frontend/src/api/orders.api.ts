@@ -22,6 +22,8 @@ import type {
   UpsertSalesGoalDto,
   OrdersDashboardQuery,
   OrdersDashboardSummary,
+  PendingPaymentSummary,
+  OrderAdvisor,
 } from '../types/order.types';
 import type { OrderAuthHistoryEvent } from '../types/order-authorization-history.types';
 
@@ -35,6 +37,30 @@ export const ordersApi = {
     const { data } = await axiosInstance.get<OrdersListResponse>(BASE_URL, {
       params,
     });
+    return data;
+  },
+
+  /**
+   * Totales de la cartera pendiente.
+   *
+   * Va aparte del listado porque el listado se pagina: sumar los saldos de la
+   * página visible daría una cifra que cambia al pasar de página.
+   */
+  getPendingPaymentSummary: async (
+    params?: Pick<FilterOrdersDto, 'clientId'>,
+  ): Promise<PendingPaymentSummary> => {
+    const { data } = await axiosInstance.get<PendingPaymentSummary>(
+      `${BASE_URL}/pending-payment-summary`,
+      { params },
+    );
+    return data;
+  },
+
+  /** Asesores que han creado al menos una orden. */
+  getAdvisors: async (): Promise<OrderAdvisor[]> => {
+    const { data } = await axiosInstance.get<OrderAdvisor[]>(
+      `${BASE_URL}/advisors`,
+    );
     return data;
   },
 

@@ -1,7 +1,8 @@
-import { IsOptional, IsDateString, IsString, IsEnum, IsNumber, Min } from 'class-validator';
+import { IsDateString, IsEnum, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { AttendanceType, AttendanceSource } from '../../../generated/prisma';
+import { MAX_PAGE_SIZE } from '../../../common/dto/pagination.dto';
 
 export class AttendanceFilterDto {
   @ApiPropertyOptional({ description: 'Fecha inicio (ISO 8601)' })
@@ -51,5 +52,6 @@ export class AttendanceFilterDto {
   @Type(() => Number)
   @IsNumber()
   @Min(1)
+  @Max(MAX_PAGE_SIZE)
   limit?: number = 20;
 }

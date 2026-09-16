@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma, QuoteStatus } from '../../generated/prisma';
+import { clampPageSize, MAX_PAGE_SIZE } from '../../common/dto/pagination.dto';
 
 @Injectable()
 export class QuotesRepository {
@@ -129,7 +130,8 @@ export class QuotesRepository {
       ];
     }
 
-    const skip = (page - 1) * limit;
+    const take = clampPageSize(limit, 20, MAX_PAGE_SIZE);
+    const skip = (page - 1) * take;
 
     const [quotes, total] = await Promise.all([
       this.prisma.quote.findMany({
@@ -137,7 +139,7 @@ export class QuotesRepository {
         select: this.selectFields,
         orderBy: { quoteDate: 'desc' },
         skip,
-        take: limit,
+        take,
       }),
       this.prisma.quote.count({ where }),
     ]);
@@ -147,8 +149,8 @@ export class QuotesRepository {
       meta: {
         total,
         page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        limit: take,
+        totalPages: Math.ceil(total / take),
       },
     };
   }

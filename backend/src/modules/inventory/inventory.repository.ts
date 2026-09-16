@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma';
 import { PrismaService } from '../../database/prisma.service';
 import { FilterInventoryMovementsDto } from './dto';
+import { clampPageSize, MAX_PAGE_SIZE } from '../../common/dto/pagination.dto';
 
 @Injectable()
 export class InventoryRepository {
@@ -47,8 +48,8 @@ export class InventoryRepository {
 
   async findAll(filters: FilterInventoryMovementsDto) {
     const { supplyId, type, referenceType, startDate, endDate, page = 1, limit = 20 } = filters;
-    const skip = (page - 1) * Math.min(limit, 100);
-    const take = Math.min(limit, 100);
+    const take = clampPageSize(limit, 20, MAX_PAGE_SIZE);
+    const skip = (page - 1) * take;
 
     const where: Prisma.InventoryMovementWhereInput = {};
     if (supplyId) where.supplyId = supplyId;
