@@ -8,9 +8,8 @@ porque ahí está el hallazgo que más pesa para el clon de Zoom.
 Las cifras de producción salen de `scripts/db-query.sh` en modo solo lectura,
 consultado el 2026-09-15.
 
-Corregidos: los hallazgos **1, 2, 3, 4, 5 y 8** (la caja, todo el bloque de
-inventario y el tope de paginación). Los demás siguen en diagnóstico; el orden
-sugerido está al final.
+Corregidos: los hallazgos **1, 2, 3, 4, 5, 8 y 13**. Los demás siguen en
+diagnóstico; el orden sugerido está al final.
 
 ---
 
@@ -418,7 +417,7 @@ un salto obliga a explicar por qué.
 
 ---
 
-## 13. Dos reportes de órdenes ya salen incompletos — **Media**
+## 13. Dos reportes de órdenes ya salen incompletos — **Alta** · ✅ Corregido
 
 Apareció al ponerle techo a la paginación: son las dos pantallas que obligaron a
 subir el tope de órdenes a 1.000.
@@ -452,8 +451,64 @@ Las dos se arreglan del lado del servidor, no subiendo el límite:
 - mover el filtro de cartera pendiente al backend, como `paymentStatus`, que ya
   existe en `FilterOrdersDto`.
 
-Mientras tanto ninguna de las dos empeora: el tope de 1.000 las deja exactamente
-como estaban.
+### Cuánto se estaba perdiendo
+
+Medido contra producción, no estimado:
+
+| | Real | Lo que mostraba |
+|---|---|---|
+| Órdenes pendientes por cobrar | 324 | **37** |
+| Saldo pendiente | **$88.541.161** | **$16.099.018** |
+| Asesores en el filtro | 15 | **10** |
+
+La pantalla de cartera estaba ocultando **$72,4 millones**, el 82 % del total. No
+es que estuviera desactualizada: es que solo miraba las 500 órdenes más
+recientes, y las deudas viejas —las que más importan en cobranza— son justo las
+que quedaban fuera.
+
+### Corrección aplicada
+
+**Backend.** Un filtro `statuses` (varios estados a la vez) en `FilterOrdersDto`,
+porque la cartera vive en seis estados y `status` solo admite uno. Un `status`
+explícito sigue mandando sobre la lista, igual que con `excludeAnulado`.
+
+Dos endpoints nuevos:
+
+- `GET /orders/pending-payment-summary` — los totales del encabezado. Van aparte
+  del listado porque el listado se pagina: sumar los saldos de la página visible
+  daría una cifra que cambia al pasar de página.
+- `GET /orders/advisors` — los asesores con al menos una orden, resueltos con un
+  `groupBy`. Reemplaza traerse 1.000 órdenes completas en cada carga.
+
+La lista de estados que cuentan como cartera quedó en el backend
+(`OrdersRepository.RECEIVABLE_STATUSES`). Tenerla en la pantalla fue justo lo que
+permitió que se desactualizara: **le faltaba `DELIVERED_ON_CREDIT`**, que por
+definición es una entrega con saldo. `DRAFT` queda fuera a propósito —en
+producción hay 239 borradores con saldo que no le debe nadie— junto con `ANULADO`
+y `RETURNED`.
+
+**Frontend.** Las dos pantallas piden al servidor lo que antes filtraban a mano,
+con paginación real (`rowCount` + `currentPage` + `onPaginationModelChange`).
+
+### Lo que apareció por el camino
+
+**El hallazgo 8 había roto las diez exportaciones a Excel.** `EXPORT_LIMIT =
+100000` lo usaban diez pantallas, y el `@Max(100)` las habría dejado
+respondiendo 400. El comentario del filtro de Cuentas por Pagar hablaba de ese
+tope, pero lo leí como algo suyo y no del patrón compartido.
+
+Se corrigió en la raíz, no subiendo los topes: `fetchAllPages()` en
+[`utils/excelExport.ts`](../frontend/src/utils/excelExport.ts) recorre páginas de
+100 y se detiene cuando una vuelve incompleta. Las diez exportaciones lo usan.
+De paso dejan de pedir una sola consulta de 100.000 filas con todos sus
+`include`.
+
+**Los arreglos no viajaban bien en la query string.** Axios manda por defecto
+`statuses[]=A&statuses[]=B`, y el parser del backend toma `statuses[]` como el
+nombre literal del campo: con `forbidNonWhitelisted: true` eso responde 400
+«property statuses[] should not exist». Se configuró `paramsSerializer:
+{ indexes: null }` en la instancia compartida de axios, que es la forma estándar
+(`?statuses=A&statuses=B`) y no cambia cómo viaja ningún otro parámetro.
 
 ---
 
@@ -495,9 +550,25 @@ Probado extremo a extremo en desarrollo, no solo con tests:
 Sin errores nuevos en consola. Los datos de prueba quedan en desarrollo con
 nombres reconocibles («PRUEBA QA …»).
 
-`tsc --noEmit` limpio en backend y frontend. Backend: 185 suites y 2.806 tests en
-verde (incluye las 15 pruebas del tope de paginación). Frontend: 59 archivos y
-497 tests en verde.
+`tsc --noEmit` limpio en backend y frontend. Backend: 185 suites y 2.815 tests en
+verde. Frontend: 59 archivos y 497 tests en verde.
+
+## Verificación del hallazgo 13
+
+Probado en el navegador contra la base de desarrollo:
+
+- Cartera pendiente muestra **$11.432.339 y 48 órdenes**, que es exactamente lo
+  que devuelve la consulta directa a la base. El pie de la tabla dice «1-20 de
+  48» y la página 2 «21-40 de 48».
+- `GET /orders/advisors` devuelve los 8 asesores con órdenes que hay en
+  desarrollo, contra los 8 de `count(DISTINCT created_by_id)`.
+- La exportación de órdenes con rango 2020→hoy recorrió las páginas 1, 2, 3 y 4
+  con `limit=100` y se detuvo sola (303 órdenes en desarrollo). Todas 200.
+- Sin errores nuevos en consola.
+
+Desarrollo tiene 303 órdenes, menos que el tope viejo de 500, así que allí el
+error no se manifestaba: las cifras del cuadro de arriba salen de producción en
+solo lectura.
 
 ---
 
@@ -543,8 +614,7 @@ escrita en código.
    el sentido del ajuste (hallazgo 12) que hacía falta para que el 2 fuera
    usable.
 3. ~~**Hallazgo 8** — el tope de paginación.~~ ✅ Hecho.
-4. **Hallazgo 13** — los dos reportes incompletos. Es el más visible para el
-   cliente de los que quedan: hoy muestran cifras de menos sin avisar.
+4. ~~**Hallazgo 13** — los dos reportes incompletos.~~ ✅ Hecho.
 5. **Hallazgos 6, 9, 10** — requieren decisión del cliente: cómo valorizar, si
    hace falta omitir pasos, y si vale la pena cerrar la ventana de la devolución.
 6. **Hallazgos 7, 11 y las mejoras menores** — cuando haya espacio.

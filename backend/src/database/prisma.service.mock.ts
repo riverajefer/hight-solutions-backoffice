@@ -51,6 +51,7 @@ export const createMockPrismaService = () => ({
     delete: jest.fn(),
     count: jest.fn(),
     aggregate: jest.fn(),
+    groupBy: jest.fn(),
   },
   orderItem: {
     findUnique: jest.fn(),

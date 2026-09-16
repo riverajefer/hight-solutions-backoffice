@@ -212,10 +212,11 @@ export class OrdersService {
   ) {}
 
   async findAll(filters: FilterOrdersDto) {
-    const { status, search, clientId, orderDateFrom, orderDateTo, paymentDateFrom, paymentDateTo, page, limit, excludeWithWorkOrder, productionAreaId, createdById, hasBalance, paymentStatus, deliveryStatus, advancePaymentStatus, excludeAnulado } = filters;
+    const { status, statuses, search, clientId, orderDateFrom, orderDateTo, paymentDateFrom, paymentDateTo, page, limit, excludeWithWorkOrder, productionAreaId, createdById, hasBalance, paymentStatus, deliveryStatus, advancePaymentStatus, excludeAnulado } = filters;
 
     return this.ordersRepository.findAllWithFilters({
       status,
+      statuses,
       search,
       clientId,
       orderDateFrom: startOfDay(orderDateFrom),
@@ -289,6 +290,21 @@ export class OrdersService {
       receivableCount: receivable._count.id,
       pendingAdvancesCount: pendingAdvances,
     };
+  }
+
+  /**
+   * Totales de la cartera pendiente. La pantalla los muestra en el encabezado,
+   * y no puede calcularlos sumando la página visible.
+   */
+  async getPendingPaymentSummary(filters: FilterOrdersDto) {
+    return this.ordersRepository.getPendingPaymentSummary({
+      clientId: filters.clientId,
+    });
+  }
+
+  /** Asesores que han creado al menos una orden, para el filtro de la pantalla. */
+  async getAdvisorsWithOrders() {
+    return this.ordersRepository.findAdvisorsWithOrders();
   }
 
   async getSalesSummary(filters: FilterOrdersDto) {

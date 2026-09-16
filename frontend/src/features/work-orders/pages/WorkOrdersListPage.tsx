@@ -27,7 +27,7 @@ import { PERMISSIONS, ROUTES } from '../../../utils/constants';
 import { WorkOrderStatus } from '../../../types/work-order.types';
 import type { WorkOrder, FilterWorkOrdersDto } from '../../../types/work-order.types';
 import { ExportDialog } from '../../../components/common/ExportDialog';
-import { EXPORT_LIMIT } from '../../../utils/excelExport';
+import { fetchAllPages } from '../../../utils/excelExport';
 import { WORK_ORDER_EXPORT_COLUMNS } from '../utils/workOrderExportColumns';
 import { workOrdersApi } from '../../../api/work-orders.api';
 import { parseDateFilter } from '../../../utils/dateFilters';
@@ -324,15 +324,17 @@ export const WorkOrdersListPage = () => {
             parseDateFilter(filters.createdAtTo)
           }
           fetchRows={async ({ fromDate, toDate }) => {
-            const { page, limit, ...activeFilters } = filters;
-            const response = await workOrdersApi.getAll({
-              ...activeFilters,
-              createdAtFrom: fromDate,
-              createdAtTo: toDate,
-              page: 1,
-              limit: EXPORT_LIMIT,
+            const { page: _p, limit: _l, ...activeFilters } = filters;
+            return fetchAllPages(async (page, limit) => {
+              const response = await workOrdersApi.getAll({
+                ...activeFilters,
+                createdAtFrom: fromDate,
+                createdAtTo: toDate,
+                page,
+                limit,
+              });
+              return response.data ?? [];
             });
-            return response.data ?? [];
           }}
         />
       )}
