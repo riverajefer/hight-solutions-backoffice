@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { createOrReturnTwin } from '../../common/utils/unique-violation.util';
+import { findActiveCashSession } from '../cash-session/active-cash-session.util';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { WsEventsGateway } from '../ws-events/ws-events.gateway';
@@ -455,10 +456,7 @@ export class RefundRequestsService
       throw new ConflictException('Esta devolución ya fue pagada');
     }
 
-    const activeSession = await this.prisma.cashSession.findFirst({
-      where: { status: 'OPEN' },
-      select: { id: true },
-    });
+    const activeSession = await findActiveCashSession(this.prisma);
 
     if (!activeSession) {
       throw new BadRequestException(

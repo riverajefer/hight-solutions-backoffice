@@ -1,0 +1,391 @@
+# Cuarta barrida — Fase 0
+
+Barrida sobre lo que las tres anteriores dejaron fuera de alcance por escrito:
+**inventario, producción, portafolio y la ejecución de devoluciones**. Se suma
+una revisión transversal de paginación y de cómo se elige la sesión de caja,
+porque ahí está el hallazgo que más pesa para el clon de Zoom.
+
+Las cifras de producción salen de `scripts/db-query.sh` en modo solo lectura,
+consultado el 2026-09-15.
+
+El hallazgo 3 ya está corregido. Los demás siguen en diagnóstico; el orden
+sugerido está al final.
+
+---
+
+## 1. El inventario nunca descuenta: la OT no manda la cantidad — **Alta**
+
+El backend está completo. Al pasar una OT a `COMPLETED`,
+[work-orders.service.ts:227](../backend/src/modules/work-orders/work-orders.service.ts#L227)
+llama a `createExitFromWorkOrder`, que descuenta cada insumo dentro de la misma
+transacción. Pero filtra por cantidad:
+
+```ts
+where: { workOrderItem: { workOrderId }, quantity: { not: null, gt: 0 } }
+```
+
+Y el formulario de OT nunca escribe esa cantidad. El selector de insumos mapea
+la selección a un objeto con un solo campo:
+
+- [WorkOrderFormPage.tsx:938](../frontend/src/features/work-orders/pages/WorkOrderFormPage.tsx#L938) — `value.map((v) => ({ supplyId: v.id }))`
+- [WorkOrderFormPage.tsx:869](../frontend/src/features/work-orders/pages/WorkOrderFormPage.tsx#L869) — `{ supplyId: newSupply.id }`
+
+No hay ningún campo de cantidad en la pantalla. El insumo queda vinculado a la
+OT con `quantity = null`, el `findMany` devuelve cero filas y la función retorna
+antes de mover nada.
+
+Lo que dice producción:
+
+| Dato | Valor |
+|---|---|
+| Vínculos insumo–OT | 9 |
+| …con cantidad > 0 | **0** |
+| Movimientos de inventario | **0** |
+| OT completadas | 39 |
+| Insumos activos con stock ≠ 0 | 11 |
+
+39 OT completadas y ni un solo movimiento. El módulo de inventario lleva toda la
+vida del sistema sin ejecutarse una vez.
+
+**Qué falta**: un campo de cantidad por insumo en el paso de insumos de la OT, y
+decidir si la cantidad es obligatoria (si lo es, hay que migrar los 9 vínculos
+existentes o dejarlos en cero explícito).
+
+---
+
+## 2. Editar un insumo reescribe el stock sin dejar movimiento — **Alta**
+
+`PUT /supplies/:id` acepta `currentStock` y lo escribe directo sobre la tabla:
+
+- [supplies.service.ts:169](../backend/src/modules/portfolio/supplies/supplies.service.ts#L169)
+- [supplies.service.ts:80](../backend/src/modules/portfolio/supplies/supplies.service.ts#L80) (en la creación, igual)
+
+Salta por encima de `InventoryMovement`, que es justo la tabla que existe para
+responder "quién cambió este stock, cuándo y por qué". Queda sin `previousStock`,
+sin `newStock`, sin motivo y sin responsable.
+
+Combinado con el hallazgo 1, esto explica el dato raro de producción: 11 insumos
+con stock distinto de cero y cero movimientos. **Hoy el stock se mantiene a mano
+editando el insumo.** Es el único camino que quedó vivo.
+
+**Propuesta**: sacar `currentStock` del DTO de actualización. El stock inicial en
+la creación sí tiene sentido, pero debería nacer como movimiento `INITIAL`.
+Cualquier corrección posterior es un `ADJUSTMENT` con motivo, que ya está
+implementado y exige `reason`.
+
+---
+
+## 3. La sesión de caja se elige con `findFirst` sin caja ni orden — **Alta para el fork** · ✅ Corregido
+
+**Siete** caminos de dinero —no cinco, como decía el primer conteo— buscaban "la
+sesión abierta" sin decir de cuál caja:
+
+```ts
+const activeSession = await this.prisma.cashSession.findFirst({
+  where: { status: 'OPEN' },
+});
+```
+
+- [refund-requests.service.ts](../backend/src/modules/refund-requests/refund-requests.service.ts) — ejecutar una devolución
+- [expense-orders.service.ts](../backend/src/modules/expense-orders/expense-orders.service.ts) — autorización de Caja de una OG
+- [accounts-payable.service.ts](../backend/src/modules/accounts-payable/accounts-payable.service.ts) — pago de una CP
+- [orders.service.ts](../backend/src/modules/orders/orders.service.ts) — **cuatro**: pagos iniciales al crear la OP, abono nuevo al editarla, `addPayment`, y el abono que pasa de no-dinero a dinero al editar el método
+
+Sin `cashRegisterId` y sin `orderBy`, el motor devuelve la fila que quiera.
+
+**Hoy en High Solutions no hace daño: producción tiene una sola caja registrada,
+una sola activa.** Por eso nunca se notó.
+
+Para Zoom es otra cosa. Con tres sedes operando a la vez habrá tres sesiones
+`OPEN` simultáneas, y un pago hecho en una sede se puede registrar en la caja de
+otra. El arqueo de cierre no le cuadra a ninguna de las tres y no queda rastro de
+por qué. `cash-movement.service.ts:162` sí lo hace bien —filtra por
+`cashRegisterId` y ordena por `openedAt`—, así que el patrón correcto ya existe
+en el código.
+
+Hay algo previo que decidir: **el modelo no tiene concepto de sede**. `locations`
+es el catálogo de departamentos y ciudades de Colombia para direcciones, no
+sucursales; ninguna tabla tiene `locationId`. Si las tres sedes de Zoom van a
+compartir una instancia, la sede es una dimensión nueva que atraviesa caja,
+consecutivos e inventario. Si va a ser una instancia por sede, este hallazgo se
+reduce a "filtra por la caja del usuario" y ya.
+
+### Corrección aplicada
+
+Esa decisión sigue pendiente, pero no hacía falta tomarla para cerrar el agujero.
+Los siete puntos pasan ahora por un único resolvedor,
+[`active-cash-session.util.ts`](../backend/src/modules/cash-session/active-cash-session.util.ts):
+
+```ts
+export async function findActiveCashSession(
+  client: CashSessionClient,   // PrismaService o el `tx` de una transacción
+  cashRegisterId?: string,
+): Promise<ActiveCashSession | null>
+```
+
+**No adivina.** Sin caja indicada pide dos filas (`take: 2`, ordenadas por
+`openedAt`) y distingue tres casos: ninguna abierta devuelve `null` —el
+comportamiento que ya esperaban los llamadores, con su cola de abonos
+pendientes—, una abierta la devuelve, y **varias abiertas fallan** con un
+`ConflictException` que le dice al operario qué hacer. Perder un movimiento en la
+caja equivocada cuesta mucho más de reconstruir que repetir la operación: ya
+pasó con los pagos huérfanos.
+
+El parámetro `cashRegisterId` es el camino sin ambigüedad posible, y es el que
+habrá que usar el día que exista la dimensión de sede.
+
+**Para High Solutions esto no cambia absolutamente nada hoy**, y está
+comprobado contra producción, no supuesto: 78 sesiones históricas, **todas sobre
+la misma caja, sin un solo solape entre cajas distintas**. La rama que falla es
+inalcanzable mientras exista una sola caja. El día que se abra la segunda, en vez
+de misregistrar el dinero en silencio, se detiene y avisa.
+
+Dos detalles del diseño:
+
+- El índice parcial `cash_sessions_one_open_per_register` (que ya existía)
+  garantiza como máximo una sesión abierta por caja, así que dos resultados son
+  siempre dos cajas distintas. El mensaje de error puede afirmarlo sin rodeos.
+- El tipo `Pick<Prisma.TransactionClient, 'cashSession'>` deja que la misma
+  función sirva para `this.prisma` y para el `tx` de una transacción en curso,
+  que era la razón por la que dos de los siete sitios estaban duplicados.
+
+`isAnySessionOpen` ([pending-cash-entries.service.ts:37](../backend/src/modules/cash-session/pending-cash-entries.service.ts#L37))
+se deja como está a propósito: devuelve un booleano para un aviso de la UI y
+nunca elige una sesión, así que no puede desviar dinero. Con dos cajas abiertas
+diría "hay caja" y la escritura fallaría después con el mensaje correcto —una
+inconsistencia de aviso, no de plata—. Ajustarla de verdad exige saber a qué sede
+pertenece quien mira la pantalla, que es justo la decisión pendiente.
+
+**Verificación**: `tsc --noEmit` limpio y la suite completa en verde (184 suites,
+2784 tests), con 8 pruebas nuevas para el resolvedor. Los 19 mocks de
+`cashSession.findFirst` de los specs de órdenes, OG, CP y devoluciones se
+migraron a `findMany`.
+
+---
+
+## 4. Lectura‑modificación‑escritura sobre el stock: actualizaciones perdidas — **Media**
+
+[inventory.service.ts:128‑163](../backend/src/modules/inventory/inventory.service.ts#L128)
+lee `currentStock`, calcula en memoria y escribe el valor absoluto:
+
+```ts
+const previousStock = new Prisma.Decimal(supply.currentStock);
+newStock = previousStock.add(qty);
+// …
+client.supply.update({ where: { id }, data: { currentStock: newStock } })
+```
+
+Dos movimientos simultáneos sobre el mismo insumo leen el mismo `previousStock` y
+el segundo pisa al primero: un movimiento queda registrado en el kardex pero su
+efecto sobre el stock desaparece. Lo mismo en
+[createExitFromWorkOrder:74‑94](../backend/src/modules/inventory/inventory.service.ts#L74).
+
+Se arregla con la operación atómica de Prisma: `{ currentStock: { increment: qty } }`.
+
+De paso, el comentario de la línea 156 dice "Crear movimiento y actualizar stock
+atomicamente", pero cuando no se pasa `tx` —que es el caso de todo movimiento
+manual, porque `createManualMovement` no abre transacción— el `Promise.all` son
+dos consultas sueltas. Si falla la segunda, queda un movimiento en el kardex que
+declara un stock que nunca se escribió.
+
+---
+
+## 5. La salida por OT recorta el stock a cero y descuadra el kardex — **Media**
+
+```ts
+const newStock = Prisma.Decimal.max(previousStock.sub(qty), new Prisma.Decimal(0));
+```
+
+Si la OT consume más de lo que hay, el stock se queda en cero y el movimiento se
+graba igual, con `quantity` mayor que la diferencia entre `previousStock` y
+`newStock`. El kardex deja de cuadrar consigo mismo y no hay ni error ni aviso:
+el faltante real se pierde en silencio.
+
+`createMovement` sí lanza `BadRequestException` por stock insuficiente. Son dos
+criterios distintos para la misma situación.
+
+Como el hallazgo 1 tiene esta ruta apagada, hoy no ha ocurrido nunca. Pero se
+activa el día que se agregue el campo de cantidad, así que conviene resolver los
+dos juntos.
+
+---
+
+## 6. La valoración de inventario mezcla unidades de compra y de consumo — **Media**
+
+[inventory.repository.ts:173](../backend/src/modules/inventory/inventory.repository.ts#L173):
+
+```sql
+CAST(COALESCE(s.current_stock * s.purchase_price, 0) AS FLOAT) as total_value
+```
+
+`purchase_price` es el precio de la **unidad de compra** (el rollo) y
+`current_stock` se lleva en **unidad de consumo** (el metro). El insumo guarda
+`conversionFactor` justo para salvar esa distancia, y **ese campo no se lee en
+ninguna parte del código**: se guarda, se puede editar y nadie lo usa.
+
+Un rollo de 50 m a $100.000, con 50 m en stock, se valoriza en $5.000.000.
+
+En producción hay 2 insumos activos con unidad de compra distinta de la de
+consumo y factor distinto de 1. Son pocos, pero su valor está inflado por el
+factor.
+
+---
+
+## 7. Un alias SQL repetido deja un campo siempre vacío — **Baja**
+
+[inventory.repository.ts:142‑143](../backend/src/modules/inventory/inventory.repository.ts#L142):
+
+```sql
+uom.name as unit_name,
+uom.abbreviation as unit_name   -- ← debería ser unit_abbreviation
+```
+
+Dos columnas con el mismo alias. El driver se queda con una, así que el
+`unit_abbreviation` que declara el tipo de TypeScript nunca llega, y lo que viaja
+en `unit_name` no es necesariamente el nombre. El tipo del repositorio afirma
+algo que la consulta no cumple, y TypeScript no puede detectarlo porque
+`$queryRaw` confía en el tipo que uno le escriba.
+
+La pantalla de alertas de stock bajo pinta `unit_name`; hoy muestra la
+abreviatura donde dice mostrar el nombre.
+
+---
+
+## 8. Once de quince filtros paginados no tienen tope de `limit` — **Media**
+
+Estos DTO declaran `limit` con `@Min(1)` y sin `@Max`:
+
+`orders`, `quotes`, `work-orders`, `expense-orders`, `attendance`, `prospects`,
+`dtf`, `session-logs`, `payroll-deductions`, `production`, `inventory`.
+
+Y los repositorios pasan el valor directo a Prisma (`take: limit`) en orders,
+quotes, work-orders, expense-orders, attendance, prospects, dtf y session-logs.
+Solo inventario acota con `Math.min(limit, 100)`.
+
+`GET /orders?limit=100000` trae la tabla completa con todos sus `include`. No es
+un agujero de seguridad —hace falta estar autenticado y con permiso de lectura—
+pero sí una forma fácil de tumbar la API sin querer, y el backend no aguanta
+réplicas para amortiguarlo.
+
+La corrección es un `@Max(100)` en el DTO base y un `Math.min` en el repositorio,
+por si alguien construye el filtro sin pasar por la validación.
+
+---
+
+## 9. Ningún paso de producción se puede marcar como omitido — **Media**
+
+`ProductionStepStatus.SKIPPED` se lee en cinco lugares del servicio —cuenta como
+avance, habilita el paso siguiente, permite cerrar la orden— y **no hay un solo
+punto que lo escriba**. El controlador expone especificación, ejecución y
+completar; nada más.
+
+Tampoco hay forma de cancelar una orden de producción ni de reabrir un paso
+cerrado por error: `completeStep` rechaza los pasos `COMPLETED` y no existe el
+camino inverso.
+
+En producción hay 6 órdenes de producción y las 6 están en `IN_PROGRESS`,
+ninguna `COMPLETED`. No alcanza para concluir que se atascaron —el módulo es
+reciente y pueden estar realmente en curso—, pero sí conviene preguntarle al
+cliente si alguna lleva parada por un paso que no aplicaba.
+
+---
+
+## 10. La devolución calcula los montos sobre una lectura previa a la transacción — **Media**
+
+En [refund-requests.service.ts:440](../backend/src/modules/refund-requests/refund-requests.service.ts#L440)
+la orden se lee fuera de la transacción, y con esa foto se calculan
+`newPaidAmount`, `newRefundedAmount`, `newReversedAmount` y `newBalance`. Dentro
+de la transacción esos valores absolutos se escriben tal cual.
+
+El `updateMany` con `executedAt: null` cierra bien la carrera de ejecutar la
+misma devolución dos veces, pero no protege contra otra escritura sobre la misma
+orden. Si entre la lectura y el commit se registra un pago, el `paidAmount` nuevo
+se pisa con el viejo menos la devolución: el pago se borra.
+
+La ventana es de milisegundos y hace falta que coincidan un pago y una devolución
+sobre la misma OP, así que es poco probable. Pero es dinero, y el resto del
+servicio —que está muy bien pensado en todo lo demás— ya usa el patrón correcto
+en otros puntos.
+
+---
+
+## 11. Consecutivos que se queman fuera de la transacción — **Baja**
+
+`generateNumber` se llama antes de abrir la transacción en dos sitios:
+
+- [refund-requests.service.ts:477](../backend/src/modules/refund-requests/refund-requests.service.ts#L477) — `CASH_RECEIPT`
+- [production-orders.service.ts:101](../backend/src/modules/production/production-orders.service.ts#L101) — `PRODUCTION_ORDER`
+
+Si la transacción falla, el número ya se consumió y queda un hueco en la
+numeración. En la orden de producción da igual. En el **recibo de caja** importa
+más: es la numeración que se revisa cuando hay que reconstruir un día de caja, y
+un salto obliga a explicar por qué.
+
+---
+
+## 12. Mejoras menores
+
+- **`ADJUSTMENT` solo resta.** Está en `STOCK_DECREASE_TYPES`
+  ([inventory.service.ts:21](../backend/src/modules/inventory/inventory.service.ts#L21)),
+  así que un ajuste nunca puede subir el stock. Un conteo físico que sale por
+  encima del sistema no tiene cómo registrarse. O se admite cantidad con signo,
+  o se separa en `ADJUSTMENT_IN` / `ADJUSTMENT_OUT`.
+- **`getLowStockSupplies()` es código muerto** y además está roto: compara con
+  `this.prisma.supply.fields.minimumStock as any`. Nadie la llama; la versión
+  `Raw` es la que se usa. Conviene borrarla antes de que alguien la adopte.
+- **`PENDING` en órdenes de producción no existe en la práctica**: se crea con
+  ese estado y se actualiza a `IN_PROGRESS` en la misma transacción, dos líneas
+  después.
+- **N+1 al crear una orden de producción**: un `create` por componente y otro por
+  paso, dentro de la transacción. Con plantillas grandes acerca el tiempo límite
+  de la transacción sin necesidad; `createMany` lo resuelve.
+- **`validateRequiredExecutionFields` confía en el esquema**: si `fieldSchema`
+  viniera nulo o sin `fields`, revienta con un 500 en vez de un mensaje claro.
+
+---
+
+## Revisado sin hallazgos
+
+- **Aprobación y rechazo de devoluciones**: `assertRefundStillViable` se
+  revalida al autorizar y al pagar, la orden pagada por nómina se bloquea
+  explícitamente, y el índice parcial `refund_requests_pending_unique` con
+  `createOrReturnTwin` cierra el doble clic. El tratamiento de `refundedAmount` y
+  `reversedNetAmount` es correcto.
+- **Transiciones de OT**: `COMPLETED` es terminal, así que no hay forma de
+  disparar dos veces la salida de inventario por la misma OT.
+- **Restricción secuencial de pasos de producción**: valida el paso anterior por
+  `order - 1` dentro del mismo componente, y los pasos se copian de la plantilla
+  con `order` contiguo.
+- **CRUD de portafolio** (productos, categorías de producto y de insumo,
+  unidades de medida): unicidad validada, borrado lógico, guards y permisos por
+  ruta en los cinco controladores.
+- **Guards de producción e inventario**: `JwtAuthGuard` + `PermissionsGuard` con
+  permiso por endpoint en los dos módulos.
+- **Cron de stock bajo**: fija `timeZone: BUSINESS_TIMEZONE`, ya corregido en la
+  tercera barrida.
+
+---
+
+## Fuera de alcance
+
+Cartera (`portfolio` se revisó como catálogo; la cartera de clientes como
+cobranza no se tocó), `prospects`, `quote-kanban-columns`, `comments` y
+`commercial-channels`.
+
+Sigue pendiente el hallazgo 8 de la tercera barrida: la marca de High Solutions
+escrita en código.
+
+---
+
+## Orden sugerido
+
+1. ~~**Hallazgo 3** — la caja.~~ ✅ Hecho. La decisión de si las 3 sedes
+   comparten instancia sigue pendiente, pero ya no es un riesgo de dinero:
+   el sistema falla en vez de adivinar.
+2. **Hallazgos 1, 2, 4, 5** — inventario, los cuatro juntos. Por separado no
+   sirven de mucho: el 1 enciende una ruta que el 4 y el 5 tienen que soportar,
+   y el 2 es la puerta de atrás que hay que cerrar al mismo tiempo.
+3. **Hallazgo 8** — el tope de paginación, que es una línea por DTO.
+4. **Hallazgos 6, 9, 10** — requieren decisión del cliente: cómo valorizar, si
+   hace falta omitir pasos, y si vale la pena cerrar la ventana de la devolución.
+5. **Hallazgos 7, 11 y las mejoras menores** — cuando haya espacio.

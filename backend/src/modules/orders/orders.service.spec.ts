@@ -179,6 +179,7 @@ const mockPrisma = {
   refundRequest: { findMany: jest.fn().mockResolvedValue([]) },
   cashSession: {
     findFirst: jest.fn(),
+    findMany: jest.fn(),
   },
   cashMovement: {
     updateMany: jest.fn(),
@@ -849,7 +850,7 @@ describe('OrdersService', () => {
     beforeEach(() => {
       mockConsecutivesService.generateNumber.mockResolvedValue('OP-2026-001');
       mockOrdersRepository.create.mockResolvedValue(mockOrder);
-      mockPrisma.cashSession.findFirst.mockResolvedValue(null);
+      mockPrisma.cashSession.findMany.mockResolvedValue([]);
       mockPrisma.payment.findMany.mockResolvedValue([]);
     });
 
@@ -1452,7 +1453,7 @@ describe('OrdersService', () => {
       it('genera movimiento de caja para un abono nuevo si hay caja abierta', async () => {
         mockPrisma.payment.findFirst.mockResolvedValue(null);
         mockPrisma.payment.create.mockResolvedValue({ id: 'pay-new' });
-        mockPrisma.cashSession.findFirst.mockResolvedValue({ id: 'session-1' });
+        mockPrisma.cashSession.findMany.mockResolvedValue([{ id: 'session-1', cashRegisterId: 'cr-1' }]);
 
         await service.update(
           'order-1',
@@ -1480,7 +1481,7 @@ describe('OrdersService', () => {
       it('sin caja abierta no genera movimiento, pero deja el abono en cola', async () => {
         mockPrisma.payment.findFirst.mockResolvedValue(null);
         mockPrisma.payment.create.mockResolvedValue({ id: 'pay-new' });
-        mockPrisma.cashSession.findFirst.mockResolvedValue(null);
+        mockPrisma.cashSession.findMany.mockResolvedValue([]);
 
         await service.update(
           'order-1',
@@ -1499,7 +1500,7 @@ describe('OrdersService', () => {
       it('no genera movimiento para saldo a favor (ya entró a caja en la OP de origen)', async () => {
         mockPrisma.payment.findFirst.mockResolvedValue(null);
         mockPrisma.payment.create.mockResolvedValue({ id: 'pay-new' });
-        mockPrisma.cashSession.findFirst.mockResolvedValue({ id: 'session-1' });
+        mockPrisma.cashSession.findMany.mockResolvedValue([{ id: 'session-1', cashRegisterId: 'cr-1' }]);
 
         await service.update(
           'order-1',
@@ -2615,7 +2616,7 @@ describe('OrdersService', () => {
       mockPrisma.payment.create.mockResolvedValue({ id: 'pay-new' });
       mockPrisma.order.update.mockResolvedValue(mockConfirmedOrder);
       mockPrisma.payment.findUnique.mockResolvedValue(mockPaymentFull);
-      mockPrisma.cashSession.findFirst.mockResolvedValue(null);
+      mockPrisma.cashSession.findMany.mockResolvedValue([]);
     });
 
     // Doble clic en "Registrar abono": un abono duplicado infla `paidAmount` y
@@ -2659,7 +2660,7 @@ describe('OrdersService', () => {
     // perderse ni frenar a la comercial.
     describe('cola de pendientes de caja', () => {
       it('marca el abono como pendiente cuando no hay caja abierta', async () => {
-        mockPrisma.cashSession.findFirst.mockResolvedValue(null);
+        mockPrisma.cashSession.findMany.mockResolvedValue([]);
 
         await service.addPayment('order-1', paymentDto, 'user-1');
 
@@ -2671,7 +2672,7 @@ describe('OrdersService', () => {
       });
 
       it('NO lo marca pendiente si hay caja abierta (ya generó movimiento)', async () => {
-        mockPrisma.cashSession.findFirst.mockResolvedValue({ id: 'session-1' });
+        mockPrisma.cashSession.findMany.mockResolvedValue([{ id: 'session-1', cashRegisterId: 'cr-1' }]);
         mockPrisma.cashMovement.create.mockResolvedValue({ id: 'mov-1' });
         mockConsecutivesService.generateNumber.mockResolvedValue('RC-2026-0001');
 
@@ -2685,7 +2686,7 @@ describe('OrdersService', () => {
       });
 
       it('NO encola el saldo a favor: ese dinero ya entró en la OP de origen', async () => {
-        mockPrisma.cashSession.findFirst.mockResolvedValue(null);
+        mockPrisma.cashSession.findMany.mockResolvedValue([]);
 
         await service.addPayment(
           'order-1',
@@ -2701,7 +2702,7 @@ describe('OrdersService', () => {
       });
 
       it('NO encola el crédito: no es dinero, es la marca de "paga después"', async () => {
-        mockPrisma.cashSession.findFirst.mockResolvedValue(null);
+        mockPrisma.cashSession.findMany.mockResolvedValue([]);
 
         await service.addPayment(
           'order-1',
@@ -2722,7 +2723,7 @@ describe('OrdersService', () => {
     // aparece pagada y el abono real posterior queda duplicado.
     describe('pago a crédito', () => {
       it('no genera movimiento de caja aunque haya sesión abierta', async () => {
-        mockPrisma.cashSession.findFirst.mockResolvedValue({ id: 'session-1' });
+        mockPrisma.cashSession.findMany.mockResolvedValue([{ id: 'session-1', cashRegisterId: 'cr-1' }]);
 
         await service.addPayment(
           'order-1',
@@ -2737,7 +2738,7 @@ describe('OrdersService', () => {
       });
 
       it('deja el saldo intacto: paidAmount no cambia y balance sigue siendo el total', async () => {
-        mockPrisma.cashSession.findFirst.mockResolvedValue({ id: 'session-1' });
+        mockPrisma.cashSession.findMany.mockResolvedValue([{ id: 'session-1', cashRegisterId: 'cr-1' }]);
 
         await service.addPayment(
           'order-1',
@@ -2843,7 +2844,7 @@ describe('OrdersService', () => {
     it('should NOT create a cash movement for a CREDIT_BALANCE payment', async () => {
       // Con sesión de caja abierta: un pago normal sí genera movimiento, pero el
       // saldo a favor no es dinero nuevo entrando a caja.
-      mockPrisma.cashSession.findFirst.mockResolvedValue({ id: 'session-1' });
+      mockPrisma.cashSession.findMany.mockResolvedValue([{ id: 'session-1', cashRegisterId: 'cr-1' }]);
 
       await service.addPayment(
         'order-1',
@@ -2855,7 +2856,7 @@ describe('OrdersService', () => {
     });
 
     it('should create a cash movement for a CASH payment when a session is open', async () => {
-      mockPrisma.cashSession.findFirst.mockResolvedValue({ id: 'session-1' });
+      mockPrisma.cashSession.findMany.mockResolvedValue([{ id: 'session-1', cashRegisterId: 'cr-1' }]);
       mockPrisma.cashMovement.create.mockResolvedValue({ id: 'mov-1' });
 
       await service.addPayment('order-1', paymentDto, 'user-1');
@@ -3606,8 +3607,10 @@ describe('OrdersService', () => {
           description: 'Abono a Orden OP-2026-0001',
           cashSession: { id: 'session-1', status: 'OPEN' },
         });
-        mockPrisma.cashSession.findFirst.mockResolvedValue(
-          opts.sessionOpen === false ? null : { id: 'session-2' },
+        mockPrisma.cashSession.findMany.mockResolvedValue(
+          opts.sessionOpen === false
+            ? []
+            : [{ id: 'session-2', cashRegisterId: 'cr-1' }],
         );
         mockPrisma.cashMovement.create.mockResolvedValue({ id: 'mov-nuevo' });
         mockConsecutivesService.generateNumber.mockResolvedValue('RC-2026-0100');

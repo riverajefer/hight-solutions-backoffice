@@ -58,6 +58,7 @@ describe('ExpenseOrdersService', () => {
       },
       cashSession: {
         findFirst: jest.fn(),
+        findMany: jest.fn(),
       },
       cashMovement: {
         create: jest.fn(),
@@ -113,7 +114,7 @@ describe('ExpenseOrdersService', () => {
 
     beforeEach(() => {
       (repository.findById as jest.Mock).mockResolvedValue(adminAuthorized);
-      (prisma.cashSession.findFirst as jest.Mock).mockResolvedValue({ id: 'session-1' });
+      (prisma.cashSession.findMany as jest.Mock).mockResolvedValue([{ id: 'session-1', cashRegisterId: 'cr-1' }]);
       (repository.updateStatus as jest.Mock).mockResolvedValue({
         ...adminAuthorized,
         status: ExpenseOrderStatus.PAID,
@@ -135,7 +136,7 @@ describe('ExpenseOrdersService', () => {
     // Antes marcaba AUTHORIZED y después descubría que no había caja: la OG
     // quedaba fuera de ADMIN_AUTHORIZED, sin pago y sin forma de reintentar.
     it('sin caja abierta no toca el estado de la OG', async () => {
-      (prisma.cashSession.findFirst as jest.Mock).mockResolvedValue(null);
+      (prisma.cashSession.findMany as jest.Mock).mockResolvedValue([]);
 
       await expect(service.cajaAuthorize('og-1', currentUser)).rejects.toThrow(
         BadRequestException,

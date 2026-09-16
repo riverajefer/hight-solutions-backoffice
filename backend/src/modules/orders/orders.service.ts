@@ -23,6 +23,10 @@ import { DiscountApprovalsService } from '../discount-approvals/discount-approva
 import { ClientOwnershipAuthRequestsService } from '../client-ownership-auth-requests/client-ownership-auth-requests.service';
 import { PayrollDeductionsService } from '../payroll-deductions/payroll-deductions.service';
 import {
+  ActiveCashSession,
+  findActiveCashSession,
+} from '../cash-session/active-cash-session.util';
+import {
   CreateOrderDto,
   UpdateOrderDto,
   FilterOrdersDto,
@@ -704,7 +708,7 @@ export class OrdersService {
     ];
 
     // Buscar sesión activa una sola vez (se reutiliza en buildPayments)
-    let activeSession: { id: string } | null = null;
+    let activeSession: ActiveCashSession | null = null;
 
     // Total de saldo a favor que se pretende aplicar en esta orden
     const creditBalanceTotal = allInitialPayments
@@ -732,10 +736,7 @@ export class OrdersService {
       }
 
       // 1. Buscar sesión activa
-      activeSession = await this.prisma.cashSession.findFirst({
-        where: { status: 'OPEN' },
-        select: { id: true },
-      });
+      activeSession = await findActiveCashSession(this.prisma);
     }
 
     // Descuento por nómina: el cliente es un empleado y el trabajo se le resta
@@ -1413,10 +1414,7 @@ export class OrdersService {
           if (!firstPayment) {
             // Pago nuevo: mismo tratamiento que en `addPayment`.
             if (movesCash) {
-              const activeSession = await tx.cashSession.findFirst({
-                where: { status: 'OPEN' },
-                select: { id: true },
-              });
+              const activeSession = await findActiveCashSession(tx);
 
               if (activeSession) {
                 const receiptNumber =
@@ -2127,10 +2125,7 @@ export class OrdersService {
     const movesCash = paymentMovesCash(createPaymentDto.paymentMethod);
 
     // Buscar sesión de caja abierta activa
-    const activeSession = await this.prisma.cashSession.findFirst({
-      where: { status: 'OPEN' },
-      select: { id: true },
-    });
+    const activeSession = await findActiveCashSession(this.prisma);
 
     // Nota: se permite que el pago exceda el saldo pendiente.
     // El excedente queda como "saldo a favor" (paidAmount > total → balance negativo)
@@ -2599,10 +2594,7 @@ export class OrdersService {
         // el mismo bug que acabamos de cerrar en el resto de los flujos.
         // El movimiento se crea en la sesión abierta HOY, no en la del día en
         // que se registró el crédito: el dinero entra ahora.
-        const activeSession = await tx.cashSession.findFirst({
-          where: { status: 'OPEN' },
-          select: { id: true },
-        });
+        const activeSession = await findActiveCashSession(tx);
 
         if (activeSession) {
           const receiptNumber =
