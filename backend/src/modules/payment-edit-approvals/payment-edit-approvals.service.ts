@@ -32,6 +32,7 @@ import {
   computeOrderBalance,
 } from '../../common/utils/order-balance.util';
 import { CreditBalanceService } from '../credit-balance/credit-balance.service';
+import { lockOrderForUpdate } from '../../common/utils/order-lock.util';
 
 const USER_SELECT = {
   id: true,
@@ -566,6 +567,8 @@ export class PaymentEditApprovalsService
     orderId: string,
     tx: Prisma.TransactionClient,
   ) {
+    // Bloquea la OP antes de leerla: ver `lockOrderForUpdate`.
+    await lockOrderForUpdate(tx, orderId);
     const [order, payments] = await Promise.all([
       tx.order.findUnique({
         where: { id: orderId },

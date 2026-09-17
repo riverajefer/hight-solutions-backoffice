@@ -230,6 +230,14 @@ async function main() {
       description: 'Aprobar/rechazar solicitudes de cambio de asesor de órdenes',
     },
     {
+      name: 'request_quote_restore',
+      description: 'Solicitar la restauración de una cotización rechazada',
+    },
+    {
+      name: 'approve_quote_restore',
+      description: 'Aprobar/rechazar la restauración de cotizaciones rechazadas',
+    },
+    {
       name: 'apply_discounts',
       description: 'Aplicar descuentos a órdenes',
     },
@@ -536,6 +544,7 @@ async function main() {
     'update_quotes',
     'convert_quotes',
     'read_all_quotes',
+    'request_quote_restore',
     // Sales Pipeline (Manager)
     'create_prospects',
     'read_prospects',

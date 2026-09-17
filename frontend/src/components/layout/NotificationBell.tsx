@@ -51,6 +51,8 @@ export const NotificationBell: React.FC = () => {
     // Navegar si tiene relación
     if (relatedId && relatedType === 'Order') {
       navigate(`${PATHS.ORDERS}/${relatedId}`);
+    } else if (relatedId && relatedType === 'Quote') {
+      navigate(`${PATHS.QUOTES}/${relatedId}`);
     }
 
     handleClose();

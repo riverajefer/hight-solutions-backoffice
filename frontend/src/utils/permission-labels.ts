@@ -139,6 +139,10 @@ export const PERMISSION_LABELS: Record<string, string> = {
   request_advisor_change: 'Solicitar Cambio de Asesor',
   approve_advisor_change: 'Aprobar Cambio de Asesor',
 
+  // Restauración de Cotizaciones
+  request_quote_restore: 'Solicitar Restaurar Cotización Rechazada',
+  approve_quote_restore: 'Aprobar Restaurar Cotización Rechazada',
+
   // Archivos
   upload_files: 'Subir Archivos',
   read_files: 'Ver y Descargar Archivos',

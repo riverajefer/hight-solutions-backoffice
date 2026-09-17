@@ -21,6 +21,7 @@ import {
   sumActivePayments,
 } from '../../common/utils/order-balance.util';
 import { CreditBalanceService } from '../credit-balance/credit-balance.service';
+import { lockOrderForUpdate } from '../../common/utils/order-lock.util';
 
 @Injectable()
 export class CashMovementService {
@@ -81,6 +82,8 @@ export class CashMovementService {
 
       // If linked to an order, create Payment and update order balance
       if (dto.referenceType === 'ORDER' && dto.referenceId) {
+        // Bloquea la OP antes de leerla: ver `lockOrderForUpdate`.
+        await lockOrderForUpdate(tx, dto.referenceId);
         const order = await tx.order.findUnique({
           where: { id: dto.referenceId },
           select: {
@@ -209,6 +212,8 @@ export class CashMovementService {
     // devuelve: ese dinero ya no existe.
     await this.creditBalanceService.releaseCredit(tx, paymentId);
 
+    // Bloquea la OP antes de leerla: ver `lockOrderForUpdate`.
+    await lockOrderForUpdate(tx, payment.orderId);
     const order = await tx.order.findUnique({
       where: { id: payment.orderId },
       select: {

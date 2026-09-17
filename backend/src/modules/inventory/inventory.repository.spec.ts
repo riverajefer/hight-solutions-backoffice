@@ -139,5 +139,21 @@ describe('InventoryRepository', () => {
       expect(res).toEqual([{ supply_id: 's1', total_value: 100 }]);
       expect(prisma.$queryRaw).toHaveBeenCalled();
     });
+
+    // El precio es por unidad de compra y el stock por unidad de consumo:
+    // multiplicarlos directo inflaba el valor por el factor de conversión.
+    it('pasa el stock a unidades de compra antes de multiplicar por el precio', async () => {
+      mockPrisma.$queryRaw.mockResolvedValue([]);
+
+      await repository.getInventoryValuation();
+
+      const sql = (mockPrisma.$queryRaw.mock.calls[0][0] as string[])
+        .join('')
+        .replace(/\s+/g, ' ');
+      expect(sql).toContain(
+        's.current_stock / NULLIF(s.conversion_factor, 0) * s.purchase_price',
+      );
+      expect(sql).not.toContain('s.current_stock * s.purchase_price');
+    });
   });
 });

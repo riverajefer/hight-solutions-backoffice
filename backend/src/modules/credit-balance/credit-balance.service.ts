@@ -5,6 +5,7 @@ import {
   computeAvailableOverpayment,
   computeOrderBalance,
 } from '../../common/utils/order-balance.util';
+import { lockOrderForUpdate } from '../../common/utils/order-lock.util';
 
 export interface CreditSource {
   orderId: string;
@@ -228,6 +229,8 @@ export class CreditBalanceService {
     orderId: string,
     delta: Prisma.Decimal,
   ): Promise<void> {
+    // Bloquea la OP antes de leerla: ver `lockOrderForUpdate`.
+    await lockOrderForUpdate(tx, orderId);
     const order = await tx.order.findUnique({
       where: { id: orderId },
       select: {

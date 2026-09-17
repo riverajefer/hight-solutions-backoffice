@@ -31,6 +31,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { OrderEditRequestsModule } from './modules/order-edit-requests/order-edit-requests.module';
 import { OrderStatusChangeRequestsModule } from './modules/order-status-change-requests/order-status-change-requests.module';
 import { AdvisorChangeRequestsModule } from './modules/advisor-change-requests/advisor-change-requests.module';
+import { QuoteRestoreRequestsModule } from './modules/quote-restore-requests/quote-restore-requests.module';
 import { ExpenseOrderAuthRequestsModule } from './modules/expense-order-auth-requests/expense-order-auth-requests.module';
 import { AdvancePaymentApprovalsModule } from './modules/advance-payment-approvals/advance-payment-approvals.module';
 import { PaymentEditApprovalsModule } from './modules/payment-edit-approvals/payment-edit-approvals.module';
@@ -136,6 +137,7 @@ import { ClientErrorsModule } from './modules/client-errors/client-errors.module
     // Módulo de Solicitudes de Cambio de Estado de Órdenes
     OrderStatusChangeRequestsModule,
     AdvisorChangeRequestsModule,
+    QuoteRestoreRequestsModule,
     // Módulo de Almacenamiento (AWS S3)
     StorageModule,
     // Módulo de Información de la Compañía
