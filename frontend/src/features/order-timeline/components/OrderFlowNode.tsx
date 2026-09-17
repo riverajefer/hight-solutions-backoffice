@@ -57,6 +57,9 @@ const STATUS_COLORS: Record<string, string> = {
   // Quote statuses
   DRAFT: '#9CA3AF',
   SENT: '#FBBF24',
+  FOLLOW_UP_1: '#0EA5E9',
+  FOLLOW_UP_2: '#6366F1',
+  FOLLOW_UP_3: '#A855F7',
   ACCEPTED: '#22D3EE',
   NO_RESPONSE: '#9CA3AF',
   REJECTED: '#EF4444',
@@ -79,6 +82,9 @@ const STATUS_COLORS: Record<string, string> = {
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: 'Borrador',
   SENT: 'Enviada',
+  FOLLOW_UP_1: 'Seguimiento 1',
+  FOLLOW_UP_2: 'Seguimiento 2',
+  FOLLOW_UP_3: 'Seguimiento 3',
   ACCEPTED: 'Aceptada',
   NO_RESPONSE: 'Sin respuesta',
   REJECTED: 'Rechazada',

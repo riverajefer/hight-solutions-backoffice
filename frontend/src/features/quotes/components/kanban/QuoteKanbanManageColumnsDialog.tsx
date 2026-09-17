@@ -50,11 +50,14 @@ import { QuoteStatus } from '../../../../types/quote.types';
 /** Estados protegidos — no se pueden editar ni eliminar */
 const PROTECTED_STATUSES: QuoteStatus[] = [QuoteStatus.DRAFT, QuoteStatus.CONVERTED];
 
-const MAX_COLUMNS = 8;
+const MAX_COLUMNS = 12;
 
 const STATUS_LABELS: Record<QuoteStatus, string> = {
   [QuoteStatus.DRAFT]: 'Borrador',
   [QuoteStatus.SENT]: 'Enviada',
+  [QuoteStatus.FOLLOW_UP_1]: 'Seguimiento 1',
+  [QuoteStatus.FOLLOW_UP_2]: 'Seguimiento 2',
+  [QuoteStatus.FOLLOW_UP_3]: 'Seguimiento 3',
   [QuoteStatus.ACCEPTED]: 'Aceptada',
   [QuoteStatus.NO_RESPONSE]: 'Sin Respuesta',
   [QuoteStatus.REJECTED]: 'Rechazada',

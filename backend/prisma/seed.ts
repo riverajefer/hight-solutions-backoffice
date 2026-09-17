@@ -3042,11 +3042,14 @@ async function main() {
 
   const defaultKanbanColumns = [
     { mappedStatus: 'DRAFT' as const,       name: 'Borrador',      color: '#757575', displayOrder: 0 },
-    { mappedStatus: 'SENT' as const,        name: 'Enviada',        color: '#0288d1', displayOrder: 1 },
-    { mappedStatus: 'ACCEPTED' as const,    name: 'Aceptada',       color: '#2e7d32', displayOrder: 2 },
-    { mappedStatus: 'NO_RESPONSE' as const, name: 'Sin Respuesta',  color: '#f57c00', displayOrder: 3 },
-    { mappedStatus: 'CONVERTED' as const,   name: 'Convertida',     color: '#7b1fa2', displayOrder: 4 },
-    { mappedStatus: 'REJECTED' as const,    name: 'Rechazada',      color: '#d32f2f', displayOrder: 5 },
+    { mappedStatus: 'SENT' as const,        name: 'Enviada',       color: '#0288d1', displayOrder: 1 },
+    { mappedStatus: 'FOLLOW_UP_1' as const, name: 'Seguimiento 1', color: '#00897b', displayOrder: 2 },
+    { mappedStatus: 'FOLLOW_UP_2' as const, name: 'Seguimiento 2', color: '#3949ab', displayOrder: 3 },
+    { mappedStatus: 'FOLLOW_UP_3' as const, name: 'Seguimiento 3', color: '#8e24aa', displayOrder: 4 },
+    { mappedStatus: 'ACCEPTED' as const,    name: 'Aceptada',      color: '#2e7d32', displayOrder: 5 },
+    { mappedStatus: 'NO_RESPONSE' as const, name: 'Sin Respuesta', color: '#f57c00', displayOrder: 6 },
+    { mappedStatus: 'CONVERTED' as const,   name: 'Convertida',    color: '#7b1fa2', displayOrder: 7 },
+    { mappedStatus: 'REJECTED' as const,    name: 'Rechazada',     color: '#d32f2f', displayOrder: 8 },
   ];
 
   for (const col of defaultKanbanColumns) {
@@ -3055,6 +3058,13 @@ async function main() {
     });
     if (!existing) {
       await prisma.quoteKanbanColumn.create({ data: col });
+    } else if (existing.displayOrder !== col.displayOrder) {
+      // Los seguimientos se intercalan entre Enviada y Aceptada: las columnas
+      // que ya existían tienen que correrse para dejarles el espacio.
+      await prisma.quoteKanbanColumn.update({
+        where: { id: existing.id },
+        data: { displayOrder: col.displayOrder },
+      });
     }
     console.log(`  ✓ Kanban column: ${col.name}`);
   }

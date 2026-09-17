@@ -486,6 +486,9 @@ enum OrderStatus {
 enum QuoteStatus {
   DRAFT
   SENT
+  FOLLOW_UP_1 // Seguimiento 1: primer recordatorio al cliente
+  FOLLOW_UP_2 // Seguimiento 2
+  FOLLOW_UP_3 // Seguimiento 3: último antes de darla por perdida
   ACCEPTED
   NO_RESPONSE // Sin respuesta
   REJECTED // Rechazada por el cliente (requiere motivo)
