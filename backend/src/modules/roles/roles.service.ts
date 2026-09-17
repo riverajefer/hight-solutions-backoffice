@@ -6,12 +6,18 @@ import {
 import { CreateRoleDto, UpdateRoleDto, AssignPermissionsDto } from './dto';
 import { RolesRepository } from './roles.repository';
 import { PermissionsRepository } from '../permissions/permissions.repository';
+import {
+  ADMIN_ROLE_NAME,
+  isReservedAdminName,
+  RolePrivilegeService,
+} from './role-privilege.service';
 
 @Injectable()
 export class RolesService {
   constructor(
     private readonly rolesRepository: RolesRepository,
     private readonly permissionsRepository: PermissionsRepository,
+    private readonly rolePrivilegeService: RolePrivilegeService,
   ) {}
 
   /**
@@ -56,7 +62,23 @@ export class RolesService {
   /**
    * Crea un nuevo rol
    */
-  async create(createRoleDto: CreateRoleDto) {
+  async create(createRoleDto: CreateRoleDto, actorRoleId: string) {
+    // El sistema reconoce al administrador por el nombre del rol. Un «Admin»
+    // o «ADMIN» pasaba como tal en las comprobaciones que ignoran mayúsculas.
+    if (isReservedAdminName(createRoleDto.name)) {
+      throw new BadRequestException(
+        `El nombre «${createRoleDto.name}» está reservado para el rol de administrador`,
+      );
+    }
+
+    // Crear un rol con permisos es otorgarlos: solo los que ya tienes.
+    if (createRoleDto.permissionIds?.length) {
+      await this.rolePrivilegeService.assertCanGrantPermissions(
+        actorRoleId,
+        createRoleDto.permissionIds,
+      );
+    }
+
     // Verificar si el nombre ya existe
     const existingRole = await this.rolesRepository.findByName(createRoleDto.name);
 
@@ -88,8 +110,10 @@ export class RolesService {
   /**
    * Actualiza un rol
    */
-  async update(id: string, updateRoleDto: UpdateRoleDto) {
-    await this.findOne(id);
+  async update(id: string, updateRoleDto: UpdateRoleDto, actorRoleId: string) {
+    const current = await this.findOne(id);
+    await this.rolePrivilegeService.assertCanManageRole(actorRoleId, id);
+    this.assertNameChangeAllowed(current.name, updateRoleDto.name);
 
     // Verificar si el nuevo nombre ya existe
     if (updateRoleDto.name) {
@@ -118,7 +142,11 @@ export class RolesService {
   /**
    * Asigna permisos a un rol (reemplaza los existentes)
    */
-  async assignPermissions(id: string, assignPermissionsDto: AssignPermissionsDto) {
+  async assignPermissions(
+    id: string,
+    assignPermissionsDto: AssignPermissionsDto,
+    actorRoleId: string,
+  ) {
     await this.findOne(id);
 
     // Verificar que todos los permisos existen
@@ -130,6 +158,14 @@ export class RolesService {
       throw new BadRequestException('One or more permission IDs are invalid');
     }
 
+    // Reemplazar los permisos toca dos conjuntos: los que tenía el rol (se
+    // pueden quitar) y los nuevos (se otorgan). Los dos deben ser tuyos.
+    await this.rolePrivilegeService.assertCanManageRole(actorRoleId, id);
+    await this.rolePrivilegeService.assertCanGrantPermissions(
+      actorRoleId,
+      assignPermissionsDto.permissionIds,
+    );
+
     // Eliminar permisos actuales y asignar nuevos
     await this.rolesRepository.replacePermissions(id, assignPermissionsDto.permissionIds);
 
@@ -139,7 +175,11 @@ export class RolesService {
   /**
    * Agrega permisos a un rol (sin eliminar existentes)
    */
-  async addPermissions(id: string, assignPermissionsDto: AssignPermissionsDto) {
+  async addPermissions(
+    id: string,
+    assignPermissionsDto: AssignPermissionsDto,
+    actorRoleId: string,
+  ) {
     const role = await this.findOne(id);
 
     // Verificar que todos los permisos existen
@@ -150,6 +190,12 @@ export class RolesService {
     if (permissions.length !== assignPermissionsDto.permissionIds.length) {
       throw new BadRequestException('One or more permission IDs are invalid');
     }
+
+    await this.rolePrivilegeService.assertCanManageRole(actorRoleId, id);
+    await this.rolePrivilegeService.assertCanGrantPermissions(
+      actorRoleId,
+      assignPermissionsDto.permissionIds,
+    );
 
     // Obtener permisos ya asignados
     const existingPermissionIds = role.permissions.map((p) => p.id);
@@ -170,8 +216,15 @@ export class RolesService {
   /**
    * Remueve permisos de un rol
    */
-  async removePermissions(id: string, assignPermissionsDto: AssignPermissionsDto) {
+  async removePermissions(
+    id: string,
+    assignPermissionsDto: AssignPermissionsDto,
+    actorRoleId: string,
+  ) {
     await this.findOne(id);
+    // Quitarle permisos a un rol más alto que el tuyo también es tocar lo que
+    // no te corresponde (por ejemplo, dejar al admin sin acceso).
+    await this.rolePrivilegeService.assertCanManageRole(actorRoleId, id);
 
     await this.rolesRepository.removePermissions(id, assignPermissionsDto.permissionIds);
 
@@ -181,8 +234,15 @@ export class RolesService {
   /**
    * Elimina un rol
    */
-  async remove(id: string) {
+  async remove(id: string, actorRoleId: string) {
     const role = await this.findOne(id);
+
+    if (role.name === ADMIN_ROLE_NAME) {
+      throw new BadRequestException(
+        'El rol de administrador no se puede eliminar',
+      );
+    }
+    await this.rolePrivilegeService.assertCanManageRole(actorRoleId, id);
 
     // No permitir eliminar roles que tienen usuarios asignados
     if (role.users.length > 0) {
@@ -194,5 +254,25 @@ export class RolesService {
     await this.rolesRepository.delete(id);
 
     return { message: `Role "${role.name}" deleted successfully` };
+  }
+
+  /**
+   * El rol `admin` no se puede renombrar —el sistema lo busca por nombre en
+   * decenas de lugares y dejarían de funcionar las aprobaciones— y ningún otro
+   * rol puede tomar ese nombre.
+   */
+  private assertNameChangeAllowed(currentName: string, newName?: string) {
+    if (newName === undefined || newName === currentName) return;
+
+    if (currentName === ADMIN_ROLE_NAME) {
+      throw new BadRequestException(
+        'El rol de administrador no se puede renombrar',
+      );
+    }
+    if (isReservedAdminName(newName)) {
+      throw new BadRequestException(
+        `El nombre «${newName}» está reservado para el rol de administrador`,
+      );
+    }
   }
 }

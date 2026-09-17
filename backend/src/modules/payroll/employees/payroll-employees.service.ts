@@ -125,15 +125,20 @@ export class PayrollEmployeesService {
     const firstName = [dto.firstName, dto.middleName].filter(Boolean).join(' ');
     const lastName = [dto.firstLastName, dto.secondLastName].filter(Boolean).join(' ');
 
-    const newUser = await this.usersService.create({
-      password: dto.password,
-      firstName,
-      lastName,
-      roleId: role.id,
-      ...(dto.email && { email: dto.email }),
-      ...(dto.phone && { phone: dto.phone }),
-      ...(dto.cargoId && { cargoId: dto.cargoId }),
-    });
+    // El rol lo fija el sistema, no quien da de alta al empleado: no hay
+    // escalamiento posible, así que no aplica la regla de privilegios.
+    const newUser = await this.usersService.create(
+      {
+        password: dto.password,
+        firstName,
+        lastName,
+        roleId: role.id,
+        ...(dto.email && { email: dto.email }),
+        ...(dto.phone && { phone: dto.phone }),
+        ...(dto.cargoId && { cargoId: dto.cargoId }),
+      },
+      null,
+    );
 
     return newUser.id;
   }
