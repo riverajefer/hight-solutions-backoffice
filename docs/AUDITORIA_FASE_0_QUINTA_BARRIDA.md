@@ -17,7 +17,7 @@ resultado contra producción. El contenedor se eliminó al terminar.
 Las cifras de producción salen de `scripts/db-query.sh` en solo lectura,
 consultado el 2026-09-16.
 
-Corregidos: los hallazgos **1, 2 y 3**. Los demás siguen en diagnóstico.
+Corregidos: los hallazgos **1, 2, 3 y 4**. Los demás siguen en diagnóstico.
 
 ---
 
@@ -271,7 +271,7 @@ Suite completa del backend: 189 suites y 2.892 tests en verde.
 
 ---
 
-## 4. `schema.prisma` no coincide con las migraciones — **Media, trampa latente**
+## 4. `schema.prisma` no coincide con las migraciones — **Media, trampa latente** · ✅ Corregido
 
 La comparación dio 69 líneas de diferencia, las mismas en producción que en la
 base nueva. Por eso el que está desalineado es `schema.prisma`:
@@ -294,6 +294,57 @@ justo con la primera migración de sedes.
 verdad tiene cada llave— hasta que `prisma migrate diff` salga vacío. No
 requiere migración: solo cambia el esquema. Después, un chequeo en CI con
 `migrate diff --exit-code` para que no vuelva a abrirse.
+
+### Corrección aplicada
+
+Casi todo se resolvió en el esquema, sin tocar la base:
+
+- Los 4 índices que faltaban: `payments([orderId, isVoided])` —el que usan
+  todos los recálculos de saldo— y tres de `refund_requests`.
+- `@db.VarChar(30)` en `expense_orders.electronicInvoiceNumber` (en `orders` la
+  columna equivalente sí es `TEXT`).
+- El `onDelete` real de 8 llaves foráneas: `NoAction` donde la migración no
+  declaró la cláusula, y `Restrict` en `expense_orders.authorizedTo`, donde
+  Prisma asumía `SetNull` por ser opcional.
+
+**La propuesta original no alcanzaba.** Los `map:` no se podían usar: la
+migración que creó `account_payable_payment_reversal_requests` dejó la llave
+foránea de `payment_auth_request_id` y su índice único **con el mismo nombre**,
+truncado a los 63 caracteres de PostgreSQL. El motor lo permite; Prisma rechaza
+el esquema entero («has to be unique in the following namespace»), así que
+mientras estuvieran así `schema.prisma` no podía describir la base.
+
+Por eso hubo una migración:
+[`20260917010000_align_schema_with_migrations`](../backend/prisma/migrations/20260917010000_align_schema_with_migrations/migration.sql).
+Renombra cuatro objetos de esa tabla a los nombres que Prisma genera por
+convención. Solo cambia nombres: no toca datos, no reescribe la tabla y no
+cambia comportamiento. Es idempotente, porque dev y staging comparten base.
+
+Para que no se vuelva a abrir en silencio quedó `npm run prisma:drift`, que
+compara la base apuntada por `DATABASE_URL` contra `schema.prisma` y sale con
+código distinto de cero si hay diferencias. No hay CI en el repo, así que por
+ahora se corre a mano (o se agrega al pipeline cuando exista).
+
+### Verificación
+
+Sobre una base vacía con las 123 migraciones aplicadas:
+
+- `prisma migrate diff` → **«This is an empty migration»**, sin diferencias.
+- `prisma generate` → cliente generado sin errores (antes el esquema no era
+  válido).
+- El SQL de la migración corrido dos veces sobre la misma base: la segunda no
+  hace nada y no falla.
+- `npm run prisma:drift` sale 0 contra la base alineada.
+- Suite completa: 189 suites y 2.892 tests en verde; `tsc` limpio.
+
+Producción tiene dos migraciones pendientes de aplicar, que entran en el próximo
+despliegue: la de los estados de seguimiento de cotizaciones (de otra sesión) y
+esta.
+
+**Un detalle del proceso, por si sirve:** en el primer intento di por cerrado el
+desalineado con un `migrate diff` que salía vacío. Salía vacío porque yo había
+silenciado `stderr` y lo que en realidad ocurría era que Prisma **rechazaba el
+esquema**. Las comprobaciones de arriba se repitieron con los errores visibles.
 
 ---
 
@@ -435,8 +486,7 @@ Lo que la base desechable mostró que hace falta, en orden:
 
 1. ~~**Hallazgo 1** — el escalamiento de privilegios.~~ ✅ Hecho.
 2. ~~**Hallazgos 2 y 3** — el seed.~~ ✅ Hecho.
-3. **Hallazgo 4** — alinear `schema.prisma`, antes de la primera migración de
-   sedes.
+3. ~~**Hallazgo 4** — alinear `schema.prisma`.~~ ✅ Hecho.
 4. **Hallazgo 7** — `npm audit fix`.
 5. **Hallazgo 5** — centralizar la marca en el módulo Company. Si no alcanza el
    tiempo, se hace en la fase 1 del fork con el inventario de arriba.
