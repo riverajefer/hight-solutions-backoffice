@@ -17,7 +17,7 @@ resultado contra producción. El contenedor se eliminó al terminar.
 Las cifras de producción salen de `scripts/db-query.sh` en solo lectura,
 consultado el 2026-09-16.
 
-Corregido: el hallazgo **1**. Los demás siguen en diagnóstico.
+Corregidos: los hallazgos **1, 2 y 3**. Los demás siguen en diagnóstico.
 
 ---
 
@@ -153,7 +153,7 @@ Suite completa: 188 suites y 2.876 tests en verde, con 38 pruebas nuevas.
 
 ---
 
-## 2. El seed crea credenciales conocidas y datos de demostración — **Alta para el fork**
+## 2. El seed crea credenciales conocidas y datos de demostración — **Alta para el fork** · ✅ Corregido
 
 `seed.ts` no mira el entorno. Corriéndolo con `NODE_ENV=production` sobre la
 base vacía, quedó esto:
@@ -192,9 +192,36 @@ dice en su encabezado; el seed no.
 - **Demo**: clientes, proveedores, órdenes, pagos, cotizaciones, productos de
   ejemplo. Se niega a correr si `NODE_ENV=production`.
 
+### Corrección aplicada
+
+Se hizo con una bandera en vez de partir el archivo en dos: `seed.ts` tiene
+3.090 líneas en una sola función, y partirlo la víspera del fork era arriesgar
+más de lo que arreglaba.
+
+`SEED_DEMO` decide si se siembra la demostración; **por defecto sí fuera de
+producción y no en producción**, así que en desarrollo el seed funciona igual
+que siempre. Envuelve el catálogo de ejemplo, los clientes, los proveedores, las
+órdenes, las cotizaciones, las plantillas de producción, la empresa de High y
+las cuentas `managersistema` / `usuariosistema`.
+
+La contraseña del admin sale de `SEED_ADMIN_PASSWORD`. **En producción es
+obligatoria** y se valida antes de escribir nada, para no dejar la base a
+medias. Fuera de producción sigue siendo `admin123`.
+
+Y `assignPermissionsToRole` dejó de borrar: **un rol que ya tiene permisos no se
+toca**. Antes reescribía la lista del archivo y deshacía lo configurado desde la
+pantalla de Roles, incluidos los permisos que alguien hubiera quitado a
+propósito. Para publicar permisos nuevos en una base en uso, el camino sigue
+siendo `npm run prisma:sync:permissions`.
+
+El resumen final ahora cuenta filas contra la base en vez de sumar las listas
+del archivo, así que dice la verdad con demo y sin ella.
+
+Las dos variables quedaron documentadas en `backend/.env.example`.
+
 ---
 
-## 3. Una base nueva no queda completa solo con el seed — **Media**
+## 3. Una base nueva no queda completa solo con el seed — **Media** · ✅ Corregido
 
 `read_orders_dashboard` lo exige `GET /orders/dashboard-summary`, existe en
 producción y está en `sync-permissions.ts`, pero **no en el seed**. Una base que
@@ -211,6 +238,36 @@ y no en el seed, así que el seed se va quedando atrás con cada permiso.
 **Corrección propuesta:** que el seed base (hallazgo 2) llame la misma lista de
 `sync-permissions` en vez de mantener la suya. Mientras tanto, el procedimiento
 de arranque de abajo incluye los dos pasos.
+
+### Corrección aplicada
+
+El catálogo salió a
+[`prisma/permissions-catalog.ts`](../backend/prisma/permissions-catalog.ts) y
+ahora lo usan los dos: `sync-permissions.ts` (sin cambio de comportamiento) y
+`seed.ts`, que siembra la unión de su lista y la del catálogo. Una base nueva
+queda completa con el seed solo: verificado, el admin sale con **190 de 190
+permisos**, `read_orders_dashboard` incluido.
+
+Correr `sync-permissions` después deja de ser obligatorio; sigue siendo el
+camino para publicar permisos en una base que ya está en uso.
+
+---
+
+## Verificación de los hallazgos 2 y 3
+
+Sobre un PostgreSQL 17 desechable, con una base vacía por escenario:
+
+| Escenario | Resultado |
+|---|---|
+| Producción **sin** `SEED_ADMIN_PASSWORD` | Se detiene con el motivo; **0 filas escritas** |
+| Producción **con** la contraseña | 1 usuario (`adminsistema`), 0 clientes, 0 proveedores, 0 órdenes, 0 pagos, 0 cotizaciones, 0 empresa |
+| Contraseña del admin | La de la variable; `admin123` queda rechazada |
+| Permisos | 190 de 190 al admin, `read_orders_dashboard` incluido |
+| Invariantes | **13 de 13 OK** (antes fallaba el de pagos sin rastro en caja) |
+| Desarrollo | Igual que siempre: 21 productos, 10 clientes, 10 proveedores, 3 órdenes, 2 cotizaciones y las 3 cuentas de prueba |
+| Segundo seed tras configurar roles a mano | Respetó los permisos quitados y los agregados; no duplicó usuarios ni empresa |
+
+Suite completa del backend: 189 suites y 2.892 tests en verde.
 
 ---
 
@@ -360,25 +417,24 @@ Siguen abiertos, sin cambios:
 Lo que la base desechable mostró que hace falta, en orden:
 
 1. `prisma migrate deploy` — ya está en el `startCommand` de Railway.
-2. Seed base. **Hoy, hasta que se corrija el hallazgo 2**: correr el seed y
-   borrar a mano los datos de demostración y los usuarios de prueba, o no correr
-   la parte de demo.
-3. `npm run prisma:sync:permissions` — sin esto falta `read_orders_dashboard`.
-4. Cambiar la contraseña del admin antes de abrir el acceso.
-5. Llenar la pantalla de Empresa con los datos de Zoom (y, hasta que se corrija
+2. `NODE_ENV=production SEED_ADMIN_PASSWORD='…' npm run prisma:seed`. Sin datos
+   de demostración y sin cuentas de prueba; si falta la contraseña, se detiene
+   sin escribir nada.
+3. Entrar con `adminsistema` y cambiar la contraseña.
+4. Llenar la pantalla de Empresa con los datos de Zoom (y, hasta que se corrija
    el hallazgo 5, cambiar `pdfConstants.ts` y los textos de marca).
-6. Conservar el nombre `admin` para el rol de administrador (hallazgo 6).
-7. Correr `scripts/db-invariants.sh` contra la base nueva: debe salir todo OK.
-8. Nunca volver a correr `seed.ts` en producción; para permisos nuevos, solo
-   `sync-permissions`.
+5. Conservar el nombre `admin` para el rol de administrador (hallazgo 6).
+6. Correr `scripts/db-invariants.sh` contra la base nueva: debe salir todo OK.
+7. Para permisos nuevos sobre una base en uso, `npm run prisma:sync:permissions`.
+   Volver a correr el seed ya no borra la configuración de roles, pero tampoco
+   hace falta.
 
 ---
 
 ## Orden sugerido antes del viernes
 
 1. ~~**Hallazgo 1** — el escalamiento de privilegios.~~ ✅ Hecho.
-2. **Hallazgos 2 y 3** — partir el seed. Es lo que decide con qué nace la base
-   de Zoom.
+2. ~~**Hallazgos 2 y 3** — el seed.~~ ✅ Hecho.
 3. **Hallazgo 4** — alinear `schema.prisma`, antes de la primera migración de
    sedes.
 4. **Hallazgo 7** — `npm audit fix`.
