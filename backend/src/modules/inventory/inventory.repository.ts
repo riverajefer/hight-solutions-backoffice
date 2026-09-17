@@ -171,7 +171,18 @@ export class InventoryRepository {
         s.sku,
         CAST(s.current_stock AS FLOAT) as current_stock,
         CAST(s.purchase_price AS FLOAT) as purchase_price,
-        CAST(COALESCE(s.current_stock * s.purchase_price, 0) AS FLOAT) as total_value,
+        -- El precio es por unidad de COMPRA (el rollo) y el stock se lleva en
+        -- unidad de CONSUMO (el metro). Multiplicarlos directo inflaba el valor
+        -- por el factor de conversión: 150 m de un rollo de 50 m a $100.000
+        -- daban $15.000.000 en vez de $300.000. Se pasa el stock a unidades de
+        -- compra antes de multiplicar. El NULLIF evita dividir por cero; el DTO
+        -- ya exige un factor mayor que cero y la columna vale 1 por defecto.
+        CAST(
+          COALESCE(
+            s.current_stock / NULLIF(s.conversion_factor, 0) * s.purchase_price,
+            0
+          ) AS FLOAT
+        ) as total_value,
         sc.name as category_name,
         uom.name as unit_name
       FROM supplies s
