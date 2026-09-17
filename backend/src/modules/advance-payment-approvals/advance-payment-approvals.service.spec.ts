@@ -42,6 +42,8 @@ describe('AdvancePaymentApprovalsService', () => {
         update: jest.fn(),
       },
       $transaction: jest.fn(),
+      // `lockOrderForUpdate` bloquea la OP con SQL crudo.
+      $queryRaw: jest.fn(),
     } as any;
     // tx === prisma, así los mocks del modelo controlan lo que ocurre dentro
     (prisma.$transaction as unknown as jest.Mock).mockImplementation((fn: any) =>

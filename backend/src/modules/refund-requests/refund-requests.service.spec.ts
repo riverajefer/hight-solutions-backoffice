@@ -503,6 +503,58 @@ describe('RefundRequestsService', () => {
         status: EditRequestStatus.APPROVED,
         orderId: 'o1',
       });
+      // La devolución relee la OP dentro de la transacción, ya bloqueada. Por
+      // defecto devuelve la misma orden que trae la solicitud de cada prueba.
+      prisma.order.findUnique.mockImplementation(async () => {
+        const request = await prisma.refundRequest.findFirst
+          .getMockImplementation()
+          ?.();
+        return request?.order ?? null;
+      });
+    });
+
+    // Un abono que entra entre la lectura de la solicitud y el pago de la
+    // devolución quedaba registrado en caja pero borrado del saldo de la OP.
+    describe('concurrencia con otros movimientos de la OP', () => {
+      it('bloquea la OP antes de releerla', async () => {
+        prisma.refundRequest.findFirst.mockResolvedValue(aprobada());
+
+        await service.execute(requestId, executorId);
+
+        const lockOrder = prisma.$queryRaw.mock.invocationCallOrder[0];
+        const readOrder = prisma.order.findUnique.mock.invocationCallOrder[0];
+        expect(lockOrder).toBeLessThan(readOrder);
+        expect(prisma.$queryRaw.mock.calls[0][0].join('')).toContain('FOR UPDATE');
+      });
+
+      it('calcula sobre la OP releída, no sobre la lectura de la solicitud', async () => {
+        // Al leer la solicitud la OP tenía 700 pagados; mientras tanto entró
+        // un abono de 50.
+        prisma.refundRequest.findFirst.mockResolvedValue(
+          aprobada({ refundAmount: '200' }),
+        );
+        prisma.order.findUnique.mockResolvedValue(orden({ paidAmount: '750' }));
+
+        await service.execute(requestId, executorId);
+
+        const { data } = prisma.order.update.mock.calls[0][0];
+        // 750 - 200, no 700 - 200: el abono no se pierde.
+        expect(Number(data.paidAmount.toString())).toBe(550);
+      });
+
+      it('vuelve a validar contra la OP releída', async () => {
+        prisma.refundRequest.findFirst.mockResolvedValue(aprobada());
+        // Mientras tanto la anularon.
+        prisma.order.findUnique.mockResolvedValue(
+          orden({ status: OrderStatus.ANULADO }),
+        );
+
+        await expect(service.execute(requestId, executorId)).rejects.toThrow(
+          BadRequestException,
+        );
+        expect(prisma.cashMovement.create).not.toHaveBeenCalled();
+        expect(prisma.order.update).not.toHaveBeenCalled();
+      });
     });
 
     it('exige sesión de caja abierta', async () => {

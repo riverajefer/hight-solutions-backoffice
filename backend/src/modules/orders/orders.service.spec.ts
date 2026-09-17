@@ -126,6 +126,8 @@ const mockCashMovementVoidRequestsService = {
 
 const mockPrisma = {
   $transaction: jest.fn(),
+  // `lockOrderForUpdate` bloquea la OP con SQL crudo.
+  $queryRaw: jest.fn(),
   payment: {
     findUnique: jest.fn(),
     findFirst: jest.fn(),
@@ -2613,6 +2615,12 @@ describe('OrdersService', () => {
 
     beforeEach(() => {
       mockOrdersRepository.findById.mockResolvedValue(mockConfirmedOrder);
+      // El abono relee la OP dentro de la transacción, ya bloqueada. Esa
+      // relectura devuelve la misma orden que cada prueba configura arriba,
+      // sin contar como otra llamada a `findById`.
+      mockPrisma.order.findUnique.mockImplementation((...args: any[]) =>
+        mockOrdersRepository.findById.getMockImplementation()?.(...args),
+      );
       mockPrisma.payment.create.mockResolvedValue({ id: 'pay-new' });
       mockPrisma.order.update.mockResolvedValue(mockConfirmedOrder);
       mockPrisma.payment.findUnique.mockResolvedValue(mockPaymentFull);
@@ -2791,6 +2799,34 @@ describe('OrdersService', () => {
           }),
         }),
       );
+    });
+
+    // Una devolución que se paga mientras entra el abono escribía el saldo
+    // con una lectura vieja y el abono se perdía (o al revés).
+    describe('concurrencia con otros movimientos de la OP', () => {
+      it('bloquea la OP antes de releerla', async () => {
+        await service.addPayment('order-1', paymentDto, 'user-1');
+
+        const lockOrder = mockPrisma.$queryRaw.mock.invocationCallOrder[0];
+        const readOrder = mockPrisma.order.findUnique.mock.invocationCallOrder[0];
+        expect(lockOrder).toBeLessThan(readOrder);
+      });
+
+      it('suma el abono sobre la OP releída, no sobre la lectura previa', async () => {
+        // Al leerla antes de la transacción la OP tenía 0 pagado; mientras
+        // tanto se registró otro abono de 30.
+        mockOrdersRepository.findById.mockResolvedValue(
+          buildOrder({ status: OrderStatus.CONFIRMED, paidAmount: '0.00' }),
+        );
+        mockPrisma.order.findUnique.mockResolvedValue(
+          buildOrder({ status: OrderStatus.CONFIRMED, paidAmount: '30.00' }),
+        );
+
+        await service.addPayment('order-1', paymentDto, 'user-1');
+
+        const { data } = mockPrisma.order.update.mock.calls[0][0];
+        expect(Number(data.paidAmount.toString())).toBe(80);
+      });
     });
 
     it('should create payment inside a transaction and update paidAmount and balance', async () => {

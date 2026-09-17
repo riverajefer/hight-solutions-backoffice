@@ -10,6 +10,7 @@ import {
 import { PrismaService } from '../../database/prisma.service';
 import { createOrReturnTwin } from '../../common/utils/unique-violation.util';
 import { findActiveCashSession } from '../cash-session/active-cash-session.util';
+import { lockOrderForUpdate } from '../../common/utils/order-lock.util';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { WsEventsGateway } from '../ws-events/ws-events.gateway';
@@ -465,50 +466,16 @@ export class RefundRequestsService
     }
 
     // El tiempo entre autorizar y pagar puede ser de días: la orden pudo cambiar.
+    // Esta es la comprobación rápida, para no gastar un número de recibo en
+    // una devolución que ya no procede; la que cuenta se repite abajo, con la
+    // OP bloqueada.
     this.assertRefundStillViable(request);
 
     const refundAmount = new Prisma.Decimal(request.refundAmount);
     const reversedAmount = new Prisma.Decimal(request.reversedAmount ?? 0);
-    const order = request.order;
 
     const receiptNumber =
       await this.consecutivesService.generateNumber('CASH_RECEIPT');
-
-    const newReversedAmount = new Prisma.Decimal(order.reversedAmount ?? 0).add(
-      reversedAmount,
-    );
-    // La anulación en la moneda de la comisión. Se acumula, igual que el valor
-    // anulado, porque una OP puede tener varias devoluciones parciales.
-    const newReversedNetAmount = new Prisma.Decimal(
-      order.reversedNetAmount ?? 0,
-    ).add(
-      computeReversedNetAmount(
-        reversedAmount,
-        order.total,
-        order.subtotal,
-        order.discountAmount,
-      ),
-    );
-    const newPaidAmount = new Prisma.Decimal(order.paidAmount).sub(refundAmount);
-    // `refundedAmount` acumula lo devuelto: los Payment no se borran, así que sin
-    // este registro cualquier recálculo posterior de paidAmount desde los pagos
-    // (p. ej. al editar un ítem) resucitaría el dinero ya devuelto.
-    const newRefundedAmount = new Prisma.Decimal(
-      order.refundedAmount ?? 0,
-    ).add(refundAmount);
-    const newBalance = computeOrderBalance({
-      total: order.total,
-      paidAmount: newPaidAmount,
-      appliedCreditAmount: order.appliedCreditAmount,
-      reversedAmount: newReversedAmount,
-    });
-
-    // La OP solo cambia de estado cuando ya no queda nada de venta en pie. Una
-    // devolución parcial de un trabajo entregado a medias conserva su estado:
-    // marcarla como devuelta borraría que la entrega sí ocurrió.
-    const isTotalReversal =
-      newReversedAmount.greaterThanOrEqualTo(order.total) &&
-      new Prisma.Decimal(order.total).greaterThan(0);
 
     const updated = await this.prisma.$transaction(async (tx) => {
       // El WHERE lleva la condición de no-ejecutada: aprobar dos veces movería
@@ -521,6 +488,60 @@ export class RefundRequestsService
       if (claimed.count === 0) {
         throw new ConflictException('Esta devolución ya fue pagada');
       }
+
+      // Los montos se calculan sobre la OP bloqueada y releída, no sobre la
+      // lectura de arriba. Con esa lectura, un abono que entrara entre las dos
+      // quedaba registrado en caja pero borrado del saldo de la OP. Ver
+      // `lockOrderForUpdate`.
+      await lockOrderForUpdate(tx, request.orderId);
+      const order = await tx.order.findUnique({
+        where: { id: request.orderId },
+        select: ORDER_SELECT,
+      });
+      if (!order) {
+        throw new NotFoundException(
+          `Orden con id ${request.orderId} no encontrada`,
+        );
+      }
+      this.assertRefundStillViable({ ...request, order });
+
+      const newReversedAmount = new Prisma.Decimal(
+        order.reversedAmount ?? 0,
+      ).add(reversedAmount);
+      // La anulación en la moneda de la comisión. Se acumula, igual que el
+      // valor anulado, porque una OP puede tener varias devoluciones parciales.
+      const newReversedNetAmount = new Prisma.Decimal(
+        order.reversedNetAmount ?? 0,
+      ).add(
+        computeReversedNetAmount(
+          reversedAmount,
+          order.total,
+          order.subtotal,
+          order.discountAmount,
+        ),
+      );
+      const newPaidAmount = new Prisma.Decimal(order.paidAmount).sub(
+        refundAmount,
+      );
+      // `refundedAmount` acumula lo devuelto: los Payment no se borran, así que
+      // sin este registro cualquier recálculo posterior de paidAmount desde los
+      // pagos (p. ej. al editar un ítem) resucitaría el dinero ya devuelto.
+      const newRefundedAmount = new Prisma.Decimal(
+        order.refundedAmount ?? 0,
+      ).add(refundAmount);
+      const newBalance = computeOrderBalance({
+        total: order.total,
+        paidAmount: newPaidAmount,
+        appliedCreditAmount: order.appliedCreditAmount,
+        reversedAmount: newReversedAmount,
+      });
+
+      // La OP solo cambia de estado cuando ya no queda nada de venta en pie.
+      // Una devolución parcial de un trabajo entregado a medias conserva su
+      // estado: marcarla como devuelta borraría que la entrega sí ocurrió.
+      const isTotalReversal =
+        newReversedAmount.greaterThanOrEqualTo(order.total) &&
+        new Prisma.Decimal(order.total).greaterThan(0);
 
       const movement = await tx.cashMovement.create({
         data: {
@@ -582,7 +603,7 @@ export class RefundRequestsService
       userId: request.requestedById,
       type: NotificationType.REFUND_REQUEST_APPROVED,
       title: 'Devolución pagada',
-      message: `La devolución de la orden ${order.orderNumber} fue pagada y registrada en caja.`,
+      message: `La devolución de la orden ${request.order.orderNumber} fue pagada y registrada en caja.`,
       relatedId: request.orderId,
       relatedType: 'Order',
     });

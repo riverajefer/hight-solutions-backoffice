@@ -26,6 +26,7 @@ import {
   computeOrderBalance,
 } from '../../common/utils/order-balance.util';
 import { CreditBalanceService } from '../credit-balance/credit-balance.service';
+import { lockOrderForUpdate } from '../../common/utils/order-lock.util';
 
 const USER_SELECT = {
   id: true,
@@ -170,6 +171,8 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
         await tx.payment.delete({ where: { id: paymentId } });
       }
 
+      // Bloquea la OP antes de leerla: ver `lockOrderForUpdate`.
+      await lockOrderForUpdate(tx, orderId);
       const order = await tx.order.findUnique({
         where: { id: orderId },
         select: {

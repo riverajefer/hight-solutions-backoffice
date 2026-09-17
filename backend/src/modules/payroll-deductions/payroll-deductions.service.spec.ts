@@ -71,6 +71,8 @@ describe('PayrollDeductionsService', () => {
 
   beforeEach(async () => {
     const tx = {
+      // `lockOrderForUpdate` bloquea la OP con SQL crudo.
+      $queryRaw: jest.fn(),
       payment: { create: jest.fn(), update: jest.fn() },
       payrollItem: { update: jest.fn(), findUnique: jest.fn() },
       payrollDeduction: {
