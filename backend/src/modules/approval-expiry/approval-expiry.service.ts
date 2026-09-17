@@ -123,6 +123,11 @@ const EXPIRABLE_REQUEST_TYPES: ExpirableRequestType[] = [
     delegate: (p) => p.advisorChangeRequest as any,
   },
   {
+    model: 'quoteRestoreRequest',
+    label: 'restauración de cotización',
+    delegate: (p) => p.quoteRestoreRequest as any,
+  },
+  {
     // Máquina de estados propia, de dos pasos (Admin → Caja), con sus propios
     // nombres de campo. Vencen los dos estados sin resolver: PENDING espera al
     // administrador y ADMIN_APPROVED espera la firma de Caja. Una solicitud que

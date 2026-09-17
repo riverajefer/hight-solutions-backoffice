@@ -17,6 +17,8 @@ const ROUTE_MAP: Record<string, (entityId: string) => string> = {
   AP_AUTH: (id) => `/accounts-payable/${id}`,
   AP_PAYMENT_AUTH: (id) => `/accounts-payable/${id}`,
   CASH_MOVEMENT_VOID: (id) => `/cash-register/history/${id}`,
+  ADVISOR_CHANGE: (id) => `/orders/${id}`,
+  QUOTE_RESTORE: (id) => `/quotes/${id}`,
 };
 
 export const ApprovalRedirectPage = () => {

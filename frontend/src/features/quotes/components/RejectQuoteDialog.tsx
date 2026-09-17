@@ -73,6 +73,7 @@ export const RejectQuoteDialog: React.FC<RejectQuoteDialogProps> = ({
 
         <Alert severity="warning" sx={{ mb: 2 }}>
           «Rechazada» es un estado final: la cotización no podrá avanzar a otro estado.
+          Si te equivocas, solo un administrador puede restaurarla.
         </Alert>
 
         <TextField

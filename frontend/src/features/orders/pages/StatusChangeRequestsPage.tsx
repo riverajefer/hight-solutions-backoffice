@@ -58,6 +58,11 @@ import { clientOwnershipAuthRequestsApi } from '../../../api/client-ownership-au
 import type { ClientOwnershipAuthRequest } from '../../../types/client-ownership-auth-request.types';
 import { advisorChangeRequestsApi } from '../../../api/advisor-change-requests.api';
 import type { AdvisorChangeRequest } from '../../../types/advisor-change-request.types';
+import { quoteRestoreRequestsApi } from '../../../api/quote-restore-requests.api';
+import type { QuoteRestoreRequest } from '../../../types/quote-restore-request.types';
+import { QUOTE_STATUS_CONFIG } from '../../../types/quote.types';
+import { LoadingButton } from '../../../components/common/LoadingButton';
+import RestoreIcon from '@mui/icons-material/Restore';
 import { clientAdvisorRequestsApi } from '../../../api/client-advisor-requests.api';
 import type { ClientAdvisorRequest } from '../../../types/client-advisor-request.types';
 import { voidRequestsApi } from '../../../api/void-requests.api';
@@ -118,6 +123,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const canApproveClientOwnership = hasPermission('approve_client_ownership_auth') || isAdmin;
   const canApproveAdvisorChange = hasPermission('approve_advisor_change') || isAdmin;
   const canApproveClientAdvisor = hasPermission('approve_client_advisor') || isAdmin;
+  const canApproveQuoteRestore = hasPermission('approve_quote_restore') || isAdmin;
   const canApproveExpenseOrders = hasPermission('approve_expense_orders') || isAdmin;
   const canApproveVoidRequests = hasPermission('approve_cash_movements') || isAdmin;
   const canApproveRefunds = hasPermission('approve_refunds') || isAdmin;
@@ -149,7 +155,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   }, [navWidth]);
 
   const [tabValue, setTabValue] = useState<string>(
-    canApproveOrders ? 'status' : canApproveAdvancePayments ? 'advance' : canApproveDiscounts ? 'discount' : canApprovePaymentEdits ? 'payment-edit' : canApproveClientOwnership ? 'ownership' : canApproveAdvisorChange ? 'advisor' : canApproveClientAdvisor ? 'client-advisor' : canApproveExpenseOrders ? 'og' : canApproveVoidRequests ? 'void' : canApproveRefunds ? 'refund' : canApproveAccountsPayable ? 'ap' : canGerenciaApproveReversal ? 'ap-reversal' : 'status',
+    canApproveOrders ? 'status' : canApproveAdvancePayments ? 'advance' : canApproveDiscounts ? 'discount' : canApprovePaymentEdits ? 'payment-edit' : canApproveClientOwnership ? 'ownership' : canApproveAdvisorChange ? 'advisor' : canApproveClientAdvisor ? 'client-advisor' : canApproveQuoteRestore ? 'quote-restore' : canApproveExpenseOrders ? 'og' : canApproveVoidRequests ? 'void' : canApproveRefunds ? 'refund' : canApproveAccountsPayable ? 'ap' : canGerenciaApproveReversal ? 'ap-reversal' : 'status',
   );
   
   const [viewMode, setViewMode] = useState<'pending' | 'history'>('pending');
@@ -217,6 +223,14 @@ export const StatusChangeRequestsPage: React.FC = () => {
     action: 'approve' | 'reject' | null;
   }>({ open: false, request: null, action: null });
   const [advisorReviewNotes, setAdvisorReviewNotes] = useState('');
+
+  // --- Quote Restore Requests ---
+  const [quoteRestoreReviewDialog, setQuoteRestoreReviewDialog] = useState<{
+    open: boolean;
+    request: QuoteRestoreRequest | null;
+    action: 'approve' | 'reject' | null;
+  }>({ open: false, request: null, action: null });
+  const [quoteRestoreReviewNotes, setQuoteRestoreReviewNotes] = useState('');
 
   // --- Client Advisor Assignment Requests ---
   const [clientAdvisorReviewDialog, setClientAdvisorReviewDialog] = useState<{
@@ -329,6 +343,14 @@ export const StatusChangeRequestsPage: React.FC = () => {
     enabled: canApproveAdvisorChange,
   });
 
+  const { data: quoteRestoreRequestsData, isLoading: quoteRestoreLoading } = useQuery({
+    queryKey: ['quoteRestoreRequests', viewMode],
+    queryFn: () => viewMode === 'pending'
+      ? quoteRestoreRequestsApi.findPending()
+      : quoteRestoreRequestsApi.findAll(),
+    enabled: canApproveQuoteRestore,
+  });
+
   const { data: clientAdvisorRequestsData, isLoading: clientAdvisorLoading } = useQuery({
     queryKey: ['clientAdvisorRequests', viewMode],
     queryFn: () => viewMode === 'pending'
@@ -386,6 +408,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const ownershipRequests = viewMode === 'history' ? ownershipRequestsData?.filter(r => r.status !== 'PENDING') : ownershipRequestsData;
   const advisorRequests = viewMode === 'history' ? advisorRequestsData?.filter(r => r.status !== 'PENDING') : advisorRequestsData;
   const clientAdvisorRequests = viewMode === 'history' ? clientAdvisorRequestsData?.filter(r => r.status !== 'PENDING') : clientAdvisorRequestsData;
+  const quoteRestoreRequests = viewMode === 'history' ? quoteRestoreRequestsData?.filter(r => r.status !== 'PENDING') : quoteRestoreRequestsData;
   const voidRequests = viewMode === 'history' ? voidRequestsData?.filter(r => r.status !== 'PENDING') : voidRequestsData;
   const refundRequests = viewMode === 'history' ? refundRequestsData?.filter(r => r.status !== 'PENDING') : refundRequestsData;
   const apAuthRequests = viewMode === 'history' ? apAuthRequestsData?.filter(r => r.status !== 'PENDING') : apAuthRequestsData;
@@ -686,6 +709,76 @@ export const StatusChangeRequestsPage: React.FC = () => {
       );
     },
   });
+
+  // ============================================================
+  // QUOTE RESTORE MUTATIONS
+  // ============================================================
+
+  const handleCloseQuoteRestoreReviewDialog = () => {
+    setQuoteRestoreReviewDialog({ open: false, request: null, action: null });
+    setQuoteRestoreReviewNotes('');
+  };
+
+  const invalidateQuoteRestore = () => {
+    queryClient.invalidateQueries({ queryKey: ['quoteRestoreRequests'] });
+    queryClient.invalidateQueries({ queryKey: ['quote-restore-requests'] });
+  };
+
+  const approveQuoteRestoreMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
+      quoteRestoreRequestsApi.approve(id, { reviewNotes: notes }),
+    onSuccess: () => {
+      invalidateQuoteRestore();
+      queryClient.invalidateQueries({ queryKey: ['quote'] });
+      queryClient.invalidateQueries({ queryKey: ['quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['quotes-board'] });
+      enqueueSnackbar('Cotización restaurada', { variant: 'success' });
+      handleCloseQuoteRestoreReviewDialog();
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(
+        error.response?.data?.message || 'Error al aprobar la solicitud',
+        { variant: 'error' }
+      );
+    },
+  });
+
+  const rejectQuoteRestoreMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes: string }) =>
+      quoteRestoreRequestsApi.reject(id, { reviewNotes: notes }),
+    onSuccess: () => {
+      invalidateQuoteRestore();
+      enqueueSnackbar('Solicitud de restauración rechazada', { variant: 'info' });
+      handleCloseQuoteRestoreReviewDialog();
+    },
+    onError: (error: any) => {
+      enqueueSnackbar(
+        error.response?.data?.message || 'Error al rechazar la solicitud',
+        { variant: 'error' }
+      );
+    },
+  });
+
+  const handleConfirmQuoteRestoreReview = () => {
+    const { request, action } = quoteRestoreReviewDialog;
+    if (!request || !action) return;
+
+    if (action === 'approve') {
+      approveQuoteRestoreMutation.mutate({
+        id: request.id,
+        notes: quoteRestoreReviewNotes.trim() || undefined,
+      });
+    } else {
+      if (!quoteRestoreReviewNotes.trim()) {
+        enqueueSnackbar('Debe proporcionar una razón para rechazar', { variant: 'warning' });
+        return;
+      }
+      rejectQuoteRestoreMutation.mutate({
+        id: request.id,
+        notes: quoteRestoreReviewNotes.trim(),
+      });
+    }
+  };
 
   // ============================================================
   // CLIENT ADVISOR ASSIGNMENT MUTATIONS
@@ -2233,6 +2326,100 @@ export const StatusChangeRequestsPage: React.FC = () => {
   ];
 
   // ============================================================
+  // COLUMNAS - QUOTE RESTORE
+  // ============================================================
+
+  const quoteRestoreColumns: GridColDef<QuoteRestoreRequest>[] = [
+    {
+      field: 'quoteNumber',
+      headerName: 'Nº Cotización',
+      width: 150,
+      valueGetter: (_, row) => row.quote?.quoteNumber || '-',
+      renderCell: (params) => (
+        <Box
+          sx={{ fontWeight: 600, color: 'primary.main', cursor: 'pointer' }}
+          onClick={() => navigate(`/quotes/${params.row.quoteId}`)}
+        >
+          {params.value}
+        </Box>
+      ),
+    },
+    {
+      field: 'client',
+      headerName: 'Cliente',
+      width: 200,
+      valueGetter: (_, row) => row.quote?.client?.name || '-',
+    },
+    {
+      field: 'requestedBy',
+      headerName: 'Solicitante',
+      width: 170,
+      valueGetter: (_, row) => getUserName(row.requestedBy),
+    },
+    {
+      field: 'restoreToStatus',
+      headerName: 'Volverá a',
+      width: 130,
+      valueGetter: (_, row) => QUOTE_STATUS_CONFIG[row.restoreToStatus]?.label || row.restoreToStatus,
+    },
+    {
+      field: 'previousRejectionReason',
+      headerName: 'Motivo del rechazo',
+      width: 200,
+      valueGetter: (_, row) => row.previousRejectionReason || '-',
+    },
+    {
+      field: 'reason',
+      headerName: 'Motivo de restaurar',
+      width: 220,
+    },
+    {
+      field: 'status',
+      headerName: 'Estado',
+      width: 130,
+      renderCell: (params) => {
+        const statusConfig = STATUS_LABELS[params.value] || { label: params.value, color: 'default' as const };
+        return <Chip label={statusConfig.label} color={statusConfig.color} size="small" />;
+      },
+    },
+    {
+      field: 'createdAt',
+      headerName: 'Fecha Solicitud',
+      width: 150,
+      valueFormatter: (value) => formatDateTime(value),
+    },
+    {
+      field: 'actions',
+      type: 'actions' as const,
+      headerName: 'Acciones',
+      width: 120,
+      getActions: (params: any) => {
+        if (params.row.status !== 'PENDING') return [];
+        return [
+          <GridActionsCellItem
+            icon={<CheckCircleIcon sx={{ color: 'success.main' }} />}
+            label="Aprobar"
+            onClick={() => {
+              setQuoteRestoreReviewDialog({ open: true, request: params.row, action: 'approve' });
+              setQuoteRestoreReviewNotes('');
+            }}
+            showInMenu={false}
+          />,
+          <GridActionsCellItem
+            icon={<CancelIcon sx={{ color: 'error.main' }} />}
+            label="Rechazar"
+            onClick={() => {
+              setQuoteRestoreReviewDialog({ open: true, request: params.row, action: 'reject' });
+              setQuoteRestoreReviewNotes('');
+            }}
+            showInMenu={false}
+          />,
+        ];
+      },
+    },
+  ];
+
+  // ============================================================
   // COLUMNAS - CLIENT ADVISOR ASSIGNMENT
   // ============================================================
 
@@ -2726,6 +2913,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const ownershipCount = ownershipRequests?.length || 0;
   const advisorCount = advisorRequests?.length || 0;
   const clientAdvisorCount = clientAdvisorRequests?.length || 0;
+  const quoteRestoreCount = quoteRestoreRequests?.length || 0;
   const voidCount = voidRequests?.length || 0;
   const refundCount = refundRequests?.length || 0;
   const apAuthCount = apAuthRequests?.length || 0;
@@ -2825,6 +3013,13 @@ export const StatusChangeRequestsPage: React.FC = () => {
                 <ListItemIcon sx={{ minWidth: 36 }}><ManageAccountsIcon fontSize="small" /></ListItemIcon>
                 <ListItemText primary="Asignar Asesor a Cliente" primaryTypographyProps={{ variant: 'body2' }} />
                 {clientAdvisorCount > 0 && <Badge badgeContent={clientAdvisorCount} color="warning" sx={{ mr: 1 }} />}
+              </ListItemButton>
+            )}
+            {canApproveQuoteRestore && (
+              <ListItemButton selected={tabValue === 'quote-restore'} onClick={() => setTabValue('quote-restore')} sx={{ borderRadius: 1, mx: 1 }}>
+                <ListItemIcon sx={{ minWidth: 36 }}><RestoreIcon fontSize="small" /></ListItemIcon>
+                <ListItemText primary="Restaurar Cotización" primaryTypographyProps={{ variant: 'body2' }} />
+                {quoteRestoreCount > 0 && <Badge badgeContent={quoteRestoreCount} color="warning" sx={{ mr: 1 }} />}
               </ListItemButton>
             )}
           </List>
@@ -2941,6 +3136,9 @@ export const StatusChangeRequestsPage: React.FC = () => {
           )}
           {tabValue === 'advisor' && canApproveAdvisorChange && (
             <DataTable rows={advisorRequests || []} columns={advisorColumns} loading={advisorLoading} getRowId={(row) => row.id} pageSize={25} />
+          )}
+          {tabValue === 'quote-restore' && canApproveQuoteRestore && (
+            <DataTable rows={quoteRestoreRequests || []} columns={quoteRestoreColumns} loading={quoteRestoreLoading} getRowId={(row) => row.id} pageSize={25} />
           )}
           {tabValue === 'client-advisor' && canApproveClientAdvisor && (
             <DataTable rows={clientAdvisorRequests || []} columns={clientAdvisorColumns} loading={clientAdvisorLoading} getRowId={(row) => row.id} pageSize={25} />
@@ -3506,6 +3704,79 @@ export const StatusChangeRequestsPage: React.FC = () => {
           >
             {advisorReviewDialog.action === 'approve' ? 'Aprobar' : 'Rechazar'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog: Revisión de Restauración de Cotización */}
+      <Dialog
+        open={quoteRestoreReviewDialog.open}
+        onClose={() => {
+          if (!approveQuoteRestoreMutation.isPending && !rejectQuoteRestoreMutation.isPending) {
+            handleCloseQuoteRestoreReviewDialog();
+          }
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {quoteRestoreReviewDialog.action === 'approve'
+            ? 'Aprobar Restauración de Cotización'
+            : 'Rechazar Restauración de Cotización'}
+        </DialogTitle>
+        <DialogContent>
+          {quoteRestoreReviewDialog.request && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                <strong>Cotización:</strong> {quoteRestoreReviewDialog.request.quote?.quoteNumber}
+                {quoteRestoreReviewDialog.request.quote?.client?.name
+                  ? ` · ${quoteRestoreReviewDialog.request.quote.client.name}`
+                  : ''}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Solicitado por:</strong> {getUserName(quoteRestoreReviewDialog.request.requestedBy)}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Motivo del rechazo:</strong> {quoteRestoreReviewDialog.request.previousRejectionReason || 'Sin motivo registrado'}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Motivo para restaurar:</strong> {quoteRestoreReviewDialog.request.reason}
+              </Typography>
+              {quoteRestoreReviewDialog.action === 'approve' && (
+                <Alert severity="info" sx={{ mt: 1 }}>
+                  Al aprobar, la cotización volverá al estado{' '}
+                  <strong>{QUOTE_STATUS_CONFIG[quoteRestoreReviewDialog.request.restoreToStatus]?.label}</strong>{' '}
+                  y se borrará el motivo del rechazo.
+                </Alert>
+              )}
+            </Box>
+          )}
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            label={quoteRestoreReviewDialog.action === 'approve' ? 'Notas (opcional)' : 'Razón del rechazo *'}
+            value={quoteRestoreReviewNotes}
+            onChange={(e) => setQuoteRestoreReviewNotes(e.target.value)}
+            required={quoteRestoreReviewDialog.action === 'reject'}
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={handleCloseQuoteRestoreReviewDialog}
+            disabled={approveQuoteRestoreMutation.isPending || rejectQuoteRestoreMutation.isPending}
+          >
+            Cancelar
+          </Button>
+          <LoadingButton
+            onClick={handleConfirmQuoteRestoreReview}
+            variant="contained"
+            color={quoteRestoreReviewDialog.action === 'approve' ? 'success' : 'error'}
+            loading={approveQuoteRestoreMutation.isPending || rejectQuoteRestoreMutation.isPending}
+            disabled={quoteRestoreReviewDialog.action === 'reject' && !quoteRestoreReviewNotes.trim()}
+          >
+            {quoteRestoreReviewDialog.action === 'approve' ? 'Aprobar' : 'Rechazar'}
+          </LoadingButton>
         </DialogActions>
       </Dialog>
 

@@ -51,6 +51,10 @@ import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { useQuotes } from '../hooks/useQuotes';
 import { QuoteStatusChip } from '../components/QuoteStatusChip';
 import { RejectQuoteDialog } from '../components/RejectQuoteDialog';
+import {
+  RequestQuoteRestoreButton,
+  QuoteRestoreStatusAlert,
+} from '../components/RequestQuoteRestoreButton';
 import { ToolbarButton } from '../../orders/components/ToolbarButton';
 import {
   QuoteStatus,
@@ -361,6 +365,14 @@ export const QuoteDetailPage: React.FC = () => {
             />
           )}
 
+          {quote.status === QuoteStatus.REJECTED && (
+            <RequestQuoteRestoreButton
+              quoteId={quote.id}
+              quoteNumber={quote.quoteNumber}
+              rejectedFromStatus={quote.rejectedFromStatus}
+            />
+          )}
+
           {!isConverted && (
             <ToolbarButton
               icon={<ChangeIcon />}
@@ -465,6 +477,7 @@ export const QuoteDetailPage: React.FC = () => {
                           {quote.rejectionReason || 'Sin motivo registrado'}
                         </Typography>
                       </Alert>
+                      <QuoteRestoreStatusAlert quoteId={quote.id} />
                     </Grid>
                   )}
                   <Grid item xs={12} sm={3}>

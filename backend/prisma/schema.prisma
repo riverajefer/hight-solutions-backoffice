@@ -39,6 +39,8 @@ model User {
   currentAdvisorChangeRequests              AdvisorChangeRequest[]                 @relation("AdvisorChangeCurrent")
   targetAdvisorChangeRequests               AdvisorChangeRequest[]                 @relation("AdvisorChangeTarget")
   reviewedAdvisorChangeRequests             AdvisorChangeRequest[]                 @relation("AdvisorChangeReviewer")
+  requestedQuoteRestoreRequests             QuoteRestoreRequest[]                  @relation("QuoteRestoreRequested")
+  reviewedQuoteRestoreRequests              QuoteRestoreRequest[]                  @relation("QuoteRestoreReviewer")
   notifications                             Notification[]
   createdQuotes                             Quote[]
   appliedDiscounts                          OrderDiscount[]                        @relation("AppliedDiscounts")
@@ -628,6 +630,8 @@ model Quote {
   // Rechazo (obligatorio al pasar a REJECTED)
   rejectionReason String?   @map("rejection_reason")
   rejectedAt      DateTime? @map("rejected_at")
+  // Estado desde el que se rechazó; es el destino al restaurarla
+  rejectedFromStatus QuoteStatus? @map("rejected_from_status")
 
   // Auditoría
   createdById String   @map("created_by_id")
@@ -647,6 +651,8 @@ model Quote {
 
   // Prospectos del pipeline que originaron esta cotización
   prospects Prospect[]
+
+  restoreRequests QuoteRestoreRequest[]
 
   @@index([clientId])
   @@index([createdById])
@@ -916,6 +922,7 @@ enum ApprovalRequestType {
   AP_PAYMENT_AUTH
   ADVISOR_CHANGE
   CLIENT_ADVISOR_ASSIGNMENT
+  QUOTE_RESTORE
 }
 
 enum NotificationType {
@@ -968,6 +975,9 @@ enum NotificationType {
   ADVISOR_CHANGE_REQUEST_PENDING // Nueva solicitud de cambio de asesor de OP
   ADVISOR_CHANGE_REQUEST_APPROVED // Solicitud de cambio de asesor aprobada
   ADVISOR_CHANGE_REQUEST_REJECTED // Solicitud de cambio de asesor rechazada
+  QUOTE_RESTORE_REQUEST_PENDING // Nueva solicitud de restaurar una cotización rechazada
+  QUOTE_RESTORE_REQUEST_APPROVED // Restauración de cotización aprobada
+  QUOTE_RESTORE_REQUEST_REJECTED // Restauración de cotización rechazada
   CLIENT_ADVISOR_REQUEST_PENDING // Nueva solicitud de asignación de asesor a cliente
   CLIENT_ADVISOR_REQUEST_APPROVED // Solicitud de asignación de asesor a cliente aprobada
   CLIENT_ADVISOR_REQUEST_REJECTED // Solicitud de asignación de asesor a cliente rechazada
@@ -1100,6 +1110,38 @@ model AdvisorChangeRequest {
   @@index([requestedById])
   @@index([status])
   @@map("advisor_change_requests")
+}
+
+/// Solicitud para deshacer el rechazo de una cotización.
+/// Aprobarla devuelve la cotización a `restoreToStatus` y limpia el motivo;
+/// el motivo que se deshizo queda copiado aquí como traza.
+model QuoteRestoreRequest {
+  id                      String            @id @default(uuid())
+  quoteId                 String            @map("quote_id")
+  requestedById           String            @map("requested_by_id")
+  restoreToStatus         QuoteStatus       @map("restore_to_status")
+  previousRejectionReason String?           @map("previous_rejection_reason")
+  previousRejectedAt      DateTime?         @map("previous_rejected_at")
+  reason                  String
+  status                  EditRequestStatus @default(PENDING)
+
+  // Aprobación/rechazo
+  reviewedById String?   @map("reviewed_by_id")
+  reviewedAt   DateTime? @map("reviewed_at")
+  reviewNotes  String?   @map("review_notes")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  quote       Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  requestedBy User  @relation("QuoteRestoreRequested", fields: [requestedById], references: [id])
+  reviewedBy  User? @relation("QuoteRestoreReviewer", fields: [reviewedById], references: [id])
+
+  @@index([quoteId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("quote_restore_requests")
 }
 
 model Notification {

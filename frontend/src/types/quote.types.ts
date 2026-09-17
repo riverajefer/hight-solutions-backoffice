@@ -72,6 +72,8 @@ export interface Quote {
   notes?: string;
   rejectionReason?: string | null;
   rejectedAt?: string | null;
+  /** Estado desde el que se rechazó: destino si se restaura */
+  rejectedFromStatus?: QuoteStatus | null;
   createdById: string;
   commercialChannelId?: string;
   createdAt: string;

@@ -57,6 +57,8 @@ export const NotificationsPage: React.FC = () => {
 
     if (relatedId && relatedType === 'Order') {
       navigate(`${PATHS.ORDERS}/${relatedId}`);
+    } else if (relatedId && relatedType === 'Quote') {
+      navigate(`${PATHS.QUOTES}/${relatedId}`);
     }
   };
 
@@ -204,7 +206,7 @@ export const NotificationsPage: React.FC = () => {
                               <DeleteIcon fontSize="small" color="error" />
                             </IconButton>
                           </Tooltip>
-                          {notification.relatedId && notification.relatedType === 'Order' && (
+                          {notification.relatedId && (notification.relatedType === 'Order' || notification.relatedType === 'Quote') && (
                             <ArrowForwardIosIcon
                               sx={{
                                 fontSize: '1rem',
