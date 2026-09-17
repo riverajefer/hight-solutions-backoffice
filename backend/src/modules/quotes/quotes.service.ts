@@ -218,6 +218,8 @@ export class QuotesService {
         ? {
             rejectionReason: updateQuoteDto.rejectionReason!.trim(),
             rejectedAt: new Date(),
+            // Destino de una restauración autorizada (quote-restore-requests)
+            rejectedFromStatus: oldQuote.status as QuoteStatus,
           }
         : oldQuote.status === QuoteStatus.REJECTED &&
             updateQuoteDto.rejectionReason !== undefined

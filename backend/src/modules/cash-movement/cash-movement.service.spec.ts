@@ -45,6 +45,8 @@ describe('CashMovementService', () => {
         findMany: jest.fn().mockResolvedValue([]),
       },
       $transaction: jest.fn(),
+      // `lockOrderForUpdate` bloquea la OP con SQL crudo.
+      $queryRaw: jest.fn(),
     };
     prisma.$transaction.mockImplementation((fn: any) => fn(prisma));
 

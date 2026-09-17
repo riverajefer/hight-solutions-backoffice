@@ -21,6 +21,7 @@ export class QuotesRepository {
     notes: true,
     rejectionReason: true,
     rejectedAt: true,
+    rejectedFromStatus: true,
     createdAt: true,
     updatedAt: true,
     commercialChannelId: true,

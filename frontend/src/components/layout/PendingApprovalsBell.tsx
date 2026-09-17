@@ -14,6 +14,7 @@ import { clientOwnershipAuthRequestsApi } from '../../api/client-ownership-auth-
 import { refundRequestsApi } from '../../api/refund-requests.api';
 import { advisorChangeRequestsApi } from '../../api/advisor-change-requests.api';
 import { clientAdvisorRequestsApi } from '../../api/client-advisor-requests.api';
+import { quoteRestoreRequestsApi } from '../../api/quote-restore-requests.api';
 
 export const PendingApprovalsBell: React.FC = () => {
   const navigate = useNavigate();
@@ -25,6 +26,7 @@ export const PendingApprovalsBell: React.FC = () => {
   const canApproveClientOwnership = hasPermission('approve_client_ownership_auth') || isAdmin;
   const canApproveAdvisorChange = hasPermission('approve_advisor_change') || isAdmin;
   const canApproveClientAdvisor = hasPermission('approve_client_advisor') || isAdmin;
+  const canApproveQuoteRestore = hasPermission('approve_quote_restore') || isAdmin;
   const canApproveExpenseOrders = hasPermission('approve_expense_orders') || isAdmin;
   const canApproveRefunds = hasPermission('approve_refunds') || isAdmin;
 
@@ -76,6 +78,12 @@ export const PendingApprovalsBell: React.FC = () => {
     enabled: !!canApproveClientAdvisor,
   });
 
+  const { data: quoteRestoreRequests } = useQuery({
+    queryKey: ['quoteRestoreRequests', 'pending', 'badge'],
+    queryFn: () => quoteRestoreRequestsApi.findPending(),
+    enabled: !!canApproveQuoteRestore,
+  });
+
   const totalPending = useMemo(() => {
     let count = 0;
     if (statusRequests) count += statusRequests.length;
@@ -86,10 +94,11 @@ export const PendingApprovalsBell: React.FC = () => {
     if (refundRequests) count += refundRequests.length;
     if (advisorRequests) count += advisorRequests.length;
     if (clientAdvisorRequests) count += clientAdvisorRequests.length;
+    if (quoteRestoreRequests) count += quoteRestoreRequests.length;
     return count;
-  }, [statusRequests, editRequests, ogAuthRequests, advanceRequests, ownershipRequests, refundRequests, advisorRequests, clientAdvisorRequests]);
+  }, [statusRequests, editRequests, ogAuthRequests, advanceRequests, ownershipRequests, refundRequests, advisorRequests, clientAdvisorRequests, quoteRestoreRequests]);
 
-  const hasAnyPermission = canApproveOrders || canApproveAdvancePayments || canApproveClientOwnership || canApproveAdvisorChange || canApproveClientAdvisor || canApproveExpenseOrders || canApproveRefunds || isAdmin;
+  const hasAnyPermission = canApproveOrders || canApproveAdvancePayments || canApproveClientOwnership || canApproveAdvisorChange || canApproveClientAdvisor || canApproveQuoteRestore || canApproveExpenseOrders || canApproveRefunds || isAdmin;
 
   if (!hasAnyPermission) {
     return null;

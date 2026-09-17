@@ -30,6 +30,7 @@ import {
   FilterPayrollDeductionsDto,
   RejectPayrollDeductionDto,
 } from './dto';
+import { lockOrderForUpdate } from '../../common/utils/order-lock.util';
 
 /** Estados desde los que todavía se puede cancelar sin tocar la nómina. */
 const CANCELLABLE_BEFORE_APPLY: PayrollDeductionStatus[] = [
@@ -712,6 +713,8 @@ export class PayrollDeductionsService {
    * para que el descuento no invente su propia aritmética de saldos.
    */
   private async recalculateOrder(tx: Prisma.TransactionClient, orderId: string) {
+    // Bloquea la OP antes de leerla: ver `lockOrderForUpdate`.
+    await lockOrderForUpdate(tx, orderId);
     const order = await tx.order.findUnique({
       where: { id: orderId },
       select: {

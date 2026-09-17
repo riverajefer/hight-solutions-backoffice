@@ -8,8 +8,9 @@ porque ahí está el hallazgo que más pesa para el clon de Zoom.
 Las cifras de producción salen de `scripts/db-query.sh` en modo solo lectura,
 consultado el 2026-09-15.
 
-Corregidos: los hallazgos **1, 2, 3, 4, 5, 8 y 13**. Los demás siguen en
-diagnóstico; el orden sugerido está al final.
+Corregidos: los hallazgos **1, 2, 3, 4, 5, 6, 8, 10 y 13**. El 9 se aparta
+porque el módulo de producción está pausado. Quedan el 7, el 11 y las mejoras
+menores; el orden sugerido está al final.
 
 ---
 
@@ -133,7 +134,8 @@ reduce a "filtra por la caja del usuario" y ya.
 
 ### Corrección aplicada
 
-Esa decisión sigue pendiente, pero no hacía falta tomarla para cerrar el agujero.
+La dimensión de sede se implementará en Zoom; en High Solutions no se agrega
+(decisión del 2026-09-15). De todos modos, cerrar el agujero no dependía de eso.
 Los siete puntos pasan ahora por un único resolvedor,
 [`active-cash-session.util.ts`](../backend/src/modules/cash-session/active-cash-session.util.ts):
 
@@ -267,7 +269,7 @@ todavía podían revertirse.
 
 ---
 
-## 6. La valoración de inventario mezcla unidades de compra y de consumo — **Media**
+## 6. La valoración de inventario mezcla unidades de compra y de consumo — **Media** · ✅ Corregido
 
 [inventory.repository.ts:173](../backend/src/modules/inventory/inventory.repository.ts#L173):
 
@@ -285,6 +287,29 @@ Un rollo de 50 m a $100.000, con 50 m en stock, se valoriza en $5.000.000.
 En producción hay 2 insumos activos con unidad de compra distinta de la de
 consumo y factor distinto de 1. Son pocos, pero su valor está inflado por el
 factor.
+
+### Corrección aplicada
+
+El cliente confirmó la semántica el 2026-09-16: **el precio es por unidad de
+compra y el stock por unidad de consumo**. La valoración pasa el stock a
+unidades de compra antes de multiplicar:
+
+```sql
+s.current_stock / NULLIF(s.conversion_factor, 0) * s.purchase_price
+```
+
+Verificado con la consulta real del repositorio contra desarrollo: el insumo de
+prueba (150 m, rollo de 50 m a $100.000) pasa de $15.000.000 a **$300.000**. En
+producción las dos lonas afectadas bajan de $1.600.000 a $1.066.667 y de
+$3.750.000 a $2.500.000.
+
+Un matiz: **ninguna pantalla muestra hoy esta valoración**. El hook del
+frontend la pide, pero no hay vista que la pinte, así que la cifra inflada nunca
+llegó al cliente.
+
+`unitCost` en los movimientos se deja como está: la pantalla lo pide como
+«precio de compra en esta entrada», y la carga inicial guarda el mismo dato.
+Nada calcula con ese campo todavía.
 
 ---
 
@@ -366,7 +391,7 @@ eso dejó de ser cierto con este cambio, así que se actualizó.
 
 ---
 
-## 9. Ningún paso de producción se puede marcar como omitido — **Media**
+## 9. Ningún paso de producción se puede marcar como omitido — **Media** · ⏸ Apartado
 
 `ProductionStepStatus.SKIPPED` se lee en cinco lugares del servicio —cuenta como
 avance, habilita el paso siguiente, permite cerrar la orden— y **no hay un solo
@@ -382,9 +407,12 @@ ninguna `COMPLETED`. No alcanza para concluir que se atascaron —el módulo es
 reciente y pueden estar realmente en curso—, pero sí conviene preguntarle al
 cliente si alguna lleva parada por un paso que no aplicaba.
 
+**Decisión (2026-09-16):** no se toca por ahora. El módulo de producción está
+pausado; se retoma cuando vuelva a activarse.
+
 ---
 
-## 10. La devolución calcula los montos sobre una lectura previa a la transacción — **Media**
+## 10. La devolución calcula los montos sobre una lectura previa a la transacción — **Media** · ✅ Corregido
 
 En [refund-requests.service.ts:440](../backend/src/modules/refund-requests/refund-requests.service.ts#L440)
 la orden se lee fuera de la transacción, y con esa foto se calculan
@@ -400,6 +428,60 @@ La ventana es de milisegundos y hace falta que coincidan un pago y una devoluci�
 sobre la misma OP, así que es poco probable. Pero es dinero, y el resto del
 servicio —que está muy bien pensado en todo lo demás— ya usa el patrón correcto
 en otros puntos.
+
+---
+
+### Corrección aplicada
+
+Al revisarlo apareció que el problema no era solo de la devolución. **Once
+caminos escriben el saldo de una OP**, en siete módulos: abonos, edición y
+anulación de pagos, devoluciones, saldo a favor, descuento por nómina,
+anticipos rechazados y el recálculo de totales. Todos leen la orden, calculan y
+escriben la cifra completa, y ninguno bloqueaba la fila. Arreglar solo la
+devolución no servía: el abono también leía antes y escribía encima.
+
+La solución es una sola:
+[`lockOrderForUpdate()`](../backend/src/common/utils/order-lock.util.ts), un
+`SELECT … FOR UPDATE` sobre la fila de la OP que se llama antes de leerla en
+**todos** esos caminos. Cada uno espera a que el otro confirme y lee ya el valor
+nuevo.
+
+Dos caminos leían la orden **fuera** de la transacción y había que cambiarlos
+más a fondo:
+
+- **La devolución** ahora reclama la solicitud, bloquea la OP, la relee, vuelve
+  a validar que la devolución siga siendo posible y solo entonces calcula. La
+  validación de antes se mantiene como filtro rápido, para no gastar un número
+  de recibo en algo que ya no procede.
+- **El abono** relee los montos de la OP dentro de la transacción en vez de
+  usar la lectura previa.
+
+Y un tercero no estaba en ninguna transacción: el recálculo que dispara editar
+la tasa de IVA, las retenciones o la prueba de color. Ahí el bloqueo se habría
+soltado al terminar la sentencia, así que se envolvió en una.
+
+**Lo que se aceptó a cambio:** si dos operaciones bloquean OPs distintas en
+orden cruzado —puede pasar con el saldo a favor, que toca la OP destino y las de
+origen—, PostgreSQL detecta el interbloqueo y aborta una con un error. Es un
+fallo visible que se reintenta, no una cifra equivocada en silencio.
+
+**Regla para el futuro:** cualquier código nuevo que escriba `paidAmount`,
+`balance`, `refundedAmount`, `appliedCreditAmount` o `reversedAmount` tiene que
+llamar `lockOrderForUpdate` antes de leer la orden. Uno que no lo haga vuelve a
+abrir la carrera para todos.
+
+### Verificación
+
+- **Bloqueo real, no simulado:** dos transacciones contra la base de
+  desarrollo sobre la misma OP, ambas revertidas al final. La segunda pidió el
+  bloqueo a los 729 ms y lo obtuvo a los 2.273 ms, justo después de que la
+  primera soltara a los 2.184 ms. Funciona a través de Prisma, el adaptador de
+  `pg` y la extensión de auditoría.
+- **Pruebas nuevas:** la devolución y el abono bloquean antes de releer,
+  calculan sobre la OP releída (el abono concurrente no se pierde) y la
+  devolución vuelve a validar contra ella (una OP anulada mientras tanto no
+  mueve caja).
+- Suite completa: 186 suites y 2.822 tests en verde; `tsc` limpio.
 
 ---
 
@@ -615,6 +697,6 @@ escrita en código.
    usable.
 3. ~~**Hallazgo 8** — el tope de paginación.~~ ✅ Hecho.
 4. ~~**Hallazgo 13** — los dos reportes incompletos.~~ ✅ Hecho.
-5. **Hallazgos 6, 9, 10** — requieren decisión del cliente: cómo valorizar, si
-   hace falta omitir pasos, y si vale la pena cerrar la ventana de la devolución.
+5. ~~**Hallazgos 6 y 10.**~~ ✅ Hechos. El **9** queda apartado mientras el
+   módulo de producción esté pausado.
 6. **Hallazgos 7, 11 y las mejoras menores** — cuando haya espacio.

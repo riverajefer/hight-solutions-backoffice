@@ -64,6 +64,7 @@ import {
   voidReasonForNonCash,
 } from '../../common/utils/payment-method.util';
 import { CreditBalanceService } from '../credit-balance/credit-balance.service';
+import { lockOrderForUpdate } from '../../common/utils/order-lock.util';
 
 /** Usuario mínimo asociado a un evento del historial de autorizaciones. */
 export interface AuthHistoryUser {
@@ -1655,7 +1656,11 @@ export class OrdersService {
       updateOrderDto.reteICARate !== undefined ||
       updateOrderDto.reteIVARate !== undefined
     ) {
-      await this.recalculateOrderTotals(id, this.prisma);
+      // En transacción, como el resto de llamadores: fuera de una, el bloqueo
+      // de la OP se suelta al terminar la sentencia y no protege nada.
+      await this.prisma.$transaction((tx) =>
+        this.recalculateOrderTotals(id, tx),
+      );
     }
 
     // Retornar la orden actualizada con sus relaciones
@@ -2149,6 +2154,10 @@ export class OrdersService {
 
     // Usar transacción simple y luego obtener el pago completo
     const runPayment = () => this.prisma.$transaction(async (tx) => {
+      // La OP se leyó antes de la transacción; sus montos se vuelven a leer más
+      // abajo, con la fila ya bloqueada. Ver `lockOrderForUpdate`.
+      await lockOrderForUpdate(tx, orderId);
+
       // Si hay sesión de caja, generar un número de recibo e insertar el movimiento
       // de caja. El saldo a favor se excluye: ese dinero ya entró a caja cuando el
       // cliente sobrepagó la orden de origen.
@@ -2209,15 +2218,29 @@ export class OrdersService {
         });
       }
 
-      // Actualizar paidAmount y balance
-      const newPaidAmount = new Prisma.Decimal(order.paidAmount).add(
+      // Actualizar paidAmount y balance, sobre los montos vigentes. Usar los de
+      // la lectura previa borraba lo que otra operación hubiera escrito en la
+      // OP mientras tanto (una devolución, otro abono).
+      const current = await tx.order.findUnique({
+        where: { id: orderId },
+        select: {
+          total: true,
+          paidAmount: true,
+          appliedCreditAmount: true,
+          reversedAmount: true,
+        },
+      });
+      if (!current) {
+        throw new NotFoundException(`Orden con id ${orderId} no encontrada`);
+      }
+      const newPaidAmount = new Prisma.Decimal(current.paidAmount).add(
         paymentAmount,
       );
       const newBalance = computeOrderBalance({
-        total: order.total,
+        total: current.total,
         paidAmount: newPaidAmount,
-        appliedCreditAmount: order.appliedCreditAmount,
-        reversedAmount: order.reversedAmount,
+        appliedCreditAmount: current.appliedCreditAmount,
+        reversedAmount: current.reversedAmount,
       });
 
       await tx.order.update({
@@ -2653,7 +2676,9 @@ export class OrdersService {
           updated.paymentMethod === PaymentMethod.CREDIT_BALANCE,
       });
 
-      // Recalcular paidAmount/balance (el total de la orden no cambia)
+      // Recalcular paidAmount/balance (el total de la orden no cambia).
+      // Bloquea la OP antes de leerla: ver `lockOrderForUpdate`.
+      await lockOrderForUpdate(tx, orderId);
       const payments = await tx.payment.findMany({
         where: { orderId, ...ACTIVE_PAYMENT_WHERE },
         select: { amount: true },
@@ -2763,6 +2788,10 @@ export class OrdersService {
     orderId: string,
     tx: Prisma.TransactionClient,
   ) {
+    // Bloquea la OP antes de leer: este recálculo reescribe `paidAmount` y
+    // `balance` con valores leídos aquí. Ver `lockOrderForUpdate`.
+    await lockOrderForUpdate(tx, orderId);
+
     // Obtener todos los items de la orden
     const items = await tx.orderItem.findMany({
       where: { orderId },

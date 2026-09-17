@@ -701,6 +701,7 @@ describe('QuotesService', () => {
         expect(data.status).toBe(QuoteStatus.REJECTED);
         expect(data.rejectionReason).toBe('El cliente eligió otro proveedor');
         expect(data.rejectedAt).toBeInstanceOf(Date);
+        expect(data.rejectedFromStatus).toBe(QuoteStatus.SENT);
       });
 
       it.each([
@@ -723,6 +724,7 @@ describe('QuotesService', () => {
         expect(data.status).toBe(QuoteStatus.REJECTED);
         expect(data.rejectionReason).toBe('El cliente se echó atrás');
         expect(data.rejectedAt).toBeInstanceOf(Date);
+        expect(data.rejectedFromStatus).toBe(fromStatus);
       });
 
       it('no permite rechazar una cotización en borrador', async () => {

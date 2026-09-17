@@ -112,6 +112,19 @@ const groups: PermissionGroup[] = [
     ],
   },
   {
+    label: '♻️ Restauración de cotizaciones rechazadas',
+    permissions: [
+      {
+        name: 'request_quote_restore',
+        description: 'Solicitar la restauración de una cotización rechazada',
+      },
+      {
+        name: 'approve_quote_restore',
+        description: 'Aprobar/rechazar la restauración de cotizaciones rechazadas',
+      },
+    ],
+  },
+  {
     label: '👥 Asignación de asesor a cliente',
     permissions: [
       {

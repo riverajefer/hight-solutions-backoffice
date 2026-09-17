@@ -40,6 +40,7 @@ describe('ApprovalExpiryService', () => {
       cashMovementVoidRequest: emptyDelegate(),
       clientAdvisorRequest: emptyDelegate(),
       advisorChangeRequest: emptyDelegate(),
+      quoteRestoreRequest: emptyDelegate(),
       accountPayablePaymentAuthRequest: emptyDelegate(),
       order: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
     };

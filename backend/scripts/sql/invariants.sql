@@ -133,6 +133,7 @@ solicitudes_pendientes_duplicadas AS (
   + (SELECT count(*) FROM (SELECT 1 FROM order_edit_requests WHERE status='PENDING' GROUP BY order_id, requested_by_id HAVING count(*)>1) c)
   + (SELECT count(*) FROM (SELECT 1 FROM order_status_change_requests WHERE status='PENDING' GROUP BY order_id, requested_by_id, requested_status HAVING count(*)>1) d)
   + (SELECT count(*) FROM (SELECT 1 FROM advisor_change_requests WHERE status='PENDING' GROUP BY order_id HAVING count(*)>1) e)
+  + (SELECT count(*) FROM (SELECT 1 FROM quote_restore_requests WHERE status='PENDING' GROUP BY quote_id HAVING count(*)>1) e2)
   + (SELECT count(*) FROM (SELECT 1 FROM account_payable_auth_requests WHERE status='PENDING' GROUP BY account_payable_id, requested_by_id HAVING count(*)>1) f)
   + (SELECT count(*) FROM (SELECT 1 FROM account_payable_payment_auth_requests WHERE status IN ('PENDING','ADMIN_APPROVED') GROUP BY account_payable_id, requested_by_id HAVING count(*)>1) g)
   + (SELECT count(*) FROM (SELECT 1 FROM client_ownership_auth_requests WHERE status='PENDING' GROUP BY order_id HAVING count(*)>1) h)
