@@ -9,6 +9,7 @@ import { CreateUserDto, UpdateUserDto } from './dto';
 import { UsersRepository } from './users.repository';
 import { RolesRepository } from '../roles/roles.repository';
 import { CargosRepository } from '../cargos/cargos.repository';
+import { RolePrivilegeService } from '../roles/role-privilege.service';
 import { AuthenticatedUser } from '../../common/interfaces';
 
 @Injectable()
@@ -19,6 +20,7 @@ export class UsersService {
     private readonly usersRepository: UsersRepository,
     private readonly rolesRepository: RolesRepository,
     private readonly cargosRepository: CargosRepository,
+    private readonly rolePrivilegeService: RolePrivilegeService,
   ) {}
 
   private async assertAdmin(currentUser: AuthenticatedUser): Promise<void> {
@@ -87,7 +89,12 @@ export class UsersService {
   /**
    * Crea un nuevo usuario
    */
-  async create(createUserDto: CreateUserDto) {
+  /**
+   * @param actorRoleId Rol de quien crea la cuenta. `null` solo cuando el rol
+   *   lo fija el propio sistema y no quien hace la petición (el alta desde
+   *   nómina, que siempre usa el rol por defecto de empleado).
+   */
+  async create(createUserDto: CreateUserDto, actorRoleId: string | null) {
     // Determinar el username
     let username: string;
     if (createUserDto.username) {
@@ -118,6 +125,15 @@ export class UsersService {
 
     if (!role) {
       throw new BadRequestException('Invalid role ID');
+    }
+
+    // Crear una cuenta con un rol es darle esos permisos a alguien: solo se
+    // puede con roles contenidos en los tuyos. Ver `RolePrivilegeService`.
+    if (actorRoleId !== null) {
+      await this.rolePrivilegeService.assertCanAssignRole(
+        actorRoleId,
+        createUserDto.roleId,
+      );
     }
 
     // Verificar si el cargo existe (si se proporciona)
@@ -162,9 +178,13 @@ export class UsersService {
   /**
    * Actualiza un usuario
    */
-  async update(id: string, updateUserDto: UpdateUserDto) {
+  async update(id: string, updateUserDto: UpdateUserDto, actorRoleId: string) {
     // Verificar que el usuario existe
     await this.findOne(id);
+
+    // Editar a alguien con más permisos que tú —su contraseña, su correo, su
+    // rol— es tomar su cuenta. Ver `RolePrivilegeService`.
+    await this.rolePrivilegeService.assertCanManageUser(actorRoleId, id);
 
     // Si se actualiza el username, verificar unicidad
     if (updateUserDto.username) {
@@ -197,6 +217,11 @@ export class UsersService {
       if (!role) {
         throw new BadRequestException('Invalid role ID');
       }
+
+      await this.rolePrivilegeService.assertCanAssignRole(
+        actorRoleId,
+        updateUserDto.roleId,
+      );
     }
 
     // Si se actualiza el cargo, verificar que existe y está activo

@@ -51,6 +51,9 @@ const requestInclude = {
 const STATUS_LABELS: Record<QuoteStatus, string> = {
   DRAFT: 'Borrador',
   SENT: 'Enviada',
+  FOLLOW_UP_1: 'Seguimiento 1',
+  FOLLOW_UP_2: 'Seguimiento 2',
+  FOLLOW_UP_3: 'Seguimiento 3',
   ACCEPTED: 'Aceptada',
   NO_RESPONSE: 'Sin respuesta',
   REJECTED: 'Rechazada',

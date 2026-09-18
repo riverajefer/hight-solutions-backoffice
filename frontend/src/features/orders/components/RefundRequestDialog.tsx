@@ -19,6 +19,7 @@ import {
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import ImageIcon from '@mui/icons-material/Image';
 import CloseIcon from '@mui/icons-material/Close';
+import SendIcon from '@mui/icons-material/Send';
 import { useSnackbar } from 'notistack';
 import { storageApi } from '../../../api/storage.api';
 import { useCreateRefundRequest } from '../hooks/useRefundRequests';
@@ -28,6 +29,11 @@ import type {
 } from '../../../types/refund-request.types';
 import { REFUND_REASON_LABELS } from '../../../types/refund-request.types';
 import { BankSelector } from '../../../components/common/BankSelector';
+import { LoadingButton } from '../../../components/common/LoadingButton';
+import {
+  computeAvailableRefund,
+  computeReversalNeededToFreeCash,
+} from '../utils/refundAvailability';
 
 interface RefundRequestDialogProps {
   open: boolean;
@@ -40,6 +46,16 @@ interface RefundRequestDialogProps {
   pendingSaleValue: number;
   /** Abono neto del cliente: tope de lo que puede salir de la caja. */
   paidAmount: number;
+  /**
+   * Saldo de la orden hoy: positivo = el cliente debe, negativo = saldo a favor.
+   *
+   * Es imprescindible para saber cuánto libera una anulación: mientras la orden
+   * tenga deuda, la venta que se anula primero cubre esa deuda y solo el
+   * excedente puede salir de la caja. Sin este dato la UI proponía devolver
+   * dinero que el backend rechazaba ("Anular ese valor no deja dinero por
+   * devolver").
+   */
+  currentBalance: number;
 }
 
 /**
@@ -90,6 +106,7 @@ export const RefundRequestDialog: React.FC<RefundRequestDialogProps> = ({
   maxAmount,
   pendingSaleValue,
   paidAmount,
+  currentBalance,
 }) => {
   const { enqueueSnackbar } = useSnackbar();
   const createMutation = useCreateRefundRequest();
@@ -113,14 +130,17 @@ export const RefundRequestDialog: React.FC<RefundRequestDialogProps> = ({
 
   const reversedAmount = mode === 'SALE_REVERSAL' ? parseCurrency(reversed) : 0;
 
-  /**
-   * Dinero que puede salir de la caja: el excedente que queda una vez anulada
-   * esa parte de la venta, y nunca más de lo que el cliente abonó. Es la misma
-   * cuenta que hace el backend.
-   */
-  const availableToRefund = Math.min(
-    Math.max(0, maxAmount + reversedAmount),
+  // Dinero que puede salir de la caja. La cuenta vive en la util para que no se
+  // separe de `computeAvailableOverpayment` del backend.
+  const availableToRefund = computeAvailableRefund({
+    currentBalance,
+    reversedAmount,
     paidAmount,
+  });
+
+  const reversalNeededToFreeCash = computeReversalNeededToFreeCash(
+    currentBalance,
+    pendingSaleValue,
   );
 
   // Al anular venta, el dinero a devolver casi siempre es todo lo que se libera:
@@ -328,7 +348,11 @@ export const RefundRequestDialog: React.FC<RefundRequestDialogProps> = ({
                   fullWidth
                   required
                   placeholder='0'
-                  helperText={`Valor vigente de la orden: ${formatCOP(pendingSaleValue)}`}
+                  helperText={`Cuánto trabajo se anula, no cuánta plata sale. La orden vale hoy ${formatCOP(pendingSaleValue)}${
+                    currentBalance > 0
+                      ? ` y el cliente aún debe ${formatCOP(currentBalance)}`
+                      : ''
+                  }.`}
                 />
                 <Button
                   size='small'
@@ -360,9 +384,10 @@ export const RefundRequestDialog: React.FC<RefundRequestDialogProps> = ({
             fullWidth
             required
             placeholder='0'
+            disabled={availableToRefund <= 0}
             helperText={
               mode === 'SALE_REVERSAL'
-                ? `Máximo ${formatCOP(availableToRefund)} — es lo que el cliente abonó de la parte anulada`
+                ? `Máximo ${formatCOP(availableToRefund)} — es lo que le sobra al cliente después de anular esa parte de la venta`
                 : `Máximo: ${formatCOP(availableToRefund)}`
             }
           />
@@ -371,9 +396,27 @@ export const RefundRequestDialog: React.FC<RefundRequestDialogProps> = ({
             reversedAmount > 0 &&
             availableToRefund === 0 && (
               <Alert severity='warning'>
-                Anular ese valor no libera dinero: el cliente no ha abonado más
-                de lo que quedaría debiendo. La venta se anula, pero no hay nada
-                que devolverle.
+                Anular {formatCOP(reversedAmount)} no libera dinero: el cliente
+                no ha abonado más de lo que quedaría debiendo, así que la
+                anulación solo salda la deuda.{' '}
+                {reversalNeededToFreeCash !== null ? (
+                  <>
+                    Para que sobre plata hay que anular más de{' '}
+                    <strong>{formatCOP(reversalNeededToFreeCash)}</strong>; con
+                    la venta completa se le devolverían{' '}
+                    <strong>
+                      {formatCOP(
+                        Math.min(pendingSaleValue - currentBalance, paidAmount),
+                      )}
+                    </strong>
+                    .
+                  </>
+                ) : (
+                  <>
+                    Ni anulando la venta completa quedaría dinero por devolver:
+                    esta orden no necesita una devolución.
+                  </>
+                )}
               </Alert>
             )}
 
@@ -534,18 +577,29 @@ export const RefundRequestDialog: React.FC<RefundRequestDialogProps> = ({
         <Button onClick={resetAndClose} disabled={loading}>
           Cancelar
         </Button>
-        <Button
+        {/* El envío tiene dos fases (subir comprobante y crear la solicitud) y
+            el texto las distingue, así que el spinner va en la ranura del ícono
+            para no taparlo: sin `startIcon` el label queda transparente. */}
+        <LoadingButton
           onClick={handleSubmit}
           variant='contained'
           color='warning'
-          disabled={loading || !amount || !observation.trim()}
+          loading={loading}
+          startIcon={<SendIcon />}
+          disabled={
+            !amount ||
+            !observation.trim() ||
+            // Sin dinero liberado la solicitud solo puede terminar en el
+            // rechazo del backend; mejor no dejar enviarla.
+            availableToRefund <= 0
+          }
         >
           {uploadingReceipt
             ? 'Subiendo comprobante...'
             : loading
               ? 'Enviando...'
               : 'Enviar solicitud'}
-        </Button>
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   );

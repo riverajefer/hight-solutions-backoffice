@@ -486,6 +486,9 @@ enum OrderStatus {
 enum QuoteStatus {
   DRAFT
   SENT
+  FOLLOW_UP_1 // Seguimiento 1: primer recordatorio al cliente
+  FOLLOW_UP_2 // Seguimiento 2
+  FOLLOW_UP_3 // Seguimiento 3: último antes de darla por perdida
   ACCEPTED
   NO_RESPONSE // Sin respuesta
   REJECTED // Rechazada por el cliente (requiere motivo)
@@ -838,6 +841,10 @@ model Payment {
   payrollDeduction       PayrollDeduction?
 
   @@index([orderId])
+  // Lo usan todos los recálculos de saldo (suman solo los pagos vivos de una
+  // OP). Existía en la base sin estar declarado, así que el próximo
+  // `migrate dev` lo habría borrado.
+  @@index([orderId, isVoided])
   @@index([receivedById])
   @@index([paymentDate])
   @@index([receiptFileId])
@@ -1101,9 +1108,10 @@ model AdvisorChangeRequest {
 
   // Relaciones
   order            Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  requestedBy      User  @relation("AdvisorChangeRequested", fields: [requestedById], references: [id])
-  currentAdvisor   User  @relation("AdvisorChangeCurrent", fields: [currentAdvisorId], references: [id])
-  requestedAdvisor User  @relation("AdvisorChangeTarget", fields: [requestedAdvisorId], references: [id])
+  // `NoAction` es lo que creó la migración al no declarar la cláusula.
+  requestedBy      User  @relation("AdvisorChangeRequested", fields: [requestedById], references: [id], onDelete: NoAction)
+  currentAdvisor   User  @relation("AdvisorChangeCurrent", fields: [currentAdvisorId], references: [id], onDelete: NoAction)
+  requestedAdvisor User  @relation("AdvisorChangeTarget", fields: [requestedAdvisorId], references: [id], onDelete: NoAction)
   reviewedBy       User? @relation("AdvisorChangeReviewer", fields: [reviewedById], references: [id])
 
   @@index([orderId])
@@ -1135,7 +1143,8 @@ model QuoteRestoreRequest {
 
   // Relaciones
   quote       Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  requestedBy User  @relation("QuoteRestoreRequested", fields: [requestedById], references: [id])
+  // `NoAction` es lo que creó la migración al no declarar la cláusula.
+  requestedBy User  @relation("QuoteRestoreRequested", fields: [requestedById], references: [id], onDelete: NoAction)
   reviewedBy  User? @relation("QuoteRestoreReviewer", fields: [reviewedById], references: [id])
 
   @@index([quoteId])
@@ -1418,8 +1427,10 @@ model ExpenseOrder {
   reteIVARate          Decimal            @default(0) @map("rete_iva_rate")
   status               ExpenseOrderStatus @default(DRAFT)
 
-  // Número de factura electrónica del proveedor asociado a la compra (máx 30 chars)
-  electronicInvoiceNumber String? @map("electronic_invoice_number")
+  // Número de factura electrónica del proveedor asociado a la compra.
+  // La columna es VARCHAR(30) en la base: el `@db.VarChar` lo deja explícito
+  // (en `orders` la equivalente sí es TEXT).
+  electronicInvoiceNumber String? @map("electronic_invoice_number") @db.VarChar(30)
 
   // Llave de idempotencia del formulario que originó la OG. El frontend la
   // genera una vez por formulario, así que un doble clic manda la misma llave
@@ -1449,7 +1460,9 @@ model ExpenseOrder {
   expenseType        ExpenseType               @relation(fields: [expenseTypeId], references: [id])
   expenseSubcategory ExpenseSubcategory        @relation(fields: [expenseSubcategoryId], references: [id])
   workOrder          WorkOrder?                @relation(fields: [workOrderId], references: [id])
-  authorizedTo       User?                     @relation("AuthorizedExpenseOrders", fields: [authorizedToId], references: [id])
+  // La migración la creó con `RESTRICT`, no con el `SET NULL` que Prisma
+  // asume por defecto en una relación opcional.
+  authorizedTo       User?                     @relation("AuthorizedExpenseOrders", fields: [authorizedToId], references: [id], onDelete: Restrict)
   responsible        User?                     @relation("ResponsibleExpenseOrders", fields: [responsibleId], references: [id])
   createdBy          User                      @relation("CreatedExpenseOrders", fields: [createdById], references: [id])
   authorizedBy       User?                     @relation("ApprovedExpenseOrders", fields: [authorizedById], references: [id])
@@ -2423,6 +2436,10 @@ model RefundRequest {
   @@index([orderId])
   @@index([requestedById])
   @@index([status])
+  // Los creó la migración y no estaban declarados aquí.
+  @@index([executedById])
+  @@index([receiptFileId])
+  @@index([executionReceiptFileId])
   @@map("refund_requests")
 }
 
@@ -2666,10 +2683,18 @@ model AccountPayablePaymentReversalRequest {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  // La migración original dejó la llave foránea y el índice único con el mismo
+  // nombre (PostgreSQL lo permite, Prisma no), así que la migración
+  // `20260917010000_align_schema_with_migrations` los renombró a los nombres
+  // que Prisma genera y aquí ya no hace falta `map:`.
+  //
+  // `onDelete: NoAction` es lo que creó la migración al no declarar la
+  // cláusula: el usuario no se puede borrar mientras tenga solicitudes, en vez
+  // de quedar en null.
   paymentAuthRequest AccountPayablePaymentAuthRequest @relation(fields: [paymentAuthRequestId], references: [id], onDelete: Cascade)
-  requestedBy        User                             @relation("RequestedApPaymentReversalRequests", fields: [requestedById], references: [id])
-  gerenciaReviewedBy User?                            @relation("GerenciaReviewedApPaymentReversalRequests", fields: [gerenciaReviewedById], references: [id])
-  cajaReviewedBy     User?                            @relation("CajaReviewedApPaymentReversalRequests", fields: [cajaReviewedById], references: [id])
+  requestedBy        User                             @relation("RequestedApPaymentReversalRequests", fields: [requestedById], references: [id], onDelete: NoAction)
+  gerenciaReviewedBy User?                            @relation("GerenciaReviewedApPaymentReversalRequests", fields: [gerenciaReviewedById], references: [id], onDelete: NoAction)
+  cajaReviewedBy     User?                            @relation("CajaReviewedApPaymentReversalRequests", fields: [cajaReviewedById], references: [id], onDelete: NoAction)
 
   @@index([status])
   @@index([requestedById])

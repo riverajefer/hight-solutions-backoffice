@@ -70,6 +70,9 @@ const formatDateTime = (date: string): string => {
 const QUOTE_STATUS_OPTIONS: { value: QuoteStatus; label: string }[] = [
   { value: QStatus.DRAFT,       label: 'Borrador' },
   { value: QStatus.SENT,        label: 'Enviada' },
+  { value: QStatus.FOLLOW_UP_1, label: 'Seguimiento 1' },
+  { value: QStatus.FOLLOW_UP_2, label: 'Seguimiento 2' },
+  { value: QStatus.FOLLOW_UP_3, label: 'Seguimiento 3' },
   { value: QStatus.ACCEPTED,    label: 'Aceptada' },
   { value: QStatus.NO_RESPONSE, label: 'Sin respuesta' },
   { value: QStatus.REJECTED,    label: 'Rechazada' },

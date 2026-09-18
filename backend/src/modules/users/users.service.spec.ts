@@ -1,9 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UsersRepository } from './users.repository';
 import { RolesRepository } from '../roles/roles.repository';
 import { CargosRepository } from '../cargos/cargos.repository';
+import { RolePrivilegeService } from '../roles/role-privilege.service';
 
 jest.mock('bcrypt', () => ({
   hash: jest.fn(),
@@ -34,6 +39,14 @@ const mockRolesRepository = {
   create: jest.fn(),
   update: jest.fn(),
   delete: jest.fn(),
+};
+
+// La regla de privilegios tiene sus propias pruebas; aquí siempre deja pasar.
+const mockRolePrivilegeService = {
+  assertCanAssignRole: jest.fn(),
+  assertCanManageUser: jest.fn(),
+  assertCanManageRole: jest.fn(),
+  assertCanGrantPermissions: jest.fn(),
 };
 
 const mockCargosRepository = {
@@ -81,6 +94,7 @@ describe('UsersService', () => {
         { provide: UsersRepository, useValue: mockUsersRepository },
         { provide: RolesRepository, useValue: mockRolesRepository },
         { provide: CargosRepository, useValue: mockCargosRepository },
+        { provide: RolePrivilegeService, useValue: mockRolePrivilegeService },
       ],
     }).compile();
 
@@ -152,7 +166,7 @@ describe('UsersService', () => {
     });
 
     it('should create user with hashed password when no cargoId is provided', async () => {
-      await service.create(createDto);
+      await service.create(createDto, 'actor-role');
 
       expect(bcrypt.hash).toHaveBeenCalledWith(createDto.password, 12);
       expect(mockUsersRepository.create).toHaveBeenCalledWith(
@@ -171,7 +185,7 @@ describe('UsersService', () => {
       mockCargosRepository.findById.mockResolvedValue(mockCargo);
       const dtoWithCargo = { ...createDto, cargoId: 'cargo-1' };
 
-      await service.create(dtoWithCargo);
+      await service.create(dtoWithCargo, 'actor-role');
 
       const callArg = mockUsersRepository.create.mock.calls[0][0];
       expect(callArg).toHaveProperty('cargo', { connect: { id: 'cargo-1' } });
@@ -180,32 +194,32 @@ describe('UsersService', () => {
     it('should throw BadRequestException when email already registered', async () => {
       mockUsersRepository.findByEmail.mockResolvedValue({ id: 'existing' });
 
-      await expect(service.create(createDto)).rejects.toThrow(BadRequestException);
-      await expect(service.create(createDto)).rejects.toThrow('Email already registered');
+      await expect(service.create(createDto, 'actor-role')).rejects.toThrow(BadRequestException);
+      await expect(service.create(createDto, 'actor-role')).rejects.toThrow('Email already registered');
       expect(mockRolesRepository.findById).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException when roleId is invalid', async () => {
       mockRolesRepository.findById.mockResolvedValue(null);
 
-      await expect(service.create(createDto)).rejects.toThrow(BadRequestException);
-      await expect(service.create(createDto)).rejects.toThrow('Invalid role ID');
+      await expect(service.create(createDto, 'actor-role')).rejects.toThrow(BadRequestException);
+      await expect(service.create(createDto, 'actor-role')).rejects.toThrow('Invalid role ID');
     });
 
     it('should throw BadRequestException when cargoId is invalid', async () => {
       mockCargosRepository.findById.mockResolvedValue(null);
       const dtoWithCargo = { ...createDto, cargoId: 'bad-cargo-id' };
 
-      await expect(service.create(dtoWithCargo)).rejects.toThrow(BadRequestException);
-      await expect(service.create(dtoWithCargo)).rejects.toThrow('Invalid cargo ID');
+      await expect(service.create(dtoWithCargo, 'actor-role')).rejects.toThrow(BadRequestException);
+      await expect(service.create(dtoWithCargo, 'actor-role')).rejects.toThrow('Invalid cargo ID');
     });
 
     it('should throw BadRequestException when cargo is inactive', async () => {
       mockCargosRepository.findById.mockResolvedValue({ ...mockCargo, isActive: false });
       const dtoWithCargo = { ...createDto, cargoId: 'cargo-1' };
 
-      await expect(service.create(dtoWithCargo)).rejects.toThrow(BadRequestException);
-      await expect(service.create(dtoWithCargo)).rejects.toThrow(
+      await expect(service.create(dtoWithCargo, 'actor-role')).rejects.toThrow(BadRequestException);
+      await expect(service.create(dtoWithCargo, 'actor-role')).rejects.toThrow(
         'Cannot assign an inactive cargo',
       );
     });
@@ -225,7 +239,7 @@ describe('UsersService', () => {
     });
 
     it('should update user data without hashing password when password is not provided', async () => {
-      await service.update('user-1', { firstName: 'Updated' });
+      await service.update('user-1', { firstName: 'Updated' }, 'actor-role');
 
       expect(bcrypt.hash).not.toHaveBeenCalled();
     });
@@ -233,7 +247,7 @@ describe('UsersService', () => {
     it('should hash new password when password field is provided', async () => {
       (bcrypt.hash as jest.Mock).mockResolvedValue('new-hashed-password');
 
-      await service.update('user-1', { password: 'new-plain-password' });
+      await service.update('user-1', { password: 'new-plain-password' }, 'actor-role');
 
       expect(bcrypt.hash).toHaveBeenCalledWith('new-plain-password', 12);
       const callArg = mockUsersRepository.update.mock.calls[0][1];
@@ -241,21 +255,21 @@ describe('UsersService', () => {
     });
 
     it('should use Prisma connect syntax when roleId is provided', async () => {
-      await service.update('user-1', { roleId: 'role-1' });
+      await service.update('user-1', { roleId: 'role-1' }, 'actor-role');
 
       const callArg = mockUsersRepository.update.mock.calls[0][1];
       expect(callArg).toHaveProperty('role', { connect: { id: 'role-1' } });
     });
 
     it('should use Prisma disconnect syntax when cargoId is explicitly null', async () => {
-      await service.update('user-1', { cargoId: null });
+      await service.update('user-1', { cargoId: null }, 'actor-role');
 
       const callArg = mockUsersRepository.update.mock.calls[0][1];
       expect(callArg).toHaveProperty('cargo', { disconnect: true });
     });
 
     it('should use Prisma connect syntax when cargoId has a value', async () => {
-      await service.update('user-1', { cargoId: 'cargo-1' });
+      await service.update('user-1', { cargoId: 'cargo-1' }, 'actor-role');
 
       const callArg = mockUsersRepository.update.mock.calls[0][1];
       expect(callArg).toHaveProperty('cargo', { connect: { id: 'cargo-1' } });
@@ -264,16 +278,16 @@ describe('UsersService', () => {
     it('should throw NotFoundException when user does not exist', async () => {
       mockUsersRepository.findById.mockResolvedValue(null);
 
-      await expect(service.update('bad-id', { firstName: 'X' })).rejects.toThrow(NotFoundException);
+      await expect(service.update('bad-id', { firstName: 'X' }, 'actor-role')).rejects.toThrow(NotFoundException);
     });
 
     it('should throw BadRequestException when new email is already used by another user', async () => {
       mockUsersRepository.findByEmailExcludingId.mockResolvedValue({ id: 'other-user' });
 
-      await expect(service.update('user-1', { email: 'taken@example.com' })).rejects.toThrow(
+      await expect(service.update('user-1', { email: 'taken@example.com' }, 'actor-role')).rejects.toThrow(
         BadRequestException,
       );
-      await expect(service.update('user-1', { email: 'taken@example.com' })).rejects.toThrow(
+      await expect(service.update('user-1', { email: 'taken@example.com' }, 'actor-role')).rejects.toThrow(
         'Email already in use',
       );
     });
@@ -281,10 +295,10 @@ describe('UsersService', () => {
     it('should throw BadRequestException when new roleId is invalid', async () => {
       mockRolesRepository.findById.mockResolvedValue(null);
 
-      await expect(service.update('user-1', { roleId: 'invalid-role' })).rejects.toThrow(
+      await expect(service.update('user-1', { roleId: 'invalid-role' }, 'actor-role')).rejects.toThrow(
         BadRequestException,
       );
-      await expect(service.update('user-1', { roleId: 'invalid-role' })).rejects.toThrow(
+      await expect(service.update('user-1', { roleId: 'invalid-role' }, 'actor-role')).rejects.toThrow(
         'Invalid role ID',
       );
     });
@@ -383,6 +397,71 @@ describe('UsersService', () => {
         'User is already deactivated',
       );
       expect(mockUsersRepository.deactivate).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // Privilegios
+  // ─────────────────────────────────────────────
+  describe('privilegios', () => {
+    it('no crea la cuenta si el rol pedido excede los permisos de quien la crea', async () => {
+      mockUsersRepository.findByUsername.mockResolvedValue(null);
+      mockUsersRepository.findByEmail.mockResolvedValue(null);
+      mockRolesRepository.findById.mockResolvedValue({ id: 'role-admin', name: 'admin' });
+      mockRolePrivilegeService.assertCanAssignRole.mockRejectedValueOnce(
+        new ForbiddenException('sin permisos'),
+      );
+
+      await expect(
+        service.create(
+          { username: 'nuevo', password: 'secreta', firstName: 'N', lastName: 'U', roleId: 'role-admin' } as any,
+          'role-conta',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockUsersRepository.create).not.toHaveBeenCalled();
+    });
+
+    // El alta desde nómina usa un rol fijo que no elige quien hace la petición.
+    it('con actor null (rol fijado por el sistema) no aplica la regla', async () => {
+      mockUsersRepository.findByUsername.mockResolvedValue(null);
+      mockRolesRepository.findById.mockResolvedValue({ id: 'role-user', name: 'user' });
+      mockUsersRepository.create.mockResolvedValue({ id: 'u-new' });
+
+      await service.create(
+        { username: 'empleado', password: 'secreta', firstName: 'E', lastName: 'M', roleId: 'role-user' } as any,
+        null,
+      );
+
+      expect(mockRolePrivilegeService.assertCanAssignRole).not.toHaveBeenCalled();
+    });
+
+    it('no edita a un usuario con más permisos (su contraseña, su correo, su rol)', async () => {
+      mockUsersRepository.findById.mockResolvedValue(mockUserFromRepo);
+      mockRolePrivilegeService.assertCanManageUser.mockRejectedValueOnce(
+        new ForbiddenException('sin permisos'),
+      );
+
+      await expect(
+        service.update('user-1', { password: 'robada' } as any, 'role-comercial'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockUsersRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('al cambiar el rol valida también el rol nuevo', async () => {
+      mockUsersRepository.findById.mockResolvedValue(mockUserFromRepo);
+      mockRolesRepository.findById.mockResolvedValue({ id: 'role-2', name: 'caja' });
+      mockUsersRepository.update.mockResolvedValue(mockUserFromRepo);
+
+      await service.update('user-1', { roleId: 'role-2' } as any, 'role-conta');
+
+      expect(mockRolePrivilegeService.assertCanManageUser).toHaveBeenCalledWith(
+        'role-conta',
+        'user-1',
+      );
+      expect(mockRolePrivilegeService.assertCanAssignRole).toHaveBeenCalledWith(
+        'role-conta',
+        'role-2',
+      );
     });
   });
 });

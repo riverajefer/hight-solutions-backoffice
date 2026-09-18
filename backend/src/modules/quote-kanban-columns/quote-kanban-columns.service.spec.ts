@@ -64,7 +64,7 @@ describe('QuoteKanbanColumnsService', () => {
 
   describe('create', () => {
     it('throws BadRequestException if over limit', async () => {
-      const limitCols = Array.from({ length: 8 }, (_, i) => ({ id: i }));
+      const limitCols = Array.from({ length: 12 }, (_, i) => ({ id: i }));
       mockRepository.findAllIncludingInactive.mockResolvedValueOnce(limitCols);
       await expect(service.create({ name: 'x', order: 1, mappedStatus: 'SENT' } as any)).rejects.toThrow(BadRequestException);
     });
