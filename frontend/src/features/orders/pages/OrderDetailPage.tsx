@@ -3479,6 +3479,7 @@ export const OrderDetailPage: React.FC = () => {
         maxAmount={overpayment}
         pendingSaleValue={pendingSaleValue}
         paidAmount={netPaidAmount}
+        currentBalance={pendingAdvance.effectiveBalance}
       />
 
       {/* Dialog: Ver Comprobante */}
