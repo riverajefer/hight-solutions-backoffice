@@ -60,7 +60,7 @@ export const ProfitabilityPage: React.FC = () => {
 
   const [filters, setFilters] = useState<FilterProfitabilityDto>({
     page: 1,
-    limit: 50,
+    limit: 20,
   });
   const [monthDate, setMonthDate] = useState<Date | null>(null);
   const [dateFrom,  setDateFrom]  = useState<Date | null>(null);
@@ -400,12 +400,13 @@ export const ProfitabilityPage: React.FC = () => {
 
       {/* ── Tabla ── */}
       <DataTable
+        density="compact"
         rows={rows}
         columns={columns}
         loading={profitabilityQuery.isLoading || profitabilityQuery.isFetching}
         rowCount={profitabilityQuery.data?.total ?? 0}
         currentPage={(filters.page ?? 1) - 1}
-        pageSize={filters.limit ?? 50}
+        pageSize={filters.limit ?? 20}
         pageSizeOptions={[20, 50, 100]}
         onPaginationModelChange={(model) =>
           setFilters((prev) => ({

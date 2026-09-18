@@ -40,7 +40,7 @@ const SessionHistoryPage: React.FC = () => {
 
   const [filters, setFilters] = useState<FilterCashSessionsDto>({
     page: 1,
-    limit: 25,
+    limit: 20,
   });
 
   const sessionsQuery = useCashSessions(filters);
@@ -203,13 +203,14 @@ const SessionHistoryPage: React.FC = () => {
       </Box>
 
       <DataTable
+        density="compact"
         rows={sessions}
         columns={columns}
         loading={sessionsQuery.isLoading || sessionsQuery.isFetching}
         rowCount={sessionsQuery.data?.total ?? 0}
         currentPage={(filters.page ?? 1) - 1}
-        pageSize={filters.limit ?? 25}
-        pageSizeOptions={[25, 50, 100]}
+        pageSize={filters.limit ?? 20}
+        pageSizeOptions={[20, 50, 100]}
         onPaginationModelChange={(model) =>
           setFilters((prev) => ({
             ...prev,

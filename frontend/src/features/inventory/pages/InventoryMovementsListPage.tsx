@@ -196,6 +196,7 @@ const InventoryMovementsListPage: React.FC = () => {
       </Stack>
 
       <DataTable
+        density="compact"
         rows={movements}
         columns={columns}
         loading={movementsQuery.isLoading || movementsQuery.isFetching}

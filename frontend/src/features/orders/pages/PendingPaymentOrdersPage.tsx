@@ -342,6 +342,7 @@ export const PendingPaymentOrdersPage: React.FC = () => {
 
       {/* ── Tabla de datos — solo lectura, sin columna de acciones ── */}
       <DataTable
+        density="compact"
         rows={pendingOrders}
         columns={columns}
         loading={ordersQuery.isLoading}

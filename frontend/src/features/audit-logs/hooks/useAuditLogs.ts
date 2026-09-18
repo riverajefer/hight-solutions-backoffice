@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { auditLogsApi } from '../../../api';
 import { AuditLogFilters } from '../../../types';
 
@@ -11,6 +11,9 @@ export const useAuditLogs = (filters?: AuditLogFilters) => {
   const auditLogsQuery = useQuery({
     queryKey: ['audit-logs', filters],
     queryFn: () => auditLogsApi.getAll(filters),
+    // Sin esto `data` queda undefined al cambiar de página, `rowCount` cae a 0
+    // y la grilla rebota a la página 1.
+    placeholderData: keepPreviousData,
     staleTime: 1000 * 60 * 2, // 2 minutos
   });
 

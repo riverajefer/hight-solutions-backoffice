@@ -264,6 +264,7 @@ export const DtfListPage = () => {
       </Stack>
 
       <DataTable
+        density="compact"
         columns={columns}
         rows={records}
         loading={dtfQuery.isLoading || dtfQuery.isFetching}

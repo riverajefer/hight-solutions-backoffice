@@ -156,6 +156,9 @@ const StepDefinitionsListPage: React.FC = () => {
       />
 
       <DataTable
+        density="compact"
+        pageSize={20}
+        pageSizeOptions={[20, 50, 100]}
         rows={stepDefs}
         columns={columns}
         loading={stepDefsQuery.isLoading}

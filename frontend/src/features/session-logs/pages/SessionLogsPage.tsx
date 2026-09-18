@@ -173,13 +173,14 @@ const SessionLogsPage: React.FC = () => {
       />
 
       <DataTable
+        density="compact"
         rows={logs}
         columns={columns}
         loading={sessionLogsQuery.isLoading || sessionLogsQuery.isFetching}
         rowCount={sessionLogsQuery.data?.meta?.total ?? 0}
         currentPage={(filters.page ?? 1) - 1}
-        pageSize={filters.limit ?? 10}
-        pageSizeOptions={[10, 25, 50, 100]}
+        pageSize={filters.limit ?? 20}
+        pageSizeOptions={[20, 50, 100]}
         onPaginationModelChange={(model) =>
           updateFilters({ page: model.page + 1, limit: model.pageSize })
         }
