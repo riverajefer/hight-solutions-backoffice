@@ -248,6 +248,7 @@ export const ExpenseOrdersListPage = () => {
       </Stack>
 
       <DataTable
+        density="compact"
         columns={columns}
         rows={expenseOrders}
         loading={expenseOrdersQuery.isLoading || expenseOrdersQuery.isFetching}

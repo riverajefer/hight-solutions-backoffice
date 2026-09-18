@@ -482,6 +482,7 @@ export const SalesByAdvisorPage: React.FC = () => {
 
           {/* Tabla */}
           <DataTable
+            density="compact"
             rows={orders}
             columns={columns}
             loading={ordersQuery.isLoading || ordersQuery.isFetching}

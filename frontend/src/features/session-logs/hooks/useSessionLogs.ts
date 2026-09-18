@@ -6,7 +6,7 @@ import { SessionLogsFilter } from '../../../types';
 export const useSessionLogs = () => {
   const [filters, setFilters] = useState<SessionLogsFilter>({
     page: 1,
-    limit: 10,
+    limit: 20,
   });
 
   const sessionLogsQuery = useQuery({
@@ -38,7 +38,7 @@ export const useSessionLogs = () => {
   const clearFilters = () => {
     setFilters({
       page: 1,
-      limit: 10,
+      limit: 20,
     });
   };
 

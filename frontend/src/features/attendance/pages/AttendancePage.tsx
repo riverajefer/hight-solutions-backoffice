@@ -367,6 +367,7 @@ const AttendancePage: React.FC = () => {
       </Grid>
 
       <DataTable
+        density="compact"
         rows={records}
         columns={columns}
         loading={recordsQuery.isLoading || recordsQuery.isFetching}

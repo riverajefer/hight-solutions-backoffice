@@ -112,6 +112,9 @@ const ExpenseTypesListPage: React.FC = () => {
         onAdd={() => navigate(`${ROUTES.EXPENSE_TYPES}/new`)}
         addButtonText="Nuevo Tipo de Gasto"
         searchPlaceholder="Buscar tipos de gasto..."
+        density="compact"
+        pageSize={20}
+        pageSizeOptions={[20, 50, 100]}
       />
 
       <ConfirmDialog

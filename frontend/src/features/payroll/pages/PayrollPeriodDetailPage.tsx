@@ -329,6 +329,9 @@ const PayrollPeriodDetailPage: React.FC = () => {
 
       {/* Items table */}
       <DataTable
+        density="compact"
+        pageSize={20}
+        pageSizeOptions={[20, 50, 100]}
         rows={items}
         columns={columns}
         loading={itemsQuery.isLoading}

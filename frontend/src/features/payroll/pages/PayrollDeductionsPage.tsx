@@ -69,7 +69,7 @@ const PayrollDeductionsPage: React.FC = () => {
 
   const [filters, setFilters] = useState<PayrollDeductionFilters>({
     page: 1,
-    limit: 25,
+    limit: 20,
   });
   const [dialog, setDialog] = useState<DialogState>(null);
   const [reason, setReason] = useState('');
@@ -334,8 +334,8 @@ const PayrollDeductionsPage: React.FC = () => {
         columns={columns}
         loading={deductionsQuery.isLoading || deductionsQuery.isFetching}
         getRowId={(row) => row.id}
-        pageSize={filters.limit ?? 25}
-        pageSizeOptions={[25, 50, 100]}
+        pageSize={filters.limit ?? 20}
+        pageSizeOptions={[20, 50, 100]}
         rowCount={deductionsQuery.data?.total ?? 0}
         currentPage={(filters.page ?? 1) - 1}
         onPaginationModelChange={(model) =>

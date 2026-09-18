@@ -104,6 +104,9 @@ const ProductCategoriesListPage: React.FC = () => {
       />
 
       <DataTable
+        density="compact"
+        pageSize={20}
+        pageSizeOptions={[20, 50, 100]}
         rows={productCategories}
         columns={columns}
         loading={productCategoriesQuery.isLoading}

@@ -85,6 +85,9 @@ const ProductionAreasListPage: React.FC = () => {
       />
 
       <DataTable
+        density="compact"
+        pageSize={20}
+        pageSizeOptions={[20, 50, 100]}
         rows={productionAreas}
         columns={columns}
         loading={productionAreasQuery.isLoading}

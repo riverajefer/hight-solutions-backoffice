@@ -3114,46 +3114,46 @@ export const StatusChangeRequestsPage: React.FC = () => {
         {/* ── Contenido ── */}
         <Paper sx={{ flex: 1, p: 3, minWidth: 0 }}>
           {tabValue === 'status' && canApproveOrders && (
-            <DataTable rows={statusRequests || []} columns={statusColumns} loading={statusLoading} getRowId={(row) => row.id} pageSize={25} />
+            <DataTable rows={statusRequests || []} columns={statusColumns} loading={statusLoading} getRowId={(row) => row.id} density="compact" pageSize={20} pageSizeOptions={[20, 50, 100]} />
           )}
           {tabValue === 'edit' && canApproveOrders && (
-            <DataTable rows={editRequests || []} columns={editColumns} loading={editLoading} getRowId={(row) => row.id} pageSize={25} />
+            <DataTable rows={editRequests || []} columns={editColumns} loading={editLoading} getRowId={(row) => row.id} density="compact" pageSize={20} pageSizeOptions={[20, 50, 100]} />
           )}
           {tabValue === 'og' && canApproveExpenseOrders && (
-            <DataTable rows={ogAuthRequests || []} columns={ogAuthColumns} loading={ogAuthLoading} getRowId={(row) => row.id} pageSize={25} />
+            <DataTable rows={ogAuthRequests || []} columns={ogAuthColumns} loading={ogAuthLoading} getRowId={(row) => row.id} density="compact" pageSize={20} pageSizeOptions={[20, 50, 100]} />
           )}
           {tabValue === 'advance' && canApproveAdvancePayments && (
-            <DataTable rows={advancePaymentRequests || []} columns={advanceColumns} loading={advanceLoading} getRowId={(row) => row.id} pageSize={25} />
+            <DataTable rows={advancePaymentRequests || []} columns={advanceColumns} loading={advanceLoading} getRowId={(row) => row.id} density="compact" pageSize={20} pageSizeOptions={[20, 50, 100]} />
           )}
           {tabValue === 'discount' && canApproveDiscounts && (
-            <DataTable rows={discountRequests || []} columns={discountColumns} loading={discountLoading} getRowId={(row) => row.id} pageSize={25} />
+            <DataTable rows={discountRequests || []} columns={discountColumns} loading={discountLoading} getRowId={(row) => row.id} density="compact" pageSize={20} pageSizeOptions={[20, 50, 100]} />
           )}
           {tabValue === 'payment-edit' && canApprovePaymentEdits && (
-            <DataTable rows={paymentEditRequests || []} columns={paymentEditColumns} loading={paymentEditLoading} getRowId={(row) => row.id} pageSize={25} />
+            <DataTable rows={paymentEditRequests || []} columns={paymentEditColumns} loading={paymentEditLoading} getRowId={(row) => row.id} density="compact" pageSize={20} pageSizeOptions={[20, 50, 100]} />
           )}
           {tabValue === 'ownership' && canApproveClientOwnership && (
-            <DataTable rows={ownershipRequests || []} columns={ownershipColumns} loading={ownershipLoading} getRowId={(row) => row.id} pageSize={25} />
+            <DataTable rows={ownershipRequests || []} columns={ownershipColumns} loading={ownershipLoading} getRowId={(row) => row.id} density="compact" pageSize={20} pageSizeOptions={[20, 50, 100]} />
           )}
           {tabValue === 'advisor' && canApproveAdvisorChange && (
-            <DataTable rows={advisorRequests || []} columns={advisorColumns} loading={advisorLoading} getRowId={(row) => row.id} pageSize={25} />
+            <DataTable rows={advisorRequests || []} columns={advisorColumns} loading={advisorLoading} getRowId={(row) => row.id} density="compact" pageSize={20} pageSizeOptions={[20, 50, 100]} />
           )}
           {tabValue === 'quote-restore' && canApproveQuoteRestore && (
-            <DataTable rows={quoteRestoreRequests || []} columns={quoteRestoreColumns} loading={quoteRestoreLoading} getRowId={(row) => row.id} pageSize={25} />
+            <DataTable rows={quoteRestoreRequests || []} columns={quoteRestoreColumns} loading={quoteRestoreLoading} getRowId={(row) => row.id} density="compact" pageSize={20} pageSizeOptions={[20, 50, 100]} />
           )}
           {tabValue === 'client-advisor' && canApproveClientAdvisor && (
-            <DataTable rows={clientAdvisorRequests || []} columns={clientAdvisorColumns} loading={clientAdvisorLoading} getRowId={(row) => row.id} pageSize={25} />
+            <DataTable rows={clientAdvisorRequests || []} columns={clientAdvisorColumns} loading={clientAdvisorLoading} getRowId={(row) => row.id} density="compact" pageSize={20} pageSizeOptions={[20, 50, 100]} />
           )}
           {tabValue === 'void' && canApproveVoidRequests && (
-            <DataTable rows={voidRequests || []} columns={voidColumns} loading={voidLoading} getRowId={(row) => row.id} pageSize={25} />
+            <DataTable rows={voidRequests || []} columns={voidColumns} loading={voidLoading} getRowId={(row) => row.id} density="compact" pageSize={20} pageSizeOptions={[20, 50, 100]} />
           )}
           {tabValue === 'refund' && canApproveRefunds && (
-            <DataTable rows={refundRequests || []} columns={refundColumns} loading={refundLoading} getRowId={(row) => row.id} pageSize={25} />
+            <DataTable rows={refundRequests || []} columns={refundColumns} loading={refundLoading} getRowId={(row) => row.id} density="compact" pageSize={20} pageSizeOptions={[20, 50, 100]} />
           )}
           {tabValue === 'ap' && canApproveAccountsPayable && (
-            <DataTable rows={apAuthRequests || []} columns={apAuthColumns} loading={apAuthLoading} getRowId={(row) => row.id} pageSize={25} />
+            <DataTable rows={apAuthRequests || []} columns={apAuthColumns} loading={apAuthLoading} getRowId={(row) => row.id} density="compact" pageSize={20} pageSizeOptions={[20, 50, 100]} />
           )}
           {tabValue === 'caja-ap' && canCajaAuthorizeAp && (
-            <DataTable rows={cajaApRequests || []} columns={cajaApColumns} loading={cajaApLoading} getRowId={(row) => row.id} pageSize={25} />
+            <DataTable rows={cajaApRequests || []} columns={cajaApColumns} loading={cajaApLoading} getRowId={(row) => row.id} density="compact" pageSize={20} pageSizeOptions={[20, 50, 100]} />
           )}
           {tabValue === 'ap-reversal' && canGerenciaApproveReversal && (
             <DataTable
@@ -3204,7 +3204,9 @@ export const StatusChangeRequestsPage: React.FC = () => {
               ]}
               loading={reversalLoading}
               getRowId={(row) => row.id}
-              pageSize={25}
+              density="compact"
+              pageSize={20}
+              pageSizeOptions={[20, 50, 100]}
             />
           )}
         </Paper>

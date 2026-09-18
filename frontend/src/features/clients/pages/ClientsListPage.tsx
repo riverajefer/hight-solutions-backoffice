@@ -299,6 +299,9 @@ const ClientsListPage: React.FC = () => {
             }
             addButtonText='Nuevo Cliente'
             searchPlaceholder='Buscar clientes...'
+            density='compact'
+            pageSize={20}
+            pageSizeOptions={[20, 50, 100]}
           />
         </>
       )}
