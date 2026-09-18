@@ -41,6 +41,9 @@ export const UsersTable: React.FC<UsersTableProps> = ({
 
   return (
     <DataTable
+      density="compact"
+      pageSize={20}
+      pageSizeOptions={[20, 50, 100]}
       rows={users}
       columns={columns}
       loading={loading}

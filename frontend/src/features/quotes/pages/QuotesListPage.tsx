@@ -389,6 +389,7 @@ export const QuotesListPage: React.FC = () => {
           </Stack>
 
           <DataTable
+            density="compact"
             rows={quotes}
             columns={columns}
             loading={quotesQuery.isLoading || quotesQuery.isFetching}

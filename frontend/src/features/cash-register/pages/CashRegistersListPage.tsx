@@ -140,6 +140,9 @@ const CashRegistersListPage: React.FC = () => {
       />
 
       <DataTable
+        density="compact"
+        pageSize={20}
+        pageSizeOptions={[20, 50, 100]}
         rows={registers}
         columns={columns}
         loading={registersQuery.isLoading}

@@ -76,6 +76,9 @@ const CommercialChannelsListPage: React.FC = () => {
         onAdd={() => navigate('/commercial-channels/new')}
         addButtonText="Nuevo Canal de Venta"
         searchPlaceholder="Buscar canales de venta..."
+        density="compact"
+        pageSize={20}
+        pageSizeOptions={[20, 50, 100]}
       />
 
       <ConfirmDialog

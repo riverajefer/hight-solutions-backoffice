@@ -160,6 +160,9 @@ const ProductionOrdersListPage: React.FC = () => {
       {ordersQuery.isFetching && <LinearProgress sx={{ mb: 1 }} />}
 
       <DataTable
+        density="compact"
+        pageSize={20}
+        pageSizeOptions={[20, 50, 100]}
         rows={orders}
         columns={columns}
         loading={ordersQuery.isLoading}

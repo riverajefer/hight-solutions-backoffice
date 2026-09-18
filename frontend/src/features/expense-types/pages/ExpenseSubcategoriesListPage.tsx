@@ -108,6 +108,9 @@ const ExpenseSubcategoriesListPage: React.FC = () => {
         onAdd={() => navigate(`${ROUTES.EXPENSE_SUBCATEGORIES}/new`)}
         addButtonText="Nueva Subcategoría"
         searchPlaceholder="Buscar subcategorías..."
+        density="compact"
+        pageSize={20}
+        pageSizeOptions={[20, 50, 100]}
       />
 
       <ConfirmDialog

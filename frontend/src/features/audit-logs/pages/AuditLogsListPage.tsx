@@ -4,7 +4,7 @@ import { PageHeader } from '../../../components/common/PageHeader';
 import { AuditLogTable } from '../components/AuditLogTable';
 import { AuditLogDetailsDialog } from '../components/AuditLogDetailsDialog';
 import { useAuditLogs } from '../hooks/useAuditLogs';
-import { AuditLog } from '../../../types';
+import { AuditLog, AuditLogFilters } from '../../../types';
 
 /**
  * Página de listado de logs de auditoría
@@ -13,8 +13,14 @@ import { AuditLog } from '../../../types';
 const AuditLogsListPage: React.FC = () => {
   const [selectedLog, setSelectedLog] = React.useState<AuditLog | null>(null);
 
-  // Obtenemos los logs sin filtros iniciales, dejando que DataTable maneje la búsqueda/paginación local
-  const { auditLogsQuery } = useAuditLogs();
+  // La paginación es server-side: el backend solo devuelve la página pedida,
+  // así que no basta con dejar que DataTable pagine en memoria.
+  const [filters, setFilters] = React.useState<AuditLogFilters>({
+    page: 1,
+    limit: 20,
+  });
+
+  const { auditLogsQuery } = useAuditLogs(filters);
   
   // Extraemos los datos dependiendo de la estructura de respuesta (paginada o simple)
   const auditLogs = React.useMemo(() => {
@@ -46,6 +52,16 @@ const AuditLogsListPage: React.FC = () => {
         auditLogs={auditLogs}
         loading={auditLogsQuery.isLoading}
         onViewDetails={handleViewDetails}
+        rowCount={(auditLogsQuery.data as any)?.total ?? 0}
+        currentPage={(filters.page ?? 1) - 1}
+        pageSize={filters.limit ?? 20}
+        onPaginationModelChange={(model) =>
+          setFilters((prev) => ({
+            ...prev,
+            page: model.page + 1,
+            limit: model.pageSize,
+          }))
+        }
       />
 
       <AuditLogDetailsDialog

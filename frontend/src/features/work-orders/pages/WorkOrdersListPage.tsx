@@ -275,6 +275,7 @@ export const WorkOrdersListPage = () => {
       </Stack>
 
       <DataTable
+        density="compact"
         rows={workOrders}
         columns={columns}
         loading={workOrdersQuery.isLoading || workOrdersQuery.isFetching}

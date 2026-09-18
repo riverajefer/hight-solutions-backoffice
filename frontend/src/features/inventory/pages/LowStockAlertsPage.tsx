@@ -159,6 +159,9 @@ const LowStockAlertsPage: React.FC = () => {
       )}
 
       <DataTable
+        density="compact"
+        pageSize={20}
+        pageSizeOptions={[20, 50, 100]}
         rows={items}
         columns={columns}
         loading={lowStockQuery.isLoading}

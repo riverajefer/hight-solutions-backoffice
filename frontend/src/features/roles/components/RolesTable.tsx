@@ -44,6 +44,9 @@ export const RolesTable: React.FC<RolesTableProps> = ({
 
   return (
     <DataTable
+      density="compact"
+      pageSize={20}
+      pageSizeOptions={[20, 50, 100]}
       rows={roles}
       columns={columns}
       loading={loading}

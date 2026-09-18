@@ -96,6 +96,9 @@ const UnitsOfMeasureListPage: React.FC = () => {
       />
 
       <DataTable
+        density="compact"
+        pageSize={20}
+        pageSizeOptions={[20, 50, 100]}
         rows={unitsOfMeasure}
         columns={columns}
         loading={unitsOfMeasureQuery.isLoading}

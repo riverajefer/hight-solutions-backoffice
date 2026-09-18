@@ -486,6 +486,7 @@ export const ProspectsListPage: React.FC = () => {
         />
       ) : (
         <DataTable
+          density="compact"
           rows={prospects}
           columns={columns}
           loading={prospectsQuery.isLoading || prospectsQuery.isFetching}
