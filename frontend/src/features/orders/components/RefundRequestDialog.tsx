@@ -19,6 +19,7 @@ import {
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import ImageIcon from '@mui/icons-material/Image';
 import CloseIcon from '@mui/icons-material/Close';
+import SendIcon from '@mui/icons-material/Send';
 import { useSnackbar } from 'notistack';
 import { storageApi } from '../../../api/storage.api';
 import { useCreateRefundRequest } from '../hooks/useRefundRequests';
@@ -28,6 +29,7 @@ import type {
 } from '../../../types/refund-request.types';
 import { REFUND_REASON_LABELS } from '../../../types/refund-request.types';
 import { BankSelector } from '../../../components/common/BankSelector';
+import { LoadingButton } from '../../../components/common/LoadingButton';
 import {
   computeAvailableRefund,
   computeReversalNeededToFreeCash,
@@ -575,12 +577,16 @@ export const RefundRequestDialog: React.FC<RefundRequestDialogProps> = ({
         <Button onClick={resetAndClose} disabled={loading}>
           Cancelar
         </Button>
-        <Button
+        {/* El envío tiene dos fases (subir comprobante y crear la solicitud) y
+            el texto las distingue, así que el spinner va en la ranura del ícono
+            para no taparlo: sin `startIcon` el label queda transparente. */}
+        <LoadingButton
           onClick={handleSubmit}
           variant='contained'
           color='warning'
+          loading={loading}
+          startIcon={<SendIcon />}
           disabled={
-            loading ||
             !amount ||
             !observation.trim() ||
             // Sin dinero liberado la solicitud solo puede terminar en el
@@ -593,7 +599,7 @@ export const RefundRequestDialog: React.FC<RefundRequestDialogProps> = ({
             : loading
               ? 'Enviando...'
               : 'Enviar solicitud'}
-        </Button>
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   );
