@@ -17,7 +17,7 @@ resultado contra producción. El contenedor se eliminó al terminar.
 Las cifras de producción salen de `scripts/db-query.sh` en solo lectura,
 consultado el 2026-09-16.
 
-Corregidos: los hallazgos **1, 2, 3 y 4**. Los demás siguen en diagnóstico.
+Corregidos: los hallazgos **1, 2, 3, 4 y 7**. Los demás siguen en diagnóstico.
 
 ---
 
@@ -395,7 +395,7 @@ permiso. Para el viernes basta con dejarlo escrito en el procedimiento.
 
 ---
 
-## 7. Dependencias con vulnerabilidades conocidas — **Media**
+## 7. Dependencias con vulnerabilidades conocidas — **Media** · ✅ Corregido (en parte)
 
 `npm audit` sobre las dependencias de producción:
 
@@ -418,6 +418,57 @@ el sistema solo las escribe, así que no es alcanzable.
 **Corrección propuesta:** `npm audit fix` **sin** `--force` en los dos
 proyectos, correr las suites y commitear los `package-lock.json`. Hecho antes
 del fork, los dos sistemas heredan las dependencias parcheadas.
+
+### Corrección aplicada
+
+**En el frontend la receta funcionó tal cual.** `npm audit fix` sin `--force`:
+de 1 crítica y 5 altas a **0 críticas y 1 alta**. Solo cambió el
+`package-lock.json`. Se movieron `axios` (1.13.6 → 1.20.0), `jspdf` (4.2.0 →
+4.2.1), `ws`, `socket.io-parser`, `form-data` y `js-yaml`.
+
+Eso sí, `axios` cambió el tipo de los encabezados de respuesta y rompió el
+chequeo de tipos en `storage.api.ts`: ahora un encabezado puede llegar como
+`null` y `Blob` no lo acepta. Se corrigió en el código.
+
+La alta que queda es `xlsx`, sin arreglo publicado en npm y **no alcanzable**:
+el sistema solo escribe hojas de cálculo, nunca las lee.
+
+**En el backend `npm audit fix` rompió el proyecto.** Cambió `@nestjs/schedule`
+y dejó dos copias de `cron` (4.3.5 en la raíz y 4.4.0 anidada), que no son el
+mismo tipo para TypeScript, y dejó `@prisma/client` inconsistente con su CLI:
+`prisma generate` dejó de funcionar y fallaban dos suites. Se revirtió el
+`package-lock.json` y se reinstaló limpio.
+
+Lo que sí se aplicó, acotado a lo que corre en el servidor:
+
+- `npm update` de los `@nestjs/*` dentro de su rango (11.1.11 → 11.2.5), sin
+  tocar `schedule` ni `prisma`.
+- `overrides` en `package.json` para cuatro paquetes transitivos, todos dentro
+  de su misma versión mayor: `ws` 8.21.3, `engine.io` 6.6.10,
+  `socket.io-parser` 4.2.7 y `fast-xml-parser` 5.11.1 (este último vive dentro
+  del SDK de S3).
+
+Backend: de 2 críticas y 23 altas a **1 crítica y 21 altas**. La crítica que
+queda (`shell-quote`) entra por `cpx`, una herramienta de desarrollo que no se
+despliega. `minimatch` y `brace-expansion` se dejaron fuera a propósito: hay dos
+versiones mayores distintas en el árbol y un `override` plano rompería a quien
+espera la otra.
+
+**Lo que no se puede cerrar hoy**: el resto de las altas del backend exige
+subir a NestJS 12 o cambiar de versión mayor de Prisma. Es un proyecto aparte,
+para después del fork.
+
+### Verificación
+
+- Backend: `prisma generate` OK, `tsc` limpio, **189 suites y 2.892 tests** en
+  verde.
+- Backend en ejecución, contra una instancia propia: login, listado y detalle de
+  órdenes (ruteo), **subida de archivo con multer**, **URL firmada de S3** y
+  **websocket** (conecta con token válido y rechaza el inválido).
+- Frontend: `tsc` limpio, 59 archivos y 497 tests, y `npm run build` completo.
+- Interfaz: el listado de órdenes carga con datos (axios nuevo), se abre el
+  detalle y el botón de PDF no produce errores; `jspdf` 4.2.1 genera un PDF
+  válido.
 
 ---
 
@@ -487,7 +538,8 @@ Lo que la base desechable mostró que hace falta, en orden:
 1. ~~**Hallazgo 1** — el escalamiento de privilegios.~~ ✅ Hecho.
 2. ~~**Hallazgos 2 y 3** — el seed.~~ ✅ Hecho.
 3. ~~**Hallazgo 4** — alinear `schema.prisma`.~~ ✅ Hecho.
-4. **Hallazgo 7** — `npm audit fix`.
+4. ~~**Hallazgo 7** — `npm audit fix`.~~ ✅ Hecho (lo que se puede sin cambio
+   de versión mayor).
 5. **Hallazgo 5** — centralizar la marca en el módulo Company. Si no alcanza el
    tiempo, se hace en la fase 1 del fork con el inventario de arriba.
 6. **Hallazgo 8** y los pendientes de la cuarta barrida — cuando haya espacio.
