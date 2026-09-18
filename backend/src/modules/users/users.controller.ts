@@ -53,8 +53,11 @@ export class UsersController {
    */
   @Post()
   @RequirePermissions('create_users')
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+  create(
+    @Body() createUserDto: CreateUserDto,
+    @CurrentUser('roleId') actorRoleId: string,
+  ) {
+    return this.usersService.create(createUserDto, actorRoleId);
   }
 
   /**
@@ -64,8 +67,12 @@ export class UsersController {
    */
   @Put(':id')
   @RequirePermissions('update_users')
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.update(id, updateUserDto);
+  update(
+    @Param('id') id: string,
+    @Body() updateUserDto: UpdateUserDto,
+    @CurrentUser('roleId') actorRoleId: string,
+  ) {
+    return this.usersService.update(id, updateUserDto, actorRoleId);
   }
 
   /**

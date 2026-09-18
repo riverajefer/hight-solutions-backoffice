@@ -13,7 +13,7 @@ import { RolesService } from './roles.service';
 import { CreateRoleDto, UpdateRoleDto, AssignPermissionsDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards';
 import { PermissionsGuard } from '../../common/guards';
-import { RequirePermissions } from '../../common/decorators';
+import { CurrentUser, RequirePermissions } from '../../common/decorators';
 
 @ApiTags('roles')
 @ApiBearerAuth('JWT-auth')
@@ -51,8 +51,11 @@ export class RolesController {
    */
   @Post()
   @RequirePermissions('create_roles')
-  create(@Body() createRoleDto: CreateRoleDto) {
-    return this.rolesService.create(createRoleDto);
+  create(
+    @Body() createRoleDto: CreateRoleDto,
+    @CurrentUser('roleId') actorRoleId: string,
+  ) {
+    return this.rolesService.create(createRoleDto, actorRoleId);
   }
 
   /**
@@ -62,8 +65,12 @@ export class RolesController {
    */
   @Put(':id')
   @RequirePermissions('update_roles')
-  update(@Param('id') id: string, @Body() updateRoleDto: UpdateRoleDto) {
-    return this.rolesService.update(id, updateRoleDto);
+  update(
+    @Param('id') id: string,
+    @Body() updateRoleDto: UpdateRoleDto,
+    @CurrentUser('roleId') actorRoleId: string,
+  ) {
+    return this.rolesService.update(id, updateRoleDto, actorRoleId);
   }
 
   /**
@@ -76,8 +83,13 @@ export class RolesController {
   assignPermissions(
     @Param('id') id: string,
     @Body() assignPermissionsDto: AssignPermissionsDto,
+    @CurrentUser('roleId') actorRoleId: string,
   ) {
-    return this.rolesService.assignPermissions(id, assignPermissionsDto);
+    return this.rolesService.assignPermissions(
+      id,
+      assignPermissionsDto,
+      actorRoleId,
+    );
   }
 
   /**
@@ -90,8 +102,13 @@ export class RolesController {
   addPermissions(
     @Param('id') id: string,
     @Body() assignPermissionsDto: AssignPermissionsDto,
+    @CurrentUser('roleId') actorRoleId: string,
   ) {
-    return this.rolesService.addPermissions(id, assignPermissionsDto);
+    return this.rolesService.addPermissions(
+      id,
+      assignPermissionsDto,
+      actorRoleId,
+    );
   }
 
   /**
@@ -104,8 +121,13 @@ export class RolesController {
   removePermissions(
     @Param('id') id: string,
     @Body() assignPermissionsDto: AssignPermissionsDto,
+    @CurrentUser('roleId') actorRoleId: string,
   ) {
-    return this.rolesService.removePermissions(id, assignPermissionsDto);
+    return this.rolesService.removePermissions(
+      id,
+      assignPermissionsDto,
+      actorRoleId,
+    );
   }
 
   /**
@@ -115,7 +137,10 @@ export class RolesController {
    */
   @Delete(':id')
   @RequirePermissions('delete_roles')
-  remove(@Param('id') id: string) {
-    return this.rolesService.remove(id);
+  remove(
+    @Param('id') id: string,
+    @CurrentUser('roleId') actorRoleId: string,
+  ) {
+    return this.rolesService.remove(id, actorRoleId);
   }
 }

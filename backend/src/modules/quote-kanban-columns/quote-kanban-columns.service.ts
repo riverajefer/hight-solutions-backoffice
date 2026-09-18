@@ -12,7 +12,9 @@ import { QuoteStatus } from '../../generated/prisma';
 /** Columnas protegidas: no se pueden editar ni eliminar */
 const PROTECTED_STATUSES: QuoteStatus[] = [QuoteStatus.DRAFT, QuoteStatus.CONVERTED];
 
-const MAX_COLUMNS = 8;
+// Hay 9 estados de cotización y cada uno puede tener su columna; el margen
+// extra permite dividir un estado en dos columnas si el equipo lo necesita.
+const MAX_COLUMNS = 12;
 
 @Injectable()
 export class QuoteKanbanColumnsService {

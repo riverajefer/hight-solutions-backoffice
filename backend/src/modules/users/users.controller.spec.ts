@@ -54,8 +54,8 @@ describe('UsersController', () => {
       const dto = { email: 'new@test.com', password: 'pass' } as any;
       const created = { id: 'user-2', ...dto };
       mockUsersService.create.mockResolvedValue(created);
-      const result = await controller.create(dto);
-      expect(mockUsersService.create).toHaveBeenCalledWith(dto);
+      const result = await controller.create(dto, 'actor-role');
+      expect(mockUsersService.create).toHaveBeenCalledWith(dto, 'actor-role');
       expect(result).toEqual(created);
     });
   });
@@ -65,8 +65,8 @@ describe('UsersController', () => {
       const dto = { firstName: 'Jane' } as any;
       const updated = { id: 'user-1', firstName: 'Jane' };
       mockUsersService.update.mockResolvedValue(updated);
-      const result = await controller.update('user-1', dto);
-      expect(mockUsersService.update).toHaveBeenCalledWith('user-1', dto);
+      const result = await controller.update('user-1', dto, 'actor-role');
+      expect(mockUsersService.update).toHaveBeenCalledWith('user-1', dto, 'actor-role');
       expect(result).toEqual(updated);
     });
   });

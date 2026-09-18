@@ -72,8 +72,13 @@ export const storageApi = {
       }
     }
 
-    // Crear la URL temporal del Blob y disparar una descarga
-    const blob = new Blob([response.data], { type: response.headers['content-type'] });
+    // Crear la URL temporal del Blob y disparar una descarga.
+    // Desde axios 1.20 un encabezado puede venir como `null`, que `Blob` no
+    // acepta; sin tipo, el navegador lo trata como binario genérico.
+    const contentType = response.headers['content-type'];
+    const blob = new Blob([response.data], {
+      type: typeof contentType === 'string' ? contentType : undefined,
+    });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;

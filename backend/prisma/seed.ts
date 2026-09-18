@@ -4,13 +4,56 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import 'dotenv/config';
+import { allCatalogPermissions } from './permissions-catalog';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+
+/**
+ * ¿Se siembran los datos de demostración (clientes, proveedores, órdenes,
+ * cotizaciones, catálogo de ejemplo y las cuentas de prueba)?
+ *
+ * Por defecto sí fuera de producción, que es como se ha usado siempre en
+ * desarrollo. En producción **no**: una base nueva no debe nacer con plata
+ * ficticia —los 4 pagos de demostración rompen el invariante de caja— ni con
+ * clientes que no existen.
+ *
+ * `SEED_DEMO=true` fuerza la demo; `SEED_DEMO=false` la omite en cualquier
+ * ambiente.
+ */
+const SEED_DEMO = process.env.SEED_DEMO
+  ? process.env.SEED_DEMO === 'true'
+  : !IS_PRODUCTION;
+
+/**
+ * Contraseña del administrador inicial. En producción es obligatoria: el seed
+ * creaba `admin123`, que es pública porque está en este repositorio.
+ */
+function resolveAdminPassword(): string {
+  const fromEnv = process.env.SEED_ADMIN_PASSWORD?.trim();
+  if (fromEnv) return fromEnv;
+
+  if (IS_PRODUCTION) {
+    throw new Error(
+      'Falta SEED_ADMIN_PASSWORD. En producción el seed no crea el admin con ' +
+        'una contraseña conocida: define SEED_ADMIN_PASSWORD y vuelve a correrlo.',
+    );
+  }
+  return 'admin123';
+}
+
 async function main() {
   console.log('🌱 Starting database seed...\n');
+  console.log(
+    `   Ambiente: ${process.env.NODE_ENV ?? 'development'} · datos de demostración: ${SEED_DEMO ? 'SÍ' : 'no'}\n`,
+  );
+
+  // Se resuelve antes de escribir nada: si falta la contraseña en producción,
+  // el seed se detiene sin dejar la base a medias.
+  const adminPasswordPlain = resolveAdminPassword();
 
   // ============================================
   // 1. Crear Permisos
@@ -422,7 +465,17 @@ async function main() {
 
   const permissions: { [key: string]: { id: string } } = {};
 
-  for (const perm of permissionsData) {
+  // El catálogo compartido trae los permisos publicados después de este seed.
+  // Sin él, una base nueva se quedaba sin `read_orders_dashboard` y el mini
+  // dashboard de órdenes respondía 403 a todos, incluido el admin.
+  const todosLosPermisos = [
+    ...permissionsData,
+    ...allCatalogPermissions.filter(
+      (extra) => !permissionsData.some((p) => p.name === extra.name),
+    ),
+  ];
+
+  for (const perm of todosLosPermisos) {
     const permission = await prisma.permission.upsert({
       where: { name: perm.name },
       update: { description: perm.description },
@@ -483,21 +536,28 @@ async function main() {
     roleName: string,
     permissionNames: string[],
   ) => {
-    // Eliminar permisos existentes
-    await prisma.rolePermission.deleteMany({
-      where: { roleId },
-    });
+    const yaConfigurado = await prisma.rolePermission.count({ where: { roleId } });
 
-    // Asignar nuevos permisos
+    // Un rol que ya tiene permisos se administra desde la pantalla de Roles, y
+    // este seed no es la fuente de verdad: borrarlos y reescribir la lista de
+    // aquí deshacía toda la configuración, incluidos los permisos que alguien
+    // quitó a propósito. Solo se siembra la primera vez.
+    //
+    // Para publicar permisos nuevos en una base que ya está en uso, el camino
+    // es `npm run prisma:sync:permissions`, que agrega sin borrar.
+    if (yaConfigurado > 0) {
+      console.log(
+        `  ↷ ${roleName}: ya tiene ${yaConfigurado} permiso(s) configurados, no se tocan`,
+      );
+      return;
+    }
+
     for (const permName of permissionNames) {
-      if (permissions[permName]) {
-        await prisma.rolePermission.create({
-          data: {
-            roleId,
-            permissionId: permissions[permName].id,
-          },
-        });
-      }
+      if (!permissions[permName]) continue;
+
+      await prisma.rolePermission.create({
+        data: { roleId, permissionId: permissions[permName].id },
+      });
     }
     console.log(`  ✓ ${roleName}: ${permissionNames.length} permissions`);
   };
@@ -648,7 +708,7 @@ async function main() {
   // ============================================
   console.log('\n👤 Creating admin user...');
 
-  const adminPassword = await bcrypt.hash('admin123', 12);
+  const adminPassword = await bcrypt.hash(adminPasswordPlain, 12);
 
   let adminUser = await prisma.user.findFirst({ where: { OR: [{ username: 'adminsistema' }, { email: 'admin@example.com' }] } });
   if (!adminUser) {
@@ -660,31 +720,33 @@ async function main() {
   }
   console.log(`  ✓ Admin user: ${adminUser.username}`);
 
-  // Crear usuario de prueba con rol manager
-  const managerPassword = await bcrypt.hash('manager123', 12);
+  // Las cuentas de prueba tienen contraseña pública (están en este repo), así
+  // que solo existen cuando se siembran datos de demostración.
+  if (SEED_DEMO) {
+    const managerPassword = await bcrypt.hash('manager123', 12);
 
-  let managerUser = await prisma.user.findFirst({ where: { OR: [{ username: 'managersistema' }, { email: 'manager@example.com' }] } });
-  if (!managerUser) {
-    managerUser = await prisma.user.create({
-      data: { username: 'managersistema', email: 'manager@example.com', password: managerPassword, roleId: managerRole.id, firstName: 'Manager', lastName: 'Sistema' },
-    });
-  } else {
-    managerUser = await prisma.user.update({ where: { id: managerUser.id }, data: { roleId: managerRole.id } });
+    let managerUser = await prisma.user.findFirst({ where: { OR: [{ username: 'managersistema' }, { email: 'manager@example.com' }] } });
+    if (!managerUser) {
+      managerUser = await prisma.user.create({
+        data: { username: 'managersistema', email: 'manager@example.com', password: managerPassword, roleId: managerRole.id, firstName: 'Manager', lastName: 'Sistema' },
+      });
+    } else {
+      managerUser = await prisma.user.update({ where: { id: managerUser.id }, data: { roleId: managerRole.id } });
+    }
+    console.log(`  ✓ Manager user: ${managerUser.username}`);
+
+    const userPassword = await bcrypt.hash('user123', 12);
+
+    let regularUser = await prisma.user.findFirst({ where: { OR: [{ username: 'usuariosistema' }, { email: 'user@example.com' }] } });
+    if (!regularUser) {
+      regularUser = await prisma.user.create({
+        data: { username: 'usuariosistema', email: 'user@example.com', password: userPassword, roleId: userRole.id, firstName: 'Usuario', lastName: 'Sistema' },
+      });
+    } else {
+      regularUser = await prisma.user.update({ where: { id: regularUser.id }, data: { roleId: userRole.id } });
+    }
+    console.log(`  ✓ Regular user: ${regularUser.username}`);
   }
-  console.log(`  ✓ Manager user: ${managerUser.username}`);
-
-  // Crear usuario de prueba con rol user
-  const userPassword = await bcrypt.hash('user123', 12);
-
-  let regularUser = await prisma.user.findFirst({ where: { OR: [{ username: 'usuariosistema' }, { email: 'user@example.com' }] } });
-  if (!regularUser) {
-    regularUser = await prisma.user.create({
-      data: { username: 'usuariosistema', email: 'user@example.com', password: userPassword, roleId: userRole.id, firstName: 'Usuario', lastName: 'Sistema' },
-    });
-  } else {
-    regularUser = await prisma.user.update({ where: { id: regularUser.id }, data: { roleId: userRole.id } });
-  }
-  console.log(`  ✓ Regular user: ${regularUser.username}`);
 
   // ============================================
   // 5. Asegurar áreas organizacionales como Áreas de Producción
@@ -1152,8 +1214,13 @@ async function main() {
   }
 
   // ============================================
-  // 7. Crear Categorías de Productos
+  // 7 a 13. Catálogo de ejemplo y datos de demostración
   // ============================================
+  // Productos, insumos, clientes, proveedores, órdenes y cotizaciones de
+  // ejemplo. Nada de esto debe existir en una empresa real: los pagos de las
+  // órdenes de demostración rompen el invariante «Pagos que mueven dinero sin
+  // rastro en caja» desde el primer día.
+  if (SEED_DEMO) {
   console.log('\n📦 Creating product categories...');
 
   const productCategoriesData = [
@@ -2342,6 +2409,8 @@ async function main() {
     }
   }
 
+  } // fin del catálogo de ejemplo y los datos de demostración
+
   // ============================================
   // 14. Crear Consecutivos Iniciales
   // ============================================
@@ -2556,52 +2625,37 @@ async function main() {
   }
 
   // ============================================
-  // Resumen
-  // ============================================
-  console.log('\n' + '='.repeat(50));
-  console.log('✅ Database seeded successfully!\n');
-  console.log('📋 Summary:');
-  console.log(`   - Permissions: ${permissionsData.length}`);
-  console.log(`   - Roles: 3 (admin, manager, user)`);
-  console.log(`   - Users: 3`);
-  console.log(`   - Cargos: ${cargosData.length}`);
-  // ============================================
   // Company - Información institucional inicial
   // ============================================
-  console.log('\n🏢 Creating company info...');
+  // Los datos de High solo se siembran con la demo. En producción la empresa
+  // se llena desde la pantalla de Empresa: sembrarla aquí haría que otra
+  // compañía arrancara con el nombre, el NIT y el sitio web de High.
+  if (SEED_DEMO) {
+    console.log('\n🏢 Creating company info...');
 
-  await prisma.company.upsert({
-    where: { id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
-    update: {},
-    create: {
-      id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-      name: 'High Solutions S.A.S',
-      description: 'Empresa especializada en soluciones de software y tecnología empresarial.',
-      email: 'contacto@highsolutions.com',
-      phone: '6012345678',
-      mobilePhone: '3001234567',
-      website: 'https://www.highsolutions.com',
-      address: 'Bogotá, Colombia',
-      nit: '900000000-0',
-      legalRepresentative: 'Representante Legal',
-      foundedYear: 2020,
-      taxRegime: 'Régimen Simple de Tributación',
-    },
-  });
-  console.log('  ✓ Company info created');
+    await prisma.company.upsert({
+      where: { id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
+      update: {},
+      create: {
+        id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+        name: 'High Solutions S.A.S',
+        description: 'Empresa especializada en soluciones de software y tecnología empresarial.',
+        email: 'contacto@highsolutions.com',
+        phone: '6012345678',
+        mobilePhone: '3001234567',
+        website: 'https://www.highsolutions.com',
+        address: 'Bogotá, Colombia',
+        nit: '900000000-0',
+        legalRepresentative: 'Representante Legal',
+        foundedYear: 2020,
+        taxRegime: 'Régimen Simple de Tributación',
+      },
+    });
+    console.log('  ✓ Company info created');
+  } else {
+    console.log('\n🏢 Empresa: se llena desde la pantalla de Empresa.');
+  }
 
-  console.log(`   - Cargos: ${cargosData.length}`);
-  console.log(`   - Departments: ${departmentsData.length}`);
-  console.log(`   - Cities: ${totalCities}`);
-  console.log(`   - Clients: ${clientsCreated}`);
-  console.log(`   - Suppliers: ${suppliersCreated}`);
-  console.log(`   - Units of Measure: ${unitsOfMeasureData.length}`);
-  console.log(`   - Product Categories: ${productCategoriesData.length}
-   - Products: ${productsCreated}
-   - Quotes: ${quotesCreatedCount} / 2 expected`);
-  console.log(`   - Supply Categories: ${supplyCategoriesData.length}`);
-  console.log(`   - Supplies: ${suppliesCreated}`);
-  console.log(`   - Orders: 3 (2 con IVA, 1 sin IVA)`);
   // ============================================
   // Expense Types & Subcategories
   // ============================================
@@ -2674,8 +2728,11 @@ async function main() {
   }
 
   // ============================================
-  // MÓDULO DE PRODUCCIÓN
+  // MÓDULO DE PRODUCCIÓN (demostración)
   // ============================================
+  // Los pasos y las plantillas («Cuaderno», «Carpeta») son ejemplos armados
+  // para High: otra empresa define los suyos desde la pantalla.
+  if (SEED_DEMO) {
   console.log('\n🏭 Creating production module data...');
 
   // Step Definitions — 9 tipos de paso atómico reutilizables
@@ -3035,6 +3092,8 @@ async function main() {
     ],
   );
 
+  } // fin del módulo de producción (demostración)
+
   // ============================================
   // Quote Kanban Columns (default)
   // ============================================
@@ -3042,11 +3101,14 @@ async function main() {
 
   const defaultKanbanColumns = [
     { mappedStatus: 'DRAFT' as const,       name: 'Borrador',      color: '#757575', displayOrder: 0 },
-    { mappedStatus: 'SENT' as const,        name: 'Enviada',        color: '#0288d1', displayOrder: 1 },
-    { mappedStatus: 'ACCEPTED' as const,    name: 'Aceptada',       color: '#2e7d32', displayOrder: 2 },
-    { mappedStatus: 'NO_RESPONSE' as const, name: 'Sin Respuesta',  color: '#f57c00', displayOrder: 3 },
-    { mappedStatus: 'CONVERTED' as const,   name: 'Convertida',     color: '#7b1fa2', displayOrder: 4 },
-    { mappedStatus: 'REJECTED' as const,    name: 'Rechazada',      color: '#d32f2f', displayOrder: 5 },
+    { mappedStatus: 'SENT' as const,        name: 'Enviada',       color: '#0288d1', displayOrder: 1 },
+    { mappedStatus: 'FOLLOW_UP_1' as const, name: 'Seguimiento 1', color: '#00897b', displayOrder: 2 },
+    { mappedStatus: 'FOLLOW_UP_2' as const, name: 'Seguimiento 2', color: '#3949ab', displayOrder: 3 },
+    { mappedStatus: 'FOLLOW_UP_3' as const, name: 'Seguimiento 3', color: '#8e24aa', displayOrder: 4 },
+    { mappedStatus: 'ACCEPTED' as const,    name: 'Aceptada',      color: '#2e7d32', displayOrder: 5 },
+    { mappedStatus: 'NO_RESPONSE' as const, name: 'Sin Respuesta', color: '#f57c00', displayOrder: 6 },
+    { mappedStatus: 'CONVERTED' as const,   name: 'Convertida',    color: '#7b1fa2', displayOrder: 7 },
+    { mappedStatus: 'REJECTED' as const,    name: 'Rechazada',     color: '#d32f2f', displayOrder: 8 },
   ];
 
   for (const col of defaultKanbanColumns) {
@@ -3055,18 +3117,78 @@ async function main() {
     });
     if (!existing) {
       await prisma.quoteKanbanColumn.create({ data: col });
+    } else if (existing.displayOrder !== col.displayOrder) {
+      // Los seguimientos se intercalan entre Enviada y Aceptada: las columnas
+      // que ya existían tienen que correrse para dejarles el espacio.
+      await prisma.quoteKanbanColumn.update({
+        where: { id: existing.id },
+        data: { displayOrder: col.displayOrder },
+      });
     }
     console.log(`  ✓ Kanban column: ${col.name}`);
   }
 
-  console.log(`   - Consecutives: ${consecutivesData.length}`);
-  console.log(`   - Production Areas: ${productionAreasData.length}`);
-  console.log(`   - Commercial Channels: ${channelsCreated}`);
-  console.log(`   - Editable Order Statuses: ${editableStatuses.length}`);
-  console.log('\n🔐 Test Credentials (username / password):');
-  console.log('   Admin:   adminsistema / admin123');
-  console.log('   Manager: managersistema / manager123');
-  console.log('   User:    usuariosistema / user123');
+  // ============================================
+  // Resumen
+  // ============================================
+  // Se cuenta contra la base en vez de sumar las listas del archivo: así el
+  // resumen dice la verdad tanto con datos de demostración como sin ellos.
+  const [
+    permisos,
+    roles,
+    usuarios,
+    cargos,
+    ciudades,
+    unidades,
+    productos,
+    insumos,
+    clientes,
+    proveedores,
+    ordenes,
+    cotizaciones,
+    consecutivos,
+    areasProduccion,
+    canales,
+  ] = await Promise.all([
+    prisma.permission.count(),
+    prisma.role.count(),
+    prisma.user.count(),
+    prisma.cargo.count(),
+    prisma.city.count(),
+    prisma.unitOfMeasure.count(),
+    prisma.product.count(),
+    prisma.supply.count(),
+    prisma.client.count(),
+    prisma.supplier.count(),
+    prisma.order.count(),
+    prisma.quote.count(),
+    prisma.consecutive.count(),
+    prisma.productionArea.count(),
+    prisma.commercialChannel.count(),
+  ]);
+
+  console.log('\n' + '='.repeat(50));
+  console.log('✅ Database seeded successfully!\n');
+  console.log('📋 Resumen (filas en la base):');
+  console.log(`   - Permisos: ${permisos}          - Roles: ${roles}`);
+  console.log(`   - Usuarios: ${usuarios}          - Cargos: ${cargos}`);
+  console.log(`   - Ciudades: ${ciudades}          - Unidades de medida: ${unidades}`);
+  console.log(`   - Consecutivos: ${consecutivos}  - Áreas de producción: ${areasProduccion}`);
+  console.log(`   - Canales comerciales: ${canales}`);
+  console.log(
+    `   - Demostración: ${productos} productos, ${insumos} insumos, ${clientes} clientes, ` +
+      `${proveedores} proveedores, ${ordenes} órdenes, ${cotizaciones} cotizaciones`,
+  );
+
+  if (SEED_DEMO) {
+    console.log('\n🔐 Credenciales de prueba (usuario / contraseña):');
+    console.log(`   Admin:   adminsistema / ${process.env.SEED_ADMIN_PASSWORD ?? 'admin123'}`);
+    console.log('   Manager: managersistema / manager123');
+    console.log('   User:    usuariosistema / user123');
+  } else {
+    console.log('\n🔐 Usuario administrador: adminsistema');
+    console.log('   Contraseña: la de SEED_ADMIN_PASSWORD. Cámbiala al primer ingreso.');
+  }
   console.log('='.repeat(50) + '\n');
 }
 

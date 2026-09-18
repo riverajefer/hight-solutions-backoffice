@@ -352,11 +352,19 @@ export class QuotesService {
 
   async remove(id: string) {
     const quote = await this.findOne(id);
-    if (quote.status !== QuoteStatus.DRAFT && 
-        quote.status !== QuoteStatus.SENT && 
-        quote.status !== QuoteStatus.NO_RESPONSE &&
-        quote.status !== QuoteStatus.REJECTED) {
-      throw new BadRequestException('Only draft, sent, no response or rejected quotes can be deleted');
+    // Se borra lo que nunca llegó a ser una venta. Una cotización aceptada o
+    // convertida ya tiene una orden detrás y no se puede borrar.
+    const deletableStatuses: QuoteStatus[] = [
+      QuoteStatus.DRAFT,
+      QuoteStatus.SENT,
+      QuoteStatus.FOLLOW_UP_1,
+      QuoteStatus.FOLLOW_UP_2,
+      QuoteStatus.FOLLOW_UP_3,
+      QuoteStatus.NO_RESPONSE,
+      QuoteStatus.REJECTED,
+    ];
+    if (!deletableStatuses.includes(quote.status as QuoteStatus)) {
+      throw new BadRequestException('Only draft, sent, in follow-up, no response or rejected quotes can be deleted');
     }
     await this.quotesRepository.delete(id);
     return { message: 'Quote deleted successfully' };

@@ -6,6 +6,9 @@ import { Product } from './product.types';
 export enum QuoteStatus {
   DRAFT = 'DRAFT',
   SENT = 'SENT',
+  FOLLOW_UP_1 = 'FOLLOW_UP_1',
+  FOLLOW_UP_2 = 'FOLLOW_UP_2',
+  FOLLOW_UP_3 = 'FOLLOW_UP_3',
   ACCEPTED = 'ACCEPTED',
   NO_RESPONSE = 'NO_RESPONSE',
   REJECTED = 'REJECTED',
@@ -18,6 +21,9 @@ export const QUOTE_STATUS_CONFIG: Record<
 > = {
   [QuoteStatus.DRAFT]:       { label: 'Borrador',      color: 'default' },
   [QuoteStatus.SENT]:        { label: 'Enviada',        color: 'info' },
+  [QuoteStatus.FOLLOW_UP_1]: { label: 'Seguimiento 1',  color: 'secondary' },
+  [QuoteStatus.FOLLOW_UP_2]: { label: 'Seguimiento 2',  color: 'secondary' },
+  [QuoteStatus.FOLLOW_UP_3]: { label: 'Seguimiento 3',  color: 'secondary' },
   [QuoteStatus.ACCEPTED]:    { label: 'Aceptada',       color: 'success' },
   [QuoteStatus.NO_RESPONSE]: { label: 'Sin respuesta',  color: 'warning' },
   [QuoteStatus.REJECTED]:    { label: 'Rechazada',      color: 'error' },
@@ -26,16 +32,20 @@ export const QUOTE_STATUS_CONFIG: Record<
 
 /**
  * Transiciones válidas de estado de cotización.
- * Flujo: DRAFT → SENT → ACCEPTED → CONVERTED
- *                      ↘ NO_RESPONSE → REJECTED
- *                      ↘ REJECTED (terminal, requiere motivo)
+ * Flujo: DRAFT → SENT → FOLLOW_UP_1 → FOLLOW_UP_2 → FOLLOW_UP_3 → NO_RESPONSE
+ *                                                              ↘ ACCEPTED → CONVERTED
+ *                                                              ↘ REJECTED (requiere motivo)
  *
- * El rechazo es alcanzable desde Enviada, Aceptada y Sin respuesta.
+ * Los seguimientos avanzan de uno en uno, y desde Enviada o cualquiera de ellos
+ * se puede aceptar, rechazar o marcar sin respuesta.
  * Debe reflejar exactamente quote-status-transitions.ts del backend.
  */
 export const ALLOWED_QUOTE_TRANSITIONS: Record<QuoteStatus, QuoteStatus[]> = {
   [QuoteStatus.DRAFT]:       [QuoteStatus.SENT],
-  [QuoteStatus.SENT]:        [QuoteStatus.ACCEPTED, QuoteStatus.NO_RESPONSE, QuoteStatus.REJECTED],
+  [QuoteStatus.SENT]:        [QuoteStatus.FOLLOW_UP_1, QuoteStatus.ACCEPTED, QuoteStatus.NO_RESPONSE, QuoteStatus.REJECTED],
+  [QuoteStatus.FOLLOW_UP_1]: [QuoteStatus.FOLLOW_UP_2, QuoteStatus.ACCEPTED, QuoteStatus.NO_RESPONSE, QuoteStatus.REJECTED],
+  [QuoteStatus.FOLLOW_UP_2]: [QuoteStatus.FOLLOW_UP_3, QuoteStatus.ACCEPTED, QuoteStatus.NO_RESPONSE, QuoteStatus.REJECTED],
+  [QuoteStatus.FOLLOW_UP_3]: [QuoteStatus.ACCEPTED, QuoteStatus.NO_RESPONSE, QuoteStatus.REJECTED],
   [QuoteStatus.ACCEPTED]:    [QuoteStatus.CONVERTED, QuoteStatus.REJECTED],
   [QuoteStatus.NO_RESPONSE]: [QuoteStatus.REJECTED],
   [QuoteStatus.REJECTED]:    [],

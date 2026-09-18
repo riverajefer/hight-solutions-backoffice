@@ -53,8 +53,8 @@ describe('RolesController', () => {
     it('should delegate to rolesService.create with the dto', async () => {
       const dto = { name: 'editor' } as any;
       mockRolesService.create.mockResolvedValue({ id: 'role-2', ...dto });
-      await controller.create(dto);
-      expect(mockRolesService.create).toHaveBeenCalledWith(dto);
+      await controller.create(dto, 'actor-role');
+      expect(mockRolesService.create).toHaveBeenCalledWith(dto, 'actor-role');
     });
   });
 
@@ -62,16 +62,16 @@ describe('RolesController', () => {
     it('should delegate to rolesService.update with id and dto', async () => {
       const dto = { name: 'editor-updated' } as any;
       mockRolesService.update.mockResolvedValue({ id: 'role-1', ...dto });
-      await controller.update('role-1', dto);
-      expect(mockRolesService.update).toHaveBeenCalledWith('role-1', dto);
+      await controller.update('role-1', dto, 'actor-role');
+      expect(mockRolesService.update).toHaveBeenCalledWith('role-1', dto, 'actor-role');
     });
   });
 
   describe('remove', () => {
     it('should delegate to rolesService.remove', async () => {
       mockRolesService.remove.mockResolvedValue({ id: 'role-1' });
-      await controller.remove('role-1');
-      expect(mockRolesService.remove).toHaveBeenCalledWith('role-1');
+      await controller.remove('role-1', 'actor-role');
+      expect(mockRolesService.remove).toHaveBeenCalledWith('role-1', 'actor-role');
     });
   });
 
@@ -79,8 +79,8 @@ describe('RolesController', () => {
     it('should delegate to rolesService.assignPermissions', async () => {
       const dto = { permissionIds: ['perm-1', 'perm-2'] } as any;
       mockRolesService.assignPermissions.mockResolvedValue({});
-      await controller.assignPermissions('role-1', dto);
-      expect(mockRolesService.assignPermissions).toHaveBeenCalledWith('role-1', dto);
+      await controller.assignPermissions('role-1', dto, 'actor-role');
+      expect(mockRolesService.assignPermissions).toHaveBeenCalledWith('role-1', dto, 'actor-role');
     });
   });
 
@@ -88,8 +88,8 @@ describe('RolesController', () => {
     it('should delegate to rolesService.addPermissions', async () => {
       const dto = { permissionIds: ['perm-3'] } as any;
       mockRolesService.addPermissions.mockResolvedValue({});
-      await controller.addPermissions('role-1', dto);
-      expect(mockRolesService.addPermissions).toHaveBeenCalledWith('role-1', dto);
+      await controller.addPermissions('role-1', dto, 'actor-role');
+      expect(mockRolesService.addPermissions).toHaveBeenCalledWith('role-1', dto, 'actor-role');
     });
   });
 
@@ -97,8 +97,8 @@ describe('RolesController', () => {
     it('should delegate to rolesService.removePermissions', async () => {
       const dto = { permissionIds: ['perm-1'] } as any;
       mockRolesService.removePermissions.mockResolvedValue({});
-      await controller.removePermissions('role-1', dto);
-      expect(mockRolesService.removePermissions).toHaveBeenCalledWith('role-1', dto);
+      await controller.removePermissions('role-1', dto, 'actor-role');
+      expect(mockRolesService.removePermissions).toHaveBeenCalledWith('role-1', dto, 'actor-role');
     });
   });
 });
