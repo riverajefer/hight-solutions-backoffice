@@ -397,4 +397,7 @@ export const BANKS: string[] = [
   'Movii',
   'Dale!',
   'Coink',
+  'Bold',
+  'Wompi',
+  'Transferencia internacional',
 ];
