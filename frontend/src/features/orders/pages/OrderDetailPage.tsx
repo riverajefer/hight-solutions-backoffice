@@ -67,6 +67,7 @@ import {
   CurrencyExchange as CurrencyExchangeIcon,
   HourglassEmpty as HourglassEmptyIcon,
   WhatsApp as WhatsAppIcon,
+  PlaylistRemove as PlaylistRemoveIcon,
 } from '@mui/icons-material';
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
@@ -98,12 +99,14 @@ import {
   DiscountsSection,
   ToolbarButton,
   RefundRequestDialog,
+  PartialAnnulmentDialog,
 } from '../components';
 import { generateOrderPdf } from '../utils/generateOrderPdf';
 import { getPendingAdvanceInfo } from '../utils/pendingAdvance';
 import { ActivePermissionBanner } from '../components/ActivePermissionBanner';
 import { RequestEditPermissionButton } from '../components/RequestEditPermissionButton';
 import { RequestAdvisorChangeButton } from '../components/RequestAdvisorChangeButton';
+import { ActionToolbar } from '../components/ActionToolbar';
 import { AdvisorChangeStatusAlert } from '../components/AdvisorChangeStatusAlert';
 import { useIsCashOpen } from '../../cash-register/hooks/useCashRegister';
 import { EditRequestsList } from '../components/EditRequestsList';
@@ -112,6 +115,7 @@ import { AdvancePaymentApprovalBadge } from '../components/AdvancePaymentApprova
 import { StatusChangeAuthRequestDialog } from '../components/StatusChangeAuthRequestDialog';
 import { AnnulOrderDialog } from '../components/AnnulOrderDialog';
 import { getAnnulmentAmounts } from '../utils/annulment';
+import { getAliveQuantity } from '../utils/partialAnnulment';
 import { OrderChangeHistoryTab } from '../components/OrderChangeHistoryTab';
 import { OrderAuthHistory } from '../components/OrderAuthHistory';
 import { ordersApi } from '../../../api/orders.api';
@@ -257,6 +261,7 @@ export const OrderDetailPage: React.FC = () => {
   };
   const [discountDialogOpen, setDiscountDialogOpen] = useState(false);
   const [refundDialogOpen, setRefundDialogOpen] = useState(false);
+  const [partialAnnulmentOpen, setPartialAnnulmentOpen] = useState(false);
   const [tabValue, setTabValue] = useState(0);
   const [paymentData, setPaymentData] = useState<CreatePaymentDto>({
     amount: 0,
@@ -988,6 +993,18 @@ export const OrderDetailPage: React.FC = () => {
     !hasPendingRefund &&
     permissions.includes('create_refund_requests');
 
+  // Anular ítems no exige que el cliente haya abonado: si no sobra plata, la
+  // anulación solo baja el saldo. Un borrador se edita directamente.
+  const canAnnulItems =
+    !isReturned &&
+    !isAnulado &&
+    order.status !== 'DRAFT' &&
+    pendingSaleValue > 0 &&
+    !hasPendingRefund &&
+    !authorizedRefund &&
+    order.items.some((item) => getAliveQuantity(item) > 0) &&
+    permissions.includes('create_refund_requests');
+
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <DocumentTypeBanner type='OP' documentNumber={order.orderNumber} />
@@ -1116,7 +1133,22 @@ export const OrderDetailPage: React.FC = () => {
       )}
 
       {/* Alertas de devolución (saldo a favor) */}
-      {hasPendingRefund && pendingRefund && (
+      {hasPendingRefund && pendingRefund && !!pendingRefund.items?.length && (
+        <Alert severity='warning' icon={<HourglassEmptyIcon />} sx={{ mt: 2 }}>
+          <strong>Anulación de ítems pendiente de aprobación.</strong> Se anula:{' '}
+          {pendingRefund.items
+            .map((i) => `${Number(i.quantity)} × ${i.description.trim()}`)
+            .join(', ')}
+          {' · '}
+          {parseFloat(pendingRefund.refundAmount) > 0
+            ? `se devuelven ${formatCurrency(pendingRefund.refundAmount)}`
+            : 'sin devolución de dinero'}
+          {parseFloat(pendingRefund.retainedAmount ?? '0') > 0
+            ? ` · la empresa retiene ${formatCurrency(pendingRefund.retainedAmount!)}`
+            : ''}
+        </Alert>
+      )}
+      {hasPendingRefund && pendingRefund && !pendingRefund.items?.length && (
         <Alert severity='warning' icon={<HourglassEmptyIcon />} sx={{ mt: 2 }}>
           <strong>Devolución pendiente de aprobación.</strong> Monto:{' '}
           {formatCurrency(pendingRefund.refundAmount)} ·{' '}
@@ -1144,7 +1176,7 @@ export const OrderDetailPage: React.FC = () => {
       )}
       {reversedAmount > 0 && !isReturned && !isAnulado && (
         <Alert severity='warning' sx={{ mt: 2 }}>
-          <strong>Devolución parcial.</strong> Se anularon{' '}
+          <strong>Anulación parcial.</strong> Se anularon{' '}
           {formatCurrency(reversedAmount.toString())} de esta orden. Su valor
           vigente es {formatCurrency(pendingSaleValue.toString())}.
         </Alert>
@@ -1190,51 +1222,11 @@ export const OrderDetailPage: React.FC = () => {
         sx={{ mt: 2 }}
       />
 
-      {/* Toolbar de Acciones */}
-      <Paper
-        elevation={0}
-        sx={{
-          mt: 2,
-          mb: 3,
-          p: 0,
-          borderRadius: 2,
-          display: 'flex',
-          alignItems: 'stretch',
-          justifyContent: 'center',
-          background: (theme) =>
-            theme.palette.mode === 'dark'
-              ? 'rgba(255, 255, 255, 0.04)'
-              : 'rgba(255, 255, 255, 0.8)',
-          backdropFilter: 'blur(8px)',
-          border: (theme) =>
-            `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
-          overflowX: 'auto',
-          '&::-webkit-scrollbar': { display: 'none' },
-          msOverflowStyle: 'none',
-          scrollbarWidth: 'none',
-        }}
-      >
-        <Stack
-          direction='row'
-          spacing={0}
-          alignItems='stretch'
-          sx={{
-            flexWrap: { xs: 'wrap', md: 'nowrap' },
-            gap: { xs: 0.5, sm: 0 },
-            minWidth: 0,
-          }}
-          divider={
-            <Divider
-              orientation='vertical'
-              flexItem
-              sx={{
-                my: 1.5,
-                opacity: 0.5,
-                display: { xs: 'none', sm: 'block' },
-              }}
-            />
-          }
-        >
+      {/* Toolbar de Acciones.
+          El orden es la prioridad: cuando no caben todas, las últimas son las
+          que pasan a «Más». Primero lo que mueve dinero o estado; al final lo
+          que solo consulta o imprime. */}
+      <ActionToolbar sx={{ mt: 2, mb: 3 }}>
           {canEdit && (
             <ToolbarButton
               icon={<EditIcon />}
@@ -1248,19 +1240,6 @@ export const OrderDetailPage: React.FC = () => {
             orderId={id!}
             orderStatus={order.status}
           />
-
-          {(permissions.includes('request_advisor_change') ||
-            permissions.includes('approve_advisor_change')) && (
-            <RequestAdvisorChangeButton
-              orderId={id!}
-              currentAdvisorId={order.createdBy.id}
-              currentAdvisorName={
-                order.createdBy.firstName && order.createdBy.lastName
-                  ? `${order.createdBy.firstName} ${order.createdBy.lastName}`
-                  : order.createdBy.email
-              }
-            />
-          )}
 
           {canAddPayment && (
             <ToolbarButton
@@ -1298,20 +1277,14 @@ export const OrderDetailPage: React.FC = () => {
             />
           )}
 
-          {canRegisterInvoice && (
+          {canAnnulItems && (
             <ToolbarButton
-              icon={<ReceiptIcon />}
-              label='Factura'
-              secondaryLabel={
-                order.electronicInvoiceNumber ? 'Actualizar' : 'Registrar'
-              }
-              onClick={handleOpenInvoiceDialog}
-              color={theme.palette.info.main}
-              tooltip={
-                order.electronicInvoiceNumber
-                  ? 'Actualizar Factura Electrónica'
-                  : 'Registrar Factura Electrónica'
-              }
+              icon={<PlaylistRemoveIcon />}
+              label='Anular ítems'
+              secondaryLabel='Parcial'
+              onClick={() => setPartialAnnulmentOpen(true)}
+              color={theme.palette.error.main}
+              tooltip='Anular parte de la orden: los ítems que se caen quedan marcados y el resto sigue'
             />
           )}
 
@@ -1335,17 +1308,22 @@ export const OrderDetailPage: React.FC = () => {
             />
           )}
 
-          <OrderPdfButton order={order} />
-
-          <ToolbarButton
-            icon={<WhatsAppIcon />}
-            label='WhatsApp'
-            secondaryLabel='Compartir'
-            onClick={handleShareWhatsApp}
-            disabled={isGeneratingPdf}
-            color={theme.palette.success.main}
-            tooltip='Compartir por WhatsApp'
-          />
+          {canRegisterInvoice && (
+            <ToolbarButton
+              icon={<ReceiptIcon />}
+              label='Factura'
+              secondaryLabel={
+                order.electronicInvoiceNumber ? 'Actualizar' : 'Registrar'
+              }
+              onClick={handleOpenInvoiceDialog}
+              color={theme.palette.info.main}
+              tooltip={
+                order.electronicInvoiceNumber
+                  ? 'Actualizar Factura Electrónica'
+                  : 'Registrar Factura Electrónica'
+              }
+            />
+          )}
 
           {order.workOrders?.[0] ? (
             <ToolbarButton
@@ -1395,6 +1373,31 @@ export const OrderDetailPage: React.FC = () => {
             />
           )}
 
+          <OrderPdfButton order={order} />
+
+          <ToolbarButton
+            icon={<WhatsAppIcon />}
+            label='WhatsApp'
+            secondaryLabel='Compartir'
+            onClick={handleShareWhatsApp}
+            disabled={isGeneratingPdf}
+            color={theme.palette.success.main}
+            tooltip='Compartir por WhatsApp'
+          />
+
+          {(permissions.includes('request_advisor_change') ||
+            permissions.includes('approve_advisor_change')) && (
+            <RequestAdvisorChangeButton
+              orderId={id!}
+              currentAdvisorId={order.createdBy.id}
+              currentAdvisorName={
+                order.createdBy.firstName && order.createdBy.lastName
+                  ? `${order.createdBy.firstName} ${order.createdBy.lastName}`
+                  : order.createdBy.email
+              }
+            />
+          )}
+
           <ToolbarButton
             icon={<AccountTreeIcon />}
             label='Trazabilidad'
@@ -1408,8 +1411,7 @@ export const OrderDetailPage: React.FC = () => {
             onClick={() => navigate('/orders/new')}
             tooltip='Nueva Orden'
           />
-        </Stack>
-      </Paper>
+      </ActionToolbar>
 
       <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ mt: 1 }}>
         {/* Info General */}
@@ -2023,8 +2025,20 @@ export const OrderDetailPage: React.FC = () => {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {order.items.map((item) => (
-                        <TableRow key={item.id}>
+                      {order.items.map((item) => {
+                        const annulledQuantity =
+                          parseFloat(item.annulledQuantity ?? '0') || 0;
+                        const fullyAnnulled =
+                          annulledQuantity > 0 && getAliveQuantity(item) === 0;
+                        return (
+                        <TableRow
+                          key={item.id}
+                          sx={
+                            fullyAnnulled
+                              ? { '& td': { color: 'text.disabled' } }
+                              : undefined
+                          }
+                        >
                           {order.items?.some((i) => i.sampleImageId) && (
                             <TableCell align='center'>
                               {item.sampleImageId && (
@@ -2053,6 +2067,24 @@ export const OrderDetailPage: React.FC = () => {
                                 variant='body2'
                                 maxLines={2}
                                 text={item.description}
+                                sx={
+                                  fullyAnnulled
+                                    ? { textDecoration: 'line-through' }
+                                    : undefined
+                                }
+                              />
+                            )}
+                            {annulledQuantity > 0 && (
+                              <Chip
+                                label={
+                                  fullyAnnulled
+                                    ? 'Anulado'
+                                    : `Anulado: ${annulledQuantity} de ${item.quantity}`
+                                }
+                                size='small'
+                                color='error'
+                                variant='outlined'
+                                sx={{ mt: 0.5 }}
                               />
                             )}
                           </TableCell>
@@ -2088,12 +2120,20 @@ export const OrderDetailPage: React.FC = () => {
                             {formatCurrency(item.unitPrice)}
                           </TableCell>
                           <TableCell align='right'>
-                            <Typography fontWeight={500}>
+                            <Typography
+                              fontWeight={500}
+                              sx={
+                                fullyAnnulled
+                                  ? { textDecoration: 'line-through' }
+                                  : undefined
+                              }
+                            >
                               {formatCurrency(item.total)}
                             </Typography>
                           </TableCell>
                         </TableRow>
-                      ))}
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </TableContainer>
@@ -2211,7 +2251,7 @@ export const OrderDetailPage: React.FC = () => {
                             con lo que el cliente pagó. */}
                         <Box display='flex' justifyContent='space-between'>
                           <Typography color='error.main'>
-                            Devolución:
+                            Venta anulada:
                           </Typography>
                           <Typography fontWeight={500} color='error.main'>
                             -{formatCurrency(reversedAmount)}
@@ -3500,6 +3540,20 @@ export const OrderDetailPage: React.FC = () => {
         maxAmount={overpayment}
         pendingSaleValue={pendingSaleValue}
         saleAlreadyAnnulled={isAnulado}
+        paidAmount={netPaidAmount}
+        currentBalance={pendingAdvance.effectiveBalance}
+      />
+
+      {/* Dialog: Anular ítems (anulación parcial) */}
+      <PartialAnnulmentDialog
+        open={partialAnnulmentOpen}
+        onClose={() => setPartialAnnulmentOpen(false)}
+        orderId={id!}
+        orderNumber={order.orderNumber}
+        items={order.items}
+        orderSubtotal={parseFloat(order.subtotal) || 0}
+        orderTotal={parseFloat(order.total) || 0}
+        pendingSaleValue={pendingSaleValue}
         paidAmount={netPaidAmount}
         currentBalance={pendingAdvance.effectiveBalance}
       />

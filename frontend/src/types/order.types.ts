@@ -112,6 +112,15 @@ export interface Order {
     refundAmount: string;
     /** Venta anulada por esta devolución. '0' si solo se devolvió un excedente. */
     reversedAmount?: string;
+    /** Anulación por ítems: lo que retiene la empresa y qué ítems se caen. */
+    retainedAmount?: string;
+    items?: Array<{
+      id: string;
+      orderItemId: string | null;
+      description: string;
+      quantity: string;
+      amount: string;
+    }>;
     paymentMethod: 'CASH' | 'TRANSFER' | 'CARD';
     bankEntity?: string | null;
     observation: string;
@@ -185,6 +194,11 @@ export interface OrderItem {
   quantity: number;
   unitPrice: string; // Decimal
   total: string; // Decimal
+  /**
+   * Cantidad anulada por anulaciones parciales ya aplicadas. El ítem conserva
+   * su cantidad y su total: la venta anulada vive en `Order.reversedAmount`.
+   */
+  annulledQuantity?: string; // Decimal
   specifications: Record<string, any> | null;
   sampleImageId?: string;
   sortOrder: number;
