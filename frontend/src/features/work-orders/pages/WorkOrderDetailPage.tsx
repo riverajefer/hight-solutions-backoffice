@@ -18,7 +18,6 @@ import {
   DialogActions,
   CircularProgress,
   Alert,
-  Paper,
   useTheme,
 } from '@mui/material';
 import {
@@ -35,6 +34,8 @@ import { StatusHighlight } from '../../../components/common/StatusHighlight';
 
 import { DocumentTypeBanner } from '../../../components/common/DocumentTypeBanner';
 import { ToolbarButton } from '../../orders/components/ToolbarButton';
+import { ActionToolbar } from '../../orders/components/ActionToolbar';
+import { getAliveQuantity } from '../../orders/utils/partialAnnulment';
 import { useWorkOrder } from '../hooks';
 import { WorkOrderStatusChip, WorkOrderPdfButton } from '../components';
 import { useAuthStore } from '../../../store/authStore';
@@ -243,6 +244,18 @@ export const WorkOrderDetailPage = () => {
         ]}
       />
 
+      {/* Ítems anulados en la OP: el ítem sigue en la OT, pero ya no se produce */}
+      {!isParentOrderAnulado &&
+        workOrder.items.some(
+          (item) => parseFloat(item.orderItem.annulledQuantity ?? '0') > 0,
+        ) && (
+          <Alert severity="warning" sx={{ mt: 2, mb: 1 }}>
+            <strong>La OP anuló ítems de esta orden de trabajo.</strong> Los
+            productos marcados como anulados ya no deben producirse; revisa las
+            cantidades antes de continuar.
+          </Alert>
+        )}
+
       {/* Banner orden de pedido ANULADA */}
       {isParentOrderAnulado && (
         <Alert severity="error" sx={{ mt: 2, mb: 1 }}>
@@ -257,41 +270,7 @@ export const WorkOrderDetailPage = () => {
       />
 
       {/* Toolbar de Acciones */}
-      <Paper
-        elevation={0}
-        sx={{
-          mt: 2,
-          mb: 3,
-          p: 0,
-          borderRadius: 2,
-          display: 'flex',
-          alignItems: 'stretch',
-          justifyContent: 'center',
-          background: (theme) =>
-            theme.palette.mode === 'dark'
-              ? 'rgba(255, 255, 255, 0.04)'
-              : 'rgba(255, 255, 255, 0.8)',
-          backdropFilter: 'blur(8px)',
-          border: (theme) =>
-            `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
-          overflowX: 'auto',
-          '&::-webkit-scrollbar': { display: 'none' },
-          msOverflowStyle: 'none',
-          scrollbarWidth: 'none',
-        }}
-      >
-        <Stack
-          direction="row"
-          spacing={0}
-          alignItems="stretch"
-          divider={
-            <Divider
-              orientation="vertical"
-              flexItem
-              sx={{ my: 1.5, opacity: 0.5 }}
-            />
-          }
-        >
+      <ActionToolbar sx={{ mt: 2, mb: 3 }}>
           {!isParentOrderAnulado && canUpdate && ['DRAFT', 'CONFIRMED', 'IN_PRODUCTION'].includes(currentStatus) && (
             <ToolbarButton
               icon={<EditIcon />}
@@ -357,8 +336,7 @@ export const WorkOrderDetailPage = () => {
           )}
 
           <WorkOrderPdfButton workOrder={workOrder} />
-        </Stack>
-      </Paper>
+      </ActionToolbar>
 
       <Grid container spacing={3}>
         {/* Columna principal */}
@@ -452,12 +430,40 @@ export const WorkOrderDetailPage = () => {
                   Productos ({workOrder.items.length})
                 </Typography>
                 <Stack spacing={2} divider={<Divider />}>
-                  {workOrder.items.map((item, index) => (
+                  {workOrder.items.map((item, index) => {
+                    const annulledQuantity =
+                      parseFloat(item.orderItem.annulledQuantity ?? '0') || 0;
+                    const fullyAnnulled =
+                      annulledQuantity > 0 &&
+                      getAliveQuantity(item.orderItem) === 0;
+                    return (
                     <Box key={item.id}>
                       <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
-                        <Typography variant="subtitle1" fontWeight="bold">
-                          Producto {index + 1}: {item.productDescription}
-                        </Typography>
+                        <Stack direction="row" alignItems="center" flexWrap="wrap" gap={1}>
+                          <Typography
+                            variant="subtitle1"
+                            fontWeight="bold"
+                            sx={
+                              fullyAnnulled
+                                ? { textDecoration: 'line-through', color: 'text.disabled' }
+                                : undefined
+                            }
+                          >
+                            Producto {index + 1}: {item.productDescription}
+                          </Typography>
+                          {annulledQuantity > 0 && (
+                            <Chip
+                              label={
+                                fullyAnnulled
+                                  ? 'Anulado en la OP — no producir'
+                                  : `Anuladas ${annulledQuantity} de ${Number(item.orderItem.quantity)} — producir ${getAliveQuantity(item.orderItem)}`
+                              }
+                              size="small"
+                              color="error"
+                              variant="outlined"
+                            />
+                          )}
+                        </Stack>
                         <Button
                           size="small"
                           startIcon={<AccessTimeIcon fontSize="small" />}
@@ -503,7 +509,8 @@ export const WorkOrderDetailPage = () => {
                         </Typography>
                       )}
                     </Box>
-                  ))}
+                    );
+                  })}
                 </Stack>
               </CardContent>
             </Card>

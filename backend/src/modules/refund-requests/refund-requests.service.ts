@@ -31,15 +31,50 @@ import {
   EditRequestStatus,
   NotificationType,
   OrderStatus,
+  PaymentMethod,
   PayrollDeductionStatus,
   Prisma,
   RefundReason,
+  WorkOrderStatus,
 } from '../../generated/prisma';
 import {
   computeAvailableOverpayment,
+  computeItemsSaleValue,
   computeOrderBalance,
   computeReversedNetAmount,
 } from '../../common/utils/order-balance.util';
+
+const ITEMS_SELECT = {
+  select: {
+    id: true,
+    orderItemId: true,
+    description: true,
+    quantity: true,
+    unitPrice: true,
+    amount: true,
+  },
+} as const;
+
+interface AnnulledItemLine {
+  orderItemId: string;
+  description: string;
+  quantity: Prisma.Decimal;
+  unitPrice: Prisma.Decimal;
+  amount: Prisma.Decimal;
+}
+
+/** Lo que `applyToOrder` necesita de una solicitud para llevarla a la OP. */
+interface ApplicableRequest {
+  id: string;
+  orderId: string;
+  refundAmount: Prisma.Decimal;
+  reversedAmount: Prisma.Decimal | null;
+  paymentMethod: PaymentMethod;
+  observation: string;
+}
+
+const formatCOP = (value: Prisma.Decimal | number): string =>
+  `$${Number(value).toLocaleString('es-CO')}`;
 
 const USER_SELECT = {
   id: true,
@@ -170,11 +205,14 @@ export class RefundRequestsService
       throw new NotFoundException(`Orden con id ${dto.orderId} no encontrada`);
     }
 
+    const isItemAnnulment = (dto.items?.length ?? 0) > 0;
+
     // Una OP anulada sí admite devolución de su saldo a favor (lo que la empresa
     // no retuvo al anular), pero no anular más venta: la venta ya se anuló.
     if (
       order.status === OrderStatus.ANULADO &&
-      new Prisma.Decimal(dto.reversedAmount ?? 0).greaterThan(0)
+      (isItemAnnulment ||
+        new Prisma.Decimal(dto.reversedAmount ?? 0).greaterThan(0))
     ) {
       throw new BadRequestException(
         'La orden está anulada: su venta ya se anuló y solo se puede devolver el saldo a favor',
@@ -227,7 +265,37 @@ export class RefundRequestsService
       );
     }
 
-    const reversedAmount = new Prisma.Decimal(dto.reversedAmount ?? 0);
+    // Anulación por ítems: el usuario dice qué se cae y cuánto retiene la
+    // empresa, y la venta anulada sale de ahí. Aceptar además un
+    // `reversedAmount` suelto dejaría dos cifras que pueden contradecirse.
+    const retainedAmount = new Prisma.Decimal(dto.retainedAmount ?? 0);
+    if (!isItemAnnulment && retainedAmount.greaterThan(0)) {
+      throw new BadRequestException(
+        'El valor retenido solo aplica cuando se anulan ítems de la orden',
+      );
+    }
+
+    const itemLines = isItemAnnulment
+      ? await this.resolveAnnulledItems(dto.orderId, dto.items!)
+      : [];
+    const itemsSaleValue = computeItemsSaleValue(
+      itemLines.reduce(
+        (sum, line) => sum.add(line.amount),
+        new Prisma.Decimal(0),
+      ),
+      order.total,
+      order.subtotal,
+    );
+
+    if (isItemAnnulment && retainedAmount.greaterThanOrEqualTo(itemsSaleValue)) {
+      throw new BadRequestException(
+        `El valor retenido (${retainedAmount.toString()}) debe ser menor que lo que valen los ítems anulados (${itemsSaleValue.toString()})`,
+      );
+    }
+
+    const reversedAmount = isItemAnnulment
+      ? itemsSaleValue.sub(retainedAmount)
+      : new Prisma.Decimal(dto.reversedAmount ?? 0);
     const alreadyReversed = new Prisma.Decimal(order.reversedAmount ?? 0);
     const pendingSaleValue = new Prisma.Decimal(order.total).sub(
       alreadyReversed,
@@ -252,7 +320,10 @@ export class RefundRequestsService
       reversedAmount: alreadyReversed.add(reversedAmount),
     });
 
-    if (overpayment.lessThanOrEqualTo(0)) {
+    // Anular ítems no exige que sobre plata: si el cliente no ha abonado más de
+    // lo que queda debiendo, la anulación solo baja el saldo de la orden. Una
+    // devolución por monto sin nada que devolver, en cambio, no tiene sentido.
+    if (!isItemAnnulment && overpayment.lessThanOrEqualTo(0)) {
       throw new BadRequestException(
         reversedAmount.isZero()
           ? 'La orden no tiene saldo a favor para devolver'
@@ -261,11 +332,23 @@ export class RefundRequestsService
     }
 
     const refundAmount = new Prisma.Decimal(dto.refundAmount);
+    if (!isItemAnnulment && refundAmount.lessThanOrEqualTo(0)) {
+      throw new BadRequestException('El monto a devolver debe ser mayor a 0');
+    }
     if (refundAmount.greaterThan(overpayment)) {
       throw new BadRequestException(
         `El monto a devolver (${refundAmount.toString()}) no puede exceder el dinero disponible (${overpayment.toString()})`,
       );
     }
+    if (refundAmount.greaterThan(0) && !dto.paymentMethod) {
+      throw new BadRequestException(
+        'Indica el método de pago por el que saldrá el dinero',
+      );
+    }
+    // La columna no admite nulo. En una anulación sin dinero no hay pago que
+    // describir: el valor queda de relleno y nadie lo lee, porque no se crea
+    // movimiento de caja.
+    const paymentMethod = dto.paymentMethod ?? PaymentMethod.CASH;
 
     // Crear la solicitud.
     //
@@ -276,7 +359,14 @@ export class RefundRequestsService
     const include = {
       requestedBy: { select: USER_SELECT },
       order: { select: ORDER_SELECT },
+      items: ITEMS_SELECT,
     };
+
+    // Una anulación de ítems nunca es "saldo a favor": si el formulario no
+    // manda motivo, el que queda es el genérico.
+    const refundReason =
+      dto.refundReason ??
+      (isItemAnnulment ? RefundReason.OTHER : RefundReason.CREDIT_BALANCE);
 
     const { request, wasDuplicate } = await createOrReturnTwin({
       constraint: 'refund_requests_pending_unique',
@@ -286,16 +376,18 @@ export class RefundRequestsService
             orderId: dto.orderId,
             refundAmount,
             reversedAmount,
-            refundReason: dto.refundReason ?? RefundReason.CREDIT_BALANCE,
-            paymentMethod: dto.paymentMethod,
+            retainedAmount,
+            refundReason,
+            paymentMethod,
             bankEntity: dto.bankEntity,
             // El comprobante solo tiene sentido en transferencias: en efectivo
             // el soporte es el recibo de caja que genera la propia ejecución.
             receiptFileId:
-              dto.paymentMethod === 'TRANSFER' ? dto.receiptFileId ?? null : null,
+              paymentMethod === 'TRANSFER' ? dto.receiptFileId ?? null : null,
             observation: dto.observation,
             status: EditRequestStatus.PENDING,
             requestedById: userId,
+            ...(isItemAnnulment ? { items: { create: itemLines } } : {}),
           },
           include,
         }),
@@ -319,24 +411,8 @@ export class RefundRequestsService
       select: USER_SELECT,
     });
 
-    const amountFormatted = `$${Number(refundAmount).toLocaleString('es-CO')}`;
-    const methodLabel = this.formatPaymentMethod(dto.paymentMethod);
-    // Gerencia necesita ver en el mensaje si además se está anulando venta: no
-    // es lo mismo autorizar la salida de un excedente que dar de baja un trabajo.
-    const reversalNote = reversedAmount.greaterThan(0)
-      ? ` Anula $${Number(reversedAmount).toLocaleString('es-CO')} de venta (${this.formatRefundReason(dto.refundReason ?? RefundReason.CREDIT_BALANCE)}).`
-      : '';
-
-    await this.notificationsService.notifyUsersWithPermission(
-      'approve_refunds',
-      {
-        type: NotificationType.REFUND_REQUEST_PENDING,
-        title: 'Nueva solicitud de devolución',
-        message: `${user?.firstName || user?.email} solicita devolver ${amountFormatted} vía ${methodLabel} de la orden ${order.orderNumber}.${reversalNote} Observación: ${dto.observation}`,
-        relatedId: request.id,
-        relatedType: 'RefundRequest',
-      },
-    );
+    const amountFormatted = formatCOP(refundAmount);
+    const methodLabel = this.formatPaymentMethod(paymentMethod);
 
     // Notificar por WhatsApp (fire & forget)
     const requesterName =
@@ -344,12 +420,59 @@ export class RefundRequestsService
       user?.email ||
       'Usuario';
 
-    this.notifyReviewersByWhatsApp(
-      request.id,
-      requesterName,
-      `devolución de ${amountFormatted} vía ${methodLabel} de la orden ${order.orderNumber}`,
-      `${reversalNote.trim()}${reversalNote ? ' ' : ''}Observación: ${dto.observation}`,
-    );
+    if (isItemAnnulment) {
+      // Gerencia autoriza dos cosas distintas en un mismo mensaje: qué trabajo
+      // se cae y cuánta plata sale. Las dos tienen que leerse sin abrir la OP.
+      const itemsNote = `Anula ${this.describeItemLines(itemLines)} por ${formatCOP(itemsSaleValue)}.`;
+      const retainedNote = retainedAmount.greaterThan(0)
+        ? ` La empresa retiene ${formatCOP(retainedAmount)}.`
+        : '';
+      const moneyNote = refundAmount.greaterThan(0)
+        ? ` Se devuelven ${amountFormatted} vía ${methodLabel}.`
+        : ' No sale dinero de caja.';
+
+      await this.notificationsService.notifyUsersWithPermission(
+        'approve_refunds',
+        {
+          type: NotificationType.REFUND_REQUEST_PENDING,
+          title: 'Nueva solicitud de anulación de ítems',
+          message: `${user?.firstName || user?.email} solicita anular ítems de la orden ${order.orderNumber}. ${itemsNote}${retainedNote}${moneyNote} Observación: ${dto.observation}`,
+          relatedId: request.id,
+          relatedType: 'RefundRequest',
+        },
+      );
+
+      this.notifyReviewersByWhatsApp(
+        request.id,
+        requesterName,
+        `anulación de ítems de la orden ${order.orderNumber}`,
+        `${itemsNote}${retainedNote}${moneyNote} Observación: ${dto.observation}`,
+      );
+    } else {
+      // Gerencia necesita ver en el mensaje si además se está anulando venta: no
+      // es lo mismo autorizar la salida de un excedente que dar de baja un trabajo.
+      const reversalNote = reversedAmount.greaterThan(0)
+        ? ` Anula ${formatCOP(reversedAmount)} de venta (${this.formatRefundReason(refundReason)}).`
+        : '';
+
+      await this.notificationsService.notifyUsersWithPermission(
+        'approve_refunds',
+        {
+          type: NotificationType.REFUND_REQUEST_PENDING,
+          title: 'Nueva solicitud de devolución',
+          message: `${user?.firstName || user?.email} solicita devolver ${amountFormatted} vía ${methodLabel} de la orden ${order.orderNumber}.${reversalNote} Observación: ${dto.observation}`,
+          relatedId: request.id,
+          relatedType: 'RefundRequest',
+        },
+      );
+
+      this.notifyReviewersByWhatsApp(
+        request.id,
+        requesterName,
+        `devolución de ${amountFormatted} vía ${methodLabel} de la orden ${order.orderNumber}`,
+        `${reversalNote.trim()}${reversalNote ? ' ' : ''}Observación: ${dto.observation}`,
+      );
+    }
 
     // Emitir WS
     this.wsEventsGateway.emitApprovalCreated(request);
@@ -388,6 +511,14 @@ export class RefundRequestsService
     // Se revalida contra el estado actual de la orden: entre la solicitud y la
     // aprobación pudieron entrar pagos, devoluciones o ediciones de ítems.
     this.assertRefundStillViable(request);
+    await this.loadAnnullableLines(this.prisma, requestId);
+
+    // Una anulación de ítems que no devuelve dinero no tiene nada que esperar
+    // de Caja: autorizarla es aplicarla. Dejarla en "pendiente de pago" la
+    // mandaría a una bandeja donde nadie tiene qué pagar.
+    if (new Prisma.Decimal(request.refundAmount).isZero()) {
+      return this.approveAndApply(request, reviewerId, dto);
+    }
 
     const updated = await this.prisma.refundRequest.update({
       where: { id: requestId },
@@ -401,6 +532,7 @@ export class RefundRequestsService
         requestedBy: { select: USER_SELECT },
         reviewedBy: { select: USER_SELECT },
         order: { select: ORDER_SELECT },
+        items: ITEMS_SELECT,
       },
     });
 
@@ -429,6 +561,376 @@ export class RefundRequestsService
     this.wsEventsGateway.emitApprovalUpdated(updated);
 
     return updated;
+  }
+
+  /**
+   * Autorizar y aplicar en el mismo acto: anulación de ítems sin dinero de por
+   * medio. No pasa por Caja ni exige sesión abierta, porque no mueve plata.
+   */
+  private async approveAndApply(
+    request: ApplicableRequest & {
+      requestedById: string;
+      order: { orderNumber: string };
+    },
+    reviewerId: string,
+    dto: ApproveRefundRequestDto,
+  ) {
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const now = new Date();
+      // El WHERE lleva el estado: dos aprobaciones seguidas (panel y WhatsApp)
+      // anularían los ítems dos veces.
+      const claimed = await tx.refundRequest.updateMany({
+        where: { id: request.id, status: EditRequestStatus.PENDING },
+        data: {
+          status: EditRequestStatus.APPROVED,
+          reviewedById: reviewerId,
+          reviewedAt: now,
+          reviewNotes: dto.reviewNotes,
+        },
+      });
+      if (claimed.count === 0) {
+        throw new NotFoundException('Solicitud no encontrada o ya procesada');
+      }
+
+      await this.applyToOrder(tx, request, null);
+
+      // Queda ejecutada sin movimiento de caja: quien autorizó es quien la aplicó.
+      return tx.refundRequest.update({
+        where: { id: request.id },
+        data: { executedAt: now, executedById: reviewerId },
+        include: {
+          requestedBy: { select: USER_SELECT },
+          reviewedBy: { select: USER_SELECT },
+          executedBy: { select: USER_SELECT },
+          order: { select: ORDER_SELECT },
+          items: ITEMS_SELECT,
+        },
+      });
+    });
+
+    await this.notificationsService.create({
+      userId: request.requestedById,
+      type: NotificationType.REFUND_REQUEST_APPROVED,
+      title: 'Anulación de ítems aplicada',
+      message: `La anulación de ítems de la orden ${request.order.orderNumber} fue autorizada y ya quedó aplicada. No hubo devolución de dinero.`,
+      relatedId: request.orderId,
+      relatedType: 'Order',
+    });
+
+    await this.notifyWorkshopOfAnnulledItems(
+      request.id,
+      request.orderId,
+      request.order.orderNumber,
+    );
+
+    this.wsEventsGateway.emitApprovalUpdated(updated);
+
+    return updated;
+  }
+
+  /**
+   * Lleva la solicitud a la OP: anula la venta, marca los ítems, descuenta lo
+   * devuelto del abono y, si sale dinero, crea el egreso de caja.
+   *
+   * Es la única función que escribe estos campos. La llaman Caja al pagar y
+   * gerencia al autorizar una anulación sin dinero (`cash` en null), y las dos
+   * tienen que hacer exactamente la misma cuenta.
+   *
+   * Calcula sobre la OP bloqueada y releída, no sobre la lectura del llamador:
+   * con esa lectura, un abono que entrara entre las dos quedaba registrado en
+   * caja pero borrado del saldo de la OP. Ver `lockOrderForUpdate`.
+   */
+  private async applyToOrder(
+    tx: Prisma.TransactionClient,
+    request: ApplicableRequest,
+    cash: { sessionId: string; receiptNumber: string; executorId: string } | null,
+  ): Promise<{ movementId: string | null }> {
+    const refundAmount = new Prisma.Decimal(request.refundAmount);
+    const reversedAmount = new Prisma.Decimal(request.reversedAmount ?? 0);
+
+    await lockOrderForUpdate(tx, request.orderId);
+    const order = await tx.order.findUnique({
+      where: { id: request.orderId },
+      select: ORDER_SELECT,
+    });
+    if (!order) {
+      throw new NotFoundException(
+        `Orden con id ${request.orderId} no encontrada`,
+      );
+    }
+    this.assertRefundStillViable({ ...request, order });
+
+    const lines = await this.loadAnnullableLines(tx, request.id);
+    for (const line of lines) {
+      await tx.orderItem.update({
+        where: { id: line.orderItemId },
+        data: { annulledQuantity: { increment: line.quantity } },
+      });
+    }
+
+    const newReversedAmount = new Prisma.Decimal(
+      order.reversedAmount ?? 0,
+    ).add(reversedAmount);
+    // La anulación en la moneda de la comisión. Se acumula, igual que el
+    // valor anulado, porque una OP puede tener varias devoluciones parciales.
+    const newReversedNetAmount = new Prisma.Decimal(
+      order.reversedNetAmount ?? 0,
+    ).add(
+      computeReversedNetAmount(
+        reversedAmount,
+        order.total,
+        order.subtotal,
+        order.discountAmount,
+      ),
+    );
+    const newPaidAmount = new Prisma.Decimal(order.paidAmount).sub(
+      refundAmount,
+    );
+    // `refundedAmount` acumula lo devuelto: los Payment no se borran, así que
+    // sin este registro cualquier recálculo posterior de paidAmount desde los
+    // pagos (p. ej. al editar un ítem) resucitaría el dinero ya devuelto.
+    const newRefundedAmount = new Prisma.Decimal(
+      order.refundedAmount ?? 0,
+    ).add(refundAmount);
+    const newBalance = computeOrderBalance({
+      total: order.total,
+      paidAmount: newPaidAmount,
+      appliedCreditAmount: order.appliedCreditAmount,
+      reversedAmount: newReversedAmount,
+    });
+
+    // La OP solo cambia de estado cuando ya no queda nada de venta en pie.
+    // Una devolución parcial de un trabajo entregado a medias conserva su
+    // estado: marcarla como devuelta borraría que la entrega sí ocurrió.
+    // Una OP anulada ya tiene la venta anulada entera (salvo lo retenido):
+    // devolverle su saldo a favor no la convierte en «Devuelta».
+    const isTotalReversal =
+      order.status !== OrderStatus.ANULADO &&
+      newReversedAmount.greaterThanOrEqualTo(order.total) &&
+      new Prisma.Decimal(order.total).greaterThan(0);
+
+    let movementId: string | null = null;
+    if (cash) {
+      const movement = await tx.cashMovement.create({
+        data: {
+          cashSessionId: cash.sessionId,
+          receiptNumber: cash.receiptNumber,
+          movementType: 'EXPENSE',
+          paymentMethod: request.paymentMethod,
+          amount: refundAmount,
+          description: `Devolución Orden ${order.orderNumber} — ${request.observation}`,
+          referenceType: 'REFUND',
+          referenceId: request.id,
+          performedById: cash.executorId,
+        },
+        select: { id: true },
+      });
+      movementId = movement.id;
+    }
+
+    await tx.order.update({
+      where: { id: request.orderId },
+      data: {
+        paidAmount: newPaidAmount,
+        refundedAmount: newRefundedAmount,
+        reversedAmount: newReversedAmount,
+        reversedNetAmount: newReversedNetAmount,
+        balance: newBalance,
+        ...(isTotalReversal ? { status: OrderStatus.RETURNED } : {}),
+      },
+    });
+
+    return { movementId };
+  }
+
+  /**
+   * Arma las líneas de una anulación por ítems a partir de lo que mandó el
+   * formulario: valida que cada ítem sea de la orden y que la cantidad quepa en
+   * lo que todavía tiene vivo.
+   */
+  private async resolveAnnulledItems(
+    orderId: string,
+    items: { orderItemId: string; quantity: number }[],
+  ): Promise<AnnulledItemLine[]> {
+    const ids = items.map((i) => i.orderItemId);
+    if (new Set(ids).size !== ids.length) {
+      throw new BadRequestException(
+        'Un mismo ítem aparece más de una vez en la anulación',
+      );
+    }
+
+    const orderItems = await this.prisma.orderItem.findMany({
+      where: { orderId, id: { in: ids } },
+      select: {
+        id: true,
+        description: true,
+        quantity: true,
+        unitPrice: true,
+        annulledQuantity: true,
+      },
+    });
+    const byId = new Map(orderItems.map((item) => [item.id, item]));
+
+    return items.map(({ orderItemId, quantity }) => {
+      const item = byId.get(orderItemId);
+      if (!item) {
+        throw new BadRequestException(
+          'Uno de los ítems a anular no pertenece a esta orden',
+        );
+      }
+      const toAnnul = new Prisma.Decimal(quantity);
+      const alive = new Prisma.Decimal(item.quantity).sub(
+        item.annulledQuantity ?? 0,
+      );
+      if (toAnnul.greaterThan(alive)) {
+        throw new BadRequestException(
+          `No puedes anular ${toAnnul.toString()} de «${item.description.trim()}»: solo le quedan ${alive.toString()} sin anular`,
+        );
+      }
+      return {
+        orderItemId,
+        description: item.description,
+        quantity: toAnnul,
+        unitPrice: new Prisma.Decimal(item.unitPrice),
+        amount: toAnnul.mul(item.unitPrice),
+      };
+    });
+  }
+
+  /**
+   * Líneas de la solicitud, comprobando que todavía se puedan anular.
+   *
+   * Entre pedir y aplicar pueden pasar días: el ítem pudo borrarse en una
+   * edición de la OP, o anularse en otra solicitud. Devuelve vacío en las
+   * devoluciones por monto, que no tocan ítems.
+   */
+  private async loadAnnullableLines(
+    client: Prisma.TransactionClient | PrismaService,
+    requestId: string,
+  ): Promise<{ orderItemId: string; quantity: Prisma.Decimal }[]> {
+    const lines =
+      (await client.refundRequestItem.findMany({
+        where: { refundRequestId: requestId },
+        select: {
+          orderItemId: true,
+          description: true,
+          quantity: true,
+          orderItem: { select: { quantity: true, annulledQuantity: true } },
+        },
+      })) ?? [];
+
+    return lines.map((line) => {
+      if (!line.orderItemId || !line.orderItem) {
+        throw new BadRequestException(
+          `El ítem «${line.description.trim()}» ya no existe en la orden: rechaza esta solicitud y crea una nueva`,
+        );
+      }
+      const alive = new Prisma.Decimal(line.orderItem.quantity).sub(
+        line.orderItem.annulledQuantity ?? 0,
+      );
+      if (new Prisma.Decimal(line.quantity).greaterThan(alive)) {
+        throw new BadRequestException(
+          `El ítem «${line.description.trim()}» ya no tiene esa cantidad por anular: cambió la orden o hubo otra anulación`,
+        );
+      }
+      return { orderItemId: line.orderItemId, quantity: line.quantity };
+    });
+  }
+
+  /**
+   * Avisa al taller cuando se anula un ítem que ya está en una OT.
+   *
+   * El ítem no sale de la OT —queda marcado—, pero la marca solo la ve quien
+   * abre la OT. Sin este aviso producción puede seguir fabricando algo que la
+   * OP ya dio de baja. Va al asesor y al diseñador de la OT, que son los dos
+   * usuarios que la orden de trabajo conoce.
+   *
+   * Corre después de la transacción y nunca la tumba: la anulación ya quedó
+   * aplicada, un aviso que falla no la deshace.
+   */
+  private async notifyWorkshopOfAnnulledItems(
+    requestId: string,
+    orderId: string,
+    orderNumber: string,
+  ): Promise<void> {
+    try {
+      const lines =
+        (await this.prisma.refundRequestItem.findMany({
+          where: { refundRequestId: requestId, orderItemId: { not: null } },
+          select: {
+            description: true,
+            quantity: true,
+            orderItem: {
+              select: {
+                workOrderItems: {
+                  where: {
+                    workOrder: { status: { not: WorkOrderStatus.CANCELLED } },
+                  },
+                  select: {
+                    workOrder: {
+                      select: {
+                        workOrderNumber: true,
+                        advisorId: true,
+                        designerId: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        })) ?? [];
+
+      // Una OT puede tener varios ítems anulados: un solo aviso por OT.
+      const byWorkOrder = new Map<
+        string,
+        { recipients: Set<string>; items: string[] }
+      >();
+      for (const line of lines) {
+        const label = `${Number(line.quantity).toLocaleString('es-CO')} × ${line.description.trim()}`;
+        for (const { workOrder } of line.orderItem?.workOrderItems ?? []) {
+          const entry = byWorkOrder.get(workOrder.workOrderNumber) ?? {
+            recipients: new Set<string>(),
+            items: [],
+          };
+          entry.recipients.add(workOrder.advisorId);
+          if (workOrder.designerId) entry.recipients.add(workOrder.designerId);
+          entry.items.push(label);
+          byWorkOrder.set(workOrder.workOrderNumber, entry);
+        }
+      }
+
+      for (const [workOrderNumber, { recipients, items }] of byWorkOrder) {
+        for (const userId of recipients) {
+          await this.notificationsService.create({
+            userId,
+            type: NotificationType.REFUND_REQUEST_APPROVED,
+            title: `Ítems anulados en ${workOrderNumber}`,
+            message: `La orden ${orderNumber} anuló ítems que están en la ${workOrderNumber}: ${items.join(', ')}. Ya no deben producirse.`,
+            relatedId: orderId,
+            relatedType: 'Order',
+          });
+        }
+      }
+    } catch (error) {
+      this.logger.error(
+        `No se pudo avisar al taller de la anulación ${requestId}: ${error.message}`,
+      );
+    }
+  }
+
+  /** «150 × MARCA RIGIDO, 1 × DTF UV», para notificaciones de una línea. */
+  private describeItemLines(lines: AnnulledItemLine[]): string {
+    return lines
+      .map((line) => {
+        const description = line.description.trim().replace(/\s+/g, ' ');
+        const short =
+          description.length > 40
+            ? `${description.slice(0, 39)}…`
+            : description;
+        return `${Number(line.quantity).toLocaleString('es-CO')} × ${short}`;
+      })
+      .join(', ');
   }
 
   /**
@@ -475,9 +977,7 @@ export class RefundRequestsService
     // una devolución que ya no procede; la que cuenta se repite abajo, con la
     // OP bloqueada.
     this.assertRefundStillViable(request);
-
-    const refundAmount = new Prisma.Decimal(request.refundAmount);
-    const reversedAmount = new Prisma.Decimal(request.reversedAmount ?? 0);
+    await this.loadAnnullableLines(this.prisma, requestId);
 
     const receiptNumber =
       await this.consecutivesService.generateNumber('CASH_RECEIPT');
@@ -494,94 +994,16 @@ export class RefundRequestsService
         throw new ConflictException('Esta devolución ya fue pagada');
       }
 
-      // Los montos se calculan sobre la OP bloqueada y releída, no sobre la
-      // lectura de arriba. Con esa lectura, un abono que entrara entre las dos
-      // quedaba registrado en caja pero borrado del saldo de la OP. Ver
-      // `lockOrderForUpdate`.
-      await lockOrderForUpdate(tx, request.orderId);
-      const order = await tx.order.findUnique({
-        where: { id: request.orderId },
-        select: ORDER_SELECT,
-      });
-      if (!order) {
-        throw new NotFoundException(
-          `Orden con id ${request.orderId} no encontrada`,
-        );
-      }
-      this.assertRefundStillViable({ ...request, order });
-
-      const newReversedAmount = new Prisma.Decimal(
-        order.reversedAmount ?? 0,
-      ).add(reversedAmount);
-      // La anulación en la moneda de la comisión. Se acumula, igual que el
-      // valor anulado, porque una OP puede tener varias devoluciones parciales.
-      const newReversedNetAmount = new Prisma.Decimal(
-        order.reversedNetAmount ?? 0,
-      ).add(
-        computeReversedNetAmount(
-          reversedAmount,
-          order.total,
-          order.subtotal,
-          order.discountAmount,
-        ),
-      );
-      const newPaidAmount = new Prisma.Decimal(order.paidAmount).sub(
-        refundAmount,
-      );
-      // `refundedAmount` acumula lo devuelto: los Payment no se borran, así que
-      // sin este registro cualquier recálculo posterior de paidAmount desde los
-      // pagos (p. ej. al editar un ítem) resucitaría el dinero ya devuelto.
-      const newRefundedAmount = new Prisma.Decimal(
-        order.refundedAmount ?? 0,
-      ).add(refundAmount);
-      const newBalance = computeOrderBalance({
-        total: order.total,
-        paidAmount: newPaidAmount,
-        appliedCreditAmount: order.appliedCreditAmount,
-        reversedAmount: newReversedAmount,
-      });
-
-      // La OP solo cambia de estado cuando ya no queda nada de venta en pie.
-      // Una devolución parcial de un trabajo entregado a medias conserva su
-      // estado: marcarla como devuelta borraría que la entrega sí ocurrió.
-      // Una OP anulada ya tiene la venta anulada entera (salvo lo retenido):
-      // devolverle su saldo a favor no la convierte en «Devuelta».
-      const isTotalReversal =
-        order.status !== OrderStatus.ANULADO &&
-        newReversedAmount.greaterThanOrEqualTo(order.total) &&
-        new Prisma.Decimal(order.total).greaterThan(0);
-
-      const movement = await tx.cashMovement.create({
-        data: {
-          cashSessionId: activeSession.id,
-          receiptNumber,
-          movementType: 'EXPENSE',
-          paymentMethod: request.paymentMethod,
-          amount: refundAmount,
-          description: `Devolución Orden ${order.orderNumber} — ${request.observation}`,
-          referenceType: 'REFUND',
-          referenceId: request.id,
-          performedById: executorId,
-        },
-        select: { id: true },
-      });
-
-      await tx.order.update({
-        where: { id: request.orderId },
-        data: {
-          paidAmount: newPaidAmount,
-          refundedAmount: newRefundedAmount,
-          reversedAmount: newReversedAmount,
-          reversedNetAmount: newReversedNetAmount,
-          balance: newBalance,
-          ...(isTotalReversal ? { status: OrderStatus.RETURNED } : {}),
-        },
+      const { movementId } = await this.applyToOrder(tx, request, {
+        sessionId: activeSession.id,
+        receiptNumber,
+        executorId,
       });
 
       return tx.refundRequest.update({
         where: { id: requestId },
         data: {
-          cashMovementId: movement.id,
+          cashMovementId: movementId,
           // El comprobante del pago va aparte del que trajera la solicitud: son
           // dos transferencias distintas en el papel, y guardarlos en el mismo
           // campo haría que este borrara aquel.
@@ -594,6 +1016,7 @@ export class RefundRequestsService
           reviewedBy: { select: USER_SELECT },
           executedBy: { select: USER_SELECT },
           order: { select: ORDER_SELECT },
+          items: ITEMS_SELECT,
           cashMovement: {
             select: {
               id: true,
@@ -615,6 +1038,12 @@ export class RefundRequestsService
       relatedId: request.orderId,
       relatedType: 'Order',
     });
+
+    await this.notifyWorkshopOfAnnulledItems(
+      request.id,
+      request.orderId,
+      request.order.orderNumber,
+    );
 
     this.wsEventsGateway.emitApprovalUpdated(updated);
 
@@ -733,6 +1162,7 @@ export class RefundRequestsService
         requestedBy: { select: USER_SELECT },
         reviewedBy: { select: USER_SELECT },
         order: { select: ORDER_SELECT },
+        items: ITEMS_SELECT,
       },
     });
   }
@@ -742,6 +1172,7 @@ export class RefundRequestsService
       where: { status: EditRequestStatus.PENDING },
       include: {
         requestedBy: { select: USER_SELECT },
+        items: ITEMS_SELECT,
         order: {
           select: {
             id: true,
@@ -768,6 +1199,7 @@ export class RefundRequestsService
       include: {
         requestedBy: { select: USER_SELECT },
         reviewedBy: { select: USER_SELECT },
+        items: ITEMS_SELECT,
         order: {
           select: {
             id: true,
@@ -790,6 +1222,7 @@ export class RefundRequestsService
         requestedBy: { select: USER_SELECT },
         reviewedBy: { select: USER_SELECT },
         order: { select: ORDER_SELECT },
+        items: ITEMS_SELECT,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -802,6 +1235,7 @@ export class RefundRequestsService
         requestedBy: { select: USER_SELECT },
         reviewedBy: { select: USER_SELECT },
         order: { select: ORDER_SELECT },
+        items: ITEMS_SELECT,
         cashMovement: {
           select: {
             id: true,
@@ -830,6 +1264,7 @@ export class RefundRequestsService
       include: {
         reviewedBy: { select: USER_SELECT },
         order: { select: ORDER_SELECT },
+        items: ITEMS_SELECT,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -841,6 +1276,7 @@ export class RefundRequestsService
       include: {
         requestedBy: { select: USER_SELECT },
         reviewedBy: { select: USER_SELECT },
+        items: ITEMS_SELECT,
         cashMovement: {
           select: {
             id: true,
