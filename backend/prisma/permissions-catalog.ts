@@ -140,6 +140,11 @@ export const permissionGroups: PermissionGroup[] = [
         description:
           'Ver el mini dashboard de indicadores en la lista de órdenes de pedido',
       },
+      {
+        name: 'read_production_board',
+        description:
+          'Ver el tablero de control de producción (órdenes abiertas con semáforo de entrega)',
+      },
     ],
   },
   {

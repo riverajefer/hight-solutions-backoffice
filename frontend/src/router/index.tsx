@@ -52,6 +52,7 @@ const SuppliesListPage = lazyWithRetry(() => import('../features/portfolio/suppl
 const SupplyFormPage = lazyWithRetry(() => import('../features/portfolio/supplies/pages/SupplyFormPage'));
 // Orders
 const OrdersListPage = lazyWithRetry(() => import('../features/orders/pages/OrdersListPage'));
+const ProductionBoardPage = lazyWithRetry(() => import('../features/production-board/pages/ProductionBoardPage'));
 const OrderFormPage = lazyWithRetry(() => import('../features/orders/pages/OrderFormPage'));
 const OrderDetailPage = lazyWithRetry(() => import('../features/orders/pages/OrderDetailPage'));
 const PendingPaymentOrdersPage = lazyWithRetry(() => import('../features/orders/pages/PendingPaymentOrdersPage'));
@@ -696,6 +697,20 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.UPDATE_SUPPLIES}>
                   <SupplyFormPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        {/* Production Board */}
+        <Route
+          path={PATHS.PRODUCTION_BOARD}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_PRODUCTION_BOARD}>
+                  <ProductionBoardPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

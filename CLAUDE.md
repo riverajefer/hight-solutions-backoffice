@@ -39,6 +39,7 @@ Sistema completo de backoffice con autenticación JWT y control de acceso basado
 | Users | Gestión de usuarios | create_users, read_users, update_users, delete_users |
 | Roles | Gestión de roles | create_roles, read_roles, update_roles, delete_roles |
 | Permissions | Gestión de permisos | create_permissions, read_permissions, update_permissions, delete_permissions |
+| Production Board | Tablero de control de producción (solo lectura): OP abiertas con semáforo de entrega | read_production_board |
 
 ---
 
@@ -854,6 +855,9 @@ npm run lint                # Ejecutar ESLint
 - `PUT /api/v1/roles/:id` - Actualizar rol
 - `DELETE /api/v1/roles/:id` - Eliminar rol
 - `PUT /api/v1/roles/:id/permissions` - Asignar permisos
+
+### Production Board
+- `GET /api/v1/production-board?days=30` - OP abiertas para el tablero de producción (ventana de 1 a 90 días) y conteo de órdenes antiguas sin cerrar
 
 ### Permissions
 - `GET /api/v1/permissions` - Listar permisos

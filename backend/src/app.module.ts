@@ -47,6 +47,7 @@ import { WorkOrdersModule } from './modules/work-orders/work-orders.module';
 import { ExpenseTypesModule } from './modules/expense-types/expense-types.module';
 import { ExpenseOrdersModule } from './modules/expense-orders/expense-orders.module';
 import { OrderTimelineModule } from './modules/order-timeline/order-timeline.module';
+import { ProductionBoardModule } from './modules/production-board/production-board.module';
 import { AuditContextInterceptor } from './common/interceptors/audit-context.interceptor';
 import { HeartbeatInterceptor } from './common/interceptors/heartbeat.interceptor';
 import { MaintenanceMiddleware } from './common/middleware/maintenance.middleware';
@@ -162,6 +163,7 @@ import { ClientErrorsModule } from './modules/client-errors/client-errors.module
     ClientAdvisorRequestsModule,
     // Módulo de Trazabilidad de Órdenes
     OrderTimelineModule,
+    ProductionBoardModule,
     // Módulo de Nómina
     PayrollModule,
     PayrollDeductionsModule,

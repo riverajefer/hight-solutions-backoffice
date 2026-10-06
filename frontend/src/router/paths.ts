@@ -58,6 +58,7 @@ export const PATHS = {
   PENDING_PAYMENT_ORDERS: '/orders/pending-payment',
   STATUS_CHANGE_REQUESTS: '/orders/status-change-requests',
   ORDERS_PROFITABILITY: '/orders/profitability',
+  PRODUCTION_BOARD: '/production-board',
   // Order Timeline
   ORDER_FLOW: '/orders/flow/:type/:id',
   ORDER_FLOW_BASE: '/orders/flow',

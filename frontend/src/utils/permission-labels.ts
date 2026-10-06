@@ -117,6 +117,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
    create_orders: 'Crear Órdenes',
    read_orders: 'Ver Órdenes',
    read_orders_dashboard: 'Ver Dashboard de Órdenes',
+   read_production_board: 'Ver Tablero de Producción',
    update_orders: 'Actualizar Órdenes',
    delete_orders: 'Eliminar Órdenes',
    export_orders: 'Exportar Órdenes a Excel',

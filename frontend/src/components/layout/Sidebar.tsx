@@ -30,6 +30,7 @@ import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import FactoryIcon from '@mui/icons-material/Factory';
 import StoreIcon from '@mui/icons-material/Store';
 import ReceiptIcon from '@mui/icons-material/Receipt';
+import ViewKanbanIcon from '@mui/icons-material/ViewKanban';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
@@ -175,6 +176,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           permission: PERMISSIONS.READ_ORDERS,
         },
         {
+          label: 'Tablero de Producción',
+          icon: <ViewKanbanIcon />,
+          path: ROUTES.PRODUCTION_BOARD,
+          permission: PERMISSIONS.READ_PRODUCTION_BOARD,
+        },
+        {
           label: 'Órdenes de Trabajo',
           icon: <BuildIcon />,
           path: ROUTES.WORK_ORDERS,
@@ -255,6 +262,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
       ],
       permissions: [
         PERMISSIONS.READ_ORDERS,
+        PERMISSIONS.READ_PRODUCTION_BOARD,
         PERMISSIONS.READ_WORK_ORDERS,
         PERMISSIONS.READ_EXPENSE_ORDERS,
         PERMISSIONS.READ_EXPENSE_TYPES,

@@ -70,6 +70,7 @@ export const PERMISSIONS = {
   CREATE_ORDERS: 'create_orders',
   READ_ORDERS: 'read_orders',
   READ_ORDERS_DASHBOARD: 'read_orders_dashboard',
+  READ_PRODUCTION_BOARD: 'read_production_board',
   EXPORT_ORDERS: 'export_orders',
   EXPORT_PENDING_PAYMENT_ORDERS: 'export_pending_payment_orders',
   EXPORT_PROFITABILITY: 'export_profitability',
@@ -277,6 +278,7 @@ export const ROUTES = {
   PENDING_PAYMENT_ORDERS: '/orders/pending-payment',
   STATUS_CHANGE_REQUESTS: '/orders/status-change-requests',
   ORDERS_PROFITABILITY: '/orders/profitability',
+  PRODUCTION_BOARD: '/production-board',
   // Order Timeline
   ORDER_FLOW: '/orders/flow/:type/:id',
   ORDER_FLOW_BASE: '/orders/flow',
