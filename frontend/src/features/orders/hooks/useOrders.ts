@@ -104,8 +104,16 @@ export const useOrders = (filters?: FilterOrdersDto) => {
 
   // Mutation: Cambiar estado
   const updateStatusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: OrderStatus }) =>
-      ordersApi.updateStatus(id, status),
+    // `reason` solo viaja cuando un admin devuelve la orden a un estado previo.
+    mutationFn: ({
+      id,
+      status,
+      reason,
+    }: {
+      id: string;
+      status: OrderStatus;
+      reason?: string;
+    }) => ordersApi.updateStatus(id, status, { reason }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ordersKeys.lists() });
       queryClient.invalidateQueries({ queryKey: ordersKeys.dashboardSummaries() });
@@ -192,14 +200,18 @@ export const useOrder = (id: string) => {
 
   // Mutation: Cambiar estado
   const updateStatusMutation = useMutation({
-    // Al anular, `retainedAmount` es lo que se queda la empresa de lo pagado.
+    // Al anular, `retainedAmount` es lo que se queda la empresa de lo pagado. Al
+    // devolver la orden a un estado previo, `reason` es el motivo del admin.
     mutationFn: (
-      change: OrderStatus | { status: OrderStatus; retainedAmount?: number },
+      change:
+        | OrderStatus
+        | { status: OrderStatus; retainedAmount?: number; reason?: string },
     ) =>
       typeof change === 'string'
         ? ordersApi.updateStatus(id, change)
         : ordersApi.updateStatus(id, change.status, {
             retainedAmount: change.retainedAmount,
+            reason: change.reason,
           }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ordersKeys.detail(id) });

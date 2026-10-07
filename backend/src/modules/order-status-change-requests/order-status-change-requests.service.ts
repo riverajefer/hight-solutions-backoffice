@@ -28,6 +28,7 @@ import {
   Prisma,
 } from '../../generated/prisma';
 import { computeMaxRetainableOnAnnul } from '../../common/utils/order-balance.util';
+import { isBackwardTransition } from '../orders/order-status-transitions';
 
 const ORDER_STATUS_LABELS: Record<string, string> = {
   DRAFT: 'Borrador',
@@ -151,6 +152,17 @@ export class OrderStatusChangeRequestsService implements OnModuleInit, ApprovalR
     if (user?.role?.name === 'admin') {
       throw new BadRequestException(
         'Administrators can change order status directly without requesting permission',
+      );
+    }
+
+    // 3a. Un retroceso de estado siempre lleva motivo: es lo único que le dice
+    // al admin por qué una orden que ya había avanzado tiene que volver.
+    if (
+      isBackwardTransition(order.status, dto.requestedStatus) &&
+      !dto.reason?.trim()
+    ) {
+      throw new BadRequestException(
+        'Para devolver la orden a un estado previo debes indicar el motivo',
       );
     }
 
@@ -501,6 +513,20 @@ export class OrderStatusChangeRequestsService implements OnModuleInit, ApprovalR
       };
     }
 
+    // 4. Si el cambio devuelve la orden a un estado previo → SÍ requiere autorización
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { status: true },
+    });
+
+    if (order && isBackwardTransition(order.status, newStatus)) {
+      return {
+        required: true,
+        reason:
+          'Devolver una orden a un estado previo requiere aprobación administrativa',
+      };
+    }
+
     return { required: false };
   }
 
@@ -516,9 +542,9 @@ export class OrderStatusChangeRequestsService implements OnModuleInit, ApprovalR
   }
 
   /**
-   * La solicitud aprobada más reciente del usuario para ese cambio. Al anular,
-   * de aquí sale lo que retiene la empresa: vale lo que aprobó el admin, no lo
-   * que mande el frontend al ejecutar.
+   * La solicitud aprobada más reciente del usuario para ese cambio, que todavía
+   * no se haya usado. Al anular, de aquí sale lo que retiene la empresa: vale lo
+   * que aprobó el admin, no lo que mande el frontend al ejecutar.
    */
   async findApprovedRequest(
     orderId: string,
@@ -531,6 +557,7 @@ export class OrderStatusChangeRequestsService implements OnModuleInit, ApprovalR
         requestedById: userId,
         requestedStatus: newStatus,
         status: EditRequestStatus.APPROVED,
+        consumedAt: null,
       },
       orderBy: { reviewedAt: 'desc' },
       select: { id: true, retainedAmount: true },
@@ -566,7 +593,8 @@ export class OrderStatusChangeRequestsService implements OnModuleInit, ApprovalR
    * de llegar. Se llama cuando el cambio se hizo por fuera de la solicitud.
    *
    * Se marcan APPROVED porque lo que el solicitante pidió sí ocurrió, y como
-   * revisor queda quien ejecutó el cambio, que es la atribución real.
+   * revisor queda quien ejecutó el cambio, que es la atribución real. Nacen ya
+   * consumidas: el cambio ocurrió, así que no autorizan uno nuevo.
    *
    * Devuelve cuántas cerró.
    */
@@ -585,6 +613,7 @@ export class OrderStatusChangeRequestsService implements OnModuleInit, ApprovalR
         status: EditRequestStatus.APPROVED,
         reviewedById: reviewerId,
         reviewedAt: new Date(),
+        consumedAt: new Date(),
         reviewNotes: 'La orden fue llevada al estado solicitado',
       },
     });
@@ -730,29 +759,56 @@ export class OrderStatusChangeRequestsService implements OnModuleInit, ApprovalR
   }
 
   /**
-   * Consumir (marcar como usada) una solicitud aprobada después del cambio exitoso
+   * Marca como usadas las aprobaciones del usuario para ese cambio, después de
+   * que el cambio se aplicó. La fila sigue en APPROVED: el historial no cambia,
+   * solo deja de autorizar otro cambio igual.
    */
   async consumeApprovedRequest(
     orderId: string,
     userId: string,
     newStatus: OrderStatus,
   ) {
-    // Encontrar la solicitud aprobada
-    const approvedRequest =
-      await this.prisma.orderStatusChangeRequest.findFirst({
-        where: {
-          orderId,
-          requestedById: userId,
-          requestedStatus: newStatus,
-          status: EditRequestStatus.APPROVED,
-        },
-      });
+    await this.prisma.orderStatusChangeRequest.updateMany({
+      where: {
+        orderId,
+        requestedById: userId,
+        requestedStatus: newStatus,
+        status: EditRequestStatus.APPROVED,
+        consumedAt: null,
+      },
+      data: { consumedAt: new Date() },
+    });
+  }
 
-    if (approvedRequest) {
-      // No cambiar el estado, solo registrar que fue usada (opcional: podrías agregar un campo "used" si quieres)
-      // Por ahora, las solicitudes aprobadas permanecen en estado APPROVED
-      // Esto permite audit trail completo
-    }
+  /**
+   * Deja constancia de un retroceso que el admin hizo directamente, sin
+   * solicitud de por medio. La orden no guarda historial de estados, así que
+   * esta fila —ya aprobada y consumida— es donde queda el motivo, y aparece en
+   * el mismo historial que los retrocesos autorizados.
+   */
+  async recordDirectBackwardChange(
+    orderId: string,
+    adminId: string,
+    currentStatus: OrderStatus,
+    requestedStatus: OrderStatus,
+    reason: string,
+  ) {
+    const now = new Date();
+
+    await this.prisma.orderStatusChangeRequest.create({
+      data: {
+        orderId,
+        requestedById: adminId,
+        currentStatus,
+        requestedStatus,
+        reason,
+        status: EditRequestStatus.APPROVED,
+        reviewedById: adminId,
+        reviewedAt: now,
+        consumedAt: now,
+        reviewNotes: 'Cambio directo del administrador',
+      },
+    });
   }
 
   private async notifyAdminsByWhatsApp(
