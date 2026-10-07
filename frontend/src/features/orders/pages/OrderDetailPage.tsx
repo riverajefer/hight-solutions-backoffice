@@ -992,6 +992,7 @@ export const OrderDetailPage: React.FC = () => {
       ? hasOverpayment
       : hasOverpayment || (netPaidAmount > 0 && pendingSaleValue > 0)) &&
     !hasPendingRefund &&
+    !authorizedRefund &&
     permissions.includes('create_refund_requests');
 
   // Anular ítems no exige que el cliente haya abonado: si no sobra plata, la
@@ -1182,7 +1183,7 @@ export const OrderDetailPage: React.FC = () => {
           vigente es {formatCurrency(pendingSaleValue.toString())}.
         </Alert>
       )}
-      {hasOverpayment && !hasPendingRefund && (
+      {hasOverpayment && !hasPendingRefund && !authorizedRefund && (
         <Alert severity='info' sx={{ mt: 2 }}>
           <strong>Saldo a favor:</strong>{' '}
           {formatCurrency(overpayment.toString())}. Puede registrar una
