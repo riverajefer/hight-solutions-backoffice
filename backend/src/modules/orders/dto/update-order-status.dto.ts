@@ -1,5 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsNumber, IsOptional, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { OrderStatus } from '../../../generated/prisma';
 
 export class UpdateOrderStatusDto {
@@ -22,4 +29,16 @@ export class UpdateOrderStatusDto {
   @IsNumber()
   @Min(0)
   retainedAmount?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Solo al devolver la orden a un estado previo, y solo lo toma en cuenta ' +
+      'un admin, para quien es obligatorio. Quien retrocede con autorización ' +
+      'ya dio el motivo en su solicitud.',
+    example: 'El cliente pidió un ajuste en el arte después de la revisión',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
 }
