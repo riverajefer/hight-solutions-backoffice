@@ -319,14 +319,6 @@ export class AccountsPayableRepository {
     };
   }
 
-  async getLastApNumber(year: number) {
-    return this.prisma.accountPayable.findFirst({
-      where: { apNumber: { startsWith: `CP-${year}-` } },
-      orderBy: { apNumber: 'desc' },
-      select: { apNumber: true },
-    });
-  }
-
   /**
    * Marca OVERDUE las CP pendientes que vencieron antes de `dueBefore`. El corte
    * lo decide el servicio: el inicio del día de hoy en hora Colombia.
