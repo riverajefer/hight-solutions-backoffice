@@ -708,17 +708,15 @@ export class AccountsPayableService {
     return this.repository.getSummary();
   }
 
+  /**
+   * El número sale del máximo numérico real de la tabla, vía el servicio de
+   * consecutivos. Antes se tomaba el "último" ordenando `apNumber` como texto,
+   * y ahí `CP-2026-999` queda por encima de `CP-2026-1000`: al llegar a la CP
+   * número 1000 el generador devolvía 1000 para siempre y toda creación de CP
+   * (y de la OG que la origina) fallaba con P2002.
+   */
   async generateApNumber(): Promise<string> {
-    const year = new Date().getFullYear();
-    const last = await this.repository.getLastApNumber(year);
-
-    let sequence = 1;
-    if (last?.apNumber) {
-      const parts = last.apNumber.split('-');
-      sequence = parseInt(parts[2], 10) + 1;
-    }
-
-    return `CP-${year}-${String(sequence).padStart(3, '0')}`;
+    return this.consecutivesService.generateNumber('ACCOUNT_PAYABLE');
   }
 
   async findByExpenseOrderId(expenseOrderId: string) {

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConsecutivesRepository } from './consecutives.repository';
 
-type ConsecutiveType = 'ORDER' | 'PRODUCTION' | 'EXPENSE' | 'QUOTE' | 'WORK_ORDER' | 'PRODUCTION_ORDER' | 'CASH_RECEIPT' | 'DTF_TEXTIL' | 'DTF_UV';
+type ConsecutiveType = 'ORDER' | 'PRODUCTION' | 'EXPENSE' | 'QUOTE' | 'WORK_ORDER' | 'PRODUCTION_ORDER' | 'CASH_RECEIPT' | 'DTF_TEXTIL' | 'DTF_UV' | 'ACCOUNT_PAYABLE';
 
 /**
  * Dónde vive realmente cada consecutivo. Es la fuente de verdad del número:
@@ -24,6 +24,7 @@ const CONSECUTIVE_SOURCES: Record<
   CASH_RECEIPT: { table: 'cash_movements', column: 'receipt_number' },
   DTF_TEXTIL: { table: 'dtf_records', column: 'consecutive' },
   DTF_UV: { table: 'dtf_records', column: 'consecutive' },
+  ACCOUNT_PAYABLE: { table: 'accounts_payable', column: 'ap_number' },
 };
 
 @Injectable()
@@ -116,6 +117,7 @@ export class ConsecutivesService {
       CASH_RECEIPT: 'RC',
       DTF_TEXTIL: 'DTF-TEXTIL',
       DTF_UV: 'DTF-UV',
+      ACCOUNT_PAYABLE: 'CP',
     };
 
     return prefixMap[type];

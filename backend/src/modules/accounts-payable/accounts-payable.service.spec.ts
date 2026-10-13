@@ -59,7 +59,6 @@ describe('AccountsPayableService', () => {
       createPayment: jest.fn(),
       findPaymentById: jest.fn(),
       getSummary: jest.fn(),
-      getLastApNumber: jest.fn(),
       markOverdue: jest.fn(),
       createAttachment: jest.fn(),
       findAttachmentById: jest.fn(),
@@ -124,12 +123,12 @@ describe('AccountsPayableService', () => {
 
   describe('create', () => {
     it('crea una CP no-anticipo con número generado', async () => {
-      repository.getLastApNumber!.mockResolvedValue(null as any);
       prisma.expenseSubcategory.findUnique.mockResolvedValue({
         name: 'Internet',
         expenseType: { name: 'Servicios' },
       } as any);
       repository.create!.mockResolvedValue({ id: 'ap-new' } as any);
+      consecutives.generateNumber.mockResolvedValue('CP-2026-1001');
 
       const dto = {
         expenseTypeId: 'type-1',
@@ -142,7 +141,7 @@ describe('AccountsPayableService', () => {
 
       expect(repository.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          apNumber: expect.stringMatching(/^CP-\d{4}-001$/),
+          apNumber: 'CP-2026-1001',
           totalAmount: 50000,
           paidAmount: 0,
           balance: 50000,
@@ -152,7 +151,6 @@ describe('AccountsPayableService', () => {
     });
 
     it('rechaza si la orden de gasto ya tiene una CP asociada', async () => {
-      repository.getLastApNumber!.mockResolvedValue(null as any);
       repository.findByExpenseOrderId!.mockResolvedValue({ id: 'ap-existing' } as any);
 
       const dto = {
@@ -168,7 +166,6 @@ describe('AccountsPayableService', () => {
     });
 
     it('vincula anticipo de nómina cuando tipo=personal y subcategoría=anticipos', async () => {
-      repository.getLastApNumber!.mockResolvedValue(null as any);
       prisma.expenseSubcategory.findUnique.mockResolvedValue({
         name: 'Anticipos',
         expenseType: { name: 'Personal' },
@@ -197,7 +194,6 @@ describe('AccountsPayableService', () => {
     });
 
     it('no vincula anticipo si no se selecciona beneficiario', async () => {
-      repository.getLastApNumber!.mockResolvedValue(null as any);
       prisma.expenseSubcategory.findUnique.mockResolvedValue({
         name: 'Anticipos',
         expenseType: { name: 'Personal' },
@@ -217,7 +213,6 @@ describe('AccountsPayableService', () => {
     });
 
     it('rechaza anticipo si el beneficiario no tiene ficha de empleado', async () => {
-      repository.getLastApNumber!.mockResolvedValue(null as any);
       prisma.expenseSubcategory.findUnique.mockResolvedValue({
         name: 'Anticipos',
         expenseType: { name: 'Personal' },
@@ -236,7 +231,6 @@ describe('AccountsPayableService', () => {
     });
 
     it('rechaza anticipo si no hay periodo de nómina en curso', async () => {
-      repository.getLastApNumber!.mockResolvedValue(null as any);
       prisma.expenseSubcategory.findUnique.mockResolvedValue({
         name: 'Anticipos',
         expenseType: { name: 'Personal' },
@@ -256,7 +250,6 @@ describe('AccountsPayableService', () => {
     });
 
     it('rechaza anticipo si el empleado no está en el periodo en curso', async () => {
-      repository.getLastApNumber!.mockResolvedValue(null as any);
       prisma.expenseSubcategory.findUnique.mockResolvedValue({
         name: 'Anticipos',
         expenseType: { name: 'Personal' },
@@ -278,16 +271,10 @@ describe('AccountsPayableService', () => {
   });
 
   describe('generateApNumber', () => {
-    it('inicia en 001 cuando no hay CP previas', async () => {
-      repository.getLastApNumber!.mockResolvedValue(null as any);
-      const year = new Date().getFullYear();
-      await expect(service.generateApNumber()).resolves.toBe(`CP-${year}-001`);
-    });
-
-    it('incrementa la secuencia del último número', async () => {
-      const year = new Date().getFullYear();
-      repository.getLastApNumber!.mockResolvedValue({ apNumber: `CP-${year}-007` } as any);
-      await expect(service.generateApNumber()).resolves.toBe(`CP-${year}-008`);
+    it('delega en el servicio de consecutivos, que numera contra el máximo real', async () => {
+      consecutives.generateNumber.mockResolvedValue('CP-2026-1001');
+      await expect(service.generateApNumber()).resolves.toBe('CP-2026-1001');
+      expect(consecutives.generateNumber).toHaveBeenCalledWith('ACCOUNT_PAYABLE');
     });
   });
 
@@ -694,7 +681,6 @@ describe('AccountsPayableService', () => {
         applyIva: true,
         ivaRate: 0.19,
       } as any);
-      repository.getLastApNumber!.mockResolvedValue(null as any);
       repository.create!.mockResolvedValue({ id: 'ap-new' } as any);
 
       await service.createFromExpenseOrder('og-1', 'Compra', 80000, 'user-1');
