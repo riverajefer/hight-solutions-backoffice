@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma';
+import {
+  CREDIT_SOURCE_ORDER_SELECT,
+  computeCreditSourceAvailable,
+  sumClientCreditBalance,
+} from '../credit-balance/credit-source.util';
 
 @Injectable()
 export class ClientsRepository {
@@ -84,14 +89,14 @@ export class ClientsRepository {
         },
         orders: {
           where: { balance: { lt: 0 } },
-          select: { balance: true }
+          select: CREDIT_SOURCE_ORDER_SELECT,
         }
       },
       orderBy: { name: 'asc' },
     });
 
     return clients.map(client => {
-      const saldoAFavor = client.orders?.reduce((sum, order) => sum + Math.abs(Number(order.balance)), 0) || 0;
+      const saldoAFavor = sumClientCreditBalance(client.orders);
       const { orders, ...rest } = client;
       return {
         ...rest,
@@ -163,14 +168,14 @@ export class ClientsRepository {
         },
         orders: {
           where: { balance: { lt: 0 } },
-          select: { balance: true }
+          select: CREDIT_SOURCE_ORDER_SELECT,
         }
       },
     });
 
     if (!client) return null;
 
-    const saldoAFavor = client.orders?.reduce((sum, order) => sum + Math.abs(Number(order.balance)), 0) || 0;
+    const saldoAFavor = sumClientCreditBalance(client.orders);
     const { orders, ...rest } = client;
 
     return {
@@ -440,10 +445,11 @@ export class ClientsRepository {
         id: true,
         orderNumber: true,
         orderDate: true,
-        total: true,
-        paidAmount: true,
         balance: true,
         status: true,
+        // total, paidAmount y lo necesario para el saldo a favor, que no
+        // cuenta los pagos que Caja aún no aprueba.
+        ...CREDIT_SOURCE_ORDER_SELECT,
         createdBy: {
           select: {
             id: true,
@@ -471,9 +477,8 @@ export class ClientsRepository {
       if (balance > 0) {
         pendingBalance += balance;
         pendingOrdersCount++;
-      } else if (balance < 0) {
-        saldoAFavor += Math.abs(balance);
       }
+      saldoAFavor += computeCreditSourceAvailable(order).toNumber();
 
       const orderDate = new Date(order.orderDate);
       if (!lastOrderDate || orderDate > lastOrderDate) {
