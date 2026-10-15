@@ -39,6 +39,7 @@ import {
   reportMovementEditedAfterClose,
   syncPaymentCashMovement,
 } from '../cash-session/payment-cash-movement.util';
+import { assertNotSelfReview } from '../../common/utils/self-review.util';
 
 const USER_SELECT = {
   id: true,
@@ -400,6 +401,10 @@ export class PaymentEditApprovalsService
     if (!request) {
       throw new NotFoundException('Solicitud no encontrada o ya procesada');
     }
+    await assertNotSelfReview(this.prisma, {
+      requestedById: request.requestedById,
+      reviewerId,
+    });
 
     const { approved: updatedRequest, editedAfterClose } =
       await this.prisma.$transaction(async (tx) => {
@@ -547,6 +552,10 @@ export class PaymentEditApprovalsService
     if (!request) {
       throw new NotFoundException('Solicitud no encontrada o ya procesada');
     }
+    await assertNotSelfReview(this.prisma, {
+      requestedById: request.requestedById,
+      reviewerId,
+    });
 
     const updatedRequest = await this.prisma.paymentEditApproval.update({
       where: { id: requestId },
