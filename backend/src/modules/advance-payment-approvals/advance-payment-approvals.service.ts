@@ -28,6 +28,7 @@ import {
 } from '../../common/utils/order-balance.util';
 import { CreditBalanceService } from '../credit-balance/credit-balance.service';
 import { lockOrderForUpdate } from '../../common/utils/order-lock.util';
+import { assertNotSelfReview } from '../../common/utils/self-review.util';
 
 const formatCop = (value: Prisma.Decimal | number): string =>
   `$${Number(value).toLocaleString('es-CO')}`;
@@ -593,6 +594,10 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
 
     // 2. Validar que revisor tiene permiso
     await this.validateReviewerPermission(reviewerId);
+    await assertNotSelfReview(this.prisma, {
+      requestedById: request.requestedById,
+      reviewerId,
+    });
 
     // 3. Actualizar solicitud a APPROVED
     const updatedRequest = await this.prisma.advancePaymentApproval.update({
@@ -654,6 +659,10 @@ export class AdvancePaymentApprovalsService implements OnModuleInit, ApprovalReq
 
     // 2. Validar que revisor tiene permiso
     await this.validateReviewerPermission(reviewerId);
+    await assertNotSelfReview(this.prisma, {
+      requestedById: request.requestedById,
+      reviewerId,
+    });
 
     // 3. Que el rechazo no deje como deuda el saldo a favor ya gastado
     await this.assertRejectionKeepsAppliedCreditCovered(
