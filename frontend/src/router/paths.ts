@@ -17,6 +17,7 @@ export const PATHS = {
   PRODUCTION_AREAS_EDIT: '/production-areas/:id/edit',
   PRODUCTION_AREAS_VIEW: '/production-areas/:id',
   MACHINES: '/machines',
+  PRODUCTION_PLANT: '/production-plant',
   CARGOS: '/cargos',
   CARGOS_CREATE: '/cargos/new',
   CARGOS_EDIT: '/cargos/:id/edit',

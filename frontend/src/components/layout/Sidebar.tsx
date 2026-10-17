@@ -341,6 +341,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
       menuKey: 'produccion',
       submenu: [
         {
+          label: 'Planta hoy',
+          icon: <FactoryIcon />,
+          path: ROUTES.PRODUCTION_PLANT,
+          permission: PERMISSIONS.READ_PRODUCTION_PLANT,
+        },
+        {
           label: 'Órdenes de Producción',
           icon: <BuildIcon />,
           path: ROUTES.PRODUCTION_ORDERS,
@@ -360,6 +366,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
         },
       ],
       permissions: [
+        PERMISSIONS.READ_PRODUCTION_PLANT,
         PERMISSIONS.READ_PRODUCTION_ORDERS,
         PERMISSIONS.READ_PRODUCT_TEMPLATES,
         PERMISSIONS.READ_STEP_DEFINITIONS,
