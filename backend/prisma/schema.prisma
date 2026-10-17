@@ -47,6 +47,10 @@ model User {
   advisedWorkOrders                         WorkOrder[]                            @relation("WorkOrderAdvisor")
   designedWorkOrders                        WorkOrder[]                            @relation("WorkOrderDesigner")
   workOrderTimeEntries                      WorkOrderTimeEntry[]                   @relation("WorkOrderTimeEntryUser")
+  createdWorkOrderTimeEntries               WorkOrderTimeEntry[]                   @relation("WorkOrderTimeEntryCreatedBy")
+  reviewedWorkOrderTimeEntries              WorkOrderTimeEntry[]                   @relation("WorkOrderTimeEntryReviewedBy")
+  adjustedWorkOrderTimeEntries              WorkOrderTimeEntry[]                   @relation("WorkOrderTimeEntryAdjustedBy")
+  voidedWorkOrderTimeEntries                WorkOrderTimeEntry[]                   @relation("WorkOrderTimeEntryVoidedBy")
   authorizedExpenseOrders                   ExpenseOrder[]                         @relation("AuthorizedExpenseOrders")
   cajaAuthorizedExpenseOrders               ExpenseOrder[]                         @relation("CajaAuthorizedExpenseOrders")
   cajaRejectedExpenseOrders                 ExpenseOrder[]                         @relation("CajaRejectedExpenseOrders")
@@ -633,8 +637,8 @@ model Quote {
   notes  String?
 
   // Rechazo (obligatorio al pasar a REJECTED)
-  rejectionReason String?   @map("rejection_reason")
-  rejectedAt      DateTime? @map("rejected_at")
+  rejectionReason    String?      @map("rejection_reason")
+  rejectedAt         DateTime?    @map("rejected_at")
   // Estado desde el que se rechazó; es el destino al restaurarla
   rejectedFromStatus QuoteStatus? @map("rejected_from_status")
 
@@ -723,10 +727,10 @@ model OrderItem {
   productId String? @map("product_id") // Opcional: producto del catálogo
 
   // Datos del item
-  description String // Descripción del servicio/producto
-  quantity    Decimal // Cantidad
-  unitPrice   Decimal @map("unit_price") // Precio unitario
-  total       Decimal // quantity * unitPrice
+  description      String // Descripción del servicio/producto
+  quantity         Decimal // Cantidad
+  unitPrice        Decimal @map("unit_price") // Precio unitario
+  total            Decimal // quantity * unitPrice
   // Cantidad anulada por anulaciones parciales ya aplicadas. El ítem no se borra
   // ni cambia de valor: la venta que deja de existir vive en
   // `Order.reversedAmount`, y esto solo dice de qué ítem salió.
@@ -741,10 +745,10 @@ model OrderItem {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relaciones
-  order           Order                     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product         Product?                  @relation(fields: [productId], references: [id])
-  productionAreas OrderItemProductionArea[]
-  workOrderItems  WorkOrderItem[]
+  order              Order                     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product            Product?                  @relation(fields: [productId], references: [id])
+  productionAreas    OrderItemProductionArea[]
+  workOrderItems     WorkOrderItem[]
   refundRequestItems RefundRequestItem[]
 
   @@index([orderId])
@@ -1208,8 +1212,27 @@ model ProductionArea {
   quoteItems        QuoteItemProductionArea[]
   workOrderItems    WorkOrderItemProductionArea[]
   expenseOrderItems ExpenseOrderItemProductionArea[]
+  machines          Machine[]
 
   @@map("production_areas")
+}
+
+// Máquinas de la planta. Se elige (opcional) al iniciar una tarea con el
+// temporizador de producción para saber en qué máquina se hizo.
+model Machine {
+  id               String   @id @default(uuid())
+  name             String   @unique
+  description      String?
+  productionAreaId String?  @map("production_area_id")
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  productionArea ProductionArea?      @relation(fields: [productionAreaId], references: [id], onDelete: SetNull)
+  timeEntries    WorkOrderTimeEntry[]
+
+  @@index([productionAreaId])
+  @@map("machines")
 }
 
 // =============================================================================
@@ -1269,8 +1292,9 @@ enum WorkOrderStatus {
 }
 
 enum WorkOrderTimeEntryType {
-  HOURS
-  RANGE
+  HOURS // Heredado: cantidad de horas escrita a mano
+  RANGE // Rango inicio–fin (heredado, o agregado a mano por un supervisor)
+  TIMER // Temporizador: inicio y fin los pone el servidor
 }
 
 model WorkOrder {
@@ -1363,21 +1387,51 @@ model WorkOrderTimeEntry {
   userId          String                 @map("user_id")
   entryType       WorkOrderTimeEntryType @map("entry_type")
   workedDate      DateTime               @map("worked_date")
-  hoursWorked     Decimal                @map("hours_worked")
+  // Nulo mientras una tarea del temporizador sigue en curso.
+  hoursWorked     Decimal?               @map("hours_worked")
   startAt         DateTime?              @map("start_at")
+  // TIMER con `endAt` nulo = tarea en curso.
   endAt           DateTime?              @map("end_at")
   notes           String?
+  machineId       String?                @map("machine_id")
+  // Supervisor que agregó el registro a mano; nulo = lo marcó el operario.
+  createdById     String?                @map("created_by_id")
+  // «Sigo trabajando»: la tarea no se cierra al fin de la jornada, solo en el tope.
+  extendedAt      DateTime?              @map("extended_at")
+  // La cerró el sistema porque el operario no la finalizó.
+  closedBySystem  Boolean                @default(false) @map("closed_by_system")
+  reviewedAt      DateTime?              @map("reviewed_at")
+  reviewedById    String?                @map("reviewed_by_id")
+  adjustedAt      DateTime?              @map("adjusted_at")
+  adjustedById    String?                @map("adjusted_by_id")
+  adjustReason    String?                @map("adjust_reason")
+  // Valores antes del primer ajuste, para auditoría.
+  originalStartAt DateTime?              @map("original_start_at")
+  originalEndAt   DateTime?              @map("original_end_at")
+  // Anulado: no se borra, deja de contar en horas.
+  voidedAt        DateTime?              @map("voided_at")
+  voidedById      String?                @map("voided_by_id")
+  voidReason      String?                @map("void_reason")
   createdAt       DateTime               @default(now()) @map("created_at")
   updatedAt       DateTime               @updatedAt @map("updated_at")
 
   workOrder     WorkOrder      @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
   workOrderItem WorkOrderItem? @relation(fields: [workOrderItemId], references: [id], onDelete: SetNull)
   user          User           @relation("WorkOrderTimeEntryUser", fields: [userId], references: [id])
+  machine       Machine?       @relation(fields: [machineId], references: [id], onDelete: SetNull)
+  createdBy     User?          @relation("WorkOrderTimeEntryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  reviewedBy    User?          @relation("WorkOrderTimeEntryReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  adjustedBy    User?          @relation("WorkOrderTimeEntryAdjustedBy", fields: [adjustedById], references: [id], onDelete: SetNull)
+  voidedBy      User?          @relation("WorkOrderTimeEntryVoidedBy", fields: [voidedById], references: [id], onDelete: SetNull)
 
+  // Además, índice único parcial en la migración: una sola tarea en curso por
+  // operario, OT e ítem (Prisma no soporta índices parciales en el schema).
   @@index([workOrderId])
   @@index([workOrderItemId])
   @@index([userId])
   @@index([workedDate])
+  @@index([machineId])
+  @@index([userId, endAt])
   @@map("work_order_time_entries")
 }
 
@@ -2486,11 +2540,11 @@ model RefundRequest {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relaciones
-  order        Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  requestedBy  User          @relation("RequestedRefundRequests", fields: [requestedById], references: [id])
-  reviewedBy   User?         @relation("ReviewedRefundRequests", fields: [reviewedById], references: [id])
-  executedBy   User?         @relation("ExecutedRefundRequests", fields: [executedById], references: [id])
-  cashMovement CashMovement? @relation(fields: [cashMovementId], references: [id])
+  order        Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  requestedBy  User                @relation("RequestedRefundRequests", fields: [requestedById], references: [id])
+  reviewedBy   User?               @relation("ReviewedRefundRequests", fields: [reviewedById], references: [id])
+  executedBy   User?               @relation("ExecutedRefundRequests", fields: [executedById], references: [id])
+  cashMovement CashMovement?       @relation(fields: [cashMovementId], references: [id])
   // Ítems que esta solicitud anula. Vacío en las devoluciones por monto.
   items        RefundRequestItem[]
 

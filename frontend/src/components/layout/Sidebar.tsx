@@ -387,12 +387,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           icon: <FactoryIcon />,
           path: ROUTES.PRODUCTION_AREAS,
           permission: PERMISSIONS.READ_PRODUCTION_AREAS,
-        },        
+        },
+        {
+          label: 'Máquinas',
+          icon: <PrecisionManufacturingIcon />,
+          path: ROUTES.MACHINES,
+          permission: PERMISSIONS.READ_MACHINES,
+        },
       ],
       permissions: [
         PERMISSIONS.READ_USERS,
         PERMISSIONS.READ_CARGOS,
         PERMISSIONS.READ_PRODUCTION_AREAS,
+        PERMISSIONS.READ_MACHINES,
       ],
     },
     {
