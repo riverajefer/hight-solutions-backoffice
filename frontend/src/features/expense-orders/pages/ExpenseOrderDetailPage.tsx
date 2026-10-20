@@ -74,6 +74,7 @@ import { ExpenseOrderAuthRequestDialog } from '../components/ExpenseOrderAuthReq
 import { ExpenseOrderAuthHistory } from '../components/ExpenseOrderAuthHistory';
 import { expenseOrderAuthRequestsApi } from '../../../api/expense-order-auth-requests.api';
 import { ExpenseOrderPdfButton } from '../components/ExpenseOrderPdfButton';
+import { CommentSection } from '../../comments';
 import { useExpenseOrder, expenseOrdersKeys, usePaidExpenseOrderEdit } from '../hooks';
 import { ExpenseOrderEditRequestDialog } from '../components/ExpenseOrderEditRequestDialog';
 import { expenseOrdersApi } from '../../../api/expense-orders.api';
@@ -1322,6 +1323,9 @@ export const ExpenseOrderDetailPage = () => {
       <Box sx={{ mt: 4 }}>
         <ExpenseOrderAuthHistory expenseOrder={og} />
       </Box>
+
+      {/* ── Comentarios ──────────────────────────────────────────────────────── */}
+      <CommentSection entityType="EXPENSE_ORDER" entityId={og.id} />
 
       {/* ── Status change dialog ─────────────────────────────────────────────── */}
       <Dialog open={statusDialogOpen} onClose={() => setStatusDialogOpen(false)} maxWidth="xs" fullWidth>
