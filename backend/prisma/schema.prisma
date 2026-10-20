@@ -2278,6 +2278,7 @@ enum CommentEntityType {
   QUOTE
   ORDER
   WORK_ORDER
+  EXPENSE_ORDER
 }
 
 model Comment {
