@@ -55,6 +55,8 @@ model User {
   approvedExpenseOrders                     ExpenseOrder[]                         @relation("ApprovedExpenseOrders")
   requestedExpenseOrderAuthRequests         ExpenseOrderAuthRequest[]              @relation("RequestedExpenseOrderAuthRequests")
   reviewedExpenseOrderAuthRequests          ExpenseOrderAuthRequest[]              @relation("ReviewedExpenseOrderAuthRequests")
+  requestedExpenseOrderEditRequests         ExpenseOrderEditRequest[]              @relation("RequestedExpenseOrderEditRequests")
+  reviewedExpenseOrderEditRequests          ExpenseOrderEditRequest[]              @relation("ReviewedExpenseOrderEditRequests")
   requestedAdvancePaymentApprovals          AdvancePaymentApproval[]               @relation("RequestedAdvancePaymentApprovals")
   reviewedAdvancePaymentApprovals           AdvancePaymentApproval[]               @relation("ReviewedAdvancePaymentApprovals")
   discountApprovalRequests                  DiscountApproval[]                     @relation("DiscountApprovalRequests")
@@ -633,8 +635,8 @@ model Quote {
   notes  String?
 
   // Rechazo (obligatorio al pasar a REJECTED)
-  rejectionReason String?   @map("rejection_reason")
-  rejectedAt      DateTime? @map("rejected_at")
+  rejectionReason    String?      @map("rejection_reason")
+  rejectedAt         DateTime?    @map("rejected_at")
   // Estado desde el que se rechazó; es el destino al restaurarla
   rejectedFromStatus QuoteStatus? @map("rejected_from_status")
 
@@ -723,10 +725,10 @@ model OrderItem {
   productId String? @map("product_id") // Opcional: producto del catálogo
 
   // Datos del item
-  description String // Descripción del servicio/producto
-  quantity    Decimal // Cantidad
-  unitPrice   Decimal @map("unit_price") // Precio unitario
-  total       Decimal // quantity * unitPrice
+  description      String // Descripción del servicio/producto
+  quantity         Decimal // Cantidad
+  unitPrice        Decimal @map("unit_price") // Precio unitario
+  total            Decimal // quantity * unitPrice
   // Cantidad anulada por anulaciones parciales ya aplicadas. El ítem no se borra
   // ni cambia de valor: la venta que deja de existir vive en
   // `Order.reversedAmount`, y esto solo dice de qué ítem salió.
@@ -741,10 +743,10 @@ model OrderItem {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relaciones
-  order           Order                     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product         Product?                  @relation(fields: [productId], references: [id])
-  productionAreas OrderItemProductionArea[]
-  workOrderItems  WorkOrderItem[]
+  order              Order                     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product            Product?                  @relation(fields: [productId], references: [id])
+  productionAreas    OrderItemProductionArea[]
+  workOrderItems     WorkOrderItem[]
   refundRequestItems RefundRequestItem[]
 
   @@index([orderId])
@@ -926,6 +928,7 @@ enum ApprovalRequestType {
   ORDER_EDIT
   STATUS_CHANGE
   EXPENSE_ORDER_AUTH
+  EXPENSE_ORDER_EDIT
   CLIENT_OWNERSHIP_AUTH
   ADVANCE_PAYMENT
   DISCOUNT_APPROVAL
@@ -951,6 +954,9 @@ enum NotificationType {
   EXPENSE_ORDER_AUTH_REQUEST_PENDING // Nueva solicitud de autorización de OG
   EXPENSE_ORDER_AUTH_REQUEST_APPROVED // Solicitud de autorización de OG aprobada
   EXPENSE_ORDER_AUTH_REQUEST_REJECTED // Solicitud de autorización de OG rechazada
+  EXPENSE_ORDER_EDIT_REQUEST_PENDING // Nueva solicitud de edición de OG pagada
+  EXPENSE_ORDER_EDIT_REQUEST_APPROVED // Edición de OG pagada aprobada
+  EXPENSE_ORDER_EDIT_REQUEST_REJECTED // Edición de OG pagada rechazada
   ADVANCE_PAYMENT_APPROVAL_PENDING // Nueva solicitud de aprobación de anticipo
   ADVANCE_PAYMENT_APPROVAL_APPROVED // Anticipo aprobado
   ADVANCE_PAYMENT_APPROVAL_REJECTED // Anticipo rechazado
@@ -1492,6 +1498,7 @@ model ExpenseOrder {
   cajaRejectedBy     User?                     @relation("CajaRejectedExpenseOrders", fields: [cajaRejectedById], references: [id])
   items              ExpenseOrderItem[]
   authRequests       ExpenseOrderAuthRequest[]
+  editRequests       ExpenseOrderEditRequest[]
   accountPayable     AccountPayable?
 
   @@index([status])
@@ -1559,6 +1566,35 @@ model ExpenseOrderAuthRequest {
   @@index([requestedById])
   @@index([status])
   @@map("expense_order_auth_requests")
+}
+
+// Solicitud para editar una OG que ya fue pagada (por ejemplo, para agregarle el
+// IVA que se olvidó). El admin la aprueba y el solicitante queda habilitado para
+// UNA edición: `consumedAt` se llena al guardar. Si no la usa en 24 horas
+// (`expiresAt`), vence. La edición no reabre la OG ni toca los egresos de caja:
+// si el total sube, la diferencia queda como saldo de su Cuenta por Pagar.
+model ExpenseOrderEditRequest {
+  id             String            @id @default(uuid())
+  expenseOrderId String            @map("expense_order_id")
+  requestedById  String            @map("requested_by_id")
+  reason         String
+  status         EditRequestStatus @default(PENDING)
+  reviewedById   String?           @map("reviewed_by_id")
+  reviewedAt     DateTime?         @map("reviewed_at")
+  reviewNotes    String?           @map("review_notes")
+  expiresAt      DateTime?         @map("expires_at")
+  consumedAt     DateTime?         @map("consumed_at")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  expenseOrder ExpenseOrder @relation(fields: [expenseOrderId], references: [id], onDelete: Cascade)
+  requestedBy  User         @relation("RequestedExpenseOrderEditRequests", fields: [requestedById], references: [id])
+  reviewedBy   User?        @relation("ReviewedExpenseOrderEditRequests", fields: [reviewedById], references: [id])
+
+  @@index([expenseOrderId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("expense_order_edit_requests")
 }
 
 model AccountPayableAuthRequest {
@@ -2486,11 +2522,11 @@ model RefundRequest {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relaciones
-  order        Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  requestedBy  User          @relation("RequestedRefundRequests", fields: [requestedById], references: [id])
-  reviewedBy   User?         @relation("ReviewedRefundRequests", fields: [reviewedById], references: [id])
-  executedBy   User?         @relation("ExecutedRefundRequests", fields: [executedById], references: [id])
-  cashMovement CashMovement? @relation(fields: [cashMovementId], references: [id])
+  order        Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  requestedBy  User                @relation("RequestedRefundRequests", fields: [requestedById], references: [id])
+  reviewedBy   User?               @relation("ReviewedRefundRequests", fields: [reviewedById], references: [id])
+  executedBy   User?               @relation("ExecutedRefundRequests", fields: [executedById], references: [id])
+  cashMovement CashMovement?       @relation(fields: [cashMovementId], references: [id])
   // Ítems que esta solicitud anula. Vacío en las devoluciones por monto.
   items        RefundRequestItem[]
 

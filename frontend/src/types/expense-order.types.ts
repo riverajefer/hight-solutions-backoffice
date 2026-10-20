@@ -103,6 +103,14 @@ export interface ExpenseOrder {
   electronicInvoiceNumber?: string | null;
   createdAt: string;
   updatedAt: string;
+  accountPayable?: {
+    id: string;
+    apNumber: string;
+    status: string;
+    totalAmount: string;
+    paidAmount: string;
+    balance: string;
+  } | null;
   expenseType: {
     id: string;
     name: string;
