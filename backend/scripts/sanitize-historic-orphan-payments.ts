@@ -41,6 +41,12 @@
  *
  * Es idempotente: filtra por `cashMovementId IS NULL`, así que volver a correrlo
  * no duplica nada.
+ *
+ * Los recibos `AJU-<año>-NNNNN` continúan desde el último `AJU-` de ese año que
+ * ya exista en `cash_movements` (el año es el del cierre de cada sesión de
+ * ajuste). Así no choca con los recibos de otros scripts que comparten la caja
+ * de ajustes, como `sanitize-ap-iva-paid-via-expense-order.ts`, sin importar
+ * en qué orden se apliquen.
  */
 import { randomUUID } from 'crypto';
 import * as fs from 'fs';
@@ -96,6 +102,29 @@ const endOfMonth = (date: Date) =>
 
 const monthKey = (date: Date) =>
   `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+
+/**
+ * Numerador de recibos `AJU-<año>-NNNNN` que continúa desde el último existente
+ * de cada año. La caja de ajustes la comparten otros scripts de saneamiento
+ * (p. ej. `sanitize-ap-iva-paid-via-expense-order.ts`) y `receipt_number` es
+ * único: arrancar en 00001 chocaría con lo que ellos ya crearon.
+ */
+async function crearNumerador() {
+  const ultimos = new Map<number, number>();
+  return async (year: number) => {
+    if (!ultimos.has(year)) {
+      const ultimo = await prisma.cashMovement.findFirst({
+        where: { receiptNumber: { startsWith: `${RECEIPT_PREFIX}-${year}-` } },
+        orderBy: { receiptNumber: 'desc' },
+        select: { receiptNumber: true },
+      });
+      ultimos.set(year, ultimo ? Number(ultimo.receiptNumber.split('-')[2]) : 0);
+    }
+    const siguiente = ultimos.get(year)! + 1;
+    ultimos.set(year, siguiente);
+    return `${RECEIPT_PREFIX}-${year}-${String(siguiente).padStart(5, '0')}`;
+  };
+}
 
 async function main() {
   console.log(`Ambiente: ${ENV}`);
@@ -191,7 +220,7 @@ async function main() {
   }
   const responsableId = [...conteo.entries()].sort((a, b) => b[1] - a[1])[0][0];
 
-  let secuencia = 0;
+  const siguienteRecibo = await crearNumerador();
   let movimientosCreados = 0;
 
   for (const [mes, pagos] of [...byMonth.entries()].sort()) {
@@ -200,6 +229,13 @@ async function main() {
       new Prisma.Decimal(0),
     );
     const cierre = endOfMonth(pagos[pagos.length - 1].createdAt);
+
+    // Recibos fuera de la transacción: si el mes falla, quedan huecos en la
+    // numeración `AJU-`, que es solo de ajustes y no le importa a nadie.
+    const recibos: string[] = [];
+    for (let i = 0; i < pagos.length; i++) {
+      recibos.push(await siguienteRecibo(cierre.getUTCFullYear()));
+    }
 
     // Una transacción por mes: si algo falla, ese mes queda intacto y los
     // anteriores ya aplicados siguen siendo válidos (el script es idempotente).
@@ -228,26 +264,21 @@ async function main() {
       // una y enlazar los pagos en una sola sentencia. Hacerlo pago por pago
       // son ~2 round-trips por abono contra una base remota: con cientos de
       // registros la transacción expira antes de terminar.
-      const movimientos = pagos.map((p) => {
-        secuencia++;
-        return {
-          id: randomUUID(),
-          paymentId: p.id,
-          cashSessionId: session.id,
-          receiptNumber: `${RECEIPT_PREFIX}-${cierre.getUTCFullYear()}-${String(
-            secuencia,
-          ).padStart(5, '0')}`,
-          movementType: 'INCOME' as const,
-          paymentMethod: p.paymentMethod,
-          amount: p.amount,
-          description:
-            `Ajuste histórico — Abono a Orden ${p.order?.orderNumber ?? ''} ` +
-            `(cobrado el ${p.paymentDate.toISOString().slice(0, 10)}, sin caja abierta)`,
-          referenceType: 'ORDER',
-          referenceId: p.order?.id ?? null,
-          performedById: p.receivedById,
-        };
-      });
+      const movimientos = pagos.map((p, i) => ({
+        id: randomUUID(),
+        paymentId: p.id,
+        cashSessionId: session.id,
+        receiptNumber: recibos[i],
+        movementType: 'INCOME' as const,
+        paymentMethod: p.paymentMethod,
+        amount: p.amount,
+        description:
+          `Ajuste histórico — Abono a Orden ${p.order?.orderNumber ?? ''} ` +
+          `(cobrado el ${p.paymentDate.toISOString().slice(0, 10)}, sin caja abierta)`,
+        referenceType: 'ORDER',
+        referenceId: p.order?.id ?? null,
+        performedById: p.receivedById,
+      }));
 
       await tx.cashMovement.createMany({
         data: movimientos.map(({ paymentId, ...m }) => m),
