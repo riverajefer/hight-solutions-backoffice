@@ -1,6 +1,6 @@
 # Saneamiento: IVA de las Órdenes de Gasto pagado por Caja y sin registrar
 
-**Fecha:** 2026-10-19 · **Estado:** script (fases 1 y 2) listo y probado en local; **nada aplicado en producción**.
+**Fecha:** 2026-10-19 · **Estado:** **aplicado en producción el 2026-10-19** (ver «Aplicación en producción» al final).
 
 ## Qué pasó
 
@@ -99,3 +99,13 @@ Ese efectivo salió de **41 sesiones de la Caja Principal** del 2026-06-24 al 20
 Contra la base local de Docker, con casos armados a mano que reproducen el bug: IVA en efectivo, IVA con retefuente 2,5 % por transferencia, CP con total en centavos, OG con dos métodos de pago (efectivo + transferencia, el ajuste se partió $2.470 + $1.330), y dos que deben excluirse (abono propio aparte y total de CP distinto al de la OG). Resultado: las 4 válidas quedaron `PAID` con saldo $0 y `paidAmount` = suma de abonos; las 2 excluidas no se tocaron; una segunda corrida no encontró nada.
 
 Fase 2 en local: 4 abonos en efectivo en 2 sesiones de ajuste (abril y mayo), ambas `CLOSED` con `systemBalance` = −egresos (coincide con lo que recalcula `computeSystemBalance`) y descuadre 0; recibos `AJU-2026-00011…00014`, continuando la secuencia `AJU-` que ya había en la base local; cada egreso vinculado a su abono, con `referenceType = ACCOUNT_PAYABLE`; ninguna sesión abierta en la caja de ajustes; el script viejo (`sanitize-ap-paid-via-expense-order.ts`) no tomó los egresos nuevos; las dos fases juntas en una sola corrida `--apply` funcionaron; la segunda corrida no hizo nada; `db-invariants.sh` sin CP descuadradas.
+
+## Aplicación en producción (2026-10-19)
+
+- Despliegue previo del fix: PR #428 (`hotfix/iva-og-caja` → `master`, merge `9ac2274`), Railway `SUCCESS`.
+- Backup: `backend/backups/production/backup_production_full_20261019_203845.sql.gz` (26 MB, 92 tablas).
+- Prueba con una sola CP: `--fase=1 --ap=CP-2026-196` → PAID, saldo $0, abono `AJUSTE-IVA-OG-2026-0161` de $23.949,50.
+- Antes de correr el resto se agregó una exclusión: **OG sin IVA**. Cuatro CP (`CP-2026-883`, `-890`, `-1014`, `-1041`) tenían saldos de $0,04 a $0,50 que no eran IVA sino residuo de redondear a peso entero una base con centavos. Por decisión del usuario se resuelven aparte, junto con `CP-2026-1005` ($0,81) y `CP-2026-157` ($0,20, OG en CREATED).
+- Corrida completa: **132 CP saneadas** en total (131 + la de prueba): 99 abonos en efectivo por $1.265.813,47 y 33 por transferencia por $2.389.997,28. Ninguna falló.
+- Fase 2: caja «Ajustes Históricos» creada inactiva, **5 sesiones CERRADAS** (jun–oct) con **99 egresos `ACCOUNT_PAYABLE`** por $1.265.813,47, recibos `AJU-2026-00001…00099`; en cada sesión el saldo del sistema coincide con el recalculado y el descuadre es 0.
+- Verificación: ninguna CP con ajuste quedó fuera de PAID; 0 abonos en efectivo sin egreso; ninguna sesión original modificada; una sola sesión abierta (la de Caja Principal); `db-invariants.sh` sin CP descuadradas. Quedan abiertas las 5 CP de centavos listadas arriba.
