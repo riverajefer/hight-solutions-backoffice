@@ -9,6 +9,7 @@ import { PATHS } from '../../router/paths';
 import { orderStatusChangeRequestsApi } from '../../api/order-status-change-requests.api';
 import { editRequestsApi } from '../../api/edit-requests.api';
 import { expenseOrderAuthRequestsApi } from '../../api/expense-order-auth-requests.api';
+import { expenseOrderEditRequestsApi } from '../../api/expense-order-edit-requests.api';
 import { advancePaymentApprovalsApi } from '../../api/advance-payment-approvals.api';
 import { clientOwnershipAuthRequestsApi } from '../../api/client-ownership-auth-requests.api';
 import { refundRequestsApi } from '../../api/refund-requests.api';
@@ -45,6 +46,12 @@ export const PendingApprovalsBell: React.FC = () => {
   const { data: ogAuthRequests } = useQuery({
     queryKey: ['ogAuthRequests', 'pending', 'badge'],
     queryFn: () => expenseOrderAuthRequestsApi.findPending(),
+    enabled: !!canApproveExpenseOrders,
+  });
+
+  const { data: ogEditRequests } = useQuery({
+    queryKey: ['ogEditRequests', 'pending', 'badge'],
+    queryFn: () => expenseOrderEditRequestsApi.findPending(),
     enabled: !!canApproveExpenseOrders,
   });
 
@@ -89,6 +96,7 @@ export const PendingApprovalsBell: React.FC = () => {
     if (statusRequests) count += statusRequests.length;
     if (editRequests) count += editRequests.length;
     if (ogAuthRequests) count += ogAuthRequests.length;
+    if (ogEditRequests) count += ogEditRequests.length;
     if (advanceRequests) count += advanceRequests.length;
     if (ownershipRequests) count += ownershipRequests.length;
     if (refundRequests) count += refundRequests.length;
@@ -96,7 +104,7 @@ export const PendingApprovalsBell: React.FC = () => {
     if (clientAdvisorRequests) count += clientAdvisorRequests.length;
     if (quoteRestoreRequests) count += quoteRestoreRequests.length;
     return count;
-  }, [statusRequests, editRequests, ogAuthRequests, advanceRequests, ownershipRequests, refundRequests, advisorRequests, clientAdvisorRequests, quoteRestoreRequests]);
+  }, [statusRequests, editRequests, ogAuthRequests, ogEditRequests, advanceRequests, ownershipRequests, refundRequests, advisorRequests, clientAdvisorRequests, quoteRestoreRequests]);
 
   const hasAnyPermission = canApproveOrders || canApproveAdvancePayments || canApproveClientOwnership || canApproveAdvisorChange || canApproveClientAdvisor || canApproveQuoteRestore || canApproveExpenseOrders || canApproveRefunds || isAdmin;
 
