@@ -40,7 +40,7 @@ interface PermissionsSelectorProps {
 
 const PERMISSION_GROUPS: Record<string, string[]> = {
   // Gestión de Usuarios y Accesos
-  Usuarios: ['create_users', 'read_users', 'update_users', 'delete_users'],
+  Usuarios: ['create_users', 'read_users', 'update_users', 'delete_users', 'reset_user_2fa'],
   Roles: ['create_roles', 'read_roles', 'update_roles', 'delete_roles'],
   Permisos: [
     'create_permissions',

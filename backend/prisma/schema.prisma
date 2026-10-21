@@ -25,6 +25,15 @@ model User {
   isActive           Boolean  @default(true)
   mustChangePassword Boolean  @default(false)
 
+  // Doble factor (TOTP). `twoFactorSecret` va cifrado (AES-256-GCM) y existe
+  // desde el registro; el 2FA solo cuenta cuando `twoFactorEnabled` es true.
+  twoFactorEnabled        Boolean   @default(false)
+  twoFactorSecret         String?
+  twoFactorEnabledAt      DateTime?
+  twoFactorLastUsedStep   Int?
+  twoFactorFailedAttempts Int       @default(0)
+  twoFactorLockedUntil    DateTime?
+
   role                                      Role                                   @relation(fields: [roleId], references: [id])
   cargo                                     Cargo?                                 @relation(fields: [cargoId], references: [id])
   sessionLogs                               SessionLog[]
@@ -117,8 +126,43 @@ model User {
   advisedProspects                          Prospect[]                             @relation("ProspectAdvisor")
   createdProspects                          Prospect[]                             @relation("ProspectCreatedBy")
   registeredProspectContacts                ProspectContact[]                      @relation("ProspectContactCreatedBy")
+  // Doble factor
+  twoFactorBackupCodes                      TwoFactorBackupCode[]
+  trustedDevices                            TrustedDevice[]
 
   @@map("users")
+}
+
+/// Códigos de respaldo del doble factor: de un solo uso, guardados como HMAC.
+model TwoFactorBackupCode {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  codeHash  String    @map("code_hash")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("two_factor_backup_codes")
+}
+
+/// Navegadores que no vuelven a pedir el código del doble factor hasta `expiresAt`.
+model TrustedDevice {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  tokenHash  String    @unique @map("token_hash")
+  userAgent  String?   @map("user_agent")
+  ipAddress  String?   @map("ip_address")
+  lastUsedAt DateTime  @default(now()) @map("last_used_at")
+  expiresAt  DateTime  @map("expires_at")
+  revokedAt  DateTime? @map("revoked_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("trusted_devices")
 }
 
 model Cargo {
@@ -140,13 +184,15 @@ model Cargo {
 }
 
 model Role {
-  id          String           @id @default(uuid())
-  name        String           @unique
-  description String?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  permissions RolePermission[]
-  users       User[]
+  id               String           @id @default(uuid())
+  name             String           @unique
+  description      String?
+  // Exige el doble factor a los usuarios del rol cuando TWO_FACTOR_ENFORCEMENT=required
+  requireTwoFactor Boolean          @default(false)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  permissions      RolePermission[]
+  users            User[]
 
   @@map("roles")
 }
@@ -341,14 +387,16 @@ model Supplier {
 // =============================================================================
 
 model SessionLog {
-  id        String    @id @default(uuid())
-  userId    String    @map("user_id")
-  loginAt   DateTime  @default(now()) @map("login_at")
-  logoutAt  DateTime? @map("logout_at")
-  ipAddress String?   @map("ip_address")
-  userAgent String?   @map("user_agent")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
+  id              String    @id @default(uuid())
+  userId          String    @map("user_id")
+  loginAt         DateTime  @default(now()) @map("login_at")
+  logoutAt        DateTime? @map("logout_at")
+  ipAddress       String?   @map("ip_address")
+  userAgent       String?   @map("user_agent")
+  /// TOTP, BACKUP_CODE o TRUSTED_DEVICE; null si el ingreso no pasó por el doble factor
+  twoFactorMethod String?   @map("two_factor_method")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -996,6 +1044,7 @@ enum NotificationType {
   QUOTE_RESTORE_REQUEST_PENDING // Nueva solicitud de restaurar una cotización rechazada
   QUOTE_RESTORE_REQUEST_APPROVED // Restauración de cotización aprobada
   QUOTE_RESTORE_REQUEST_REJECTED // Restauración de cotización rechazada
+  TWO_FACTOR_RESET // Un admin o gerencia restableció el doble factor del usuario
   CLIENT_ADVISOR_REQUEST_PENDING // Nueva solicitud de asignación de asesor a cliente
   CLIENT_ADVISOR_REQUEST_APPROVED // Solicitud de asignación de asesor a cliente aprobada
   CLIENT_ADVISOR_REQUEST_REJECTED // Solicitud de asignación de asesor a cliente rechazada

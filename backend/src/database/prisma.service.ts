@@ -81,13 +81,23 @@ export class PrismaService
       },
 
       // Enmascarar campos sensibles
-      maskFields: ['password', 'refreshToken'],
+      maskFields: ['password', 'refreshToken', 'twoFactorSecret', 'codeHash', 'tokenHash'],
       maskValue: '[REDACTED]',
 
-      // Configurar inclusión/exclusión de campos por modelo
+      // Configurar inclusión/exclusión de campos por modelo. Los contadores del
+      // doble factor cambian en cada ingreso: solo serían ruido.
       fieldFilters: {
         User: {
-          exclude: ['password', 'refreshToken'],
+          exclude: [
+            'password',
+            'refreshToken',
+            'twoFactorSecret',
+            'twoFactorLastUsedStep',
+            'twoFactorFailedAttempts',
+          ],
+        },
+        TrustedDevice: {
+          exclude: ['tokenHash', 'lastUsedAt'],
         },
       },
 

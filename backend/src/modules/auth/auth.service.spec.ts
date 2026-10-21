@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { PrismaService } from '../../database/prisma.service';
 import { SessionLogsService } from '../session-logs/session-logs.service';
 import { AttendanceService } from '../attendance/attendance.service';
+import { TwoFactorService } from './two-factor.service';
 import { createMockPrismaService, MockPrismaService } from '../../database/prisma.service.mock';
 import { AuthenticatedUser } from '../../common/interfaces';
 
@@ -44,6 +45,18 @@ const mockAttendanceService = {
   closeOpenRecordOnLogout: jest.fn().mockResolvedValue(undefined),
 };
 
+const mockTwoFactorService = {
+  resolveLoginStep: jest.fn(),
+  issuePendingToken: jest.fn(),
+  verifyPendingToken: jest.fn(),
+  verifyLoginCode: jest.fn(),
+  startEnrollment: jest.fn(),
+  confirmEnrollment: jest.fn(),
+  createTrustedDevice: jest.fn(),
+  mustEnrollBeforeRefresh: jest.fn(),
+  revokeAllTrustedDevices: jest.fn(),
+};
+
 describe('AuthService', () => {
   let service: AuthService;
   let prisma: MockPrismaService;
@@ -78,10 +91,15 @@ describe('AuthService', () => {
         { provide: ConfigService, useValue: mockConfigService },
         { provide: SessionLogsService, useValue: mockSessionLogsService },
         { provide: AttendanceService, useValue: mockAttendanceService },
+        { provide: TwoFactorService, useValue: mockTwoFactorService },
       ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
+
+    // Por defecto el doble factor no aplica: el login se comporta como antes.
+    mockTwoFactorService.resolveLoginStep.mockResolvedValue('NONE');
+    mockTwoFactorService.mustEnrollBeforeRefresh.mockResolvedValue(false);
   });
 
   afterEach(() => {
@@ -224,6 +242,7 @@ describe('AuthService', () => {
       const result = await service.loginWithPermissions(mockUser, '127.0.0.1', 'Mozilla/5.0');
 
       expect(result).toMatchObject({
+        status: 'OK',
         accessToken: 'mock-access-token',
         refreshToken: 'mock-refresh-token',
         user: mockUser,
@@ -238,6 +257,7 @@ describe('AuthService', () => {
         mockUser.id,
         '127.0.0.1',
         'Mozilla/5.0',
+        null,
       );
     });
 
@@ -249,7 +269,137 @@ describe('AuthService', () => {
 
       const result = await service.loginWithPermissions(mockUser);
 
-      expect(result.permissions).toEqual([]);
+      expect(result).toMatchObject({ status: 'OK', permissions: [] });
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // Login con doble factor
+  // ─────────────────────────────────────────────
+  describe('loginWithPermissions con doble factor', () => {
+    beforeEach(() => {
+      (mockJwtService.signAsync as jest.Mock).mockResolvedValue('mock-token');
+      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-refresh-token');
+      (prisma.user.update as jest.Mock).mockResolvedValue({});
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        isActive: true,
+        role: { permissions: [] },
+      });
+    });
+
+    it('no entrega la sesión y devuelve un challengeToken cuando hay que pedir el código', async () => {
+      mockTwoFactorService.resolveLoginStep.mockResolvedValue('CHALLENGE');
+      mockTwoFactorService.issuePendingToken.mockResolvedValue('challenge-token');
+
+      const result = await service.loginWithPermissions(mockUser, '127.0.0.1', 'UA', 'device-token');
+
+      expect(mockTwoFactorService.resolveLoginStep).toHaveBeenCalledWith(mockUser.id, 'device-token');
+      expect(mockTwoFactorService.issuePendingToken).toHaveBeenCalledWith(mockUser, '2fa_challenge');
+      expect(result).toEqual({ status: '2FA_REQUIRED', challengeToken: 'challenge-token' });
+      expect(result).not.toHaveProperty('accessToken');
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(mockSessionLogsService.createLoginLog).not.toHaveBeenCalled();
+    });
+
+    it('devuelve un setupToken cuando el rol exige el doble factor y no lo ha registrado', async () => {
+      mockTwoFactorService.resolveLoginStep.mockResolvedValue('SETUP');
+      mockTwoFactorService.issuePendingToken.mockResolvedValue('setup-token');
+
+      const result = await service.loginWithPermissions(mockUser);
+
+      expect(mockTwoFactorService.issuePendingToken).toHaveBeenCalledWith(mockUser, '2fa_setup');
+      expect(result).toEqual({ status: '2FA_SETUP_REQUIRED', setupToken: 'setup-token' });
+    });
+
+    it('entrega la sesión y registra TRUSTED_DEVICE cuando el navegador es de confianza', async () => {
+      mockTwoFactorService.resolveLoginStep.mockResolvedValue('TRUSTED_DEVICE');
+
+      const result = await service.loginWithPermissions(mockUser, '127.0.0.1', 'UA', 'device-token');
+
+      expect(result).toMatchObject({ status: 'OK', accessToken: 'mock-token' });
+      expect(mockSessionLogsService.createLoginLog).toHaveBeenCalledWith(
+        mockUser.id,
+        '127.0.0.1',
+        'UA',
+        'TRUSTED_DEVICE',
+      );
+    });
+  });
+
+  describe('completeTwoFactorLogin', () => {
+    const origin = { ipAddress: '127.0.0.1', userAgent: 'UA' };
+
+    beforeEach(() => {
+      (mockJwtService.signAsync as jest.Mock).mockResolvedValue('mock-token');
+      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-refresh-token');
+      (prisma.user.update as jest.Mock).mockResolvedValue({});
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        ...mockUserFromDb,
+        mustChangePassword: false,
+        twoFactorEnabled: true,
+        role: { id: 'role-1', name: 'admin', permissions: [] },
+      });
+      mockTwoFactorService.verifyPendingToken.mockResolvedValue({ sub: mockUser.id, type: '2fa_challenge' });
+      mockTwoFactorService.verifyLoginCode.mockResolvedValue('TOTP');
+    });
+
+    it('verifica el token temporal y el código antes de entregar la sesión', async () => {
+      const result = await service.completeTwoFactorLogin('challenge-token', '123456', false, origin);
+
+      expect(mockTwoFactorService.verifyPendingToken).toHaveBeenCalledWith('challenge-token', '2fa_challenge');
+      expect(mockTwoFactorService.verifyLoginCode).toHaveBeenCalledWith(mockUser.id, '123456');
+      expect(result).toMatchObject({ status: 'OK', accessToken: 'mock-token' });
+      expect(result).not.toHaveProperty('deviceToken');
+      expect(mockSessionLogsService.createLoginLog).toHaveBeenCalledWith(
+        mockUser.id,
+        '127.0.0.1',
+        'UA',
+        'TOTP',
+      );
+    });
+
+    it('no entrega la sesión si el código es incorrecto', async () => {
+      mockTwoFactorService.verifyLoginCode.mockRejectedValue(new UnauthorizedException('Código incorrecto'));
+
+      await expect(
+        service.completeTwoFactorLogin('challenge-token', '000000', false, origin),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('con rememberDevice devuelve el token del equipo de confianza', async () => {
+      const expiresAt = new Date('2026-11-20');
+      mockTwoFactorService.createTrustedDevice.mockResolvedValue({ deviceToken: 'device-token', expiresAt });
+
+      const result = await service.completeTwoFactorLogin('challenge-token', '123456', true, origin);
+
+      expect(mockTwoFactorService.createTrustedDevice).toHaveBeenCalledWith(mockUser.id, 'UA', '127.0.0.1');
+      expect(result).toMatchObject({ deviceToken: 'device-token', deviceTokenExpiresAt: expiresAt });
+    });
+  });
+
+  describe('confirmLoginEnrollment', () => {
+    it('activa el doble factor, entrega la sesión y devuelve los códigos de respaldo', async () => {
+      (mockJwtService.signAsync as jest.Mock).mockResolvedValue('mock-token');
+      (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-refresh-token');
+      (prisma.user.update as jest.Mock).mockResolvedValue({});
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        ...mockUserFromDb,
+        mustChangePassword: true,
+        twoFactorEnabled: true,
+        role: { id: 'role-1', name: 'admin', permissions: [] },
+      });
+      mockTwoFactorService.verifyPendingToken.mockResolvedValue({ sub: mockUser.id, type: '2fa_setup' });
+      mockTwoFactorService.confirmEnrollment.mockResolvedValue(['AAAA-BBBB']);
+
+      const result = await service.confirmLoginEnrollment('setup-token', '123456', false, {});
+
+      expect(mockTwoFactorService.verifyPendingToken).toHaveBeenCalledWith('setup-token', '2fa_setup');
+      expect(result).toMatchObject({
+        status: 'OK',
+        backupCodes: ['AAAA-BBBB'],
+        user: expect.objectContaining({ mustChangePassword: true }),
+      });
     });
   });
 
@@ -358,6 +508,42 @@ describe('AuthService', () => {
       await expect(service.refreshTokens(mockUser.id, 'incoming-refresh-token')).rejects.toThrow(
         UnauthorizedException,
       );
+    });
+
+    it('no renueva la sesión de quien su rol obliga al doble factor y no lo ha registrado', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        ...mockUserFromDb,
+        isActive: true,
+        refreshToken: storedRefreshHash,
+      });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      mockTwoFactorService.mustEnrollBeforeRefresh.mockResolvedValue(true);
+
+      await expect(service.refreshTokens(mockUser.id, 'valid-refresh-token')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: mockUser.id },
+        data: { refreshToken: null },
+      });
+      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('changePassword', () => {
+    it('revoca los equipos de confianza al cambiar la contraseña', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: mockUser.id,
+        password: 'hashed',
+        isActive: true,
+      });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      (bcrypt.hash as jest.Mock).mockResolvedValue('new-hash');
+      (prisma.user.update as jest.Mock).mockResolvedValue({});
+
+      await service.changePassword(mockUser.id, 'actual123', 'nueva123');
+
+      expect(mockTwoFactorService.revokeAllTrustedDevices).toHaveBeenCalledWith(mockUser.id);
     });
   });
 
