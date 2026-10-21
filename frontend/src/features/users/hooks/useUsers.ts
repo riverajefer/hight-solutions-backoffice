@@ -57,6 +57,15 @@ export const useUsers = (options?: { enabled?: boolean }) => {
     },
   });
 
+  const setTwoFactorRequirementMutation = useMutation({
+    mutationFn: ({ id, required }: { id: string; required: boolean }) =>
+      twoFactorApi.setRequirementForUser(id, required),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['users', id] });
+    },
+  });
+
   return {
     usersQuery,
     getUserQuery,
@@ -65,5 +74,6 @@ export const useUsers = (options?: { enabled?: boolean }) => {
     deleteUserMutation,
     deactivateUserMutation,
     resetTwoFactorMutation,
+    setTwoFactorRequirementMutation,
   };
 };

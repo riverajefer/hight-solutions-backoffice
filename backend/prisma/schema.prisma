@@ -33,6 +33,8 @@ model User {
   twoFactorLastUsedStep   Int?
   twoFactorFailedAttempts Int       @default(0)
   twoFactorLockedUntil    DateTime?
+  // Un admin le exige el doble factor a este usuario aunque su rol no lo exija
+  requireTwoFactor        Boolean   @default(false)
 
   role                                      Role                                   @relation(fields: [roleId], references: [id])
   cargo                                     Cargo?                                 @relation(fields: [cargoId], references: [id])

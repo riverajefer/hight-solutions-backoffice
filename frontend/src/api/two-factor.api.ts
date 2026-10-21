@@ -83,4 +83,16 @@ export const twoFactorApi = {
     const response = await axiosInstance.post<{ message: string }>(`/users/${userId}/2fa/reset`);
     return response.data;
   },
+
+  /** Exige o deja de exigir el doble factor a otro usuario (permiso `require_user_2fa`). */
+  setRequirementForUser: async (
+    userId: string,
+    required: boolean,
+  ): Promise<{ id: string; requireTwoFactor: boolean }> => {
+    const response = await axiosInstance.patch<{ id: string; requireTwoFactor: boolean }>(
+      `/users/${userId}/2fa/requirement`,
+      { required },
+    );
+    return response.data;
+  },
 };

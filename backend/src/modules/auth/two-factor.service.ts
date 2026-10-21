@@ -79,9 +79,13 @@ export class TwoFactorService implements OnModuleInit {
     return this.config.enforcement;
   }
 
-  /** ¿El rol obliga a usar el doble factor con la configuración actual? */
-  isRequiredByRole(requireTwoFactor: boolean | undefined) {
-    return this.enforcement === 'required' && !!requireTwoFactor;
+  /**
+   * ¿Se le exige el doble factor a este usuario con la configuración actual?
+   * Lo exige su rol o un admin se lo exigió a él; los dos solo cuentan con
+   * `TWO_FACTOR_ENFORCEMENT=required`.
+   */
+  isRequiredFor(state: { requireTwoFactor: boolean; role: { requireTwoFactor: boolean } }) {
+    return this.enforcement === 'required' && (state.requireTwoFactor || state.role.requireTwoFactor);
   }
 
   assertFeatureEnabled() {
@@ -98,7 +102,7 @@ export class TwoFactorService implements OnModuleInit {
     const state = await this.requireState(userId);
 
     if (!state.twoFactorEnabled) {
-      return this.isRequiredByRole(state.role.requireTwoFactor) ? 'SETUP' : 'NONE';
+      return this.isRequiredFor(state) ? 'SETUP' : 'NONE';
     }
 
     if (deviceToken && (await this.isTrustedDevice(userId, deviceToken))) {
@@ -108,14 +112,14 @@ export class TwoFactorService implements OnModuleInit {
   }
 
   /**
-   * Un usuario que su rol obliga y aún no registró la app no puede renovar la
-   * sesión: así una sesión abierta antes del encendido no sigue viva para siempre
-   * (el refresh token rota en cada uso).
+   * A quien se le exige el doble factor y aún no registró la app no se le
+   * renueva la sesión: así una sesión abierta antes de exigirlo no sigue viva
+   * para siempre (el refresh token rota en cada uso).
    */
   async mustEnrollBeforeRefresh(userId: string): Promise<boolean> {
     if (this.enforcement !== 'required') return false;
     const state = await this.repository.findUserState(userId);
-    return !!state && !state.twoFactorEnabled && !!state.role.requireTwoFactor;
+    return !!state && !state.twoFactorEnabled && this.isRequiredFor(state);
   }
 
   async issuePendingToken(
@@ -224,7 +228,8 @@ export class TwoFactorService implements OnModuleInit {
       enforcement: this.enforcement,
       enabled: state.twoFactorEnabled,
       enabledAt: state.twoFactorEnabledAt,
-      requiredByRole: this.isRequiredByRole(state.role.requireTwoFactor),
+      requiredByRole: this.enforcement === 'required' && state.role.requireTwoFactor,
+      requiredByUser: this.enforcement === 'required' && state.requireTwoFactor,
       backupCodesRemaining: state.twoFactorEnabled
         ? await this.repository.countUnusedBackupCodes(userId)
         : 0,
@@ -234,8 +239,8 @@ export class TwoFactorService implements OnModuleInit {
   /** La contraseña la verifica quien llama; aquí se exige el código. */
   async disable(userId: string, code: string) {
     const state = await this.requireState(userId);
-    if (this.isRequiredByRole(state.role.requireTwoFactor)) {
-      throw new ForbiddenException('Tu rol exige el doble factor; no puedes desactivarlo');
+    if (this.isRequiredFor(state)) {
+      throw new ForbiddenException('Se te exige el doble factor; no puedes desactivarlo');
     }
     await this.verifyLoginCode(userId, code);
     await this.repository.clear(userId, false);
@@ -312,6 +317,25 @@ export class TwoFactorService implements OnModuleInit {
     });
 
     return { message: 'Doble factor restablecido' };
+  }
+
+  /**
+   * Exige (o deja de exigir) el doble factor a un usuario puntual. Sigue la
+   * regla de privilegios de roles. Si no ha registrado la app, en su próximo
+   * ingreso tendrá que hacerlo y su sesión actual ya no se renueva.
+   */
+  async setRequirementForUser(actor: AuthenticatedUser, targetUserId: string, required: boolean) {
+    const target = await this.repository.findUserState(targetUserId);
+    if (!target) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+    await this.rolePrivilegeService.assertCanManageUser(actor.roleId, targetUserId);
+
+    const user = await this.repository.setRequireTwoFactor(targetUserId, required);
+    this.logger.log(
+      `${actor.username} ${required ? 'exigió' : 'dejó de exigir'} el doble factor a ${target.username}`,
+    );
+    return user;
   }
 
   // ─── Internos ─────────────────────────────────────────────────────────────

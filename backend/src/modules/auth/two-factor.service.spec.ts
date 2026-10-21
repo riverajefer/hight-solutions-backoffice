@@ -42,6 +42,7 @@ const mockRepository = {
   listActiveTrustedDevices: jest.fn(),
   revokeTrustedDevice: jest.fn(),
   revokeAllTrustedDevices: jest.fn(),
+  setRequireTwoFactor: jest.fn(),
 };
 
 const mockRolePrivilegeService = { assertCanManageUser: jest.fn() };
@@ -71,6 +72,7 @@ function state(overrides: Record<string, unknown> = {}) {
     twoFactorLastUsedStep: null,
     twoFactorFailedAttempts: 0,
     twoFactorLockedUntil: null,
+    requireTwoFactor: false,
     role: { id: 'role-1', name: 'caja', requireTwoFactor: true },
     ...overrides,
   };
@@ -140,6 +142,29 @@ describe('TwoFactorService', () => {
     it('deja entrar sin código a quien no lo tiene y su rol no lo exige', async () => {
       mockRepository.findUserState.mockResolvedValue(
         state({ twoFactorEnabled: false, role: { id: 'r', name: 'admin', requireTwoFactor: false } }),
+      );
+      await expect(service.resolveLoginStep('user-1')).resolves.toBe('NONE');
+    });
+
+    it('pide registrar la app a quien un admin se lo exigió aunque su rol no lo exija', async () => {
+      mockRepository.findUserState.mockResolvedValue(
+        state({
+          twoFactorEnabled: false,
+          requireTwoFactor: true,
+          role: { id: 'r', name: 'ventas', requireTwoFactor: false },
+        }),
+      );
+      await expect(service.resolveLoginStep('user-1')).resolves.toBe('SETUP');
+    });
+
+    it('con optional tampoco obliga al usuario marcado', async () => {
+      twoFactorConfig = buildConfig({ enforcement: 'optional' });
+      mockRepository.findUserState.mockResolvedValue(
+        state({
+          twoFactorEnabled: false,
+          requireTwoFactor: true,
+          role: { id: 'r', name: 'ventas', requireTwoFactor: false },
+        }),
       );
       await expect(service.resolveLoginStep('user-1')).resolves.toBe('NONE');
     });
@@ -311,6 +336,13 @@ describe('TwoFactorService', () => {
       expect(mockRepository.clear).not.toHaveBeenCalled();
     });
 
+    it('no deja desactivarlo si un admin se lo exigió', async () => {
+      mockRepository.findUserState.mockResolvedValue(
+        state({ requireTwoFactor: true, role: { id: 'r', name: 'ventas', requireTwoFactor: false } }),
+      );
+      await expect(service.disable('user-1', '123456')).rejects.toThrow(ForbiddenException);
+    });
+
     it('lo desactiva con un código válido si el rol no lo exige', async () => {
       mockRepository.findUserState.mockResolvedValue(
         state({ role: { id: 'r', name: 'ventas', requireTwoFactor: false } }),
@@ -326,10 +358,58 @@ describe('TwoFactorService', () => {
       await expect(service.mustEnrollBeforeRefresh('user-1')).resolves.toBe(true);
     });
 
+    it('bloquea la renovación de quien un admin se lo exigió y no lo ha registrado', async () => {
+      mockRepository.findUserState.mockResolvedValue(
+        state({
+          twoFactorEnabled: false,
+          requireTwoFactor: true,
+          role: { id: 'r', name: 'ventas', requireTwoFactor: false },
+        }),
+      );
+      await expect(service.mustEnrollBeforeRefresh('user-1')).resolves.toBe(true);
+    });
+
     it('no bloquea con optional', async () => {
       twoFactorConfig = buildConfig({ enforcement: 'optional' });
       await expect(service.mustEnrollBeforeRefresh('user-1')).resolves.toBe(false);
       expect(mockRepository.findUserState).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('setRequirementForUser', () => {
+    const actor = { id: 'admin-1', username: 'gerencia', roleId: 'role-admin' };
+
+    it('respeta la regla de privilegios de roles', async () => {
+      mockRepository.findUserState.mockResolvedValue(state());
+      mockRolePrivilegeService.assertCanManageUser.mockRejectedValue(new ForbiddenException());
+
+      await expect(service.setRequirementForUser(actor, 'user-1', true)).rejects.toThrow(ForbiddenException);
+      expect(mockRepository.setRequireTwoFactor).not.toHaveBeenCalled();
+    });
+
+    it('marca al usuario', async () => {
+      mockRepository.findUserState.mockResolvedValue(state());
+      mockRolePrivilegeService.assertCanManageUser.mockResolvedValue(undefined);
+      mockRepository.setRequireTwoFactor.mockResolvedValue({ id: 'user-1', requireTwoFactor: true });
+
+      await expect(service.setRequirementForUser(actor, 'user-1', true)).resolves.toEqual({
+        id: 'user-1',
+        requireTwoFactor: true,
+      });
+      expect(mockRolePrivilegeService.assertCanManageUser).toHaveBeenCalledWith('role-admin', 'user-1');
+      expect(mockRepository.setRequireTwoFactor).toHaveBeenCalledWith('user-1', true);
+    });
+  });
+
+  describe('getStatus', () => {
+    it('dice si lo exige el rol o un admin', async () => {
+      mockRepository.findUserState.mockResolvedValue(
+        state({ requireTwoFactor: true, role: { id: 'r', name: 'ventas', requireTwoFactor: false } }),
+      );
+      await expect(service.getStatus('user-1')).resolves.toMatchObject({
+        requiredByRole: false,
+        requiredByUser: true,
+      });
     });
   });
 

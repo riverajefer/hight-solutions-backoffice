@@ -57,3 +57,9 @@ export class DisableTwoFactorDto extends CodeField {
   @IsNotEmpty({ message: 'La contraseña es obligatoria' })
   password: string;
 }
+
+export class SetTwoFactorRequirementDto {
+  @ApiProperty({ example: true, description: 'Exigir (true) o dejar de exigir (false) el doble factor' })
+  @IsBoolean()
+  required: boolean;
+}

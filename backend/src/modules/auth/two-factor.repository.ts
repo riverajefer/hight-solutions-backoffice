@@ -12,6 +12,7 @@ const TWO_FACTOR_STATE_SELECT = {
   twoFactorLastUsedStep: true,
   twoFactorFailedAttempts: true,
   twoFactorLockedUntil: true,
+  requireTwoFactor: true,
   role: { select: { id: true, name: true, requireTwoFactor: true } },
 } as const;
 
@@ -37,6 +38,14 @@ export class TwoFactorRepository {
   }
 
   /** Guarda el secreto de un registro en curso; no pisa uno ya activo. */
+  async setRequireTwoFactor(userId: string, requireTwoFactor: boolean) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { requireTwoFactor },
+      select: { id: true, requireTwoFactor: true },
+    });
+  }
+
   async savePendingSecret(userId: string, encryptedSecret: string) {
     const result = await this.prisma.user.updateMany({
       where: { id: userId, twoFactorEnabled: false },

@@ -134,15 +134,17 @@ export const TwoFactorSecurityCard: React.FC = () => {
               <Button variant="outlined" onClick={() => setDialog('regenerate')}>
                 Generar códigos de respaldo nuevos
               </Button>
-              {!status.requiredByRole && (
+              {!status.requiredByRole && !status.requiredByUser && (
                 <Button variant="outlined" color="error" onClick={() => setDialog('disable')}>
                   Desactivar
                 </Button>
               )}
             </Stack>
-            {status.requiredByRole && (
+            {(status.requiredByRole || status.requiredByUser) && (
               <Typography variant="caption" color="text.secondary">
-                Tu rol exige la verificación en dos pasos, así que no se puede desactivar.
+                {status.requiredByRole
+                  ? 'Tu rol exige la verificación en dos pasos, así que no se puede desactivar.'
+                  : 'Un administrador te exige la verificación en dos pasos, así que no se puede desactivar.'}
               </Typography>
             )}
 

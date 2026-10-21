@@ -32,6 +32,7 @@ export interface User {
   role?: {
     id: string;
     name: string;
+    requireTwoFactor?: boolean;
   };
   cargo?: {
     id: string;
@@ -46,6 +47,8 @@ export interface User {
   mustChangePassword?: boolean;
   twoFactorEnabled?: boolean;
   twoFactorEnabledAt?: string | null;
+  /** Un admin le exige el doble factor, aparte de su rol. */
+  requireTwoFactor?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -133,6 +136,8 @@ export interface TwoFactorStatus {
   enabled: boolean;
   enabledAt: string | null;
   requiredByRole: boolean;
+  /** Un admin se lo exigió a este usuario. */
+  requiredByUser: boolean;
   backupCodesRemaining: number;
 }
 

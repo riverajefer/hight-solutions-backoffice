@@ -8,7 +8,9 @@ import {
   Divider, 
   Button, 
   Avatar,
-  Chip
+  Chip,
+  FormControlLabel,
+  Switch
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -62,10 +64,14 @@ interface UserDetailProps {
   onBack: () => void;
   onDeactivate?: () => void;
   onResetTwoFactor?: () => void;
+  /** Pide exigir (`true`) o dejar de exigir (`false`) el doble factor al usuario. */
+  onToggleRequireTwoFactor?: (required: boolean) => void;
   canEdit?: boolean;
   canDeactivate?: boolean;
   /** Tiene `reset_user_2fa` y no es su propia cuenta. */
   canResetTwoFactor?: boolean;
+  /** Tiene `require_user_2fa`. */
+  canRequireTwoFactor?: boolean;
 }
 
 const DetailItem: React.FC<{ 
@@ -102,9 +108,11 @@ export const UserDetail: React.FC<UserDetailProps> = ({
   onBack,
   onDeactivate,
   onResetTwoFactor,
+  onToggleRequireTwoFactor,
   canEdit = false,
   canDeactivate = false,
   canResetTwoFactor = false,
+  canRequireTwoFactor = false,
 }) => {
   const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
   const employee = user.payrollEmployee;
@@ -324,9 +332,34 @@ export const UserDetail: React.FC<UserDetailProps> = ({
                 icon={<PhonelinkLockIcon />}
                 label="Verificación en dos pasos"
                 value={
-                  user.twoFactorEnabled
-                    ? `Activa${user.twoFactorEnabledAt ? ` desde ${formatDateTime(user.twoFactorEnabledAt)}` : ''}`
-                    : 'Inactiva'
+                  <Box>
+                    <Box>
+                      {user.twoFactorEnabled
+                        ? `Activa${user.twoFactorEnabledAt ? ` desde ${formatDateTime(user.twoFactorEnabledAt)}` : ''}`
+                        : 'Inactiva'}
+                    </Box>
+                    {(user.role?.requireTwoFactor || user.requireTwoFactor) && (
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        {user.role?.requireTwoFactor
+                          ? 'Exigida por su rol'
+                          : 'Exigida a este usuario'}
+                        {!user.twoFactorEnabled && ' · la registrará en su próximo ingreso'}
+                      </Typography>
+                    )}
+                    {canRequireTwoFactor && (
+                      <FormControlLabel
+                        sx={{ mt: 0.5 }}
+                        control={
+                          <Switch
+                            size="small"
+                            checked={!!user.requireTwoFactor}
+                            onChange={(e) => onToggleRequireTwoFactor?.(e.target.checked)}
+                          />
+                        }
+                        label={<Typography variant="body2">Exigirle el doble factor</Typography>}
+                      />
+                    )}
+                  </Box>
                 }
               />
             </Box>

@@ -1,9 +1,11 @@
 import {
+  Body,
   Controller,
   HttpCode,
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -12,10 +14,11 @@ import { CurrentUser, RequirePermissions } from '../../common/decorators';
 import { PermissionsGuard } from '../../common/guards';
 import { AuthenticatedUser } from '../../common/interfaces';
 import { JwtAuthGuard } from './guards';
+import { SetTwoFactorRequirementDto } from './dto';
 import { TwoFactorService } from './two-factor.service';
 
 /**
- * Restablecer el doble factor de otro usuario. Vive en el módulo de auth
+ * Doble factor de otros usuarios: restablecerlo y exigirlo. Vive en el módulo de auth
  * porque es donde está el doble factor; la ruta cuelga de /users.
  */
 @ApiTags('users')
@@ -39,5 +42,21 @@ export class UsersTwoFactorController {
     @CurrentUser() currentUser: AuthenticatedUser,
   ) {
     return this.twoFactorService.resetForUser(currentUser, id);
+  }
+
+  /**
+   * PATCH /api/v1/users/:id/2fa/requirement
+   * Requiere permiso: require_user_2fa
+   */
+  @Patch(':id/2fa/requirement')
+  @RequirePermissions('require_user_2fa')
+  @ApiOperation({ summary: 'Exige (o deja de exigir) el doble factor a un usuario puntual' })
+  @ApiResponse({ status: 403, description: 'Sin permiso o un rol superior al tuyo' })
+  setRequirement(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetTwoFactorRequirementDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.twoFactorService.setRequirementForUser(currentUser, id, dto.required);
   }
 }
