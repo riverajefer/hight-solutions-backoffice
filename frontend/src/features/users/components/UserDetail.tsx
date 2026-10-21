@@ -22,6 +22,8 @@ import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import LockResetIcon from '@mui/icons-material/LockReset';
+import PhonelinkLockIcon from '@mui/icons-material/PhonelinkLock';
+import PhonelinkEraseIcon from '@mui/icons-material/PhonelinkErase';
 import WorkIcon from '@mui/icons-material/Work';
 import BusinessIcon from '@mui/icons-material/Business';
 import { User } from '../../../types';
@@ -59,8 +61,11 @@ interface UserDetailProps {
   onEdit: () => void;
   onBack: () => void;
   onDeactivate?: () => void;
+  onResetTwoFactor?: () => void;
   canEdit?: boolean;
   canDeactivate?: boolean;
+  /** Tiene `reset_user_2fa` y no es su propia cuenta. */
+  canResetTwoFactor?: boolean;
 }
 
 const DetailItem: React.FC<{ 
@@ -96,8 +101,10 @@ export const UserDetail: React.FC<UserDetailProps> = ({
   onEdit, 
   onBack,
   onDeactivate,
+  onResetTwoFactor,
   canEdit = false,
   canDeactivate = false,
+  canResetTwoFactor = false,
 }) => {
   const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
   const employee = user.payrollEmployee;
@@ -218,6 +225,16 @@ export const UserDetail: React.FC<UserDetailProps> = ({
                 Desactivar usuario
               </Button>
             )}
+            {canResetTwoFactor && user.twoFactorEnabled && (
+              <Button
+                variant="outlined"
+                color="warning"
+                startIcon={<PhonelinkEraseIcon />}
+                onClick={onResetTwoFactor}
+              >
+                Restablecer 2FA
+              </Button>
+            )}
           </Box>
         </Box>
 
@@ -302,6 +319,15 @@ export const UserDetail: React.FC<UserDetailProps> = ({
                 icon={<LockResetIcon />}
                 label="Requiere Cambio de Contraseña"
                 value={user.mustChangePassword ? 'Sí' : 'No'}
+              />
+              <DetailItem
+                icon={<PhonelinkLockIcon />}
+                label="Verificación en dos pasos"
+                value={
+                  user.twoFactorEnabled
+                    ? `Activa${user.twoFactorEnabledAt ? ` desde ${formatDateTime(user.twoFactorEnabledAt)}` : ''}`
+                    : 'Inactiva'
+                }
               />
             </Box>
           </Grid>

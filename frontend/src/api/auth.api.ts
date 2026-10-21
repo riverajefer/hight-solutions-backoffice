@@ -1,12 +1,13 @@
 import axiosInstance from './axios';
-import { AuthResponse, LoginDto, ProfileResponse, UpdateProfilePhotoDto } from '../types';
+import { AuthResponse, LoginDto, LoginResponse, ProfileResponse, UpdateProfilePhotoDto } from '../types';
 
 export const authApi = {
   /**
-   * Login con email y password
+   * Login con usuario y contraseña. Puede devolver la sesión o pedir el
+   * segundo paso del doble factor.
    */
-  login: async (credentials: LoginDto): Promise<AuthResponse> => {
-    const response = await axiosInstance.post<AuthResponse>('/auth/login', credentials);
+  login: async (credentials: LoginDto): Promise<LoginResponse> => {
+    const response = await axiosInstance.post<LoginResponse>('/auth/login', credentials);
     return response.data;
   },
 

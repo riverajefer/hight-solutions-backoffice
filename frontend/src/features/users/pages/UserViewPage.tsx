@@ -19,8 +19,9 @@ const UserViewPage: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
   const { hasPermission, user: currentUser } = useAuthStore();
   const [confirmDeactivateOpen, setConfirmDeactivateOpen] = useState(false);
+  const [confirmResetTwoFactorOpen, setConfirmResetTwoFactorOpen] = useState(false);
   
-  const { getUserQuery, deactivateUserMutation } = useUsers();
+  const { getUserQuery, deactivateUserMutation, resetTwoFactorMutation } = useUsers();
   const { data: user, isLoading, isError } = getUserQuery(id || '');
 
   const isAdmin = currentUser?.role?.name?.toLowerCase() === 'admin';
@@ -35,6 +36,21 @@ const UserViewPage: React.FC = () => {
       navigate(ROUTES.USERS);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Error al desactivar usuario';
+      enqueueSnackbar(message, { variant: 'error' });
+    }
+  };
+
+  const handleResetTwoFactor = async () => {
+    if (!id) return;
+
+    try {
+      await resetTwoFactorMutation.mutateAsync(id);
+      enqueueSnackbar('Verificación en dos pasos restablecida. Al entrar registrará la app de nuevo.', {
+        variant: 'success',
+      });
+      setConfirmResetTwoFactorOpen(false);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Error al restablecer la verificación';
       enqueueSnackbar(message, { variant: 'error' });
     }
   };
@@ -62,8 +78,21 @@ const UserViewPage: React.FC = () => {
         onBack={() => navigate(ROUTES.USERS)}
         onEdit={() => navigate(ROUTES.USERS_EDIT.replace(':id', user.id))}
         onDeactivate={() => setConfirmDeactivateOpen(true)}
+        onResetTwoFactor={() => setConfirmResetTwoFactorOpen(true)}
         canEdit={hasPermission(PERMISSIONS.UPDATE_USERS)}
         canDeactivate={canDeactivate}
+        canResetTwoFactor={hasPermission(PERMISSIONS.RESET_USER_2FA) && currentUser?.id !== user.id}
+      />
+
+      <ConfirmDialog
+        open={confirmResetTwoFactorOpen}
+        title="Restablecer verificación en dos pasos"
+        message={`Se borrará la app autenticadora y los códigos de respaldo de ${user.username || user.email || 'este usuario'}, y se cerrarán sus sesiones. La próxima vez que entre tendrá que registrar la app de nuevo. Úsalo cuando perdió o cambió el celular.`}
+        onConfirm={handleResetTwoFactor}
+        onCancel={() => setConfirmResetTwoFactorOpen(false)}
+        isLoading={resetTwoFactorMutation.isPending}
+        confirmText="Restablecer"
+        severity="warning"
       />
 
       <ConfirmDialog

@@ -380,7 +380,9 @@ export class TwoFactorService implements OnModuleInit {
       );
     }
     const remaining = maxAttempts - attempts;
-    throw new UnauthorizedException(
+    // 400 y no 401: el frontend toma cualquier 401 como sesión vencida, refresca
+    // y repite la petición, y eso gastaría un segundo intento con el mismo código.
+    throw new BadRequestException(
       `Código incorrecto. Te ${remaining === 1 ? 'queda 1 intento' : `quedan ${remaining} intentos`}.`,
     );
   }

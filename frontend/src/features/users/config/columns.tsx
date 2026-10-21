@@ -98,6 +98,18 @@ export const getUserColumns = ({
     ),
   },
   {
+    field: 'twoFactorEnabled',
+    headerName: '2FA',
+    width: 90,
+    type: 'boolean',
+    renderCell: (params: GridRenderCellParams<User>) =>
+      params.row.twoFactorEnabled ? (
+        <Chip label="Activo" color="success" size="small" variant="outlined" />
+      ) : (
+        <Chip label="No" size="small" variant="outlined" />
+      ),
+  },
+  {
     field: 'createdAt',
     headerName: 'Fecha de creación',
     width: 180,

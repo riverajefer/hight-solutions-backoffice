@@ -17,7 +17,7 @@ import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagg
 import { CurrentUser, Public } from '../../common/decorators';
 import { AuthService, LoginResult } from './auth.service';
 import { TwoFactorService } from './two-factor.service';
-import { JwtAuthGuard, TwoFactorEnabledGuard } from './guards';
+import { AllowWhenTwoFactorOff, JwtAuthGuard, TwoFactorEnabledGuard } from './guards';
 import {
   ConfirmTwoFactorEnrollmentDto,
   DisableTwoFactorDto,
@@ -89,8 +89,9 @@ export class TwoFactorController {
 
   @ApiBearerAuth('JWT-auth')
   @UseGuards(JwtAuthGuard)
+  @AllowWhenTwoFactorOff()
   @Get('status')
-  @ApiOperation({ summary: 'Estado del doble factor del usuario autenticado' })
+  @ApiOperation({ summary: 'Estado del doble factor del usuario autenticado (responde aunque esté apagado)' })
   status(@CurrentUser('id') userId: string) {
     return this.twoFactorService.getStatus(userId);
   }

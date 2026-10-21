@@ -206,7 +206,7 @@ describe('TwoFactorService', () => {
 
       await expect(
         service.verifyLoginCode('user-1', authenticator.generate(SECRET)),
-      ).rejects.toThrow(UnauthorizedException);
+      ).rejects.toThrow(BadRequestException);
       expect(mockRepository.recordSuccess).not.toHaveBeenCalled();
       expect(mockRepository.incrementFailedAttempts).toHaveBeenCalledWith('user-1');
     });
@@ -252,7 +252,7 @@ describe('TwoFactorService', () => {
       mockRepository.findUserState.mockResolvedValue(state());
       mockRepository.consumeBackupCode.mockResolvedValue(false);
 
-      await expect(service.verifyLoginCode('user-1', 'ABCD-EFGH')).rejects.toThrow(UnauthorizedException);
+      await expect(service.verifyLoginCode('user-1', 'ABCD-EFGH')).rejects.toThrow(BadRequestException);
     });
 
     it('falla si el usuario no tiene el doble factor activo', async () => {
@@ -294,7 +294,7 @@ describe('TwoFactorService', () => {
 
     it('no activa con un código incorrecto', async () => {
       mockRepository.findUserState.mockResolvedValue(state({ twoFactorEnabled: false }));
-      await expect(service.confirmEnrollment('user-1', '000000')).rejects.toThrow(UnauthorizedException);
+      await expect(service.confirmEnrollment('user-1', '000000')).rejects.toThrow(BadRequestException);
       expect(mockRepository.enable).not.toHaveBeenCalled();
     });
 
