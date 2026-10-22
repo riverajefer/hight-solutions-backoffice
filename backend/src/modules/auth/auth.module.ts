@@ -5,9 +5,15 @@ import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { LocalStrategy, JwtStrategy } from './strategies';
-import { JwtAuthGuard, LocalAuthGuard } from './guards';
+import { JwtAuthGuard, LocalAuthGuard, TwoFactorEnabledGuard } from './guards';
 import { SessionLogsModule } from '../session-logs/session-logs.module';
 import { AttendanceModule } from '../attendance/attendance.module';
+import { RolesModule } from '../roles/roles.module';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { TwoFactorController } from './two-factor.controller';
+import { TwoFactorRepository } from './two-factor.repository';
+import { TwoFactorService } from './two-factor.service';
+import { UsersTwoFactorController } from './users-two-factor.controller';
 
 @Module({
   imports: [
@@ -29,14 +35,19 @@ import { AttendanceModule } from '../attendance/attendance.module';
     }),
     forwardRef(() => SessionLogsModule),
     AttendanceModule,
+    RolesModule,
+    NotificationsModule,
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, TwoFactorController, UsersTwoFactorController],
   providers: [
     AuthService,
     LocalStrategy,
     JwtStrategy,
     JwtAuthGuard,
     LocalAuthGuard,
+    TwoFactorService,
+    TwoFactorRepository,
+    TwoFactorEnabledGuard,
   ],
   exports: [AuthService, JwtAuthGuard],
 })

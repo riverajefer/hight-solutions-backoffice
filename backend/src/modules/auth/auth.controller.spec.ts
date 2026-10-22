@@ -37,9 +37,14 @@ describe('AuthController', () => {
       } as any;
       mockAuthService.loginWithPermissions.mockResolvedValue({ accessToken: 'tok', user, permissions: [] });
 
-      const result = await controller.login({} as any, user, req);
+      const result = await controller.login({ deviceToken: 'device-1' } as any, user, req);
 
-      expect(mockAuthService.loginWithPermissions).toHaveBeenCalledWith(user, '10.0.0.1', 'Jest/1.0');
+      expect(mockAuthService.loginWithPermissions).toHaveBeenCalledWith(
+        user,
+        '10.0.0.1',
+        'Jest/1.0',
+        'device-1',
+      );
       expect(result).toEqual({ accessToken: 'tok', user, permissions: [] });
     });
 
@@ -54,7 +59,12 @@ describe('AuthController', () => {
 
       await controller.login({} as any, user, req);
 
-      expect(mockAuthService.loginWithPermissions).toHaveBeenCalledWith(user, '192.168.1.1', 'Jest');
+      expect(mockAuthService.loginWithPermissions).toHaveBeenCalledWith(
+        user,
+        '192.168.1.1',
+        'Jest',
+        undefined,
+      );
     });
   });
 

@@ -1,4 +1,4 @@
-import { Tooltip, Typography, Box } from '@mui/material';
+import { Tooltip, Typography, Box, Chip } from '@mui/material';
 import { StatusBadge, ActionsCell } from '../../../components/common/DataTable';
 import { Role } from '../../../types';
 import { formatDate } from '../../../utils/helpers';
@@ -60,6 +60,16 @@ export const getRoleColumns = ({
     type: 'number',
     responsive: 'sm',
     valueGetter: (_, row) => (row as any)._count?.users || 0,
+  },
+  {
+    field: 'requireTwoFactor',
+    headerName: '2FA',
+    width: 110,
+    responsive: 'sm',
+    renderCell: (params) =>
+      params.row.requireTwoFactor ? (
+        <Chip label="Exigido" color="primary" size="small" variant="outlined" />
+      ) : null,
   },
   {
     field: 'status',

@@ -10,6 +10,8 @@ export const PERMISSIONS = {
   READ_USERS: 'read_users',
   UPDATE_USERS: 'update_users',
   DELETE_USERS: 'delete_users',
+  RESET_USER_2FA: 'reset_user_2fa',
+  REQUIRE_USER_2FA: 'require_user_2fa',
   CREATE_ROLES: 'create_roles',
   READ_ROLES: 'read_roles',
   UPDATE_ROLES: 'update_roles',

@@ -7,6 +7,8 @@ export const PERMISSION_LABELS: Record<string, string> = {
   read_users: 'Ver Usuarios',
   update_users: 'Actualizar Usuarios',
   delete_users: 'Eliminar Usuarios',
+  reset_user_2fa: 'Restablecer doble factor de usuarios',
+  require_user_2fa: 'Exigir doble factor a usuarios',
 
   // Roles
   create_roles: 'Crear Roles',

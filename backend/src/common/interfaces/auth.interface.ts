@@ -4,7 +4,8 @@ export interface JwtPayload {
   sub: string; // userId
   username: string;
   roleId: string;
-  type: 'access' | 'refresh';
+  // `2fa_*`: tokens temporales del segundo paso del login; JwtStrategy los rechaza.
+  type: 'access' | 'refresh' | '2fa_challenge' | '2fa_setup';
 }
 
 export interface TokenPair {
@@ -22,6 +23,7 @@ export interface AuthenticatedUser {
   profilePhoto?: string | null;
   cargoId?: string | null;
   mustChangePassword?: boolean;
+  twoFactorEnabled?: boolean;
   role?: {
     id: string;
     name: string;

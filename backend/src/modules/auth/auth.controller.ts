@@ -12,7 +12,8 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { AuthService } from './auth.service';
+import { AuthService, LoginResult } from './auth.service';
+import { getRequestOrigin } from './request-origin.util';
 import { LocalAuthGuard, JwtAuthGuard } from './guards';
 import { LoginDto, RefreshTokenDto, UpdateProfilePhotoDto, ChangePasswordDto, VerifyPasswordDto } from './dto';
 import { CurrentUser, Public } from '../../common/decorators';
@@ -25,8 +26,8 @@ export class AuthController {
 
   /**
    * POST /api/v1/auth/login
-   * Autentica un usuario con email y password
-   * Retorna access token y refresh token
+   * Autentica un usuario con username y password
+   * Retorna los tokens, o un token temporal si falta el doble factor
    */
   @Throttle({ default: { ttl: 60_000, limit: 10 } })
   @Public()
@@ -34,19 +35,17 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(
-    @Body() _loginDto: LoginDto, // Validación del DTO
+    @Body() loginDto: LoginDto,
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: Request,
-  ): Promise<TokenPair & { user: AuthenticatedUser; permissions: string[] }> {
-    // Extract IP address (handle proxy headers)
-    const ipAddress = (request.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
-      || request.ip
-      || request.socket.remoteAddress;
-
-    // Extract user agent
-    const userAgent = request.headers['user-agent'];
-
-    return this.authService.loginWithPermissions(user, ipAddress, userAgent);
+  ): Promise<LoginResult> {
+    const { ipAddress, userAgent } = getRequestOrigin(request);
+    return this.authService.loginWithPermissions(
+      user,
+      ipAddress,
+      userAgent,
+      loginDto.deviceToken,
+    );
   }
 
   /**

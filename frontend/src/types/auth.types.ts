@@ -32,6 +32,7 @@ export interface User {
   role?: {
     id: string;
     name: string;
+    requireTwoFactor?: boolean;
   };
   cargo?: {
     id: string;
@@ -44,6 +45,10 @@ export interface User {
   payrollEmployee?: UserPayrollEmployee | null;
   isActive?: boolean;
   mustChangePassword?: boolean;
+  twoFactorEnabled?: boolean;
+  twoFactorEnabledAt?: string | null;
+  /** Un admin le exige el doble factor, aparte de su rol. */
+  requireTwoFactor?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -60,6 +65,8 @@ export interface UpdateProfilePhotoDto {
 export interface LoginDto {
   username: string;
   password: string;
+  /** Token de equipo de confianza de un login anterior con doble factor. */
+  deviceToken?: string;
 }
 
 export interface CreateUserDto {
@@ -90,4 +97,55 @@ export interface AuthResponse {
   refreshToken: string;
   user: User;
   permissions?: string[];
+}
+
+/** Sesión que entrega el login cuando no falta ningún paso. */
+export interface LoginSession extends AuthResponse {
+  status: 'OK';
+  /** Solo cuando se pidió recordar el navegador. */
+  deviceToken?: string;
+  deviceTokenExpiresAt?: string;
+  /** Solo al terminar el registro del doble factor durante el login. */
+  backupCodes?: string[];
+}
+
+/**
+ * Respuesta de `POST /auth/login`. Con `2FA_*` todavía no hay sesión: hay que
+ * completar el segundo paso con el token temporal.
+ */
+export type LoginResponse =
+  | LoginSession
+  | { status: '2FA_REQUIRED'; challengeToken: string }
+  | { status: '2FA_SETUP_REQUIRED'; setupToken: string };
+
+/** Paso del doble factor que falta después de la contraseña. */
+export type PendingTwoFactor =
+  | { kind: 'challenge'; token: string; username: string }
+  | { kind: 'setup'; token: string; username: string };
+
+export interface TwoFactorEnrollment {
+  otpauthUrl: string;
+  /** QR como imagen PNG en data URL. */
+  qrCodeDataUrl: string;
+  /** El secreto en grupos de 4, para escribirlo a mano. */
+  manualKey: string;
+}
+
+export interface TwoFactorStatus {
+  enforcement: 'off' | 'optional' | 'required';
+  enabled: boolean;
+  enabledAt: string | null;
+  requiredByRole: boolean;
+  /** Un admin se lo exigió a este usuario. */
+  requiredByUser: boolean;
+  backupCodesRemaining: number;
+}
+
+export interface TrustedDevice {
+  id: string;
+  userAgent: string | null;
+  ipAddress: string | null;
+  lastUsedAt: string;
+  expiresAt: string;
+  createdAt: string;
 }

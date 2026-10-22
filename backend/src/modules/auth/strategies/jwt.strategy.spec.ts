@@ -91,6 +91,16 @@ describe('JwtStrategy', () => {
       expect(prisma.user.findUnique).not.toHaveBeenCalled();
     });
 
+    it.each(['2fa_challenge', '2fa_setup'] as const)(
+      'rechaza el token temporal del doble factor (%s) como sesión',
+      async (type) => {
+        await expect(strategy.validate({ ...validAccessPayload, type })).rejects.toThrow(
+          'Invalid token type',
+        );
+        expect(prisma.user.findUnique).not.toHaveBeenCalled();
+      },
+    );
+
     it('should throw UnauthorizedException when user does not exist in DB', async () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
 

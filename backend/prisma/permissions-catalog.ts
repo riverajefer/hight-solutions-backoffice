@@ -281,6 +281,21 @@ export const permissionGroups: PermissionGroup[] = [
       },
     ],
   },
+  {
+    label: '🔐 Doble factor',
+    permissions: [
+      {
+        name: 'reset_user_2fa',
+        description:
+          'Restablecer el doble factor de otro usuario cuando pierde el celular',
+      },
+      {
+        name: 'require_user_2fa',
+        description:
+          'Exigir el doble factor a un usuario puntual, aunque su rol no lo exija',
+      },
+    ],
+  },
 ];
 
 export const allCatalogPermissions = permissionGroups.flatMap(
