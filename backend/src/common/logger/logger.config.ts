@@ -52,6 +52,18 @@ export function buildLoggerConfig(): Params {
           password: process.env.LOKI_API_KEY,
         },
         labels: { app: 'backoffice-backend', env },
+        // pino-loki arma la etiqueta `level` buscando el nivel numérico (30, 50…)
+        // en su levelMap; como el formatter de abajo lo emite como texto, sin este
+        // mapa todo caía en "info". Se usan los mismos nombres del JSON para que
+        // la etiqueta y el campo coincidan (`level="warn"`, no "warning").
+        levelMap: {
+          trace: 'debug',
+          debug: 'debug',
+          info: 'info',
+          warn: 'warn',
+          error: 'error',
+          fatal: 'fatal',
+        },
         batching: true,
         interval: 5,
       },
