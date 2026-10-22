@@ -604,10 +604,9 @@ describe('AuthService', () => {
         isActive: true,
         refreshToken: storedRefreshHash,
       });
-      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       mockTwoFactorService.mustEnrollBeforeRefresh.mockResolvedValue(true);
 
-      await expect(service.refreshTokens(mockUser.id, 'valid-refresh-token')).rejects.toThrow(
+      await expect(service.refreshTokens(mockUser.id, incomingRefreshToken)).rejects.toThrow(
         UnauthorizedException,
       );
       expect(prisma.user.update).toHaveBeenCalledWith({
