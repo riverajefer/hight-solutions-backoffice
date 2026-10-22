@@ -18,6 +18,9 @@ export class UsersRepository {
         phone: true,
         isActive: true,
         mustChangePassword: true,
+        twoFactorEnabled: true,
+        twoFactorEnabledAt: true,
+        requireTwoFactor: true,
         roleId: true,
         cargoId: true,
         createdAt: true,
@@ -29,6 +32,7 @@ export class UsersRepository {
           select: {
             id: true,
             name: true,
+            requireTwoFactor: true,
           },
         },
         cargo: {
@@ -61,6 +65,9 @@ export class UsersRepository {
         phone: true,
         isActive: true,
         mustChangePassword: true,
+        twoFactorEnabled: true,
+        twoFactorEnabledAt: true,
+        requireTwoFactor: true,
         roleId: true,
         cargoId: true,
         createdAt: true,
@@ -71,6 +78,7 @@ export class UsersRepository {
           select: {
             id: true,
             name: true,
+            requireTwoFactor: true,
             permissions: {
               select: {
                 permission: {
@@ -211,6 +219,9 @@ export class UsersRepository {
         phone: true,
         isActive: true,
         mustChangePassword: true,
+        twoFactorEnabled: true,
+        twoFactorEnabledAt: true,
+        requireTwoFactor: true,
         roleId: true,
         cargoId: true,
         createdAt: true,
@@ -220,6 +231,7 @@ export class UsersRepository {
           select: {
             id: true,
             name: true,
+            requireTwoFactor: true,
           },
         },
         cargo: {
@@ -252,6 +264,9 @@ export class UsersRepository {
         phone: true,
         isActive: true,
         mustChangePassword: true,
+        twoFactorEnabled: true,
+        twoFactorEnabledAt: true,
+        requireTwoFactor: true,
         roleId: true,
         cargoId: true,
         createdAt: true,
@@ -262,6 +277,7 @@ export class UsersRepository {
           select: {
             id: true,
             name: true,
+            requireTwoFactor: true,
           },
         },
         cargo: {
@@ -304,6 +320,9 @@ export class UsersRepository {
         phone: true,
         isActive: true,
         mustChangePassword: true,
+        twoFactorEnabled: true,
+        twoFactorEnabledAt: true,
+        requireTwoFactor: true,
         roleId: true,
         cargoId: true,
         createdAt: true,
@@ -314,6 +333,7 @@ export class UsersRepository {
           select: {
             id: true,
             name: true,
+            requireTwoFactor: true,
           },
         },
         cargo: {

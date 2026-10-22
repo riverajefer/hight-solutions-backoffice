@@ -5,13 +5,14 @@ import databaseConfig from './database.config';
 import jwtConfig from './jwt.config';
 import awsConfig from './aws.config';
 import whatsappConfig from './whatsapp.config';
+import twoFactorConfig from './two-factor.config';
 
 @Module({
   imports: [
     NestConfigModule.forRoot({
       isGlobal: true,
       envFilePath: `.env.${process.env.NODE_ENV || 'development'}`,
-      load: [appConfig, databaseConfig, jwtConfig, awsConfig, whatsappConfig],
+      load: [appConfig, databaseConfig, jwtConfig, awsConfig, whatsappConfig, twoFactorConfig],
       cache: true,
     }),
   ],

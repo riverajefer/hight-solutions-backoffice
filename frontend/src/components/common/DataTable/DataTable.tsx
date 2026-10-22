@@ -33,6 +33,7 @@ interface DataTableProps<T extends GridValidRowModel> {
   showExport?: boolean;
   emptyMessage?: string;
   getRowClassName?: (params: GridRowClassNameParams<T>) => string;
+  /** Por defecto `compact`: las tablas del CRM van condensadas. */
   density?: 'standard' | 'comfortable' | 'compact';
   // Server-side pagination
   rowCount?: number;
@@ -66,7 +67,7 @@ export function DataTable<T extends GridValidRowModel>({
   showExport = false,
   emptyMessage = 'No se encontraron registros',
   getRowClassName,
-  density = 'standard',
+  density = 'compact',
   rowCount,
   currentPage,
   onPaginationModelChange: externalOnPaginationModelChange,

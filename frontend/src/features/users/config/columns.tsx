@@ -98,6 +98,21 @@ export const getUserColumns = ({
     ),
   },
   {
+    field: 'twoFactorEnabled',
+    headerName: '2FA',
+    width: 110,
+    renderCell: (params: GridRenderCellParams<User>) => {
+      if (params.row.twoFactorEnabled) {
+        return <Chip label="Activo" color="success" size="small" variant="outlined" />;
+      }
+      // Exigido (por su rol o a él) y todavía sin registrar la app.
+      if (params.row.requireTwoFactor || params.row.role?.requireTwoFactor) {
+        return <Chip label="Pendiente" color="warning" size="small" variant="outlined" />;
+      }
+      return <Chip label="No" size="small" variant="outlined" />;
+    },
+  },
+  {
     field: 'createdAt',
     headerName: 'Fecha de creación',
     width: 180,

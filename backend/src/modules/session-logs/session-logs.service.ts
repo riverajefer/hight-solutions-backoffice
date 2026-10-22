@@ -9,8 +9,13 @@ export class SessionLogsService {
   /**
    * Create a login log entry
    */
-  async createLoginLog(userId: string, ipAddress?: string, userAgent?: string) {
-    return this.sessionLogsRepository.createLoginLog(userId, ipAddress, userAgent);
+  async createLoginLog(
+    userId: string,
+    ipAddress?: string,
+    userAgent?: string,
+    twoFactorMethod?: string | null,
+  ) {
+    return this.sessionLogsRepository.createLoginLog(userId, ipAddress, userAgent, twoFactorMethod);
   }
 
   /**

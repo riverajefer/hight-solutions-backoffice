@@ -8,7 +8,9 @@ import {
   Divider, 
   Button, 
   Avatar,
-  Chip
+  Chip,
+  FormControlLabel,
+  Switch
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -22,6 +24,8 @@ import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import LockResetIcon from '@mui/icons-material/LockReset';
+import PhonelinkLockIcon from '@mui/icons-material/PhonelinkLock';
+import PhonelinkEraseIcon from '@mui/icons-material/PhonelinkErase';
 import WorkIcon from '@mui/icons-material/Work';
 import BusinessIcon from '@mui/icons-material/Business';
 import { User } from '../../../types';
@@ -59,8 +63,15 @@ interface UserDetailProps {
   onEdit: () => void;
   onBack: () => void;
   onDeactivate?: () => void;
+  onResetTwoFactor?: () => void;
+  /** Pide exigir (`true`) o dejar de exigir (`false`) el doble factor al usuario. */
+  onToggleRequireTwoFactor?: (required: boolean) => void;
   canEdit?: boolean;
   canDeactivate?: boolean;
+  /** Tiene `reset_user_2fa` y no es su propia cuenta. */
+  canResetTwoFactor?: boolean;
+  /** Tiene `require_user_2fa`. */
+  canRequireTwoFactor?: boolean;
 }
 
 const DetailItem: React.FC<{ 
@@ -96,8 +107,12 @@ export const UserDetail: React.FC<UserDetailProps> = ({
   onEdit, 
   onBack,
   onDeactivate,
+  onResetTwoFactor,
+  onToggleRequireTwoFactor,
   canEdit = false,
   canDeactivate = false,
+  canResetTwoFactor = false,
+  canRequireTwoFactor = false,
 }) => {
   const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
   const employee = user.payrollEmployee;
@@ -218,6 +233,16 @@ export const UserDetail: React.FC<UserDetailProps> = ({
                 Desactivar usuario
               </Button>
             )}
+            {canResetTwoFactor && user.twoFactorEnabled && (
+              <Button
+                variant="outlined"
+                color="warning"
+                startIcon={<PhonelinkEraseIcon />}
+                onClick={onResetTwoFactor}
+              >
+                Restablecer 2FA
+              </Button>
+            )}
           </Box>
         </Box>
 
@@ -302,6 +327,40 @@ export const UserDetail: React.FC<UserDetailProps> = ({
                 icon={<LockResetIcon />}
                 label="Requiere Cambio de Contraseña"
                 value={user.mustChangePassword ? 'Sí' : 'No'}
+              />
+              <DetailItem
+                icon={<PhonelinkLockIcon />}
+                label="Verificación en dos pasos"
+                value={
+                  <Box>
+                    <Box>
+                      {user.twoFactorEnabled
+                        ? `Activa${user.twoFactorEnabledAt ? ` desde ${formatDateTime(user.twoFactorEnabledAt)}` : ''}`
+                        : 'Inactiva'}
+                    </Box>
+                    {(user.role?.requireTwoFactor || user.requireTwoFactor) && (
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        {user.role?.requireTwoFactor
+                          ? 'Exigida por su rol'
+                          : 'Exigida a este usuario'}
+                        {!user.twoFactorEnabled && ' · la registrará en su próximo ingreso'}
+                      </Typography>
+                    )}
+                    {canRequireTwoFactor && (
+                      <FormControlLabel
+                        sx={{ mt: 0.5 }}
+                        control={
+                          <Switch
+                            size="small"
+                            checked={!!user.requireTwoFactor}
+                            onChange={(e) => onToggleRequireTwoFactor?.(e.target.checked)}
+                          />
+                        }
+                        label={<Typography variant="body2">Exigirle el doble factor</Typography>}
+                      />
+                    )}
+                  </Box>
+                }
               />
             </Box>
           </Grid>

@@ -1,7 +1,17 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { User, LoginDto, AuthResponse } from '../types';
+import {
+  User,
+  LoginDto,
+  AuthResponse,
+  LoginResponse,
+  LoginSession,
+  PendingTwoFactor,
+  TwoFactorEnrollment,
+} from '../types';
 import { authApi } from '../api/auth.api';
+import { twoFactorApi } from '../api/two-factor.api';
+import { getTrustedDeviceToken, saveTrustedDeviceToken } from '../utils/trustedDevice';
 
 /**
  * Promesa de refresh en vuelo (single-flight).
@@ -54,9 +64,21 @@ interface AuthState {
   mustChangePassword: boolean;
   isLoading: boolean;
   error: string | null;
+  /** Segundo paso del doble factor en curso. Solo en memoria: recargar vuelve al login. */
+  pendingTwoFactor: PendingTwoFactor | null;
 
   // Acciones
-  login: (credentials: LoginDto) => Promise<void>;
+  /** Devuelve qué pasó: `OK` (hay sesión) o el paso del doble factor que falta. */
+  login: (credentials: LoginDto) => Promise<LoginResponse['status']>;
+  verifyTwoFactor: (code: string, rememberDevice: boolean) => Promise<void>;
+  startTwoFactorEnrollment: () => Promise<TwoFactorEnrollment>;
+  /**
+   * Confirma el registro y devuelve la sesión SIN aplicarla: antes de entrar,
+   * el usuario tiene que guardar sus códigos de respaldo. Luego `completeLogin`.
+   */
+  confirmTwoFactorEnrollment: (code: string, rememberDevice: boolean) => Promise<LoginSession>;
+  completeLogin: (session: LoginSession) => void;
+  cancelTwoFactor: () => void;
   logout: () => Promise<void>;
   refreshAccessToken: () => Promise<void>;
   clearMustChangePassword: () => void;
@@ -77,21 +99,38 @@ export const useAuthStore = create<AuthState>()(
       mustChangePassword: false,
       isLoading: false,
       error: null,
+      pendingTwoFactor: null,
 
       login: async (credentials: LoginDto) => {
-        set({ isLoading: true, error: null });
+        set({ isLoading: true, error: null, pendingTwoFactor: null });
         try {
-          const response: AuthResponse = await authApi.login(credentials);
-          
-          set({
-            user: response.user,
-            accessToken: response.accessToken,
-            refreshToken: response.refreshToken,
-            permissions: response.permissions || [],
-            isAuthenticated: true,
-            mustChangePassword: response.user.mustChangePassword ?? false,
-            isLoading: false,
+          const response = await authApi.login({
+            ...credentials,
+            deviceToken: getTrustedDeviceToken(credentials.username),
           });
+
+          if (response.status === '2FA_REQUIRED') {
+            set({
+              pendingTwoFactor: {
+                kind: 'challenge',
+                token: response.challengeToken,
+                username: credentials.username,
+              },
+              isLoading: false,
+            });
+          } else if (response.status === '2FA_SETUP_REQUIRED') {
+            set({
+              pendingTwoFactor: {
+                kind: 'setup',
+                token: response.setupToken,
+                username: credentials.username,
+              },
+              isLoading: false,
+            });
+          } else {
+            get().completeLogin(response);
+          }
+          return response.status;
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : 'Error al iniciar sesión';
           set({
@@ -100,6 +139,59 @@ export const useAuthStore = create<AuthState>()(
           });
           throw error;
         }
+      },
+
+      verifyTwoFactor: async (code: string, rememberDevice: boolean) => {
+        const pending = get().pendingTwoFactor;
+        if (pending?.kind !== 'challenge') {
+          throw new Error('La verificación venció. Inicia sesión de nuevo.');
+        }
+        const session = await twoFactorApi.verifyLogin({
+          challengeToken: pending.token,
+          code,
+          rememberDevice,
+        });
+        get().completeLogin(session);
+      },
+
+      startTwoFactorEnrollment: async () => {
+        const pending = get().pendingTwoFactor;
+        if (pending?.kind !== 'setup') {
+          throw new Error('La verificación venció. Inicia sesión de nuevo.');
+        }
+        return twoFactorApi.startLoginEnrollment(pending.token);
+      },
+
+      confirmTwoFactorEnrollment: async (code: string, rememberDevice: boolean) => {
+        const pending = get().pendingTwoFactor;
+        if (pending?.kind !== 'setup') {
+          throw new Error('La verificación venció. Inicia sesión de nuevo.');
+        }
+        return twoFactorApi.confirmLoginEnrollment({
+          setupToken: pending.token,
+          code,
+          rememberDevice,
+        });
+      },
+
+      completeLogin: (session: LoginSession) => {
+        if (session.deviceToken && session.deviceTokenExpiresAt && session.user.username) {
+          saveTrustedDeviceToken(session.user.username, session.deviceToken, session.deviceTokenExpiresAt);
+        }
+        set({
+          user: session.user,
+          accessToken: session.accessToken,
+          refreshToken: session.refreshToken,
+          permissions: session.permissions || [],
+          isAuthenticated: true,
+          mustChangePassword: session.user.mustChangePassword ?? false,
+          pendingTwoFactor: null,
+          isLoading: false,
+        });
+      },
+
+      cancelTwoFactor: () => {
+        set({ pendingTwoFactor: null, error: null });
       },
 
       logout: async () => {
@@ -113,6 +205,7 @@ export const useAuthStore = create<AuthState>()(
           permissions: [],
           isAuthenticated: false,
           mustChangePassword: false,
+          pendingTwoFactor: null,
           error: null,
         });
         localStorage.removeItem('auth-storage');

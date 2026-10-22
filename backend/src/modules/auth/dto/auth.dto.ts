@@ -1,5 +1,5 @@
-import { IsNotEmpty, IsString, MinLength, IsOptional } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsNotEmpty, IsString, MinLength, MaxLength, IsOptional } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class LoginDto {
   @ApiProperty({
@@ -19,6 +19,14 @@ export class LoginDto {
   @IsNotEmpty({ message: 'Password is required' })
   @MinLength(6, { message: 'Password must be at least 6 characters' })
   password: string;
+
+  @ApiPropertyOptional({
+    description: 'Token de equipo de confianza entregado por un login anterior con doble factor',
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(200)
+  deviceToken?: string;
 }
 
 export class RefreshTokenDto {

@@ -25,6 +25,7 @@ import { useSnackbar } from 'notistack';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { useProfile } from '../hooks/useProfile';
+import { TwoFactorSecurityCard } from '../components/TwoFactorSecurityCard';
 import { formatDate } from '../../../utils/helpers';
 
 const DetailItem: React.FC<{
@@ -297,6 +298,10 @@ const ProfilePage: React.FC = () => {
               </Stack>
             </CardContent>
           </Card>
+        </Grid>
+
+        <Grid item xs={12}>
+          <TwoFactorSecurityCard />
         </Grid>
       </Grid>
     </Box>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Card, CardContent, TextField, Button, Alert } from '@mui/material';
+import { Box, Card, CardContent, TextField, Button, Alert, FormControlLabel, Switch, Typography } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,6 +9,7 @@ import { PermissionsSelector } from './PermissionsSelector';
 const roleSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
   description: z.string().optional(),
+  requireTwoFactor: z.boolean().optional(),
 });
 
 type RoleFormData = z.infer<typeof roleSchema>;
@@ -53,7 +54,9 @@ export const RoleForm: React.FC<RoleFormProps> = ({
   });
 
   const handleFormSubmit = async (data: RoleFormData) => {
-    await onSubmit(data, selectedPermissions);
+    // El interruptor solo existe al editar: el backend lo recibe en el PUT.
+    const { requireTwoFactor, ...rest } = data;
+    await onSubmit(isEdit ? { ...rest, requireTwoFactor: !!requireTwoFactor } : rest, selectedPermissions);
   };
 
   return (
@@ -97,6 +100,31 @@ export const RoleForm: React.FC<RoleFormProps> = ({
               />
             )}
           />
+
+          {isEdit && (
+            <Controller
+              name="requireTwoFactor"
+              control={control}
+              render={({ field }) => (
+                <Box>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={!!field.value}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                        disabled={isLoading}
+                      />
+                    }
+                    label="Exigir verificación en dos pasos"
+                  />
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 6 }}>
+                    Los usuarios del rol tendrán que registrar una app autenticadora y escribir su
+                    código al entrar. Sus sesiones abiertas no se renuevan hasta que la registren.
+                  </Typography>
+                </Box>
+              )}
+            />
+          )}
 
           <PermissionsSelector
             selectedPermissions={selectedPermissions}

@@ -4,6 +4,7 @@ export interface Role {
   id: string;
   name: string;
   description?: string;
+  requireTwoFactor?: boolean;
   permissions?: Permission[];
   createdAt: string;
   updatedAt: string;
@@ -18,6 +19,7 @@ export interface CreateRoleDto {
 export interface UpdateRoleDto {
   name?: string;
   description?: string;
+  requireTwoFactor?: boolean;
 }
 
 export interface RoleWithPermissions extends Role {
