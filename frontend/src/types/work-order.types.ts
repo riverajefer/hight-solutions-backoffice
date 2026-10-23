@@ -2,6 +2,7 @@ export enum WorkOrderStatus {
   DRAFT = 'DRAFT',
   CONFIRMED = 'CONFIRMED',
   IN_PRODUCTION = 'IN_PRODUCTION',
+  READY = 'READY',
   COMPLETED = 'COMPLETED',
   CANCELLED = 'CANCELLED',
 }
@@ -15,6 +16,7 @@ export const WORK_ORDER_STATUS_CONFIG: Record<WorkOrderStatus, WorkOrderStatusCo
   [WorkOrderStatus.DRAFT]: { label: 'Borrador', color: 'default' },
   [WorkOrderStatus.CONFIRMED]: { label: 'Confirmada', color: 'info' },
   [WorkOrderStatus.IN_PRODUCTION]: { label: 'En Producción', color: 'warning' },
+  [WorkOrderStatus.READY]: { label: 'Lista para entrega', color: 'primary' },
   [WorkOrderStatus.COMPLETED]: { label: 'Completada', color: 'success' },
   [WorkOrderStatus.CANCELLED]: { label: 'Cancelada', color: 'error' },
 };
@@ -55,30 +57,55 @@ export interface WorkOrderItem {
 }
 
 export enum WorkOrderTimeEntryType {
+  /** Heredado: cantidad de horas escrita a mano. */
   HOURS = 'HOURS',
+  /** Rango inicio–fin (heredado, o agregado por un supervisor). */
   RANGE = 'RANGE',
+  /** Temporizador: inicio y fin los pone el servidor. */
+  TIMER = 'TIMER',
+}
+
+export interface TimeEntryUser {
+  id: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
 }
 
 export interface WorkOrderTimeEntry {
   id: string;
+  workOrderId: string;
   entryType: WorkOrderTimeEntryType;
   workedDate: string;
-  hoursWorked: string;
+  /** Nulo mientras la tarea sigue en curso. */
+  hoursWorked: string | null;
   startAt?: string | null;
+  /** Nulo en una tarea del temporizador = en curso. */
   endAt?: string | null;
   notes?: string | null;
+  extendedAt?: string | null;
+  closedBySystem: boolean;
+  reviewedAt?: string | null;
+  adjustedAt?: string | null;
+  adjustReason?: string | null;
+  originalStartAt?: string | null;
+  originalEndAt?: string | null;
+  voidedAt?: string | null;
+  voidReason?: string | null;
   createdAt: string;
   updatedAt: string;
-  user: {
-    id: string;
-    firstName?: string | null;
-    lastName?: string | null;
-    email: string;
-  };
+  user: TimeEntryUser;
+  createdBy?: TimeEntryUser | null;
+  reviewedBy?: TimeEntryUser | null;
+  adjustedBy?: TimeEntryUser | null;
+  voidedBy?: TimeEntryUser | null;
   workOrderItem?: {
     id: string;
     productDescription: string;
   } | null;
+  machine?: { id: string; name: string } | null;
+  /** Solo en listas que mezclan varias OT (tareas en curso, por revisar). */
+  workOrder?: { id: string; workOrderNumber: string };
 }
 
 export interface WorkOrder {
@@ -211,26 +238,6 @@ export interface FilterWorkOrdersDto {
   createdAtTo?: string;
   page?: number;
   limit?: number;
-}
-
-export interface CreateWorkOrderTimeEntryDto {
-  entryType: WorkOrderTimeEntryType;
-  workOrderItemId?: string;
-  workedDate: string;
-  hoursWorked?: number;
-  startAt?: string;
-  endAt?: string;
-  notes?: string;
-}
-
-export interface UpdateWorkOrderTimeEntryDto {
-  entryType?: WorkOrderTimeEntryType;
-  workOrderItemId?: string;
-  workedDate?: string;
-  hoursWorked?: number;
-  startAt?: string;
-  endAt?: string;
-  notes?: string;
 }
 
 export interface WorkOrdersListResponse {

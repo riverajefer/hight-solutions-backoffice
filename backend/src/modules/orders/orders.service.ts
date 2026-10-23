@@ -1,6 +1,7 @@
 import {
   Injectable,
   Logger,
+  OnModuleInit,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
@@ -51,7 +52,11 @@ import {
 } from './dto';
 import { InitialPaymentDto } from './dto/create-order.dto';
 import { CashSessionStatus, EditRequestStatus, OrderStatus, PaymentMethod, Prisma, WorkOrderStatus } from '../../generated/prisma';
-import { isValidTransition, getValidNextStatuses } from './order-status-transitions';
+import {
+  isValidTransition,
+  isBackwardTransition,
+  getValidNextStatuses,
+} from './order-status-transitions';
 import { PrismaService } from '../../database/prisma.service';
 import { CashMovementService } from '../cash-movement/cash-movement.service';
 import { CashMovementVoidRequestsService } from '../cash-movement-void-requests/cash-movement-void-requests.service';
@@ -187,8 +192,31 @@ const PAYMENT_RESPONSE_SELECT = {
   },
 } as const;
 
+/**
+ * Descuentos que bajan el total: los que no requerían aprobación y los ya
+ * aprobados. Uno pendiente o rechazado no cuenta; si contara, la OP valdría
+ * menos (y podría generar saldo a favor o una devolución) antes de que alguien
+ * autorice el descuento.
+ */
+const COUNTED_DISCOUNT_WHERE = {
+  approvals: { none: { status: { not: EditRequestStatus.APPROVED } } },
+} satisfies Prisma.OrderDiscountWhereInput;
+
+/**
+ * Descuentos que todavía pueden llegar a contar: los que cuentan más los
+ * pendientes. Sirve para no aceptar un descuento nuevo que, sumado a los que
+ * esperan aprobación, deje la OP en negativo cuando se aprueben.
+ */
+const LIVE_DISCOUNT_WHERE = {
+  approvals: {
+    none: {
+      status: { in: [EditRequestStatus.REJECTED, EditRequestStatus.EXPIRED] },
+    },
+  },
+} satisfies Prisma.OrderDiscountWhereInput;
+
 @Injectable()
-export class OrdersService {
+export class OrdersService implements OnModuleInit {
   private readonly logger = new Logger(OrdersService.name);
 
   constructor(
@@ -207,6 +235,12 @@ export class OrdersService {
     private readonly payrollDeductionsService: PayrollDeductionsService,
     private readonly creditBalanceService: CreditBalanceService,
   ) {}
+
+  onModuleInit() {
+    this.discountApprovalsService.registerOrderTotalsRecalculator(
+      (orderId, tx) => this.recalculateOrderTotals(orderId, tx),
+    );
+  }
 
   async findAll(filters: FilterOrdersDto) {
     const { status, statuses, search, clientId, orderDateFrom, orderDateTo, paymentDateFrom, paymentDateTo, page, limit, excludeWithWorkOrder, productionAreaId, createdById, hasBalance, paymentStatus, deliveryStatus, advancePaymentStatus, excludeAnulado } = filters;
@@ -1697,7 +1731,7 @@ export class OrdersService {
     id: string,
     status: OrderStatus,
     userId: string,
-    options: { retainedAmount?: number } = {},
+    options: { retainedAmount?: number; reason?: string } = {},
   ) {
     const order = await this.findOne(id);
 
@@ -1805,8 +1839,11 @@ export class OrdersService {
       );
     }
 
+    // Devolver la orden a un estado previo: un solo paso atrás, con motivo.
+    const isBackward = isBackwardTransition(order.status as OrderStatus, status);
+
     // Validar que la transición sea permitida por el flujo secuencial
-    if (!isValidTransition(order.status as OrderStatus, status)) {
+    if (!isBackward && !isValidTransition(order.status as OrderStatus, status)) {
       const validNext = getValidNextStatuses(order.status as OrderStatus);
       const validLabels = validNext.length > 0
         ? validNext.join(', ')
@@ -1861,7 +1898,61 @@ export class OrdersService {
       }
     }
 
+    // Retroceso: quien no es admin necesita una aprobación sin usar; el admin
+    // lo hace directo, pero dejando el motivo.
+    let backwardNeedsApproval = false;
+    const backwardReason = options.reason?.trim() ?? '';
+
+    if (isBackward) {
+      const authCheck = await this.statusChangeRequestsService.requiresAuthorization(
+        id,
+        status,
+        userId,
+      );
+      backwardNeedsApproval = authCheck.required;
+
+      if (backwardNeedsApproval) {
+        const hasApproval = await this.statusChangeRequestsService.hasApprovedRequest(
+          id,
+          userId,
+          status,
+        );
+
+        if (!hasApproval) {
+          throw new ForbiddenException(
+            `Este cambio de estado requiere autorización de un administrador. ` +
+            `Razón: ${authCheck.reason}. ` +
+            `Por favor, cree una solicitud de cambio de estado.`,
+          );
+        }
+      } else if (!backwardReason) {
+        throw new BadRequestException(
+          'Para devolver la orden a un estado previo debes indicar el motivo.',
+        );
+      }
+    }
+
     await this.ordersRepository.updateStatus(id, status);
+
+    if (isBackward) {
+      if (backwardNeedsApproval) {
+        // La aprobación es de un solo uso: sin esto serviría para devolver la
+        // orden cada vez que vuelva a avanzar.
+        await this.statusChangeRequestsService.consumeApprovedRequest(
+          id,
+          userId,
+          status,
+        );
+      } else {
+        await this.statusChangeRequestsService.recordDirectBackwardChange(
+          id,
+          userId,
+          order.status as OrderStatus,
+          status,
+          backwardReason,
+        );
+      }
+    }
 
     // Ver la nota en la rama de ANULADO: la solicitud que pedía este estado ya no
     // tiene nada que decidir.
@@ -2726,9 +2817,9 @@ export class OrdersService {
     const reteICAAmount = subtotal.mul(reteICARate);
     const reteIVAAmount = tax.mul(reteIVARate);
 
-    // Calcular discountAmount sumando todos los descuentos
+    // Calcular discountAmount sumando los descuentos que ya cuentan
     const discounts = await tx.orderDiscount.findMany({
-      where: { orderId },
+      where: { orderId, ...COUNTED_DISCOUNT_WHERE },
       select: { amount: true },
     });
 
@@ -3021,9 +3112,16 @@ export class OrdersService {
 
     const discountAmount = new Prisma.Decimal(applyDiscountDto.amount);
 
-    // Validar que el descuento no exceda el total de la orden
-    const currentTotal = new Prisma.Decimal(order.total);
-    const currentDiscountAmount = new Prisma.Decimal(order.discountAmount);
+    // Validar que el descuento no exceda el total de la orden. Se suman también
+    // los pendientes: aún no bajan el total, pero lo harán si se aprueban.
+    const liveDiscounts = await this.prisma.orderDiscount.findMany({
+      where: { orderId, ...LIVE_DISCOUNT_WHERE },
+      select: { amount: true },
+    });
+    const currentDiscountAmount = liveDiscounts.reduce(
+      (sum, discount) => sum.add(discount.amount),
+      new Prisma.Decimal(0),
+    );
     const newDiscountAmount = currentDiscountAmount.add(discountAmount);
 
     // El total base es subtotal + tax
@@ -3035,34 +3133,47 @@ export class OrdersService {
       );
     }
 
-    // Usar transacción para crear descuento y recalcular totales
-    const discountId = await this.prisma.$transaction(async (tx) => {
-      // Crear el descuento
-      const discount = await tx.orderDiscount.create({
-        data: {
-          orderId,
-          amount: discountAmount,
-          reason: applyDiscountDto.reason,
-          appliedById,
-        },
-        select: {
-          id: true,
-        },
-      });
+    // Quien no tiene `approve_discounts` deja el descuento pendiente: la
+    // solicitud se crea dentro de la transacción y antes del recálculo, que
+    // ignora los descuentos sin aprobar. Así el total no baja hasta que alguien
+    // lo autorice.
+    const discountApprovalCheck =
+      await this.discountApprovalsService.requiresApproval(appliedById);
 
-      // Recalcular totales de la orden
-      await this.recalculateOrderTotals(orderId, tx);
+    const { discountId, approvalRequestId } = await this.prisma.$transaction(
+      async (tx) => {
+        const discount = await tx.orderDiscount.create({
+          data: {
+            orderId,
+            amount: discountAmount,
+            reason: applyDiscountDto.reason,
+            appliedById,
+          },
+          select: {
+            id: true,
+          },
+        });
 
-      return discount.id;
-    });
+        const approvalRequest = discountApprovalCheck.required
+          ? await this.discountApprovalsService.createPendingRequest(tx, {
+              requestedById: appliedById,
+              orderId,
+              discountId: discount.id,
+            })
+          : null;
 
-    // Verificar si el descuento requiere aprobación (usuario sin permiso approve_discounts)
-    const discountApprovalCheck = await this.discountApprovalsService.requiresApproval(appliedById);
-    if (discountApprovalCheck.required) {
-      await this.discountApprovalsService.createFromDiscountApplication(
-        appliedById,
-        orderId,
-        discountId,
+        await this.recalculateOrderTotals(orderId, tx);
+
+        return {
+          discountId: discount.id,
+          approvalRequestId: approvalRequest?.id ?? null,
+        };
+      },
+    );
+
+    if (approvalRequestId) {
+      await this.discountApprovalsService.notifyPendingRequest(
+        approvalRequestId,
       );
     }
 

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   Logger,
   UnauthorizedException,
@@ -11,6 +12,10 @@ import { WhatsappService } from './whatsapp.service';
 import { ApprovalRequestRegistry } from './approval-request-registry';
 import { EditRequestStatus, NotificationType, ApprovalRequestType } from '../../generated/prisma';
 import { isProductionLike } from '../../common/utils/environment.util';
+import {
+  SELF_REVIEW_MESSAGE,
+  isForbiddenSelfReview,
+} from '../../common/utils/self-review.util';
 
 @Injectable()
 export class WhatsappWebhookService {
@@ -320,6 +325,21 @@ export class WhatsappWebhookService {
       return;
     }
 
+    // Por WhatsApp solo llegan pasos de control (nunca la ejecución de Caja),
+    // así que la regla aplica a todos los tipos sin excepción por handler.
+    if (
+      await isForbiddenSelfReview(this.prisma, {
+        requestedById: requestInfo.requestedById,
+        reviewerId: reviewer.id,
+      })
+    ) {
+      await this.whatsappService.sendTextMessage(
+        fromPhone,
+        `⚠️ ${SELF_REVIEW_MESSAGE}`,
+      );
+      return;
+    }
+
     if (isApprove) {
       await handler.approveViaWhatsApp(ctx.requestId, reviewer.id);
       await this.whatsappService.sendTextMessage(
@@ -327,7 +347,19 @@ export class WhatsappWebhookService {
         `✅ ${requestInfo.displayLabel} fue autorizada correctamente.`,
       );
     } else {
-      await handler.rejectViaWhatsApp(ctx.requestId, reviewer.id);
+      try {
+        await handler.rejectViaWhatsApp(ctx.requestId, reviewer.id);
+      } catch (error) {
+        // Una regla de negocio impidió el rechazo (p. ej. el saldo a favor del
+        // pago ya se gastó). La solicitud sigue pendiente: hay que decirle a
+        // quien revisa por qué, o creerá que el rechazo se aplicó.
+        if (!(error instanceof BadRequestException)) throw error;
+        await this.whatsappService.sendTextMessage(
+          fromPhone,
+          `⚠️ No se pudo rechazar ${requestInfo.displayLabel}. ${error.message}`,
+        );
+        return;
+      }
       await this.whatsappService.sendTextMessage(
         fromPhone,
         `❌ ${requestInfo.displayLabel} fue rechazada.`,

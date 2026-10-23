@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsString,
   ArrayMinSize,
+  IsBoolean,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -51,6 +52,14 @@ export class UpdateRoleDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Exigir el doble factor a los usuarios del rol (aplica con TWO_FACTOR_ENFORCEMENT=required)',
+  })
+  @IsBoolean()
+  @IsOptional()
+  requireTwoFactor?: boolean;
 }
 
 export class AssignPermissionsDto {

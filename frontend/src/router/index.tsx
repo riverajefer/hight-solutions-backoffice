@@ -22,6 +22,9 @@ const AuditLogsListPage = lazyWithRetry(() => import('../features/audit-logs/pag
 const ProductionAreasListPage = lazyWithRetry(() => import('../features/production-areas/pages/ProductionAreasListPage'));
 const ProductionAreaFormPage = lazyWithRetry(() => import('../features/production-areas/pages/ProductionAreaFormPage'));
 const ProductionAreaDetailPage = lazyWithRetry(() => import('../features/production-areas/pages/ProductionAreaDetailPage'));
+const MachinesListPage = lazyWithRetry(() => import('../features/machines/pages/MachinesListPage'));
+const ProductionPlantPage = lazyWithRetry(() => import('../features/work-orders/pages/ProductionPlantPage'));
+const ProductivityReportPage = lazyWithRetry(() => import('../features/work-orders/pages/ProductivityReportPage'));
 const CargosListPage = lazyWithRetry(() => import('../features/cargos/pages/CargosListPage'));
 const CargoFormPage = lazyWithRetry(() => import('../features/cargos/pages/CargoFormPage'));
 const CargoDetailPage = lazyWithRetry(() => import('../features/cargos/pages/CargoDetailPage'));
@@ -313,7 +316,45 @@ const RoutesConfig: FC = () => {
           }
         />
 
+        <Route
+          path={PATHS.PRODUCTION_REPORTS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_PRODUCTION_REPORTS}>
+                  <ProductivityReportPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        <Route
+          path={PATHS.PRODUCTION_PLANT}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_PRODUCTION_PLANT}>
+                  <ProductionPlantPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
         {/* Production Areas Routes */}
+        <Route
+          path={PATHS.MACHINES}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_MACHINES}>
+                  <MachinesListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
         <Route
           path={PATHS.PRODUCTION_AREAS}
           element={

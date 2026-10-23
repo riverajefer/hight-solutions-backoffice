@@ -105,8 +105,8 @@ texto libre, con variables de `Ambiente` (staging/production) y `Buscar texto`.
 # Todo lo de producción
 {app="backoffice-backend", env="production"}
 
-# Sólo errores
-{app="backoffice-backend"} | json | level=~"error|fatal"
+# Sólo errores (la etiqueta `level` filtra en el índice: más barato que `| json`)
+{app="backoffice-backend", level=~"error|fatal"}
 
 # Actividad de un usuario
 {app="backoffice-backend"} | json | userId="<uuid>"
@@ -117,6 +117,12 @@ texto libre, con variables de `Ambiente` (staging/production) y `Buscar texto`.
 # Requests lentos (>1s)
 {app="backoffice-backend"} | json | responseTime > 1000
 ```
+
+> **Logs anteriores al 2026-10-21:** hasta ese día la etiqueta `level` llegaba
+> siempre como `info` (pino-loki buscaba el nivel numérico en su `levelMap` y el
+> formatter lo emite como texto). Para consultar esos logs hay que filtrar por el
+> campo del JSON, que tras `| json` se llama `level_extracted` porque choca con la
+> etiqueta: `{app="backoffice-backend"} | json | level_extracted=~"error|fatal"`.
 
 ### WhatsApp (Meta API)
 

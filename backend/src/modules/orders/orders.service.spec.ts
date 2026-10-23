@@ -71,6 +71,7 @@ const mockStatusChangeRequestsService = {
   hasApprovedRequest: jest.fn(),
   findApprovedRequest: jest.fn(),
   consumeApprovedRequest: jest.fn(),
+  recordDirectBackwardChange: jest.fn(),
   closePendingRequestsForReachedStatus: jest.fn().mockResolvedValue(0),
 };
 
@@ -87,6 +88,9 @@ const mockPaymentEditApprovalsService = {
 const mockDiscountApprovalsService = {
   requiresApproval: jest.fn().mockResolvedValue({ required: false }),
   createFromOrderCreation: jest.fn(),
+  createPendingRequest: jest.fn().mockResolvedValue({ id: 'disc-req-1' }),
+  notifyPendingRequest: jest.fn().mockResolvedValue(undefined),
+  registerOrderTotalsRecalculator: jest.fn(),
 };
 
 const mockClientOwnershipAuthRequestsService = {
@@ -1894,6 +1898,115 @@ describe('OrdersService', () => {
       );
     });
 
+    describe('retroceso a un estado previo', () => {
+      it('rechaza un retroceso que no es un solo paso atrás', async () => {
+        mockOrdersRepository.findById.mockResolvedValue(
+          buildOrder({ status: OrderStatus.READY }),
+        );
+
+        await expect(
+          service.updateStatus('order-1', OrderStatus.CONFIRMED, 'user-1'),
+        ).rejects.toThrow('Transición de estado no permitida');
+      });
+
+      it('rechaza salir de Entregada', async () => {
+        mockOrdersRepository.findById.mockResolvedValue(
+          buildOrder({ status: OrderStatus.DELIVERED }),
+        );
+
+        await expect(
+          service.updateStatus('order-1', OrderStatus.PAID, 'user-1', {
+            reason: 'motivo',
+          }),
+        ).rejects.toThrow('Transición de estado no permitida');
+      });
+
+      it('exige una aprobación sin usar a quien no es admin', async () => {
+        mockOrdersRepository.findById.mockResolvedValue(
+          buildOrder({ status: OrderStatus.READY }),
+        );
+        mockStatusChangeRequestsService.requiresAuthorization.mockResolvedValue({
+          required: true,
+          reason: 'Devolver una orden a un estado previo requiere aprobación administrativa',
+        });
+        mockStatusChangeRequestsService.hasApprovedRequest.mockResolvedValue(false);
+
+        await expect(
+          service.updateStatus('order-1', OrderStatus.IN_PRODUCTION, 'user-1'),
+        ).rejects.toThrow('requiere autorización');
+        expect(mockOrdersRepository.updateStatus).not.toHaveBeenCalled();
+      });
+
+      it('aplica el retroceso aprobado y consume la aprobación', async () => {
+        mockOrdersRepository.findById
+          .mockResolvedValueOnce(buildOrder({ status: OrderStatus.READY }))
+          .mockResolvedValueOnce(buildOrder({ status: OrderStatus.IN_PRODUCTION }));
+        mockStatusChangeRequestsService.requiresAuthorization.mockResolvedValue({
+          required: true,
+          reason: 'reason',
+        });
+        mockStatusChangeRequestsService.hasApprovedRequest.mockResolvedValue(true);
+
+        await service.updateStatus('order-1', OrderStatus.IN_PRODUCTION, 'user-1');
+
+        expect(mockOrdersRepository.updateStatus).toHaveBeenCalledWith(
+          'order-1',
+          OrderStatus.IN_PRODUCTION,
+        );
+        expect(mockStatusChangeRequestsService.consumeApprovedRequest).toHaveBeenCalledWith(
+          'order-1',
+          'user-1',
+          OrderStatus.IN_PRODUCTION,
+        );
+        expect(
+          mockStatusChangeRequestsService.recordDirectBackwardChange,
+        ).not.toHaveBeenCalled();
+      });
+
+      it('exige el motivo al admin', async () => {
+        mockOrdersRepository.findById.mockResolvedValue(
+          buildOrder({ status: OrderStatus.PAID }),
+        );
+        mockStatusChangeRequestsService.requiresAuthorization.mockResolvedValue({
+          required: false,
+        });
+
+        await expect(
+          service.updateStatus('order-1', OrderStatus.READY, 'admin-1', {
+            reason: '   ',
+          }),
+        ).rejects.toThrow('debes indicar el motivo');
+        expect(mockOrdersRepository.updateStatus).not.toHaveBeenCalled();
+      });
+
+      it('deja constancia del retroceso directo del admin', async () => {
+        mockOrdersRepository.findById
+          .mockResolvedValueOnce(buildOrder({ status: OrderStatus.PAID }))
+          .mockResolvedValueOnce(buildOrder({ status: OrderStatus.READY }));
+        mockStatusChangeRequestsService.requiresAuthorization.mockResolvedValue({
+          required: false,
+        });
+
+        await service.updateStatus('order-1', OrderStatus.READY, 'admin-1', {
+          reason: ' Se marcó pagada por error ',
+        });
+
+        expect(mockOrdersRepository.updateStatus).toHaveBeenCalledWith(
+          'order-1',
+          OrderStatus.READY,
+        );
+        expect(
+          mockStatusChangeRequestsService.recordDirectBackwardChange,
+        ).toHaveBeenCalledWith(
+          'order-1',
+          'admin-1',
+          OrderStatus.PAID,
+          OrderStatus.READY,
+          'Se marcó pagada por error',
+        );
+      });
+    });
+
     it('should update status successfully and return the updated order', async () => {
       const updated = buildOrder({ status: OrderStatus.IN_PRODUCTION });
       mockOrdersRepository.findById
@@ -3048,6 +3161,31 @@ describe('OrdersService', () => {
   // ─────────────────────────────────────────────
   // applyDiscount
   // ─────────────────────────────────────────────
+  describe('onModuleInit', () => {
+    it('le registra a DiscountApprovalsService el recálculo de totales', async () => {
+      service.onModuleInit();
+
+      expect(
+        mockDiscountApprovalsService.registerOrderTotalsRecalculator,
+      ).toHaveBeenCalledWith(expect.any(Function));
+
+      // La función registrada recalcula la OP dentro de la transacción recibida.
+      const recalculate =
+        mockDiscountApprovalsService.registerOrderTotalsRecalculator.mock.calls[0][0];
+      mockPrisma.orderItem.findMany.mockResolvedValue([]);
+      mockPrisma.orderDiscount.findMany.mockResolvedValue([]);
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.order.findUnique.mockResolvedValue({ taxRate: new Prisma.Decimal('0.19') });
+      mockPrisma.order.update.mockResolvedValue(mockConfirmedOrder);
+
+      await recalculate('order-1', mockPrisma);
+
+      expect(mockPrisma.order.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'order-1' } }),
+      );
+    });
+  });
+
   describe('applyDiscount', () => {
     const discountDto = { amount: 10, reason: 'Loyalty discount' };
     const mockDiscountFull = {
@@ -3091,12 +3229,10 @@ describe('OrdersService', () => {
 
     it('should throw BadRequestException when new total discount would exceed subtotal + tax', async () => {
       // subtotal=100, tax=19 → baseTotal=119
-      // existing discountAmount=110, new discount=20 → newTotal=130 > 119
-      const almostMaxDiscountOrder = buildOrder({
-        status: OrderStatus.CONFIRMED,
-        discountAmount: new Prisma.Decimal('110.00'),
-      });
-      mockOrdersRepository.findById.mockResolvedValue(almostMaxDiscountOrder);
+      // existing discounts=110, new discount=20 → newTotal=130 > 119
+      mockPrisma.orderDiscount.findMany.mockResolvedValue([
+        { amount: new Prisma.Decimal('110.00') },
+      ]);
 
       await expect(
         service.applyDiscount('order-1', { amount: 20, reason: 'Too much' }, 'user-1'),
@@ -3104,6 +3240,24 @@ describe('OrdersService', () => {
       await expect(
         service.applyDiscount('order-1', { amount: 20, reason: 'Too much' }, 'user-1'),
       ).rejects.toThrow('no puede exceder');
+    });
+
+    it('counts pending discounts toward the cap, ignoring rejected ones', async () => {
+      await service.applyDiscount('order-1', discountDto, 'user-1');
+
+      expect(mockPrisma.orderDiscount.findMany).toHaveBeenCalledWith({
+        where: {
+          orderId: 'order-1',
+          approvals: {
+            none: {
+              status: {
+                in: [EditRequestStatus.REJECTED, EditRequestStatus.EXPIRED],
+              },
+            },
+          },
+        },
+        select: { amount: true },
+      });
     });
 
     it('should create discount inside a transaction and return full discount object', async () => {
@@ -3123,6 +3277,57 @@ describe('OrdersService', () => {
         expect.objectContaining({ where: { id: 'disc-new' } }),
       );
       expect(result).toMatchObject({ id: 'disc-new', reason: 'Loyalty discount' });
+    });
+
+    it('does not create an approval request when the user can approve discounts', async () => {
+      await service.applyDiscount('order-1', discountDto, 'user-1');
+
+      expect(mockDiscountApprovalsService.createPendingRequest).not.toHaveBeenCalled();
+      expect(mockDiscountApprovalsService.notifyPendingRequest).not.toHaveBeenCalled();
+    });
+
+    it('creates the approval request before recalculating, so a pending discount does not lower the total', async () => {
+      mockDiscountApprovalsService.requiresApproval.mockResolvedValueOnce({
+        required: true,
+      });
+      const callOrder: string[] = [];
+      mockDiscountApprovalsService.createPendingRequest.mockImplementationOnce(
+        async () => {
+          callOrder.push('createPendingRequest');
+          return { id: 'disc-req-1' };
+        },
+      );
+      mockPrisma.order.update.mockImplementation(async () => {
+        callOrder.push('order.update');
+        return mockConfirmedOrder;
+      });
+
+      await service.applyDiscount('order-1', discountDto, 'user-1');
+
+      expect(mockDiscountApprovalsService.createPendingRequest).toHaveBeenCalledWith(
+        mockPrisma,
+        { requestedById: 'user-1', orderId: 'order-1', discountId: 'disc-new' },
+      );
+      // El recálculo (que escribe la OP) va después de crear la solicitud.
+      expect(callOrder[0]).toBe('createPendingRequest');
+      expect(callOrder).toContain('order.update');
+      expect(mockDiscountApprovalsService.notifyPendingRequest).toHaveBeenCalledWith(
+        'disc-req-1',
+      );
+    });
+
+    it('recalculates the total only with discounts that already count', async () => {
+      await service.applyDiscount('order-1', discountDto, 'user-1');
+
+      expect(mockPrisma.orderDiscount.findMany).toHaveBeenCalledWith({
+        where: {
+          orderId: 'order-1',
+          approvals: {
+            none: { status: { not: EditRequestStatus.APPROVED } },
+          },
+        },
+        select: { amount: true },
+      });
     });
   });
 

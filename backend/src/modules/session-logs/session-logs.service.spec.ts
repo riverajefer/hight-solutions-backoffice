@@ -52,6 +52,7 @@ describe('SessionLogsService', () => {
         'user-1',
         '127.0.0.1',
         'Mozilla',
+        undefined,
       );
     });
 
@@ -62,6 +63,7 @@ describe('SessionLogsService', () => {
 
       expect(mockSessionLogsRepository.createLoginLog).toHaveBeenCalledWith(
         'user-1',
+        undefined,
         undefined,
         undefined,
       );

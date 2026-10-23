@@ -16,6 +16,15 @@ export type OrderStatus =
   | 'RETURNED'
   | 'ANULADO';
 
+// Estados de la OP desde los que se puede crear su OT. El backend valida la
+// misma lista en WorkOrdersService.create: si cambia una, cambia la otra.
+export const WORK_ORDER_CREATABLE_ORDER_STATUSES: OrderStatus[] = [
+  'CONFIRMED',
+  'IN_PRODUCTION',
+  'READY',
+  'DELIVERED',
+];
+
 /**
  * Métodos con los que se puede registrar un pago de una OP.
  *
@@ -633,6 +642,22 @@ export const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   RETURNED: [],
   ANULADO: [],
 };
+
+/**
+ * Retrocesos permitidos: un solo paso atrás, y solo antes de la entrega. Siempre
+ * llevan motivo, y autorización del administrador para quien no lo es. Copia de
+ * `BACKWARD_TRANSITIONS` del backend, que es quien decide.
+ */
+export const BACKWARD_TRANSITIONS: Partial<Record<OrderStatus, OrderStatus>> = {
+  IN_PRODUCTION: 'CONFIRMED',
+  READY: 'IN_PRODUCTION',
+  PAID: 'READY',
+};
+
+export const isBackwardTransition = (
+  currentStatus: OrderStatus,
+  newStatus: OrderStatus,
+): boolean => BACKWARD_TRANSITIONS[currentStatus] === newStatus;
 
 /**
  * Nombres de los métodos dentro del módulo de órdenes.

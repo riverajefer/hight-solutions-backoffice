@@ -114,6 +114,7 @@ import VoidPaymentDialog from '../components/VoidPaymentDialog';
 import { AdvancePaymentApprovalBadge } from '../components/AdvancePaymentApprovalBadge';
 import { StatusChangeAuthRequestDialog } from '../components/StatusChangeAuthRequestDialog';
 import { AnnulOrderDialog } from '../components/AnnulOrderDialog';
+import { RevertStatusDialog } from '../components/RevertStatusDialog';
 import { getAnnulmentAmounts } from '../utils/annulment';
 import { getAliveQuantity } from '../utils/partialAnnulment';
 import { OrderChangeHistoryTab } from '../components/OrderChangeHistoryTab';
@@ -136,6 +137,9 @@ import {
   ORDER_STATUS_CONFIG,
   PAYMENT_METHOD_LABELS,
   ALLOWED_TRANSITIONS,
+  BACKWARD_TRANSITIONS,
+  isBackwardTransition,
+  WORK_ORDER_CREATABLE_ORDER_STATUSES,
 } from '../../../types/order.types';
 import { CommentSection } from '../../comments';
 import { BankSelector } from '../../../components/common/BankSelector';
@@ -317,6 +321,7 @@ export const OrderDetailPage: React.FC = () => {
   const [statusAuthDialogOpen, setStatusAuthDialogOpen] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<OrderStatus | null>(null);
   const [annulDialogOpen, setAnnulDialogOpen] = useState(false);
+  const [revertTarget, setRevertTarget] = useState<OrderStatus | null>(null);
 
   // ── Cola de aprobación ("revisar y siguiente") ────────────────────────────
   // Las bandejas de Edición de Orden y Propiedad Cliente no tienen botón de
@@ -574,6 +579,15 @@ export const OrderDetailPage: React.FC = () => {
     ) {
       handleMenuClose();
       setAnnulDialogOpen(true);
+      return;
+    }
+
+    // Devolver la orden a un estado previo: el admin lo hace directo pero deja
+    // el motivo. Quien necesita autorización cae en el 403 de abajo, o retrocede
+    // con la aprobación que ya tiene.
+    if (order && isBackwardTransition(order.status, newStatus) && isAdmin) {
+      handleMenuClose();
+      setRevertTarget(newStatus);
       return;
     }
 
@@ -991,6 +1005,7 @@ export const OrderDetailPage: React.FC = () => {
       ? hasOverpayment
       : hasOverpayment || (netPaidAmount > 0 && pendingSaleValue > 0)) &&
     !hasPendingRefund &&
+    !authorizedRefund &&
     permissions.includes('create_refund_requests');
 
   // Anular ítems no exige que el cliente haya abonado: si no sobra plata, la
@@ -1121,14 +1136,15 @@ export const OrderDetailPage: React.FC = () => {
       {order.discountApprovalStatus === 'PENDING' && (
         <Alert severity='warning' icon={<WarningIcon />} sx={{ mt: 2 }}>
           <strong>Descuento pendiente de aprobación.</strong> El descuento
-          aplicado en esta orden está siendo revisado. No se puede cambiar el
-          estado hasta que sea aprobado o rechazado.
+          de esta orden está siendo revisado y no se resta del total hasta que
+          sea aprobado. No se puede cambiar el estado hasta que sea aprobado o
+          rechazado.
         </Alert>
       )}
       {order.discountApprovalStatus === 'REJECTED' && (
         <Alert severity='error' sx={{ mt: 2 }}>
-          <strong>Descuento rechazado.</strong> El descuento aplicado en esta
-          orden fue rechazado. Verifique con administración.
+          <strong>Descuento rechazado.</strong> El descuento de esta orden fue
+          rechazado y no se restó del total. Verifica con administración.
         </Alert>
       )}
 
@@ -1181,7 +1197,7 @@ export const OrderDetailPage: React.FC = () => {
           vigente es {formatCurrency(pendingSaleValue.toString())}.
         </Alert>
       )}
-      {hasOverpayment && !hasPendingRefund && (
+      {hasOverpayment && !hasPendingRefund && !authorizedRefund && (
         <Alert severity='info' sx={{ mt: 2 }}>
           <strong>Saldo a favor:</strong>{' '}
           {formatCurrency(overpayment.toString())}. Puede registrar una
@@ -1341,7 +1357,7 @@ export const OrderDetailPage: React.FC = () => {
               color={theme.palette.info.main}
               tooltip={`Ver Orden de Trabajo ${order.workOrders[0].workOrderNumber}`}
             />
-          ) : ['CONFIRMED', 'IN_PRODUCTION', 'READY'].includes(order.status) &&
+          ) : WORK_ORDER_CREATABLE_ORDER_STATUSES.includes(order.status) &&
             permissions.includes('create_work_orders') ? (
             <ToolbarButton
               icon={<BuildIcon />}
@@ -1924,7 +1940,7 @@ export const OrderDetailPage: React.FC = () => {
                                       <Typography variant='caption' color='text.disabled' sx={{ fontSize: '0.7rem' }}>
                                         Sin OT
                                       </Typography>
-                                      {['CONFIRMED', 'IN_PRODUCTION', 'READY'].includes(
+                                      {WORK_ORDER_CREATABLE_ORDER_STATUSES.includes(
                                         order.status,
                                       ) &&
                                         permissions.includes('create_work_orders') && (
@@ -3114,7 +3130,9 @@ export const OrderDetailPage: React.FC = () => {
         {Object.entries(ORDER_STATUS_CONFIG).map(([status, config]) => {
           const validNextStatuses = ALLOWED_TRANSITIONS[order.status] || [];
           const isCurrentStatus = order.status === status;
-          const isAllowed = validNextStatuses.includes(status as OrderStatus);
+          const isRevert = BACKWARD_TRANSITIONS[order.status] === status;
+          const isAllowed =
+            isRevert || validNextStatuses.includes(status as OrderStatus);
           return (
             <MenuItem
               key={status}
@@ -3137,6 +3155,11 @@ export const OrderDetailPage: React.FC = () => {
                   }),
                 }}
               />
+              {isRevert && (
+                <Typography variant='caption' color='text.secondary'>
+                  Devolver · requiere autorización
+                </Typography>
+              )}
             </MenuItem>
           );
         })}
@@ -3733,6 +3756,20 @@ export const OrderDetailPage: React.FC = () => {
           updateStatusMutation.mutateAsync({ status: 'ANULADO', retainedAmount })
         }
       />
+
+      {/* Dialog: Devolver a un estado previo (admin) */}
+      {revertTarget && (
+        <RevertStatusDialog
+          open
+          onClose={() => setRevertTarget(null)}
+          order={order}
+          targetStatus={revertTarget}
+          loading={updateStatusMutation.isPending}
+          onConfirm={(reason) =>
+            updateStatusMutation.mutateAsync({ status: revertTarget, reason })
+          }
+        />
+      )}
 
       {/* Dialog: Solicitar Autorización de Cambio de Estado */}
       {statusAuthDialogOpen && pendingStatus && order && (

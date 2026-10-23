@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { usersApi } from '../../../api';
+import { twoFactorApi, usersApi } from '../../../api';
 import { CreateUserDto, UpdateUserDto } from '../../../types';
 
 export const useUsers = (options?: { enabled?: boolean }) => {
@@ -49,6 +49,23 @@ export const useUsers = (options?: { enabled?: boolean }) => {
     },
   });
 
+  const resetTwoFactorMutation = useMutation({
+    mutationFn: (id: string) => twoFactorApi.resetForUser(id),
+    onSuccess: (_, userId) => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['users', userId] });
+    },
+  });
+
+  const setTwoFactorRequirementMutation = useMutation({
+    mutationFn: ({ id, required }: { id: string; required: boolean }) =>
+      twoFactorApi.setRequirementForUser(id, required),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['users', id] });
+    },
+  });
+
   return {
     usersQuery,
     getUserQuery,
@@ -56,5 +73,7 @@ export const useUsers = (options?: { enabled?: boolean }) => {
     updateUserMutation,
     deleteUserMutation,
     deactivateUserMutation,
+    resetTwoFactorMutation,
+    setTwoFactorRequirementMutation,
   };
 };

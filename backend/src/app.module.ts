@@ -26,6 +26,8 @@ import { SuppliesModule } from './modules/portfolio/supplies/supplies.module';
 import { ConsecutivesModule } from './modules/consecutives/consecutives.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { ProductionAreasModule } from './modules/production-areas/production-areas.module';
+import { MachinesModule } from './modules/machines/machines.module';
+import { WorkOrderTimeModule } from './modules/work-order-time/work-order-time.module';
 import { CommercialChannelsModule } from './modules/commercial-channels/commercial-channels.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OrderEditRequestsModule } from './modules/order-edit-requests/order-edit-requests.module';
@@ -33,6 +35,7 @@ import { OrderStatusChangeRequestsModule } from './modules/order-status-change-r
 import { AdvisorChangeRequestsModule } from './modules/advisor-change-requests/advisor-change-requests.module';
 import { QuoteRestoreRequestsModule } from './modules/quote-restore-requests/quote-restore-requests.module';
 import { ExpenseOrderAuthRequestsModule } from './modules/expense-order-auth-requests/expense-order-auth-requests.module';
+import { ExpenseOrderEditRequestsModule } from './modules/expense-order-edit-requests/expense-order-edit-requests.module';
 import { AdvancePaymentApprovalsModule } from './modules/advance-payment-approvals/advance-payment-approvals.module';
 import { PaymentEditApprovalsModule } from './modules/payment-edit-approvals/payment-edit-approvals.module';
 import { DiscountApprovalsModule } from './modules/discount-approvals/discount-approvals.module';
@@ -127,6 +130,10 @@ import { ClientErrorsModule } from './modules/client-errors/client-errors.module
     OrdersModule,
     // Módulo de Áreas de Producción
     ProductionAreasModule,
+    // Catálogo de máquinas de la planta
+    MachinesModule,
+    // Temporizador de producción de la OT
+    WorkOrderTimeModule,
     // Módulo de Canales de Venta
     CommercialChannelsModule,
     // Módulo de Notificaciones
@@ -151,6 +158,7 @@ import { ClientErrorsModule } from './modules/client-errors/client-errors.module
     ExpenseOrdersModule,
     // Módulo de Solicitudes de Autorización de Órdenes de Gasto
     ExpenseOrderAuthRequestsModule,
+    ExpenseOrderEditRequestsModule,
     // Módulo de Aprobación de Anticipos
     AdvancePaymentApprovalsModule,
     PaymentEditApprovalsModule,

@@ -58,9 +58,11 @@ import {
   withholdingsFromRates,
   type WithholdingsValue,
 } from '../../../utils/withholdings';
-import { useExpenseOrders, useExpenseOrder, useExpenseTypes } from '../hooks';
+import { useExpenseOrders, useExpenseOrder, useExpenseTypes, usePaidExpenseOrderEdit } from '../hooks';
 import { useUsers } from '../../users/hooks/useUsers';
-import { useWorkOrders } from '../../work-orders/hooks';
+import { useWorkOrder } from '../../work-orders/hooks';
+import type { WorkOrder } from '../../../types/work-order.types';
+import { WorkOrderSearchAutocomplete } from '../components/WorkOrderSearchAutocomplete';
 import { useProductionAreas } from '../../production-areas/hooks/useProductionAreas';
 import { useSuppliers } from '../../suppliers/hooks/useSuppliers';
 import { CreateSupplierModal } from '../../suppliers/components/CreateSupplierModal';
@@ -308,8 +310,19 @@ export const ExpenseOrderFormPage = () => {
 
   // ─── Data queries ───────────────────────────────────────────────────────────
   const { data: expenseTypes = [], isLoading: loadingTypes } = useExpenseTypes();
-  const { workOrdersQuery } = useWorkOrders({ limit: 100 });
-  const workOrders = workOrdersQuery.data?.data ?? [];
+  // La OT elegida en el buscador ya trae sus datos; si solo conocemos el ID
+  // (precarga desde el detalle de la OT, o edición) se resuelve por ID.
+  const [pickedWorkOrder, setPickedWorkOrder] = useState<WorkOrder | null>(null);
+  const needsWorkOrderLookup = !!workOrderId && pickedWorkOrder?.id !== workOrderId;
+  const { workOrderQuery: resolvedWorkOrderQuery } = useWorkOrder(
+    needsWorkOrderLookup ? workOrderId : undefined,
+  );
+  const selectedWorkOrder = !workOrderId
+    ? null
+    : pickedWorkOrder?.id === workOrderId
+      ? pickedWorkOrder
+      : (resolvedWorkOrderQuery.data ?? null);
+  const resolvingWorkOrder = needsWorkOrderLookup && resolvedWorkOrderQuery.isLoading;
   const { usersQuery } = useUsers();
   const users = usersQuery.data ?? [];
   const { productionAreasQuery } = useProductionAreas();
@@ -320,6 +333,19 @@ export const ExpenseOrderFormPage = () => {
   // ─── Edit: load existing OG ──────────────────────────────────────────────────
   const { expenseOrderQuery } = useExpenseOrder(id);
   const existingOG = expenseOrderQuery.data;
+
+  // Una OG pagada se corrige con autorización del admin. Sus ítems ya salieron
+  // de caja: no se quitan ni se les cambia el comprobante (el backend lo vuelve
+  // a validar). Se pueden agregar ítems y corregir montos. El método de pago y
+  // el banco se pueden corregir mientras la caja de donde salieron siga abierta.
+  const paidEdit = usePaidExpenseOrderEdit(isEditing ? existingOG : undefined);
+  const lockedItemCount = isEditing && paidEdit.isPaid ? existingOG?.items.length ?? 0 : 0;
+  const isItemLocked = (index: number) => index < lockedItemCount;
+  const correctableItemCount = lockedItemCount > 0 ? existingOG?.paymentCorrectableItems ?? 0 : 0;
+  const isPaymentLocked = (index: number) =>
+    isItemLocked(index) && index >= correctableItemCount;
+  const isPaymentCorrectable = (index: number) =>
+    isItemLocked(index) && index < correctableItemCount;
 
   useEffect(() => {
     if (existingOG) {
@@ -674,17 +700,28 @@ export const ExpenseOrderFormPage = () => {
     );
   }
 
+  if (isEditing && paidEdit.isPaid && paidEdit.isLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="300px">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
   if (
     isEditing &&
     existingOG &&
     existingOG.status !== ExpenseOrderStatus.DRAFT &&
-    existingOG.status !== ExpenseOrderStatus.CREATED
+    existingOG.status !== ExpenseOrderStatus.CREATED &&
+    !paidEdit.canEditPaidNow
   ) {
     return (
       <Box>
         <PageHeader title="Editar OG" />
         <Alert severity="warning">
-          Esta OG no se puede editar en su estado actual ({existingOG.status}).
+          {paidEdit.isPaid
+            ? 'Esta OG ya está pagada. Para corregirla, pide autorización al administrador desde el detalle de la OG (botón «Solicitar edición»).'
+            : `Esta OG no se puede editar en su estado actual (${existingOG.status}).`}
         </Alert>
       </Box>
     );
@@ -728,20 +765,13 @@ export const ExpenseOrderFormPage = () => {
       />
 
       {isProduccionType && (
-        <Autocomplete
-          options={workOrders.filter((wo) => wo.status !== 'CANCELLED')}
-          getOptionLabel={(wo) =>
-            `${wo.workOrderNumber} — ${wo.order?.client?.name ?? ''}`
-          }
-          value={workOrders.find((wo) => wo.id === workOrderId) ?? null}
-          onChange={(_, val) => setWorkOrderId(val?.id ?? '')}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label="Orden de Trabajo (OT)"
-              placeholder="Asociar a una OT (opcional)..."
-            />
-          )}
+        <WorkOrderSearchAutocomplete
+          value={selectedWorkOrder}
+          loadingValue={resolvingWorkOrder}
+          onChange={(wo) => {
+            setPickedWorkOrder(wo);
+            setWorkOrderId(wo?.id ?? '');
+          }}
         />
       )}
 
@@ -814,7 +844,7 @@ export const ExpenseOrderFormPage = () => {
                 <Typography variant="subtitle1" fontWeight={600}>
                   Ítem {index + 1}
                 </Typography>
-                {items.length > 1 && (
+                {items.length > 1 && !isItemLocked(index) && (
                   <IconButton size="small" color="error" onClick={() => removeItem(index)}>
                     <DeleteIcon fontSize="small" />
                   </IconButton>
@@ -888,6 +918,14 @@ export const ExpenseOrderFormPage = () => {
                   select
                   label="Método de pago"
                   value={item.paymentMethod}
+                  disabled={isPaymentLocked(index)}
+                  helperText={
+                    isPaymentLocked(index)
+                      ? 'Ya se pagó y la caja se cerró: no se puede cambiar'
+                      : isPaymentCorrectable(index)
+                        ? 'Caja abierta: corrige también el egreso'
+                        : undefined
+                  }
                   onChange={(e) => {
                     const method = e.target.value as PaymentMethod;
                     updateItem(index, 'paymentMethod', method);
@@ -897,11 +935,19 @@ export const ExpenseOrderFormPage = () => {
                   }}
                   sx={{ flex: 1 }}
                 >
-                  {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => (
-                    <MenuItem key={value} value={value}>
-                      {label}
-                    </MenuItem>
-                  ))}
+                  {Object.entries(PAYMENT_METHOD_LABELS)
+                    // Un ítem pagado no pasa a crédito: el dinero ya salió.
+                    .filter(
+                      ([value]) =>
+                        !isItemLocked(index) ||
+                        value !== PaymentMethod.CREDIT ||
+                        value === item.paymentMethod,
+                    )
+                    .map(([value, label]) => (
+                      <MenuItem key={value} value={value}>
+                        {label}
+                      </MenuItem>
+                    ))}
                 </TextField>
 
                 {item.paymentMethod === PaymentMethod.TRANSFER && (
@@ -909,6 +955,7 @@ export const ExpenseOrderFormPage = () => {
                     <BankSelector
                       value={item.bankEntity ?? null}
                       onChange={(val) => updateItem(index, 'bankEntity', val)}
+                      disabled={isPaymentLocked(index)}
                     />
                   </Box>
                 )}
@@ -1067,12 +1114,14 @@ export const ExpenseOrderFormPage = () => {
                           color="success"
                           variant="outlined"
                           size="small"
-                          onDelete={() => clearReceiptForItem(index)}
+                          onDelete={isItemLocked(index) ? undefined : () => clearReceiptForItem(index)}
                           deleteIcon={<CloseIcon />}
                         />
-                        <Button size="small" variant="text" startIcon={<AttachFileIcon />} onClick={() => fileInputRefs.current[index]?.click()} sx={{ textTransform: 'none' }}>
-                          Cambiar imagen
-                        </Button>
+                        {!isItemLocked(index) && (
+                          <Button size="small" variant="text" startIcon={<AttachFileIcon />} onClick={() => fileInputRefs.current[index]?.click()} sx={{ textTransform: 'none' }}>
+                            Cambiar imagen
+                          </Button>
+                        )}
                       </Stack>
                     )}
                   </Grid>
@@ -1193,7 +1242,7 @@ export const ExpenseOrderFormPage = () => {
               <Stack direction="row" justifyContent="space-between">
                 <Typography color="text.secondary">OT asociada:</Typography>
                 <Typography fontWeight={500}>
-                  {workOrders.find((wo) => wo.id === workOrderId)?.workOrderNumber ?? workOrderId}
+                  {selectedWorkOrder?.workOrderNumber ?? workOrderId}
                 </Typography>
               </Stack>
             )}
@@ -1408,6 +1457,19 @@ export const ExpenseOrderFormPage = () => {
         </Stack>
       </Box>
 
+      {isEditing && paidEdit.isPaid && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <strong>Estás corrigiendo una OG que ya fue pagada.</strong> Si el total sube, la
+          diferencia queda pendiente en su cuenta por pagar y Caja la paga desde ahí; el total no
+          puede quedar por debajo de lo ya pagado. Los ítems pagados no se pueden quitar ni
+          cambiar de comprobante.
+          {correctableItemCount > 0
+            ? ' Su método de pago y banco sí se pueden corregir mientras la caja de donde salieron siga abierta.'
+            : ' Tampoco se les puede cambiar el método de pago ni el banco: la caja de donde salieron ya se cerró.'}
+          {!paidEdit.isAdmin && ' La autorización sirve para una sola edición.'}
+        </Alert>
+      )}
+
       <Box sx={{ maxWidth: '100%' }}>
         {/* Content */}
         <Box flex={1}>
@@ -1451,15 +1513,18 @@ export const ExpenseOrderFormPage = () => {
               </Button>
             ) : (
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                <Button
-                  variant="outlined"
-                  startIcon={<SaveIcon />}
-                  onClick={handleSaveDraft}
-                  disabled={isSubmitting || !canSubmit}
-                  sx={{ width: { xs: '100%', sm: 'auto' } }}
-                >
-                  Guardar Borrador
-                </Button>
+                {/* Una OG pagada no vuelve a borrador: guardar es la corrección. */}
+                {!paidEdit.isPaid && (
+                  <Button
+                    variant="outlined"
+                    startIcon={<SaveIcon />}
+                    onClick={handleSaveDraft}
+                    disabled={isSubmitting || !canSubmit}
+                    sx={{ width: { xs: '100%', sm: 'auto' } }}
+                  >
+                    Guardar Borrador
+                  </Button>
+                )}
                 <Button
                   variant="contained"
                   startIcon={<CheckCircleIcon />}

@@ -1,0 +1,35 @@
+# Base de datos de desarrollo local.
+#
+# Desarrollo ya no comparte base con staging: cada quien corre la suya aquí.
+# Las credenciales son solo para esta base local y no dan acceso a nada más.
+#
+#   docker compose up -d      # arrancar
+#   docker compose stop       # detener (los datos se conservan en el volumen)
+#   docker compose down -v    # borrar la base y empezar de cero
+#
+# backend/.env.development y backend/.env deben apuntar aquí:
+#   DATABASE_URL="postgresql://postgres:postgres@localhost:5432/hight_solutions_dev"
+
+services:
+  db:
+    # Misma versión mayor que Railway (staging y producción).
+    image: postgres:17
+    container_name: hight-solutions-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: hight_solutions_dev
+    ports:
+      # Solo desde esta máquina.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - hight-solutions-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d hight_solutions_dev"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  hight-solutions-db-data:

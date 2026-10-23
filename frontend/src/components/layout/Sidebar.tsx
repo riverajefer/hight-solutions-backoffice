@@ -39,6 +39,7 @@ import FolderSpecialOutlinedIcon from '@mui/icons-material/FolderSpecialOutlined
 import StraightenOutlinedIcon from '@mui/icons-material/StraightenOutlined';
 import EngineeringIcon from '@mui/icons-material/Engineering';
 import PrecisionManufacturingIcon from '@mui/icons-material/PrecisionManufacturing';
+import InsightsIcon from '@mui/icons-material/Insights';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
@@ -349,6 +350,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
       menuKey: 'produccion',
       submenu: [
         {
+          label: 'Planta hoy',
+          icon: <FactoryIcon />,
+          path: ROUTES.PRODUCTION_PLANT,
+          permission: PERMISSIONS.READ_PRODUCTION_PLANT,
+        },
+        {
+          label: 'Productividad',
+          icon: <InsightsIcon />,
+          path: ROUTES.PRODUCTION_REPORTS,
+          permission: PERMISSIONS.READ_PRODUCTION_REPORTS,
+        },
+        {
           label: 'Órdenes de Producción',
           icon: <BuildIcon />,
           path: ROUTES.PRODUCTION_ORDERS,
@@ -368,6 +381,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
         },
       ],
       permissions: [
+        PERMISSIONS.READ_PRODUCTION_PLANT,
+        PERMISSIONS.READ_PRODUCTION_REPORTS,
         PERMISSIONS.READ_PRODUCTION_ORDERS,
         PERMISSIONS.READ_PRODUCT_TEMPLATES,
         PERMISSIONS.READ_STEP_DEFINITIONS,
@@ -395,12 +410,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           icon: <FactoryIcon />,
           path: ROUTES.PRODUCTION_AREAS,
           permission: PERMISSIONS.READ_PRODUCTION_AREAS,
-        },        
+        },
+        {
+          label: 'Máquinas',
+          icon: <PrecisionManufacturingIcon />,
+          path: ROUTES.MACHINES,
+          permission: PERMISSIONS.READ_MACHINES,
+        },
       ],
       permissions: [
         PERMISSIONS.READ_USERS,
         PERMISSIONS.READ_CARGOS,
         PERMISSIONS.READ_PRODUCTION_AREAS,
+        PERMISSIONS.READ_MACHINES,
       ],
     },
     {

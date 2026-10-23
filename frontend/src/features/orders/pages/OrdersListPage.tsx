@@ -257,13 +257,14 @@ export const OrdersListPage: React.FC = () => {
     }
   };
 
-  const handleChangeStatus = async (newStatus: OrderStatus) => {
+  const handleChangeStatus = async (newStatus: OrderStatus, reason?: string) => {
     if (!changeStatusOrder) return;
 
     try {
       await updateStatusMutation.mutateAsync({
         id: changeStatusOrder.id,
         status: newStatus,
+        reason,
       });
     } catch (error) {
       // Relanzar el error para que el componente ChangeStatusDialog lo maneje

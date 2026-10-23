@@ -101,8 +101,22 @@ export interface ExpenseOrder {
   reteICARate: string;
   reteIVARate: string;
   electronicInvoiceNumber?: string | null;
+  /**
+   * OG pagada: cuántos de sus primeros ítems admiten corregir el método de
+   * pago, porque la caja de donde salieron sigue abierta. Solo lo trae el
+   * detalle (GET /expense-orders/:id).
+   */
+  paymentCorrectableItems?: number;
   createdAt: string;
   updatedAt: string;
+  accountPayable?: {
+    id: string;
+    apNumber: string;
+    status: string;
+    totalAmount: string;
+    paidAmount: string;
+    balance: string;
+  } | null;
   expenseType: {
     id: string;
     name: string;

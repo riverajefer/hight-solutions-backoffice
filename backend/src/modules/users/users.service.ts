@@ -66,6 +66,7 @@ export class UsersService {
       role: {
         id: userResult.role.id,
         name: userResult.role.name,
+        requireTwoFactor: userResult.role.requireTwoFactor,
         permissions: userResult.role.permissions.map((rp: any) => rp.permission),
       },
     };
