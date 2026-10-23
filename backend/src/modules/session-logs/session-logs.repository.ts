@@ -10,13 +10,19 @@ export class SessionLogsRepository {
   /**
    * Create a login log entry
    */
-  async createLoginLog(userId: string, ipAddress?: string, userAgent?: string) {
+  async createLoginLog(
+    userId: string,
+    ipAddress?: string,
+    userAgent?: string,
+    twoFactorMethod?: string | null,
+  ) {
     return this.prisma.sessionLog.create({
       data: {
         userId,
         loginAt: new Date(),
         ipAddress,
         userAgent,
+        twoFactorMethod: twoFactorMethod ?? null,
       },
     });
   }

@@ -7,6 +7,8 @@ export const PERMISSION_LABELS: Record<string, string> = {
   read_users: 'Ver Usuarios',
   update_users: 'Actualizar Usuarios',
   delete_users: 'Eliminar Usuarios',
+  reset_user_2fa: 'Restablecer doble factor de usuarios',
+  require_user_2fa: 'Exigir doble factor a usuarios',
 
   // Roles
   create_roles: 'Crear Roles',
@@ -88,6 +90,16 @@ export const PERMISSION_LABELS: Record<string, string> = {
   read_production_areas: 'Ver Áreas de Producción',
   update_production_areas: 'Actualizar Áreas de Producción',
   delete_production_areas: 'Eliminar Áreas de Producción',
+  create_machines: 'Crear Máquinas',
+  read_machines: 'Ver Máquinas',
+  update_machines: 'Editar Máquinas',
+  delete_machines: 'Desactivar Máquinas',
+  track_work_order_time: 'Usar el temporizador de la OT (sus propias tareas)',
+  adjust_work_order_time: 'Supervisar tiempos: ajustar, anular y agregar registros olvidados',
+  read_production_plant: 'Ver «Planta hoy»: qué hace cada operario y su ocupación',
+  read_production_reports: 'Ver el reporte de productividad de producción',
+  read_production_costs: 'Ver costos de producción (valor hora y mano de obra por OT; usa salarios)',
+  manage_production_settings: 'Editar parámetros de productividad (horas al mes, recargo extra y umbrales de mano de obra)',
   
   // Canales Comerciales
   create_commercial_channels: 'Crear Canales Comerciales',

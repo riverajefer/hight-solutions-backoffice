@@ -1,7 +1,9 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
-import type { AuthResponse, User } from '../types';
+import type { AuthResponse, LoginSession, User } from '../types';
 import { useAuthStore } from './authStore';
 import { authApi } from '../api/auth.api';
+import { twoFactorApi } from '../api/two-factor.api';
+import { getTrustedDeviceToken, saveTrustedDeviceToken } from '../utils/trustedDevice';
 
 // Mock del cliente de API: aísla el store de axios/import.meta/notistack.
 vi.mock('../api/auth.api', () => ({
@@ -10,6 +12,14 @@ vi.mock('../api/auth.api', () => ({
     refresh: vi.fn(),
     me: vi.fn(),
     logout: vi.fn(),
+  },
+}));
+
+vi.mock('../api/two-factor.api', () => ({
+  twoFactorApi: {
+    verifyLogin: vi.fn(),
+    startLoginEnrollment: vi.fn(),
+    confirmLoginEnrollment: vi.fn(),
   },
 }));
 
@@ -72,6 +82,7 @@ beforeEach(() => {
     mustChangePassword: false,
     isLoading: false,
     error: null,
+    pendingTwoFactor: null,
   });
   localStorage.clear();
 });
@@ -212,5 +223,109 @@ describe('authStore — sincronización entre pestañas (evento storage)', () =>
 
     expect(store().isAuthenticated).toBe(true);
     expect(store().refreshToken).toBe('refresh-1');
+  });
+});
+
+function session(over: Partial<LoginSession> = {}): LoginSession {
+  return {
+    status: 'OK',
+    accessToken: 'access-1',
+    refreshToken: 'refresh-1',
+    user: makeUser(),
+    permissions: ['p'],
+    ...over,
+  };
+}
+
+const credentials = { username: 'tester', password: 'secreta123' };
+
+describe('authStore.login — doble factor', () => {
+  it('sin doble factor entra como antes', async () => {
+    vi.mocked(authApi.login).mockResolvedValue(session());
+
+    await expect(store().login(credentials)).resolves.toBe('OK');
+
+    expect(store().isAuthenticated).toBe(true);
+    expect(store().pendingTwoFactor).toBeNull();
+  });
+
+  it('con 2FA_REQUIRED no abre sesión y guarda el paso pendiente solo en memoria', async () => {
+    vi.mocked(authApi.login).mockResolvedValue({ status: '2FA_REQUIRED', challengeToken: 'challenge' });
+
+    await expect(store().login(credentials)).resolves.toBe('2FA_REQUIRED');
+
+    expect(store().isAuthenticated).toBe(false);
+    expect(store().accessToken).toBeNull();
+    expect(store().pendingTwoFactor).toEqual({ kind: 'challenge', token: 'challenge', username: 'tester' });
+    // El token temporal no se persiste: recargar la página vuelve al login.
+    expect(localStorage.getItem(STORAGE_KEY) ?? '').not.toContain('challenge');
+  });
+
+  it('con 2FA_SETUP_REQUIRED guarda el token de registro', async () => {
+    vi.mocked(authApi.login).mockResolvedValue({ status: '2FA_SETUP_REQUIRED', setupToken: 'setup' });
+
+    await store().login(credentials);
+
+    expect(store().pendingTwoFactor).toEqual({ kind: 'setup', token: 'setup', username: 'tester' });
+  });
+
+  it('envía el token del equipo de confianza de ese usuario', async () => {
+    saveTrustedDeviceToken('Tester', 'device-1', '2099-01-01T00:00:00.000Z');
+    vi.mocked(authApi.login).mockResolvedValue(session());
+
+    await store().login(credentials);
+
+    expect(authApi.login).toHaveBeenCalledWith({ ...credentials, deviceToken: 'device-1' });
+  });
+
+  it('verifyTwoFactor abre la sesión y recuerda el navegador si se pidió', async () => {
+    useAuthStore.setState({ pendingTwoFactor: { kind: 'challenge', token: 'challenge', username: 'tester' } });
+    vi.mocked(twoFactorApi.verifyLogin).mockResolvedValue(
+      session({ deviceToken: 'device-2', deviceTokenExpiresAt: '2099-01-01T00:00:00.000Z' }),
+    );
+
+    await store().verifyTwoFactor('123456', true);
+
+    expect(twoFactorApi.verifyLogin).toHaveBeenCalledWith({
+      challengeToken: 'challenge',
+      code: '123456',
+      rememberDevice: true,
+    });
+    expect(store().isAuthenticated).toBe(true);
+    expect(store().pendingTwoFactor).toBeNull();
+    expect(getTrustedDeviceToken('tester')).toBe('device-2');
+  });
+
+  it('verifyTwoFactor con código incorrecto no abre sesión y conserva el paso', async () => {
+    useAuthStore.setState({ pendingTwoFactor: { kind: 'challenge', token: 'challenge', username: 'tester' } });
+    vi.mocked(twoFactorApi.verifyLogin).mockRejectedValue(new Error('Código incorrecto. Te quedan 4 intentos.'));
+
+    await expect(store().verifyTwoFactor('000000', false)).rejects.toThrow('Código incorrecto');
+
+    expect(store().isAuthenticated).toBe(false);
+    expect(store().pendingTwoFactor?.kind).toBe('challenge');
+  });
+
+  it('confirmTwoFactorEnrollment devuelve la sesión sin aplicarla hasta completeLogin', async () => {
+    useAuthStore.setState({ pendingTwoFactor: { kind: 'setup', token: 'setup', username: 'tester' } });
+    vi.mocked(twoFactorApi.confirmLoginEnrollment).mockResolvedValue(session({ backupCodes: ['AAAA-BBBB'] }));
+
+    const result = await store().confirmTwoFactorEnrollment('123456', false);
+
+    expect(result.backupCodes).toEqual(['AAAA-BBBB']);
+    expect(store().isAuthenticated).toBe(false);
+
+    store().completeLogin(result);
+    expect(store().isAuthenticated).toBe(true);
+    expect(store().pendingTwoFactor).toBeNull();
+  });
+
+  it('el logout no borra el equipo de confianza', async () => {
+    saveTrustedDeviceToken('tester', 'device-1', '2099-01-01T00:00:00.000Z');
+    authenticate();
+
+    await store().logout();
+
+    expect(getTrustedDeviceToken('tester')).toBe('device-1');
   });
 });

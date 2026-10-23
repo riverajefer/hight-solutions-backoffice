@@ -48,6 +48,8 @@
  * ------------
  * - OG en `PAID` y CP que no está ni `PAID` ni `CANCELLED`.
  * - La CP no es anticipo de nómina (ahí `paidAmount` se descuenta al empleado).
+ * - La OG lleva IVA. Sin IVA, un saldo de centavos es residuo del redondeo a
+ *   peso entero, no IVA entregado: va con las CP atrapadas por centavos.
  * - Todos sus abonos vivos son reflejo de egresos de la OG (`cashMovementId` de
  *   un movimiento `EXPENSE_ORDER`) y todos esos egresos ya están reflejados.
  * - Los egresos suman la base de la OG (suma de `item.total`): es la firma del
@@ -283,6 +285,11 @@ async function recolectar(): Promise<Caso[]> {
     let motivoExclusion: string | undefined;
     if (ap.beneficiaryUserId || ap.payrollPeriodId) {
       motivoExclusion = 'anticipo de nómina: paidAmount se descuenta al empleado';
+    } else if (!og.applyIva) {
+      // Sin IVA el saldo no es IVA entregado: es el residuo de redondear a peso
+      // entero una base con centavos. Se resuelve con las CP atrapadas por
+      // centavos, no aquí.
+      motivoExclusion = 'la OG no lleva IVA: el saldo es residuo de redondeo, no IVA';
     } else if (ap.payments.some((p) => p.cashMovement?.referenceType !== 'EXPENSE_ORDER')) {
       motivoExclusion = 'tiene abonos propios además del giro de la OG (¿IVA pagado aparte?)';
     } else if (movimientos.length === 0) {

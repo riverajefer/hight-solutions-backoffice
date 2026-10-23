@@ -83,9 +83,13 @@ axiosInstance.interceptors.response.use(
     }
 
     // Manejo de Refresh Token - No reintentar para endpoints de auth
+    // El segundo paso del login usa un token temporal, no la sesión: un 401 ahí
+    // es ese token vencido, no un access token por refrescar.
     const isAuthEndpoint = originalRequest.url?.includes('/auth/login') ||
                           originalRequest.url?.includes('/auth/refresh') ||
-                          originalRequest.url?.includes('/auth/logout');
+                          originalRequest.url?.includes('/auth/logout') ||
+                          originalRequest.url?.includes('/auth/2fa/verify') ||
+                          originalRequest.url?.includes('/auth/2fa/enrollment/');
 
     if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
