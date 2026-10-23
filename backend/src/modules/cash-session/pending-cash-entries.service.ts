@@ -34,12 +34,14 @@ export class PendingCashEntriesService {
    * la cola, y ellas no tienen permiso para ver datos de caja. Sin montos, sin
    * ids y sin sesiones, no hay nada que proteger.
    */
-  async isAnySessionOpen(): Promise<{ isOpen: boolean }> {
+  async isAnySessionOpen(): Promise<{ isOpen: boolean; isCounting: boolean }> {
     const open = await this.prisma.cashSession.findFirst({
       where: { status: 'OPEN' },
-      select: { id: true },
+      select: { id: true, countStartedAt: true },
     });
-    return { isOpen: open !== null };
+    // `isCounting`: Caja está haciendo el arqueo y no recibe efectivo. El
+    // formulario lo avisa antes de que la comercial intente registrar el abono.
+    return { isOpen: open !== null, isCounting: !!open?.countStartedAt };
   }
 
   /** Cuántos abonos esperan entrar a caja, y por cuánto. */
