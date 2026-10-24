@@ -40,8 +40,13 @@ export const dtfApi = {
     return data;
   },
 
-  convertToOrder: async (id: string): Promise<{ id: string; orderNumber: string }> => {
-    const { data } = await axiosInstance.post(`${BASE_URL}/${id}/convert-to-order`);
+  convertToOrder: async (
+    id: string,
+    deliveryDate: string,
+  ): Promise<{ id: string; orderNumber: string }> => {
+    const { data } = await axiosInstance.post(`${BASE_URL}/${id}/convert-to-order`, {
+      deliveryDate,
+    });
     return data;
   },
 

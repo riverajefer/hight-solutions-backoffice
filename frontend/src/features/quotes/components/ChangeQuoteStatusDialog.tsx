@@ -12,12 +12,18 @@ import {
   Chip,
 } from '@mui/material';
 import { Quote, QuoteStatus, QUOTE_STATUS_CONFIG, ALLOWED_QUOTE_TRANSITIONS } from '../../../types/quote.types';
+import { DeliveryDateTimePicker } from '../../orders/components/DeliveryDateDialog';
+import { getDeliveryDateError } from '../../orders/utils/deliveryDate';
 
 interface ChangeQuoteStatusDialogProps {
   open: boolean;
   quote: Quote | null;
   onClose: () => void;
-  onConfirm: (newStatus: QuoteStatus, rejectionReason?: string) => Promise<void>;
+  onConfirm: (
+    newStatus: QuoteStatus,
+    rejectionReason?: string,
+    deliveryDate?: Date,
+  ) => Promise<void>;
   isLoading?: boolean;
 }
 
@@ -31,6 +37,8 @@ export const ChangeQuoteStatusDialog: React.FC<ChangeQuoteStatusDialogProps> = (
   const [selectedStatus, setSelectedStatus] = useState<QuoteStatus | ''>('');
   const [rejectionReason, setRejectionReason] = useState('');
   const [reasonDirty, setReasonDirty] = useState(false);
+  const [deliveryDate, setDeliveryDate] = useState<Date | null>(null);
+  const [deliveryDateDirty, setDeliveryDateDirty] = useState(false);
 
   const availableStatuses = useMemo(() => {
     if (!quote) return [];
@@ -47,11 +55,16 @@ export const ChangeQuoteStatusDialog: React.FC<ChangeQuoteStatusDialogProps> = (
       setSelectedStatus(nextStatuses.length === 1 ? nextStatuses[0] : '');
       setRejectionReason('');
       setReasonDirty(false);
+      setDeliveryDate(null);
+      setDeliveryDateDirty(false);
     }
   }, [quote, open]);
 
   const isRejecting = selectedStatus === QuoteStatus.REJECTED;
   const reasonMissing = isRejecting && !rejectionReason.trim();
+  // Pasar a «Convertida» crea la OP, y toda OP nace con fecha y hora de entrega.
+  const isConverting = selectedStatus === QuoteStatus.CONVERTED;
+  const deliveryDateInvalid = isConverting && !!getDeliveryDateError(deliveryDate);
 
   const handleConfirm = async () => {
     if (!selectedStatus) return;
@@ -59,10 +72,15 @@ export const ChangeQuoteStatusDialog: React.FC<ChangeQuoteStatusDialogProps> = (
       setReasonDirty(true);
       return;
     }
+    if (deliveryDateInvalid) {
+      setDeliveryDateDirty(true);
+      return;
+    }
     try {
       await onConfirm(
         selectedStatus as QuoteStatus,
         isRejecting ? rejectionReason.trim() : undefined,
+        isConverting ? deliveryDate! : undefined,
       );
       onClose();
     } catch (error) {
@@ -75,6 +93,8 @@ export const ChangeQuoteStatusDialog: React.FC<ChangeQuoteStatusDialogProps> = (
       setSelectedStatus('');
       setRejectionReason('');
       setReasonDirty(false);
+      setDeliveryDate(null);
+      setDeliveryDateDirty(false);
       onClose();
     }
   };
@@ -159,6 +179,20 @@ export const ChangeQuoteStatusDialog: React.FC<ChangeQuoteStatusDialogProps> = (
             }
             sx={{ mt: 2 }}
           />
+        )}
+
+        {isConverting && (
+          <Box sx={{ mt: 2 }}>
+            <DeliveryDateTimePicker
+              value={deliveryDate}
+              onChange={(date) => {
+                setDeliveryDate(date);
+                setDeliveryDateDirty(true);
+              }}
+              showError={deliveryDateDirty}
+              disabled={isLoading}
+            />
+          </Box>
         )}
       </DialogContent>
       <DialogActions>

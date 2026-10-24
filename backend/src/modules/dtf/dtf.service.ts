@@ -226,7 +226,7 @@ export class DtfService {
     return this.dtfRepository.getStatusHistory(id);
   }
 
-  async convertToOrder(id: string, userId: string) {
+  async convertToOrder(id: string, userId: string, deliveryDate: string) {
     const record = await this.dtfRepository.findByIdRaw(id);
     if (!record) throw new NotFoundException(`Registro DTF con id ${id} no encontrado`);
 
@@ -274,6 +274,7 @@ export class DtfService {
     const order = await this.ordersService.create(
       {
         clientId: record.clientId,
+        deliveryDate,
         notes: `[DTF] ${record.consecutive}`,
         items: [
           {

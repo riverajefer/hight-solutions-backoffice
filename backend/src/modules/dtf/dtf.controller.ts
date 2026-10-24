@@ -23,6 +23,7 @@ import { DtfService } from './dtf.service';
 import { BulkCreateDtfDto } from './dto/create-dtf-record.dto';
 import { UpdateDtfRecordDto } from './dto/update-dtf-record.dto';
 import { ChangeDtfStatusDto } from './dto/change-dtf-status.dto';
+import { ConvertToOrderDto } from '../orders/dto/convert-to-order.dto';
 import { FilterDtfDto } from './dto/filter-dtf.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -104,9 +105,10 @@ export class DtfController {
   @ApiResponse({ status: 201, description: 'Orden de Pedido creada' })
   convertToOrder(
     @Param('id') id: string,
+    @Body() dto: ConvertToOrderDto,
     @CurrentUser('id') userId: string,
   ) {
-    return this.dtfService.convertToOrder(id, userId);
+    return this.dtfService.convertToOrder(id, userId, dto.deliveryDate);
   }
 
   @Patch(':id/image')

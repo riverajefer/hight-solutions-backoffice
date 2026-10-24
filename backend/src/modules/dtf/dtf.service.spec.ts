@@ -88,10 +88,11 @@ describe('DtfService.convertToOrder', () => {
   // nunca llegó al historial de caja. Debe pasar por `ordersService.create`,
   // que es quien genera el CashMovement.
   it('manda el abono como pago inicial de la OP, no como insert directo', async () => {
-    await service.convertToOrder('dtf-1', 'user-1');
+    await service.convertToOrder('dtf-1', 'user-1', '2030-01-15T15:00:00.000Z');
 
     expect(mockOrdersService.create).toHaveBeenCalledWith(
       expect.objectContaining({
+        deliveryDate: '2030-01-15T15:00:00.000Z',
         initialPayment: {
           amount: 50000,
           paymentMethod: PaymentMethod.TRANSFER,
@@ -105,13 +106,13 @@ describe('DtfService.convertToOrder', () => {
   });
 
   it('NUNCA crea el pago por fuera de ordersService (saltaría la caja)', async () => {
-    await service.convertToOrder('dtf-1', 'user-1');
+    await service.convertToOrder('dtf-1', 'user-1', '2030-01-15T15:00:00.000Z');
 
     expect(mockPrisma.payment.create).not.toHaveBeenCalled();
   });
 
   it('no toca paidAmount/balance a mano: los calcula ordersService', async () => {
-    await service.convertToOrder('dtf-1', 'user-1');
+    await service.convertToOrder('dtf-1', 'user-1', '2030-01-15T15:00:00.000Z');
 
     expect(mockPrisma.order.update).not.toHaveBeenCalled();
   });
@@ -121,7 +122,7 @@ describe('DtfService.convertToOrder', () => {
       makeRecord({ abonoNotes: '  Consignación Davivienda  ' }),
     );
 
-    await service.convertToOrder('dtf-1', 'user-1');
+    await service.convertToOrder('dtf-1', 'user-1', '2030-01-15T15:00:00.000Z');
 
     expect(mockOrdersService.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -138,7 +139,7 @@ describe('DtfService.convertToOrder', () => {
       makeRecord({ abonoPaymentMethod: null, abonoBankEntity: null }),
     );
 
-    await service.convertToOrder('dtf-1', 'user-1');
+    await service.convertToOrder('dtf-1', 'user-1', '2030-01-15T15:00:00.000Z');
 
     const [dto] = mockOrdersService.create.mock.calls[0];
     expect(dto.initialPayment.paymentMethod).toBe(PaymentMethod.TRANSFER);
@@ -149,7 +150,7 @@ describe('DtfService.convertToOrder', () => {
   it('no manda pago inicial cuando la DTF no tiene abono', async () => {
     mockDtfRepository.findByIdRaw.mockResolvedValue(makeRecord({ abono: 0 }));
 
-    await service.convertToOrder('dtf-1', 'user-1');
+    await service.convertToOrder('dtf-1', 'user-1', '2030-01-15T15:00:00.000Z');
 
     const [dto] = mockOrdersService.create.mock.calls[0];
     expect(dto.initialPayment).toBeUndefined();
@@ -161,7 +162,7 @@ describe('DtfService.convertToOrder', () => {
       Promise.resolve(type === 'DTF_COMPROBANTE' ? [{ id: 'file-9' }] : []),
     );
 
-    await service.convertToOrder('dtf-1', 'user-1');
+    await service.convertToOrder('dtf-1', 'user-1', '2030-01-15T15:00:00.000Z');
 
     expect(mockPrisma.uploadedFile.update).toHaveBeenCalledWith({
       where: { id: 'file-9' },
@@ -179,7 +180,7 @@ describe('DtfService.convertToOrder', () => {
       Promise.resolve(type === 'DTF_COMPROBANTE' ? [{ id: 'file-9' }] : []),
     );
 
-    await service.convertToOrder('dtf-1', 'user-1');
+    await service.convertToOrder('dtf-1', 'user-1', '2030-01-15T15:00:00.000Z');
 
     expect(mockPrisma.payment.update).not.toHaveBeenCalled();
   });
