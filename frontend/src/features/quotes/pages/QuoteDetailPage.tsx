@@ -56,6 +56,7 @@ import {
 } from '../components/RequestQuoteRestoreButton';
 import { ToolbarButton } from '../../orders/components/ToolbarButton';
 import { ActionToolbar } from '../../orders/components/ActionToolbar';
+import { DeliveryDateDialog } from '../../orders/components/DeliveryDateDialog';
 import {
   QuoteStatus,
   QUOTE_STATUS_CONFIG,
@@ -150,6 +151,13 @@ export const QuoteDetailPage: React.FC = () => {
       setRejectDialogOpen(true);
       return;
     }
+    // Convertir crea la OP, que exige fecha y hora de entrega: va por el
+    // mismo diálogo del botón «Convertir».
+    if (newStatus === QuoteStatus.CONVERTED) {
+      handleMenuClose();
+      setConfirmConvert(true);
+      return;
+    }
     await updateQuoteMutation.mutateAsync({
       id: id!,
       data: { status: newStatus },
@@ -164,9 +172,12 @@ export const QuoteDetailPage: React.FC = () => {
     });
   };
 
-  const handleConvert = async () => {
+  const handleConvert = async (deliveryDate: Date) => {
     try {
-      const order = await convertToOrderMutation.mutateAsync(id!);
+      const order = await convertToOrderMutation.mutateAsync({
+        id: id!,
+        deliveryDate: deliveryDate.toISOString(),
+      });
       navigate(`/orders/${order.id}`);
     } catch (error) {}
   };
@@ -714,7 +725,7 @@ export const QuoteDetailPage: React.FC = () => {
         isLoading={deleteQuoteMutation.isPending}
       />
 
-      <ConfirmDialog
+      <DeliveryDateDialog
         open={confirmConvert}
         title='Convertir a Orden'
         message='¿Confirma convertir esta cotización en una orden de pedido?'

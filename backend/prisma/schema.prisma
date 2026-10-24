@@ -104,6 +104,7 @@ model User {
   // Caja Registradora
   openedCashSessions                        CashSession[]                          @relation("OpenedCashSessions")
   closedCashSessions                        CashSession[]                          @relation("ClosedCashSessions")
+  countStartedCashSessions                  CashSession[]                          @relation("CountStartedCashSessions")
   performedCashMovements                    CashMovement[]                         @relation("PerformedCashMovements")
   voidedCashMovements                       CashMovement[]                         @relation("VoidedCashMovements")
   requestedVoidRequests                     CashMovementVoidRequest[]              @relation("RequestedVoidRequests")
@@ -2492,12 +2493,17 @@ model CashSession {
   notes          String?
   openedAt       DateTime          @default(now()) @map("opened_at")
   closedAt       DateTime?         @map("closed_at")
+  /// Arqueo de cierre en curso: desde aquí y hasta cerrar o cancelar, la
+  /// sesión no acepta movimientos en efectivo (ver `assertCashSessionNotCounting`).
+  countStartedAt   DateTime?       @map("count_started_at")
+  countStartedById String?         @map("count_started_by_id")
   createdAt      DateTime          @default(now()) @map("created_at")
   updatedAt      DateTime          @updatedAt @map("updated_at")
 
   cashRegister  CashRegister            @relation(fields: [cashRegisterId], references: [id])
   openedBy      User                    @relation("OpenedCashSessions", fields: [openedById], references: [id])
   closedBy      User?                   @relation("ClosedCashSessions", fields: [closedById], references: [id])
+  countStartedBy User?                  @relation("CountStartedCashSessions", fields: [countStartedById], references: [id])
   denominations CashDenominationCount[]
   movements     CashMovement[]
 

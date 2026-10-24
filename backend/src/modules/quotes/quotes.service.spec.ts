@@ -893,9 +893,30 @@ describe('QuotesService', () => {
         .spyOn(service, 'convertToOrder')
         .mockResolvedValue({ id: 'order-1' } as any);
 
-      await service.update('quote-1', { status: QuoteStatus.CONVERTED }, 'user-1');
+      await service.update(
+        'quote-1',
+        { status: QuoteStatus.CONVERTED, deliveryDate: '2030-01-15T15:00:00.000Z' },
+        'user-1',
+      );
 
-      expect(convertToOrderSpy).toHaveBeenCalledWith('quote-1', 'user-1');
+      expect(convertToOrderSpy).toHaveBeenCalledWith(
+        'quote-1',
+        'user-1',
+        '2030-01-15T15:00:00.000Z',
+      );
+    });
+
+    it('rechaza pasar a CONVERTED sin fecha de entrega y no toca la cotización', async () => {
+      const acceptedQuote = { ...mockQuote, status: QuoteStatus.ACCEPTED };
+      mockQuotesRepository.findById.mockResolvedValue(acceptedQuote);
+      const convertToOrderSpy = jest.spyOn(service, 'convertToOrder');
+
+      await expect(
+        service.update('quote-1', { status: QuoteStatus.CONVERTED }, 'user-1'),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(convertToOrderSpy).not.toHaveBeenCalled();
+      expect(mockQuotesRepository.update).not.toHaveBeenCalled();
     });
 
     it('should update clientId when provided', async () => {
@@ -1065,7 +1086,7 @@ describe('QuotesService', () => {
       mockConsecutivesService.generateNumber.mockResolvedValue('ORD-001');
       txMock.order.create.mockResolvedValue({ id: 'order-1' });
 
-      await service.convertToOrder('quote-1', 'user-1');
+      await service.convertToOrder('quote-1', 'user-1', '2030-01-15T15:00:00.000Z');
 
       expect(mockConsecutivesService.generateNumber).toHaveBeenCalledWith('ORDER');
       expect(txMock.order.create).toHaveBeenCalledWith(
@@ -1073,6 +1094,7 @@ describe('QuotesService', () => {
           data: expect.objectContaining({
             orderNumber: 'ORD-001',
             status: OrderStatus.DRAFT,
+            deliveryDate: new Date('2030-01-15T15:00:00.000Z'),
             quote: { connect: { id: 'quote-1' } },
           }),
         }),
@@ -1092,7 +1114,7 @@ describe('QuotesService', () => {
       mockConsecutivesService.generateNumber.mockResolvedValue('ORD-001');
       txMock.order.create.mockResolvedValue({ id: 'order-1' });
 
-      await service.convertToOrder('quote-1', 'user-1');
+      await service.convertToOrder('quote-1', 'user-1', '2030-01-15T15:00:00.000Z');
 
       expect(txMock.prospect.updateMany).toHaveBeenCalledWith({
         where: { quoteId: 'quote-1' },
@@ -1106,7 +1128,7 @@ describe('QuotesService', () => {
         status: QuoteStatus.CONVERTED,
       });
 
-      await expect(service.convertToOrder('quote-1', 'user-1')).rejects.toThrow(
+      await expect(service.convertToOrder('quote-1', 'user-1', '2030-01-15T15:00:00.000Z')).rejects.toThrow(
         BadRequestException,
       );
     });
@@ -1114,7 +1136,7 @@ describe('QuotesService', () => {
     it('should throw NotFoundException if quote does not exist', async () => {
       mockQuotesRepository.findById.mockResolvedValue(null);
 
-      await expect(service.convertToOrder('non-existent', 'user-1')).rejects.toThrow(
+      await expect(service.convertToOrder('non-existent', 'user-1', '2030-01-15T15:00:00.000Z')).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -1124,7 +1146,7 @@ describe('QuotesService', () => {
       mockConsecutivesService.generateNumber.mockResolvedValue('ORD-002');
       txMock.order.create.mockResolvedValue({ id: 'order-2' });
 
-      await service.convertToOrder('quote-1', 'user-1');
+      await service.convertToOrder('quote-1', 'user-1', '2030-01-15T15:00:00.000Z');
 
       expect(txMock.order.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1146,7 +1168,7 @@ describe('QuotesService', () => {
       mockConsecutivesService.generateNumber.mockResolvedValue('ORD-003');
       txMock.order.create.mockResolvedValue({ id: 'order-3' });
 
-      await service.convertToOrder('quote-1', 'user-1');
+      await service.convertToOrder('quote-1', 'user-1', '2030-01-15T15:00:00.000Z');
 
       expect(txMock.order.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1170,7 +1192,7 @@ describe('QuotesService', () => {
       mockConsecutivesService.generateNumber.mockResolvedValue('ORD-004');
       txMock.order.create.mockResolvedValue({ id: 'order-4' });
 
-      await service.convertToOrder('quote-1', 'user-1');
+      await service.convertToOrder('quote-1', 'user-1', '2030-01-15T15:00:00.000Z');
 
       const createCall = txMock.order.create.mock.calls[0][0];
       expect(createCall.data.notes).toContain(mockQuote.quoteNumber);
@@ -1181,7 +1203,7 @@ describe('QuotesService', () => {
       mockConsecutivesService.generateNumber.mockResolvedValue('ORD-005');
       txMock.order.create.mockResolvedValue({ id: 'order-5' });
 
-      await service.convertToOrder('quote-1', 'user-1');
+      await service.convertToOrder('quote-1', 'user-1', '2030-01-15T15:00:00.000Z');
 
       expect(txMock.order.create).toHaveBeenCalledWith(
         expect.objectContaining({

@@ -93,13 +93,17 @@ export const useDtfMutations = () => {
   });
 
   const convertToOrder = useMutation({
-    mutationFn: (id: string) => dtfApi.convertToOrder(id),
+    mutationFn: ({ id, deliveryDate }: { id: string; deliveryDate: string }) =>
+      dtfApi.convertToOrder(id, deliveryDate),
     onSuccess: () => {
       invalidate();
       enqueueSnackbar('Registro convertido en Orden de Pedido', { variant: 'success' });
     },
-    onError: () => {
-      enqueueSnackbar('Error al convertir en Orden de Pedido', { variant: 'error' });
+    onError: (error: { response?: { data?: { message?: string } } }) => {
+      enqueueSnackbar(
+        error?.response?.data?.message || 'Error al convertir en Orden de Pedido',
+        { variant: 'error' },
+      );
     },
   });
 

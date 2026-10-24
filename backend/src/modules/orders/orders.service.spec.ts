@@ -865,6 +865,7 @@ describe('OrdersService', () => {
   describe('create', () => {
     const baseCreateDto = {
       clientId: 'client-1',
+      deliveryDate: '2030-01-15T15:00:00.000Z',
       items: [{ description: 'Item A', quantity: 2, unitPrice: 50 }],
     };
 
@@ -886,7 +887,7 @@ describe('OrdersService', () => {
 
     it('should throw BadRequestException when items is undefined', async () => {
       await expect(
-        service.create({ clientId: 'client-1', items: undefined as any }, 'user-1'),
+        service.create({ ...baseCreateDto, items: undefined as any }, 'user-1'),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -2894,6 +2895,34 @@ describe('OrdersService', () => {
             }),
           }),
         );
+      });
+    });
+
+    // Caso 2026-10-23: dos abonos en efectivo registrados mientras Caja contaba
+    // cayeron en la sesión que se cerraba y dejaron un faltante falso.
+    describe('arqueo de cierre en curso', () => {
+      it('rechaza el abono en efectivo y no lo registra', async () => {
+        mockPrisma.cashSession.findMany.mockResolvedValue([{ id: 'session-1', cashRegisterId: 'cr-1', countStartedAt: new Date() }]);
+
+        await expect(
+          service.addPayment('order-1', paymentDto, 'user-1'),
+        ).rejects.toThrow(/arqueo de cierre/);
+        expect(mockPrisma.payment.create).not.toHaveBeenCalled();
+        expect(mockPrisma.cashMovement.create).not.toHaveBeenCalled();
+      });
+
+      it('deja pasar la transferencia: no toca el conteo del cajón', async () => {
+        mockPrisma.cashSession.findMany.mockResolvedValue([{ id: 'session-1', cashRegisterId: 'cr-1', countStartedAt: new Date() }]);
+        mockPrisma.cashMovement.create.mockResolvedValue({ id: 'mov-1' });
+        mockConsecutivesService.generateNumber.mockResolvedValue('RC-2026-0001');
+
+        await service.addPayment(
+          'order-1',
+          { amount: 50, paymentMethod: PaymentMethod.TRANSFER },
+          'user-1',
+        );
+
+        expect(mockPrisma.payment.create).toHaveBeenCalled();
       });
     });
 

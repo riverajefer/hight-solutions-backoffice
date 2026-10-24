@@ -29,7 +29,10 @@ import {
   computeExpenseTotals,
 } from '../../common/utils/expense-totals.util';
 import { normalizeRate } from '../../common/utils/rounding.util';
-import { findActiveCashSession } from '../cash-session/active-cash-session.util';
+import {
+  assertCashSessionNotCounting,
+  findActiveCashSession,
+} from '../cash-session/active-cash-session.util';
 import { paymentMovesCash } from '../../common/utils/payment-method.util';
 
 /** Egreso de caja de un ítem pagado cuyo método hay que corregir. */
@@ -826,6 +829,9 @@ export class ExpenseOrdersService {
       throw new BadRequestException(
         'No hay una sesión de caja abierta. Abre la caja y vuelve a autorizar la OG.',
       );
+    }
+    for (const item of expenseOrder.items) {
+      assertCashSessionNotCounting(activeSession, item.paymentMethod || 'CASH');
     }
 
     // Registrar autorización de Caja. La transición es condicionada: si otra

@@ -6,7 +6,6 @@ import {
   Card,
   CardContent,
   Dialog,
-  DialogActions,
   DialogContent,
   DialogTitle,
   Divider,
@@ -47,6 +46,7 @@ import axiosInstance from '../../../api/axios';
 import type { DtfStatus, DtfPaymentMethod } from '../../../types/dtf.types';
 import { DTF_PAYMENT_METHOD_LABELS } from '../../../types/dtf.types';
 import { LoadingButton } from '../../../components/common/LoadingButton';
+import { DeliveryDateDialog } from '../../orders/components/DeliveryDateDialog';
 
 const NEXT_STATUSES: Record<DtfStatus, DtfStatus[]> = {
   BORRADOR: ['ENVIADA'],
@@ -180,8 +180,11 @@ export const DtfDetailPage = () => {
     }
   };
 
-  const handleConvertToOrder = async () => {
-    const order = await convertToOrder.mutateAsync(id!);
+  const handleConvertToOrder = async (deliveryDate: Date) => {
+    const order = await convertToOrder.mutateAsync({
+      id: id!,
+      deliveryDate: deliveryDate.toISOString(),
+    });
     setConvertDialogOpen(false);
     if (order?.id) {
       navigate(PATHS.ORDERS_DETAIL.replace(':id', order.id));
@@ -655,38 +658,31 @@ export const DtfDetailPage = () => {
       </Dialog>
 
       {/* Convert to Order Dialog */}
-      <Dialog open={convertDialogOpen} onClose={() => setConvertDialogOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Convertir en Orden de Pedido</DialogTitle>
-        <DialogContent>
+      <DeliveryDateDialog
+        open={convertDialogOpen}
+        title="Convertir en Orden de Pedido"
+        message={
           <Typography>
             ¿Desea convertir el registro <strong>{record.consecutive}</strong> en una Orden de
             Pedido? Se creará una OP con el cliente y el producto correspondiente.
           </Typography>
-
-          {/* El abono de la DTF se convierte en pago de la OP recién aquí, no
-              al capturarlo. Si la caja está cerrada queda en cola, y quien
-              convierte tiene que saberlo. */}
-          {Number(record.abono ?? 0) > 0 && isCashOpen?.isOpen === false && (
-            <Alert severity="warning" sx={{ mt: 2 }}>
-              <AlertTitle>La caja está cerrada en este momento</AlertTitle>
-              El abono de {formatCurrency(Number(record.abono))} se registra igual
-              y queda en espera. Entrará al arqueo automáticamente cuando se abra
-              la próxima caja.
-            </Alert>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConvertDialogOpen(false)}>Cancelar</Button>
-          <Button
-            variant="contained"
-            color="success"
-            onClick={handleConvertToOrder}
-            disabled={convertToOrder.isPending}
-          >
-            {convertToOrder.isPending ? <CircularProgress size={18} /> : 'Convertir'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        }
+        onConfirm={handleConvertToOrder}
+        onCancel={() => setConvertDialogOpen(false)}
+        isLoading={convertToOrder.isPending}
+      >
+        {/* El abono de la DTF se convierte en pago de la OP recién aquí, no
+            al capturarlo. Si la caja está cerrada queda en cola, y quien
+            convierte tiene que saberlo. */}
+        {Number(record.abono ?? 0) > 0 && isCashOpen?.isOpen === false && (
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            <AlertTitle>La caja está cerrada en este momento</AlertTitle>
+            El abono de {formatCurrency(Number(record.abono))} se registra igual
+            y queda en espera. Entrará al arqueo automáticamente cuando se abra
+            la próxima caja.
+          </Alert>
+        )}
+      </DeliveryDateDialog>
     </Box>
   );
 };

@@ -314,7 +314,8 @@ export interface CreateOrderItemDto {
 
 export interface CreateOrderDto {
   clientId: string;
-  deliveryDate?: string; // ISO date string
+  /** Fecha y hora de entrega (ISO). Obligatoria al crear la OP. */
+  deliveryDate: string;
   notes?: string;
   notesImageId?: string | null;
   requiresColorProof?: boolean;

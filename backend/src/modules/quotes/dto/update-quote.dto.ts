@@ -1,6 +1,6 @@
 import { ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { CreateQuoteDto } from './create-quote.dto';
-import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsDateString, IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
 import { QuoteStatus } from '../../../generated/prisma';
 
 export class UpdateQuoteDto extends PartialType(CreateQuoteDto) {
@@ -16,4 +16,13 @@ export class UpdateQuoteDto extends PartialType(CreateQuoteDto) {
   @IsString()
   @MaxLength(500)
   rejectionReason?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Fecha y hora de entrega de la OP que se crea. Obligatoria al pasar la cotización a CONVERTED.',
+    example: '2025-02-15T15:00:00.000Z',
+  })
+  @IsOptional()
+  @IsDateString()
+  deliveryDate?: string;
 }

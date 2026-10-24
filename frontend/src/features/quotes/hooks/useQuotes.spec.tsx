@@ -72,9 +72,9 @@ describe('useQuotes', () => {
   it('convertToOrder convierte la cotización', async () => {
     const { result } = renderHook(() => useQuotes(), { wrapper: createWrapper() });
     await act(async () => {
-      await result.current.convertToOrderMutation.mutateAsync('q1');
+      await result.current.convertToOrderMutation.mutateAsync({ id: 'q1', deliveryDate: '2030-01-15T15:00:00.000Z' });
     });
-    expect(quotesApi.convertToOrder).toHaveBeenCalledWith('q1');
+    expect(quotesApi.convertToOrder).toHaveBeenCalledWith('q1', '2030-01-15T15:00:00.000Z');
     expect(enqueueMock).toHaveBeenCalledWith('Cotización convertida a orden exitosamente', {
       variant: 'success',
     });

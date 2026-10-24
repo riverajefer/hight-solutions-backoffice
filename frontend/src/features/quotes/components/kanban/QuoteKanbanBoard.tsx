@@ -99,6 +99,13 @@ export const QuoteKanbanBoard: React.FC<QuoteKanbanBoardProps> = ({
       return;
     }
 
+    // Convertir crea la OP, que exige fecha y hora de entrega: se pide en el
+    // mismo diálogo del botón «Convertir» de la tarjeta.
+    if (targetStatus === QStatus.CONVERTED) {
+      onConvertQuote(quote);
+      return;
+    }
+
     await applyStatusChange(quote, targetStatus);
   };
 
