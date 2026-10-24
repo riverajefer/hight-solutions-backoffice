@@ -57,7 +57,8 @@ export const useQuotes = (filters?: FilterQuotesDto) => {
   });
 
   const convertToOrderMutation = useMutation({
-    mutationFn: (id: string) => quotesApi.convertToOrder(id),
+    mutationFn: ({ id, deliveryDate }: { id: string; deliveryDate: string }) =>
+      quotesApi.convertToOrder(id, deliveryDate),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });

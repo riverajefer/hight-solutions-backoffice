@@ -33,6 +33,7 @@ import { useClients } from '../../clients/hooks/useClients';
 import { useUsers } from '../../users/hooks/useUsers';
 import { QuoteStatusChip, ChangeQuoteStatusDialog } from '../components';
 import { QuoteKanbanBoard } from '../components/kanban/QuoteKanbanBoard';
+import { DeliveryDateDialog } from '../../orders/components/DeliveryDateDialog';
 import type { Quote, QuoteStatus, FilterQuotesDto } from '../../../types/quote.types';
 import { QuoteStatus as QStatus } from '../../../types/quote.types';
 import { ExportDialog } from '../../../components/common/ExportDialog';
@@ -150,10 +151,13 @@ export const QuotesListPage: React.FC = () => {
     setConfirmDelete(null);
   };
 
-  const handleConvertQuote = async () => {
+  const handleConvertQuote = async (deliveryDate: Date) => {
     if (!confirmConvert) return;
     try {
-      const order = await convertToOrderMutation.mutateAsync(confirmConvert.id);
+      const order = await convertToOrderMutation.mutateAsync({
+        id: confirmConvert.id,
+        deliveryDate: deliveryDate.toISOString(),
+      });
       setConfirmConvert(null);
       if (order && (order as any).id) {
         navigate(`/orders/${(order as any).id}`);
@@ -161,11 +165,19 @@ export const QuotesListPage: React.FC = () => {
     } catch (error) {}
   };
 
-  const handleChangeStatus = async (newStatus: QuoteStatus, rejectionReason?: string) => {
+  const handleChangeStatus = async (
+    newStatus: QuoteStatus,
+    rejectionReason?: string,
+    deliveryDate?: Date,
+  ) => {
     if (!changeStatusQuote) return;
     await updateQuoteMutation.mutateAsync({
       id: changeStatusQuote.id,
-      data: { status: newStatus, ...(rejectionReason ? { rejectionReason } : {}) },
+      data: {
+        status: newStatus,
+        ...(rejectionReason ? { rejectionReason } : {}),
+        ...(deliveryDate ? { deliveryDate: deliveryDate.toISOString() } : {}),
+      },
     });
   };
 
@@ -433,7 +445,7 @@ export const QuotesListPage: React.FC = () => {
         isLoading={deleteQuoteMutation.isPending}
       />
 
-      <ConfirmDialog
+      <DeliveryDateDialog
         open={!!confirmConvert}
         title="Convertir a Orden"
         message={`¿Confirma convertir la cotización ${confirmConvert?.quoteNumber} en una orden de pedido?`}

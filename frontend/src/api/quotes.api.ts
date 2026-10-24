@@ -34,8 +34,8 @@ export const quotesApi = {
     return data;
   },
 
-  convertToOrder: async (id: string) => {
-    const { data } = await axios.post<Order>(`/quotes/${id}/convert`);
+  convertToOrder: async (id: string, deliveryDate: string) => {
+    const { data } = await axios.post<Order>(`/quotes/${id}/convert`, { deliveryDate });
     return data;
   },
 

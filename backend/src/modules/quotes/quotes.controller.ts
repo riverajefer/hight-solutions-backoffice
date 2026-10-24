@@ -20,6 +20,7 @@ import {
   UpdateQuoteDto,
   FilterQuotesDto,
 } from './dto';
+import { ConvertToOrderDto } from '../orders/dto/convert-to-order.dto';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody, ApiParam } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -84,8 +85,12 @@ export class QuotesController {
   @Post(':id/convert')
   @RequirePermissions('convert_quotes')
   @ApiOperation({ summary: 'Convertir cotización en orden de pedido' })
-  convertToOrder(@Param('id') id: string, @NestRequest() req: AuthenticatedRequest) {
-    return this.quotesService.convertToOrder(id, req.user.id);
+  convertToOrder(
+    @Param('id') id: string,
+    @Body() dto: ConvertToOrderDto,
+    @NestRequest() req: AuthenticatedRequest,
+  ) {
+    return this.quotesService.convertToOrder(id, req.user.id, dto.deliveryDate);
   }
 
   @Post(':quoteId/items/:itemId/sample-image')

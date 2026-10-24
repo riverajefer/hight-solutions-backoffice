@@ -25,6 +25,8 @@ import { ClientOwnershipAuthRequestsService } from '../client-ownership-auth-req
 import { PayrollDeductionsService } from '../payroll-deductions/payroll-deductions.service';
 import {
   ActiveCashSession,
+  assertCashSessionNotCounting,
+  assertMovementChangeAllowedDuringCount,
   findActiveCashSession,
 } from '../cash-session/active-cash-session.util';
 import {
@@ -784,6 +786,9 @@ export class OrdersService implements OnModuleInit {
 
       // 1. Buscar sesión activa
       activeSession = await findActiveCashSession(this.prisma);
+      for (const p of allInitialPayments) {
+        assertCashSessionNotCounting(activeSession, p.paymentMethod);
+      }
     }
 
     // Descuento por nómina: el cliente es un empleado y el trabajo se le resta
@@ -1481,6 +1486,10 @@ export class OrdersService implements OnModuleInit {
             // Pago nuevo: mismo tratamiento que en `addPayment`.
             if (movesCash) {
               const activeSession = await findActiveCashSession(tx);
+              assertCashSessionNotCounting(
+                activeSession,
+                paymentData.paymentMethod,
+              );
 
               if (activeSession) {
                 const receiptNumber =
@@ -1516,6 +1525,16 @@ export class OrdersService implements OnModuleInit {
             // El pago ya estaba en caja: o se sincroniza el movimiento con los
             // datos nuevos, o se anula si dejó de ser dinero (saldo a favor o
             // crédito), porque ese ingreso deja de existir como entrada de caja.
+            await assertMovementChangeAllowedDuringCount(
+              tx,
+              firstPayment.cashMovementId,
+              movesCash
+                ? {
+                    amount: paymentData.amount,
+                    paymentMethod: paymentData.paymentMethod || 'CASH',
+                  }
+                : null,
+            );
             if (!movesCash) {
               await tx.cashMovement.update({
                 where: { id: firstPayment.cashMovementId },
@@ -2264,6 +2283,7 @@ export class OrdersService implements OnModuleInit {
 
     // Buscar sesión de caja abierta activa
     const activeSession = await findActiveCashSession(this.prisma);
+    assertCashSessionNotCounting(activeSession, createPaymentDto.paymentMethod);
 
     // Nota: se permite que el pago exceda el saldo pendiente.
     // El excedente queda como "saldo a favor" (paidAmount > total → balance negativo)

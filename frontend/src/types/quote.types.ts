@@ -125,6 +125,8 @@ export interface UpdateQuoteDto extends Partial<CreateQuoteDto> {
   status?: QuoteStatus;
   /** Obligatorio al pasar la cotización a REJECTED. */
   rejectionReason?: string;
+  /** Fecha y hora de entrega (ISO) de la OP. Obligatoria al pasar a CONVERTED. */
+  deliveryDate?: string;
 }
 
 export interface FilterQuotesDto {
