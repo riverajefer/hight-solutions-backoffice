@@ -18,3 +18,4 @@ export { ToolbarButton } from './ToolbarButton';
 export { SalesGoalsSection } from './SalesGoalsSection';
 export { OrdersDashboardCards } from './OrdersDashboardCards';
 export { OrderTrackingSection } from './OrderTrackingSection';
+export { DeliveryDateDialog, DeliveryDateTimePicker } from './DeliveryDateDialog';

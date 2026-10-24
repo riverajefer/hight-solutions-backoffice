@@ -131,13 +131,14 @@ export class CreateOrderDto {
   @IsUUID()
   clientId: string;
 
-  @ApiPropertyOptional({
-    description: 'Fecha estimada de entrega',
-    example: '2025-02-15',
+  // Obligatoria al crear: producción planea con ella. En la edición sigue
+  // siendo opcional (PartialType) para no bloquear las OP viejas sin fecha.
+  @ApiProperty({
+    description: 'Fecha y hora estimada de entrega (ISO 8601)',
+    example: '2025-02-15T15:00:00.000Z',
   })
-  @IsOptional()
-  @IsDateString()
-  deliveryDate?: string;
+  @IsDateString({}, { message: 'La fecha y hora de entrega es obligatoria y debe ser válida' })
+  deliveryDate: string;
 
   @ApiPropertyOptional({
     description: 'Observaciones',

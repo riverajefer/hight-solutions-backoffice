@@ -317,9 +317,9 @@ describe('QuotesController', () => {
       const mockOrder = { id: 'order-1', orderNumber: 'ORD-001' };
       mockQuotesService.convertToOrder.mockResolvedValue(mockOrder);
 
-      const result = await controller.convertToOrder('quote-1', mockRequest);
+      const result = await controller.convertToOrder('quote-1', { deliveryDate: '2030-01-15T15:00:00.000Z' }, mockRequest);
 
-      expect(service.convertToOrder).toHaveBeenCalledWith('quote-1', mockUser.id);
+      expect(service.convertToOrder).toHaveBeenCalledWith('quote-1', mockUser.id, '2030-01-15T15:00:00.000Z');
       expect(result).toEqual(mockOrder);
     });
 
@@ -328,7 +328,7 @@ describe('QuotesController', () => {
         new BadRequestException('Quote already converted to an order'),
       );
 
-      await expect(controller.convertToOrder('quote-1', mockRequest)).rejects.toThrow(
+      await expect(controller.convertToOrder('quote-1', { deliveryDate: '2030-01-15T15:00:00.000Z' }, mockRequest)).rejects.toThrow(
         BadRequestException,
       );
     });
@@ -338,7 +338,7 @@ describe('QuotesController', () => {
         new NotFoundException('Quote with ID non-existent not found'),
       );
 
-      await expect(controller.convertToOrder('non-existent', mockRequest)).rejects.toThrow(
+      await expect(controller.convertToOrder('non-existent', { deliveryDate: '2030-01-15T15:00:00.000Z' }, mockRequest)).rejects.toThrow(
         NotFoundException,
       );
     });

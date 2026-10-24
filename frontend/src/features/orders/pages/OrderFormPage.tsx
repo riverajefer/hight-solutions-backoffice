@@ -53,6 +53,7 @@ import {
   InitialPayment,
   ActivePermissionBanner,
 } from '../components';
+import { getDeliveryDateError } from '../utils/deliveryDate';
 import type { Client } from '../../../types/client.types';
 import { useAuthStore } from '../../../store/authStore';
 import { enqueueSnackbar } from 'notistack';
@@ -189,6 +190,17 @@ const orderFormSchema = z
     },
     { message: 'Ingrese el porcentaje de Retefuente personalizado', path: ['retefuenteCustom'] }
   );
+
+// Al crear, la fecha y hora de entrega es obligatoria y futura (requerimiento
+// del cliente: producción planea con ella). En la edición no se exige: hay OP
+// viejas sin fecha, o con una fecha ya vencida, que se deben poder seguir
+// editando sin que el formulario las bloquee.
+const createOrderFormSchema = orderFormSchema.superRefine((data, ctx) => {
+  const message = getDeliveryDateError(data.deliveryDate);
+  if (message) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message, path: ['deliveryDate'] });
+  }
+});
 
 type OrderFormData = z.infer<typeof orderFormSchema>;
 
@@ -384,7 +396,7 @@ export const OrderFormPage: React.FC = () => {
     trigger,
     formState: { errors, isValid },
   } = useForm<OrderFormData>({
-    resolver: zodResolver(orderFormSchema) as Resolver<OrderFormData>,
+    resolver: zodResolver(isEdit ? orderFormSchema : createOrderFormSchema) as Resolver<OrderFormData>,
     mode: 'onChange',
     defaultValues: {
       client: null,
@@ -642,12 +654,15 @@ export const OrderFormPage: React.FC = () => {
 
   const hasValidItems = items.length > 0 && items.some((item) => item.description && item.quantity && item.unitPrice);
 
+  // La fecha de entrega vive en el paso 0; al crear, sin ella no se avanza.
+  const hasDeliveryDate = isEdit || !getDeliveryDateError(deliveryDate);
+
   const getStepStatus = (i: number): 'active' | 'completed' | 'visited' | 'pending' => {
     if (i === activeStep) return 'active';
     if (!visitedSteps.has(i)) return 'pending';
     // Validación básica por paso
     const validByStep = [
-      isClientSelected && !!commercialChannelId,  // paso 0: cliente + canal de ventas
+      isClientSelected && !!commercialChannelId && hasDeliveryDate,  // paso 0: cliente + canal + entrega
       hasValidItems,                  // paso 1: al menos un item completo
       hasValidItems,                  // paso 2: requiere items para tener sentido
       true,                           // paso 3
@@ -656,7 +671,7 @@ export const OrderFormPage: React.FC = () => {
   };
 
   const canGoNext = () => {
-    if (activeStep === 0) return isClientSelected && !!commercialChannelId;
+    if (activeStep === 0) return isClientSelected && !!commercialChannelId && hasDeliveryDate;
     if (activeStep === 1) return hasValidItems;
     if (activeStep === 2) return hasValidItems;
     return true;
@@ -767,6 +782,8 @@ export const OrderFormPage: React.FC = () => {
       } else {
         const newOrder = await createOrderMutation.mutateAsync({
           ...orderDto,
+          // El schema de creación ya garantizó que existe.
+          deliveryDate: data.deliveryDate!.toISOString(),
           idempotencyKey: idempotencyKeyRef.current,
         });
 
@@ -870,9 +887,9 @@ export const OrderFormPage: React.FC = () => {
               <Controller
                 name="deliveryDate"
                 control={control}
-                render={({ field }) => (
+                render={({ field, fieldState }) => (
                   <DateTimePicker
-                    label="Fecha y Hora de Entrega (Opcional)"
+                    label={isEdit ? 'Fecha y Hora de Entrega' : 'Fecha y Hora de Entrega *'}
                     value={field.value}
                     onChange={field.onChange}
                     disabled={!isClientSelected}
@@ -880,7 +897,14 @@ export const OrderFormPage: React.FC = () => {
                     slotProps={{
                       textField: {
                         fullWidth: true,
-                        helperText: isClientSelected ? 'Fecha y hora estimada' : 'Seleccione cliente',
+                        onBlur: field.onBlur,
+                        error: !!fieldState.error && (fieldState.isTouched || fieldState.isDirty),
+                        helperText:
+                          fieldState.error && (fieldState.isTouched || fieldState.isDirty)
+                            ? fieldState.error.message
+                            : isClientSelected
+                              ? 'Fecha y hora estimada'
+                              : 'Seleccione cliente',
                       },
                     }}
                   />
@@ -1691,6 +1715,22 @@ export const OrderFormPage: React.FC = () => {
             {activeStep === 1 && renderStep1()}
             {activeStep === 2 && renderStep2()}
             {activeStep === 3 && renderStep3()}
+
+            {/* La fecha pudo vencerse mientras se llenaban los otros pasos: sin
+                este aviso, «Crear Orden» quedaría deshabilitado sin explicación. */}
+            {!isEdit && activeStep !== 0 && !hasDeliveryDate && (
+              <Alert
+                severity="warning"
+                sx={{ mt: 3 }}
+                action={
+                  <Button color="inherit" size="small" onClick={() => goToStep(0)}>
+                    Corregir
+                  </Button>
+                }
+              >
+                {getDeliveryDateError(deliveryDate)}. Corrígela en el paso «{STEPS[0].label}».
+              </Alert>
+            )}
 
             {/* Navegación */}
             <Stack

@@ -865,6 +865,7 @@ describe('OrdersService', () => {
   describe('create', () => {
     const baseCreateDto = {
       clientId: 'client-1',
+      deliveryDate: '2030-01-15T15:00:00.000Z',
       items: [{ description: 'Item A', quantity: 2, unitPrice: 50 }],
     };
 
@@ -886,7 +887,7 @@ describe('OrdersService', () => {
 
     it('should throw BadRequestException when items is undefined', async () => {
       await expect(
-        service.create({ clientId: 'client-1', items: undefined as any }, 'user-1'),
+        service.create({ ...baseCreateDto, items: undefined as any }, 'user-1'),
       ).rejects.toThrow(BadRequestException);
     });
 

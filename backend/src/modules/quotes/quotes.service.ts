@@ -205,6 +205,13 @@ export class QuotesService {
       updateQuoteDto.status === QuoteStatus.REJECTED &&
       oldQuote.status !== QuoteStatus.REJECTED;
 
+    // Se valida antes de tocar la cotización: si falta, no se guarda nada.
+    if (isConverting && !updateQuoteDto.deliveryDate) {
+      throw new BadRequestException(
+        'Debe indicar la fecha y hora de entrega para convertir la cotización en orden',
+      );
+    }
+
     if (isRejecting && !updateQuoteDto.rejectionReason?.trim()) {
       throw new BadRequestException(
         'Debe indicar el motivo del rechazo para rechazar la cotización',
@@ -344,7 +351,7 @@ export class QuotesService {
     }
 
     if (isConverting) {
-      return this.convertToOrder(id, userId);
+      return this.convertToOrder(id, userId, updateQuoteDto.deliveryDate!);
     }
 
     return this.findOne(id);
@@ -370,7 +377,7 @@ export class QuotesService {
     return { message: 'Quote deleted successfully' };
   }
 
-  async convertToOrder(id: string, userId: string) {
+  async convertToOrder(id: string, userId: string, deliveryDate: string) {
     const quote = await this.findOne(id);
 
     if (quote.status === QuoteStatus.CONVERTED) {
@@ -388,6 +395,7 @@ export class QuotesService {
           orderNumber,
           clientId: quote.clientId,
           orderDate: new Date(),
+          deliveryDate: new Date(deliveryDate),
           subtotal: quote.subtotal,
           taxRate: quote.taxRate,
           tax: quote.tax,
