@@ -14,6 +14,7 @@ import {
 import { CreateExpenseOrderDto, UpdateExpenseOrderDto } from './dto';
 import { AccountsPayableService } from '../accounts-payable/accounts-payable.service';
 import { ExpenseOrderEditRequestsService } from '../expense-order-edit-requests/expense-order-edit-requests.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 describe('ExpenseOrdersService', () => {
   let service: ExpenseOrdersService;
@@ -23,6 +24,7 @@ describe('ExpenseOrdersService', () => {
   let authRequestsService: jest.Mocked<ExpenseOrderAuthRequestsService>;
   let accountsPayableService: jest.Mocked<AccountsPayableService>;
   let editRequestsService: jest.Mocked<ExpenseOrderEditRequestsService>;
+  let notificationsService: jest.Mocked<NotificationsService>;
 
   beforeEach(async () => {
     repository = {
@@ -101,12 +103,17 @@ describe('ExpenseOrdersService', () => {
       syncFromExpenseOrder: jest.fn(),
       settleFromExpenseOrderMovements: jest.fn().mockResolvedValue(undefined),
       paidThroughExpenseOrder: jest.fn().mockResolvedValue(0),
+      paidOutsideExpenseOrder: jest.fn().mockResolvedValue(null),
       refreshFromLivePayments: jest.fn().mockResolvedValue(undefined),
     } as any;
 
     editRequestsService = {
       findActiveApproval: jest.fn().mockResolvedValue(null),
       consumeApproval: jest.fn().mockResolvedValue(true),
+    } as any;
+
+    notificationsService = {
+      notifyUsersWithPermission: jest.fn().mockResolvedValue(undefined),
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -118,6 +125,7 @@ describe('ExpenseOrdersService', () => {
         { provide: ExpenseOrderAuthRequestsService, useValue: authRequestsService },
         { provide: AccountsPayableService, useValue: accountsPayableService },
         { provide: ExpenseOrderEditRequestsService, useValue: editRequestsService },
+        { provide: NotificationsService, useValue: notificationsService },
       ],
     }).compile();
 
@@ -233,6 +241,22 @@ describe('ExpenseOrdersService', () => {
       );
       expect(prisma.cashMovement.create).not.toHaveBeenCalled();
       expect(repository.updateStatus).not.toHaveBeenCalled();
+    });
+
+    // OG-2026-0832: Caja pagó la CP espejo y después se autorizó la OG; el
+    // mismo gasto salió dos veces de caja y la CP quedó con saldo negativo.
+    it('si la CP espejo ya se pagó desde Cuentas por Pagar, no crea egresos', async () => {
+      (accountsPayableService.paidOutsideExpenseOrder as jest.Mock).mockResolvedValue({
+        apNumber: 'CP-2026-1176',
+        amount: 102300,
+      });
+
+      await expect(service.cajaAuthorize('og-1', currentUser)).rejects.toThrow(
+        /ya se pagó desde Cuentas por Pagar \(CP-2026-1176/,
+      );
+      expect(accountsPayableService.paidOutsideExpenseOrder).toHaveBeenCalledWith('og-1');
+      expect(repository.claimCajaAuthorization).not.toHaveBeenCalled();
+      expect(prisma.cashMovement.create).not.toHaveBeenCalled();
     });
   });
 
@@ -1021,6 +1045,46 @@ describe('ExpenseOrdersService', () => {
       await expect(
         service.updateStatus('order-1', { status: ExpenseOrderStatus.ADMIN_AUTHORIZED } as any, { id: 'u1', roleId: 'r1' } as any)
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('no deja firmar al admin una OG cuya CP ya se pagó', async () => {
+      (repository.findById as jest.Mock).mockResolvedValue({
+        id: 'order-1',
+        ogNumber: 'OG-2026-0832',
+        status: ExpenseOrderStatus.CREATED,
+      } as any);
+      (accountsPayableService.paidOutsideExpenseOrder as jest.Mock).mockResolvedValue({
+        apNumber: 'CP-2026-1176',
+        amount: 102300,
+      });
+
+      await expect(
+        service.updateStatus('order-1', { status: ExpenseOrderStatus.ADMIN_AUTHORIZED } as any, { id: 'admin1' } as any),
+      ).rejects.toThrow(ConflictException);
+      expect(repository.updateStatus).not.toHaveBeenCalled();
+    });
+
+    // Antes solo se avisaba al solicitante; Caja no se enteraba de que la OG la
+    // esperaba y pagaba la CP por su lado.
+    it('avisa a Caja (sin los admins) cuando la OG queda con la firma del admin', async () => {
+      (repository.findById as jest.Mock).mockResolvedValue({
+        id: 'order-1',
+        ogNumber: 'OG-2026-0832',
+        status: ExpenseOrderStatus.CREATED,
+      } as any);
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ role: { name: 'admin' } } as any);
+
+      await service.updateStatus('order-1', { status: ExpenseOrderStatus.ADMIN_AUTHORIZED } as any, { id: 'admin1' } as any);
+
+      expect(notificationsService.notifyUsersWithPermission).toHaveBeenCalledWith(
+        'caja_authorize_expense_orders',
+        expect.objectContaining({
+          type: 'EXPENSE_ORDER_PENDING_CAJA',
+          relatedId: 'order-1',
+          relatedType: 'ExpenseOrder',
+        }),
+        { excludeAdmins: true },
+      );
     });
   });
 });
