@@ -241,11 +241,16 @@ export class NotificationsService {
   }
 
   /**
-   * Notificar a todos los usuarios que tengan un permiso específico
+   * Notificar a todos los usuarios que tengan un permiso específico.
+   *
+   * `excludeAdmins` deja por fuera al rol admin, que tiene todos los permisos:
+   * sirve cuando el aviso es para quien ejecuta el paso (Caja) y no para quien
+   * lo acaba de firmar.
    */
   async notifyUsersWithPermission(
     permissionName: string,
     data: Omit<CreateNotificationDto, 'userId'>,
+    options: { excludeAdmins?: boolean } = {},
   ): Promise<void> {
     const users = await this.prisma.user.findMany({
       where: {
@@ -255,6 +260,7 @@ export class NotificationsService {
               permission: { name: permissionName },
             },
           },
+          ...(options.excludeAdmins && { name: { not: 'admin' } }),
         },
       },
       select: { id: true },
