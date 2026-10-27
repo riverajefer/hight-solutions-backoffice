@@ -80,6 +80,8 @@ export interface ExpenseOrderItem {
   bankEntity?: string | null;
   receiptFileId?: string | null;
   referenceFileId?: string | null;
+  /** Ítem de la OT al que pertenece la línea. Nulo = toda la OT. */
+  workOrderItemId?: string | null;
   sortOrder: number;
   supplier?: {
     id: string;
@@ -231,6 +233,8 @@ export interface CreateExpenseItemDto {
   paymentMethod: PaymentMethod;
   bankEntity?: string | null;
   productionAreaIds?: string[];
+  /** Ítem de la OT al que pertenece la línea. `null` = toda la OT. */
+  workOrderItemId?: string | null;
   receiptFileId?: string;
   referenceFileId?: string;
 }
@@ -271,6 +275,8 @@ export interface UpdateExpenseItemDto {
   paymentMethod?: PaymentMethod;
   bankEntity?: string | null;
   productionAreaIds?: string[];
+  /** Ítem de la OT al que pertenece la línea. `null` = toda la OT. */
+  workOrderItemId?: string | null;
   receiptFileId?: string;
   referenceFileId?: string;
 }
