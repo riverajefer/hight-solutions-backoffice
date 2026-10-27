@@ -128,6 +128,9 @@ export const WorkOrderDetailPage = () => {
     ? `${workOrder.designer.firstName ?? ''} ${workOrder.designer.lastName ?? ''}`.trim() || workOrder.designer.email
     : '-';
   const expenseOrders = workOrder.expenseOrders ?? [];
+  // «Producto N» como en la lista de productos, para decir a qué ítems aplica cada OG.
+  const itemNumberById = new Map(workOrder.items.map((item, index) => [item.id, index + 1]));
+  const canCreateItemExpense = !isParentOrderAnulado && canCreateExpenseOrder;
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
@@ -322,6 +325,9 @@ export const WorkOrderDetailPage = () => {
                     const fullyAnnulled =
                       annulledQuantity > 0 &&
                       getAliveQuantity(item.orderItem) === 0;
+                    const itemExpenseOrders = expenseOrders.filter((eo) =>
+                      eo.workOrderItems?.some((woi) => woi.workOrderItemId === item.id),
+                    );
                     return (
                     <Box key={item.id}>
                       <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
@@ -350,6 +356,20 @@ export const WorkOrderDetailPage = () => {
                             />
                           )}
                         </Stack>
+                        {canCreateItemExpense && !fullyAnnulled && (
+                          <Button
+                            size="small"
+                            color="warning"
+                            startIcon={<ReceiptLongIcon />}
+                            onClick={() =>
+                              navigate(
+                                `${ROUTES.EXPENSE_ORDERS_CREATE}?workOrderId=${id}&workOrderItemIds=${item.id}`,
+                              )
+                            }
+                          >
+                            Gasto
+                          </Button>
+                        )}
                       </Stack>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
                         Item original: {item.orderItem.description} · Cant: {item.orderItem.quantity} · Precio: {formatCurrency(item.orderItem.unitPrice)}
@@ -376,6 +396,27 @@ export const WorkOrderDetailPage = () => {
                                 label={s.supply.sku ? `${s.supply.name} (${s.supply.sku})` : s.supply.name}
                                 size="small"
                                 variant="outlined"
+                              />
+                            ))}
+                          </Stack>
+                        </Box>
+                      )}
+
+                      {itemExpenseOrders.length > 0 && (
+                        <Box mt={1}>
+                          <Typography variant="caption" color="text.secondary">Gastos (OG)</Typography>
+                          <Stack direction="row" spacing={1} flexWrap="wrap" mt={0.5}>
+                            {itemExpenseOrders.map((eo) => (
+                              <Chip
+                                key={eo.id}
+                                label={eo.ogNumber}
+                                size="small"
+                                color="warning"
+                                variant="outlined"
+                                clickable
+                                onClick={() =>
+                                  navigate(ROUTES.EXPENSE_ORDERS_DETAIL.replace(':id', eo.id))
+                                }
                               />
                             ))}
                           </Stack>
@@ -492,6 +533,18 @@ export const WorkOrderDetailPage = () => {
                               {expenseOrder.expenseType?.name} · {expenseOrder.expenseSubcategory?.name}
                             </Typography>
                           </Stack>
+
+                          <Typography variant="caption" color="text.secondary">
+                            Aplica a:{' '}
+                            {expenseOrder.workOrderItems?.length
+                              ? expenseOrder.workOrderItems
+                                  .map((woi) => itemNumberById.get(woi.workOrderItemId))
+                                  .filter((n): n is number => n !== undefined)
+                                  .sort((a, b) => a - b)
+                                  .map((n) => `Producto ${n}`)
+                                  .join(', ')
+                              : 'Toda la OT'}
+                          </Typography>
 
                           <Typography variant="caption" color="text.secondary">
                             Creada: {formatDate(expenseOrder.createdAt)}

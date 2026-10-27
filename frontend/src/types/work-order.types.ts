@@ -168,6 +168,8 @@ export interface WorkOrder {
     expenseSubcategory: {
       name: string;
     };
+    /** Vacío = gasto de toda la OT. */
+    workOrderItems?: Array<{ workOrderItemId: string }>;
   }>;
   timeEntries?: WorkOrderTimeEntry[];
   items: WorkOrderItem[];
