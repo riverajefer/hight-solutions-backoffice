@@ -14,6 +14,7 @@ export class ExpenseOrdersRepository {
     status: true,
     observations: true,
     areaOrMachine: true,
+    machine: { select: { id: true, name: true } },
     applyIva: true,
     ivaRate: true,
     retefuenteRate: true,
@@ -213,6 +214,7 @@ export class ExpenseOrdersRepository {
     responsibleId?: string;
     observations?: string;
     areaOrMachine?: string;
+    machineId?: string | null;
     applyIva?: boolean;
     ivaRate?: number;
     retefuenteRate?: number;
@@ -283,6 +285,7 @@ export class ExpenseOrdersRepository {
       responsibleId?: string | null;
       observations?: string;
       areaOrMachine?: string;
+      machineId?: string | null;
       applyIva?: boolean;
       ivaRate?: number;
       retefuenteRate?: number;
