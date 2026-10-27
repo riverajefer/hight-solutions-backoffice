@@ -85,6 +85,28 @@ export class ExpenseOrdersService {
   ) {}
 
   /**
+   * Los ítems a los que aplica la OG tienen que ser de su OT. Sin ítems no hay
+   * nada que validar: la OG es gasto de toda la OT.
+   */
+  private async assertWorkOrderItemsBelongTo(
+    workOrderId: string | null | undefined,
+    workOrderItemIds: string[] | undefined,
+  ) {
+    if (!workOrderItemIds?.length) return;
+    if (!workOrderId) {
+      throw new BadRequestException(
+        'Para asociar ítems de OT, la OG debe tener una OT asociada',
+      );
+    }
+    const found = await this.prisma.workOrderItem.count({
+      where: { id: { in: workOrderItemIds }, workOrderId },
+    });
+    if (found !== workOrderItemIds.length) {
+      throw new BadRequestException('Alguno de los ítems no pertenece a la OT asociada');
+    }
+  }
+
+  /**
    * Total a pagar de la OG: subtotal + IVA - retenciones. Se delega en el util
    * compartido para que la Cuenta por Pagar que nace de esta orden llegue
    * exactamente al mismo número.
@@ -143,6 +165,7 @@ export class ExpenseOrdersService {
         throw new NotFoundException(`OT con id ${dto.workOrderId} no encontrada`);
       }
     }
+    await this.assertWorkOrderItemsBelongTo(dto.workOrderId, dto.workOrderItemIds);
 
     // Validate ExpenseType and Subcategory belong to each other
     const subcategory = await this.prisma.expenseSubcategory.findFirst({
@@ -186,6 +209,7 @@ export class ExpenseOrdersService {
           expenseTypeId: dto.expenseTypeId,
           expenseSubcategoryId: dto.expenseSubcategoryId,
           workOrderId: dto.workOrderId,
+          workOrderItemIds: dto.workOrderItemIds,
           authorizedToId: dto.authorizedToId,
           responsibleId: dto.responsibleId,
           observations: dto.observations,
@@ -580,6 +604,16 @@ export class ExpenseOrdersService {
       }
     }
 
+    // `workOrderId` undefined = no cambia; null = se quita la OT.
+    const currentWorkOrderId = expenseOrder.workOrder?.id ?? null;
+    const nextWorkOrderId =
+      dto.workOrderId === undefined ? currentWorkOrderId : dto.workOrderId;
+    await this.assertWorkOrderItemsBelongTo(nextWorkOrderId, dto.workOrderItemIds);
+    // Los ítems son de la OT: si la OT cambia y no llegan ítems nuevos, los
+    // viejos quedarían apuntando a otra OT.
+    const nextWorkOrderItemIds =
+      dto.workOrderItemIds ?? (nextWorkOrderId !== currentWorkOrderId ? [] : undefined);
+
     // Validate subcategory belongs to type
     if (dto.expenseTypeId || dto.expenseSubcategoryId) {
       const typeId = dto.expenseTypeId ?? expenseOrder.expenseType.id;
@@ -592,11 +626,15 @@ export class ExpenseOrdersService {
       }
     }
 
-    const { items, ...scalarData } = dto;
+    const { items, workOrderItemIds: _, ...scalarData } = dto;
 
     // Update scalar fields
     if (Object.keys(scalarData).length > 0) {
       await this.repository.update(id, scalarData);
+    }
+
+    if (nextWorkOrderItemIds !== undefined) {
+      await this.repository.replaceWorkOrderItems(id, nextWorkOrderItemIds);
     }
 
     // Replace items if provided
