@@ -71,6 +71,21 @@ const DELETABLE_STATUSES: ExpenseOrderStatus[] = [
   ExpenseOrderStatus.CREATED,
 ];
 
+/**
+ * Ítems de la OT que hay que validar: los de la OG más los de sus líneas, sin
+ * repetidos (la validación cuenta filas).
+ */
+function withLineWorkOrderItems(
+  workOrderItemIds: string[] | undefined,
+  lines: Array<{ workOrderItemId?: string | null }> | undefined,
+): string[] | undefined {
+  const ids = new Set(workOrderItemIds ?? []);
+  for (const line of lines ?? []) {
+    if (line.workOrderItemId) ids.add(line.workOrderItemId);
+  }
+  return ids.size ? [...ids] : workOrderItemIds;
+}
+
 @Injectable()
 export class ExpenseOrdersService {
   constructor(
@@ -188,7 +203,10 @@ export class ExpenseOrdersService {
         throw new NotFoundException(`OT con id ${dto.workOrderId} no encontrada`);
       }
     }
-    await this.assertWorkOrderItemsBelongTo(dto.workOrderId, dto.workOrderItemIds);
+    await this.assertWorkOrderItemsBelongTo(
+      dto.workOrderId,
+      withLineWorkOrderItems(dto.workOrderItemIds, dto.items),
+    );
     await this.assertMachineBelongsToArea(dto.machineId, dto.areaOrMachine);
 
     // Validate ExpenseType and Subcategory belong to each other
@@ -217,6 +235,7 @@ export class ExpenseOrdersService {
       receiptFileId: item.receiptFileId,
       referenceFileId: item.referenceFileId,
       productionAreaIds: item.productionAreaIds,
+      workOrderItemId: item.workOrderItemId ?? null,
       sortOrder: index,
     }));
 
@@ -633,7 +652,10 @@ export class ExpenseOrdersService {
     const currentWorkOrderId = expenseOrder.workOrder?.id ?? null;
     const nextWorkOrderId =
       dto.workOrderId === undefined ? currentWorkOrderId : dto.workOrderId;
-    await this.assertWorkOrderItemsBelongTo(nextWorkOrderId, dto.workOrderItemIds);
+    await this.assertWorkOrderItemsBelongTo(
+      nextWorkOrderId,
+      withLineWorkOrderItems(dto.workOrderItemIds, dto.items),
+    );
     await this.assertMachineBelongsToArea(
       dto.machineId === undefined ? expenseOrder.machine?.id : dto.machineId,
       dto.areaOrMachine === undefined ? expenseOrder.areaOrMachine : dto.areaOrMachine,
@@ -665,6 +687,11 @@ export class ExpenseOrdersService {
     if (nextWorkOrderItemIds !== undefined) {
       await this.repository.replaceWorkOrderItems(id, nextWorkOrderItemIds);
     }
+    // Si llegan líneas nuevas, traen su propio ítem; si no, las viejas
+    // quedarían apuntando a ítems de otra OT.
+    if (nextWorkOrderId !== currentWorkOrderId && !items?.length) {
+      await this.repository.clearItemWorkOrderLinks(id);
+    }
 
     // Replace items if provided
     if (items && items.length > 0) {
@@ -680,6 +707,7 @@ export class ExpenseOrdersService {
         receiptFileId: item.receiptFileId,
         referenceFileId: item.referenceFileId,
         productionAreaIds: item.productionAreaIds,
+      workOrderItemId: item.workOrderItemId ?? null,
         sortOrder: index,
       }));
 
@@ -772,6 +800,11 @@ export class ExpenseOrdersService {
       );
     }
 
+    await this.assertWorkOrderItemsBelongTo(
+      expenseOrder.workOrder?.id,
+      dto.workOrderItemId ? [dto.workOrderItemId] : undefined,
+    );
+
     // Compute sortOrder as next after existing items
     const sortOrder = expenseOrder.items.length;
 
@@ -787,6 +820,7 @@ export class ExpenseOrdersService {
       receiptFileId: dto.receiptFileId,
       referenceFileId: dto.referenceFileId,
       productionAreaIds: dto.productionAreaIds,
+      workOrderItemId: dto.workOrderItemId ?? null,
       sortOrder,
     });
 
