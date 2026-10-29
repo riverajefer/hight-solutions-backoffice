@@ -207,6 +207,15 @@ export interface ExpenseOrder {
     lastName?: string | null;
     email: string;
   } | null;
+  returnedForCorrectionById?: string | null;
+  returnedForCorrectionAt?: string | null;
+  returnedForCorrectionReason?: string | null;
+  returnedForCorrectionBy?: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    email: string;
+  } | null;
   items: ExpenseOrderItem[];
 }
 
