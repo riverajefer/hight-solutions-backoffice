@@ -83,9 +83,23 @@ describe('useOrders (lista)', () => {
     await act(async () => {
       await result.current.updateStatusMutation.mutateAsync({ id: 'o1', status: 'PAID' as any });
     });
-    expect(ordersApi.updateStatus).toHaveBeenCalledWith('o1', 'PAID');
+    expect(ordersApi.updateStatus).toHaveBeenCalledWith('o1', 'PAID', { reason: undefined });
     expect(enqueueMock).toHaveBeenCalledWith('Estado actualizado correctamente', {
       variant: 'success',
+    });
+  });
+
+  it('updateStatus envía el motivo al devolver la orden a un estado previo', async () => {
+    const { result } = renderHook(() => useOrders(), { wrapper: createWrapper() });
+    await act(async () => {
+      await result.current.updateStatusMutation.mutateAsync({
+        id: 'o1',
+        status: 'CONFIRMED' as any,
+        reason: 'Se registró por error',
+      });
+    });
+    expect(ordersApi.updateStatus).toHaveBeenCalledWith('o1', 'CONFIRMED', {
+      reason: 'Se registró por error',
     });
   });
 

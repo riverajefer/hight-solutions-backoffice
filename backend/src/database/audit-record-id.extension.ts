@@ -16,6 +16,7 @@ export const COMPOSITE_PRIMARY_KEYS: Readonly<Record<string, readonly string[]>>
   OrderItemProductionArea: ['orderItemId', 'productionAreaId'],
   WorkOrderItemProductionArea: ['workOrderItemId', 'productionAreaId'],
   ExpenseOrderItemProductionArea: ['expenseOrderItemId', 'productionAreaId'],
+  ExpenseOrderWorkOrderItem: ['expenseOrderId', 'workOrderItemId'],
 };
 
 export const UNKNOWN_RECORD_ID = 'unknown';
