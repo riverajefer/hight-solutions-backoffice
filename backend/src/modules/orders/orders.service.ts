@@ -66,6 +66,7 @@ import { startOfDay, endOfDay, businessToday } from '../../common/utils/date-ran
 import { applyColombianRounding, roundToWholePeso, normalizeRate } from '../../common/utils/rounding.util';
 import {
   ACTIVE_PAYMENT_WHERE,
+  assertRefundsStayCovered,
   computeNetPaidAmount,
   sumActivePayments,
   computeOrderBalance,
@@ -1771,6 +1772,7 @@ export class OrdersService implements OnModuleInit {
       // Antes de consumir cualquier autorización: con el descuento por nómina ya
       // aplicado, al empleado ya se le restó el valor y hay que cancelarlo antes.
       await this.payrollDeductionsService.assertOrderCanBeAnnulled(id);
+      await this.assertNoOpenRefund(id);
 
       const authCheck = await this.statusChangeRequestsService.requiresAuthorization(
         id,
@@ -2721,6 +2723,7 @@ export class OrdersService implements OnModuleInit {
           reversedAmount: true,
         },
       });
+      assertRefundsStayCovered(paymentsTotal, current?.refundedAmount);
       const paidAmount = computeNetPaidAmount(
         paymentsTotal,
         current?.refundedAmount,
@@ -3680,6 +3683,31 @@ export class OrdersService implements OnModuleInit {
         },
       });
     });
+  }
+
+  /**
+   * Una devolución abierta se autorizó contra la OP viva. Si la OP se anula
+   * antes de ejecutarla, la solicitud ya no se puede aprobar ni pagar: la venta
+   * que pensaba anular ya no existe, o lo retenido se llevó el dinero que iba a
+   * devolver (OP-2026-3290). Por eso hay que cerrarla antes de anular.
+   */
+  private async assertNoOpenRefund(orderId: string): Promise<void> {
+    const openRefund = await this.prisma.refundRequest.findFirst({
+      where: {
+        orderId,
+        OR: [
+          { status: EditRequestStatus.PENDING },
+          { status: EditRequestStatus.APPROVED, executedAt: null },
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (openRefund) {
+      throw new BadRequestException(
+        'Esta orden tiene una devolución en curso: debe ejecutarse o rechazarse antes de anular.',
+      );
+    }
   }
 
   private assertNotAnulado(order: { status: string }, operation: string): void {
