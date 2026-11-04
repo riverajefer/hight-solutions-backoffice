@@ -33,6 +33,9 @@ import PaymentIcon from '@mui/icons-material/Payment';
 import BadgeIcon from '@mui/icons-material/Badge';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import BlockIcon from '@mui/icons-material/Block';
+import SyncAltIcon from '@mui/icons-material/SyncAlt';
+import CashTransferRequestsTab from '../../cash-register/components/CashTransferRequestsTab';
+import { usePendingCashTransferCount } from '../../../hooks/useCashTransferRequests';
 import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange';
 import PercentIcon from '@mui/icons-material/Percent';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -129,6 +132,8 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const canApproveQuoteRestore = hasPermission('approve_quote_restore') || isAdmin;
   const canApproveExpenseOrders = hasPermission('approve_expense_orders') || isAdmin;
   const canApproveVoidRequests = hasPermission('approve_cash_movements') || isAdmin;
+  // Solo el admin aprueba traslados de caja (decisión del cliente, 2026-11-04).
+  const canApproveCashTransfers = isAdmin;
   const canApproveRefunds = hasPermission('approve_refunds') || isAdmin;
   const canApproveAccountsPayable = hasPermission('approve_accounts_payable') || isAdmin;
   const canCajaAuthorizeAp = hasPermission('caja_authorize_ap_payment');
@@ -158,7 +163,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   }, [navWidth]);
 
   const [tabValue, setTabValue] = useState<string>(
-    canApproveOrders ? 'status' : canApproveAdvancePayments ? 'advance' : canApproveDiscounts ? 'discount' : canApprovePaymentEdits ? 'payment-edit' : canApproveClientOwnership ? 'ownership' : canApproveAdvisorChange ? 'advisor' : canApproveClientAdvisor ? 'client-advisor' : canApproveQuoteRestore ? 'quote-restore' : canApproveExpenseOrders ? 'og' : canApproveVoidRequests ? 'void' : canApproveRefunds ? 'refund' : canApproveAccountsPayable ? 'ap' : canGerenciaApproveReversal ? 'ap-reversal' : 'status',
+    canApproveOrders ? 'status' : canApproveAdvancePayments ? 'advance' : canApproveDiscounts ? 'discount' : canApprovePaymentEdits ? 'payment-edit' : canApproveClientOwnership ? 'ownership' : canApproveAdvisorChange ? 'advisor' : canApproveClientAdvisor ? 'client-advisor' : canApproveQuoteRestore ? 'quote-restore' : canApproveExpenseOrders ? 'og' : canApproveVoidRequests ? 'void' : canApproveCashTransfers ? 'cash-transfer' : canApproveRefunds ? 'refund' : canApproveAccountsPayable ? 'ap' : canGerenciaApproveReversal ? 'ap-reversal' : 'status',
   );
   
   const [viewMode, setViewMode] = useState<'pending' | 'history'>('pending');
@@ -2933,6 +2938,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const clientAdvisorCount = clientAdvisorRequests?.length || 0;
   const quoteRestoreCount = quoteRestoreRequests?.length || 0;
   const voidCount = voidRequests?.length || 0;
+  const cashTransferCount = usePendingCashTransferCount(canApproveCashTransfers);
   const refundCount = refundRequests?.length || 0;
   const apAuthCount = apAuthRequests?.length || 0;
   const cajaApCount = cajaApRequests?.length || 0;
@@ -3057,6 +3063,13 @@ export const StatusChangeRequestsPage: React.FC = () => {
                 {voidCount > 0 && <Badge badgeContent={voidCount} color="warning" sx={{ mr: 1 }} />}
               </ListItemButton>
             )}
+            {canApproveCashTransfers && (
+              <ListItemButton selected={tabValue === 'cash-transfer'} onClick={() => setTabValue('cash-transfer')} sx={{ borderRadius: 1, mx: 1 }}>
+                <ListItemIcon sx={{ minWidth: 36 }}><SyncAltIcon fontSize="small" /></ListItemIcon>
+                <ListItemText primary="Traslados de Caja" primaryTypographyProps={{ variant: 'body2' }} />
+                {cashTransferCount > 0 && <Badge badgeContent={cashTransferCount} color="warning" sx={{ mr: 1 }} />}
+              </ListItemButton>
+            )}
             {canApproveRefunds && (
               <ListItemButton selected={tabValue === 'refund'} onClick={() => setTabValue('refund')} sx={{ borderRadius: 1, mx: 1 }}>
                 <ListItemIcon sx={{ minWidth: 36 }}><CurrencyExchangeIcon fontSize="small" /></ListItemIcon>
@@ -3173,6 +3186,9 @@ export const StatusChangeRequestsPage: React.FC = () => {
           )}
           {tabValue === 'void' && canApproveVoidRequests && (
             <DataTable rows={voidRequests || []} columns={voidColumns} loading={voidLoading} getRowId={(row) => row.id} density="compact" pageSize={20} pageSizeOptions={[20, 50, 100]} />
+          )}
+          {tabValue === 'cash-transfer' && canApproveCashTransfers && (
+            <CashTransferRequestsTab viewMode={viewMode} />
           )}
           {tabValue === 'refund' && canApproveRefunds && (
             <DataTable rows={refundRequests || []} columns={refundColumns} loading={refundLoading} getRowId={(row) => row.id} density="compact" pageSize={20} pageSizeOptions={[20, 50, 100]} />
