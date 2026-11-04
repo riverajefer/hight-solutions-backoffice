@@ -110,6 +110,8 @@ model User {
   voidedCashMovements                       CashMovement[]                         @relation("VoidedCashMovements")
   requestedVoidRequests                     CashMovementVoidRequest[]              @relation("RequestedVoidRequests")
   reviewedVoidRequests                      CashMovementVoidRequest[]              @relation("ReviewedVoidRequests")
+  requestedTransferRequests                 CashMovementTransferRequest[]          @relation("RequestedTransferRequests")
+  reviewedTransferRequests                  CashMovementTransferRequest[]          @relation("ReviewedTransferRequests")
   requestedRefundRequests                   RefundRequest[]                        @relation("RequestedRefundRequests")
   reviewedRefundRequests                    RefundRequest[]                        @relation("ReviewedRefundRequests")
   executedRefundRequests                    RefundRequest[]                        @relation("ExecutedRefundRequests")
@@ -991,6 +993,7 @@ enum ApprovalRequestType {
   DISCOUNT_APPROVAL
   PAYMENT_EDIT
   CASH_MOVEMENT_VOID
+  CASH_MOVEMENT_TRANSFER
   REFUND_REQUEST
   AP_AUTH
   AP_PAYMENT_AUTH
@@ -1034,6 +1037,9 @@ enum NotificationType {
   CASH_VOID_REQUEST_PENDING // Nueva solicitud de anulación de movimiento de caja
   CASH_VOID_REQUEST_APPROVED // Solicitud de anulación de movimiento aprobada
   CASH_VOID_REQUEST_REJECTED // Solicitud de anulación de movimiento rechazada
+  CASH_TRANSFER_REQUEST_PENDING // Nueva solicitud de traslado de un movimiento a la caja de hoy
+  CASH_TRANSFER_REQUEST_APPROVED // Traslado aprobado y aplicado
+  CASH_TRANSFER_REQUEST_REJECTED // Traslado rechazado
   REFUND_REQUEST_PENDING // Nueva solicitud de devolución de dinero al cliente
   REFUND_REQUEST_APPROVED // Devolución aprobada
   AP_AUTH_REQUEST_PENDING // Nueva solicitud de autorización de Cuenta por Pagar
@@ -2572,6 +2578,8 @@ model CashSession {
   countStartedBy User?                   @relation("CountStartedCashSessions", fields: [countStartedById], references: [id])
   denominations  CashDenominationCount[]
   movements      CashMovement[]
+  transfersOut   CashMovementTransferRequest[] @relation("TransferSourceSession")
+  transfersIn    CashMovementTransferRequest[] @relation("TransferTargetSession")
 
   @@index([cashRegisterId, status])
   @@index([openedById])
@@ -2621,6 +2629,7 @@ model CashMovement {
   originalMovement        CashMovement?             @relation("CounterMovement")
   linkedPayment           Payment?
   voidRequests            CashMovementVoidRequest[]
+  transferRequests        CashMovementTransferRequest[]
   refundRequest           RefundRequest?
   accountPayablePayment   AccountPayablePayment?
   expenseOrderItemPayment ExpenseOrderItemPayment?
@@ -2665,6 +2674,55 @@ model CashMovementVoidRequest {
   @@index([requestedById])
   @@index([status])
   @@map("cash_movement_void_requests")
+}
+
+/// Traslado de un movimiento en efectivo de una sesión CERRADA a la sesión
+/// abierta de la misma caja, recalculando el cierre de origen.
+///
+/// Para cuando el billete no estaba donde el sistema dice: una OG que Caja
+/// registró pagada pero el proveedor nunca recibió (OG-2026-0890 y 0917), o un
+/// abono registrado durante el arqueo cuyo billete quedó en la sesión
+/// siguiente. Anular no sirve: el cierre está congelado y el gasto se
+/// duplicaría. Ver docs/PROPUESTA_TRASLADO_MOVIMIENTOS_CAJA.md.
+model CashMovementTransferRequest {
+  id              String            @id @default(uuid())
+  cashMovementId  String            @map("cash_movement_id")
+  sourceSessionId String            @map("source_session_id")
+  /// Se fija al aplicar: es la sesión abierta en ese momento.
+  targetSessionId String?           @map("target_session_id")
+  requestedById   String            @map("requested_by_id")
+  reason          String
+  /// Respuesta a «¿El dinero se quedó en la caja?». Solo se crea con `true`;
+  /// se guarda para que quede constancia de lo que se declaró.
+  cashStayedInDrawer Boolean        @map("cash_stayed_in_drawer")
+  status          EditRequestStatus @default(PENDING)
+
+  reviewedById String?   @map("reviewed_by_id")
+  reviewedAt   DateTime? @map("reviewed_at")
+  reviewNotes  String?   @map("review_notes")
+
+  /// Cierre de origen antes y después de aplicar (fondo + efectivo).
+  sourceSystemBalanceBefore Decimal?  @map("source_system_balance_before") @db.Decimal(14, 2)
+  sourceSystemBalanceAfter  Decimal?  @map("source_system_balance_after") @db.Decimal(14, 2)
+  sourceDiscrepancyBefore   Decimal?  @map("source_discrepancy_before") @db.Decimal(14, 2)
+  sourceDiscrepancyAfter    Decimal?  @map("source_discrepancy_after") @db.Decimal(14, 2)
+  appliedAt                 DateTime? @map("applied_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cashMovement  CashMovement @relation(fields: [cashMovementId], references: [id], onDelete: Cascade)
+  sourceSession CashSession  @relation("TransferSourceSession", fields: [sourceSessionId], references: [id])
+  targetSession CashSession? @relation("TransferTargetSession", fields: [targetSessionId], references: [id])
+  requestedBy   User         @relation("RequestedTransferRequests", fields: [requestedById], references: [id])
+  reviewedBy    User?        @relation("ReviewedTransferRequests", fields: [reviewedById], references: [id])
+
+  @@index([cashMovementId])
+  @@index([sourceSessionId])
+  @@index([targetSessionId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("cash_movement_transfer_requests")
 }
 
 // =============================================================================

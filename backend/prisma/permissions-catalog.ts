@@ -153,6 +153,21 @@ export const permissionGroups: PermissionGroup[] = [
     ],
   },
   {
+    label: '🔁 Traslado de movimientos de caja',
+    permissions: [
+      {
+        name: 'request_cash_movement_transfer',
+        description:
+          'Solicitar que un movimiento en efectivo de una sesión cerrada pase a la caja de hoy (p. ej. una OG que el proveedor no recibió)',
+      },
+      {
+        name: 'approve_cash_movement_transfer',
+        description:
+          'Aprobar o rechazar traslados de movimientos de caja (solo administradores; recalcula el cierre de origen)',
+      },
+    ],
+  },
+  {
     label: '↩️ Devoluciones de dinero',
     permissions: [
       {
