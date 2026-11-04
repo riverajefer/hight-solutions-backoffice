@@ -110,6 +110,7 @@ export class WorkOrdersRepository {
         id: true,
         productDescription: true,
         observations: true,
+        createdAt: true,
         orderItem: {
           select: {
             id: true,

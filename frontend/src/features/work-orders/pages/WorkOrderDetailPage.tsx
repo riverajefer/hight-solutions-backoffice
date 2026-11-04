@@ -362,6 +362,12 @@ export const WorkOrderDetailPage = () => {
                       eo.workOrderItems?.some((woi) => woi.workOrderItemId === item.id),
                     );
                     // Casi siempre es la misma descripción del producto: repetirla es ruido.
+                    // Se creó después que la OT (la OP lo sumó luego): el taller tiene
+                    // que notarlo, porque aparece en una OT que quizá ya estaba en marcha.
+                    const addedAfterCreation =
+                      !!item.createdAt &&
+                      new Date(item.createdAt).getTime() - new Date(workOrder.createdAt).getTime() >
+                        60_000;
                     const showOriginalDescription =
                       item.orderItem.description.trim().toLowerCase() !==
                       item.productDescription.trim().toLowerCase();
@@ -439,6 +445,15 @@ export const WorkOrderDetailPage = () => {
                               </Button>
                             )}
                           </Stack>
+                          {addedAfterCreation && (
+                            <Chip
+                              label={`Agregado desde la OP · ${formatDate(item.createdAt)}`}
+                              size="small"
+                              color="info"
+                              variant="outlined"
+                              sx={{ mt: 0.5, maxWidth: '100%' }}
+                            />
+                          )}
 
                           {annulledQuantity > 0 && (
                             <Chip
