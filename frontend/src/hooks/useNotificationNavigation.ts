@@ -50,6 +50,7 @@ const RESOLVABLE_TYPES = new Set([
   'ClientAdvisorRequest',
   'CashMovement',
   'CashMovementVoidRequest',
+  'CashMovementTransferRequest',
 ]);
 
 export const isNotificationNavigable = (

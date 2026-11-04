@@ -55,6 +55,9 @@ import { exportSessionPdf, exportSessionExcel } from '../utils/exportSession';
 import { generateMovementReceipt } from '../utils/generateMovementReceipt';
 import type { CashMovementType } from '../../../types/cash-register.types';
 import { PAYMENT_METHOD_LABELS } from '../../../utils/paymentMethods';
+import { useAuthStore } from '../../../store/authStore';
+import TransferMovementDialog from '../components/TransferMovementDialog';
+import SessionTransfersCard from '../components/SessionTransfersCard';
 
 const MOVEMENT_TYPE_LABELS: Record<CashMovementType, string> = {
   INCOME: 'Ingreso',
@@ -107,6 +110,10 @@ const SessionDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const sessionQuery = useCashSession(id);
   const session = sessionQuery.data;
+  const { user, hasPermission } = useAuthStore();
+  const canRequestTransfer =
+    hasPermission('request_cash_movement_transfer') || user?.role?.name === 'admin';
+  const [transferMovementId, setTransferMovementId] = useState<string | null>(null);
 
   const [movementSearch, setMovementSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<CashMovementType | 'ALL'>('ALL');
@@ -390,6 +397,8 @@ const SessionDetailPage: React.FC = () => {
           </Box>
         </CardContent>
       </Card>
+
+      <SessionTransfersCard sessionId={session.id} />
 
       {/* ── Movements List (full width) ──────────────────────────────── */}
       <Card>
@@ -805,6 +814,20 @@ const SessionDetailPage: React.FC = () => {
                             {isPositive ? '+' : '-'}{formatCurrency(mov.amount)}
                           </Typography>
 
+                          {/* Trasladar a la caja de hoy: solo efectivo de una sesión cerrada */}
+                          {canRequestTransfer && session.status === 'CLOSED' && !mov.isVoided && mov.paymentMethod === 'CASH' && (
+                            <Tooltip title="Trasladar a la caja de hoy">
+                              <IconButton
+                                size="small"
+                                aria-label={`Trasladar ${mov.receiptNumber} a la caja de hoy`}
+                                onClick={() => setTransferMovementId(mov.id)}
+                                sx={{ p: 0.5, color: 'text.secondary' }}
+                              >
+                                <SyncAltIcon sx={{ fontSize: '1rem' }} />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+
                           {/* Print receipt */}
                           <Tooltip title="Imprimir comprobante">
                             <IconButton
@@ -955,6 +978,11 @@ const SessionDetailPage: React.FC = () => {
               />
             </Box>
           )}
+      <TransferMovementDialog
+        open={!!transferMovementId}
+        movementId={transferMovementId}
+        onClose={() => setTransferMovementId(null)}
+      />
     </Box>
   );
 };

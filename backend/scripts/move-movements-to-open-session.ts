@@ -252,7 +252,7 @@ async function main() {
     for (const m of movements) {
       const description =
         `${m.description} [Movido el ${fecha} desde la sesión cerrada del ` +
-        `${bogota(source.closedAt!)}: registrado durante el arqueo]`;
+        `${bogota(source.closedAt!)}: ${REASON}]`;
       await tx.cashMovement.update({
         where: { id: m.id },
         data: { cashSessionId: target.id, description },

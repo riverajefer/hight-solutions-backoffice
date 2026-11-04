@@ -118,6 +118,11 @@ const EXPIRABLE_REQUEST_TYPES: ExpirableRequestType[] = [
     delegate: (p) => p.cashMovementVoidRequest as any,
   },
   {
+    model: 'cashMovementTransferRequest',
+    label: 'traslado de movimiento de caja',
+    delegate: (p) => p.cashMovementTransferRequest as any,
+  },
+  {
     model: 'clientAdvisorRequest',
     label: 'asignación de asesor a cliente',
     delegate: (p) => p.clientAdvisorRequest as any,

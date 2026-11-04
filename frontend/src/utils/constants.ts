@@ -201,6 +201,8 @@ export const PERMISSIONS = {
   VOID_CASH_MOVEMENTS: 'void_cash_movements',
   REQUEST_PAYMENT_VOID: 'request_payment_void',
   APPROVE_CASH_MOVEMENTS: 'approve_cash_movements',
+  REQUEST_CASH_MOVEMENT_TRANSFER: 'request_cash_movement_transfer',
+  APPROVE_CASH_MOVEMENT_TRANSFER: 'approve_cash_movement_transfer',
   READ_CASH_MOVEMENTS: 'read_cash_movements',
   // Cuentas por Pagar
   CREATE_ACCOUNTS_PAYABLE: 'create_accounts_payable',

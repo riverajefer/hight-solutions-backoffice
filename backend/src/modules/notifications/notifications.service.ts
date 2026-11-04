@@ -189,6 +189,8 @@ export class NotificationsService {
       // Caja
       case 'CashMovement':
         return target('CASH_SESSION', (await this.prisma.cashMovement.findUnique({ where: { id }, select: { cashSessionId: true } }))?.cashSessionId);
+      case 'CashMovementTransferRequest':
+        return target('CASH_SESSION', (await this.prisma.cashMovementTransferRequest.findUnique({ where: { id }, select: { sourceSessionId: true } }))?.sourceSessionId);
       case 'CashMovementVoidRequest':
         return target('CASH_SESSION', (await this.prisma.cashMovementVoidRequest.findUnique({ where: { id }, select: { cashMovement: { select: { cashSessionId: true } } } }))?.cashMovement?.cashSessionId);
 

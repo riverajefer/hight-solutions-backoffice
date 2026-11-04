@@ -258,6 +258,8 @@ export const PERMISSION_LABELS: Record<string, string> = {
   request_payment_void: 'Solicitar Anulación de Pagos',
   read_cash_movements: 'Ver Movimientos de Caja',
   approve_cash_movements: 'Aprobar Movimientos de Caja',
+  request_cash_movement_transfer: 'Solicitar Traslado de Movimientos a la Caja de Hoy',
+  approve_cash_movement_transfer: 'Aprobar Traslados de Movimientos de Caja',
   caja_authorize_expense_orders: 'Autorizar Órdenes de Gasto en Caja',
 
   // Devoluciones

@@ -63,6 +63,7 @@ import {
   withholdingsFromRates,
 } from '../../../utils/withholdings';
 import { PageHeader } from '../../../components/common/PageHeader';
+import ExpenseOrderCashTransferPanel from '../components/ExpenseOrderCashTransferPanel';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { BankSelector } from '../../../components/common/BankSelector';
 import { ApprovalQueueBar } from '../../../components/common/ApprovalQueueBar';
@@ -853,6 +854,15 @@ export const ExpenseOrderDetailPage = () => {
 
         return null;
       })()}
+
+      <ExpenseOrderCashTransferPanel
+        expenseOrderId={og.id}
+        enabled={
+          og.status === ExpenseOrderStatus.PAID &&
+          (hasPermission(PERMISSIONS.REQUEST_CASH_MOVEMENT_TRANSFER) || currentUser?.role?.name === 'admin')
+        }
+        itemsWithoutReceipt={og.items.filter((item) => !item.receiptFileId).length}
+      />
 
       {/* Edición de una OG pagada: estado de la solicitud del usuario */}
       {paidEdit.isPaid && !paidEdit.isAdmin && paidEdit.pending && (
