@@ -132,6 +132,9 @@ export const WorkOrderDetailPage = () => {
   // «Producto N» como en la lista de productos, para decir a qué ítems aplica cada OG.
   const itemNumberById = new Map(workOrder.items.map((item, index) => [item.id, index + 1]));
   const canCreateItemExpense = !isParentOrderAnulado && canCreateExpenseOrder;
+  const pendingOrderItems = workOrder.pendingOrderItems ?? [];
+  const canEditItems =
+    canUpdate && ['DRAFT', 'CONFIRMED', 'IN_PRODUCTION'].includes(currentStatus);
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
@@ -156,6 +159,34 @@ export const WorkOrderDetailPage = () => {
             cantidades antes de continuar.
           </Alert>
         )}
+
+      {/* Ítems que se sumaron a la OP después de crear la OT */}
+      {!isParentOrderAnulado && pendingOrderItems.length > 0 && (
+        <Alert
+          severity="info"
+          sx={{ mt: 2, mb: 1 }}
+          action={
+            canEditItems ? (
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() =>
+                  navigate(ROUTES.WORK_ORDERS_EDIT.replace(':id', id!), {
+                    state: { focusItems: true },
+                  })
+                }
+              >
+                Agregar a la OT
+              </Button>
+            ) : undefined
+          }
+        >
+          <strong>
+            La OP tiene {pendingOrderItems.length === 1 ? '1 ítem que no está' : `${pendingOrderItems.length} ítems que no están`} en esta OT:
+          </strong>{' '}
+          {pendingOrderItems.map((item) => item.description.trim()).join(', ')}.
+        </Alert>
+      )}
 
       {/* Banner orden de pedido ANULADA */}
       {isParentOrderAnulado && (
