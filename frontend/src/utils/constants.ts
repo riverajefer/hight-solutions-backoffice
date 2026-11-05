@@ -230,6 +230,8 @@ export const PERMISSIONS = {
   EXPORT_SALES_BY_ADVISOR: 'export_sales_by_advisor',
   MANAGE_SALES_GOALS: 'manage_sales_goals',
   READ_ALL_ADVISORS_TRACKING: 'read_all_advisors_tracking',
+  // Tablero Comercial
+  READ_COMMERCIAL_DASHBOARD: 'read_commercial_dashboard',
 };
 
 export const ROUTES = {
@@ -374,6 +376,7 @@ export const ROUTES = {
   DTF_EDIT: '/dtf/:id/edit',
   // Ventas por Asesor
   SALES_BY_ADVISOR: '/ventas-por-asesor',
+  COMMERCIAL_DASHBOARD: '/tablero-comercial',
   SALES_BY_ADVISOR_DETAIL: '/ventas-por-asesor/:advisorId',
 };
 

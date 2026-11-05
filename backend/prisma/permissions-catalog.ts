@@ -294,6 +294,11 @@ export const permissionGroups: PermissionGroup[] = [
         description:
           'Ver el seguimiento de OP de todos los asesores (no solo las propias)',
       },
+      {
+        name: 'read_commercial_dashboard',
+        description:
+          'Ver el Tablero Comercial (cotizaciones, conversión, ventas, cartera y metas). Sin «ver todos los asesores» solo muestra las cifras propias',
+      },
     ],
   },
   {

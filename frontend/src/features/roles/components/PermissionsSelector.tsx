@@ -59,6 +59,7 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
     'export_sales_by_advisor',
     'manage_sales_goals',
     'read_all_advisors_tracking',
+    'read_commercial_dashboard',
   ],
 
   // Órdenes

@@ -288,6 +288,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   export_sales_by_advisor: 'Exportar Ventas por Asesor a Excel',
   manage_sales_goals: 'Gestionar Metas de Ventas',
   read_all_advisors_tracking: 'Ver el Seguimiento de OP de todos los asesores',
+  read_commercial_dashboard: 'Ver el Tablero Comercial',
 };
 
 /**

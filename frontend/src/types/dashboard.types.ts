@@ -62,3 +62,103 @@ export interface FinancialQueryParams {
   dateFrom?: string;
   dateTo?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Tablero Comercial
+// ---------------------------------------------------------------------------
+
+export interface CommercialQueryParams {
+  dateFrom?: string;
+  dateTo?: string;
+  advisorId?: string;
+}
+
+export interface CommercialKpis {
+  quotesCount: number;
+  quotesAmount: number;
+  /** Cotizaciones que salieron del borrador: la base de la conversión. */
+  quotesSent: number;
+  /** Aceptadas o convertidas en OP. */
+  quotesWon: number;
+  conversionRate: number;
+  salesAmount: number;
+  salesOrders: number;
+  averageTicket: number;
+  /** Cartera a hoy: no depende del período. */
+  portfolioTotal: number;
+  portfolioOrders: number;
+  newClients: number;
+}
+
+export interface CommercialSalesByStatus {
+  key: string;
+  label: string;
+  orders: number;
+  amount: number;
+  collected: number;
+}
+
+export interface CommercialAgingBucket {
+  key: '0-30' | '31-60' | '61-90' | '90+';
+  label: string;
+  orders: number;
+  balance: number;
+}
+
+export interface CommercialFunnelStage {
+  status: string;
+  count: number;
+  amount: number;
+}
+
+export interface CommercialGoal {
+  month: number;
+  year: number;
+  hasGoal: boolean;
+  target: number;
+  achieved: number;
+  progress: number;
+  remaining: number;
+}
+
+export interface CommercialAdvisorRow {
+  advisorId: string;
+  advisorName: string;
+  salesAmount: number;
+  salesOrders: number;
+  averageTicket: number;
+  quotes: number;
+  quotesWon: number;
+  conversionRate: number;
+  newClients: number;
+  portfolio: number;
+  portfolioOver90: number;
+  goalTarget: number | null;
+  goalProgress: number | null;
+}
+
+export interface CommercialTopDebtor {
+  clientId: string;
+  clientName: string;
+  balance: number;
+  orders: number;
+  oldestOrderDate: string;
+}
+
+export interface CommercialDashboardResponse {
+  period: { dateFrom: string; dateTo: string };
+  scopedToOwn: boolean;
+  advisorId: string | null;
+  advisors: Array<{ id: string; name: string }>;
+  kpis: CommercialKpis;
+  salesByStatus: CommercialSalesByStatus[];
+  portfolioAging: CommercialAgingBucket[];
+  quoteFunnel: {
+    stages: CommercialFunnelStage[];
+    openAmount: number;
+    openCount: number;
+  };
+  goal: CommercialGoal;
+  advisorRanking: CommercialAdvisorRow[];
+  topDebtors: CommercialTopDebtor[];
+}
