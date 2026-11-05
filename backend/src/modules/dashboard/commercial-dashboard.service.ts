@@ -52,6 +52,9 @@ const NOT_SALE_STATUSES: OrderStatus[] = [OrderStatus.DRAFT, OrderStatus.RETURNE
 
 const TOP_DEBTORS_LIMIT = 10;
 
+/** Meses de la gráfica de evolución, contando el mes en curso. */
+const TREND_MONTHS = 12;
+
 interface AdvisorAccumulator {
   salesAmount: number;
   salesOrders: number;
@@ -94,6 +97,9 @@ export class CommercialDashboardService {
     const goalMonthStart = startOfDay(`${goalRef.slice(0, 7)}-01`)!;
     const goalLastDay = new Date(Date.UTC(goalYear, goalMonth, 0)).getUTCDate();
     const goalMonthEnd = endOfDay(`${goalRef.slice(0, 7)}-${String(goalLastDay).padStart(2, '0')}`)!;
+
+    // La evolución no sigue el periodo elegido: siempre son los últimos 12 meses.
+    const monthlyTrendPromise = this.getMonthlyTrend(today, advisorId);
 
     const [quoteGroups, orderGroups, commissionable, goals, aging, newClients, topDebtors, advisors] =
       await Promise.all([
@@ -313,7 +319,69 @@ export class CommercialDashboardService {
         orders: d.orders,
         oldestOrderDate: d.oldestOrderDate.toISOString(),
       })),
+
+      monthlyTrend: await monthlyTrendPromise,
     };
+  }
+
+  /**
+   * Cotizado, vendido y cobrado de los últimos 12 meses (con el mes en curso),
+   * más la meta de los meses que la tienen.
+   *
+   * Se quitan los meses vacíos del principio: el sistema empezó a usarse a mitad
+   * de 2026 y una gráfica con media docena de ceros a la izquierda no dice nada.
+   * Los vacíos del medio se dejan, porque un mes sin ventas sí es información.
+   */
+  async getMonthlyTrend(today: string, advisorId?: string) {
+    const [year, month] = today.split('-').map(Number);
+    const months: string[] = [];
+    for (let i = TREND_MONTHS - 1; i >= 0; i--) {
+      const d = new Date(Date.UTC(year, month - 1 - i, 1));
+      months.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`);
+    }
+    const [firstYear, firstMonth] = months[0].split('-').map(Number);
+    const since = startOfDay(`${months[0]}-01`)!;
+
+    const [quoted, sold, collected, goals, byClientType] = await Promise.all([
+      this.repository.monthlyQuoted(since, advisorId),
+      this.repository.monthlySold(since, advisorId),
+      this.repository.monthlyCollected(since, advisorId),
+      this.repository.findGoalsSince(firstYear, firstMonth, advisorId),
+      this.repository.monthlyByClientType(since, advisorId),
+    ]);
+    const clientTypeBy = new Map(byClientType.map((r) => [r.month, r]));
+
+    const index = (rows: Array<{ month: string; amount: number }>) =>
+      new Map(rows.map((r) => [r.month, r.amount]));
+    const quotedBy = index(quoted);
+    const soldBy = index(sold);
+    const collectedBy = index(collected);
+    const goalBy = new Map<string, number>();
+    for (const g of goals) {
+      const key = `${g.year}-${String(g.month).padStart(2, '0')}`;
+      goalBy.set(key, (goalBy.get(key) ?? 0) + Number(g.targetAmount));
+    }
+
+    const series = months.map((m) => ({
+      month: m,
+      quoted: quotedBy.get(m) ?? 0,
+      sold: soldBy.get(m) ?? 0,
+      collected: collectedBy.get(m) ?? 0,
+      // null y no 0: sin meta cargada la línea se corta en vez de caer a cero.
+      goal: goalBy.has(m) ? goalBy.get(m)! : null,
+      // Venta del mes partida por tipo de cliente; las dos suman `sold`.
+      newClientSales: clientTypeBy.get(m)?.newAmount ?? 0,
+      recurringClientSales: clientTypeBy.get(m)?.recurringAmount ?? 0,
+      newClients: clientTypeBy.get(m)?.newClients ?? 0,
+      recurringClients: clientTypeBy.get(m)?.recurringClients ?? 0,
+      // El mes en curso apenas empieza: la gráfica lo marca para que su caída no se lea como mala noticia.
+      inProgress: m === months[months.length - 1],
+    }));
+
+    const firstWithData = series.findIndex(
+      (s) => s.quoted > 0 || s.sold > 0 || s.collected > 0 || s.goal !== null,
+    );
+    return firstWithData === -1 ? series.slice(-1) : series.slice(firstWithData);
   }
 
   private displayName(u: {

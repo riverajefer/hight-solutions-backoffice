@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { createContext, useContext, useMemo, useState } from 'react';
 import {
   Alert,
   Box,
@@ -25,6 +25,10 @@ import {
   type Theme,
 } from '@mui/material';
 import {
+  Area,
+  ComposedChart,
+  Line,
+  ReferenceLine,
   Bar,
   BarChart,
   CartesianGrid,
@@ -55,9 +59,12 @@ import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import PersonIcon from '@mui/icons-material/Person';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { dashboardApi } from '../../../api/dashboard.api';
 import { formatCurrency } from '../../../utils/formatters';
+import { neonAccents } from '../../../theme/colors';
 import type {
   CommercialAdvisorRow,
   CommercialAgingBucket,
@@ -65,6 +72,7 @@ import type {
   CommercialFunnelStage,
   CommercialSalesByStatus,
   CommercialTopDebtor,
+  CommercialTrendPoint,
 } from '../../../types/dashboard.types';
 
 // ---------------------------------------------------------------------------
@@ -141,6 +149,85 @@ const tabular = { fontVariantNumeric: 'tabular-nums' } as const;
 const NOWRAP_TABLE = { '& td, & th': { whiteSpace: 'nowrap' } } as const;
 
 // ---------------------------------------------------------------------------
+// Filtros aplicados en cada tarjeta
+// ---------------------------------------------------------------------------
+
+interface AppliedFilters {
+  /** «Este mes», «Últimos 30 días» o el rango personalizado. */
+  period: string;
+  /** Fechas exactas del periodo, para el tooltip de la etiqueta. */
+  periodDates: string;
+  /** «Todos», «Tus cifras» o el nombre corto de la asesora. */
+  advisor: string;
+  advisorFull: string;
+  /** «Noviembre 2026»: la meta es mensual y no sigue el periodo. */
+  goalMonth: string;
+}
+
+const FiltersContext = createContext<AppliedFilters | null>(null);
+
+/**
+ * Qué filtros afectan la cifra:
+ * - `period`: el periodo elegido y la asesora.
+ * - `today`: foto a hoy (cartera) — el periodo no la cambia, solo la asesora.
+ * - `goal`: el mes de la meta y la asesora.
+ * - `team`: el periodo, siempre para todo el equipo (ranking).
+ * - `trend`: los últimos 12 meses y la asesora (evolución) — no sigue el periodo.
+ */
+type FilterScope = 'period' | 'today' | 'goal' | 'team' | 'trend';
+
+const FilterChip: React.FC<{ icon: React.ReactElement; label: string; title: string }> = ({ icon, label, title }) => (
+  <Tooltip title={title} arrow>
+    <Chip
+      size="small"
+      variant="outlined"
+      icon={icon}
+      label={label}
+      sx={{
+        height: 22,
+        maxWidth: 180,
+        fontSize: '0.7rem',
+        fontWeight: 600,
+        color: 'text.secondary',
+        borderColor: 'divider',
+        '& .MuiChip-icon': { fontSize: 14, ml: 0.75, color: 'text.secondary' },
+        '& .MuiChip-label': { px: 0.75 },
+      }}
+    />
+  </Tooltip>
+);
+
+/** Etiquetas «Este mes · Nicole Dayanna» con los filtros que usa la tarjeta. */
+const AppliedFilterChips: React.FC<{ scope: FilterScope; sx?: object }> = ({ scope, sx }) => {
+  const f = useContext(FiltersContext);
+  if (!f) return null;
+  const time =
+    scope === 'today'
+      ? { label: 'A hoy', title: 'Saldo a hoy: no depende del periodo elegido' }
+      : scope === 'goal'
+        ? {
+            label: f.goalMonth,
+            title: 'La meta es mensual: se mide la del mes en curso o la del mes en que termina el periodo',
+          }
+        : scope === 'trend'
+          ? {
+              label: 'Últimos 12 meses',
+              title: 'La evolución siempre muestra los últimos 12 meses: no depende del periodo',
+            }
+          : { label: f.period, title: `Periodo: ${f.periodDates}` };
+  const advisor =
+    scope === 'team'
+      ? { label: 'Todos', title: 'El ranking siempre compara a todo el equipo' }
+      : { label: f.advisor, title: `Asesora: ${f.advisorFull}` };
+  return (
+    <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', rowGap: 0.5, ...sx }}>
+      <FilterChip icon={<CalendarMonthIcon />} label={time.label} title={time.title} />
+      <FilterChip icon={<PersonIcon />} label={advisor.label} title={advisor.title} />
+    </Stack>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // Piezas
 // ---------------------------------------------------------------------------
 
@@ -150,8 +237,9 @@ const KpiCard: React.FC<{
   caption: React.ReactNode;
   icon: React.ReactNode;
   color: string;
-}> = ({ label, value, caption, icon, color }) => (
-  <Card sx={{ p: 2.5, minWidth: 0, height: '100%' }}>
+  scope: FilterScope;
+}> = ({ label, value, caption, icon, color, scope }) => (
+  <Card sx={{ p: 2.5, minWidth: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
     <Box
       sx={{
         display: 'flex',
@@ -187,6 +275,8 @@ const KpiCard: React.FC<{
     <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
       {caption}
     </Typography>
+    {/* mt: auto deja las etiquetas al pie, alineadas entre tarjetas de distinta altura. */}
+    <AppliedFilterChips scope={scope} sx={{ mt: 'auto', pt: 1.5 }} />
   </Card>
 );
 
@@ -195,7 +285,8 @@ const Panel: React.FC<{
   subtitle?: React.ReactNode;
   children: React.ReactNode;
   action?: React.ReactNode;
-}> = ({ title, subtitle, children, action }) => (
+  scope: FilterScope;
+}> = ({ title, subtitle, children, action, scope }) => (
   <Card sx={{ p: { xs: 2, md: 3 }, minWidth: 0, height: '100%' }}>
     <Box
       sx={{
@@ -215,6 +306,7 @@ const Panel: React.FC<{
             {subtitle}
           </Typography>
         )}
+        <AppliedFilterChips scope={scope} sx={{ mt: 1 }} />
       </Box>
       {action}
     </Box>
@@ -435,6 +527,7 @@ const SalesByStatusPanel: React.FC<{ rows: CommercialSalesByStatus[] }> = ({ row
 
   return (
     <Panel
+      scope="period"
       title="Ventas por estado"
       subtitle="OP del período. La parte sólida es lo cobrado; la clara, lo que falta por cobrar."
     >
@@ -516,7 +609,7 @@ const AgingPanel: React.FC<{ buckets: CommercialAgingBucket[] }> = ({ buckets })
   const over60 = buckets.filter((b) => b.key === '61-90' || b.key === '90+').reduce((t, b) => t + b.balance, 0);
 
   return (
-    <Panel title="Cartera por edades" subtitle="Saldo pendiente a hoy, según la antigüedad de la OP.">
+    <Panel scope="today" title="Cartera por edades" subtitle="Saldo pendiente a hoy, según la antigüedad de la OP.">
       {total === 0 ? (
         <EmptyState>No hay cartera pendiente.</EmptyState>
       ) : (
@@ -589,6 +682,7 @@ const GoalPanel: React.FC<{ data: CommercialDashboardResponse }> = ({ data }) =>
 
   return (
     <Panel
+      scope="goal"
       title="Avance de meta"
       subtitle={`Meta de ${monthLabel}. Cuenta la venta neta sin IVA de las OP entregadas y pagadas, igual que «Ventas por Asesor».`}
     >
@@ -749,6 +843,7 @@ const FunnelPanel: React.FC<{
 
   return (
     <Panel
+      scope="period"
       title="Embudo de cotizaciones"
       subtitle="Cotizaciones del período según su estado actual."
       action={
@@ -1175,11 +1270,350 @@ const TopDebtorsChart: React.FC<{ rows: CommercialTopDebtor[] }> = ({ rows }) =>
   );
 };
 
+/** «2026-11» → «Nov 26» para el eje; «noviembre 2026» para el detalle. */
+const monthTick = (ym: string) => {
+  const label = format(parseISO(`${ym}-01`), 'MMM yy', { locale: es }).replace('.', '');
+  return label.charAt(0).toUpperCase() + label.slice(1);
+};
+const monthLong = (ym: string) => format(parseISO(`${ym}-01`), "MMMM 'de' yyyy", { locale: es });
+
+const TrendPanel: React.FC<{ points: CommercialTrendPoint[] }> = ({ points }) => {
+  const theme = useTheme();
+  const axis = useAxisStyle();
+  const series = [
+    // primary, info y success son casi el mismo cian en este tema: tres curvas
+    // superpuestas se confundían. Se toman tonos de la paleta que sí contrastan.
+    { key: 'quoted', label: 'Cotizado', color: neonAccents.vividPurple },
+    { key: 'sold', label: 'Vendido', color: theme.palette.primary.main },
+    { key: 'collected', label: 'Cobrado', color: theme.palette.success.dark },
+  ] as const;
+  const goalColor = theme.palette.warning.main;
+  const hasGoal = points.some((p) => p.goal !== null);
+  const data = points.map((p) => ({ ...p, tick: monthTick(p.month) }));
+  const current = data.find((p) => p.inProgress);
+  const empty = points.every((p) => p.quoted === 0 && p.sold === 0 && p.collected === 0);
+
+  return (
+    <Panel
+      scope="trend"
+      title="Evolución comercial"
+      subtitle="Lo que se cotiza, lo que se vende y lo que se cobra cada mes. Si se abre la brecha entre cotizado y vendido, baja la conversión; si se abre entre vendido y cobrado, crece la cartera."
+    >
+      {empty ? (
+        <EmptyState>Todavía no hay movimiento para mostrar.</EmptyState>
+      ) : (
+        <>
+          <Box sx={{ height: 340 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={data} margin={{ top: 16, right: 16, left: 8, bottom: 0 }}>
+                <defs>
+                  {series.map((s) => (
+                    <linearGradient key={s.key} id={`trend-${s.key}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={s.color} stopOpacity={0.28} />
+                      <stop offset="100%" stopColor={s.color} stopOpacity={0.02} />
+                    </linearGradient>
+                  ))}
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke={axis.grid} vertical={false} />
+                <XAxis dataKey="tick" tick={axis.tick} tickLine={false} axisLine={false} />
+                <YAxis tick={axis.tick} tickFormatter={compactCOP} width={72} tickLine={false} axisLine={false} />
+                {current && (
+                  <ReferenceLine
+                    x={current.tick}
+                    stroke={theme.palette.text.secondary}
+                    strokeDasharray="4 4"
+                    label={{
+                      value: 'En curso',
+                      position: 'insideTopRight',
+                      fill: theme.palette.text.secondary,
+                      fontSize: 11,
+                    }}
+                  />
+                )}
+                <RechartsTooltip
+                  cursor={{ stroke: alpha(theme.palette.text.primary, 0.2) }}
+                  content={({ active, payload }) => {
+                    const p = active ? (payload?.[0]?.payload as (typeof data)[number] | undefined) : undefined;
+                    if (!p) return null;
+                    const title = monthLong(p.month);
+                    return (
+                      <ChartHoverBox>
+                        <HoverDetail
+                          title={title.charAt(0).toUpperCase() + title.slice(1)}
+                          lines={[
+                            ...series.map((s) => ({
+                              label: s.label,
+                              value: formatCurrency(p[s.key], 0),
+                              color: s.color,
+                            })),
+                            {
+                              label: 'Meta',
+                              value: p.goal === null ? 'Sin meta' : formatCurrency(p.goal, 0),
+                              color: goalColor,
+                            },
+                            ...(p.goal
+                              ? [{ label: 'Vendido vs. meta', value: pct(p.sold / p.goal), strong: true }]
+                              : []),
+                            ...(p.sold > 0 ? [{ label: 'Cobrado vs. vendido', value: pct(p.collected / p.sold) }] : []),
+                          ]}
+                          note={
+                            p.inProgress
+                              ? 'Mes en curso: sus cifras siguen sumando hasta que termine.'
+                              : 'Lo cobrado incluye abonos a OP de meses anteriores.'
+                          }
+                        />
+                      </ChartHoverBox>
+                    );
+                  }}
+                />
+                {series.map((s) => (
+                  <Area
+                    key={s.key}
+                    type="monotone"
+                    dataKey={s.key}
+                    name={s.label}
+                    stroke={s.color}
+                    strokeWidth={2.5}
+                    fill={`url(#trend-${s.key})`}
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                  />
+                ))}
+                {hasGoal && (
+                  <Line
+                    type="monotone"
+                    dataKey="goal"
+                    name="Meta"
+                    stroke={goalColor}
+                    strokeWidth={2}
+                    strokeDasharray="6 4"
+                    dot={{ r: 3, fill: goalColor }}
+                    connectNulls={false}
+                  />
+                )}
+              </ComposedChart>
+            </ResponsiveContainer>
+          </Box>
+          <Stack
+            direction="row"
+            spacing={2.5}
+            sx={{ mt: 1.5, justifyContent: 'center', flexWrap: 'wrap', rowGap: 0.5 }}
+          >
+            {[
+              ...series.map((s) => ({ label: s.label, color: s.color, dashed: false })),
+              ...(hasGoal ? [{ label: 'Meta', color: goalColor, dashed: true }] : []),
+            ].map((l) => (
+              <Box key={l.label} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <Box
+                  sx={{
+                    width: 14,
+                    height: 0,
+                    borderTop: `3px ${l.dashed ? 'dashed' : 'solid'} ${l.color}`,
+                  }}
+                />
+                <Typography variant="caption" color="text.secondary">
+                  {l.label}
+                </Typography>
+              </Box>
+            ))}
+          </Stack>
+        </>
+      )}
+    </Panel>
+  );
+};
+
+const ClientTypePanel: React.FC<{ points: CommercialTrendPoint[] }> = ({ points }) => {
+  const theme = useTheme();
+  const axis = useAxisStyle();
+  const newColor = theme.palette.warning.main; // mismo color que la tarjeta «Clientes nuevos»
+  const recurringColor = theme.palette.primary.main;
+  const shareColor = neonAccents.vividPurple;
+  const data = points.map((p) => {
+    const total = p.newClientSales + p.recurringClientSales;
+    return {
+      ...p,
+      tick: monthTick(p.month),
+      // null y no 0: un mes sin venta no tiene porcentaje, la línea se corta.
+      recurringShare: total > 0 ? (p.recurringClientSales / total) * 100 : null,
+    };
+  });
+  const current = data.find((p) => p.inProgress);
+  const empty = points.every((p) => p.newClientSales === 0 && p.recurringClientSales === 0);
+
+  return (
+    <Panel
+      scope="trend"
+      title="Clientes nuevos vs. recurrentes"
+      subtitle="Venta de cada mes según si el cliente compraba por primera vez o ya había comprado antes. Si la parte recurrente cae, se están perdiendo clientes."
+    >
+      {empty ? (
+        <EmptyState>Todavía no hay ventas para mostrar.</EmptyState>
+      ) : (
+        <>
+          <Box sx={{ height: 320 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={data} margin={{ top: 16, right: 8, left: 8, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={axis.grid} vertical={false} />
+                <XAxis dataKey="tick" tick={axis.tick} tickLine={false} axisLine={false} />
+                <YAxis
+                  yAxisId="money"
+                  tick={axis.tick}
+                  tickFormatter={compactCOP}
+                  width={72}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  yAxisId="share"
+                  orientation="right"
+                  domain={[0, 100]}
+                  tick={axis.tick}
+                  tickFormatter={(v: number) => `${v} %`}
+                  width={48}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                {current && (
+                  <ReferenceLine
+                    yAxisId="money"
+                    x={current.tick}
+                    stroke={theme.palette.text.secondary}
+                    strokeDasharray="4 4"
+                    label={{
+                      value: 'En curso',
+                      position: 'insideTopRight',
+                      fill: theme.palette.text.secondary,
+                      fontSize: 11,
+                    }}
+                  />
+                )}
+                <RechartsTooltip
+                  cursor={axis.cursor}
+                  content={({ active, payload }) => {
+                    const p = active ? (payload?.[0]?.payload as (typeof data)[number] | undefined) : undefined;
+                    if (!p) return null;
+                    const title = monthLong(p.month);
+                    const clients = p.newClients + p.recurringClients;
+                    return (
+                      <ChartHoverBox>
+                        <HoverDetail
+                          title={title.charAt(0).toUpperCase() + title.slice(1)}
+                          lines={[
+                            {
+                              label: `Clientes nuevos (${p.newClients})`,
+                              value: formatCurrency(p.newClientSales, 0),
+                              color: newColor,
+                            },
+                            {
+                              label: `Clientes recurrentes (${p.recurringClients})`,
+                              value: formatCurrency(p.recurringClientSales, 0),
+                              color: recurringColor,
+                            },
+                            {
+                              label: 'Venta de recurrentes',
+                              value: p.recurringShare === null ? '—' : `${Math.round(p.recurringShare)} %`,
+                              color: shareColor,
+                              strong: true,
+                            },
+                            ...(p.newClients > 0
+                              ? [
+                                  {
+                                    label: 'Compra promedio de un cliente nuevo',
+                                    value: formatCurrency(p.newClientSales / p.newClients, 0),
+                                  },
+                                ]
+                              : []),
+                            ...(p.recurringClients > 0
+                              ? [
+                                  {
+                                    label: 'Compra promedio de un recurrente',
+                                    value: formatCurrency(p.recurringClientSales / p.recurringClients, 0),
+                                  },
+                                ]
+                              : []),
+                            ...(clients > 0 ? [{ label: 'Clientes que compraron', value: clients }] : []),
+                          ]}
+                          note={
+                            p.inProgress
+                              ? 'Mes en curso: sus cifras siguen sumando hasta que termine.'
+                              : 'Nuevo = su primera OP en el sistema fue de este mes.'
+                          }
+                        />
+                      </ChartHoverBox>
+                    );
+                  }}
+                />
+                <Bar
+                  yAxisId="money"
+                  dataKey="recurringClientSales"
+                  name="Recurrentes"
+                  stackId="c"
+                  fill={recurringColor}
+                  maxBarSize={56}
+                />
+                <Bar
+                  yAxisId="money"
+                  dataKey="newClientSales"
+                  name="Nuevos"
+                  stackId="c"
+                  fill={newColor}
+                  radius={[6, 6, 0, 0]}
+                  maxBarSize={56}
+                />
+                <Line
+                  yAxisId="share"
+                  type="monotone"
+                  dataKey="recurringShare"
+                  name="% recurrente"
+                  stroke={shareColor}
+                  strokeWidth={2.5}
+                  dot={{ r: 3, fill: shareColor }}
+                  connectNulls={false}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </Box>
+          <Stack
+            direction="row"
+            spacing={2.5}
+            sx={{ mt: 1.5, justifyContent: 'center', flexWrap: 'wrap', rowGap: 0.5 }}
+          >
+            {[
+              { label: 'Venta a recurrentes', color: recurringColor, line: false },
+              { label: 'Venta a nuevos', color: newColor, line: false },
+              { label: '% de la venta que es recurrente (eje derecho)', color: shareColor, line: true },
+            ].map((l) => (
+              <Box key={l.label} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <Box
+                  sx={
+                    l.line
+                      ? { width: 14, height: 0, borderTop: `3px solid ${l.color}` }
+                      : { width: 10, height: 10, borderRadius: '3px', bgcolor: l.color }
+                  }
+                />
+                <Typography variant="caption" color="text.secondary">
+                  {l.label}
+                </Typography>
+              </Box>
+            ))}
+          </Stack>
+          <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 1.5, textAlign: 'center' }}>
+            En los primeros meses de uso del sistema casi todos los clientes aparecen como nuevos: ahí registraron su
+            primera OP, aunque ya compraban antes.
+          </Typography>
+        </>
+      )}
+    </Panel>
+  );
+};
+
 const RankingPanel: React.FC<{
   rows: CommercialAdvisorRow[];
   onSelect: (id: string) => void;
 }> = ({ rows, onSelect }) => (
   <Panel
+    scope="team"
     title="Ranking de asesoras"
     subtitle="Haz clic en una columna o en un nombre para ver solo sus cifras."
   >
@@ -1312,7 +1746,7 @@ const RankingPanel: React.FC<{
 const TopDebtorsPanel: React.FC<{ rows: CommercialTopDebtor[] }> = ({ rows }) => {
   const today = new Date();
   return (
-    <Panel title="Clientes con más cartera" subtitle="Los 10 clientes que más deben a hoy.">
+    <Panel scope="today" title="Clientes con más cartera" subtitle="Los 10 clientes que más deben a hoy.">
       {rows.length === 0 ? (
         <EmptyState>No hay clientes con saldo pendiente.</EmptyState>
       ) : (
@@ -1400,6 +1834,22 @@ const CommercialDashboardPage: React.FC = () => {
 
   const advisorName = data?.advisors.find((a) => a.id === advisorId)?.name;
   const scopeLabel = data?.scopedToOwn ? 'Tus cifras' : advisorName ? `Asesora: ${advisorName}` : 'Todo el equipo';
+
+  const appliedFilters = useMemo<AppliedFilters | null>(() => {
+    if (!data) return null;
+    const dates = `${format(parseISO(range.from), 'd MMM yyyy', { locale: es })} – ${format(parseISO(range.to), 'd MMM yyyy', { locale: es })}`;
+    const goalMonth = format(new Date(data.goal.year, data.goal.month - 1, 1), 'MMMM yyyy', { locale: es });
+    return {
+      period:
+        preset === 'custom'
+          ? `${format(parseISO(range.from), 'd MMM', { locale: es })} – ${format(parseISO(range.to), 'd MMM', { locale: es })}`
+          : PERIOD_LABELS[preset],
+      periodDates: dates,
+      advisor: data.scopedToOwn ? 'Tus cifras' : advisorName ? shortName(advisorName) : 'Todos',
+      advisorFull: data.scopedToOwn ? 'solo tus cifras' : (advisorName ?? 'todo el equipo'),
+      goalMonth: `Meta ${goalMonth.charAt(0).toUpperCase()}${goalMonth.slice(1)}`,
+    };
+  }, [data, preset, range, advisorName]);
 
   const k = data?.kpis;
 
@@ -1499,83 +1949,96 @@ const CommercialDashboardPage: React.FC = () => {
       )}
 
       {data && k && (
-        <Stack spacing={3}>
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: {
-                xs: '1fr',
-                sm: 'repeat(2, minmax(0, 1fr))',
-                lg: 'repeat(5, minmax(0, 1fr))',
-              },
-              gap: { xs: 2, md: 2.5 },
-            }}
-          >
-            <KpiCard
-              label="Cotizaciones"
-              value={k.quotesCount}
-              caption={
-                <>
-                  <Money value={k.quotesAmount} /> cotizados
-                </>
-              }
-              icon={<EditNoteIcon />}
-              color={theme.palette.primary.main}
-            />
-            <KpiCard
-              label="% Convertidas"
-              value={k.quotesSent > 0 ? pct(k.conversionRate) : '—'}
-              caption={`${k.quotesWon} aceptadas / convertidas de ${k.quotesSent} enviadas`}
-              icon={<TaskAltIcon />}
-              color={theme.palette.success.main}
-            />
-            <KpiCard
-              label="Ventas del período"
-              value={<Money value={k.salesAmount} />}
-              caption={
-                <>
-                  {k.salesOrders} OP · ticket prom. <Money value={k.averageTicket} />
-                </>
-              }
-              icon={<PaymentsIcon />}
-              color={theme.palette.info.main}
-            />
-            <KpiCard
-              label="Total cartera"
-              value={<Money value={k.portfolioTotal} />}
-              caption={`Saldo por cobrar a hoy · ${k.portfolioOrders} OP`}
-              icon={<AccountBalanceWalletIcon />}
-              color={theme.palette.error.main}
-            />
-            <KpiCard
-              label="Clientes nuevos"
-              value={k.newClients}
-              caption="Con su primera OP en el período"
-              icon={<PersonAddAlt1Icon />}
-              color={theme.palette.warning.main}
-            />
-          </Box>
+        <FiltersContext.Provider value={appliedFilters}>
+          <Stack spacing={3}>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: {
+                  xs: '1fr',
+                  sm: 'repeat(2, minmax(0, 1fr))',
+                  lg: 'repeat(5, minmax(0, 1fr))',
+                },
+                gap: { xs: 2, md: 2.5 },
+              }}
+            >
+              <KpiCard
+                label="Cotizaciones"
+                value={k.quotesCount}
+                caption={
+                  <>
+                    <Money value={k.quotesAmount} /> cotizados
+                  </>
+                }
+                icon={<EditNoteIcon />}
+                color={theme.palette.primary.main}
+                scope="period"
+              />
+              <KpiCard
+                label="% Convertidas"
+                value={k.quotesSent > 0 ? pct(k.conversionRate) : '—'}
+                caption={`${k.quotesWon} aceptadas / convertidas de ${k.quotesSent} enviadas`}
+                icon={<TaskAltIcon />}
+                color={theme.palette.success.main}
+                scope="period"
+              />
+              <KpiCard
+                label="Ventas del período"
+                value={<Money value={k.salesAmount} />}
+                caption={
+                  <>
+                    {k.salesOrders} OP · ticket prom. <Money value={k.averageTicket} />
+                  </>
+                }
+                icon={<PaymentsIcon />}
+                color={theme.palette.info.main}
+                scope="period"
+              />
+              <KpiCard
+                label="Total cartera"
+                value={<Money value={k.portfolioTotal} />}
+                caption={`Saldo por cobrar a hoy · ${k.portfolioOrders} OP`}
+                icon={<AccountBalanceWalletIcon />}
+                color={theme.palette.error.main}
+                scope="today"
+              />
+              <KpiCard
+                label="Clientes nuevos"
+                value={k.newClients}
+                caption="Con su primera OP en el período"
+                icon={<PersonAddAlt1Icon />}
+                color={theme.palette.warning.main}
+                scope="period"
+              />
+            </Box>
 
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: {
-                xs: '1fr',
-                lg: 'repeat(2, minmax(0, 1fr))',
-              },
-              gap: 3,
-            }}
-          >
-            <SalesByStatusPanel rows={data.salesByStatus} />
-            <AgingPanel buckets={data.portfolioAging} />
-            <GoalPanel data={data} />
-            <FunnelPanel {...data.quoteFunnel} />
-          </Box>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: {
+                  xs: '1fr',
+                  lg: 'repeat(2, minmax(0, 1fr))',
+                },
+                gap: 3,
+              }}
+            >
+              <SalesByStatusPanel rows={data.salesByStatus} />
+              <AgingPanel buckets={data.portfolioAging} />
+              <GoalPanel data={data} />
+              <FunnelPanel {...data.quoteFunnel} />
+            </Box>
 
-          {!data.scopedToOwn && !data.advisorId && <RankingPanel rows={data.advisorRanking} onSelect={setAdvisorId} />}
+            <TrendPanel points={data.monthlyTrend} />
 
-          <TopDebtorsPanel rows={data.topDebtors} />
-        </Stack>
+            <ClientTypePanel points={data.monthlyTrend} />
+
+            {!data.scopedToOwn && !data.advisorId && (
+              <RankingPanel rows={data.advisorRanking} onSelect={setAdvisorId} />
+            )}
+
+            <TopDebtorsPanel rows={data.topDebtors} />
+          </Stack>
+        </FiltersContext.Provider>
       )}
     </Box>
   );
