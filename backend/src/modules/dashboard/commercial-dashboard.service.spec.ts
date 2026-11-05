@@ -46,6 +46,11 @@ describe('CommercialDashboardService', () => {
         { id: OTHER, firstName: 'Luz', lastName: null, username: 'luz' },
       ]),
       findAdvisors: jest.fn().mockResolvedValue([]),
+      monthlyQuoted: jest.fn().mockResolvedValue([]),
+      monthlySold: jest.fn().mockResolvedValue([]),
+      monthlyCollected: jest.fn().mockResolvedValue([]),
+      findGoalsSince: jest.fn().mockResolvedValue([]),
+      monthlyByClientType: jest.fn().mockResolvedValue([]),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -186,6 +191,97 @@ describe('CommercialDashboardService', () => {
       const { goal } = await service.getCommercialDashboard({}, ME);
 
       expect(goal.hasGoal).toBe(false);
+    });
+  });
+
+  describe('evolución mensual', () => {
+    it('arma los últimos 12 meses terminando en el mes en curso y quita los vacíos del principio', async () => {
+      repository.monthlySold.mockResolvedValue([
+        { month: '2026-06', amount: 100 },
+        { month: '2026-09', amount: 300 },
+      ]);
+      repository.monthlyCollected.mockResolvedValue([{ month: '2026-11', amount: 50 }]);
+
+      const trend = await service.getMonthlyTrend('2026-11-05');
+
+      expect(trend.map((t) => t.month)).toEqual([
+        '2026-06',
+        '2026-07',
+        '2026-08',
+        '2026-09',
+        '2026-10',
+        '2026-11',
+      ]);
+      // Un mes sin ventas en el medio se deja en cero.
+      expect(trend[1]).toMatchObject({ sold: 0, quoted: 0, collected: 0 });
+      expect(trend[trend.length - 1]).toMatchObject({ collected: 50, inProgress: true });
+      expect(trend.filter((t) => t.inProgress)).toHaveLength(1);
+      expect(repository.monthlySold).toHaveBeenCalledWith(expect.any(Date), undefined);
+    });
+
+    it('cruza el año al contar los 12 meses', async () => {
+      repository.monthlyQuoted.mockResolvedValue([{ month: '2025-03', amount: 10 }]);
+
+      const trend = await service.getMonthlyTrend('2026-02-10');
+
+      expect(trend[0].month).toBe('2025-03');
+      expect(trend).toHaveLength(12);
+      expect(repository.findGoalsSince).toHaveBeenCalledWith(2025, 3, undefined);
+    });
+
+    it('suma las metas del mes y deja null donde no hay meta, para que la línea se corte', async () => {
+      repository.monthlySold.mockResolvedValue([{ month: '2026-06', amount: 100 }]);
+      repository.findGoalsSince.mockResolvedValue([
+        { year: 2026, month: 7, targetAmount: 1000 },
+        { year: 2026, month: 7, targetAmount: 500 },
+      ]);
+
+      const trend = await service.getMonthlyTrend('2026-08-01');
+
+      expect(trend.find((t) => t.month === '2026-06')!.goal).toBeNull();
+      expect(trend.find((t) => t.month === '2026-07')!.goal).toBe(1500);
+    });
+
+    it('agrega la venta por tipo de cliente y deja en cero los meses sin datos', async () => {
+      repository.monthlySold.mockResolvedValue([
+        { month: '2026-09', amount: 1000 },
+        { month: '2026-10', amount: 400 },
+      ]);
+      repository.monthlyByClientType.mockResolvedValue([
+        { month: '2026-09', newAmount: 300, recurringAmount: 700, newClients: 2, recurringClients: 5 },
+      ]);
+
+      const trend = await service.getMonthlyTrend('2026-10-15');
+
+      expect(trend.find((t) => t.month === '2026-09')).toMatchObject({
+        newClientSales: 300,
+        recurringClientSales: 700,
+        newClients: 2,
+        recurringClients: 5,
+      });
+      expect(trend.find((t) => t.month === '2026-10')).toMatchObject({
+        newClientSales: 0,
+        recurringClientSales: 0,
+        newClients: 0,
+        recurringClients: 0,
+      });
+      expect(repository.monthlyByClientType).toHaveBeenCalledWith(expect.any(Date), undefined);
+    });
+
+    it('sin datos devuelve solo el mes en curso', async () => {
+      const trend = await service.getMonthlyTrend('2026-11-05');
+
+      expect(trend).toHaveLength(1);
+      expect(trend[0]).toMatchObject({ month: '2026-11', inProgress: true });
+    });
+
+    it('respeta la asesora del tablero', async () => {
+      repository.canReadAllAdvisors.mockResolvedValue(false);
+
+      await service.getCommercialDashboard({}, ME);
+
+      expect(repository.monthlyCollected).toHaveBeenCalledWith(expect.any(Date), ME);
+      expect(repository.findGoalsSince).toHaveBeenCalledWith(expect.any(Number), expect.any(Number), ME);
     });
   });
 
