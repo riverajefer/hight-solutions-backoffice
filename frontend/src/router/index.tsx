@@ -25,6 +25,7 @@ const ProductionAreaDetailPage = lazyWithRetry(() => import('../features/product
 const MachinesListPage = lazyWithRetry(() => import('../features/machines/pages/MachinesListPage'));
 const ProductionPlantPage = lazyWithRetry(() => import('../features/work-orders/pages/ProductionPlantPage'));
 const ProductivityReportPage = lazyWithRetry(() => import('../features/work-orders/pages/ProductivityReportPage'));
+const CommercialDashboardPage = lazyWithRetry(() => import('../features/dashboard/pages/CommercialDashboardPage'));
 const CargosListPage = lazyWithRetry(() => import('../features/cargos/pages/CargosListPage'));
 const CargoFormPage = lazyWithRetry(() => import('../features/cargos/pages/CargoFormPage'));
 const CargoDetailPage = lazyWithRetry(() => import('../features/cargos/pages/CargoDetailPage'));
@@ -1726,6 +1727,19 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.READ_SALES_BY_ADVISOR}>
                   <SalesByAdvisorPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        <Route
+          path={PATHS.COMMERCIAL_DASHBOARD}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_COMMERCIAL_DASHBOARD}>
+                  <CommercialDashboardPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

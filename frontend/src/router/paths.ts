@@ -148,6 +148,7 @@ export const PATHS = {
   APPROVAL_REDIRECT: '/approvals/:id',
   // Ventas por Asesor
   SALES_BY_ADVISOR: '/ventas-por-asesor',
+  COMMERCIAL_DASHBOARD: '/tablero-comercial',
   SALES_BY_ADVISOR_DETAIL: '/ventas-por-asesor/:advisorId',
 };
 
