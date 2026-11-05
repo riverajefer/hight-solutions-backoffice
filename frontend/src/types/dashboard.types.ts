@@ -145,6 +145,27 @@ export interface CommercialTopDebtor {
   oldestOrderDate: string;
 }
 
+export interface CommercialTrendPoint {
+  /** `YYYY-MM` */
+  month: string;
+  /** Valor de las cotizaciones enviadas (sin borradores). */
+  quoted: number;
+  /** Venta del mes: misma regla que el KPI de ventas. */
+  sold: number;
+  /** Pagos que entraron en el mes (sin anulados, crédito ni saldo a favor). */
+  collected: number;
+  /** Suma de metas del mes; `null` si no hay meta cargada. */
+  goal: number | null;
+  /** El mes en curso: sus cifras siguen sumando. */
+  inProgress: boolean;
+  /** Venta a clientes cuya primera OP es de este mes. Con `recurringClientSales` suma `sold`. */
+  newClientSales: number;
+  /** Venta a clientes que ya habían comprado en un mes anterior. */
+  recurringClientSales: number;
+  newClients: number;
+  recurringClients: number;
+}
+
 export interface CommercialDashboardResponse {
   period: { dateFrom: string; dateTo: string };
   scopedToOwn: boolean;
@@ -161,4 +182,6 @@ export interface CommercialDashboardResponse {
   goal: CommercialGoal;
   advisorRanking: CommercialAdvisorRow[];
   topDebtors: CommercialTopDebtor[];
+  /** Últimos 12 meses; no sigue el periodo elegido. */
+  monthlyTrend: CommercialTrendPoint[];
 }

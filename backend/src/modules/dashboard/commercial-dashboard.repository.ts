@@ -29,6 +29,33 @@ export interface TopDebtorRow {
   oldestOrderDate: Date;
 }
 
+/**
+ * Pagos que no son dinero nuevo y no cuentan como cobrado:
+ * - `CREDIT` es la marca de «se entrega y paga después» y se registra en $0.
+ * - `CREDIT_BALANCE` reusa un saldo a favor que ya se contó cuando entró.
+ *
+ * `PAYROLL_DEDUCTION` sí cuenta: no pasa por caja, pero la empresa recupera ese
+ * valor al pagarle menos al empleado.
+ */
+const NOT_COLLECTED_METHODS = ['CREDIT', 'CREDIT_BALANCE'] as const;
+
+/** Mes `YYYY-MM` de una columna de fecha, en hora Colombia (las fechas se guardan en UTC). */
+const bogotaMonth = (column: Prisma.Sql) =>
+  Prisma.sql`TO_CHAR(DATE_TRUNC('month', (${column} AT TIME ZONE 'UTC') AT TIME ZONE 'America/Bogota'), 'YYYY-MM')`;
+
+export interface MonthlyAmountRow {
+  month: string;
+  amount: number;
+}
+
+export interface MonthlyClientTypeRow {
+  month: string;
+  newAmount: number;
+  recurringAmount: number;
+  newClients: number;
+  recurringClients: number;
+}
+
 /** `AND created_by_id = …` solo cuando hay asesora; si no, nada. */
 const advisorSql = (advisorId?: string, column = Prisma.sql`created_by_id`) =>
   advisorId ? Prisma.sql`AND ${column} = ${advisorId}` : Prisma.empty;
@@ -101,6 +128,126 @@ export class CommercialDashboardRepository {
       where: { month, year, ...(advisorId ? { advisorId } : {}) },
       select: { advisorId: true, targetAmount: true },
     });
+  }
+
+  // ---- Evolución mensual ----------------------------------------------------
+
+  /** Valor cotizado por mes. Sin borradores: todavía no se le han enviado al cliente. */
+  async monthlyQuoted(since: Date, advisorId?: string): Promise<MonthlyAmountRow[]> {
+    return this.toMonthly(
+      this.prisma.$queryRaw<Array<{ month: string; amount: string }>>`
+        SELECT ${bogotaMonth(Prisma.sql`quote_date`)} AS month,
+               COALESCE(SUM(total), 0)::text AS amount
+        FROM quotes
+        WHERE quote_date >= ${since}
+          AND status::text <> 'DRAFT'
+          ${advisorSql(advisorId)}
+        GROUP BY 1
+      `,
+    );
+  }
+
+  /** Venta por mes: misma regla que el KPI de ventas (sin borradores, anuladas ni devueltas; neta de reversiones). */
+  async monthlySold(since: Date, advisorId?: string): Promise<MonthlyAmountRow[]> {
+    return this.toMonthly(
+      this.prisma.$queryRaw<Array<{ month: string; amount: string }>>`
+        SELECT ${bogotaMonth(Prisma.sql`order_date`)} AS month,
+               COALESCE(SUM(total - reversed_amount), 0)::text AS amount
+        FROM orders
+        WHERE order_date >= ${since}
+          AND status::text NOT IN (${Prisma.join([...NOT_RECEIVABLE_STATUSES])})
+          ${advisorSql(advisorId)}
+        GROUP BY 1
+      `,
+    );
+  }
+
+  /**
+   * Cobrado por mes según la fecha del pago, no la de la OP: un abono de octubre
+   * a una OP de agosto es plata que entró en octubre. Se atribuye a la asesora
+   * dueña de la OP.
+   */
+  async monthlyCollected(since: Date, advisorId?: string): Promise<MonthlyAmountRow[]> {
+    return this.toMonthly(
+      this.prisma.$queryRaw<Array<{ month: string; amount: string }>>`
+        SELECT ${bogotaMonth(Prisma.sql`p.payment_date`)} AS month,
+               COALESCE(SUM(p.amount), 0)::text AS amount
+        FROM payments p
+        JOIN orders o ON o.id = p.order_id
+        WHERE p.payment_date >= ${since}
+          AND p.is_voided = false
+          AND p.payment_method::text NOT IN (${Prisma.join([...NOT_COLLECTED_METHODS])})
+          AND o.status::text <> 'ANULADO'
+          ${advisorSql(advisorId, Prisma.sql`o.created_by_id`)}
+        GROUP BY 1
+      `,
+    );
+  }
+
+  /**
+   * Venta del mes partida entre clientes nuevos y recurrentes.
+   *
+   * Nuevo = su primera OP no anulada (de cualquier asesora) cae en ese mes, la
+   * misma definición que la tarjeta «Clientes nuevos». Con asesora elegida solo
+   * se suman sus OP, pero «nuevo» sigue siendo nuevo para la empresa.
+   */
+  async monthlyByClientType(since: Date, advisorId?: string): Promise<MonthlyClientTypeRow[]> {
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        month: string;
+        new_amount: string;
+        recurring_amount: string;
+        new_clients: bigint;
+        recurring_clients: bigint;
+      }>
+    >`
+      WITH first_order AS (
+        SELECT client_id, MIN(${bogotaMonth(Prisma.sql`order_date`)}) AS first_month
+        FROM orders
+        WHERE status::text <> 'ANULADO'
+        GROUP BY client_id
+      ),
+      sales AS (
+        SELECT ${bogotaMonth(Prisma.sql`order_date`)} AS month,
+               client_id,
+               total - reversed_amount AS amount
+        FROM orders
+        WHERE order_date >= ${since}
+          AND status::text NOT IN (${Prisma.join([...NOT_RECEIVABLE_STATUSES])})
+          ${advisorSql(advisorId)}
+      )
+      SELECT s.month,
+             COALESCE(SUM(s.amount) FILTER (WHERE s.month = f.first_month), 0)::text AS new_amount,
+             COALESCE(SUM(s.amount) FILTER (WHERE s.month > f.first_month), 0)::text AS recurring_amount,
+             COUNT(DISTINCT s.client_id) FILTER (WHERE s.month = f.first_month) AS new_clients,
+             COUNT(DISTINCT s.client_id) FILTER (WHERE s.month > f.first_month) AS recurring_clients
+      FROM sales s
+      JOIN first_order f ON f.client_id = s.client_id
+      GROUP BY s.month
+    `;
+    return rows.map((r) => ({
+      month: r.month,
+      newAmount: Number(r.new_amount),
+      recurringAmount: Number(r.recurring_amount),
+      newClients: Number(r.new_clients),
+      recurringClients: Number(r.recurring_clients),
+    }));
+  }
+
+  /** Metas desde un mes dado (inclusive), para la línea de meta de la evolución. */
+  async findGoalsSince(year: number, month: number, advisorId?: string) {
+    const goals = await this.prisma.salesGoal.findMany({
+      where: { year: { gte: year }, ...(advisorId ? { advisorId } : {}) },
+      select: { year: true, month: true, targetAmount: true },
+    });
+    return goals.filter((g) => g.year * 100 + g.month >= year * 100 + month);
+  }
+
+  private async toMonthly(
+    query: Promise<Array<{ month: string; amount: string }>>,
+  ): Promise<MonthlyAmountRow[]> {
+    const rows = await query;
+    return rows.map((r) => ({ month: r.month, amount: Number(r.amount) }));
   }
 
   /**
