@@ -39,6 +39,7 @@ import StraightenOutlinedIcon from '@mui/icons-material/StraightenOutlined';
 import EngineeringIcon from '@mui/icons-material/Engineering';
 import PrecisionManufacturingIcon from '@mui/icons-material/PrecisionManufacturing';
 import InsightsIcon from '@mui/icons-material/Insights';
+import SpaceDashboardIcon from '@mui/icons-material/SpaceDashboard';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
@@ -158,6 +159,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
       menuKey: 'comercial',
       submenu: [
         {
+          label: 'Tablero Comercial',
+          icon: <SpaceDashboardIcon />,
+          path: ROUTES.COMMERCIAL_DASHBOARD,
+          permission: PERMISSIONS.READ_COMMERCIAL_DASHBOARD,
+        },
+        {
           label: 'Pipeline de Ventas',
           icon: <TrendingUpIcon />,
           path: ROUTES.PROSPECTS,
@@ -270,6 +277,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
         PERMISSIONS.APPROVE_EXPENSE_ORDERS,
         PERMISSIONS.READ_DTF,
         PERMISSIONS.READ_SALES_BY_ADVISOR,
+        PERMISSIONS.READ_COMMERCIAL_DASHBOARD,
       ],
     },
     {
