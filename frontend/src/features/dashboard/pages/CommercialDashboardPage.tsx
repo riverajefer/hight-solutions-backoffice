@@ -145,8 +145,20 @@ const Money: React.FC<{ value: number; variant?: 'compact' | 'full' }> = ({ valu
 
 const tabular = { fontVariantNumeric: 'tabular-nums' } as const;
 
-/** Las cifras no se parten en dos renglones: la tabla se desplaza de lado si no cabe. */
-const NOWRAP_TABLE = { '& td, & th': { whiteSpace: 'nowrap' } } as const;
+/**
+ * Tabla compacta. `size="small"` no basta: el tema fija `padding: 16px` en todas
+ * las celdas (`MuiTableCell.root`) y eso pisa el padding reducido del modo
+ * small. Las cifras no se parten en dos renglones: la tabla se desplaza de lado
+ * si no cabe.
+ */
+const COMPACT_TABLE = {
+  '& td, & th': { whiteSpace: 'nowrap', py: 0.75, px: 1.5, fontSize: '0.8125rem' },
+  '& th': { fontSize: '0.75rem', fontWeight: 700, color: 'text.secondary', py: 1 },
+  // La tabla se sale del padding del panel (mx negativo): primera y última
+  // columna recuperan ese margen para alinearse con el título.
+  '& td:first-of-type, & th:first-of-type': { pl: { xs: 2, md: 3 } },
+  '& td:last-of-type, & th:last-of-type': { pr: { xs: 2, md: 3 } },
+} as const;
 
 // ---------------------------------------------------------------------------
 // Filtros aplicados en cada tarjeta
@@ -1623,7 +1635,7 @@ const RankingPanel: React.FC<{
       <>
         <AdvisorRankingChart rows={rows} onSelect={onSelect} />
         <TableContainer sx={{ mx: { xs: -2, md: -3 }, width: 'auto' }}>
-          <Table size="small" sx={NOWRAP_TABLE}>
+          <Table size="small" sx={COMPACT_TABLE}>
             <TableHead>
               <TableRow>
                 <TableCell sx={{ pl: { xs: 2, md: 3 } }}>Asesora</TableCell>
@@ -1753,7 +1765,7 @@ const TopDebtorsPanel: React.FC<{ rows: CommercialTopDebtor[] }> = ({ rows }) =>
         <>
           <TopDebtorsChart rows={rows} />
           <TableContainer sx={{ mx: { xs: -2, md: -3 }, width: 'auto' }}>
-            <Table size="small" sx={NOWRAP_TABLE}>
+            <Table size="small" sx={COMPACT_TABLE}>
               <TableHead>
                 <TableRow>
                   <TableCell sx={{ pl: { xs: 2, md: 3 } }}>Cliente</TableCell>
