@@ -10,14 +10,14 @@ export const usePayrollEmployees = () => {
     queryFn: () => payrollEmployeesApi.getAll(),
   });
 
-  const getEmployeeQuery = (id: string) =>
+  const useEmployeeQuery = (id: string) =>
     useQuery({
       queryKey: ['payroll-employees', id],
       queryFn: () => payrollEmployeesApi.getById(id),
       enabled: !!id,
     });
 
-  const getHistoryQuery = (id: string) =>
+  const useEmployeeHistoryQuery = (id: string) =>
     useQuery({
       queryKey: ['payroll-employees', id, 'history'],
       queryFn: () => payrollEmployeesApi.getHistory(id),
@@ -49,8 +49,8 @@ export const usePayrollEmployees = () => {
 
   return {
     employeesQuery,
-    getEmployeeQuery,
-    getHistoryQuery,
+    useEmployeeQuery,
+    useEmployeeHistoryQuery,
     createMutation,
     updateMutation,
     deleteMutation,

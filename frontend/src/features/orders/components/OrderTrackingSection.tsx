@@ -67,8 +67,8 @@ const formatCurrency = (value: number) => {
  * moneda, el espacio que mete `Intl` cuesta ancho real antes del scroll.
  */
 const formatCompactCurrency = (value: number) =>
-  // `Intl` separa el símbolo con espacio duro ( ), no con uno normal.
-  formatCurrency(value).replace(/\$[\s ]+/, '$');
+  // `Intl` separa el símbolo con espacio duro (U+00A0), no con uno normal.
+  formatCurrency(value).replace(/\$[\s\u00A0]+/, '$');
 
 /**
  * Los nombres completos ocupan casi un tercio del ancho de la tabla. Dejamos el

@@ -18,10 +18,10 @@ const PermissionFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [error, setError] = React.useState<string | null>(null);
 
-  const { getPermissionQuery, createPermissionMutation, updatePermissionMutation } =
+  const { usePermissionQuery, createPermissionMutation, updatePermissionMutation } =
     usePermissions();
   
-  const permissionQuery = getPermissionQuery(id || '');
+  const permissionQuery = usePermissionQuery(id || '');
 
   const isEdit = !!id;
   const isLoading = isEdit ? permissionQuery.isLoading : false;

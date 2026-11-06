@@ -16,8 +16,8 @@ const RolePermissionsPage: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
   const { id } = useParams<{ id: string }>();
   
-  const { getRoleQuery, setPermissionsMutation } = useRoles();
-  const { data: role, isLoading, isError } = getRoleQuery(id || '');
+  const { useRoleQuery, setPermissionsMutation } = useRoles();
+  const { data: role, isLoading, isError } = useRoleQuery(id || '');
   
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
 

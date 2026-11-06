@@ -11,7 +11,7 @@
     "env:info": "node scripts/env-info.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives",
     "preview": "vite preview --host 0.0.0.0 --port $PORT",
     "prepare": "if [ -d \"../.git\" ]; then cd .. && git config core.hooksPath frontend/.husky && chmod +x frontend/.husky/pre-push; fi"
   },

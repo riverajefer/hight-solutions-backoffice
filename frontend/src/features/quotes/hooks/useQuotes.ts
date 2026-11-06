@@ -14,7 +14,7 @@ export const useQuotes = (filters?: FilterQuotesDto) => {
     placeholderData: keepPreviousData,
   });
 
-  const quoteQuery = (id: string) =>
+  const useQuoteQuery = (id: string) =>
     useQuery({
       queryKey: ['quote', id],
       queryFn: () => quotesApi.findOne(id),
@@ -71,7 +71,7 @@ export const useQuotes = (filters?: FilterQuotesDto) => {
 
   return {
     quotesQuery,
-    quoteQuery,
+    useQuoteQuery,
     createQuoteMutation,
     updateQuoteMutation,
     deleteQuoteMutation,

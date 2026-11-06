@@ -17,7 +17,6 @@ export function serializeToPayload(state: FormBuilderState): UpdateFieldSchemaPa
 }
 
 function toFieldDef(field: BuilderField, order: number): FieldDef {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { _localId, ...rest } = field;
   return { ...rest, order };
 }

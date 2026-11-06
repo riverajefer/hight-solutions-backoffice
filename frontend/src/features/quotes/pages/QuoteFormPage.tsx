@@ -233,9 +233,11 @@ export const QuoteFormPage: React.FC = () => {
   const { user } = useAuthStore();
   const isAdmin = user?.role?.name === 'admin';
 
-  const { quoteQuery, createQuoteMutation, updateQuoteMutation } = useQuotes();
-  const currentQuote = isEdit ? quoteQuery(id!).data : null;
-  const isLoadingQuote = isEdit && quoteQuery(id!).isLoading;
+  const { useQuoteQuery, createQuoteMutation, updateQuoteMutation } = useQuotes();
+  // El hook se llama siempre (regla de hooks); sin id queda deshabilitado.
+  const quoteQuery = useQuoteQuery(id ?? '');
+  const currentQuote = isEdit ? quoteQuery.data : null;
+  const isLoadingQuote = isEdit && quoteQuery.isLoading;
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
