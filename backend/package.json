@@ -34,7 +34,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
-    "test:ci": "jest --ci --coverage --runInBand"
+    "test:ci": "jest --ci --coverage --coverageReporters=text-summary --silent"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
@@ -82,6 +82,18 @@
       "^@modules/(.*)$": "<rootDir>/modules/$1",
       "^@common/(.*)$": "<rootDir>/common/$1",
       "^@config/(.*)$": "<rootDir>/config/$1"
+    },
+    "coverageThreshold": {
+      "global": {
+        "statements": 80,
+        "branches": 69,
+        "functions": 73,
+        "lines": 80
+      },
+      "./**/*.util.ts": {
+        "statements": 95,
+        "lines": 95
+      }
     }
   },
   "keywords": [

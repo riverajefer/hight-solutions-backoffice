@@ -7,7 +7,7 @@ PR / push a develop · staging · master
         │
         ▼
 GitHub Actions (.github/workflows/ci.yml)
-  ├─ Backend      → npm ci · prisma generate · tsc · jest
+  ├─ Backend      → npm ci · prisma generate · tsc · jest con umbral de cobertura
   ├─ Migraciones  → prisma migrate deploy en Postgres 17 vacío · prisma:drift
   └─ Frontend     → npm ci · lint · vitest · build (tsc + vite)
         │  todos en verde
@@ -24,9 +24,24 @@ Railway ("Wait for CI") despliega el commit
 
 | Job | Atrapa |
 |---|---|
-| Backend | Errores de tipos y tests unitarios rotos |
+| Backend | Errores de tipos, tests unitarios rotos y cobertura por debajo del umbral |
 | Migraciones | Una migración que falla al aplicarse (hoy se descubriría cuando el arranque en Railway falla) y un `schema.prisma` modificado sin migración, o una migración que no coincide con el schema |
 | Frontend | Errores de lint, errores de tipos, tests rotos y un build que no compila |
+
+### Cobertura del backend
+
+Umbral en `coverageThreshold` (`backend/package.json`), medido con `npm run test:ci`:
+
+| Alcance | Statements | Ramas | Funciones | Líneas |
+|---|---|---|---|---|
+| Global (sin los `*.util.ts`) | 80 | 69 | 73 | 80 |
+| Cada `*.util.ts` por separado | 95 | — | — | 95 |
+
+- Es un **piso, no una meta**: se fijó unos 2 puntos por debajo de lo medido el 2026-11-05 (82,6 / 71,4 / 75,1 / 83,1 sin utils). Una funcionalidad nueva con algo de tests no lo rompe; módulos enteros sin tests, sí. Cuando la cobertura suba, sube el piso.
+- Los `*.util.ts` concentran la lógica de dinero (`computeOrderBalance`, `computeNetPaidAmount`, redondeo…) y hoy están en 98–100 %. Jest evalúa cada uno por separado: un util nuevo sin tests falla aunque el promedio global esté bien. Los archivos que entran en ese patrón salen del cálculo global.
+- Si falla: el log dice qué métrica (global) o qué archivo (utils) no cumple. Para ver el detalle por archivo: `npm run test:cov`.
+- Los tests mockean Prisma: un 83 % **no** cubre consultas a la base. Eso lo vigilan el job de migraciones y `scripts/db-invariants.sh`.
+- El frontend no tiene umbral: su 6 % global lo dominan páginas y componentes sin tests y no dice nada útil.
 
 ### Lint del frontend
 
