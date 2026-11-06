@@ -790,6 +790,7 @@ npm run lint                # Ejecutar ESLint
 
 - **[README.md](./README.md)** - README principal del proyecto
 - **[docs/ENVIRONMENT_SETUP.md](./docs/ENVIRONMENT_SETUP.md)** - Guía de configuración de ambientes
+- **[docs/CI_CD.md](./docs/CI_CD.md)** - Pipeline de CI (GitHub Actions) y despliegue con "Wait for CI" en Railway
 
 ---
 

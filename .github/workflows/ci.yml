@@ -1,0 +1,124 @@
+# CI de High Solutions Backoffice
+#
+# Railway despliega solo al hacer merge a develop / staging / master. Este
+# workflow es la compuerta previa: con "Wait for CI" activo en cada servicio de
+# Railway, el despliegue espera a que estos checks pasen en el commit.
+#
+# - pull_request: valida el PR antes del merge (y alimenta la protección de rama).
+# - push: corre sobre el commit que Railway va a desplegar.
+#
+# Ver docs/CI_CD.md para la configuración en GitHub y Railway.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, staging, master]
+  push:
+    branches: [develop, staging, master]
+  workflow_dispatch:
+
+concurrency:
+  # En un PR, un push nuevo cancela la corrida anterior. En ramas desplegables
+  # no se cancela: Railway espera el resultado de ese commit concreto.
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (tsc + jest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      # prisma.config.ts exige DATABASE_URL aunque `prisma generate` no se conecte.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: backend/.nvmrc
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+      # El cliente se genera en src/generated/prisma, que no está versionado.
+      - run: npx prisma generate
+      - name: Typecheck
+        run: npx tsc --noEmit -p tsconfig.json
+      - name: Tests unitarios
+        run: npx jest --ci --silent
+
+  migrations:
+    name: Migraciones (deploy + drift)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: backend/.nvmrc
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+      # Lo mismo que corre Railway al arrancar: si una migración falla aquí,
+      # fallaría también el arranque en staging/PRD.
+      - name: Aplicar migraciones sobre base vacía
+        run: npx prisma migrate deploy
+      # schema.prisma y las migraciones deben describir la misma base. Si hay
+      # diferencia, falta una migración (o la migración no coincide con el schema).
+      - name: Detectar drift entre migraciones y schema.prisma
+        run: npm run prisma:drift
+
+  frontend:
+    name: Frontend (tsc + vitest + build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - name: Tests unitarios
+        run: npm test
+      # `build` corre `tsc` antes de `vite build`.
+      - name: Build
+        run: npm run build
+        env:
+          VITE_API_URL: https://ci.invalid/api/v1
+          VITE_ENVIRONMENT: production
