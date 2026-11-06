@@ -11,7 +11,7 @@ export const useUsers = (options?: { enabled?: boolean }) => {
     enabled: options?.enabled ?? true,
   });
 
-  const getUserQuery = (id: string) => {
+  const useUserQuery = (id: string) => {
     return useQuery({
       queryKey: ['users', id],
       queryFn: () => usersApi.getById(id),
@@ -68,7 +68,7 @@ export const useUsers = (options?: { enabled?: boolean }) => {
 
   return {
     usersQuery,
-    getUserQuery,
+    useUserQuery,
     createUserMutation,
     updateUserMutation,
     deleteUserMutation,

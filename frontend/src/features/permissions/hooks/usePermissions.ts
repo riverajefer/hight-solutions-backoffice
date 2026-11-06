@@ -10,7 +10,7 @@ export const usePermissions = () => {
     queryFn: () => permissionsApi.getAll(),
   });
 
-  const getPermissionQuery = (id: string) => {
+  const usePermissionQuery = (id: string) => {
     return useQuery({
       queryKey: ['permissions', id],
       queryFn: () => permissionsApi.getById(id),
@@ -42,7 +42,7 @@ export const usePermissions = () => {
 
   return {
     permissionsQuery,
-    getPermissionQuery,
+    usePermissionQuery,
     createPermissionMutation,
     updatePermissionMutation,
     deletePermissionMutation,

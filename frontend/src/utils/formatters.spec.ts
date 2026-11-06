@@ -23,11 +23,11 @@ describe('formatters', () => {
       const result = formatCurrency(1000000);
       expect(result).toContain('$');
       // es-CO usa punto como separador de miles
-      expect(result.replace(/\s| /g, '')).toContain('1.000.000');
+      expect(result.replace(/\s|\u00A0/g, '')).toContain('1.000.000');
     });
 
     it('acepta strings numéricos', () => {
-      expect(formatCurrency('2500').replace(/\s| /g, '')).toContain('2.500');
+      expect(formatCurrency('2500').replace(/\s|\u00A0/g, '')).toContain('2.500');
     });
 
     it('devuelve $0 para valores no numéricos', () => {
@@ -95,7 +95,7 @@ describe('formatters', () => {
 
   describe('formatNumber', () => {
     it('formatea con separador de miles', () => {
-      expect(formatNumber(1234567).replace(/\s| /g, '')).toContain('1.234.567');
+      expect(formatNumber(1234567).replace(/\s|\u00A0/g, '')).toContain('1.234.567');
     });
 
     it('devuelve 0 para valores no numéricos', () => {

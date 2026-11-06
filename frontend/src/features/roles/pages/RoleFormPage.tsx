@@ -18,9 +18,9 @@ const RoleFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [error, setError] = React.useState<string | null>(null);
 
-  const { getRoleQuery, createRoleMutation, updateRoleMutation, setPermissionsMutation } =
+  const { useRoleQuery, createRoleMutation, updateRoleMutation, setPermissionsMutation } =
     useRoles();
-  const roleQuery = getRoleQuery(id || '');
+  const roleQuery = useRoleQuery(id || '');
 
   const isEdit = !!id;
   const isLoading = isEdit ? roleQuery.isLoading : false;

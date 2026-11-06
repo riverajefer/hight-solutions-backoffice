@@ -9,7 +9,7 @@ PR / push a develop · staging · master
 GitHub Actions (.github/workflows/ci.yml)
   ├─ Backend      → npm ci · prisma generate · tsc · jest
   ├─ Migraciones  → prisma migrate deploy en Postgres 17 vacío · prisma:drift
-  └─ Frontend     → npm ci · vitest · build (tsc + vite)
+  └─ Frontend     → npm ci · lint · vitest · build (tsc + vite)
         │  todos en verde
         ▼
 Railway ("Wait for CI") despliega el commit
@@ -26,15 +26,22 @@ Railway ("Wait for CI") despliega el commit
 |---|---|
 | Backend | Errores de tipos y tests unitarios rotos |
 | Migraciones | Una migración que falla al aplicarse (hoy se descubriría cuando el arranque en Railway falla) y un `schema.prisma` modificado sin migración, o una migración que no coincide con el schema |
-| Frontend | Errores de tipos, tests rotos y un build que no compila |
+| Frontend | Errores de lint, errores de tipos, tests rotos y un build que no compila |
 
-El lint **no** está en el CI todavía: el frontend tiene ~690 errores (651 son `no-explicit-any`). Entra en la fase 2.
+### Lint del frontend
+
+- `npm run lint` falla solo con **errores**. Los avisos (~690, casi todos `no-explicit-any`) se muestran pero no bloquean.
+- `no-explicit-any` es aviso: los `any` heredados se van quitando al tocar cada archivo.
+- `no-unused-vars` ignora lo que empieza con `_` (descartado a propósito) y lo que se separa con `...rest`.
+- Los avisos de `react-hooks/exhaustive-deps` **no** se corrigen a ciegas: agregar dependencias a un `useEffect` puede causar loops o peticiones repetidas. Se revisan uno por uno al tocar cada pantalla.
+
+> Los nombres de los jobs son los que exige el ruleset. Si renombras uno, actualiza el ruleset o los PRs quedan bloqueados esperando un check que ya no existe.
 
 ### Tiempos de referencia
 
 Medidos en un clon limpio: backend ~4 min (jest es lo más lento), frontend ~1,5 min y migraciones ~1 min. Los jobs corren en paralelo.
 
-## Configuración pendiente (manual)
+## Configuración manual (aplicada el 2026-11-05)
 
 ### 1. Railway: esperar al CI
 
@@ -67,7 +74,7 @@ En `develop` puedes aplicarlo también, o dejarlo libre si a veces haces push di
 - **Migraciones → deploy**: la migración tiene un error de SQL o depende de datos que no existen en una base vacía. Arréglala antes del merge; en Railway fallaría igual.
 - **Backend / Frontend**: reproduce en local con los mismos comandos del workflow.
 
-## Fase 2 (pendiente)
+## Pendiente
 
-- Arreglar los 8 `react-hooks/rules-of-hooks`, pasar `no-explicit-any` a warning y agregar el lint del frontend al CI.
+- (Opcional) Trinquete de avisos: `--max-warnings <n>` con el número actual, para que no crezcan.
 - Correr `backend/scripts/db-invariants.sh` contra staging después de cada despliegue o de forma programada.

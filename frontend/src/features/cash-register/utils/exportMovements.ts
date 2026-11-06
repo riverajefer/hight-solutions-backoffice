@@ -408,7 +408,7 @@ function drawSummary(
 // ---------------------------------------------------------------------------
 
 function drawPageTotal(doc: jsPDF, startY: number, label: string, total: number, isPositive: boolean): number {
-  let y = ensureSpace(doc, startY, 15) + 3;
+  const y = ensureSpace(doc, startY, 15) + 3;
   const totalBoxW = 75;
   const startX = PDF_LAYOUT.pageWidth - PDF_LAYOUT.marginRight - totalBoxW;
   const rowH = 8;
@@ -469,7 +469,7 @@ export async function exportMovementsPdf(
     y = await drawHeader(doc, 'Reporte de Egresos');
     y = drawMovementsTable(doc, y, expenses);
     const totalExpenses = expenses.reduce((acc, m) => acc + Number(m.amount), 0);
-    y = drawPageTotal(doc, y, 'Total Egresos:', totalExpenses, false);
+    drawPageTotal(doc, y, 'Total Egresos:', totalExpenses, false);
   }
 
   drawFooter(doc);

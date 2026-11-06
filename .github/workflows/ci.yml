@@ -98,6 +98,8 @@ jobs:
         run: npm run prisma:drift
 
   frontend:
+    # No renombrar: el ruleset de master/staging exige este check por su nombre.
+    # El lint corre aquí aunque no aparezca en el nombre.
     name: Frontend (tsc + vitest + build)
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -114,6 +116,9 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - run: npm ci
+      # Falla solo con errores; los avisos (~690, casi todos `any`) no bloquean.
+      - name: Lint
+        run: npm run lint
       - name: Tests unitarios
         run: npm test
       # `build` corre `tsc` antes de `vite build`.
