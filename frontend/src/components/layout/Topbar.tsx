@@ -312,7 +312,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
                   ? neonColors.primary.light
                   : alpha(theme.palette.common.white, 0.8),
                 transition: 'transform 0.3s ease',
-                transform: Boolean(anchorEl) ? 'rotate(180deg)' : 'rotate(0)',
+                transform: anchorEl ? 'rotate(180deg)' : 'rotate(0)',
               }}
             />
           </Box>

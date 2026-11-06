@@ -142,7 +142,7 @@ export const QuotesListPage: React.FC = () => {
   const handleViewModeChange = (_: React.MouseEvent, value: ViewMode | null) => {
     if (!value) return;
     setViewMode(value);
-    try { localStorage.setItem('quotes-view-mode', value); } catch {}
+    try { localStorage.setItem('quotes-view-mode', value); } catch { /* sin almacenamiento: no se recuerda la vista */ }
   };
 
   const handleDeleteQuote = async () => {
@@ -162,7 +162,9 @@ export const QuotesListPage: React.FC = () => {
       if (order && (order as any).id) {
         navigate(`/orders/${(order as any).id}`);
       }
-    } catch (error) {}
+    } catch {
+      // La mutación ya notifica el error (onError en useQuotes).
+    }
   };
 
   const handleChangeStatus = async (

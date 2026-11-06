@@ -52,7 +52,7 @@ const UserViewPage: React.FC = () => {
   // `true`/`false` = qué se va a pedir; `null` = diálogo cerrado.
   const [pendingRequirement, setPendingRequirement] = useState<boolean | null>(null);
   
-  const { getUserQuery, deactivateUserMutation, resetTwoFactorMutation, setTwoFactorRequirementMutation } =
+  const { useUserQuery, deactivateUserMutation, resetTwoFactorMutation, setTwoFactorRequirementMutation } =
     useUsers();
   const canRequireTwoFactor = hasPermission(PERMISSIONS.REQUIRE_USER_2FA);
   // El modo del servidor (off/optional/required) sale del estado del propio usuario.
@@ -61,7 +61,7 @@ const UserViewPage: React.FC = () => {
     queryFn: () => twoFactorApi.getStatus(),
     enabled: canRequireTwoFactor,
   });
-  const { data: user, isLoading, isError } = getUserQuery(id || '');
+  const { data: user, isLoading, isError } = useUserQuery(id || '');
 
   const isAdmin = currentUser?.role?.name?.toLowerCase() === 'admin';
   const canDeactivate = isAdmin && user?.isActive !== false;

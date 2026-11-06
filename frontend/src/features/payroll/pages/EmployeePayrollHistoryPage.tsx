@@ -47,9 +47,9 @@ const periodStatusColor: Record<string, 'default' | 'warning' | 'info' | 'succes
 
 const EmployeePayrollHistoryPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { getEmployeeQuery, getHistoryQuery } = usePayrollEmployees();
-  const employeeQuery = getEmployeeQuery(id!);
-  const historyQuery = getHistoryQuery(id!);
+  const { useEmployeeQuery, useEmployeeHistoryQuery } = usePayrollEmployees();
+  const employeeQuery = useEmployeeQuery(id!);
+  const historyQuery = useEmployeeHistoryQuery(id!);
 
   if (employeeQuery.isLoading || historyQuery.isLoading) return <LoadingSpinner />;
 

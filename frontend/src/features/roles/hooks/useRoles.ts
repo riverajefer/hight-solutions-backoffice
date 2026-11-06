@@ -10,7 +10,7 @@ export const useRoles = () => {
     queryFn: () => rolesApi.getAll(),
   });
 
-  const getRoleQuery = (id: string) => {
+  const useRoleQuery = (id: string) => {
     return useQuery({
       queryKey: ['roles', id],
       queryFn: () => rolesApi.getById(id),
@@ -50,7 +50,7 @@ export const useRoles = () => {
 
   return {
     rolesQuery,
-    getRoleQuery,
+    useRoleQuery,
     createRoleMutation,
     updateRoleMutation,
     setPermissionsMutation,

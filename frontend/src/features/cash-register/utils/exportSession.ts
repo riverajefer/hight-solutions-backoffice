@@ -465,7 +465,7 @@ export async function exportSessionPdf(session: CashSession): Promise<void> {
   let y = await drawPdfHeader(doc);
   y = drawInfoBand(doc, y, data);
   y = drawDenominations(doc, y, data.closingDenominations);
-  y = drawMovementsTable(doc, y, data.movements);
+  drawMovementsTable(doc, y, data.movements);
 
   drawPageFooter(doc);
 

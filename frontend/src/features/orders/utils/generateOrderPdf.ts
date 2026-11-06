@@ -17,39 +17,35 @@ function strWidthMm(doc: jsPDF, text: string): number {
 
 /** Load image from URL to Base64 */
 async function loadImageFromBlob(url: string): Promise<string> {
-  return new Promise(async (resolve, reject) => {
-    try {
-      // Fetch the image with authentication
-      const response = await axiosInstance.get(url, {
-        responseType: 'blob',
-      });
+  // Fetch the image with authentication (si falla, la promesa devuelta se rechaza)
+  const response = await axiosInstance.get(url, {
+    responseType: 'blob',
+  });
 
-      const blob = response.data;
-      const blobUrl = URL.createObjectURL(blob);
+  const blob = response.data;
+  const blobUrl = URL.createObjectURL(blob);
 
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0);
-          URL.revokeObjectURL(blobUrl);
-          resolve(canvas.toDataURL('image/png'));
-        } else {
-          URL.revokeObjectURL(blobUrl);
-          reject(new Error('Canvas context error'));
-        }
-      };
-      img.onerror = (e) => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
         URL.revokeObjectURL(blobUrl);
-        reject(e);
-      };
-      img.src = blobUrl;
-    } catch (error) {
-      reject(error);
-    }
+        resolve(canvas.toDataURL('image/png'));
+      } else {
+        URL.revokeObjectURL(blobUrl);
+        reject(new Error('Canvas context error'));
+      }
+    };
+    img.onerror = (e) => {
+      URL.revokeObjectURL(blobUrl);
+      reject(e);
+    };
+    img.src = blobUrl;
   });
 }
 

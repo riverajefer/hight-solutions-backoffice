@@ -260,17 +260,13 @@ export const OrdersListPage: React.FC = () => {
   const handleChangeStatus = async (newStatus: OrderStatus, reason?: string) => {
     if (!changeStatusOrder) return;
 
-    try {
-      await updateStatusMutation.mutateAsync({
-        id: changeStatusOrder.id,
-        status: newStatus,
-        reason,
-      });
-    } catch (error) {
-      // Relanzar el error para que el componente ChangeStatusDialog lo maneje
-      // Especialmente importante para errores 403 que requieren autorización
-      throw error;
-    }
+    // Sin try/catch a propósito: el error se propaga a ChangeStatusDialog, que lo
+    // maneja (especialmente los 403 que requieren autorización).
+    await updateStatusMutation.mutateAsync({
+      id: changeStatusOrder.id,
+      status: newStatus,
+      reason,
+    });
   };
 
   // Columns definition with responsive breakpoints

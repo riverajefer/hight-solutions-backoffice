@@ -10,6 +10,21 @@ module.exports = {
   parser: '@typescript-eslint/parser',
   plugins: ['react-refresh'],
   rules: {
+    // Hay ~650 `any` heredados. Como error bloquearían el CI sin aportar nada
+    // inmediato; como aviso siguen visibles para irlos quitando al tocar cada
+    // archivo. Ver docs/CI_CD.md.
+    '@typescript-eslint/no-explicit-any': 'warn',
+    // Prefijo `_` = descartado a propósito (p. ej. `{ page: _p, ...rest }`).
+    '@typescript-eslint/no-unused-vars': [
+      'error',
+      {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+        destructuredArrayIgnorePattern: '^_',
+        ignoreRestSiblings: true,
+      },
+    ],
     'react-refresh/only-export-components': [
       'warn',
       { allowConstantExport: true },

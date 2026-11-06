@@ -74,9 +74,9 @@ const PayrollPeriodDetailPage: React.FC = () => {
   const canPay = hasPermission(PERMISSIONS.PAY_PAYROLL);
   const canVoidPayments = hasPermission(PERMISSIONS.VOID_PAYROLL_PAYMENTS);
 
-  const { getPeriodQuery, getSummaryQuery, generateItemsMutation, updateMutation } = usePayrollPeriods();
-  const periodQuery = getPeriodQuery(id!);
-  const summaryQuery = getSummaryQuery(id!);
+  const { usePeriodQuery, usePeriodSummaryQuery, generateItemsMutation, updateMutation } = usePayrollPeriods();
+  const periodQuery = usePeriodQuery(id!);
+  const summaryQuery = usePeriodSummaryQuery(id!);
   const { itemsQuery, deleteMutation } = usePayrollItems(id!);
   const advancesQuery = useQuery({
     queryKey: ['payroll-advances', id],

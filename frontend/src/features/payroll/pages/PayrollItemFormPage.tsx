@@ -191,8 +191,8 @@ const PayrollItemFormPage: React.FC = () => {
   const isNew = itemId === 'new';
   const [serverError, setServerError] = React.useState<string | null>(null);
 
-  const { getPeriodQuery } = usePayrollPeriods();
-  const periodQuery = getPeriodQuery(periodId!);
+  const { usePeriodQuery } = usePayrollPeriods();
+  const periodQuery = usePeriodQuery(periodId!);
   const period = periodQuery.data;
 
   const itemQuery = useQuery({

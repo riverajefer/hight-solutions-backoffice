@@ -197,8 +197,8 @@ const PayrollEmployeeFormPage: React.FC = () => {
   const [serverError, setServerError] = React.useState<string | null>(null);
   const [tab, setTab] = React.useState(0);
 
-  const { getEmployeeQuery, createMutation, updateMutation } = usePayrollEmployees();
-  const employeeQuery = getEmployeeQuery(id ?? '');
+  const { useEmployeeQuery, createMutation, updateMutation } = usePayrollEmployees();
+  const employeeQuery = useEmployeeQuery(id ?? '');
 
   const usersQuery = useQuery({
     queryKey: ['users-for-payroll'],

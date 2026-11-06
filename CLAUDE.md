@@ -660,7 +660,7 @@ npm run db:reset            # Resetear BD + seed
 npm run test                # Ejecutar todos los tests
 npm run test:watch          # Watch mode
 npm run test:cov            # Reporte de cobertura
-npm run test:ci             # CI mode (--runInBand, coverage)
+npm run test:ci             # CI mode (coverage + umbral mínimo, ver docs/CI_CD.md)
 
 # Producción
 npm run build               # Compilar

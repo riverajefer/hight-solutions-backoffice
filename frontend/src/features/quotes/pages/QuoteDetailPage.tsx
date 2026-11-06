@@ -111,12 +111,12 @@ export const QuoteDetailPage: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
 
   const {
-    quoteQuery,
+    useQuoteQuery,
     updateQuoteMutation,
     deleteQuoteMutation,
     convertToOrderMutation,
   } = useQuotes();
-  const { data: quote, isLoading } = quoteQuery(id!);
+  const { data: quote, isLoading } = useQuoteQuery(id!);
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -179,7 +179,9 @@ export const QuoteDetailPage: React.FC = () => {
         deliveryDate: deliveryDate.toISOString(),
       });
       navigate(`/orders/${order.id}`);
-    } catch (error) {}
+    } catch {
+      // La mutación ya notifica el error (onError en useQuotes).
+    }
   };
 
   const handleDelete = async () => {

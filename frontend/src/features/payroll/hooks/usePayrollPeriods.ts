@@ -14,14 +14,14 @@ export const usePayrollPeriods = () => {
     queryFn: () => payrollPeriodsApi.getAll(),
   });
 
-  const getPeriodQuery = (id: string) =>
+  const usePeriodQuery = (id: string) =>
     useQuery({
       queryKey: ['payroll-periods', id],
       queryFn: () => payrollPeriodsApi.getById(id),
       enabled: !!id,
     });
 
-  const getSummaryQuery = (id: string) =>
+  const usePeriodSummaryQuery = (id: string) =>
     useQuery({
       queryKey: ['payroll-periods', id, 'summary'],
       queryFn: () => payrollPeriodsApi.getSummary(id),
@@ -68,8 +68,8 @@ export const usePayrollPeriods = () => {
 
   return {
     periodsQuery,
-    getPeriodQuery,
-    getSummaryQuery,
+    usePeriodQuery,
+    usePeriodSummaryQuery,
     createMutation,
     updateMutation,
     cloneMutation,

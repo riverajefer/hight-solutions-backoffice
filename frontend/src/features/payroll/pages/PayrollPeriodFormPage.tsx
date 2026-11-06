@@ -66,8 +66,8 @@ const PayrollPeriodFormPage: React.FC = () => {
   const isEdit = !!id;
   const [serverError, setServerError] = React.useState<string | null>(null);
 
-  const { getPeriodQuery, createMutation, updateMutation } = usePayrollPeriods();
-  const periodQuery = getPeriodQuery(id ?? '');
+  const { usePeriodQuery, createMutation, updateMutation } = usePayrollPeriods();
+  const periodQuery = usePeriodQuery(id ?? '');
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),

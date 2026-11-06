@@ -18,8 +18,8 @@ const UserFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [error, setError] = React.useState<string | null>(null);
 
-  const { getUserQuery, createUserMutation, updateUserMutation } = useUsers();
-  const userQuery = getUserQuery(id || '');
+  const { useUserQuery, createUserMutation, updateUserMutation } = useUsers();
+  const userQuery = useUserQuery(id || '');
 
   const isEdit = !!id;
   const isLoading = isEdit ? userQuery.isLoading : false;
