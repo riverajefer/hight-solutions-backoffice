@@ -20,11 +20,14 @@ const orderGroup = (
   total: number,
   balance: number,
   reversedAmount = 0,
+  /** Base sin IVA; por defecto igual al total (OP sin IVA). */
+  subtotal = total,
+  discountAmount = 0,
 ) => ({
   createdById,
   status,
   _count: { _all: count },
-  _sum: { total, reversedAmount, balance },
+  _sum: { subtotal, discountAmount, total, reversedAmount, balance },
 });
 
 describe('CommercialDashboardService', () => {
@@ -72,7 +75,7 @@ describe('CommercialDashboardService', () => {
       const result = await service.getCommercialDashboard({}, ME);
 
       expect(repository.groupOrders).toHaveBeenCalledWith(expect.any(Date), expect.any(Date), ME);
-      expect(repository.portfolioAging).toHaveBeenCalledWith(ME);
+      expect(repository.portfolioAging).toHaveBeenCalledWith(expect.any(Date), ME);
       expect(repository.findAdvisors).not.toHaveBeenCalled();
       expect(result.scopedToOwn).toBe(true);
       expect(result.advisorRanking).toEqual([]);
@@ -90,6 +93,49 @@ describe('CommercialDashboardService', () => {
       await service.getCommercialDashboard({}, ME);
 
       expect(repository.groupOrders).toHaveBeenCalledWith(expect.any(Date), expect.any(Date), undefined);
+    });
+  });
+
+  describe('inicio de datos', () => {
+    it('recorta un periodo que empieza antes del 1 de agosto de 2026 y lo informa', async () => {
+      const result = await service.getCommercialDashboard(
+        { dateFrom: '2026-01-01', dateTo: '2026-12-31' },
+        ME,
+      );
+
+      const start = new Date('2026-08-01T05:00:00.000Z');
+      expect(repository.groupOrders).toHaveBeenCalledWith(start, expect.any(Date), undefined);
+      expect(repository.groupQuotes).toHaveBeenCalledWith(start, expect.any(Date), undefined);
+      expect(repository.newClients).toHaveBeenCalledWith(start, expect.any(Date), undefined);
+      expect(result.period).toEqual({
+        dateFrom: '2026-08-01',
+        dateTo: '2026-12-31',
+        requestedFrom: '2026-01-01',
+        clamped: true,
+      });
+      expect(result.dataStart).toBe('2026-08-01');
+    });
+
+    it('no toca un periodo que ya empieza después (el «Este año» de 2027)', async () => {
+      const result = await service.getCommercialDashboard(
+        { dateFrom: '2027-01-01', dateTo: '2027-12-31' },
+        ME,
+      );
+
+      expect(repository.groupOrders).toHaveBeenCalledWith(
+        new Date('2027-01-01T05:00:00.000Z'),
+        expect.any(Date),
+        undefined,
+      );
+      expect(result.period.clamped).toBe(false);
+    });
+
+    it('la cartera y los deudores solo cuentan OP desde el inicio de datos', async () => {
+      await service.getCommercialDashboard({}, ME);
+
+      const start = new Date('2026-08-01T05:00:00.000Z');
+      expect(repository.portfolioAging).toHaveBeenCalledWith(start, undefined);
+      expect(repository.topDebtors).toHaveBeenCalledWith(expect.any(Number), start, undefined);
     });
   });
 
@@ -112,9 +158,10 @@ describe('CommercialDashboardService', () => {
       expect(quoteFunnel.openAmount).toBe(400);
     });
 
-    it('la venta excluye borradores y devueltas, y descuenta lo revertido', async () => {
+    it('la venta es el neto sin IVA de toda OP no anulada, como «Vendido» en Ventas por Asesor', async () => {
       repository.groupOrders.mockResolvedValue([
-        orderGroup(ME, 'DELIVERED', 2, 1000, 0, 100),
+        // 1.190 con IVA sobre una base de 1.050 con 50 de descuento → neto 1.000
+        orderGroup(ME, 'DELIVERED', 2, 1190, 0, 0, 1050, 50),
         orderGroup(ME, 'READY', 1, 500, 200),
         orderGroup(ME, 'DRAFT', 1, 300, 300),
         orderGroup(ME, 'RETURNED', 1, 50, 0, 50),
@@ -122,14 +169,27 @@ describe('CommercialDashboardService', () => {
 
       const { kpis, salesByStatus } = await service.getCommercialDashboard({}, ME);
 
-      expect(kpis.salesAmount).toBe(1400); // (1000 - 100) + 500
-      expect(kpis.salesOrders).toBe(3);
-      expect(kpis.averageTicket).toBeCloseTo(1400 / 3);
+      expect(kpis.salesAmount).toBe(1850); // 1000 + 500 + 300 + 50
+      expect(kpis.salesOrders).toBe(5);
+      expect(kpis.averageTicket).toBeCloseTo(1850 / 5);
+
+      // Las barras suman lo mismo que el KPI.
+      expect(salesByStatus.reduce((t, s) => t + s.amount, 0)).toBe(1850);
 
       const ready = salesByStatus.find((s) => s.key === 'READY')!;
       expect(ready.amount).toBe(500);
       expect(ready.collected).toBe(300);
+      expect(salesByStatus.find((s) => s.key === 'DELIVERED')!.amount).toBe(1000);
       expect(salesByStatus.find((s) => s.key === 'DRAFT')!.amount).toBe(300);
+    });
+
+    it('lo cobrado se mide con IVA y se lleva a la base sin IVA como proporción', async () => {
+      // Total 1.190 con IVA, saldo 595 → cobrado la mitad del neto de 1.000.
+      repository.groupOrders.mockResolvedValue([orderGroup(ME, 'READY', 1, 1190, 595, 0, 1000)]);
+
+      const { salesByStatus } = await service.getCommercialDashboard({}, ME);
+
+      expect(salesByStatus.find((s) => s.key === 'READY')!.collected).toBeCloseTo(500);
     });
 
     it('un saldo a favor no hace que lo cobrado supere la venta', async () => {
@@ -197,20 +257,20 @@ describe('CommercialDashboardService', () => {
   describe('evolución mensual', () => {
     it('arma los últimos 12 meses terminando en el mes en curso y quita los vacíos del principio', async () => {
       repository.monthlySold.mockResolvedValue([
-        { month: '2026-06', amount: 100 },
-        { month: '2026-09', amount: 300 },
+        { month: '2027-03', amount: 100 },
+        { month: '2027-06', amount: 300 },
       ]);
-      repository.monthlyCollected.mockResolvedValue([{ month: '2026-11', amount: 50 }]);
+      repository.monthlyCollected.mockResolvedValue([{ month: '2027-08', amount: 50 }]);
 
-      const trend = await service.getMonthlyTrend('2026-11-05');
+      const trend = await service.getMonthlyTrend('2027-08-05');
 
       expect(trend.map((t) => t.month)).toEqual([
-        '2026-06',
-        '2026-07',
-        '2026-08',
-        '2026-09',
-        '2026-10',
-        '2026-11',
+        '2027-03',
+        '2027-04',
+        '2027-05',
+        '2027-06',
+        '2027-07',
+        '2027-08',
       ]);
       // Un mes sin ventas en el medio se deja en cero.
       expect(trend[1]).toMatchObject({ sold: 0, quoted: 0, collected: 0 });
@@ -220,26 +280,39 @@ describe('CommercialDashboardService', () => {
     });
 
     it('cruza el año al contar los 12 meses', async () => {
-      repository.monthlyQuoted.mockResolvedValue([{ month: '2025-03', amount: 10 }]);
+      repository.monthlyQuoted.mockResolvedValue([{ month: '2027-03', amount: 10 }]);
 
-      const trend = await service.getMonthlyTrend('2026-02-10');
+      const trend = await service.getMonthlyTrend('2028-02-10');
 
-      expect(trend[0].month).toBe('2025-03');
+      expect(trend[0].month).toBe('2027-03');
       expect(trend).toHaveLength(12);
-      expect(repository.findGoalsSince).toHaveBeenCalledWith(2025, 3, undefined);
+      expect(repository.findGoalsSince).toHaveBeenCalledWith(2027, 3, undefined);
+    });
+
+    it('no muestra meses anteriores al inicio de datos, aunque tengan movimiento', async () => {
+      repository.monthlySold.mockResolvedValue([
+        { month: '2026-06', amount: 100 },
+        { month: '2026-09', amount: 300 },
+      ]);
+
+      const trend = await service.getMonthlyTrend('2026-11-05');
+
+      expect(trend.map((t) => t.month)).toEqual(['2026-09', '2026-10', '2026-11']);
+      expect(repository.findGoalsSince).toHaveBeenCalledWith(2026, 8, undefined);
+      expect(repository.monthlySold).toHaveBeenCalledWith(new Date('2026-08-01T05:00:00.000Z'), undefined);
     });
 
     it('suma las metas del mes y deja null donde no hay meta, para que la línea se corte', async () => {
-      repository.monthlySold.mockResolvedValue([{ month: '2026-06', amount: 100 }]);
+      repository.monthlySold.mockResolvedValue([{ month: '2026-08', amount: 100 }]);
       repository.findGoalsSince.mockResolvedValue([
-        { year: 2026, month: 7, targetAmount: 1000 },
-        { year: 2026, month: 7, targetAmount: 500 },
+        { year: 2026, month: 9, targetAmount: 1000 },
+        { year: 2026, month: 9, targetAmount: 500 },
       ]);
 
-      const trend = await service.getMonthlyTrend('2026-08-01');
+      const trend = await service.getMonthlyTrend('2026-10-01');
 
-      expect(trend.find((t) => t.month === '2026-06')!.goal).toBeNull();
-      expect(trend.find((t) => t.month === '2026-07')!.goal).toBe(1500);
+      expect(trend.find((t) => t.month === '2026-08')!.goal).toBeNull();
+      expect(trend.find((t) => t.month === '2026-09')!.goal).toBe(1500);
     });
 
     it('agrega la venta por tipo de cliente y deja en cero los meses sin datos', async () => {
