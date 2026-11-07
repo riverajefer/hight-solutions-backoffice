@@ -61,6 +61,7 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import PersonIcon from '@mui/icons-material/Person';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { dashboardApi } from '../../../api/dashboard.api';
 import { formatCurrency } from '../../../utils/formatters';
@@ -174,6 +175,10 @@ interface AppliedFilters {
   advisorFull: string;
   /** «Noviembre 2026»: la meta es mensual y no sigue el periodo. */
   goalMonth: string;
+  /** «1 ago 2026»: desde cuándo cuenta datos el tablero. */
+  dataStart: string;
+  /** Etiqueta de la evolución: «Últimos 12 meses» o «Desde ago 2026» mientras no los haya. */
+  trendLabel: string;
 }
 
 const FiltersContext = createContext<AppliedFilters | null>(null);
@@ -215,7 +220,10 @@ const AppliedFilterChips: React.FC<{ scope: FilterScope; sx?: object }> = ({ sco
   if (!f) return null;
   const time =
     scope === 'today'
-      ? { label: 'A hoy', title: 'Saldo a hoy: no depende del periodo elegido' }
+      ? {
+          label: 'A hoy',
+          title: `Saldo a hoy de las OP desde el ${f.dataStart}: no depende del periodo elegido`,
+        }
       : scope === 'goal'
         ? {
             label: f.goalMonth,
@@ -223,8 +231,8 @@ const AppliedFilterChips: React.FC<{ scope: FilterScope; sx?: object }> = ({ sco
           }
         : scope === 'trend'
           ? {
-              label: 'Últimos 12 meses',
-              title: 'La evolución siempre muestra los últimos 12 meses: no depende del periodo',
+              label: f.trendLabel,
+              title: `La evolución muestra los últimos 12 meses, sin pasar del ${f.dataStart}: no depende del periodo`,
             }
           : { label: f.period, title: `Periodo: ${f.periodDates}` };
   const advisor =
@@ -531,9 +539,10 @@ const SalesByStatusPanel: React.FC<{ rows: CommercialSalesByStatus[] }> = ({ row
     CONFIRMED: theme.palette.primary.main,
     WARRANTY: theme.palette.secondary.main,
     DRAFT: theme.palette.grey[500],
+    RETURNED: theme.palette.error.main,
   };
-  // Garantía casi nunca tiene movimiento: solo se muestra si lo tiene.
-  const visible = rows.filter((r) => r.key !== 'WARRANTY' || r.orders > 0);
+  // Garantía y devueltas casi nunca tienen movimiento: solo se muestran si lo tienen.
+  const visible = rows.filter((r) => (r.key !== 'WARRANTY' && r.key !== 'RETURNED') || r.orders > 0);
   const max = Math.max(...visible.map((r) => r.amount), 0);
   const total = visible.reduce((t, r) => t + r.amount, 0);
 
@@ -541,7 +550,7 @@ const SalesByStatusPanel: React.FC<{ rows: CommercialSalesByStatus[] }> = ({ row
     <Panel
       scope="period"
       title="Ventas por estado"
-      subtitle="OP del período. La parte sólida es lo cobrado; la clara, lo que falta por cobrar."
+      subtitle="OP del período, neto sin IVA. La parte sólida es lo cobrado; la clara, lo que falta por cobrar."
     >
       {total === 0 ? (
         <EmptyState>No hay órdenes de pedido en este período.</EmptyState>
@@ -589,7 +598,11 @@ const SalesByStatusPanel: React.FC<{ rows: CommercialSalesByStatus[] }> = ({ row
                         value: pct(r.amount / total),
                       },
                     ]}
-                    note={r.key === 'DRAFT' ? 'Los borradores no cuentan en «Ventas del período».' : undefined}
+                    note={
+                      r.key === 'DRAFT'
+                        ? 'Los borradores cuentan en «Ventas del período», igual que en «Ventas por Asesor».'
+                        : undefined
+                    }
                   />
                 }
               />
@@ -609,6 +622,7 @@ const AGING_NOTES: Record<CommercialAgingBucket['key'], string | undefined> = {
 };
 
 const AgingPanel: React.FC<{ buckets: CommercialAgingBucket[] }> = ({ buckets }) => {
+  const filters = useContext(FiltersContext);
   const theme = useTheme();
   const colors: Record<string, string> = {
     '0-30': theme.palette.info.main,
@@ -621,7 +635,11 @@ const AgingPanel: React.FC<{ buckets: CommercialAgingBucket[] }> = ({ buckets })
   const over60 = buckets.filter((b) => b.key === '61-90' || b.key === '90+').reduce((t, b) => t + b.balance, 0);
 
   return (
-    <Panel scope="today" title="Cartera por edades" subtitle="Saldo pendiente a hoy, según la antigüedad de la OP.">
+    <Panel
+      scope="today"
+      title="Cartera por edades"
+      subtitle={`Saldo pendiente a hoy de las OP desde el ${filters?.dataStart ?? ''}, según su antigüedad.`}
+    >
       {total === 0 ? (
         <EmptyState>No hay cartera pendiente.</EmptyState>
       ) : (
@@ -1296,7 +1314,7 @@ const TrendPanel: React.FC<{ points: CommercialTrendPoint[] }> = ({ points }) =>
     // primary, info y success son casi el mismo cian en este tema: tres curvas
     // superpuestas se confundían. Se toman tonos de la paleta que sí contrastan.
     { key: 'quoted', label: 'Cotizado', color: neonAccents.vividPurple },
-    { key: 'sold', label: 'Vendido', color: theme.palette.primary.main },
+    { key: 'sold', label: 'Vendido (sin IVA)', color: theme.palette.primary.main },
     { key: 'collected', label: 'Cobrado', color: theme.palette.success.dark },
   ] as const;
   const goalColor = theme.palette.warning.main;
@@ -1757,8 +1775,13 @@ const RankingPanel: React.FC<{
 
 const TopDebtorsPanel: React.FC<{ rows: CommercialTopDebtor[] }> = ({ rows }) => {
   const today = new Date();
+  const filters = useContext(FiltersContext);
   return (
-    <Panel scope="today" title="Clientes con más cartera" subtitle="Los 10 clientes que más deben a hoy.">
+    <Panel
+      scope="today"
+      title="Clientes con más cartera"
+      subtitle={`Los 10 clientes que más deben a hoy, en OP desde el ${filters?.dataStart ?? ''}.`}
+    >
       {rows.length === 0 ? (
         <EmptyState>No hay clientes con saldo pendiente.</EmptyState>
       ) : (
@@ -1849,17 +1872,27 @@ const CommercialDashboardPage: React.FC = () => {
 
   const appliedFilters = useMemo<AppliedFilters | null>(() => {
     if (!data) return null;
-    const dates = `${format(parseISO(range.from), 'd MMM yyyy', { locale: es })} – ${format(parseISO(range.to), 'd MMM yyyy', { locale: es })}`;
+    // Las fechas que de verdad se usaron: el backend recorta el inicio a `dataStart`.
+    const dates = `${format(parseISO(data.period.dateFrom), 'd MMM yyyy', { locale: es })} – ${format(parseISO(data.period.dateTo), 'd MMM yyyy', { locale: es })}`;
+    const dataStart = parseISO(data.dataStart);
+    const twelveMonthsAgo = startOfMonth(subMonths(new Date(), 11));
     const goalMonth = format(new Date(data.goal.year, data.goal.month - 1, 1), 'MMMM yyyy', { locale: es });
     return {
       period:
         preset === 'custom'
           ? `${format(parseISO(range.from), 'd MMM', { locale: es })} – ${format(parseISO(range.to), 'd MMM', { locale: es })}`
           : PERIOD_LABELS[preset],
-      periodDates: dates,
+      periodDates: data.period.clamped
+        ? `${dates} (no cuenta antes del ${format(dataStart, 'd MMM yyyy', { locale: es })})`
+        : dates,
       advisor: data.scopedToOwn ? 'Tus cifras' : advisorName ? shortName(advisorName) : 'Todos',
       advisorFull: data.scopedToOwn ? 'solo tus cifras' : (advisorName ?? 'todo el equipo'),
       goalMonth: `Meta ${goalMonth.charAt(0).toUpperCase()}${goalMonth.slice(1)}`,
+      dataStart: format(dataStart, 'd MMM yyyy', { locale: es }),
+      trendLabel:
+        dataStart > twelveMonthsAgo
+          ? `Desde ${format(dataStart, 'MMM yyyy', { locale: es })}`
+          : 'Últimos 12 meses',
     };
   }, [data, preset, range, advisorName]);
 
@@ -1869,7 +1902,7 @@ const CommercialDashboardPage: React.FC = () => {
     <Box sx={{ pb: 3 }}>
       <PageHeader
         title="Tablero Comercial"
-        subtitle={`${scopeLabel} · ${periodSubtitle(range.from, range.to)}`}
+        subtitle={`${scopeLabel} · ${periodSubtitle(data?.period.dateFrom ?? range.from, data?.period.dateTo ?? range.to)}`}
         icon={<StorefrontIcon />}
         breadcrumbs={[{ label: 'Comercial' }, { label: 'Tablero Comercial' }]}
       />
@@ -1910,6 +1943,7 @@ const CommercialDashboardPage: React.FC = () => {
               <DatePicker
                 label="Desde"
                 value={parseISO(custom.from)}
+                minDate={data ? parseISO(data.dataStart) : undefined}
                 maxDate={parseISO(custom.to)}
                 onChange={(v) => v && !Number.isNaN(v.getTime()) && setCustom((c) => ({ ...c, from: ymd(v) }))}
                 slotProps={{ textField: { size: 'small' } }}
@@ -1946,6 +1980,19 @@ const CommercialDashboardPage: React.FC = () => {
             </Box>
           ) : null}
         </Box>
+        {data && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 1.5 }}
+          >
+            <InfoOutlinedIcon sx={{ fontSize: 16 }} />
+            Todas las cifras cuentan desde el{' '}
+            {format(parseISO(data.dataStart), "d 'de' MMMM 'de' yyyy", { locale: es })}, cuando empezó el uso
+            completo del sistema.
+            {data.period.clamped && ' El periodo elegido empieza antes, así que se cuenta desde esa fecha.'}
+          </Typography>
+        )}
       </Card>
 
       {isFetching && !isLoading && <LinearProgress sx={{ mb: 2, borderRadius: 1 }} />}
@@ -1999,7 +2046,7 @@ const CommercialDashboardPage: React.FC = () => {
                 value={<Money value={k.salesAmount} />}
                 caption={
                   <>
-                    {k.salesOrders} OP · ticket prom. <Money value={k.averageTicket} />
+                    Sin IVA · {k.salesOrders} OP · ticket prom. <Money value={k.averageTicket} />
                   </>
                 }
                 icon={<PaymentsIcon />}

@@ -167,7 +167,10 @@ export interface CommercialTrendPoint {
 }
 
 export interface CommercialDashboardResponse {
-  period: { dateFrom: string; dateTo: string };
+  /** `dateFrom` es el inicio real de los cálculos; `requestedFrom`, el pedido. */
+  period: { dateFrom: string; dateTo: string; requestedFrom: string; clamped: boolean };
+  /** `YYYY-MM-DD`: el tablero no cuenta nada anterior a esta fecha. */
+  dataStart: string;
   scopedToOwn: boolean;
   advisorId: string | null;
   advisors: Array<{ id: string; name: string }>;
