@@ -11,7 +11,8 @@ import { CommercialQueryDto } from './dto/commercial-query.dto';
  * (el cierre normal es `DELIVERED`). Lo cobrado se muestra dentro de cada barra,
  * medido por saldo, que es lo único que dice si una OP está pagada.
  *
- * `RETURNED` queda por fuera: es una venta que se le devolvió al cliente.
+ * Las barras suman lo mismo que «Ventas del período»: por eso también hay barra
+ * de devueltas, aunque casi nunca tenga movimiento.
  */
 export const SALES_STATUS_GROUPS: Array<{
   key: string;
@@ -28,6 +29,7 @@ export const SALES_STATUS_GROUPS: Array<{
   { key: 'CONFIRMED', label: 'Confirmadas', statuses: [OrderStatus.CONFIRMED] },
   { key: 'WARRANTY', label: 'Garantía', statuses: [OrderStatus.WARRANTY] },
   { key: 'DRAFT', label: 'En borrador', statuses: [OrderStatus.DRAFT] },
+  { key: 'RETURNED', label: 'Devueltas', statuses: [OrderStatus.RETURNED] },
 ];
 
 export const AGING_BUCKETS = [
@@ -47,10 +49,17 @@ const OPEN_QUOTE_STATUSES: QuoteStatus[] = [
 
 const WON_QUOTE_STATUSES: QuoteStatus[] = [QuoteStatus.ACCEPTED, QuoteStatus.CONVERTED];
 
-/** Ni borradores ni devueltas cuentan como venta del período. */
-const NOT_SALE_STATUSES: OrderStatus[] = [OrderStatus.DRAFT, OrderStatus.RETURNED];
-
 const TOP_DEBTORS_LIMIT = 10;
+
+/**
+ * Fecha desde la que el tablero cuenta datos (`YYYY-MM-DD`, hora Colombia).
+ *
+ * El cliente empezó a usar el sistema completo el 1 de agosto de 2026; lo
+ * anterior se cargó a medias y no es confiable (ver la depuración de OP previas
+ * a agosto). Todo el tablero se recorta a esta fecha: el periodo, la cartera,
+ * los deudores y la evolución. Cuando el periodo empieza después, no hace nada.
+ */
+export const COMMERCIAL_DATA_START = '2026-08-01';
 
 /** Meses de la gráfica de evolución, contando el mes en curso. */
 const TREND_MONTHS = 12;
@@ -86,7 +95,8 @@ export class CommercialDashboardService {
     }
     const advisorId = canSeeAll ? query.advisorId : userId;
 
-    const { dateFrom, dateTo, gte, lte } = this.resolveDateRange(query);
+    const { dateFrom, dateTo, requestedFrom, gte, lte } = this.resolveDateRange(query);
+    const dataStart = startOfDay(COMMERCIAL_DATA_START)!;
 
     // La meta es mensual: se mide la del mes en que termina el período, sin
     // pasar del mes en curso. Con «Este año» el período termina en diciembre, y
@@ -107,9 +117,9 @@ export class CommercialDashboardService {
         this.repository.groupOrders(gte, lte, advisorId),
         this.repository.groupCommissionable(goalMonthStart, goalMonthEnd, advisorId),
         this.repository.findGoals(goalMonth, goalYear, advisorId),
-        this.repository.portfolioAging(advisorId),
+        this.repository.portfolioAging(dataStart, advisorId),
         this.repository.newClients(gte, lte, advisorId),
-        this.repository.topDebtors(TOP_DEBTORS_LIMIT, advisorId),
+        this.repository.topDebtors(TOP_DEBTORS_LIMIT, dataStart, advisorId),
         canSeeAll ? this.repository.findAdvisors() : Promise.resolve([]),
       ]);
 
@@ -152,22 +162,29 @@ export class CommercialDashboardService {
     }
 
     // OP
-    const statusTotals = new Map<OrderStatus, { count: number; amount: number; balance: number }>();
+    // La venta es la misma cifra que «Vendido» en «Ventas por Asesor»: neto sin
+    // IVA (subtotal − descuentos) de toda OP no anulada, borradores incluidos.
+    // El total con IVA (`gross`) solo sirve para saber qué parte está cobrada,
+    // porque el saldo de la OP se lleva con IVA.
+    const statusTotals = new Map<
+      OrderStatus,
+      { count: number; amount: number; gross: number; balance: number }
+    >();
     for (const g of orderGroups) {
       const count = g._count._all;
-      const amount = Number(g._sum.total ?? 0) - Number(g._sum.reversedAmount ?? 0);
+      const amount = Number(g._sum.subtotal ?? 0) - Number(g._sum.discountAmount ?? 0);
+      const gross = Number(g._sum.total ?? 0) - Number(g._sum.reversedAmount ?? 0);
       const balance = Number(g._sum.balance ?? 0);
-      const s = statusTotals.get(g.status) ?? { count: 0, amount: 0, balance: 0 };
+      const s = statusTotals.get(g.status) ?? { count: 0, amount: 0, gross: 0, balance: 0 };
       s.count += count;
       s.amount += amount;
+      s.gross += gross;
       s.balance += balance;
       statusTotals.set(g.status, s);
 
-      if (!NOT_SALE_STATUSES.includes(g.status)) {
-        const a = acc(g.createdById);
-        a.salesAmount += amount;
-        a.salesOrders += count;
-      }
+      const a = acc(g.createdById);
+      a.salesAmount += amount;
+      a.salesOrders += count;
     }
 
     // Cartera
@@ -217,7 +234,10 @@ export class CommercialDashboardService {
     const nameOf = new Map(users.map((u) => [u.id, this.displayName(u)]));
 
     return {
-      period: { dateFrom, dateTo },
+      // `dateFrom` es el inicio real de los cálculos; `requestedFrom`, el que pidió
+      // la pantalla. Si difieren, el periodo se recortó a `dataStart`.
+      period: { dateFrom, dateTo, requestedFrom, clamped: requestedFrom < dateFrom },
+      dataStart: COMMERCIAL_DATA_START,
       scopedToOwn: !canSeeAll,
       advisorId: advisorId ?? null,
       advisors: advisors
@@ -245,19 +265,23 @@ export class CommercialDashboardService {
             if (s) {
               t.count += s.count;
               t.amount += s.amount;
+              t.gross += s.gross;
               t.balance += s.balance;
             }
             return t;
           },
-          { count: 0, amount: 0, balance: 0 },
+          { count: 0, amount: 0, gross: 0, balance: 0 },
         );
+        // Lo cobrado se mide con IVA (como el saldo) y se lleva a la base sin IVA
+        // como proporción. Un saldo negativo es saldo a favor del cliente: no hace
+        // que se haya cobrado más que la venta.
+        const collectedShare = Math.min(1, Math.max(0, ratio(totals.gross - totals.balance, totals.gross)));
         return {
           key: group.key,
           label: group.label,
           orders: totals.count,
           amount: totals.amount,
-          // Un saldo negativo es saldo a favor del cliente: no hace que se haya cobrado más que la venta.
-          collected: Math.min(totals.amount, Math.max(0, totals.amount - totals.balance)),
+          collected: totals.amount * collectedShare,
         };
       }),
 
@@ -328,16 +352,17 @@ export class CommercialDashboardService {
    * Cotizado, vendido y cobrado de los últimos 12 meses (con el mes en curso),
    * más la meta de los meses que la tienen.
    *
-   * Se quitan los meses vacíos del principio: el sistema empezó a usarse a mitad
-   * de 2026 y una gráfica con media docena de ceros a la izquierda no dice nada.
-   * Los vacíos del medio se dejan, porque un mes sin ventas sí es información.
+   * No muestra meses anteriores a `COMMERCIAL_DATA_START`, así que hasta julio
+   * de 2027 tiene menos de 12. Se quitan además los meses vacíos del principio;
+   * los vacíos del medio se dejan, porque un mes sin ventas sí es información.
    */
   async getMonthlyTrend(today: string, advisorId?: string) {
     const [year, month] = today.split('-').map(Number);
     const months: string[] = [];
     for (let i = TREND_MONTHS - 1; i >= 0; i--) {
       const d = new Date(Date.UTC(year, month - 1 - i, 1));
-      months.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`);
+      const ym = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+      if (ym >= COMMERCIAL_DATA_START.slice(0, 7)) months.push(ym);
     }
     const [firstYear, firstMonth] = months[0].split('-').map(Number);
     const since = startOfDay(`${months[0]}-01`)!;
@@ -395,6 +420,20 @@ export class CommercialDashboardService {
 
   /** Mismo criterio que el dashboard financiero: hora Colombia y, por defecto, el mes en curso. */
   private resolveDateRange(query: CommercialQueryDto) {
+    const range = this.requestedDateRange(query);
+    // Nada antes del inicio de datos. Si todo el periodo queda antes, `gte`
+    // pasa a ser mayor que `lte` y las consultas salen vacías, que es lo correcto.
+    const dateFrom = range.dateFrom < COMMERCIAL_DATA_START ? COMMERCIAL_DATA_START : range.dateFrom;
+    return {
+      dateFrom,
+      dateTo: range.dateTo,
+      requestedFrom: range.dateFrom,
+      gte: startOfDay(dateFrom)!,
+      lte: endOfDay(range.dateTo)!,
+    };
+  }
+
+  private requestedDateRange(query: CommercialQueryDto) {
     let dateFrom = query.dateFrom?.slice(0, 10);
     let dateTo = query.dateTo?.slice(0, 10);
 
@@ -406,11 +445,6 @@ export class CommercialDashboardService {
       dateTo = `${year}-${mm}-${String(lastDay).padStart(2, '0')}`;
     }
 
-    return {
-      dateFrom,
-      dateTo,
-      gte: startOfDay(dateFrom)!,
-      lte: endOfDay(dateTo)!,
-    };
+    return { dateFrom, dateTo };
   }
 }

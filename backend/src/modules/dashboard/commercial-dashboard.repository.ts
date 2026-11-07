@@ -88,9 +88,9 @@ export class CommercialDashboardRepository {
   }
 
   /**
-   * OP del período por asesora y estado. `reversedAmount` se resta del total
-   * para que una OP devuelta no cuente como venta completa, igual que el
-   * dashboard financiero.
+   * OP del período por asesora y estado. La venta sale de `subtotal −
+   * discountAmount` (neto sin IVA, igual que «Ventas por Asesor»); `total`,
+   * `reversedAmount` y `balance` solo sirven para medir lo cobrado.
    */
   groupOrders(gte: Date, lte: Date, advisorId?: string) {
     return this.prisma.order.groupBy({
@@ -101,7 +101,13 @@ export class CommercialDashboardRepository {
         ...(advisorId ? { createdById: advisorId } : {}),
       },
       _count: { _all: true },
-      _sum: { total: true, reversedAmount: true, balance: true },
+      _sum: {
+        subtotal: true,
+        discountAmount: true,
+        total: true,
+        reversedAmount: true,
+        balance: true,
+      },
     });
   }
 
@@ -147,15 +153,15 @@ export class CommercialDashboardRepository {
     );
   }
 
-  /** Venta por mes: misma regla que el KPI de ventas (sin borradores, anuladas ni devueltas; neta de reversiones). */
+  /** Venta por mes: misma regla que el KPI de ventas (neto sin IVA de toda OP no anulada). */
   async monthlySold(since: Date, advisorId?: string): Promise<MonthlyAmountRow[]> {
     return this.toMonthly(
       this.prisma.$queryRaw<Array<{ month: string; amount: string }>>`
         SELECT ${bogotaMonth(Prisma.sql`order_date`)} AS month,
-               COALESCE(SUM(total - reversed_amount), 0)::text AS amount
+               COALESCE(SUM(subtotal - discount_amount), 0)::text AS amount
         FROM orders
         WHERE order_date >= ${since}
-          AND status::text NOT IN (${Prisma.join([...NOT_RECEIVABLE_STATUSES])})
+          AND status::text <> 'ANULADO'
           ${advisorSql(advisorId)}
         GROUP BY 1
       `,
@@ -210,10 +216,10 @@ export class CommercialDashboardRepository {
       sales AS (
         SELECT ${bogotaMonth(Prisma.sql`order_date`)} AS month,
                client_id,
-               total - reversed_amount AS amount
+               subtotal - discount_amount AS amount
         FROM orders
         WHERE order_date >= ${since}
-          AND status::text NOT IN (${Prisma.join([...NOT_RECEIVABLE_STATUSES])})
+          AND status::text <> 'ANULADO'
           ${advisorSql(advisorId)}
       )
       SELECT s.month,
@@ -253,9 +259,10 @@ export class CommercialDashboardRepository {
   /**
    * Cartera a hoy por edades, contada desde la fecha de la OP. No se usa la
    * fecha de entrega porque tres de cada cuatro OP con saldo no la tienen.
-   * No depende del rango de fechas: la cartera es una foto del día.
+   * No depende del rango de fechas: la cartera es una foto del día. Solo cuenta
+   * OP desde `since` (el inicio de datos del tablero).
    */
-  async portfolioAging(advisorId?: string): Promise<PortfolioAgingRow[]> {
+  async portfolioAging(since: Date, advisorId?: string): Promise<PortfolioAgingRow[]> {
     const rows = await this.prisma.$queryRaw<
       Array<{ advisor_id: string; bucket: string; orders: bigint; balance: string }>
     >`
@@ -273,6 +280,7 @@ export class CommercialDashboardRepository {
                EXTRACT(EPOCH FROM ((NOW() AT TIME ZONE 'UTC') - order_date)) / 86400 AS age_days
         FROM orders
         WHERE balance > 0
+          AND order_date >= ${since}
           AND status::text NOT IN (${Prisma.join([...NOT_RECEIVABLE_STATUSES])})
           ${advisorSql(advisorId)}
       ) o
@@ -306,7 +314,8 @@ export class CommercialDashboardRepository {
     return rows.map((r) => ({ advisorId: r.advisor_id, clients: Number(r.clients) }));
   }
 
-  async topDebtors(limit: number, advisorId?: string): Promise<TopDebtorRow[]> {
+  /** Clientes con más saldo, contando solo OP desde `since` (el inicio de datos del tablero). */
+  async topDebtors(limit: number, since: Date, advisorId?: string): Promise<TopDebtorRow[]> {
     const rows = await this.prisma.$queryRaw<
       Array<{ client_id: string; client_name: string; balance: string; orders: bigint; oldest: Date }>
     >`
@@ -317,6 +326,7 @@ export class CommercialDashboardRepository {
       FROM orders o
       JOIN clients c ON c.id = o.client_id
       WHERE o.balance > 0
+        AND o.order_date >= ${since}
         AND o.status::text NOT IN (${Prisma.join([...NOT_RECEIVABLE_STATUSES])})
         ${advisorSql(advisorId, Prisma.sql`o.created_by_id`)}
       GROUP BY o.client_id, c.name
