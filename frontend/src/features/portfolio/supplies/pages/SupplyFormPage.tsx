@@ -12,10 +12,12 @@ import {
   Grid,
   Typography,
   Divider,
+  FormControlLabel,
+  Switch,
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { PageHeader } from '../../../../components/common/PageHeader';
@@ -77,6 +79,21 @@ const supplySchema = z.object({
     .regex(/^\d+(\.\d{1,2})?$/, 'El stock mínimo debe ser un número válido')
     .optional()
     .or(z.literal('')),
+  trackLots: z.boolean(),
+  lotPrefix: z
+    .string()
+    .trim()
+    .max(12, 'Máximo 12 caracteres')
+    .regex(/^[A-Za-z0-9-]*$/, 'Solo letras, números y guiones'),
+  lowStockPercent: z
+    .string()
+    .regex(/^\d{1,3}(\.\d{1,2})?$/, 'Porcentaje inválido')
+    .refine((v) => Number(v) <= 100, 'Máximo 100 %')
+    .optional()
+    .or(z.literal('')),
+}).refine((d) => !d.trackLots || d.lotPrefix.trim().length > 0, {
+  message: 'Indica el prefijo de los rollos/lotes (p. ej. ROL-UV)',
+  path: ['lotPrefix'],
 });
 
 type SupplyFormData = z.infer<typeof supplySchema>;
@@ -103,6 +120,7 @@ const SupplyFormPage: React.FC = () => {
     control,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<SupplyFormData>({
     resolver: zodResolver(supplySchema),
@@ -117,8 +135,15 @@ const SupplyFormPage: React.FC = () => {
       conversionFactor: '',
       currentStock: '',
       minimumStock: '',
+      trackLots: false,
+      lotPrefix: '',
+      lowStockPercent: '',
     },
   });
+
+  const trackLots = useWatch({ control, name: 'trackLots' });
+  // El backend solo deja cambiar el control por lotes sin stock ni lotes.
+  const lotToggleLocked = isEdit && !!supply && Number(supply.currentStock) !== 0;
 
   // Populate form when editing
   useEffect(() => {
@@ -134,6 +159,12 @@ const SupplyFormPage: React.FC = () => {
         conversionFactor: supply.conversionFactor.toString(),
         currentStock: supply.currentStock.toString(),
         minimumStock: supply.minimumStock.toString(),
+        trackLots: supply.trackLots ?? false,
+        lotPrefix: supply.lotPrefix ?? '',
+        lowStockPercent:
+          supply.lowStockPercent === null || supply.lowStockPercent === undefined
+            ? ''
+            : String(Number(supply.lowStockPercent)),
       });
     }
   }, [supply, isEdit, reset]);
@@ -150,6 +181,10 @@ const SupplyFormPage: React.FC = () => {
         currentStock:
           !isEdit && data.currentStock ? Number(data.currentStock) : undefined,
         minimumStock: data.minimumStock ? Number(data.minimumStock) : undefined,
+        trackLots: data.trackLots,
+        lotPrefix: data.trackLots ? data.lotPrefix.trim().toUpperCase() : undefined,
+        lowStockPercent:
+          data.trackLots && data.lowStockPercent ? Number(data.lowStockPercent) : undefined,
         sku: data.sku || undefined,
         description: data.description || undefined,
       };
@@ -426,13 +461,15 @@ const SupplyFormPage: React.FC = () => {
                         label={isEdit ? 'Stock Actual' : 'Stock Inicial'}
                         fullWidth
                         type="number"
-                        disabled={isEdit}
+                        disabled={isEdit || trackLots}
                         error={!!errors.currentStock}
                         helperText={
                           errors.currentStock?.message ||
-                          (isEdit
-                            ? 'Para corregirlo, registra un movimiento de ajuste en Inventario'
-                            : 'Queda registrado como movimiento de carga inicial')
+                          (trackLots
+                            ? 'Es la suma de los rollos/lotes: se registran desde «Rollos y lotes»'
+                            : isEdit
+                              ? 'Para corregirlo, registra un movimiento de ajuste en Inventario'
+                              : 'Queda registrado como movimiento de carga inicial')
                         }
                         placeholder="Ej: 100"
                       />
@@ -458,6 +495,75 @@ const SupplyFormPage: React.FC = () => {
                   />
                 </Grid>
               </Grid>
+
+              <Box>
+                <Controller
+                  name="trackLots"
+                  control={control}
+                  render={({ field }) => (
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={field.value}
+                          onChange={(e) => {
+                            field.onChange(e.target.checked);
+                            if (e.target.checked) setValue('currentStock', '');
+                          }}
+                          disabled={lotToggleLocked}
+                        />
+                      }
+                      label="Controlar por rollos/lotes"
+                    />
+                  )}
+                />
+                <Typography variant="caption" color="text.secondary" display="block">
+                  {lotToggleLocked
+                    ? 'Solo se puede cambiar en un insumo sin stock.'
+                    : 'Cada rollo se registra con su largo y su costo, y el stock es la suma de los rollos (p. ej. rollos DTF).'}
+                </Typography>
+              </Box>
+
+              {trackLots && (
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Controller
+                      name="lotPrefix"
+                      control={control}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                          label="Prefijo de los rollos"
+                          required
+                          fullWidth
+                          error={!!errors.lotPrefix}
+                          helperText={errors.lotPrefix?.message || 'Ej: ROL-UV → ROL-UV-0001'}
+                        />
+                      )}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Controller
+                      name="lowStockPercent"
+                      control={control}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          label="Alerta de inventario bajo (%)"
+                          fullWidth
+                          type="number"
+                          error={!!errors.lowStockPercent}
+                          helperText={
+                            errors.lowStockPercent?.message ||
+                            'Alerta cuando al rollo le quede menos de este % (vacío = 10 %). Aplica a los rollos que se registren desde ahora.'
+                          }
+                          placeholder="10"
+                        />
+                      )}
+                    />
+                  </Grid>
+                </Grid>
+              )}
 
               <Stack
                 direction={{ xs: 'column-reverse', sm: 'row' }}

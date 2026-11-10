@@ -217,6 +217,9 @@ export const PERMISSION_LABELS: Record<string, string> = {
   create_inventory_movements: 'Crear Movimientos de Inventario',
   read_inventory_movements: 'Ver Movimientos de Inventario',
   manage_inventory: 'Gestionar Inventario',
+  read_supply_lots: 'Ver Rollos y Lotes',
+  create_supply_lots: 'Registrar Rollos y Lotes',
+  manage_supply_lots: 'Anular Rollos y Lotes',
 
   // Producción — Plantillas de Producto
   read_product_templates: 'Ver Plantillas de Producto',

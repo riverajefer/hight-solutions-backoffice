@@ -72,6 +72,10 @@ export class InventoryService {
       where: {
         workOrderItem: { workOrderId },
         quantity: { not: null, gt: 0 },
+        // Los insumos por lotes (rollos) no se descuentan desde la OT: restar
+        // del total sin saber de qué rollo deja `currentStock` distinto de la
+        // suma de sus lotes. Su consumo se registra contra el lote.
+        supply: { trackLots: false },
       },
       include: {
         supply: { select: { id: true, name: true, minimumStock: true } },
@@ -141,11 +145,18 @@ export class InventoryService {
     const { movement, alert } = await this.prisma.$transaction(async (tx) => {
       const supply = await tx.supply.findUnique({
         where: { id: dto.supplyId },
-        select: { id: true, name: true, minimumStock: true, isActive: true },
+        select: { id: true, name: true, minimumStock: true, isActive: true, trackLots: true },
       });
 
       if (!supply) throw new NotFoundException(`Insumo con id ${dto.supplyId} no encontrado`);
       if (!supply.isActive) throw new BadRequestException(`El insumo "${supply.name}" no está activo`);
+      if (supply.trackLots) {
+        // El stock de un insumo por lotes es la suma de sus lotes; un movimiento
+        // sin lote los descuadra. Se gestiona desde «Rollos y lotes».
+        throw new BadRequestException(
+          `"${supply.name}" se controla por lotes: registra la entrada o el ajuste desde «Rollos y lotes».`,
+        );
+      }
 
       if (dto.type === InventoryMovementType.ADJUSTMENT) {
         if (!dto.reason) {

@@ -116,6 +116,8 @@ export const PATHS = {
   INVENTORY_MOVEMENTS: '/inventory/movements',
   INVENTORY_MOVEMENTS_NEW: '/inventory/movements/new',
   INVENTORY_LOW_STOCK: '/inventory/low-stock',
+  SUPPLY_LOTS: '/inventory/lots',
+  SUPPLY_LOTS_DETAIL: '/inventory/lots/:id',
   // Production Module
   PRODUCT_TEMPLATES: '/production/templates',
   PRODUCT_TEMPLATES_CREATE: '/production/templates/new',
