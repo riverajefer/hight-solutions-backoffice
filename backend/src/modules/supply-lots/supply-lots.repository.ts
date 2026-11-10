@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '../../generated/prisma';
+import { Prisma, SupplyLotStatus } from '../../generated/prisma';
 import { PrismaService } from '../../database/prisma.service';
 import { clampPageSize, MAX_PAGE_SIZE } from '../../common/dto/pagination.dto';
 import {
@@ -32,6 +32,7 @@ export const supplyLotSelect = {
   receivedAt: true,
   status: true,
   depletedAt: true,
+  wasteQuantity: true,
   notes: true,
   voidReason: true,
   createdAt: true,
@@ -165,6 +166,26 @@ export class SupplyLotsRepository {
       _max: { sequence: true },
     });
     return (agg._max.sequence ?? 0) + 1;
+  }
+
+  /**
+   * Monta el siguiente rollo (el más antiguo disponible) cuando el que estaba
+   * en uso se acaba o se cierra. Si no hay ninguno, el insumo queda sin rollo
+   * en uso y el consumo sigue por orden de ingreso.
+   */
+  async promoteNextLot(tx: Prisma.TransactionClient, supplyId: string) {
+    const inUse = await tx.supplyLot.count({
+      where: { supplyId, status: SupplyLotStatus.IN_USE },
+    });
+    if (inUse > 0) return null;
+    const next = await tx.supplyLot.findFirst({
+      where: { supplyId, status: SupplyLotStatus.AVAILABLE, remainingQuantity: { gt: 0 } },
+      orderBy: [{ receivedAt: 'asc' }, { sequence: 'asc' }],
+      select: { id: true },
+    });
+    if (!next) return null;
+    await tx.supplyLot.update({ where: { id: next.id }, data: { status: SupplyLotStatus.IN_USE } });
+    return next.id;
   }
 
   /** Movimientos del lote distintos de su entrada: si hay, ya se usó. */

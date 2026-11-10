@@ -1,3 +1,4 @@
+import { MaterialConsumptionModule } from '../material-consumption/material-consumption.module';
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from '../../database/database.module';
 import { CashMovementModule } from '../cash-movement/cash-movement.module';
@@ -19,7 +20,7 @@ import { OrdersRepository } from './orders.repository';
 import { CanEditOrderGuard } from '../../common/guards/can-edit-order.guard';
 
 @Module({
-  imports: [DatabaseModule, ConsecutivesModule, OrderEditRequestsModule, OrderStatusChangeRequestsModule, AuditLogsModule, StorageModule, AdvancePaymentApprovalsModule, PaymentEditApprovalsModule, DiscountApprovalsModule, ClientOwnershipAuthRequestsModule, CreditBalanceModule, CashMovementModule, CashMovementVoidRequestsModule, PayrollDeductionsModule],
+  imports: [DatabaseModule, ConsecutivesModule, OrderEditRequestsModule, OrderStatusChangeRequestsModule, AuditLogsModule, StorageModule, AdvancePaymentApprovalsModule, PaymentEditApprovalsModule, DiscountApprovalsModule, ClientOwnershipAuthRequestsModule, CreditBalanceModule, CashMovementModule, CashMovementVoidRequestsModule, PayrollDeductionsModule, MaterialConsumptionModule],
   controllers: [OrdersController],
   providers: [OrdersService, OrdersRepository, CanEditOrderGuard],
   exports: [OrdersService, OrdersRepository],

@@ -20,6 +20,7 @@ const lotRecord = (over: Record<string, unknown> = {}) => ({
   receivedAt: new Date('2026-11-10T05:00:00Z'),
   status: SupplyLotStatus.AVAILABLE,
   depletedAt: null,
+  wasteQuantity: D(0),
   notes: null,
   voidReason: null,
   createdAt: new Date(),
@@ -61,6 +62,7 @@ describe('SupplyLotsService', () => {
       lockLot: jest.fn(),
       nextSequence: jest.fn().mockResolvedValue(1),
       countNonEntryMovements: jest.fn().mockResolvedValue(0),
+      promoteNextLot: jest.fn().mockResolvedValue(null),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -145,7 +147,55 @@ describe('SupplyLotsService', () => {
     });
   });
 
+  describe('close', () => {
+    it('saca el saldo como merma, cierra el rollo y monta el siguiente si estaba en uso', async () => {
+      repo.findById.mockResolvedValue(lotRecord({ remainingQuantity: D(4), status: SupplyLotStatus.IN_USE }));
+      tx.supply.update.mockResolvedValue({ currentStock: D(0) });
+      await service.close('lot-1', { reason: 'Fin del rollo' }, 'user-1');
+
+      const mov = tx.inventoryMovement.create.mock.calls[0][0].data;
+      expect(mov).toMatchObject({ type: InventoryMovementType.ADJUSTMENT, referenceType: 'LOT_CLOSE' });
+      expect(mov.quantity.toNumber()).toBe(4);
+      expect(tx.supplyLot.update.mock.calls[0][0].data).toMatchObject({
+        status: SupplyLotStatus.CLOSED,
+        remainingQuantity: 0,
+        wasteQuantity: { increment: D(4) },
+      });
+      expect(repo.promoteNextLot).toHaveBeenCalledWith(tx, 'sup-1');
+    });
+
+    it('rechaza cerrar un rollo ya agotado', async () => {
+      repo.findById.mockResolvedValue(lotRecord({ status: SupplyLotStatus.DEPLETED }));
+      await expect(service.close('lot-1', { reason: 'xxxxx' }, 'user-1')).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('setInUse', () => {
+    it('desmonta el que estaba en uso y monta este', async () => {
+      tx.supplyLot.updateMany = jest.fn();
+      await service.setInUse('lot-1');
+      expect(tx.supplyLot.updateMany).toHaveBeenCalledWith({
+        where: { supplyId: 'sup-1', status: SupplyLotStatus.IN_USE },
+        data: { status: SupplyLotStatus.AVAILABLE },
+      });
+      expect(tx.supplyLot.update).toHaveBeenCalledWith({ where: { id: 'lot-1' }, data: { status: SupplyLotStatus.IN_USE } });
+    });
+
+    it('no monta un rollo agotado', async () => {
+      repo.findById.mockResolvedValue(lotRecord({ status: SupplyLotStatus.DEPLETED, remainingQuantity: D(0) }));
+      await expect(service.setInUse('lot-1')).rejects.toThrow(BadRequestException);
+    });
+  });
+
   describe('respuesta', () => {
+    it('separa el consumo de OP de la merma', async () => {
+      repo.findById.mockResolvedValue(
+        lotRecord({ status: SupplyLotStatus.CLOSED, remainingQuantity: D(0), wasteQuantity: D(4) }),
+      );
+      const res = await service.findOne('lot-1');
+      expect(res).toMatchObject({ consumedQuantity: 96, wasteQuantity: 4, wasteValue: 400, consumedPercent: 100 });
+    });
+
     it('deriva consumido, porcentaje, valor restante y estado visible', async () => {
       repo.findById.mockResolvedValue(lotRecord({ remainingQuantity: D(9) }));
       const res = await service.findOne('lot-1');

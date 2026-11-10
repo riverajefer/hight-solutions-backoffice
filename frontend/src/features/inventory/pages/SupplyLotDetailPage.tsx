@@ -4,12 +4,14 @@ import {
   Box,
   Button,
   Card,
+  Link,
   CardContent,
   Dialog,
   DialogActions,
   DialogContent,
   DialogContentText,
   DialogTitle,
+  Chip,
   Grid,
   Stack,
   Table,
@@ -23,8 +25,10 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BlockIcon from '@mui/icons-material/Block';
+import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
+import StopCircleOutlinedIcon from '@mui/icons-material/StopCircleOutlined';
 import ViewInArOutlinedIcon from '@mui/icons-material/ViewInArOutlined';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { LoadingSpinner } from '../../../components/common/LoadingSpinner';
 import { LoadingButton } from '../../../components/common/LoadingButton';
@@ -36,7 +40,13 @@ import { SupplyLotMovement } from '../../../types';
 import { MovementTypeChip } from '../components/MovementTypeChip';
 import { SupplyLotStatusChip } from '../components/SupplyLotStatusChip';
 import { SupplyLotProgress } from '../components/SupplyLotProgress';
-import { useSupplyLot, useVoidSupplyLot } from '../hooks/useSupplyLots';
+import {
+  useCloseSupplyLot,
+  useLotConsumption,
+  useSetLotInUse,
+  useSupplyLot,
+  useVoidSupplyLot,
+} from '../hooks/useSupplyLots';
 import { formatLotDate, formatLotQuantity, formatLotUser } from '../utils/supplyLotFormat';
 
 const Metric: React.FC<{ label: string; value: React.ReactNode; hint?: React.ReactNode }> = ({
@@ -84,9 +94,21 @@ const SupplyLotDetailPage: React.FC = () => {
   const canManage = hasPermission(PERMISSIONS.MANAGE_SUPPLY_LOTS);
 
   const lotQuery = useSupplyLot(id);
+  const consumptionQuery = useLotConsumption(id);
   const voidMutation = useVoidSupplyLot();
+  const inUseMutation = useSetLotInUse();
+  const closeMutation = useCloseSupplyLot();
   const [voidOpen, setVoidOpen] = useState(false);
   const [voidReason, setVoidReason] = useState('');
+  const [closeOpen, setCloseOpen] = useState(false);
+  const [closeReason, setCloseReason] = useState('');
+
+  const confirmClose = useSingleFlight(async () => {
+    if (!id) return;
+    await closeMutation.mutateAsync({ id, reason: closeReason.trim() });
+    setCloseOpen(false);
+    setCloseReason('');
+  });
 
   const confirmVoid = useSingleFlight(async () => {
     if (!id) return;
@@ -104,6 +126,8 @@ const SupplyLotDetailPage: React.FC = () => {
   const unit = lot.supply.consumptionUnit.abbreviation;
   const isActive = lot.status === 'AVAILABLE' || lot.status === 'IN_USE';
   const canVoid = canManage && isActive && lot.consumedQuantity === 0 && lot.movements.length <= 1;
+  const canMount = canManage && lot.status === 'AVAILABLE' && lot.remainingQuantity > 0;
+  const consumptions = consumptionQuery.data ?? [];
 
   return (
     <Box>
@@ -111,7 +135,12 @@ const SupplyLotDetailPage: React.FC = () => {
         title={`Rollo ${lot.code}`}
         subtitle={lot.supply.name}
         icon={<ViewInArOutlinedIcon />}
-        badge={<SupplyLotStatusChip status={lot.displayStatus} size="medium" />}
+        badge={
+          <Stack direction="row" spacing={1}>
+            <SupplyLotStatusChip status={lot.displayStatus} size="medium" />
+            {lot.status === 'IN_USE' && <Chip label="En uso" color="info" />}
+          </Stack>
+        }
         breadcrumbs={[
           { label: 'Rollos y lotes', path: ROUTES.SUPPLY_LOTS },
           { label: lot.code },
@@ -121,6 +150,22 @@ const SupplyLotDetailPage: React.FC = () => {
             <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(ROUTES.SUPPLY_LOTS)}>
               Volver
             </Button>
+            {canMount && (
+              <LoadingButton
+                variant="outlined"
+                startIcon={<PlayCircleOutlineIcon />}
+                loading={inUseMutation.isPending}
+                onClick={() => inUseMutation.mutate(lot.id)}
+                tooltip="El consumo de las OP sale primero de este rollo"
+              >
+                Montar
+              </LoadingButton>
+            )}
+            {canManage && isActive && (
+              <Button variant="outlined" startIcon={<StopCircleOutlinedIcon />} onClick={() => setCloseOpen(true)}>
+                Cerrar rollo
+              </Button>
+            )}
             {canVoid && (
               <Button color="error" variant="outlined" startIcon={<BlockIcon />} onClick={() => setVoidOpen(true)}>
                 Anular
@@ -148,9 +193,15 @@ const SupplyLotDetailPage: React.FC = () => {
         </Grid>
         <Grid item xs={6} md={3}>
           <Metric
-            label="Consumido"
+            label="Consumido en OP"
             value={formatLotQuantity(lot.consumedQuantity, unit)}
-            hint={<SupplyLotProgress percent={lot.consumedPercent} status={lot.displayStatus} />}
+            hint={
+              <>
+                <SupplyLotProgress percent={lot.consumedPercent} status={lot.displayStatus} />
+                {lot.wasteQuantity > 0 &&
+                  `Merma: ${formatLotQuantity(lot.wasteQuantity, unit)} (${formatCurrency(lot.wasteValue)})`}
+              </>
+            }
           />
         </Grid>
         <Grid item xs={6} md={3}>
@@ -185,6 +236,55 @@ const SupplyLotDetailPage: React.FC = () => {
             value={`por debajo de ${formatLotQuantity(lot.lowStockQuantity, unit)}`}
           />
           {lot.notes && <InfoRow label="Observaciones" value={lot.notes} />}
+        </CardContent>
+      </Card>
+
+      <Card variant="outlined" sx={{ mb: 2 }}>
+        <CardContent>
+          <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+            Órdenes que consumieron de este rollo
+          </Typography>
+          {consumptions.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              Ninguna OP tiene material cargado a este rollo.
+            </Typography>
+          ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>OP</TableCell>
+                    <TableCell>Cliente</TableCell>
+                    <TableCell>Ítem</TableCell>
+                    <TableCell align="right">Cantidad</TableCell>
+                    <TableCell align="right">Costo</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {consumptions.map((c) => (
+                    <TableRow key={c.id}>
+                      <TableCell>
+                        <Link component={RouterLink} to={ROUTES.ORDERS_DETAIL.replace(':id', c.order.id)} underline="hover" sx={{ whiteSpace: 'nowrap' }}>
+                          {c.order.orderNumber}
+                        </Link>
+                      </TableCell>
+                      <TableCell>{c.order.client.name}</TableCell>
+                      <TableCell>
+                        {c.orderItem?.description ?? '—'}
+                        {c.source === 'MANUAL' && (
+                          <Chip size="small" variant="outlined" label="Corregido" sx={{ ml: 1 }} />
+                        )}
+                      </TableCell>
+                      <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                        {formatLotQuantity(c.quantity, unit)}
+                      </TableCell>
+                      <TableCell align="right">{formatCurrency(c.totalCost ?? 0)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
         </CardContent>
       </Card>
 
@@ -234,6 +334,39 @@ const SupplyLotDetailPage: React.FC = () => {
           </TableContainer>
         </CardContent>
       </Card>
+
+      <Dialog open={closeOpen} onClose={() => setCloseOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Cerrar rollo {lot.code}</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            Ciérralo cuando el rollo ya no sirva (se acabó, el final no alcanza para imprimir). Lo que
+            el sistema le ve —{formatLotQuantity(lot.remainingQuantity, unit)}, {formatCurrency(lot.remainingValue)}— sale
+            del inventario como merma y no se carga a ninguna OP.
+          </DialogContentText>
+          <TextField
+            label="Motivo"
+            value={closeReason}
+            onChange={(e) => setCloseReason(e.target.value)}
+            required
+            fullWidth
+            multiline
+            minRows={2}
+            autoFocus
+            helperText="Mínimo 5 caracteres (p. ej. fin del rollo, pruebas de color)"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCloseOpen(false)}>Cancelar</Button>
+          <LoadingButton
+            variant="contained"
+            loading={closeMutation.isPending}
+            disabled={closeReason.trim().length < 5}
+            onClick={confirmClose}
+          >
+            Cerrar rollo
+          </LoadingButton>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={voidOpen} onClose={() => setVoidOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Anular rollo {lot.code}</DialogTitle>

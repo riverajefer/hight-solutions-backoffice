@@ -28,7 +28,12 @@ export interface SupplyLot {
   displayStatus: SupplyLotDisplayStatus;
   initialQuantity: number;
   remainingQuantity: number;
+  /** Consumido por OP (sin merma). */
   consumedQuantity: number;
+  /** Merma: saldo al cerrar y devoluciones a rollos ya terminados. */
+  wasteQuantity: number;
+  wasteValue: number;
+  /** % del rollo que ya no está (consumo + merma). */
   consumedPercent: number;
   lowStockQuantity: number;
   unitCost: number;
@@ -93,4 +98,39 @@ export interface CreateSupplyLotDto {
   totalCost?: number;
   receivedAt: string;
   notes?: string;
+}
+
+export type MaterialConsumptionSource = 'AUTO' | 'MANUAL';
+
+/** Consumo vigente de un ítem de OP. Sin `lot` = pendiente de asignar a un rollo. */
+export interface OrderMaterialConsumption {
+  id: string;
+  orderItemId: string | null;
+  quantity: number;
+  unitCost: number | null;
+  totalCost: number | null;
+  source: MaterialConsumptionSource;
+  lot: { id: string; code: string } | null;
+  supply: { id: string; name: string; consumptionUnit: { abbreviation: string } };
+}
+
+export interface PendingMaterialConsumption {
+  id: string;
+  quantity: number;
+  source: MaterialConsumptionSource;
+  createdAt: string;
+  supply: { id: string; name: string; consumptionUnit: { abbreviation: string } };
+  order: { id: string; orderNumber: string; client: { name: string } };
+  orderItem: { id: string; description: string } | null;
+}
+
+export interface LotMaterialConsumption {
+  id: string;
+  quantity: number;
+  unitCost: number | null;
+  totalCost: number | null;
+  source: MaterialConsumptionSource;
+  createdAt: string;
+  order: { id: string; orderNumber: string; status: string; client: { name: string } };
+  orderItem: { id: string; description: string } | null;
 }

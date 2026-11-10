@@ -177,6 +177,7 @@ export const PERMISSIONS = {
   READ_SUPPLY_LOTS: 'read_supply_lots',
   CREATE_SUPPLY_LOTS: 'create_supply_lots',
   MANAGE_SUPPLY_LOTS: 'manage_supply_lots',
+  MANAGE_MATERIAL_CONSUMPTION: 'manage_material_consumption',
   // Production Module — Plantillas de Producto
   READ_PRODUCT_TEMPLATES: 'read_product_templates',
   CREATE_PRODUCT_TEMPLATES: 'create_product_templates',

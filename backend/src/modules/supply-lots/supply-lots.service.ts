@@ -22,6 +22,8 @@ import { SupplyLotRecord, SupplyLotsRepository } from './supply-lots.repository'
 
 /** `referenceType` de los movimientos que nacen en este módulo. */
 export const SUPPLY_LOT_REFERENCE = 'SUPPLY_LOT';
+/** `referenceType` del ajuste que saca el saldo al cerrar un lote. */
+export const LOT_CLOSE_REFERENCE = 'LOT_CLOSE';
 
 @Injectable()
 export class SupplyLotsService {
@@ -156,6 +158,9 @@ export class SupplyLotsService {
         },
       });
 
+      // Si no hay rollo montado, queda montado el más antiguo con saldo.
+      await this.repository.promoteNextLot(tx, dto.supplyId);
+
       return lot.id;
     });
 
@@ -225,6 +230,87 @@ export class SupplyLotsService {
     return this.findOne(id);
   }
 
+  /**
+   * Monta este rollo en la máquina: es del que sale el consumo de las OP. Solo
+   * hay uno en uso por insumo; el que estaba pasa a disponible.
+   */
+  async setInUse(id: string) {
+    await this.prisma.$transaction(async (tx) => {
+      const existing = await this.repository.findById(id, tx);
+      if (!existing) throw new NotFoundException(`Lote con id ${id} no encontrado`);
+      await this.repository.lockSupply(tx, existing.supplyId);
+      const lot = await this.repository.findById(id, tx);
+      if (!lot) throw new NotFoundException(`Lote con id ${id} no encontrado`);
+      if (lot.status === SupplyLotStatus.IN_USE) return;
+      if (lot.status !== SupplyLotStatus.AVAILABLE || new Prisma.Decimal(lot.remainingQuantity).isZero()) {
+        throw new BadRequestException(`El lote ${lot.code} está ${this.statusLabel(lot.status)}: no se puede montar.`);
+      }
+      await tx.supplyLot.updateMany({
+        where: { supplyId: lot.supplyId, status: SupplyLotStatus.IN_USE },
+        data: { status: SupplyLotStatus.AVAILABLE },
+      });
+      await tx.supplyLot.update({ where: { id }, data: { status: SupplyLotStatus.IN_USE } });
+    });
+    return this.findOne(id);
+  }
+
+  /**
+   * Cierra el rollo: lo que le quedaba sale del inventario como merma (fin del
+   * rollo, pruebas de color, reimpresiones). Esa merma no se carga a ninguna OP.
+   */
+  async close(id: string, dto: VoidSupplyLotDto, userId: string) {
+    await this.prisma.$transaction(async (tx) => {
+      const existing = await this.repository.findById(id, tx);
+      if (!existing) throw new NotFoundException(`Lote con id ${id} no encontrado`);
+      await this.repository.lockSupply(tx, existing.supplyId);
+      await this.repository.lockLot(tx, id);
+      const lot = await this.repository.findById(id, tx);
+      if (!lot) throw new NotFoundException(`Lote con id ${id} no encontrado`);
+      if (!ACTIVE_LOT_STATUSES.includes(lot.status)) {
+        throw new BadRequestException(`El lote ${lot.code} ya está ${this.statusLabel(lot.status)}`);
+      }
+
+      const waste = new Prisma.Decimal(lot.remainingQuantity);
+      if (waste.greaterThan(0)) {
+        const updated = await tx.supply.update({
+          where: { id: lot.supplyId },
+          data: { currentStock: { decrement: waste } },
+          select: { currentStock: true },
+        });
+        const newStock = new Prisma.Decimal(updated.currentStock);
+        await tx.inventoryMovement.create({
+          data: {
+            supplyId: lot.supplyId,
+            lotId: id,
+            type: InventoryMovementType.ADJUSTMENT,
+            quantity: waste,
+            unitCost: lot.unitCost,
+            previousStock: newStock.add(waste),
+            newStock,
+            referenceType: LOT_CLOSE_REFERENCE,
+            referenceId: id,
+            reason: `Cierre del lote ${lot.code} (merma): ${dto.reason.trim()}`,
+            performedById: userId,
+          },
+        });
+      }
+
+      await tx.supplyLot.update({
+        where: { id },
+        data: {
+          status: SupplyLotStatus.CLOSED,
+          remainingQuantity: 0,
+          wasteQuantity: { increment: waste },
+          depletedAt: new Date(),
+        },
+      });
+      if (lot.status === SupplyLotStatus.IN_USE) {
+        await this.repository.promoteNextLot(tx, lot.supplyId);
+      }
+    });
+    return this.findOne(id);
+  }
+
   private statusLabel(status: SupplyLotStatus): string {
     const labels: Record<SupplyLotStatus, string> = {
       AVAILABLE: 'disponible',
@@ -239,9 +325,12 @@ export class SupplyLotsService {
   private toResponse(lot: SupplyLotRecord) {
     const initial = new Prisma.Decimal(lot.initialQuantity);
     const remaining = new Prisma.Decimal(lot.remainingQuantity);
+    const waste = new Prisma.Decimal(lot.wasteQuantity);
     // Los anulados nunca se consumieron: su saldo salió por anulación, no por uso.
-    const consumed =
-      lot.status === SupplyLotStatus.VOIDED ? new Prisma.Decimal(0) : initial.sub(remaining);
+    const voided = lot.status === SupplyLotStatus.VOIDED;
+    // Usado = lo que ya no está en el rollo (consumo de OP + merma).
+    const used = voided ? new Prisma.Decimal(0) : initial.sub(remaining);
+    const consumed = voided ? new Prisma.Decimal(0) : used.sub(waste);
 
     return {
       id: lot.id,
@@ -253,7 +342,9 @@ export class SupplyLotsService {
       initialQuantity: Number(initial),
       remainingQuantity: Number(remaining),
       consumedQuantity: Number(consumed),
-      consumedPercent: Number(consumed.div(initial).mul(100).toDecimalPlaces(2)),
+      wasteQuantity: Number(waste),
+      wasteValue: Number(waste.mul(lot.unitCost).toDecimalPlaces(2)),
+      consumedPercent: Number(used.div(initial).mul(100).toDecimalPlaces(2)),
       lowStockQuantity: Number(lot.lowStockQuantity),
       unitCost: Number(lot.unitCost),
       totalCost: Number(lot.totalCost),

@@ -226,6 +226,61 @@ nomina_descuentos_descuadrados AS (
     GROUP BY i.id, i."orderDeductions"
     HAVING COALESCE(i."orderDeductions", 0) <> COALESCE(sum(d.amount), 0)
   ) t
+),
+
+-- ── Inventario por lotes (rollos DTF) ───────────────────────────────────────
+
+-- El saldo del rollo es su historia en el kardex: entradas y devoluciones menos
+-- salidas y ajustes (en un lote los ajustes siempre restan: anular, cerrar,
+-- merma recuperada). Si no cuadra, alguien escribió el saldo sin movimiento.
+lote_saldo_descuadrado AS (
+  SELECT count(*) AS n,
+         count(*) FILTER (WHERE l.updated_at >= now() - interval '30 days') AS n30
+  FROM supply_lots l
+  LEFT JOIN (
+    SELECT lot_id,
+           sum(CASE WHEN type IN ('ENTRY','RETURN','INITIAL') THEN quantity ELSE -quantity END) AS saldo
+    FROM inventory_movements WHERE lot_id IS NOT NULL GROUP BY lot_id
+  ) m ON m.lot_id = l.id
+  WHERE l.remaining_quantity <> COALESCE(m.saldo, 0)
+),
+
+-- En un insumo por lotes el stock es la suma de los saldos de sus lotes. Un
+-- movimiento sin lote (manual o por OT) lo descuadra.
+stock_insumo_por_lotes_descuadrado AS (
+  SELECT count(*) AS n,
+         count(*) FILTER (WHERE s.updated_at >= now() - interval '30 days') AS n30
+  FROM supplies s
+  LEFT JOIN (SELECT supply_id, sum(remaining_quantity) AS saldo FROM supply_lots GROUP BY supply_id) l
+    ON l.supply_id = s.id
+  WHERE s.track_lots AND s.current_stock <> COALESCE(l.saldo, 0)
+),
+
+-- Lo que las OP tienen cargado a un rollo es lo que salió por consumo menos lo
+-- que volvió. Si no cuadra, la rentabilidad del rollo y de la OP mienten.
+consumo_de_rollo_descuadrado AS (
+  SELECT count(*) AS n, count(*) AS n30
+  FROM supply_lots l
+  LEFT JOIN (SELECT lot_id, sum(quantity) AS q FROM material_consumptions WHERE lot_id IS NOT NULL GROUP BY lot_id) c
+    ON c.lot_id = l.id
+  LEFT JOIN (
+    SELECT lot_id, sum(CASE WHEN type = 'EXIT' THEN quantity ELSE -quantity END) AS q
+    FROM inventory_movements
+    WHERE lot_id IS NOT NULL AND reference_type = 'ORDER' AND type IN ('EXIT','RETURN')
+    GROUP BY lot_id
+  ) m ON m.lot_id = l.id
+  WHERE COALESCE(c.q, 0) <> COALESCE(m.q, 0)
+),
+
+-- Una OP anulada devuelve todo su material, y un ítem borrado también: si
+-- quedan consumos, la sincronización de material falló y hay que relanzarla
+-- («Recalcular» en la OP).
+consumos_sin_devolver AS (
+  SELECT count(*) AS n,
+         count(*) FILTER (WHERE c.updated_at >= now() - interval '30 days') AS n30
+  FROM material_consumptions c
+  JOIN orders o ON o.id = c.order_id
+  WHERE o.status = 'ANULADO' OR c.order_item_id IS NULL
 )
 
 -- ── Resultado ───────────────────────────────────────────────────────────────
@@ -246,6 +301,10 @@ SELECT * FROM (
   UNION ALL SELECT 'ALTA', 'Solicitudes pendientes duplicadas', n, COALESCE(n30, n) FROM solicitudes_pendientes_duplicadas
   UNION ALL SELECT 'ALTA', 'Montos guardados con más de dos decimales', n, COALESCE(n30, n) FROM montos_con_mas_de_dos_decimales
   UNION ALL SELECT 'AVISO', 'Cuentas por pagar atrapadas por centavos', n, n30 FROM cp_atrapadas_por_centavos
+  UNION ALL SELECT 'CRITICA', 'Rollos cuyo saldo no cuadra con su kardex', n, n30 FROM lote_saldo_descuadrado
+  UNION ALL SELECT 'CRITICA', 'Insumos por lotes cuyo stock no es la suma de sus lotes', n, n30 FROM stock_insumo_por_lotes_descuadrado
+  UNION ALL SELECT 'CRITICA', 'Rollos cuyo consumo por OP no cuadra con el kardex', n, n30 FROM consumo_de_rollo_descuadrado
+  UNION ALL SELECT 'ALTA', 'Consumos de material sin devolver (OP anulada o ítem borrado)', n, n30 FROM consumos_sin_devolver
 ) resultados
 ORDER BY
   CASE WHEN ultimos_30_dias > 0 THEN 0 WHEN total > 0 THEN 1 ELSE 2 END,

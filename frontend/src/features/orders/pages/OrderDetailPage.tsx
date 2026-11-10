@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { OrderMaterialsSection } from '../../inventory/components/OrderMaterialsSection';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 import {
@@ -2883,6 +2884,12 @@ export const OrderDetailPage: React.FC = () => {
               onDelete={handleRemoveDiscount}
               isDeleting={deletingDiscount}
             />            
+
+            {/* Material consumido (rollos DTF, etc.) */}
+            <OrderMaterialsSection
+              orderId={order.id}
+              items={order.items.map((i) => ({ id: i.id, description: i.description }))}
+            />
 
             {/* Resumen Financiero / Rentabilidad */}
             <Accordion

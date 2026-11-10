@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
+  Alert,
   Box,
   Button,
   Card,
@@ -27,7 +28,8 @@ import { PERMISSIONS, ROUTES } from '../../../utils/constants';
 import { formatCurrency } from '../../../utils/formatters';
 import { SupplyLot, SupplyLotSummary, SupplyLotView } from '../../../types';
 import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../hooks';
-import { useSupplyLots } from '../hooks/useSupplyLots';
+import { usePendingConsumption, useSupplyLots } from '../hooks/useSupplyLots';
+import { PendingConsumptionsPanel } from '../components/PendingConsumptionsPanel';
 import { SupplyLotStatusChip } from '../components/SupplyLotStatusChip';
 import { SupplyLotProgress } from '../components/SupplyLotProgress';
 import { SupplyLotFormDialog } from '../components/SupplyLotFormDialog';
@@ -78,6 +80,10 @@ const SupplyLotsListPage: React.FC = () => {
   const { hasPermission } = useAuthStore();
   const canCreate = hasPermission(PERMISSIONS.CREATE_SUPPLY_LOTS);
   const [formOpen, setFormOpen] = useState(false);
+  // «Sin rollo» no es una vista del listado de lotes sino la bandeja de pendientes.
+  const [showPending, setShowPending] = useState(false);
+  const pendingQuery = usePendingConsumption();
+  const pending = pendingQuery.data ?? [];
 
   const { lotsQuery, summaryQuery, filters, updateFilters } = useSupplyLots();
   const lots = lotsQuery.data?.data ?? [];
@@ -159,9 +165,12 @@ const SupplyLotsListPage: React.FC = () => {
       {
         field: 'displayStatus',
         headerName: 'Estado',
-        width: 140,
+        width: 200,
         renderCell: (p: GridRenderCellParams<SupplyLot>) => (
-          <SupplyLotStatusChip status={p.row.displayStatus} />
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <SupplyLotStatusChip status={p.row.displayStatus} />
+            {p.row.status === 'IN_USE' && <Chip label="En uso" color="info" size="small" />}
+          </Stack>
         ),
       },
     ],
@@ -204,9 +213,30 @@ const SupplyLotsListPage: React.FC = () => {
             ))}
       </Grid>
 
+      {pending.length > 0 && !showPending && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 2 }}
+          action={
+            <Button color="inherit" size="small" onClick={() => setShowPending(true)}>
+              Ver
+            </Button>
+          }
+        >
+          {pending.length} consumo(s) de OP sin rollo asignado: se vendieron sin saldo en los rollos registrados.
+        </Alert>
+      )}
+
       <Tabs
-        value={filters.view ?? 'active'}
-        onChange={(_, v: SupplyLotView) => updateFilters({ view: v })}
+        value={showPending ? 'pending' : (filters.view ?? 'active')}
+        onChange={(_, v: SupplyLotView | 'pending') => {
+          if (v === 'pending') {
+            setShowPending(true);
+            return;
+          }
+          setShowPending(false);
+          updateFilters({ view: v });
+        }}
         variant="scrollable"
         allowScrollButtonsMobile
         sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
@@ -214,7 +244,13 @@ const SupplyLotsListPage: React.FC = () => {
         {VIEWS.map((v) => (
           <Tab key={v.value} value={v.value} label={v.label} />
         ))}
+        <Tab value="pending" label={`Sin rollo${pending.length ? ` (${pending.length})` : ''}`} />
       </Tabs>
+
+      {showPending ? (
+        <PendingConsumptionsPanel rows={pending} />
+      ) : (
+      <>
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
         <TextField
@@ -252,6 +288,8 @@ const SupplyLotsListPage: React.FC = () => {
         pageSizeOptions={[20, 50, 100]}
         onPaginationModelChange={(model) => updateFilters({ page: model.page + 1, limit: model.pageSize })}
       />
+      </>
+      )}
 
       <SupplyLotFormDialog
         open={formOpen}

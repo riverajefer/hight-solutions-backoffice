@@ -55,6 +55,26 @@ export class SupplyLotsController {
     return this.service.create(dto, user.id);
   }
 
+  @Post(':id/in-use')
+  @RequirePermissions('manage_supply_lots')
+  @ApiOperation({ summary: 'Montar el rollo: de él sale el consumo de las OP' })
+  @ApiParam({ name: 'id', description: 'ID del lote' })
+  setInUse(@Param('id', ParseUUIDPipe) id: string) {
+    return this.service.setInUse(id);
+  }
+
+  @Post(':id/close')
+  @RequirePermissions('manage_supply_lots')
+  @ApiOperation({ summary: 'Cerrar el rollo: el saldo que queda sale como merma' })
+  @ApiParam({ name: 'id', description: 'ID del lote' })
+  close(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: VoidSupplyLotDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.close(id, dto, user.id);
+  }
+
   @Post(':id/void')
   @RequirePermissions('manage_supply_lots')
   @ApiOperation({ summary: 'Anular un lote mal registrado (solo si no tiene consumos)' })

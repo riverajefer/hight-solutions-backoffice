@@ -1,3 +1,4 @@
+import { MaterialConsumptionService } from '../material-consumption/material-consumption.service';
 // Mock uuid before any imports (uuid v9+ is ESM-only and cannot be parsed by Jest/ts-jest directly)
 jest.mock('uuid', () => ({
   v4: jest.fn(() => 'mock-uuid'),
@@ -299,6 +300,10 @@ describe('OrdersService', () => {
           useValue: mockPayrollDeductionsService,
         },
         { provide: PrismaService, useValue: mockPrisma },
+        {
+          provide: MaterialConsumptionService,
+          useValue: { syncOrder: jest.fn(), releaseOrder: jest.fn() },
+        },
       ],
     }).compile();
 

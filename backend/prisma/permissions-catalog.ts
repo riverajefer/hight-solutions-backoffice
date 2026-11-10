@@ -299,7 +299,12 @@ export const permissionGroups: PermissionGroup[] = [
       },
       {
         name: 'manage_supply_lots',
-        description: 'Anular rollos/lotes mal registrados',
+        description:
+          'Montar, cerrar (merma) y anular rollos/lotes, y asignar a rollos los consumos pendientes',
+      },
+      {
+        name: 'manage_material_consumption',
+        description: 'Corregir a mano el material usado por un ítem de OP (p. ej. metros de DTF)',
       },
     ],
   },

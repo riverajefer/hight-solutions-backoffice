@@ -8,6 +8,6 @@ import { SupplyLotsRepository } from './supply-lots.repository';
   imports: [DatabaseModule],
   controllers: [SupplyLotsController],
   providers: [SupplyLotsService, SupplyLotsRepository],
-  exports: [SupplyLotsService],
+  exports: [SupplyLotsService, SupplyLotsRepository],
 })
 export class SupplyLotsModule {}

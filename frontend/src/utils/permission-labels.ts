@@ -219,7 +219,8 @@ export const PERMISSION_LABELS: Record<string, string> = {
   manage_inventory: 'Gestionar Inventario',
   read_supply_lots: 'Ver Rollos y Lotes',
   create_supply_lots: 'Registrar Rollos y Lotes',
-  manage_supply_lots: 'Anular Rollos y Lotes',
+  manage_supply_lots: 'Gestionar Rollos y Lotes (montar, cerrar, anular)',
+  manage_material_consumption: 'Corregir Consumo de Material en OP',
 
   // Producción — Plantillas de Producto
   read_product_templates: 'Ver Plantillas de Producto',

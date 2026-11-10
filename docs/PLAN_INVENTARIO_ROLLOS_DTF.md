@@ -1,6 +1,11 @@
 # Plan: consumo de inventario amarrado a la OP (empieza con rollos DTF)
 
-> Estado: **fase 1 implementada** (2026-11-10) — lotes/rollos, registro, vista, detalle, histórico y alerta visual. `MaterialConsumption` y `ProductSupplyRule` se movieron a la fase 2, porque su forma depende de las decisiones abiertas de §9.
+> Estado: **fases 1 y 2 implementadas** (2026-11-10). Fase 2: el ítem de OP descuenta solo (reglas DTF UV y DTF TEXTIL, factor 1), con rollo en uso, partición entre rollos, bandeja «sin rollo», corrección manual, cierre con merma y devolución como merma recuperada. Pendiente: fase 3 (rentabilidad sin IVA y por rollo) y fase 4 (carnets).
+>
+> Dos reglas que se fijaron al implementar, sin pregunta explícita al cliente:
+> - Una OP **devuelta** (`RETURNED`, devolución total del dinero) **no** devuelve material: el trabajo se imprimió. Solo `ANULADO`, borrar el borrador o quitar el ítem lo devuelven.
+> - Un rollo **agotado** se trata como uno cerrado: lo que se le devuelva sale como merma recuperada (el rollo físico ya se acabó).
+> - Las OP que ya existían no se tocan: el descuento empieza con lo que se cree o edite desde el despliegue.
 
 ## 1. Qué encontré en el sistema (y en PRD)
 
@@ -68,11 +73,10 @@ Sin borrado físico: no hay `DELETE`; un rollo mal registrado se **anula** con m
 | `workOrderItemId?` | Opcional |
 | `supplyId`, `lotId?` | |
 | `quantity`, `unitCost`, `totalCost` | Costo **congelado** al momento del consumo |
-| `kind` | `PRODUCTION` (lo vendido) o `REPRINT` (reimpresión / merma atribuible a la OP, sin ingreso) |
 | `source` | `AUTO` (regla del producto) o `MANUAL` |
 | `createdById`, `updatedAt` | |
 
-Índice único `(orderItemId, lotId, kind)` (con `lotId` nulo tratado aparte para insumos sin lotes). Esta fila es **el estado actual**; cada cambio de cantidad genera un movimiento de kardex por la **diferencia** (`EXIT` si sube, `RETURN` si baja). Así:
+Índice único `(orderItemId, lotId)` (con `lotId` nulo = consumo pendiente de asignar a un rollo, o insumo sin lotes). Esta fila es **el estado actual**; cada cambio de cantidad genera un movimiento de kardex por la **diferencia** (`EXIT` si sube, `RETURN` si baja). Así:
 
 - reintentos / doble clic → la fila ya existe, la diferencia es 0, no hay movimiento duplicado;
 - editar la OP → solo se mueve el delta;
@@ -95,7 +99,7 @@ Cuando un ítem de OP tiene producto con regla `autoConsume`:
 - se propone `cantidad × factor` metros del rollo en uso;
 - en el formulario de la OP el ítem muestra «Consumo: 0,34 m de ROL-UV-0007» con opción de **corregir los metros** (caso stickers vendidos por unidad) o **cambiar el rollo**;
 - si el rollo en uso no alcanza, el consumo **se parte** automáticamente con el siguiente rollo disponible (FIFO por `receivedAt`) — dos filas de `MaterialConsumption`;
-- si no hay stock en ningún rollo, ver decisión §9.3.
+- si no hay stock en ningún rollo, el consumo queda «sin rollo» en una bandeja para asignarlo después (decisión §9.3); la OP nunca se bloquea.
 
 Todo ocurre en la misma transacción que crea/edita la OP, con bloqueo de fila sobre los lotes afectados (`SELECT … FOR UPDATE`, mismo patrón que `lockOrderForUpdate`).
 
@@ -109,7 +113,7 @@ Los rollos reales no traen exactamente lo nominal y el final se pierde. «Cerrar
 
 ### 4.6 Reversión
 - Ítem eliminado / OP anulada / devolución total → `RETURN` del total al **mismo lote**.
-- Si ese lote ya está `CLOSED`, el `RETURN` reabre el saldo… **o** se registra como merma recuperada (decisión §9.4).
+- Si ese lote ya está `CLOSED`, el `RETURN` no reabre el saldo: se registra como merma recuperada del rollo (decisión §9.5).
 - Anulación parcial por ítems: el consumo **no** se reversa solo (el material ya se usó); se ofrece ajustarlo a mano.
 
 ## 5. Permisos (3 archivos obligatorios: `sync-permissions.ts`, `permission-labels.ts`, `PermissionsSelector.tsx`)
@@ -132,19 +136,19 @@ Los rollos reales no traen exactamente lo nominal y el final se pierde. «Cerrar
 ## 7. Costos y rentabilidad
 
 ### 7.1 Por OP / ítem
-- Costo de material = Σ `MaterialConsumption.totalCost` del ítem (incluye `REPRINT`).
+- Costo de material = Σ `MaterialConsumption.totalCost` del ítem. La merma de impresión no se carga a la OP: sale al cerrar el rollo (decisión §9.4).
 - Ingreso del ítem = `total` del ítem **sin IVA**, descontando lo anulado (`annulledQuantity × unitPrice`).
 - Ganancia bruta del ítem atribuible al material = ingreso − costo de material.
 - `_calcProfitability` pasa a: `totalExpenses = OG de las OT + costo de material`, con el desglose visible por separado.
 
-**Ajuste que propongo:** la rentabilidad actual compara `order.total` (con IVA y redondeo comercial) contra OG (que en buena parte no tienen IVA). Con costos de material bien medidos, ese 19 % distorsiona. Recomiendo pasar a **subtotal sin IVA** en el mismo cambio. Es una decisión del cliente porque mueve las cifras que ya ven (§9.6).
+**Ajuste que propongo:** la rentabilidad actual compara `order.total` (con IVA y redondeo comercial) contra OG (que en buena parte no tienen IVA). Con costos de material bien medidos, ese 19 % distorsiona. **Decidido:** pasar a subtotal sin IVA en el mismo cambio (§9.7); mueve las cifras que el cliente ya ve.
 
 **Doble conteo:** la OG con la que se compró un rollo es un gasto de caja; el consumo es el costo. Si esa OG está amarrada a una OT, la OP lo contaría dos veces. Regla: una línea de OG vinculada a un `SupplyLot` se **excluye** de la rentabilidad por OP. (Hoy hay 6 casos así en PRD; habría que revisarlos.)
 
 ### 7.2 Por rollo
 - Valor de adquisición = `totalCost`.
 - Consumido = Σ consumos; valor consumido = Σ `totalCost`.
-- Ingreso asociado: para cada ítem que consumió del rollo, `ingreso del ítem × (m consumidos de este rollo / m totales consumidos por el ítem)`. Esto reparte sin duplicar cuando un ítem se partió entre dos rollos. Los `REPRINT` suman costo pero no ingreso.
+- Ingreso asociado: para cada ítem que consumió del rollo, `ingreso del ítem × (m consumidos de este rollo / m totales consumidos por el ítem)`. Esto reparte sin duplicar cuando un ítem se partió entre dos rollos.
 - Ganancia bruta acumulada = ingreso asociado − valor consumido.
 - Merma = valor de los ajustes de cierre.
 - Restante y su costo = `remainingQuantity × unitCost`.
@@ -161,13 +165,15 @@ Los rollos reales no traen exactamente lo nominal y el final se pierde. «Cerrar
 
 Las fases 1–3 son el pedido de DTF. La 4 es pequeña porque reutiliza todo lo anterior; la pondría inmediatamente después.
 
-## 9. Decisiones abiertas (para el cliente o para ti)
+## 9. Decisiones del cliente (2026-11-10)
 
-1. **¿Cuándo se descuenta?** Hay 350 OP DTF en `DRAFT` en PRD. Opciones: (a) al crear el ítem, aun en borrador, y se devuelve si se anula — refleja que DTF se imprime de inmediato; (b) al salir de `DRAFT`. *Recomiendo (a)*, porque el DTF se imprime al instante y un borrador olvidado ya consumió material; pero entonces los borradores viejos deben anularse para devolver el material.
-2. **¿Hay más de una impresora / rollo montado a la vez por tipo?** Si sí, el «rollo en uso» pasa a ser por máquina (`machineId` en el lote en uso).
-3. **¿Qué hacer si no hay stock registrado?** (a) bloquear la OP; (b) permitir y dejar el consumo «sin rollo» para asignarlo después; (c) dejar el rollo en negativo. *Recomiendo (b)*: no frena la venta y deja una bandeja de «consumos sin rollo» que alguien debe resolver. Bloquear la venta por un dato de bodega es lo que hizo que el inventario nunca se usara.
-4. **Devolución a un rollo ya cerrado**: ¿reabre el saldo o queda como merma recuperada? *Recomiendo merma recuperada* (el rollo físico ya no existe).
-5. **¿Los rollos se compran siempre por OG?** Si sí, el registro del rollo podría nacer desde la línea de OG pagada en vez de cargarse a mano (evita digitar dos veces el costo).
-6. **Rentabilidad sin IVA**: ¿pasamos a subtotal sin IVA para todas las OP? Cambia las cifras de la pantalla de rentabilidad que ya usa el cliente.
-7. **Merma en la impresión** (pruebas de color, reimpresiones): ¿se registra contra la OP (`REPRINT`) o solo al cerrar el rollo? Lo primero da rentabilidad por OP más honesta; lo segundo es menos trabajo para el operario.
-8. **Stock actual**: ¿cuántos rollos hay hoy y de qué longitud/costo? Hace falta la carga inicial antes de activar la fase 2.
+| # | Pregunta | Decisión | Qué cambia en el diseño |
+|---|---|---|---|
+| 1 | ¿Cuándo se descuenta? | **Al crear el ítem**, aunque la OP esté en borrador; si se anula, se devuelve. | `syncForOrderItem` corre en crear/editar sin mirar el estado. Los borradores viejos deben anularse para devolver el material (las 350 OP DTF en `DRAFT` de PRD no se tocan: el descuento empieza con las OP nuevas). |
+| 2 | ¿Varias impresoras por tipo? | **Un solo «rollo en uso» por tipo.** | `IN_USE` único por insumo (índice único parcial `(supply_id) WHERE status = 'IN_USE'`). Sin `machineId`. |
+| 3 | ¿Y si no hay stock registrado? | **Dejar pasar la venta** y registrar el consumo «sin rollo», en una bandeja para asignarlo después. | `MaterialConsumption.lotId` nulo = pendiente de asignar. Bandeja de consumos sin rollo; al asignarlo se genera el `EXIT` contra el lote. Nunca se bloquea la OP ni queda un lote en negativo. |
+| 4 | Merma de impresión (pruebas, reimpresiones) | **Alternativa simple:** solo al cerrar el rollo. | Se elimina `kind`/`REPRINT`. Toda la merma sale por el cierre del rollo y se reporta en la rentabilidad del rollo, no de la OP. |
+| 5 | Devolución a un rollo ya cerrado | **Merma recuperada**; el rollo no se reabre. | El `RETURN` sobre un lote `CLOSED` no suma saldo: se registra como merma recuperada del rollo (resta de su merma). |
+| 6 | ¿Los rollos se compran siempre por OG? | **Sí.** | El rollo puede nacer desde la línea de OG (`SupplyLot.expenseOrderItemId`) y esa línea se excluye de la rentabilidad de la OP para no contarla dos veces. Revisar las 6 OG de rollos amarradas a OT en PRD. |
+| 7 | ¿Rentabilidad sin IVA? | **Sí, subtotal sin IVA** para todas las OP. | `_calcProfitability` usa ingreso sin IVA. Cambia las cifras que el cliente ya ve: avisarle al desplegar. |
+| 8 | Rollos actuales en bodega | **Pendiente.** | Hay que cargarlos en «Rollos y lotes» antes de activar el descuento automático; sin ellos, los consumos caen en la bandeja «sin rollo». |

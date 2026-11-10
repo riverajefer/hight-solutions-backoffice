@@ -38,6 +38,16 @@ export const supplyLotsApi = {
     return data;
   },
 
+  setInUse: async (id: string): Promise<SupplyLotDetail> => {
+    const { data } = await axiosInstance.post<SupplyLotDetail>(`${BASE_URL}/${id}/in-use`);
+    return data;
+  },
+
+  close: async (id: string, reason: string): Promise<SupplyLotDetail> => {
+    const { data } = await axiosInstance.post<SupplyLotDetail>(`${BASE_URL}/${id}/close`, { reason });
+    return data;
+  },
+
   void: async (id: string, reason: string): Promise<SupplyLotDetail> => {
     const { data } = await axiosInstance.post<SupplyLotDetail>(`${BASE_URL}/${id}/void`, { reason });
     return data;
