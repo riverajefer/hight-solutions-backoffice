@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Put, Query, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -11,7 +11,7 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../common/interfaces/auth.interface';
-import { CreateSupplyLotDto, FilterSupplyLotsDto, VoidSupplyLotDto } from './dto';
+import { CreateSupplyLotDto, FilterSupplyLotsDto, LinkPurchaseLineDto, VoidSupplyLotDto } from './dto';
 import { SupplyLotsService } from './supply-lots.service';
 
 @ApiTags('supply-lots')
@@ -35,6 +35,13 @@ export class SupplyLotsController {
   @ApiResponse({ status: 200, description: 'Resumen obtenido correctamente' })
   getSummary() {
     return this.service.getSummary();
+  }
+
+  @Get('purchase-lines')
+  @RequirePermissions('create_supply_lots')
+  @ApiOperation({ summary: 'Buscar líneas de OG sin rollo para amarrar la compra' })
+  findPurchaseLines(@Query('search') search?: string) {
+    return this.service.findPurchaseLines(search);
   }
 
   @Get(':id')
@@ -73,6 +80,14 @@ export class SupplyLotsController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.service.close(id, dto, user.id);
+  }
+
+  @Put(':id/purchase-line')
+  @RequirePermissions('manage_supply_lots')
+  @ApiOperation({ summary: 'Amarrar o soltar la línea de OG con que se compró el rollo' })
+  @ApiParam({ name: 'id', description: 'ID del lote' })
+  linkPurchaseLine(@Param('id', ParseUUIDPipe) id: string, @Body() dto: LinkPurchaseLineDto) {
+    return this.service.linkPurchaseLine(id, dto.expenseOrderItemId);
   }
 
   @Post(':id/void')

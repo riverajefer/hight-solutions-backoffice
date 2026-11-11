@@ -33,6 +33,7 @@ import { startOfDay, endOfDay, businessToday } from '../../common/utils/date-ran
 // ─────────────────────────────────────────────────────────────────────────────
 
 const mockOrdersRepository = {
+  getOrderProfitabilityData: jest.fn(),
   findAll: jest.fn(),
   findAllWithFilters: jest.fn(),
   findById: jest.fn(),
@@ -4365,6 +4366,70 @@ describe('OrdersService', () => {
       await expect(
         service.updatePayment('order-1', 'bad-pay', { amount: 1 }, 'user-1'),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('getOrderProfitability', () => {
+    const D = (n: number) => new Prisma.Decimal(n);
+    const order = (over: Record<string, unknown> = {}) => ({
+      id: 'order-1',
+      orderNumber: 'OP-1',
+      total: D(119000),
+      subtotal: D(100000),
+      discountAmount: D(0),
+      taxRate: D(0.19),
+      requiresColorProof: false,
+      colorProofPrice: null,
+      reversedAmount: D(0),
+      workOrders: [],
+      materialConsumptions: [],
+      ...over,
+    });
+
+    it('la utilidad sale de la venta sin IVA, no del total', async () => {
+      mockOrdersRepository.getOrderProfitabilityData.mockResolvedValue(order());
+      const r = await service.getOrderProfitability('order-1');
+      expect(r).toMatchObject({ orderTotal: 119000, revenue: 100000, totalExpenses: 0, utility: 100000 });
+    });
+
+    it('suma el material consumido y las OG, y excluye la línea de OG que compró un rollo', async () => {
+      mockOrdersRepository.getOrderProfitabilityData.mockResolvedValue(
+        order({
+          workOrders: [
+            {
+              workOrderNumber: 'OT-1',
+              expenseOrders: [
+                {
+                  id: 'og-1',
+                  ogNumber: 'OG-1',
+                  status: 'PAID',
+                  items: [
+                    { total: D(20000), supplyLot: null },
+                    { total: D(150000), supplyLot: { id: 'lot-1', code: 'ROL-UV-0001' } },
+                  ],
+                },
+              ],
+            },
+          ],
+          materialConsumptions: [
+            { quantity: D(2), totalCost: D(3000), lotId: 'lot-1', supply: { id: 's', name: 'Rollo DTF UV', consumptionUnit: { abbreviation: 'm' } } },
+            { quantity: D(1), totalCost: null, lotId: null, supply: { id: 's', name: 'Rollo DTF UV', consumptionUnit: { abbreviation: 'm' } } },
+          ],
+        }),
+      );
+      const r = await service.getOrderProfitability('order-1');
+      expect(r).toMatchObject({
+        expenseOrdersTotal: 20000,
+        materialCost: 3000,
+        totalExpenses: 23000,
+        utility: 77000,
+        utilityPercentage: 77,
+        hasPendingMaterial: true,
+      });
+      expect(r.expenseOrders[0]).toMatchObject({ itemsTotal: 20000, excludedTotal: 150000 });
+      expect(r.materials).toEqual([
+        { supplyId: 's', supplyName: 'Rollo DTF UV', unit: 'm', quantity: 3, cost: 3000, pendingQuantity: 1 },
+      ]);
     });
   });
 });

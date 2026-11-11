@@ -152,17 +152,38 @@ export const ProfitabilityPage: React.FC = () => {
       minWidth: 180,
     },
     {
-      field: 'orderTotal',
-      headerName: 'Total OP',
-      width: 150,
+      field: 'revenue',
+      headerName: 'Venta sin IVA',
+      width: 140,
       align: 'right',
       headerAlign: 'right',
       renderCell: (params) => formatCurrency(params.value as number),
     },
     {
+      field: 'expenseOrdersTotal',
+      headerName: 'Gastos OG',
+      width: 120,
+      align: 'right',
+      headerAlign: 'right',
+      renderCell: (params) => formatCurrency(params.value as number),
+    },
+    {
+      field: 'materialCost',
+      headerName: 'Material',
+      width: 120,
+      align: 'right',
+      headerAlign: 'right',
+      renderCell: (params) => (
+        <Box component="span" title={params.row.hasPendingMaterial ? 'Hay material sin rollo asignado: su costo aún no cuenta' : undefined}>
+          {formatCurrency(params.value as number)}
+          {params.row.hasPendingMaterial && ' ⚠'}
+        </Box>
+      ),
+    },
+    {
       field: 'totalExpenses',
       headerName: 'Total Gastos',
-      width: 150,
+      width: 130,
       align: 'right',
       headerAlign: 'right',
       renderCell: (params) => (

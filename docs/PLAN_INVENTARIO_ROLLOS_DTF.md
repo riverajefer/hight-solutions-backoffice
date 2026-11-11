@@ -1,6 +1,6 @@
 # Plan: consumo de inventario amarrado a la OP (empieza con rollos DTF)
 
-> Estado: **fases 1 y 2 implementadas** (2026-11-10). Fase 2: el ítem de OP descuenta solo (reglas DTF UV y DTF TEXTIL, factor 1), con rollo en uso, partición entre rollos, bandeja «sin rollo», corrección manual, cierre con merma y devolución como merma recuperada. Pendiente: fase 3 (rentabilidad sin IVA y por rollo) y fase 4 (carnets).
+> Estado: **fases 1, 2 y 3 implementadas** (2026-11-10). Fase 2: el ítem de OP descuenta solo (reglas DTF UV y DTF TEXTIL, factor 1), con rollo en uso, partición entre rollos, bandeja «sin rollo», corrección manual, cierre con merma y devolución como merma recuperada. Fase 3: rentabilidad de toda OP sobre venta sin IVA (subtotal − descuento sin IVA + prueba de color; las retenciones no restan) con costo de material; rentabilidad por rollo; rollo amarrado a su línea de OG, que se excluye de la rentabilidad de la OP. Pendiente: fase 4 (carnets).
 >
 > Dos reglas que se fijaron al implementar, sin pregunta explícita al cliente:
 > - Una OP **devuelta** (`RETURNED`, devolución total del dinero) **no** devuelve material: el trabajo se imprimió. Solo `ANULADO`, borrar el borrador o quitar el ítem lo devuelven.

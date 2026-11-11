@@ -45,6 +45,11 @@ export class CreateSupplyLotDto {
   @IsDateString()
   receivedAt: string;
 
+  @ApiPropertyOptional({ description: 'Línea de la OG con que se compró el rollo' })
+  @IsOptional()
+  @IsUUID()
+  expenseOrderItemId?: string;
+
   @ApiPropertyOptional({ description: 'Observaciones', maxLength: 500 })
   @IsOptional()
   @IsString()

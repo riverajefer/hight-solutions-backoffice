@@ -556,33 +556,37 @@ enum SupplyLotStatus {
 }
 
 model SupplyLot {
-  id                String          @id @default(uuid())
-  supplyId          String          @map("supply_id")
-  sequence          Int // Consecutivo por insumo
-  code              String          @unique // "ROL-UV-0001"
-  initialQuantity   Decimal         @map("initial_quantity") @db.Decimal(14, 4)
-  remainingQuantity Decimal         @map("remaining_quantity") @db.Decimal(14, 4)
+  id                 String          @id @default(uuid())
+  supplyId           String          @map("supply_id")
+  sequence           Int // Consecutivo por insumo
+  code               String          @unique // "ROL-UV-0001"
+  initialQuantity    Decimal         @map("initial_quantity") @db.Decimal(14, 4)
+  remainingQuantity  Decimal         @map("remaining_quantity") @db.Decimal(14, 4)
   // Umbral en unidades, congelado al registrar el lote (inicial × % de alerta).
   // Así el filtro «bajo inventario» es una comparación de columnas en SQL.
-  lowStockQuantity  Decimal         @map("low_stock_quantity") @db.Decimal(14, 4)
-  unitCost          Decimal         @map("unit_cost") @db.Decimal(14, 4)
-  totalCost         Decimal         @map("total_cost") @db.Decimal(14, 2)
-  receivedAt        DateTime        @map("received_at")
-  status            SupplyLotStatus @default(AVAILABLE)
-  depletedAt        DateTime?       @map("depleted_at") // Agotado, cerrado o anulado
+  lowStockQuantity   Decimal         @map("low_stock_quantity") @db.Decimal(14, 4)
+  unitCost           Decimal         @map("unit_cost") @db.Decimal(14, 4)
+  totalCost          Decimal         @map("total_cost") @db.Decimal(14, 2)
+  receivedAt         DateTime        @map("received_at")
+  status             SupplyLotStatus @default(AVAILABLE)
+  depletedAt         DateTime?       @map("depleted_at") // Agotado, cerrado o anulado
   // Merma: lo que salió del rollo sin cargarse a ninguna OP (saldo al cerrar,
   // devoluciones que llegan a un rollo ya terminado).
-  wasteQuantity     Decimal         @default(0) @map("waste_quantity") @db.Decimal(14, 4)
-  notes             String?
-  voidReason        String?         @map("void_reason")
-  createdById       String          @map("created_by_id")
-  createdAt         DateTime        @default(now()) @map("created_at")
-  updatedAt         DateTime        @updatedAt @map("updated_at")
+  wasteQuantity      Decimal         @default(0) @map("waste_quantity") @db.Decimal(14, 4)
+  notes              String?
+  voidReason         String?         @map("void_reason")
+  // Línea de la OG con que se compró el rollo. Se excluye de la rentabilidad
+  // de la OP: el costo ya llega por el consumo, contarla también lo duplica.
+  expenseOrderItemId String?         @unique @map("expense_order_item_id")
+  createdById        String          @map("created_by_id")
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
 
-  supply       Supply                @relation(fields: [supplyId], references: [id])
-  createdBy    User                  @relation("SupplyLotCreatedBy", fields: [createdById], references: [id])
-  movements    InventoryMovement[]
-  consumptions MaterialConsumption[]
+  supply           Supply                @relation(fields: [supplyId], references: [id])
+  createdBy        User                  @relation("SupplyLotCreatedBy", fields: [createdById], references: [id])
+  expenseOrderItem ExpenseOrderItem?     @relation(fields: [expenseOrderItemId], references: [id], onDelete: SetNull)
+  movements        InventoryMovement[]
+  consumptions     MaterialConsumption[]
 
   @@unique([supplyId, sequence])
   @@index([supplyId, status])
@@ -1811,6 +1815,7 @@ model ExpenseOrderItem {
   productionAreas ExpenseOrderItemProductionArea[]
   // Pago mixto: dos líneas con su método y monto. Vacío = todo por `paymentMethod`.
   payments        ExpenseOrderItemPayment[]
+  supplyLot       SupplyLot?
 
   @@index([expenseOrderId])
   @@index([workOrderItemId])

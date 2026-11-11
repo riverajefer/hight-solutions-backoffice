@@ -1,6 +1,6 @@
 import axiosInstance from './axios';
 import {
-  LotMaterialConsumption,
+  LotConsumptionReport,
   OrderMaterialConsumption,
   PendingMaterialConsumption,
 } from '../types';
@@ -44,8 +44,8 @@ export const materialConsumptionApi = {
     return data;
   },
 
-  getByLot: async (lotId: string): Promise<LotMaterialConsumption[]> => {
-    const { data } = await axiosInstance.get<LotMaterialConsumption[]>(`${BASE_URL}/lots/${lotId}`);
+  getByLot: async (lotId: string): Promise<LotConsumptionReport> => {
+    const { data } = await axiosInstance.get<LotConsumptionReport>(`${BASE_URL}/lots/${lotId}`);
     return data;
   },
 };

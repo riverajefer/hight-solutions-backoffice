@@ -55,6 +55,26 @@ export function buildOrderSearchFilter(
   ];
 }
 
+/** Campos de la OP con los que se calcula su venta sin IVA (`order-revenue.util`). */
+const ORDER_REVENUE_SELECT = {
+  total: true,
+  subtotal: true,
+  discountAmount: true,
+  taxRate: true,
+  requiresColorProof: true,
+  colorProofPrice: true,
+  reversedAmount: true,
+} as const;
+
+/**
+ * Líneas de OG para la rentabilidad. `supplyLot` dice si la línea compró un
+ * rollo: esas se excluyen porque su costo ya entra por el consumo de material.
+ */
+const PROFITABILITY_EXPENSE_ITEM_SELECT = {
+  total: true,
+  supplyLot: { select: { id: true, code: true } },
+} as const;
+
 @Injectable()
 export class OrdersRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -791,7 +811,7 @@ export class OrdersRepository {
       select: {
         id: true,
         orderNumber: true,
-        total: true,
+        ...ORDER_REVENUE_SELECT,
         workOrders: {
           select: {
             workOrderNumber: true,
@@ -800,11 +820,17 @@ export class OrdersRepository {
                 id: true,
                 ogNumber: true,
                 status: true,
-                items: {
-                  select: { total: true },
-                },
+                items: { select: PROFITABILITY_EXPENSE_ITEM_SELECT },
               },
             },
+          },
+        },
+        materialConsumptions: {
+          select: {
+            quantity: true,
+            totalCost: true,
+            lotId: true,
+            supply: { select: { id: true, name: true, consumptionUnit: { select: { abbreviation: true } } } },
           },
         },
       },
@@ -852,7 +878,7 @@ export class OrdersRepository {
         select: {
           id: true,
           orderNumber: true,
-          total: true,
+          ...ORDER_REVENUE_SELECT,
           status: true,
           orderDate: true,
           client: { select: { name: true } },
@@ -860,11 +886,12 @@ export class OrdersRepository {
             select: {
               expenseOrders: {
                 select: {
-                  items: { select: { total: true } },
+                  items: { select: PROFITABILITY_EXPENSE_ITEM_SELECT },
                 },
               },
             },
           },
+          materialConsumptions: { select: { totalCost: true, lotId: true } },
         },
         orderBy: { orderDate: 'desc' },
         skip,

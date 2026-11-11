@@ -179,3 +179,29 @@ export const useSyncOrderMaterials = () => {
       enqueueSnackbar(errorMessage(error, 'No se pudo recalcular el consumo'), { variant: 'error' }),
   });
 };
+
+export const usePurchaseLines = (search: string, enabled: boolean) =>
+  useQuery({
+    queryKey: [...SUPPLY_LOTS_QUERY_KEY, 'purchase-lines', search],
+    queryFn: () => supplyLotsApi.findPurchaseLines(search),
+    enabled,
+    staleTime: 30_000,
+  });
+
+export const useLinkPurchaseLine = () => {
+  const { enqueueSnackbar } = useSnackbar();
+  const invalidate = useInvalidateStock();
+  return useMutation({
+    mutationFn: ({ id, expenseOrderItemId }: { id: string; expenseOrderItemId: string | null }) =>
+      supplyLotsApi.linkPurchaseLine(id, expenseOrderItemId),
+    onSuccess: (lot) => {
+      enqueueSnackbar(
+        lot.purchaseLine ? `Rollo amarrado a ${lot.purchaseLine.ogNumber}` : 'Rollo desvinculado de la OG',
+        { variant: 'success' },
+      );
+      invalidate();
+    },
+    onError: (error) =>
+      enqueueSnackbar(errorMessage(error, 'No se pudo amarrar la OG'), { variant: 'error' }),
+  });
+};

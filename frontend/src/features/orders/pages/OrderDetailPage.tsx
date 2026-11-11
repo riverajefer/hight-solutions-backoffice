@@ -2931,9 +2931,9 @@ export const OrderDetailPage: React.FC = () => {
                     <Grid container spacing={2}>
                       {[
                         {
-                          label: 'Total OP',
+                          label: 'Venta sin IVA',
                           value: formatCurrency(
-                            profitabilityData.orderTotal.toString(),
+                            profitabilityData.revenue.toString(),
                           ),
                           color: 'text.primary',
                         },
@@ -2991,6 +2991,54 @@ export const OrderDetailPage: React.FC = () => {
                       ))}
                     </Grid>
 
+                    <Typography variant='caption' color='text.secondary'>
+                      Gastos = órdenes de gasto{' '}
+                      {formatCurrency(profitabilityData.expenseOrdersTotal.toString())} + material{' '}
+                      {formatCurrency(profitabilityData.materialCost.toString())}. La utilidad se mide sobre la
+                      venta sin IVA (total de la OP: {formatCurrency(profitabilityData.orderTotal.toString())}).
+                    </Typography>
+                    {profitabilityData.hasPendingMaterial && (
+                      <Alert severity='warning'>
+                        Parte del material se vendió sin rollo asignado: su costo todavía no cuenta y la
+                        utilidad está inflada hasta que se asigne.
+                      </Alert>
+                    )}
+
+                    {/* Material consumido */}
+                    {profitabilityData.materials.length > 0 && (
+                      <>
+                        <Divider />
+                        <Typography variant='body2' color='text.secondary' fontWeight={600}>
+                          Material consumido
+                        </Typography>
+                        <TableContainer>
+                          <Table size='small'>
+                            <TableHead>
+                              <TableRow>
+                                <TableCell>Material</TableCell>
+                                <TableCell align='right'>Cantidad</TableCell>
+                                <TableCell align='right'>Costo</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {profitabilityData.materials.map((m) => (
+                                <TableRow key={m.supplyId}>
+                                  <TableCell>{m.supplyName}</TableCell>
+                                  <TableCell align='right'>
+                                    {m.quantity.toLocaleString('es-CO', { maximumFractionDigits: 2 })} {m.unit}
+                                    {m.pendingQuantity > 0 && (
+                                      <Chip size='small' color='warning' label='parte sin rollo' sx={{ ml: 1 }} />
+                                    )}
+                                  </TableCell>
+                                  <TableCell align='right'>{formatCurrency(m.cost.toString())}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      </>
+                    )}
+
                     {/* Linked expense orders */}
                     {profitabilityData.expenseOrders.length > 0 ? (
                       <>
@@ -3031,6 +3079,11 @@ export const OrderDetailPage: React.FC = () => {
                                     </TableCell>
                                     <TableCell align='right'>
                                       {formatCurrency(eg.itemsTotal.toString())}
+                                      {eg.excludedTotal > 0 && (
+                                        <Typography variant='caption' color='text.secondary' display='block'>
+                                          sin contar {formatCurrency(eg.excludedTotal.toString())} de rollos (ya en material)
+                                        </Typography>
+                                      )}
                                     </TableCell>
                                   </TableRow>
                                 ),
@@ -3039,11 +3092,11 @@ export const OrderDetailPage: React.FC = () => {
                           </Table>
                         </TableContainer>
                       </>
-                    ) : (
+                    ) : profitabilityData.materials.length === 0 ? (
                       <Typography variant='body2' color='text.secondary'>
-                        No hay órdenes de gasto vinculadas a esta OP.
+                        No hay órdenes de gasto ni material vinculados a esta OP.
                       </Typography>
-                    )}
+                    ) : null}
                   </Stack>
                 ) : null}
               </AccordionDetails>

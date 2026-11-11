@@ -1,6 +1,7 @@
 import axiosInstance from './axios';
 import {
   CreateSupplyLotDto,
+  PurchaseLineCandidate,
   SupplyLotDetail,
   SupplyLotFilters,
   SupplyLotsResponse,
@@ -35,6 +36,18 @@ export const supplyLotsApi = {
 
   create: async (dto: CreateSupplyLotDto): Promise<SupplyLotDetail> => {
     const { data } = await axiosInstance.post<SupplyLotDetail>(BASE_URL, dto);
+    return data;
+  },
+
+  findPurchaseLines: async (search: string): Promise<PurchaseLineCandidate[]> => {
+    const { data } = await axiosInstance.get<PurchaseLineCandidate[]>(`${BASE_URL}/purchase-lines`, {
+      params: { search: search || undefined },
+    });
+    return data;
+  },
+
+  linkPurchaseLine: async (id: string, expenseOrderItemId: string | null): Promise<SupplyLotDetail> => {
+    const { data } = await axiosInstance.put<SupplyLotDetail>(`${BASE_URL}/${id}/purchase-line`, { expenseOrderItemId });
     return data;
   },
 

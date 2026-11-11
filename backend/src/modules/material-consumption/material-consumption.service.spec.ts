@@ -282,3 +282,60 @@ describe('MaterialConsumptionService', () => {
     await expect(service.correctItem('it-1', 's-uv', 1, 'u1')).rejects.toThrow(BadRequestException);
   });
 });
+
+describe('MaterialConsumptionService.getLotConsumption (rentabilidad del rollo)', () => {
+  const D = (n: number) => new Prisma.Decimal(n);
+  const order = (id: string) => ({
+    id, orderNumber: id, status: OrderStatus.DELIVERED, subtotal: D(100000), discountAmount: D(0), taxRate: D(0),
+    client: { name: 'Cliente' },
+  });
+
+  it('reparte la venta del ítem por los metros que salieron de este rollo, sin duplicar', async () => {
+    const prisma = {
+      supplyLot: {
+        findUnique: jest.fn().mockResolvedValue({
+          initialQuantity: D(10), remainingQuantity: D(2), wasteQuantity: D(1), unitCost: D(1000), totalCost: D(10000),
+          status: SupplyLotStatus.AVAILABLE,
+        }),
+      },
+      materialConsumption: {
+        findMany: jest.fn().mockResolvedValue([
+          // Ítem A: 4 m de este rollo de 8 m en total (los otros 4, de otro rollo).
+          { id: 'c1', supplyId: 's', orderItemId: 'A', quantity: D(4), unitCost: D(1000), totalCost: D(4000),
+            source: 'AUTO', createdAt: new Date(), order: order('OP-1'),
+            orderItem: { id: 'A', description: 'A', total: D(80000), unitPrice: D(10000), annulledQuantity: D(0) } },
+          // Ítem B: todo de este rollo.
+          { id: 'c2', supplyId: 's', orderItemId: 'B', quantity: D(3), unitCost: D(1000), totalCost: D(3000),
+            source: 'AUTO', createdAt: new Date(), order: order('OP-2'),
+            orderItem: { id: 'B', description: 'B', total: D(20000), unitPrice: D(20000), annulledQuantity: D(0) } },
+        ]),
+        groupBy: jest.fn().mockResolvedValue([
+          { orderItemId: 'A', supplyId: 's', _sum: { quantity: D(8) } },
+          { orderItemId: 'B', supplyId: 's', _sum: { quantity: D(3) } },
+        ]),
+      },
+    };
+    const module = await Test.createTestingModule({
+      providers: [
+        MaterialConsumptionService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: SupplyLotsRepository, useValue: {} },
+        { provide: NotificationsService, useValue: {} },
+      ],
+    }).compile();
+    const res = await module.get(MaterialConsumptionService).getLotConsumption('lot-1');
+
+    expect(res.rows.map((r) => r.revenue)).toEqual([40000, 20000]);
+    expect(res.summary).toMatchObject({
+      acquisitionCost: 10000,
+      consumedQuantity: 7,
+      consumedValue: 7000,
+      revenue: 60000,
+      grossProfit: 53000,
+      wasteValue: 1000,
+      profitAfterWaste: 52000,
+      remainingValue: 2000,
+      orders: 2,
+    });
+  });
+});

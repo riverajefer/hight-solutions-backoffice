@@ -36,12 +36,14 @@ import { useSingleFlight } from '../../../hooks/useSingleFlight';
 import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS, ROUTES } from '../../../utils/constants';
 import { formatCurrency } from '../../../utils/formatters';
-import { SupplyLotMovement } from '../../../types';
+import { PurchaseLineCandidate, SupplyLotMovement } from '../../../types';
+import { PurchaseLinePicker } from '../components/PurchaseLinePicker';
 import { MovementTypeChip } from '../components/MovementTypeChip';
 import { SupplyLotStatusChip } from '../components/SupplyLotStatusChip';
 import { SupplyLotProgress } from '../components/SupplyLotProgress';
 import {
   useCloseSupplyLot,
+  useLinkPurchaseLine,
   useLotConsumption,
   useSetLotInUse,
   useSupplyLot,
@@ -100,6 +102,9 @@ const SupplyLotDetailPage: React.FC = () => {
   const closeMutation = useCloseSupplyLot();
   const [voidOpen, setVoidOpen] = useState(false);
   const [voidReason, setVoidReason] = useState('');
+  const linkMutation = useLinkPurchaseLine();
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkLine, setLinkLine] = useState<PurchaseLineCandidate | null>(null);
   const [closeOpen, setCloseOpen] = useState(false);
   const [closeReason, setCloseReason] = useState('');
 
@@ -127,7 +132,8 @@ const SupplyLotDetailPage: React.FC = () => {
   const isActive = lot.status === 'AVAILABLE' || lot.status === 'IN_USE';
   const canVoid = canManage && isActive && lot.consumedQuantity === 0 && lot.movements.length <= 1;
   const canMount = canManage && lot.status === 'AVAILABLE' && lot.remainingQuantity > 0;
-  const consumptions = consumptionQuery.data ?? [];
+  const consumptions = consumptionQuery.data?.rows ?? [];
+  const profit = consumptionQuery.data?.summary;
 
   return (
     <Box>
@@ -228,6 +234,29 @@ const SupplyLotDetailPage: React.FC = () => {
           <InfoRow label="Tipo" value={lot.supply.name} />
           <InfoRow label="Fecha de ingreso" value={formatLotDate(lot.receivedAt)} />
           <InfoRow label="Registrado por" value={formatLotUser(lot.createdBy)} />
+          <InfoRow
+            label="OG de compra"
+            value={
+              <Stack direction="row" spacing={1} alignItems="center">
+                {lot.purchaseLine ? (
+                  <Link
+                    component={RouterLink}
+                    to={ROUTES.EXPENSE_ORDERS_DETAIL.replace(':id', lot.purchaseLine.expenseOrderId)}
+                    underline="hover"
+                  >
+                    {lot.purchaseLine.ogNumber} · {lot.purchaseLine.name} ({formatCurrency(lot.purchaseLine.total)})
+                  </Link>
+                ) : (
+                  <span>Sin amarrar</span>
+                )}
+                {canManage && (
+                  <Button size="small" onClick={() => { setLinkLine(null); setLinkOpen(true); }}>
+                    {lot.purchaseLine ? 'Cambiar' : 'Amarrar'}
+                  </Button>
+                )}
+              </Stack>
+            }
+          />
           {lot.depletedAt && lot.status !== 'VOIDED' && (
             <InfoRow label="Fecha de agotamiento" value={formatLotDate(lot.depletedAt)} />
           )}
@@ -238,6 +267,50 @@ const SupplyLotDetailPage: React.FC = () => {
           {lot.notes && <InfoRow label="Observaciones" value={lot.notes} />}
         </CardContent>
       </Card>
+
+      {profit && (
+        <Card variant="outlined" sx={{ mb: 2 }}>
+          <CardContent>
+            <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+              Rentabilidad del rollo
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={6} md={3}>
+                <Metric label="Venta atribuida (sin IVA)" value={formatCurrency(profit.revenue)} hint={`${profit.orders} OP`} />
+              </Grid>
+              <Grid item xs={6} md={3}>
+                <Metric
+                  label="Costo del material vendido"
+                  value={formatCurrency(profit.consumedValue)}
+                  hint={formatLotQuantity(profit.consumedQuantity, unit)}
+                />
+              </Grid>
+              <Grid item xs={6} md={3}>
+                <Metric
+                  label="Ganancia bruta"
+                  value={
+                    <Box component="span" sx={{ color: profit.grossProfit >= 0 ? 'success.main' : 'error.main' }}>
+                      {formatCurrency(profit.grossProfit)}
+                    </Box>
+                  }
+                  hint={`Margen ${profit.grossMargin.toLocaleString('es-CO', { maximumFractionDigits: 1 })} %`}
+                />
+              </Grid>
+              <Grid item xs={6} md={3}>
+                <Metric
+                  label="Después de merma"
+                  value={formatCurrency(profit.profitAfterWaste)}
+                  hint={`Merma ${formatCurrency(profit.wasteValue)}`}
+                />
+              </Grid>
+            </Grid>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+              La venta de cada ítem se reparte por los metros que salieron de este rollo; un ítem que usó dos
+              rollos no se cuenta dos veces. Es la ganancia sobre el material, no la utilidad neta de las OP.
+            </Typography>
+          </CardContent>
+        </Card>
+      )}
 
       <Card variant="outlined" sx={{ mb: 2 }}>
         <CardContent>
@@ -258,6 +331,7 @@ const SupplyLotDetailPage: React.FC = () => {
                     <TableCell>Ítem</TableCell>
                     <TableCell align="right">Cantidad</TableCell>
                     <TableCell align="right">Costo</TableCell>
+                    <TableCell align="right">Venta atribuida</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -279,6 +353,7 @@ const SupplyLotDetailPage: React.FC = () => {
                         {formatLotQuantity(c.quantity, unit)}
                       </TableCell>
                       <TableCell align="right">{formatCurrency(c.totalCost ?? 0)}</TableCell>
+                      <TableCell align="right">{formatCurrency(c.revenue)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -334,6 +409,45 @@ const SupplyLotDetailPage: React.FC = () => {
           </TableContainer>
         </CardContent>
       </Card>
+
+      <Dialog open={linkOpen} onClose={() => setLinkOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>OG de compra del rollo {lot.code}</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            La línea amarrada deja de sumar como gasto en la rentabilidad de la OP: el costo del rollo ya entra
+            por el material que consume cada OP.
+          </DialogContentText>
+          <PurchaseLinePicker value={linkLine} onChange={setLinkLine} />
+        </DialogContent>
+        <DialogActions>
+          {lot.purchaseLine && (
+            <Button
+              color="error"
+              sx={{ mr: 'auto' }}
+              disabled={linkMutation.isPending}
+              onClick={async () => {
+                await linkMutation.mutateAsync({ id: lot.id, expenseOrderItemId: null });
+                setLinkOpen(false);
+              }}
+            >
+              Desvincular
+            </Button>
+          )}
+          <Button onClick={() => setLinkOpen(false)}>Cancelar</Button>
+          <LoadingButton
+            variant="contained"
+            loading={linkMutation.isPending}
+            disabled={!linkLine}
+            onClick={async () => {
+              if (!linkLine) return;
+              await linkMutation.mutateAsync({ id: lot.id, expenseOrderItemId: linkLine.id });
+              setLinkOpen(false);
+            }}
+          >
+            Amarrar
+          </LoadingButton>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={closeOpen} onClose={() => setCloseOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Cerrar rollo {lot.code}</DialogTitle>

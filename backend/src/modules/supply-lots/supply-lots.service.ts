@@ -100,6 +100,7 @@ export class SupplyLotsService {
     }
 
     const lotId = await this.prisma.$transaction(async (tx) => {
+      if (dto.expenseOrderItemId) await this.assertPurchaseLineFree(tx, dto.expenseOrderItemId);
       const supply = await this.repository.lockSupply(tx, dto.supplyId);
       if (!supply) throw new NotFoundException(`Insumo con id ${dto.supplyId} no encontrado`);
       if (!supply.is_active) {
@@ -129,6 +130,7 @@ export class SupplyLotsService {
           // día anterior a las 7 p. m.).
           receivedAt: startOfDay(dto.receivedAt) as Date,
           notes: dto.notes?.trim() || null,
+          expenseOrderItemId: dto.expenseOrderItemId ?? null,
           createdById: userId,
         },
         select: { id: true },
@@ -311,6 +313,39 @@ export class SupplyLotsService {
     return this.findOne(id);
   }
 
+  findPurchaseLines(search?: string) {
+    return this.repository.findPurchaseLines(search).then((lines) =>
+      lines.map((l) => ({ ...l, quantity: Number(l.quantity), total: Number(l.total) })),
+    );
+  }
+
+  /**
+   * Amarra (o suelta) el rollo a la línea de OG con que se compró. Esa línea
+   * deja de contar como gasto en la rentabilidad de la OP.
+   */
+  async linkPurchaseLine(id: string, expenseOrderItemId: string | null) {
+    await this.prisma.$transaction(async (tx) => {
+      const lot = await this.repository.findById(id, tx);
+      if (!lot) throw new NotFoundException(`Lote con id ${id} no encontrado`);
+      if (expenseOrderItemId && expenseOrderItemId !== lot.expenseOrderItem?.id) {
+        await this.assertPurchaseLineFree(tx, expenseOrderItemId);
+      }
+      await tx.supplyLot.update({ where: { id }, data: { expenseOrderItemId } });
+    });
+    return this.findOne(id);
+  }
+
+  private async assertPurchaseLineFree(tx: Prisma.TransactionClient, expenseOrderItemId: string) {
+    const line = await tx.expenseOrderItem.findUnique({
+      where: { id: expenseOrderItemId },
+      select: { supplyLot: { select: { code: true } } },
+    });
+    if (!line) throw new NotFoundException('La línea de OG no existe');
+    if (line.supplyLot) {
+      throw new BadRequestException(`Esa línea de OG ya está amarrada al rollo ${line.supplyLot.code}.`);
+    }
+  }
+
   private statusLabel(status: SupplyLotStatus): string {
     const labels: Record<SupplyLotStatus, string> = {
       AVAILABLE: 'disponible',
@@ -354,6 +389,15 @@ export class SupplyLotsService {
       notes: lot.notes,
       voidReason: lot.voidReason,
       createdBy: lot.createdBy,
+      purchaseLine: lot.expenseOrderItem
+        ? {
+            id: lot.expenseOrderItem.id,
+            name: lot.expenseOrderItem.name,
+            total: Number(lot.expenseOrderItem.total),
+            expenseOrderId: lot.expenseOrderItem.expenseOrder.id,
+            ogNumber: lot.expenseOrderItem.expenseOrder.ogNumber,
+          }
+        : null,
       createdAt: lot.createdAt,
       updatedAt: lot.updatedAt,
     };

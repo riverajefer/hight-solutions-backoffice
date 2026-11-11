@@ -15,6 +15,7 @@ import {
 import { PrismaService } from '../../database/prisma.service';
 import { lockOrderForUpdate } from '../../common/utils/order-lock.util';
 import { ACTIVE_LOT_STATUSES } from '../../common/utils/supply-lot-stock.util';
+import { computeItemRevenueExVat } from '../../common/utils/order-revenue.util';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SupplyLotsRepository } from '../supply-lots/supply-lots.repository';
 
@@ -406,22 +407,118 @@ export class MaterialConsumptionService {
     return rows.map((r) => ({ ...r, quantity: Number(r.quantity) }));
   }
 
+  /**
+   * OP que consumieron del rollo y su rentabilidad.
+   *
+   * El ingreso de cada consumo es la venta sin IVA del ítem en proporción a los
+   * metros que salieron de este rollo frente a todo lo que consumió el ítem
+   * (incluido lo pendiente). Así un ítem partido entre dos rollos reparte su
+   * venta y no se cuenta dos veces.
+   */
   async getLotConsumption(lotId: string) {
+    const lot = await this.prisma.supplyLot.findUnique({
+      where: { id: lotId },
+      select: {
+        initialQuantity: true,
+        remainingQuantity: true,
+        wasteQuantity: true,
+        unitCost: true,
+        totalCost: true,
+        status: true,
+      },
+    });
+    if (!lot) throw new NotFoundException(`Lote ${lotId} no encontrado`);
+
     const rows = await this.prisma.materialConsumption.findMany({
       where: { lotId },
       select: {
         id: true,
+        supplyId: true,
+        orderItemId: true,
         quantity: true,
         unitCost: true,
         totalCost: true,
         source: true,
         createdAt: true,
-        order: { select: { id: true, orderNumber: true, status: true, client: { select: { name: true } } } },
-        orderItem: { select: { id: true, description: true } },
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true,
+            subtotal: true,
+            discountAmount: true,
+            taxRate: true,
+            client: { select: { name: true } },
+          },
+        },
+        orderItem: {
+          select: { id: true, description: true, total: true, unitPrice: true, annulledQuantity: true },
+        },
       },
       orderBy: { createdAt: 'asc' },
     });
-    return rows.map((r) => this.toNumbers(r));
+
+    const itemIds = [...new Set(rows.map((r) => r.orderItemId).filter((x): x is string => !!x))];
+    const siblings = itemIds.length
+      ? await this.prisma.materialConsumption.groupBy({
+          by: ['orderItemId', 'supplyId'],
+          where: { orderItemId: { in: itemIds } },
+          _sum: { quantity: true },
+        })
+      : [];
+    const itemQty = new Map(siblings.map((g) => [`${g.orderItemId}|${g.supplyId}`, new Prisma.Decimal(g._sum.quantity ?? 0)]));
+
+    let revenue = ZERO;
+    let consumedValue = ZERO;
+    let consumed = ZERO;
+    const detail = rows.map((r) => {
+      const qty = new Prisma.Decimal(r.quantity);
+      const all = itemQty.get(`${r.orderItemId}|${r.supplyId}`) ?? qty;
+      const rowRevenue =
+        r.orderItem && all.greaterThan(0)
+          ? computeItemRevenueExVat(r.orderItem, r.order).mul(qty).div(all).toDecimalPlaces(2)
+          : ZERO;
+      revenue = revenue.add(rowRevenue);
+      consumedValue = consumedValue.add(r.totalCost ?? 0);
+      consumed = consumed.add(qty);
+      const { subtotal: _s, discountAmount: _d, taxRate: _t, ...order } = r.order;
+      return {
+        id: r.id,
+        quantity: Number(qty),
+        unitCost: r.unitCost === null ? null : Number(r.unitCost),
+        totalCost: r.totalCost === null ? null : Number(r.totalCost),
+        revenue: Number(rowRevenue),
+        source: r.source,
+        createdAt: r.createdAt,
+        order,
+        orderItem: r.orderItem ? { id: r.orderItem.id, description: r.orderItem.description } : null,
+      };
+    });
+
+    const unitCost = new Prisma.Decimal(lot.unitCost);
+    const waste = new Prisma.Decimal(lot.wasteQuantity);
+    const wasteValue = waste.mul(unitCost).toDecimalPlaces(2);
+    const grossProfit = revenue.sub(consumedValue);
+    const remaining = new Prisma.Decimal(lot.remainingQuantity);
+
+    return {
+      summary: {
+        acquisitionCost: Number(lot.totalCost),
+        consumedQuantity: Number(consumed),
+        consumedValue: Number(consumedValue),
+        revenue: Number(revenue),
+        grossProfit: Number(grossProfit),
+        grossMargin: revenue.greaterThan(0) ? Number(grossProfit.div(revenue).mul(100).toDecimalPlaces(2)) : 0,
+        wasteQuantity: Number(waste),
+        wasteValue: Number(wasteValue),
+        // Ganancia del rollo después de pagar también lo que se perdió.
+        profitAfterWaste: Number(grossProfit.sub(wasteValue)),
+        remainingQuantity: Number(remaining),
+        remainingValue: Number(remaining.mul(unitCost).toDecimalPlaces(2)),
+        orders: new Set(rows.map((r) => r.order.id)).size,
+      },
+      rows: detail,
+    };
   }
 
   // ---------------------------------------------------------------------------

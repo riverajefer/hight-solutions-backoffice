@@ -44,8 +44,29 @@ export interface SupplyLot {
   notes: string | null;
   voidReason: string | null;
   createdBy: SupplyLotUser;
+  /** Línea de OG con que se compró (se excluye de la rentabilidad de la OP). */
+  purchaseLine: SupplyLotPurchaseLine | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface SupplyLotPurchaseLine {
+  id: string;
+  name: string;
+  total: number;
+  expenseOrderId: string;
+  ogNumber: string;
+}
+
+/** Línea de OG candidata para amarrar la compra de un rollo. */
+export interface PurchaseLineCandidate {
+  id: string;
+  name: string;
+  description: string | null;
+  quantity: number;
+  total: number;
+  createdAt: string;
+  expenseOrder: { id: string; ogNumber: string; status: string };
 }
 
 export interface SupplyLotMovement {
@@ -97,6 +118,7 @@ export interface CreateSupplyLotDto {
   unitCost?: number;
   totalCost?: number;
   receivedAt: string;
+  expenseOrderItemId?: string;
   notes?: string;
 }
 
@@ -129,8 +151,30 @@ export interface LotMaterialConsumption {
   quantity: number;
   unitCost: number | null;
   totalCost: number | null;
+  /** Venta sin IVA del ítem atribuible a los metros que salieron de este rollo. */
+  revenue: number;
   source: MaterialConsumptionSource;
   createdAt: string;
   order: { id: string; orderNumber: string; status: string; client: { name: string } };
   orderItem: { id: string; description: string } | null;
+}
+
+export interface LotProfitabilitySummary {
+  acquisitionCost: number;
+  consumedQuantity: number;
+  consumedValue: number;
+  revenue: number;
+  grossProfit: number;
+  grossMargin: number;
+  wasteQuantity: number;
+  wasteValue: number;
+  profitAfterWaste: number;
+  remainingQuantity: number;
+  remainingValue: number;
+  orders: number;
+}
+
+export interface LotConsumptionReport {
+  summary: LotProfitabilitySummary;
+  rows: LotMaterialConsumption[];
 }

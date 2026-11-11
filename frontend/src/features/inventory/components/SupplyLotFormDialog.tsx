@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Box,
@@ -24,7 +24,8 @@ import { LoadingButton } from '../../../components/common/LoadingButton';
 import { useSingleFlight } from '../../../hooks/useSingleFlight';
 import { formatCurrencyInput, parseCurrencyInput, sanitizeCurrencyInput } from '../../../utils/currencyInput';
 import { formatCurrency } from '../../../utils/formatters';
-import { SupplyLotSummary } from '../../../types';
+import { PurchaseLineCandidate, SupplyLotSummary } from '../../../types';
+import { PurchaseLinePicker } from './PurchaseLinePicker';
 import { useCreateSupplyLot } from '../hooks/useSupplyLots';
 import { formatLotQuantity } from '../utils/supplyLotFormat';
 
@@ -60,6 +61,7 @@ export const SupplyLotFormDialog: React.FC<SupplyLotFormDialogProps> = ({
   defaultSupplyId,
 }) => {
   const createMutation = useCreateSupplyLot();
+  const [purchaseLine, setPurchaseLine] = useState<PurchaseLineCandidate | null>(null);
 
   const { control, handleSubmit, reset, setValue } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -83,7 +85,17 @@ export const SupplyLotFormDialog: React.FC<SupplyLotFormDialogProps> = ({
       receivedAt: new Date(),
       notes: '',
     });
+    setPurchaseLine(null);
   }, [open, defaultSupplyId, supplies, reset]);
+
+  // Al elegir la línea de OG, el valor del rollo es lo que se pagó en ella.
+  const selectPurchaseLine = (line: PurchaseLineCandidate | null) => {
+    setPurchaseLine(line);
+    if (line) {
+      setValue('costMode', 'total');
+      setValue('cost', String(line.total), { shouldValidate: true });
+    }
+  };
 
   const [supplyId, initialQuantity, costMode, cost] = useWatch({
     control,
@@ -113,6 +125,7 @@ export const SupplyLotFormDialog: React.FC<SupplyLotFormDialogProps> = ({
       // Día calendario, sin hora: el backend lo interpreta en hora de Colombia.
       receivedAt: format(values.receivedAt as Date, 'yyyy-MM-dd'),
       notes: values.notes.trim() || undefined,
+      expenseOrderItemId: purchaseLine?.id,
     });
     onClose();
   });
@@ -240,6 +253,12 @@ export const SupplyLotFormDialog: React.FC<SupplyLotFormDialogProps> = ({
                   </Typography>
                 )}
               </Box>
+
+              <PurchaseLinePicker
+                value={purchaseLine}
+                onChange={selectPurchaseLine}
+                helperText="Amárralo para que esa línea de la OG no se cuente también como gasto de la OP"
+              />
 
               <Controller
                 name="notes"

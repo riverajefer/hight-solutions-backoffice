@@ -46,6 +46,14 @@ export const supplyLotSelect = {
     },
   },
   createdBy: { select: userSelect },
+  expenseOrderItem: {
+    select: {
+      id: true,
+      name: true,
+      total: true,
+      expenseOrder: { select: { id: true, ogNumber: true } },
+    },
+  },
 } satisfies Prisma.SupplyLotSelect;
 
 export type SupplyLotRecord = Prisma.SupplyLotGetPayload<{ select: typeof supplyLotSelect }>;
@@ -186,6 +194,37 @@ export class SupplyLotsRepository {
     if (!next) return null;
     await tx.supplyLot.update({ where: { id: next.id }, data: { status: SupplyLotStatus.IN_USE } });
     return next.id;
+  }
+
+  /**
+   * Líneas de OG que pueden haber comprado un rollo: no amarradas a otro lote,
+   * buscadas por número de OG o nombre/descripción de la línea.
+   */
+  findPurchaseLines(search?: string) {
+    const term = search?.trim();
+    return this.prisma.expenseOrderItem.findMany({
+      where: {
+        supplyLot: null,
+        ...(term && {
+          OR: [
+            { expenseOrder: { ogNumber: { contains: term, mode: 'insensitive' } } },
+            { name: { contains: term, mode: 'insensitive' } },
+            { description: { contains: term, mode: 'insensitive' } },
+          ],
+        }),
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        quantity: true,
+        total: true,
+        createdAt: true,
+        expenseOrder: { select: { id: true, ogNumber: true, status: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
   }
 
   /** Movimientos del lote distintos de su entrada: si hay, ya se usó. */
