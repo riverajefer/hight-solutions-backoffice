@@ -264,6 +264,21 @@ describe('MaterialConsumptionService', () => {
     expect(env.db.movements.slice(-2).map((m) => m.type)).toEqual(['RETURN', 'ADJUSTMENT']);
   });
 
+  it('devolver a un rollo agotado por el sistema lo reabre: no es merma', async () => {
+    env.addLot('ROL-1', 100, 100);
+    setItem(200); // 200 stickers tomados como 200 m: agota el rollo en el papel
+    await service.syncOrder('op-1');
+    expect(lot('ROL-1').status).toBe(SupplyLotStatus.DEPLETED);
+
+    await service.correctItem('it-1', 's-uv', 0.6, 'u1');
+
+    expect(qtyOf(null)).toBe(0);
+    expect(qtyOf('ROL-1')).toBe(0.6);
+    expect(Number(lot('ROL-1').remainingQuantity)).toBe(99.4);
+    expect(Number(lot('ROL-1').wasteQuantity)).toBe(0);
+    expect(lot('ROL-1').status).toBe(SupplyLotStatus.AVAILABLE);
+  });
+
   it('asigna a rollos lo pendiente cuando llega stock', async () => {
     setItem(2);
     await service.syncOrder('op-1');

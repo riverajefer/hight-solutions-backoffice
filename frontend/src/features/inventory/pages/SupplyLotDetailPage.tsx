@@ -276,12 +276,12 @@ const SupplyLotDetailPage: React.FC = () => {
             </Typography>
             <Grid container spacing={2}>
               <Grid item xs={6} md={3}>
-                <Metric label="Venta atribuida (sin IVA)" value={formatCurrency(profit.revenue)} hint={`${profit.orders} OP`} />
+                <Metric label="Venta atribuida (sin IVA)" value={formatCurrency(profit.revenue, 0)} hint={`${profit.orders} OP`} />
               </Grid>
               <Grid item xs={6} md={3}>
                 <Metric
                   label="Costo del material vendido"
-                  value={formatCurrency(profit.consumedValue)}
+                  value={formatCurrency(profit.consumedValue, 0)}
                   hint={formatLotQuantity(profit.consumedQuantity, unit)}
                 />
               </Grid>
@@ -290,7 +290,7 @@ const SupplyLotDetailPage: React.FC = () => {
                   label="Ganancia bruta"
                   value={
                     <Box component="span" sx={{ color: profit.grossProfit >= 0 ? 'success.main' : 'error.main' }}>
-                      {formatCurrency(profit.grossProfit)}
+                      {formatCurrency(profit.grossProfit, 0)}
                     </Box>
                   }
                   hint={`Margen ${profit.grossMargin.toLocaleString('es-CO', { maximumFractionDigits: 1 })} %`}
@@ -299,8 +299,8 @@ const SupplyLotDetailPage: React.FC = () => {
               <Grid item xs={6} md={3}>
                 <Metric
                   label="Después de merma"
-                  value={formatCurrency(profit.profitAfterWaste)}
-                  hint={`Merma ${formatCurrency(profit.wasteValue)}`}
+                  value={formatCurrency(profit.profitAfterWaste, 0)}
+                  hint={`Merma ${formatCurrency(profit.wasteValue, 0)}`}
                 />
               </Grid>
             </Grid>
@@ -353,7 +353,7 @@ const SupplyLotDetailPage: React.FC = () => {
                         {formatLotQuantity(c.quantity, unit)}
                       </TableCell>
                       <TableCell align="right">{formatCurrency(c.totalCost ?? 0)}</TableCell>
-                      <TableCell align="right">{formatCurrency(c.revenue)}</TableCell>
+                      <TableCell align="right">{formatCurrency(c.revenue, 0)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

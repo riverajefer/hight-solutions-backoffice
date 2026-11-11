@@ -4,7 +4,7 @@
 >
 > Dos reglas que se fijaron al implementar, sin pregunta explícita al cliente:
 > - Una OP **devuelta** (`RETURNED`, devolución total del dinero) **no** devuelve material: el trabajo se imprimió. Solo `ANULADO`, borrar el borrador o quitar el ítem lo devuelven.
-> - Un rollo **agotado** se trata como uno cerrado: lo que se le devuelva sale como merma recuperada (el rollo físico ya se acabó).
+> - Solo un rollo **cerrado a mano** convierte lo devuelto en merma recuperada. Uno **agotado** por el sistema se reabre al devolverle material: «agotado» es un cálculo que una venta mal digitada (p. ej. 200 stickers tomados como 200 m) puede provocar sin que el rollo físico se haya acabado. (Corregido 2026-11-10; la primera versión lo trataba como cerrado.)
 > - Las OP que ya existían no se tocan: el descuento empieza con lo que se cree o edite desde el despliegue.
 
 ## 1. Qué encontré en el sistema (y en PRD)

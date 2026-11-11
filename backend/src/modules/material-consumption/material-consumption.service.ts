@@ -628,9 +628,10 @@ export class MaterialConsumptionService {
 
   /**
    * Devuelve `qty`: primero lo pendiente (no tocó stock), luego los lotes del
-   * más reciente al más antiguo. Un lote que ya terminó (agotado, cerrado o
-   * anulado) no recupera saldo: el material vuelve y sale de inmediato como
-   * merma recuperada (decisión del cliente, §9.5 del plan).
+   * más reciente al más antiguo. Un lote **cerrado a mano** no recupera saldo:
+   * el material vuelve y sale de inmediato como merma recuperada (decisión del
+   * cliente, §9.5 del plan). Uno agotado por el sistema sí lo recupera y vuelve
+   * a quedar disponible.
    */
   private async release(tx: Tx, ctx: GroupContext, rows: ConsumptionRow[], qty: Prisma.Decimal) {
     const ordered = [...rows].sort((a, b) => {
@@ -679,20 +680,31 @@ export class MaterialConsumptionService {
         reason: `Devolución de ${ctx.orderNumber}`,
       });
 
-      if (ACTIVE_LOT_STATUSES.includes(lot.status)) {
+      if (lot.status !== SupplyLotStatus.CLOSED) {
+        // «Agotado» lo marca el sistema al llegar a cero, no alguien que vio el
+        // rollo vacío: una venta mal digitada (200 stickers tomados como 200 m)
+        // lo agota en el papel. Lo devuelto vuelve a estar en el rollo, que
+        // queda disponible otra vez.
         await tx.supplyLot.update({
           where: { id: lot.id },
-          data: { remainingQuantity: { increment: give } },
+          data: {
+            remainingQuantity: { increment: give },
+            ...(lot.status === SupplyLotStatus.DEPLETED && {
+              status: SupplyLotStatus.AVAILABLE,
+              depletedAt: null,
+            }),
+          },
         });
       } else {
-        // El rollo físico ya no existe: lo devuelto sale como merma recuperada.
+        // Cerrado a mano: el rollo físico ya no existe y lo devuelto sale como
+        // merma recuperada.
         await this.moveStock(tx, ctx, {
           lotId: lot.id,
           consumptionId,
           type: InventoryMovementType.ADJUSTMENT,
           quantity: give,
           unitCost: lot.unitCost,
-          reason: `Merma recuperada: devolución de ${ctx.orderNumber} a un rollo ${lot.status === SupplyLotStatus.CLOSED ? 'cerrado' : 'terminado'}`,
+          reason: `Merma recuperada: devolución de ${ctx.orderNumber} a un rollo cerrado`,
         });
         await tx.supplyLot.update({
           where: { id: lot.id },
