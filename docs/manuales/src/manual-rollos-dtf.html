@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Rollos DTF y consumo de material — Manual de usuario</title>
+<style>
+  @page { size: A4; margin: 0; }
+  :root {
+    --navy: #181c2e;
+    --ink: #1d2233;
+    --muted: #5d6475;
+    --line: #e3e6ec;
+    --teal: #1f9fbf;
+    --teal-soft: #e8f6fa;
+    --amber: #e0951f;
+    --amber-soft: #fdf4e6;
+    --red: #d24b4b;
+    --green: #1f9d6b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  body {
+    font-family: "Inter", -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    font-size: 10.5pt;
+    line-height: 1.5;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .page {
+    width: 210mm;
+    height: 297mm;
+    position: relative;
+    overflow: hidden;
+    page-break-after: always;
+    padding: 18mm 18mm 22mm;
+  }
+  .page:last-child { page-break-after: auto; }
+  .footer {
+    position: absolute;
+    left: 18mm; right: 18mm; bottom: 10mm;
+    display: flex; justify-content: space-between;
+    font-size: 7.5pt; color: var(--muted);
+  }
+
+  /* Portada */
+  .cover { padding: 0; }
+  .cover .band {
+    background: var(--navy);
+    color: #fff;
+    height: 148mm;
+    padding: 24mm 18mm 0;
+  }
+  .cover .logo { height: 17mm; }
+  .cover .eyebrow {
+    margin-top: 34mm;
+    color: #6cc7dd;
+    letter-spacing: .14em;
+    font-size: 7.5pt;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .cover h1 { font-size: 27pt; line-height: 1.12; margin: 4mm 0 5mm; font-weight: 700; }
+  .cover .lead { color: #c7cbd6; font-size: 10.5pt; max-width: 120mm; margin: 0; }
+  .cover .cards { display: flex; gap: 7mm; padding: 14mm 18mm 0; }
+  .cover .card { flex: 1; border-top: 1.5px solid var(--teal); padding-top: 3mm; }
+  .cover .card h3 { font-size: 9.5pt; margin: 0 0 1.5mm; }
+  .cover .card p { font-size: 8.5pt; color: var(--muted); margin: 0; }
+  .cover .version {
+    position: absolute; left: 18mm; right: 18mm; bottom: 22mm;
+    border-top: 1px solid var(--line); padding-top: 3mm;
+    font-size: 8.5pt; color: var(--muted);
+  }
+
+  /* Contenido */
+  h2 {
+    display: flex; align-items: center; gap: 3mm;
+    font-size: 15pt; margin: 0 0 3mm; font-weight: 700;
+  }
+  h2 .n {
+    width: 7mm; height: 7mm; border-radius: 50%;
+    background: var(--teal); color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 9pt; flex: none;
+  }
+  h3 { font-size: 11pt; margin: 5mm 0 2mm; }
+  p { margin: 0 0 2.5mm; }
+  .section + .section { margin-top: 8mm; }
+  .toc { margin: 0 0 8mm; }
+  .toc h2 { margin-bottom: 4mm; }
+  .toc ol { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 10mm; }
+  .toc li { break-inside: avoid; }
+  .toc li {
+    display: flex; gap: 6mm; padding: 1.6mm 0;
+    border-bottom: 1px solid var(--line); font-size: 9.5pt;
+  }
+  .toc li span { color: var(--teal); font-weight: 600; width: 4mm; }
+
+  .steps { list-style: none; padding: 0; margin: 2mm 0 0; }
+  .steps li { display: flex; gap: 3mm; margin-bottom: 3mm; }
+  .steps .s {
+    flex: none; width: 5.5mm; height: 5.5mm; border-radius: 50%;
+    border: 1.3px solid var(--teal); color: var(--teal);
+    font-size: 7.5pt; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-top: .4mm;
+  }
+  .two { display: flex; gap: 7mm; align-items: flex-start; }
+  .two > .col { flex: 1; min-width: 0; }
+
+  figure { margin: 4mm 0 5mm; text-align: center; }
+  figure img {
+    max-width: 100%;
+    border-radius: 2.5mm;
+    box-shadow: 0 1.5mm 5mm rgba(24, 28, 46, .18);
+  }
+  figure figcaption { font-size: 8pt; color: var(--muted); margin-top: 2mm; }
+  .w60 img { max-width: 62%; }
+  .w75 img { max-width: 78%; }
+  .w85 img { max-width: 84%; }
+
+  .note {
+    border-left: 3px solid var(--amber); background: var(--amber-soft);
+    padding: 3mm 4mm; border-radius: 0 2mm 2mm 0;
+    font-size: 9.5pt; margin: 4mm 0;
+  }
+  .tip {
+    border-left: 3px solid var(--teal); background: var(--teal-soft);
+    padding: 3mm 4mm; border-radius: 0 2mm 2mm 0;
+    font-size: 9.5pt; margin: 4mm 0;
+  }
+  .boxes { display: flex; gap: 4mm; margin: 3mm 0; }
+  .box { flex: 1; border: 1px solid var(--line); border-radius: 2mm; padding: 3mm 3.5mm; }
+  .box b { display: block; font-size: 9.5pt; }
+  .box small { color: var(--muted); font-size: 8.5pt; }
+
+  table.t { width: 100%; border-collapse: collapse; font-size: 9pt; margin: 2mm 0 3mm; }
+  table.t th { text-align: left; font-weight: 600; color: var(--muted); font-size: 8pt;
+    text-transform: uppercase; letter-spacing: .04em; border-bottom: 1.5px solid var(--line); padding: 2mm 2mm; }
+  table.t td { border-bottom: 1px solid var(--line); padding: 2mm; vertical-align: top; }
+
+  .chip { display: inline-block; border-radius: 99px; padding: .3mm 2.6mm; font-size: 8pt; font-weight: 600; white-space: nowrap; }
+  .chip.ok { background: #d9f4ec; color: #157a52; }
+  .chip.low { background: #fde9cc; color: #a5620c; }
+  .chip.out { border: 1px solid #b9bfcc; color: #5d6475; }
+  .chip.void { background: #f9dcdc; color: #b23434; }
+  .chip.use { background: #d6f0f8; color: #137a96; }
+  .faq h3 { margin-top: 5mm; }
+</style>
+</head>
+<body>
+
+<!-- 1 · Portada -->
+<section class="page cover">
+  <div class="band">
+    <img class="logo" src="img/logo.png" alt="High Solutions">
+    <div class="eyebrow">Manual de usuario · High Solutions CRM</div>
+    <h1>Rollos DTF y<br>consumo de material</h1>
+    <p class="lead">Cómo registrar los rollos de DTF, cómo se descuenta solo el material de cada OP y cómo leer la rentabilidad de las órdenes y de cada rollo.</p>
+  </div>
+  <div class="cards">
+    <div class="card">
+      <h3>Para quién</h3>
+      <p>Operarios de DTF, asesores comerciales y gerencia.</p>
+    </div>
+    <div class="card">
+      <h3>Qué cambia</h3>
+      <p>Las OP de DTF UV y DTF Textil descuentan solas los metros del rollo.</p>
+    </div>
+    <div class="card">
+      <h3>Antes de empezar</h3>
+      <p>Registrar en el CRM los rollos que hay hoy en bodega.</p>
+    </div>
+  </div>
+  <div class="version">Versión 1.0 · Noviembre de 2026</div>
+  <div class="footer"><span>High Solutions CRM · Rollos DTF y consumo de material · Manual de usuario</span><span>1</span></div>
+</section>
+
+<!-- 2 · Contenido + 1 + 2 -->
+<section class="page">
+  <div class="toc">
+    <h2>Contenido</h2>
+    <ol>
+      <li><span>1</span>Qué hace esta función</li>
+      <li><span>2</span>Antes de empezar</li>
+      <li><span>3</span>Registrar un rollo</li>
+      <li><span>4</span>Ver los rollos y su estado</li>
+      <li><span>5</span>El rollo en uso y el detalle del rollo</li>
+      <li><span>6</span>Cómo se descuenta el material de una OP</li>
+      <li><span>7</span>Corregir el material de un ítem</li>
+      <li><span>8</span>Ventas sin rollo</li>
+      <li><span>9</span>Cerrar un rollo y la merma</li>
+      <li><span>10</span>Rentabilidad de la OP y del rollo</li>
+      <li><span>11</span>Preguntas frecuentes</li>
+    </ol>
+  </div>
+
+  <div class="section">
+    <h2><span class="n">1</span>Qué hace esta función</h2>
+    <p>El inventario de DTF se lleva <b>por rollo</b>. Cada rollo se registra con su largo y su costo, y el CRM sabe en todo momento cuántos metros le quedan.</p>
+    <p>Cuando se vende DTF UV o DTF Textil en una OP, el CRM <b>descuenta solo</b> los metros vendidos del rollo que está montado en la máquina. No hace falta crear una OT. Así cada OP sabe cuánto le costó el material y la rentabilidad deja de ser un estimado.</p>
+    <div class="boxes">
+      <div class="box"><b>Registrar</b><small>Cada rollo que llega, con su largo y su costo.</small></div>
+      <div class="box"><b>Vender</b><small>La OP descuenta sola los metros del rollo en uso.</small></div>
+      <div class="box"><b>Medir</b><small>Costo de material y utilidad por OP y por rollo.</small></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2><span class="n">2</span>Antes de empezar</h2>
+    <p>La función está en el menú <b>Logística → Rollos y lotes</b>. Lo que cada persona puede hacer depende de los permisos de su rol, que gerencia asigna en <b>Roles</b> (grupo «Rollos y lotes»):</p>
+    <table class="t">
+      <tr><th>Permiso</th><th>Qué permite</th><th>Sugerido para</th></tr>
+      <tr><td>Ver Rollos y Lotes</td><td>Ver los rollos, su saldo, costos e histórico, y el material de cada OP.</td><td>Operarios, gerencia</td></tr>
+      <tr><td>Registrar Rollos y Lotes</td><td>Registrar los rollos que llegan.</td><td>Operarios, gerencia</td></tr>
+      <tr><td>Gestionar Rollos y Lotes</td><td>Montar, cerrar y anular rollos; asignar ventas sin rollo. Recibe el aviso de rollo bajo.</td><td>Gerencia</td></tr>
+      <tr><td>Corregir Consumo de Material en OP</td><td>Corregir a mano los metros de un ítem.</td><td>Gerencia</td></tr>
+    </table>
+    <div class="note"><b>Importante:</b> registra primero los rollos que hay hoy en bodega, con su largo real. Si se vende DTF y no hay rollos registrados, la venta no se frena, pero el material queda como «sin rollo» (ver sección 8).</div>
+  </div>
+  <div class="footer"><span>High Solutions CRM · Rollos DTF y consumo de material · Manual de usuario</span><span>2</span></div>
+</section>
+
+<!-- 3 · Registrar -->
+<section class="page">
+  <div class="section">
+    <h2><span class="n">3</span>Registrar un rollo</h2>
+    <p>Se hace cada vez que llega un rollo nuevo, una sola vez por rollo.</p>
+    <div class="two">
+      <div class="col">
+        <ol class="steps">
+          <li><span class="s">1</span><div>Entra a <b>Logística → Rollos y lotes</b> y haz clic en <b>Registrar rollo</b>.</div></li>
+          <li><span class="s">2</span><div>Elige el <b>Tipo de rollo</b>: Rollo DTF UV o Rollo DTF Textil.</div></li>
+          <li><span class="s">3</span><div>Escribe el <b>Largo inicial</b> en metros y la <b>Fecha de ingreso</b>.</div></li>
+          <li><span class="s">4</span><div>Escribe el costo como te quede más fácil: <b>Costo por m</b> o <b>Valor total</b> de la factura. El CRM calcula el otro y te muestra desde cuántos metros avisará que el rollo está bajo.</div></li>
+          <li><span class="s">5</span><div>Si el rollo se compró con una OG, búscala en <b>OG de compra</b> por su número. El valor del rollo toma el total de esa línea.</div></li>
+          <li><span class="s">6</span><div>Haz clic en <b>Registrar rollo</b>. El CRM le asigna un código, por ejemplo <b>ROL-UV-0004</b>.</div></li>
+        </ol>
+      </div>
+      <div class="col">
+        <figure>
+          <img src="img/registrar-rollo.png" alt="">
+          <figcaption>Registro de un rollo de 100 m por $ 150.000.</figcaption>
+        </figure>
+      </div>
+    </div>
+    <div class="tip"><b>¿Por qué amarrar la OG?</b> El costo del rollo ya llega a cada OP por los metros que usa. Si la OG de compra también contara como gasto, ese rollo se cobraría dos veces en la rentabilidad. Al amarrarla, esa línea de la OG deja de contarse.</div>
+    <div class="note"><b>Si te equivocaste</b> al registrar un rollo (largo o costo), un usuario con permiso de gestión puede <b>Anularlo</b> desde su detalle, siempre que todavía no se haya usado. El rollo no se borra: queda en el histórico como anulado. Luego regístralo de nuevo bien.</div>
+  </div>
+  <div class="footer"><span>High Solutions CRM · Rollos DTF y consumo de material · Manual de usuario</span><span>3</span></div>
+</section>
+
+<!-- 4 · Lista -->
+<section class="page">
+  <div class="section">
+    <h2><span class="n">4</span>Ver los rollos y su estado</h2>
+    <p>Arriba de la lista hay una tarjeta por tipo de rollo con los metros disponibles y lo que vale ese inventario. Al hacer clic en una tarjeta, la lista se filtra por ese tipo.</p>
+    <figure>
+      <img src="img/lista-rollos.png" alt="">
+      <figcaption>Tarjetas por tipo, pestañas y lista de rollos vigentes.</figcaption>
+    </figure>
+    <h3>Las pestañas</h3>
+    <table class="t">
+      <tr><td style="width:34mm"><b>Vigentes</b></td><td>Rollos con saldo: los que se pueden usar.</td></tr>
+      <tr><td><b>Bajo inventario</b></td><td>Rollos a los que les queda menos del 10 % de su largo.</td></tr>
+      <tr><td><b>Histórico</b></td><td>Rollos agotados, cerrados o anulados. Nunca se borran.</td></tr>
+      <tr><td><b>Todos</b></td><td>Todo lo anterior junto.</td></tr>
+      <tr><td><b>Sin rollo</b></td><td>Ventas hechas sin saldo en los rollos registrados (sección 8).</td></tr>
+    </table>
+    <h3>Los estados de un rollo</h3>
+    <table class="t">
+      <tr><td style="width:34mm"><span class="chip ok">Disponible</span></td><td>Tiene saldo.</td></tr>
+      <tr><td><span class="chip use">En uso</span></td><td>Es el rollo montado en la máquina: de él sale el material de las OP.</td></tr>
+      <tr><td><span class="chip low">Bajo inventario</span></td><td>Le queda menos del 10 % (un rollo de 100 m avisa por debajo de 10 m). Quien tenga permiso de gestión recibe una notificación.</td></tr>
+      <tr><td><span class="chip out">Agotado</span></td><td>Se usó completo.</td></tr>
+      <tr><td><span class="chip out">Cerrado</span></td><td>Se cerró a mano; lo que le quedaba salió como merma (sección 9).</td></tr>
+      <tr><td><span class="chip void">Anulado</span></td><td>Se registró por error y se anuló.</td></tr>
+    </table>
+  </div>
+  <div class="footer"><span>High Solutions CRM · Rollos DTF y consumo de material · Manual de usuario</span><span>4</span></div>
+</section>
+
+<!-- 5 · En uso y detalle -->
+<section class="page">
+  <div class="section">
+    <h2><span class="n">5</span>El rollo en uso y el detalle del rollo</h2>
+    <p>Haz clic en un rollo de la lista para ver su detalle: largo inicial, cuánto se ha consumido en OP, cuánto le queda y lo que costó.</p>
+    <figure>
+      <img src="img/detalle-rollo.png" alt="">
+      <figcaption>Detalle de un rollo en uso, con sus datos de ingreso.</figcaption>
+    </figure>
+    <h3>Montar un rollo</h3>
+    <p>Solo hay <b>un rollo en uso por tipo</b>: el que está puesto en la máquina. Las OP descuentan de ese rollo primero.</p>
+    <ol class="steps">
+      <li><span class="s">1</span><div>Cuando pongas un rollo nuevo en la máquina, abre su detalle y haz clic en <b>Montar</b>.</div></li>
+      <li><span class="s">2</span><div>El que estaba en uso vuelve a quedar disponible con lo que le quede.</div></li>
+    </ol>
+    <div class="tip"><b>No tienes que estar pendiente del cambio.</b> Cuando el rollo en uso se acaba, el CRM monta solo el rollo más antiguo que tenga saldo. Si una OP necesita más metros de los que le quedan al rollo en uso, el consumo se reparte: lo que alcanza sale de ese rollo y el resto del siguiente.</div>
+    <p>Más abajo en el detalle están la <b>rentabilidad del rollo</b> (sección 10), las <b>órdenes que consumieron</b> de él y todos sus <b>movimientos</b>: ingreso, consumos, devoluciones y cierre.</p>
+  </div>
+  <div class="footer"><span>High Solutions CRM · Rollos DTF y consumo de material · Manual de usuario</span><span>5</span></div>
+</section>
+
+<!-- 6 · Cómo se descuenta -->
+<section class="page">
+  <div class="section">
+    <h2><span class="n">6</span>Cómo se descuenta el material de una OP</h2>
+    <p>No hay que hacer nada distinto al vender. Cuando una OP tiene un ítem con el producto <b>DTF UV</b> o <b>DTF TEXTIL</b>, el CRM toma la cantidad del ítem como metros y los descuenta del rollo en uso. Da igual si la OP se creó desde el módulo DTF o directamente como OP, y no hace falta que tenga OT.</p>
+    <p>En el detalle de la OP aparece el panel <b>Material consumido</b>: cuántos metros usó cada ítem, de qué rollo salieron y cuánto costaron.</p>
+    <figure>
+      <img src="img/material-op.png" alt="">
+      <figcaption>2,4 m de DTF UV salieron del rollo ROL-UV-0005 y costaron $ 3.600.</figcaption>
+    </figure>
+    <h3>Qué pasa cuando la OP cambia</h3>
+    <table class="t">
+      <tr><td style="width:52mm"><b>Se crea la OP</b> (aun en borrador)</td><td>Se descuentan los metros. El DTF se imprime enseguida, así que el material se cuenta desde ese momento.</td></tr>
+      <tr><td><b>Se edita la cantidad</b></td><td>Se descuenta o se devuelve solo la diferencia.</td></tr>
+      <tr><td><b>Se quita un ítem</b> o <b>se borra el borrador</b></td><td>Los metros vuelven al rollo.</td></tr>
+      <tr><td><b>Se anula la OP</b></td><td>Los metros vuelven al rollo.</td></tr>
+      <tr><td><b>Se devuelve el dinero al cliente</b></td><td>El material <b>no</b> vuelve: el trabajo ya se imprimió.</td></tr>
+    </table>
+    <div class="note"><b>Importante:</b> si un borrador de DTF no se va a hacer, anúlalo o bórralo. Mientras exista, sus metros siguen descontados del rollo.</div>
+  </div>
+  <div class="footer"><span>High Solutions CRM · Rollos DTF y consumo de material · Manual de usuario</span><span>6</span></div>
+</section>
+
+<!-- 7 · Corregir -->
+<section class="page">
+  <div class="section">
+    <h2><span class="n">7</span>Corregir el material de un ítem</h2>
+    <p>El CRM toma la cantidad del ítem como metros. Eso está bien cuando el DTF se vende por metro, pero no cuando se vende <b>por unidad</b>, como stickers o etiquetas. En este ejemplo, 200 stickers se tomaron como 200 metros:</p>
+    <figure class="w85">
+      <img src="img/material-stickers-antes.png" alt="">
+      <figcaption>Antes de corregir: 200 stickers descontaron 200 m, más de lo que tenía el rollo.</figcaption>
+    </figure>
+    <div class="two">
+      <div class="col">
+        <ol class="steps">
+          <li><span class="s">1</span><div>En el panel <b>Material consumido</b> de la OP, haz clic en <b>Corregir</b> en el ítem.</div></li>
+          <li><span class="s">2</span><div>Escribe los metros que de verdad se usaron, por ejemplo <b>0,6</b>.</div></li>
+          <li><span class="s">3</span><div>Haz clic en <b>Guardar</b>. Lo que sobraba vuelve al rollo.</div></li>
+        </ol>
+      </div>
+      <div class="col">
+        <figure class="w60">
+          <img src="img/corregir.png" alt="">
+          <figcaption>Corrección a 0,6 m.</figcaption>
+        </figure>
+      </div>
+    </div>
+    <figure class="w85">
+      <img src="img/material-stickers-despues.png" alt="">
+      <figcaption>Después de corregir: 0,6 m, marcado como «Corregido».</figcaption>
+    </figure>
+    <div class="note"><b>Importante:</b> un ítem corregido ya no se recalcula si después se edita la cantidad de la OP. Para que vuelva al cálculo automático, abre <b>Corregir</b> y haz clic en <b>Volver a automático</b>. Revisa siempre el panel cuando vendas DTF por unidad.</div>
+  </div>
+  <div class="footer"><span>High Solutions CRM · Rollos DTF y consumo de material · Manual de usuario</span><span>7</span></div>
+</section>
+
+<!-- 8 · Sin rollo -->
+<section class="page">
+  <div class="section">
+    <h2><span class="n">8</span>Ventas sin rollo</h2>
+    <p>Si se vende DTF y los rollos registrados no tienen saldo suficiente, <b>la venta no se frena</b>. El faltante queda <b>sin rollo</b>: aparece en naranja en el panel de la OP y todavía no tiene costo.</p>
+    <p>Pasa casi siempre porque llegó un rollo que nadie registró. En la página de Rollos y lotes aparece un aviso y la pestaña <b>Sin rollo</b> muestra cada venta pendiente:</p>
+    <figure>
+      <img src="img/sin-rollo.png" alt="">
+      <figcaption>Una venta de 1,2 m de DTF UV hecha sin saldo en los rollos.</figcaption>
+    </figure>
+    <h3>Cómo resolverlo</h3>
+    <ol class="steps">
+      <li><span class="s">1</span><div>Registra el rollo que se usó (sección 3).</div></li>
+      <li><span class="s">2</span><div>En la pestaña <b>Sin rollo</b>, haz clic en <b>Asignar a rollos</b>. Las ventas pendientes se toman en orden de llegada, del rollo en uso primero.</div></li>
+      <li><span class="s">3</span><div>Si el saldo no alcanza para todas, las que falten siguen en la pestaña hasta que haya rollo.</div></li>
+    </ol>
+    <div class="note"><b>Importante:</b> mientras una venta esté sin rollo, la utilidad de esa OP se ve más alta de lo que es, porque su material todavía no cuenta. La rentabilidad lo marca con un aviso.</div>
+  </div>
+  <div class="footer"><span>High Solutions CRM · Rollos DTF y consumo de material · Manual de usuario</span><span>8</span></div>
+</section>
+
+<!-- 9 · Cerrar -->
+<section class="page">
+  <div class="section">
+    <h2><span class="n">9</span>Cerrar un rollo y la merma</h2>
+    <p>Los rollos no rinden exactamente lo que dice la etiqueta: hay pruebas de color, reimpresiones y un final que no alcanza para imprimir. Ese material perdido es la <b>merma</b>.</p>
+    <p>Cuando un rollo ya no sirva, ciérralo. Lo que el CRM todavía le ve sale del inventario como merma y <b>no se carga a ninguna OP</b>; se ve en la rentabilidad del rollo.</p>
+    <div class="two">
+      <div class="col">
+        <ol class="steps">
+          <li><span class="s">1</span><div>Abre el detalle del rollo y haz clic en <b>Cerrar rollo</b>.</div></li>
+          <li><span class="s">2</span><div>Revisa cuánto va a salir como merma y escribe el motivo, por ejemplo «fin del rollo».</div></li>
+          <li><span class="s">3</span><div>Haz clic en <b>Cerrar rollo</b>. Si era el rollo en uso, se monta solo el siguiente.</div></li>
+        </ol>
+      </div>
+      <div class="col">
+        <figure class="w75">
+          <img src="img/cerrar-rollo.png" alt="">
+          <figcaption>Cierre del rollo con su motivo.</figcaption>
+        </figure>
+      </div>
+    </div>
+    <div class="note"><b>Importante:</b> cerrar no se puede deshacer. Si después se anula una OP que había usado ese rollo, sus metros no vuelven al rollo cerrado: se suman a su merma, porque el rollo físico ya no existe.</div>
+    <div class="tip"><b>Agotado no es lo mismo que cerrado.</b> Un rollo que el CRM marca como agotado sí recupera los metros si se anula una OP o se corrige un ítem, y vuelve a quedar disponible. Solo el cierre a mano es definitivo.</div>
+  </div>
+  <div class="footer"><span>High Solutions CRM · Rollos DTF y consumo de material · Manual de usuario</span><span>9</span></div>
+</section>
+
+<!-- 10 · Rentabilidad -->
+<section class="page">
+  <div class="section">
+    <h2><span class="n">10</span>Rentabilidad de la OP y del rollo</h2>
+    <h3 style="margin-top:2mm">En cada OP</h3>
+    <p>El <b>Resumen financiero</b> de la OP ahora mide la utilidad sobre la <b>venta sin IVA</b>: el IVA no es ingreso de la empresa. Los gastos suman las órdenes de gasto de la OP y el material consumido.</p>
+    <figure class="w85">
+      <img src="img/resumen-financiero.png" alt="">
+      <figcaption>Venta sin IVA de $ 168.000, material de $ 3.600 y margen del 97,9 %.</figcaption>
+    </figure>
+    <div class="note"><b>Las cifras de rentabilidad cambiaron para todas las OP.</b> Antes se comparaba el total con IVA; ahora la venta sin IVA, así que el margen de las OP con IVA se ve más bajo y más real. Las retenciones no restan venta.</div>
+    <h3>En cada rollo</h3>
+    <p>En el detalle del rollo, la tarjeta <b>Rentabilidad del rollo</b> muestra cuánto se vendió con él, cuánto costó ese material, la ganancia bruta y lo que queda después de la merma. La venta de cada ítem se reparte por los metros que salieron de ese rollo: un ítem que usó dos rollos no se cuenta dos veces.</p>
+    <figure class="w85">
+      <img src="img/rentabilidad-rollo.png" alt="">
+      <figcaption>Rentabilidad del rollo y las OP que lo usaron.</figcaption>
+    </figure>
+    <p style="font-size:9pt;color:var(--muted)">Es la ganancia sobre el material, no la utilidad neta de las OP: los demás gastos siguen en la rentabilidad de cada OP.</p>
+  </div>
+  <div class="footer"><span>High Solutions CRM · Rollos DTF y consumo de material · Manual de usuario</span><span>10</span></div>
+</section>
+
+<!-- 11 · FAQ -->
+<section class="page faq">
+  <div class="section">
+    <h2><span class="n">11</span>Preguntas frecuentes</h2>
+
+    <h3>¿Qué productos descuentan de los rollos?</h3>
+    <p>Por ahora, <b>DTF UV</b> y <b>DTF TEXTIL</b>, vendidos por metro. Otros productos del catálogo DTF (por ejemplo, prendas o marcas) no descuentan solos.</p>
+
+    <h3>¿La OP necesita una OT para descontar?</h3>
+    <p>No. El material se descuenta desde la OP, tenga o no OT.</p>
+
+    <h3>Se vendió DTF y el panel dice «Pendiente». ¿Qué hago?</h3>
+    <p>No había saldo en los rollos registrados. Registra el rollo que se usó y asigna la venta desde la pestaña <b>Sin rollo</b> (sección 8).</p>
+
+    <h3>El rollo físico se acabó, pero el CRM dice que le quedan metros.</h3>
+    <p>Esa diferencia es merma (pruebas, reimpresiones, el final del rollo). Cierra el rollo (sección 9) y lo que le quedaba sale como merma.</p>
+
+    <h3>El rollo físico todavía tiene metros, pero el CRM dice que se agotó.</h3>
+    <p>Casi siempre es una OP que tomó más metros de los reales, por ejemplo stickers vendidos por unidad. Busca la OP en <b>Órdenes que consumieron de este rollo</b> y corrige sus metros (sección 7). El rollo recupera la diferencia.</p>
+
+    <h3>¿Puedo cambiar de rollo a mitad de un trabajo?</h3>
+    <p>Sí. Haz clic en <b>Montar</b> en el rollo nuevo. Las ventas siguientes salen de él; lo que ya se descontó se queda en el rollo anterior.</p>
+
+    <h3>¿Puedo borrar un rollo?</h3>
+    <p>No. Los rollos y sus movimientos nunca se borran, para conservar la historia. Si se registró por error y no se ha usado, se anula.</p>
+
+    <h3>¿Quién recibe el aviso de rollo bajo?</h3>
+    <p>Las personas con el permiso <b>Gestionar Rollos y Lotes</b>, cuando a un rollo le queda menos del 10 % de su largo.</p>
+  </div>
+  <div class="footer"><span>High Solutions CRM · Rollos DTF y consumo de material · Manual de usuario</span><span>11</span></div>
+</section>
+
+</body>
+</html>
