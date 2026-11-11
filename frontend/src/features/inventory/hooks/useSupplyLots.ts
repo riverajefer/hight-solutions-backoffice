@@ -25,6 +25,11 @@ const useInvalidateStock = () => {
     queryClient.invalidateQueries({ queryKey: INVENTORY_VALUATION_QUERY_KEY });
     queryClient.invalidateQueries({ queryKey: ['supplies'] });
     queryClient.invalidateQueries({ queryKey: MATERIAL_CONSUMPTION_QUERY_KEY });
+    // El costo del material entra en la rentabilidad de la OP (detalle y
+    // listado): corregir, recalcular o asignar pendientes la cambia.
+    queryClient.invalidateQueries({
+      predicate: (q) => q.queryKey[0] === 'orders' && q.queryKey.includes('profitability'),
+    });
   };
 };
 
