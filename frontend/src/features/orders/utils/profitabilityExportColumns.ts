@@ -27,11 +27,25 @@ export const PROFITABILITY_EXPORT_COLUMNS: ProfitabilityExportColumn[] = [
     getValue: (r) => r.clientName,
   },
   {
-    key: 'orderTotal',
-    label: 'Total OP',
+    key: 'revenue',
+    label: 'Venta sin IVA',
     defaultVisible: true,
     numeric: true,
-    getValue: (r) => num(r.orderTotal),
+    getValue: (r) => num(r.revenue),
+  },
+  {
+    key: 'expenseOrdersTotal',
+    label: 'Gastos OG',
+    defaultVisible: true,
+    numeric: true,
+    getValue: (r) => num(r.expenseOrdersTotal),
+  },
+  {
+    key: 'materialCost',
+    label: 'Material',
+    defaultVisible: true,
+    numeric: true,
+    getValue: (r) => num(r.materialCost),
   },
   {
     key: 'totalExpenses',
@@ -66,5 +80,18 @@ export const PROFITABILITY_EXPORT_COLUMNS: ProfitabilityExportColumn[] = [
     label: 'Fecha',
     defaultVisible: true,
     getValue: (r) => (r.orderDate ? formatDate(r.orderDate) : ''),
+  },
+  {
+    key: 'orderTotal',
+    label: 'Total OP (con IVA)',
+    defaultVisible: false,
+    numeric: true,
+    getValue: (r) => num(r.orderTotal),
+  },
+  {
+    key: 'hasPendingMaterial',
+    label: 'Material sin rollo',
+    defaultVisible: false,
+    getValue: (r) => (r.hasPendingMaterial ? 'Sí' : 'No'),
   },
 ];

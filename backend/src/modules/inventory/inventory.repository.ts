@@ -20,6 +20,7 @@ export class InventoryRepository {
     reason: true,
     notes: true,
     createdAt: true,
+    lot: { select: { id: true, code: true } },
     supply: {
       select: {
         id: true,

@@ -685,24 +685,45 @@ export interface ExpenseOrderSummary {
   status: string;
   workOrderNumber: string | null;
   itemsTotal: number;
+  /** Líneas que compraron un rollo: no se suman (su costo entra por el consumo). */
+  excludedTotal: number;
 }
 
-export interface OrderProfitability {
+/** Campos comunes de rentabilidad: la utilidad se mide sobre la venta sin IVA. */
+interface ProfitabilityFigures {
+  /** Total de la OP (con IVA y retenciones); solo referencia. */
+  orderTotal: number;
+  /** Venta sin IVA: base de la utilidad y del margen. */
+  revenue: number;
+  expenseOrdersTotal: number;
+  materialCost: number;
+  /** Hay material vendido sin rollo asignado: su costo aún no cuenta. */
+  hasPendingMaterial: boolean;
+  totalExpenses: number;
+}
+
+export interface OrderMaterialCost {
+  supplyId: string;
+  supplyName: string;
+  unit: string;
+  quantity: number;
+  cost: number;
+  pendingQuantity: number;
+}
+
+export interface OrderProfitability extends ProfitabilityFigures {
   orderId: string;
   orderNumber: string;
-  orderTotal: number;
   expenseOrders: ExpenseOrderSummary[];
-  totalExpenses: number;
+  materials: OrderMaterialCost[];
   utility: number;
   utilityPercentage: number;
 }
 
-export interface OrderProfitabilityListItem {
+export interface OrderProfitabilityListItem extends ProfitabilityFigures {
   orderId: string;
   orderNumber: string;
   clientName: string;
-  orderTotal: number;
-  totalExpenses: number;
   utility: number;
   utilityPercentage: number;
   status: string;

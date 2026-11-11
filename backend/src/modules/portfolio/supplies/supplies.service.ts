@@ -72,6 +72,14 @@ export class SuppliesService {
       );
     }
 
+    const lotSettings = this.resolveLotSettings(createSupplyDto);
+    if (lotSettings.trackLots && createSupplyDto.currentStock) {
+      throw new BadRequestException(
+        'Un insumo controlado por lotes nace sin stock: registra cada lote desde «Rollos y lotes».',
+      );
+    }
+    await this.assertLotPrefixAvailable(lotSettings.lotPrefix);
+
     // Convertir campos numéricos a Decimal
     const purchasePriceDecimal = createSupplyDto.purchasePrice
       ? new Prisma.Decimal(createSupplyDto.purchasePrice)
@@ -102,6 +110,7 @@ export class SuppliesService {
           conversionFactor: conversionFactorDecimal,
           currentStock: currentStockDecimal,
           minimumStock: minimumStockDecimal,
+          ...lotSettings,
           category: {
             connect: { id: createSupplyDto.categoryId },
           },
@@ -140,7 +149,9 @@ export class SuppliesService {
    */
   async update(id: string, updateSupplyDto: UpdateSupplyDto) {
     // Verificar que existe
-    await this.findOne(id);
+    const current = await this.findOne(id);
+
+    const lotSettings = await this.resolveLotSettingsForUpdate(current, updateSupplyDto);
 
     // Si se actualiza el SKU, verificar que no exista
     if (updateSupplyDto.sku) {
@@ -199,6 +210,7 @@ export class SuppliesService {
       ...(updateSupplyDto.minimumStock !== undefined && {
         minimumStock: new Prisma.Decimal(updateSupplyDto.minimumStock),
       }),
+      ...lotSettings,
       ...(updateSupplyDto.categoryId && {
         category: { connect: { id: updateSupplyDto.categoryId } },
       }),
@@ -211,6 +223,97 @@ export class SuppliesService {
     };
 
     return this.suppliesRepository.update(id, updateData);
+  }
+
+  /**
+   * Normaliza la configuración de lotes al crear. Con `trackLots` el prefijo es
+   * obligatorio: es lo que distingue los códigos de lote entre insumos.
+   */
+  private resolveLotSettings(dto: CreateSupplyDto) {
+    const trackLots = dto.trackLots ?? false;
+    const lotPrefix = dto.lotPrefix?.trim().toUpperCase() || null;
+    if (trackLots && !lotPrefix) {
+      throw new BadRequestException(
+        'Indica el prefijo de los lotes (p. ej. ROL-UV) para controlar el insumo por lotes.',
+      );
+    }
+    return {
+      trackLots,
+      lotPrefix,
+      lowStockPercent:
+        dto.lowStockPercent === undefined || dto.lowStockPercent === null
+          ? null
+          : new Prisma.Decimal(dto.lowStockPercent),
+    };
+  }
+
+  /**
+   * Cambios de la configuración de lotes al editar. Activar o desactivar el
+   * control por lotes solo se permite sin stock y sin lotes: con stock, el
+   * saldo dejaría de cuadrar con la suma de los lotes (o quedaría sin lote).
+   */
+  private async resolveLotSettingsForUpdate(
+    current: { id: string; trackLots: boolean; lotPrefix: string | null; currentStock: Prisma.Decimal },
+    dto: UpdateSupplyDto,
+  ) {
+    const data: {
+      trackLots?: boolean;
+      lotPrefix?: string | null;
+      lowStockPercent?: Prisma.Decimal | null;
+    } = {};
+
+    if (dto.trackLots !== undefined && dto.trackLots !== current.trackLots) {
+      const lots = await this.prisma.supplyLot.count({ where: { supplyId: current.id } });
+      if (!new Prisma.Decimal(current.currentStock).isZero() || lots > 0) {
+        throw new BadRequestException(
+          'Solo se puede cambiar el control por lotes de un insumo sin stock y sin lotes registrados.',
+        );
+      }
+      data.trackLots = dto.trackLots;
+    }
+
+    if (dto.lotPrefix !== undefined) {
+      const lotPrefix = dto.lotPrefix?.trim().toUpperCase() || null;
+      if (lotPrefix !== current.lotPrefix) {
+        // Cambiar el prefijo no renombra los lotes ya creados; los nuevos
+        // siguen el consecutivo del insumo con el prefijo nuevo.
+        await this.assertLotPrefixAvailable(lotPrefix, current.id);
+        data.lotPrefix = lotPrefix;
+      }
+    }
+
+    const trackLots = data.trackLots ?? current.trackLots;
+    const lotPrefix = data.lotPrefix !== undefined ? data.lotPrefix : current.lotPrefix;
+    if (trackLots && !lotPrefix) {
+      throw new BadRequestException(
+        'Indica el prefijo de los lotes (p. ej. ROL-UV) para controlar el insumo por lotes.',
+      );
+    }
+
+    if (dto.lowStockPercent !== undefined) {
+      // Aplica a los lotes que se registren desde ahora: el umbral de cada lote
+      // queda congelado al registrarlo.
+      data.lowStockPercent =
+        dto.lowStockPercent === null ? null : new Prisma.Decimal(dto.lowStockPercent);
+    }
+
+    return data;
+  }
+
+  private async assertLotPrefixAvailable(lotPrefix: string | null, excludeId?: string) {
+    if (!lotPrefix) return;
+    const taken = await this.prisma.supply.findFirst({
+      where: {
+        lotPrefix: { equals: lotPrefix, mode: 'insensitive' },
+        ...(excludeId ? { NOT: { id: excludeId } } : {}),
+      },
+      select: { name: true },
+    });
+    if (taken) {
+      throw new BadRequestException(
+        `El prefijo de lotes "${lotPrefix}" ya lo usa el insumo "${taken.name}".`,
+      );
+    }
   }
 
   /**

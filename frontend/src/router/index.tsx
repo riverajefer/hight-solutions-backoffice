@@ -110,6 +110,8 @@ const ChangePasswordPage = lazyWithRetry(() => import('../features/auth/pages/Ch
 const InventoryMovementsListPage = lazyWithRetry(() => import('../features/inventory/pages/InventoryMovementsListPage'));
 const InventoryMovementFormPage = lazyWithRetry(() => import('../features/inventory/pages/InventoryMovementFormPage'));
 const LowStockAlertsPage = lazyWithRetry(() => import('../features/inventory/pages/LowStockAlertsPage'));
+const SupplyLotsListPage = lazyWithRetry(() => import('../features/inventory/pages/SupplyLotsListPage'));
+const SupplyLotDetailPage = lazyWithRetry(() => import('../features/inventory/pages/SupplyLotDetailPage'));
 // Production Module
 const ProductTemplatesListPage = lazyWithRetry(() => import('../features/production/pages/ProductTemplatesListPage'));
 const ProductTemplateDetailPage = lazyWithRetry(() => import('../features/production/pages/ProductTemplateDetailPage'));
@@ -1026,6 +1028,30 @@ const RoutesConfig: FC = () => {
               <MainLayout>
                 <PermissionGuard permission={PERMISSIONS.READ_INVENTORY_MOVEMENTS}>
                   <LowStockAlertsPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.SUPPLY_LOTS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_SUPPLY_LOTS}>
+                  <SupplyLotsListPage />
+                </PermissionGuard>
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path={PATHS.SUPPLY_LOTS_DETAIL}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <PermissionGuard permission={PERMISSIONS.READ_SUPPLY_LOTS}>
+                  <SupplyLotDetailPage />
                 </PermissionGuard>
               </MainLayout>
             </AuthGuard>

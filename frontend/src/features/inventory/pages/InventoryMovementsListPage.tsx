@@ -104,9 +104,11 @@ const InventoryMovementsListPage: React.FC = () => {
         width: 130,
         responsive: 'md',
         valueGetter: (_v: any, row: InventoryMovement) =>
-          row.referenceType === 'WORK_ORDER'
-            ? `OT`
-            : (row.referenceType ?? '—'),
+          row.lot
+            ? `Rollo ${row.lot.code}`
+            : row.referenceType === 'WORK_ORDER'
+              ? `OT`
+              : (row.referenceType ?? '—'),
       },
       {
         field: 'performedBy',

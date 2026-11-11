@@ -27,6 +27,8 @@ import { ConsecutivesModule } from './modules/consecutives/consecutives.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { ProductionAreasModule } from './modules/production-areas/production-areas.module';
 import { MachinesModule } from './modules/machines/machines.module';
+import { SupplyLotsModule } from './modules/supply-lots/supply-lots.module';
+import { MaterialConsumptionModule } from './modules/material-consumption/material-consumption.module';
 import { WorkOrderTimeModule } from './modules/work-order-time/work-order-time.module';
 import { CommercialChannelsModule } from './modules/commercial-channels/commercial-channels.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -132,6 +134,8 @@ import { ClientErrorsModule } from './modules/client-errors/client-errors.module
     ProductionAreasModule,
     // Catálogo de máquinas de la planta
     MachinesModule,
+    SupplyLotsModule,
+    MaterialConsumptionModule,
     // Temporizador de producción de la OT
     WorkOrderTimeModule,
     // Módulo de Canales de Venta

@@ -7,6 +7,9 @@ import {
   IsUUID,
   Min,
   IsNumber,
+  IsBoolean,
+  Matches,
+  Max,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -97,4 +100,35 @@ export class UpdateSupplyDto {
   @IsNumber()
   @Min(0)
   minimumStock?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Controlar el stock por lotes (rollos). El stock pasa a ser la suma de los lotes y se registra desde «Rollos y lotes»',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  trackLots?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Prefijo del código de cada lote (obligatorio con control por lotes)',
+    example: 'ROL-UV',
+    maxLength: 12,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(12)
+  @Matches(/^[A-Za-z0-9-]+$/, { message: 'El prefijo solo admite letras, números y guiones' })
+  lotPrefix?: string;
+
+  @ApiPropertyOptional({
+    description: 'Porcentaje del largo inicial bajo el cual el lote alerta (por defecto 10)',
+    example: 10,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  lowStockPercent?: number;
 }
