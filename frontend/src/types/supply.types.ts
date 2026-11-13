@@ -13,6 +13,9 @@ export interface Supply {
   conversionFactor: number;
   currentStock: number;
   minimumStock: number;
+  trackLots: boolean;
+  lotPrefix?: string | null;
+  lowStockPercent?: number | string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -48,6 +51,9 @@ export interface CreateSupplyDto {
   conversionFactor?: number;
   currentStock?: number;
   minimumStock?: number;
+  trackLots?: boolean;
+  lotPrefix?: string;
+  lowStockPercent?: number | null;
 }
 
 /**
@@ -64,6 +70,9 @@ export interface UpdateSupplyDto {
   conversionFactor?: number;
   currentStock?: number;
   minimumStock?: number;
+  trackLots?: boolean;
+  lotPrefix?: string;
+  lowStockPercent?: number | null;
 }
 
 /**

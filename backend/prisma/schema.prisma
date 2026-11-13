@@ -95,6 +95,8 @@ model User {
   voidedPayrollPayments                     PayrollPayment[]                       @relation("VoidedPayrollPayments")
   attendanceRecords                         AttendanceRecord[]
   dtfRecords                                DtfRecord[]                            @relation("DtfCreatedBy")
+  supplyLotsCreated                         SupplyLot[]                            @relation("SupplyLotCreatedBy")
+  materialConsumptionsCreated               MaterialConsumption[]                  @relation("MaterialConsumptionCreatedBy")
   dtfStatusChanges                          DtfStatusHistory[]                     @relation("DtfStatusChangedBy")
   activityHeartbeats                        ActivityHeartbeat[]
   salesGoals                                SalesGoal[]                            @relation("AdvisorSalesGoals")
@@ -470,10 +472,11 @@ model Product {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  category   ProductCategory @relation(fields: [categoryId], references: [id])
-  orderItems OrderItem[]
-  quoteItems QuoteItem[]
-  dtfRecords DtfRecord[]
+  category    ProductCategory     @relation(fields: [categoryId], references: [id])
+  orderItems  OrderItem[]
+  quoteItems  QuoteItem[]
+  dtfRecords  DtfRecord[]
+  supplyRules ProductSupplyRule[]
 
   @@unique([name, categoryId])
   @@map("products")
@@ -515,6 +518,12 @@ model Supply {
   conversionFactor  Decimal  @default(1) @map("conversion_factor")
   currentStock      Decimal  @default(0) @map("current_stock")
   minimumStock      Decimal  @default(0) @map("minimum_stock")
+  // Control por lotes (rollos DTF y similares): el stock vive en `SupplyLot` y
+  // `currentStock` es la suma de los saldos de sus lotes vigentes. Un insumo
+  // con lotes no admite movimientos manuales sin lote.
+  trackLots         Boolean  @default(false) @map("track_lots")
+  lotPrefix         String?  @map("lot_prefix") // "ROL-UV" → "ROL-UV-0001"
+  lowStockPercent   Decimal? @map("low_stock_percent") @db.Decimal(5, 2) // Umbral de alerta por lote; null = valor por defecto
   isActive          Boolean  @default(true) @map("is_active")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
@@ -524,9 +533,124 @@ model Supply {
   consumptionUnit UnitOfMeasure         @relation("ConsumptionUnit", fields: [consumptionUnitId], references: [id])
   workOrderItems  WorkOrderItemSupply[]
   movements       InventoryMovement[]
+  lots            SupplyLot[]
+  productRules    ProductSupplyRule[]
+  consumptions    MaterialConsumption[]
 
   @@unique([name, categoryId])
   @@map("supplies")
+}
+
+// =============================================================================
+// INVENTARIO POR LOTES (ROLLOS)
+// =============================================================================
+
+// Ciclo de vida del lote. «Bajo inventario» no es un estado: se calcula contra
+// `lowStockQuantity`.
+enum SupplyLotStatus {
+  AVAILABLE // Con saldo, sin montar
+  IN_USE // Rollo montado en la máquina (fase 2)
+  DEPLETED // Saldo en cero por consumo
+  CLOSED // Cerrado a mano; el saldo que quedaba salió como merma
+  VOIDED // Anulado por registro erróneo (sin consumos)
+}
+
+model SupplyLot {
+  id                 String          @id @default(uuid())
+  supplyId           String          @map("supply_id")
+  sequence           Int // Consecutivo por insumo
+  code               String          @unique // "ROL-UV-0001"
+  initialQuantity    Decimal         @map("initial_quantity") @db.Decimal(14, 4)
+  remainingQuantity  Decimal         @map("remaining_quantity") @db.Decimal(14, 4)
+  // Umbral en unidades, congelado al registrar el lote (inicial × % de alerta).
+  // Así el filtro «bajo inventario» es una comparación de columnas en SQL.
+  lowStockQuantity   Decimal         @map("low_stock_quantity") @db.Decimal(14, 4)
+  unitCost           Decimal         @map("unit_cost") @db.Decimal(14, 4)
+  totalCost          Decimal         @map("total_cost") @db.Decimal(14, 2)
+  receivedAt         DateTime        @map("received_at")
+  status             SupplyLotStatus @default(AVAILABLE)
+  depletedAt         DateTime?       @map("depleted_at") // Agotado, cerrado o anulado
+  // Merma: lo que salió del rollo sin cargarse a ninguna OP (saldo al cerrar,
+  // devoluciones que llegan a un rollo ya terminado).
+  wasteQuantity      Decimal         @default(0) @map("waste_quantity") @db.Decimal(14, 4)
+  notes              String?
+  voidReason         String?         @map("void_reason")
+  // Línea de la OG con que se compró el rollo. Se excluye de la rentabilidad
+  // de la OP: el costo ya llega por el consumo, contarla también lo duplica.
+  expenseOrderItemId String?         @unique @map("expense_order_item_id")
+  createdById        String          @map("created_by_id")
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
+
+  supply           Supply                @relation(fields: [supplyId], references: [id])
+  createdBy        User                  @relation("SupplyLotCreatedBy", fields: [createdById], references: [id])
+  expenseOrderItem ExpenseOrderItem?     @relation(fields: [expenseOrderItemId], references: [id], onDelete: SetNull)
+  movements        InventoryMovement[]
+  consumptions     MaterialConsumption[]
+
+  @@unique([supplyId, sequence])
+  @@index([supplyId, status])
+  @@index([receivedAt])
+  @@map("supply_lots")
+}
+
+// Receta mínima: qué insumo consume un producto y cuánto por unidad vendida.
+// DTF UV → Rollo DTF UV, factor 1 (1 m vendido = 1 m de film).
+model ProductSupplyRule {
+  id          String   @id @default(uuid())
+  productId   String   @map("product_id")
+  supplyId    String   @map("supply_id")
+  factor      Decimal  @default(1) @db.Decimal(12, 4)
+  autoConsume Boolean  @default(true) @map("auto_consume")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  product Product @relation(fields: [productId], references: [id])
+  supply  Supply  @relation(fields: [supplyId], references: [id])
+
+  @@unique([productId, supplyId])
+  @@map("product_supply_rules")
+}
+
+enum MaterialConsumptionSource {
+  AUTO // Calculado por la regla del producto (cantidad × factor)
+  MANUAL // Corregido a mano: la regla ya no lo recalcula
+}
+
+// Consumo VIGENTE de un insumo por un ítem de OP. Es el estado actual: cada
+// cambio genera en el kardex un movimiento por la diferencia. Con `lotId` nulo
+// el consumo está pendiente de asignar a un rollo (se vendió sin stock).
+model MaterialConsumption {
+  id          String                    @id @default(uuid())
+  orderId     String                    @map("order_id")
+  // SetNull: si el ítem se borra, la fila queda huérfana y la sincronización
+  // devuelve su material. Nunca se pierde un consumo en silencio.
+  orderItemId String?                   @map("order_item_id")
+  supplyId    String                    @map("supply_id")
+  lotId       String?                   @map("lot_id")
+  quantity    Decimal                   @db.Decimal(14, 4)
+  unitCost    Decimal?                  @map("unit_cost") @db.Decimal(14, 4) // Del lote; nulo mientras está pendiente
+  totalCost   Decimal?                  @map("total_cost") @db.Decimal(14, 2)
+  source      MaterialConsumptionSource @default(AUTO)
+  createdById String                    @map("created_by_id")
+  createdAt   DateTime                  @default(now()) @map("created_at")
+  updatedAt   DateTime                  @updatedAt @map("updated_at")
+
+  // Restrict: borrar una OP con consumos vivos dejaría el material fuera del
+  // inventario. Hay que devolverlo antes (lo hace `OrdersService.remove`).
+  order     Order               @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  orderItem OrderItem?          @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+  supply    Supply              @relation(fields: [supplyId], references: [id])
+  lot       SupplyLot?          @relation(fields: [lotId], references: [id])
+  createdBy User                @relation("MaterialConsumptionCreatedBy", fields: [createdById], references: [id])
+  movements InventoryMovement[]
+
+  @@index([orderId])
+  @@index([orderItemId])
+  @@index([lotId])
+  @@index([supplyId, lotId])
+  @@map("material_consumptions")
 }
 
 // =============================================================================
@@ -670,6 +794,8 @@ model Order {
   dtfRecords DtfRecord[]
   prospects  Prospect[]
 
+  materialConsumptions MaterialConsumption[]
+
   @@index([clientId])
   @@index([createdById])
   @@index([orderDate])
@@ -802,11 +928,12 @@ model OrderItem {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relaciones
-  order              Order                     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product            Product?                  @relation(fields: [productId], references: [id])
-  productionAreas    OrderItemProductionArea[]
-  workOrderItems     WorkOrderItem[]
-  refundRequestItems RefundRequestItem[]
+  order                Order                     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product              Product?                  @relation(fields: [productId], references: [id])
+  productionAreas      OrderItemProductionArea[]
+  workOrderItems       WorkOrderItem[]
+  refundRequestItems   RefundRequestItem[]
+  materialConsumptions MaterialConsumption[]
 
   @@index([orderId])
   @@index([productId])
@@ -1688,6 +1815,7 @@ model ExpenseOrderItem {
   productionAreas ExpenseOrderItemProductionArea[]
   // Pago mixto: dos líneas con su método y monto. Vacío = todo por `paymentMethod`.
   payments        ExpenseOrderItemPayment[]
+  supplyLot       SupplyLot?
 
   @@index([expenseOrderId])
   @@index([workOrderItemId])
@@ -2325,6 +2453,8 @@ enum InventoryMovementType {
 model InventoryMovement {
   id            String                @id @default(uuid())
   supplyId      String                @map("supply_id")
+  lotId         String?               @map("lot_id") // Lote afectado (insumos con `trackLots`)
+  consumptionId String?               @map("consumption_id") // Consumo de OP que lo originó
   type          InventoryMovementType
   quantity      Decimal // Siempre positivo; la dirección la determina el tipo
   unitCost      Decimal?              @map("unit_cost") // Costo unitario en el momento del movimiento
@@ -2337,10 +2467,13 @@ model InventoryMovement {
   performedById String                @map("performed_by_id")
   createdAt     DateTime              @default(now()) @map("created_at")
 
-  supply      Supply @relation(fields: [supplyId], references: [id])
-  performedBy User   @relation(fields: [performedById], references: [id])
+  supply      Supply               @relation(fields: [supplyId], references: [id])
+  lot         SupplyLot?           @relation(fields: [lotId], references: [id])
+  consumption MaterialConsumption? @relation(fields: [consumptionId], references: [id], onDelete: SetNull)
+  performedBy User                 @relation(fields: [performedById], references: [id])
 
   @@index([supplyId])
+  @@index([lotId])
   @@index([type])
   @@index([referenceType, referenceId])
   @@index([createdAt])
@@ -2572,10 +2705,10 @@ model CashSession {
   createdAt        DateTime          @default(now()) @map("created_at")
   updatedAt        DateTime          @updatedAt @map("updated_at")
 
-  cashRegister   CashRegister            @relation(fields: [cashRegisterId], references: [id])
-  openedBy       User                    @relation("OpenedCashSessions", fields: [openedById], references: [id])
-  closedBy       User?                   @relation("ClosedCashSessions", fields: [closedById], references: [id])
-  countStartedBy User?                   @relation("CountStartedCashSessions", fields: [countStartedById], references: [id])
+  cashRegister   CashRegister                  @relation(fields: [cashRegisterId], references: [id])
+  openedBy       User                          @relation("OpenedCashSessions", fields: [openedById], references: [id])
+  closedBy       User?                         @relation("ClosedCashSessions", fields: [closedById], references: [id])
+  countStartedBy User?                         @relation("CountStartedCashSessions", fields: [countStartedById], references: [id])
   denominations  CashDenominationCount[]
   movements      CashMovement[]
   transfersOut   CashMovementTransferRequest[] @relation("TransferSourceSession")
@@ -2622,11 +2755,11 @@ model CashMovement {
   createdAt         DateTime         @default(now()) @map("created_at")
   updatedAt         DateTime         @updatedAt @map("updated_at")
 
-  cashSession             CashSession               @relation(fields: [cashSessionId], references: [id])
-  performedBy             User                      @relation("PerformedCashMovements", fields: [performedById], references: [id])
-  voidedBy                User?                     @relation("VoidedCashMovements", fields: [voidedById], references: [id])
-  counterMovement         CashMovement?             @relation("CounterMovement", fields: [counterMovementId], references: [id])
-  originalMovement        CashMovement?             @relation("CounterMovement")
+  cashSession             CashSession                   @relation(fields: [cashSessionId], references: [id])
+  performedBy             User                          @relation("PerformedCashMovements", fields: [performedById], references: [id])
+  voidedBy                User?                         @relation("VoidedCashMovements", fields: [voidedById], references: [id])
+  counterMovement         CashMovement?                 @relation("CounterMovement", fields: [counterMovementId], references: [id])
+  originalMovement        CashMovement?                 @relation("CounterMovement")
   linkedPayment           Payment?
   voidRequests            CashMovementVoidRequest[]
   transferRequests        CashMovementTransferRequest[]
@@ -2685,17 +2818,17 @@ model CashMovementVoidRequest {
 /// siguiente. Anular no sirve: el cierre está congelado y el gasto se
 /// duplicaría. Ver docs/PROPUESTA_TRASLADO_MOVIMIENTOS_CAJA.md.
 model CashMovementTransferRequest {
-  id              String            @id @default(uuid())
-  cashMovementId  String            @map("cash_movement_id")
-  sourceSessionId String            @map("source_session_id")
+  id                 String            @id @default(uuid())
+  cashMovementId     String            @map("cash_movement_id")
+  sourceSessionId    String            @map("source_session_id")
   /// Se fija al aplicar: es la sesión abierta en ese momento.
-  targetSessionId String?           @map("target_session_id")
-  requestedById   String            @map("requested_by_id")
-  reason          String
+  targetSessionId    String?           @map("target_session_id")
+  requestedById      String            @map("requested_by_id")
+  reason             String
   /// Respuesta a «¿El dinero se quedó en la caja?». Solo se crea con `true`;
   /// se guarda para que quede constancia de lo que se declaró.
-  cashStayedInDrawer Boolean        @map("cash_stayed_in_drawer")
-  status          EditRequestStatus @default(PENDING)
+  cashStayedInDrawer Boolean           @map("cash_stayed_in_drawer")
+  status             EditRequestStatus @default(PENDING)
 
   reviewedById String?   @map("reviewed_by_id")
   reviewedAt   DateTime? @map("reviewed_at")

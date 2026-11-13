@@ -46,6 +46,7 @@ import {
   OrderProfitabilityListItemDto,
   PaginatedProfitabilityDto,
   ExpenseOrderSummaryDto,
+  OrderMaterialCostDto,
   UpsertSalesGoalDto,
   FilterSalesGoalsDto,
   OrdersDashboardQueryDto,
@@ -78,6 +79,8 @@ import {
 } from '../../common/utils/payment-method.util';
 import { CreditBalanceService } from '../credit-balance/credit-balance.service';
 import { lockOrderForUpdate } from '../../common/utils/order-lock.util';
+import { MaterialConsumptionService } from '../material-consumption/material-consumption.service';
+import { computeOrderRevenueExVat } from '../../common/utils/order-revenue.util';
 
 /** Usuario mínimo asociado a un evento del historial de autorizaciones. */
 export interface AuthHistoryUser {
@@ -260,7 +263,72 @@ export class OrdersService implements OnModuleInit {
     private readonly clientOwnershipAuthRequestsService: ClientOwnershipAuthRequestsService,
     private readonly payrollDeductionsService: PayrollDeductionsService,
     private readonly creditBalanceService: CreditBalanceService,
+    private readonly materialConsumptionService: MaterialConsumptionService,
   ) {}
+
+  // ========== CONSUMO DE MATERIAL ==========
+  //
+  // Cada operación que cambia ítems o estado de la OP termina reconciliando el
+  // material (rollos DTF, etc.). La reconciliación es idempotente y corre
+  // después del commit de la OP: si falla, la OP queda guardada igual, se
+  // registra el error y la próxima edición (o «Recalcular») lo corrige.
+
+  private async syncMaterials(orderId: string | undefined, userId?: string) {
+    if (!orderId) return;
+    try {
+      await this.materialConsumptionService.syncOrder(orderId, userId);
+    } catch (error) {
+      this.logger.error(
+        `No se pudo sincronizar el consumo de material de la OP ${orderId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+  }
+
+  async create(createOrderDto: CreateOrderDto, createdById: string) {
+    const order = await this.createCore(createOrderDto, createdById);
+    await this.syncMaterials(order?.id, createdById);
+    return order;
+  }
+
+  async update(id: string, updateOrderDto: UpdateOrderDto, userId: string) {
+    const order = await this.updateCore(id, updateOrderDto, userId);
+    await this.syncMaterials(id, userId);
+    return order;
+  }
+
+  async updateStatus(
+    id: string,
+    status: OrderStatus,
+    userId: string,
+    options: { retainedAmount?: number; reason?: string } = {},
+  ) {
+    const order = await this.updateStatusCore(id, status, userId, options);
+    await this.syncMaterials(id, userId);
+    return order;
+  }
+
+  async remove(id: string, userId?: string) {
+    return this.removeCore(id, userId);
+  }
+
+  async addItem(orderId: string, addItemDto: AddOrderItemDto) {
+    const result = await this.addItemCore(orderId, addItemDto);
+    await this.syncMaterials(orderId);
+    return result;
+  }
+
+  async updateItem(orderId: string, itemId: string, updateItemDto: UpdateOrderItemDto) {
+    const result = await this.updateItemCore(orderId, itemId, updateItemDto);
+    await this.syncMaterials(orderId);
+    return result;
+  }
+
+  async removeItem(orderId: string, itemId: string) {
+    const result = await this.removeItemCore(orderId, itemId);
+    await this.syncMaterials(orderId);
+    return result;
+  }
 
   onModuleInit() {
     this.discountApprovalsService.registerOrderTotalsRecalculator(
@@ -689,7 +757,7 @@ export class OrdersService implements OnModuleInit {
     return order;
   }
 
-  async create(createOrderDto: CreateOrderDto, createdById: string) {
+  private async createCore(createOrderDto: CreateOrderDto, createdById: string) {
     // Validar que tenga items
     if (!createOrderDto.items || createOrderDto.items.length === 0) {
       throw new BadRequestException('Order must have at least one item');
@@ -1330,7 +1398,7 @@ export class OrdersService implements OnModuleInit {
     }
   }
 
-  async update(id: string, updateOrderDto: UpdateOrderDto, userId: string) {
+  private async updateCore(id: string, updateOrderDto: UpdateOrderDto, userId: string) {
     const oldOrder = await this.findOne(id);
     this.assertNotAnulado(oldOrder, 'editar orden');
 
@@ -1877,7 +1945,7 @@ export class OrdersService implements OnModuleInit {
     return updatedOrder;
   }
 
-  async updateStatus(
+  private async updateStatusCore(
     id: string,
     status: OrderStatus,
     userId: string,
@@ -2124,7 +2192,7 @@ export class OrdersService implements OnModuleInit {
     return updatedOrder;
   }
 
-  async remove(id: string, userId?: string) {
+  private async removeCore(id: string, userId?: string) {
     const order = await this.findOne(id);
 
     // Solo se pueden eliminar borradores
@@ -2135,6 +2203,9 @@ export class OrdersService implements OnModuleInit {
       );
     }
 
+    // La FK de los consumos es Restrict: sin devolver antes el material, el
+    // borrado falla en vez de dejar metros fuera del inventario.
+    await this.materialConsumptionService.releaseOrder(id, userId);
     await this.ordersRepository.delete(id);
 
     // Registrar en audit log (sin esperar)
@@ -2188,7 +2259,7 @@ export class OrdersService implements OnModuleInit {
 
   // ========== ITEM MANAGEMENT ==========
 
-  async addItem(orderId: string, addItemDto: AddOrderItemDto) {
+  private async addItemCore(orderId: string, addItemDto: AddOrderItemDto) {
     const order = await this.findOne(orderId);
     this.assertNotAnulado(order, 'agregar ítem');
 
@@ -2241,7 +2312,7 @@ export class OrdersService implements OnModuleInit {
     });
   }
 
-  async updateItem(
+  private async updateItemCore(
     orderId: string,
     itemId: string,
     updateItemDto: UpdateOrderItemDto,
@@ -2322,7 +2393,7 @@ export class OrdersService implements OnModuleInit {
     });
   }
 
-  async removeItem(orderId: string, itemId: string) {
+  private async removeItemCore(orderId: string, itemId: string) {
     const order = await this.findOne(orderId);
     this.assertNotAnulado(order, 'eliminar ítem');
 
@@ -3668,23 +3739,57 @@ export class OrdersService implements OnModuleInit {
 
   // ========== PROFITABILITY ==========
 
-  private _calcProfitability(
-    orderTotal: Prisma.Decimal,
-    workOrders: { expenseOrders: { items: { total: Prisma.Decimal }[] }[] }[],
-  ) {
-    let totalExpensesDecimal = new Prisma.Decimal(0);
-    for (const wo of workOrders) {
+  /**
+   * Rentabilidad de la OP: venta **sin IVA** (decisión del cliente, §9.7 del
+   * plan de inventario) contra lo que costó: las OG de sus OT y el material
+   * consumido (rollos DTF, etc.).
+   *
+   * Las líneas de OG que compraron un rollo no se suman: su costo ya llega por
+   * el consumo de ese rollo; contarlas también lo duplicaría. Lo vendido sin
+   * rollo asignado todavía no tiene costo y se señala con `hasPendingMaterial`.
+   */
+  private _calcProfitability(order: {
+    total: Prisma.Decimal;
+    subtotal: Prisma.Decimal;
+    discountAmount: Prisma.Decimal;
+    taxRate: Prisma.Decimal;
+    requiresColorProof: boolean;
+    colorProofPrice: Prisma.Decimal | null;
+    reversedAmount: Prisma.Decimal;
+    workOrders: { expenseOrders: { items: { total: Prisma.Decimal; supplyLot: { id: string } | null }[] }[] }[];
+    materialConsumptions: { totalCost: Prisma.Decimal | null; lotId: string | null }[];
+  }) {
+    let expenses = new Prisma.Decimal(0);
+    for (const wo of order.workOrders) {
       for (const eg of wo.expenseOrders) {
         for (const item of eg.items) {
-          totalExpensesDecimal = totalExpensesDecimal.add(item.total);
+          if (!item.supplyLot) expenses = expenses.add(item.total);
         }
       }
     }
-    const orderTotalNum = Number(orderTotal.toString());
-    const totalExpenses = Number(totalExpensesDecimal.toString());
-    const utility = orderTotalNum - totalExpenses;
-    const utilityPercentage = orderTotalNum > 0 ? (utility / orderTotalNum) * 100 : 0;
-    return { totalExpenses, utility, utilityPercentage };
+    let material = new Prisma.Decimal(0);
+    let hasPendingMaterial = false;
+    for (const c of order.materialConsumptions) {
+      if (c.lotId === null) hasPendingMaterial = true;
+      if (c.totalCost) material = material.add(c.totalCost);
+    }
+
+    const revenue = Number(computeOrderRevenueExVat(order));
+    const expenseOrdersTotal = Number(expenses);
+    const materialCost = Number(material);
+    const totalExpenses = expenseOrdersTotal + materialCost;
+    const utility = revenue - totalExpenses;
+    const utilityPercentage = revenue > 0 ? (utility / revenue) * 100 : 0;
+    return {
+      orderTotal: Number(order.total.toString()),
+      revenue,
+      expenseOrdersTotal,
+      materialCost,
+      hasPendingMaterial,
+      totalExpenses,
+      utility,
+      utilityPercentage,
+    };
   }
 
   async getOrderProfitability(orderId: string): Promise<OrderProfitabilityDto> {
@@ -3696,33 +3801,46 @@ export class OrdersService implements OnModuleInit {
     const expenseOrders: ExpenseOrderSummaryDto[] = [];
     for (const wo of order.workOrders) {
       for (const eg of wo.expenseOrders) {
-        const itemsTotal = eg.items.reduce(
-          (sum, item) => sum + Number(item.total.toString()),
-          0,
-        );
+        let itemsTotal = 0;
+        let excludedTotal = 0;
+        for (const item of eg.items) {
+          if (item.supplyLot) excludedTotal += Number(item.total.toString());
+          else itemsTotal += Number(item.total.toString());
+        }
         expenseOrders.push({
           id: eg.id,
           ogNumber: eg.ogNumber,
           status: eg.status,
           workOrderNumber: wo.workOrderNumber,
           itemsTotal,
+          excludedTotal,
         });
       }
     }
 
-    const { totalExpenses, utility, utilityPercentage } = this._calcProfitability(
-      order.total,
-      order.workOrders,
-    );
+    // Material agrupado por insumo (un ítem puede salir de varios rollos).
+    const materialsBySupply = new Map<string, OrderMaterialCostDto>();
+    for (const c of order.materialConsumptions) {
+      const m = materialsBySupply.get(c.supply.id) ?? {
+        supplyId: c.supply.id,
+        supplyName: c.supply.name,
+        unit: c.supply.consumptionUnit.abbreviation,
+        quantity: 0,
+        cost: 0,
+        pendingQuantity: 0,
+      };
+      m.quantity += Number(c.quantity);
+      m.cost += Number(c.totalCost ?? 0);
+      if (c.lotId === null) m.pendingQuantity += Number(c.quantity);
+      materialsBySupply.set(c.supply.id, m);
+    }
 
     return {
       orderId: order.id,
       orderNumber: order.orderNumber,
-      orderTotal: Number(order.total.toString()),
+      ...this._calcProfitability(order),
       expenseOrders,
-      totalExpenses,
-      utility,
-      utilityPercentage,
+      materials: [...materialsBySupply.values()],
     };
   }
 
@@ -3746,23 +3864,14 @@ export class OrdersService implements OnModuleInit {
       limit,
     });
 
-    const data: OrderProfitabilityListItemDto[] = orders.map((order) => {
-      const { totalExpenses, utility, utilityPercentage } = this._calcProfitability(
-        order.total,
-        order.workOrders,
-      );
-      return {
-        orderId: order.id,
-        orderNumber: order.orderNumber,
-        clientName: order.client.name,
-        orderTotal: Number(order.total.toString()),
-        totalExpenses,
-        utility,
-        utilityPercentage,
-        status: order.status,
-        orderDate: order.orderDate.toISOString(),
-      };
-    });
+    const data: OrderProfitabilityListItemDto[] = orders.map((order) => ({
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      clientName: order.client.name,
+      ...this._calcProfitability(order),
+      status: order.status,
+      orderDate: order.orderDate.toISOString(),
+    }));
 
     return { data, total, page, limit };
   }

@@ -287,6 +287,28 @@ export const permissionGroups: PermissionGroup[] = [
     ],
   },
   {
+    label: '🧻 Rollos y lotes de inventario',
+    permissions: [
+      {
+        name: 'read_supply_lots',
+        description: 'Ver los rollos/lotes de inventario, su saldo, costos e histórico',
+      },
+      {
+        name: 'create_supply_lots',
+        description: 'Registrar el ingreso de rollos/lotes (p. ej. rollos DTF)',
+      },
+      {
+        name: 'manage_supply_lots',
+        description:
+          'Montar, cerrar (merma) y anular rollos/lotes, y asignar a rollos los consumos pendientes',
+      },
+      {
+        name: 'manage_material_consumption',
+        description: 'Corregir a mano el material usado por un ítem de OP (p. ej. metros de DTF)',
+      },
+    ],
+  },
+  {
     label: '🎯 Ventas por Asesor',
     permissions: [
       {

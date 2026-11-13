@@ -33,6 +33,7 @@ import ReceiptIcon from '@mui/icons-material/Receipt';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
+import ViewInArOutlinedIcon from '@mui/icons-material/ViewInArOutlined';
 import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined';
 import FolderSpecialOutlinedIcon from '@mui/icons-material/FolderSpecialOutlined';
 import StraightenOutlinedIcon from '@mui/icons-material/StraightenOutlined';
@@ -328,6 +329,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
           permission: PERMISSIONS.READ_INVENTORY_MOVEMENTS,
         },
         {
+          label: 'Rollos y lotes',
+          icon: <ViewInArOutlinedIcon />,
+          path: ROUTES.SUPPLY_LOTS,
+          permission: PERMISSIONS.READ_SUPPLY_LOTS,
+        },
+        {
           label: 'Alertas de Stock Bajo',
           icon: <WarningAmberIcon />,
           path: ROUTES.INVENTORY_LOW_STOCK,
@@ -342,6 +349,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
         PERMISSIONS.READ_SUPPLY_CATEGORIES,
         PERMISSIONS.READ_UNITS_OF_MEASURE,
         PERMISSIONS.READ_INVENTORY_MOVEMENTS,
+        PERMISSIONS.READ_SUPPLY_LOTS,
       ],
     },
     {

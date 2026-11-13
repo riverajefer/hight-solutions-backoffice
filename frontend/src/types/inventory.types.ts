@@ -34,6 +34,7 @@ export interface InventoryMovement {
   notes?: string | null;
   createdAt: string;
   supply?: InventoryMovementSupply | null;
+  lot?: { id: string; code: string } | null;
   performedBy?: InventoryMovementUser | null;
 }
 

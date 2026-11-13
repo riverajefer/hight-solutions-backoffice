@@ -173,6 +173,11 @@ export const PERMISSIONS = {
   CREATE_INVENTORY_MOVEMENTS: 'create_inventory_movements',
   READ_INVENTORY_MOVEMENTS: 'read_inventory_movements',
   MANAGE_INVENTORY: 'manage_inventory',
+  // Rollos y lotes de inventario
+  READ_SUPPLY_LOTS: 'read_supply_lots',
+  CREATE_SUPPLY_LOTS: 'create_supply_lots',
+  MANAGE_SUPPLY_LOTS: 'manage_supply_lots',
+  MANAGE_MATERIAL_CONSUMPTION: 'manage_material_consumption',
   // Production Module — Plantillas de Producto
   READ_PRODUCT_TEMPLATES: 'read_product_templates',
   CREATE_PRODUCT_TEMPLATES: 'create_product_templates',
@@ -346,6 +351,8 @@ export const ROUTES = {
   INVENTORY_MOVEMENTS: '/inventory/movements',
   INVENTORY_MOVEMENTS_NEW: '/inventory/movements/new',
   INVENTORY_LOW_STOCK: '/inventory/low-stock',
+  SUPPLY_LOTS: '/inventory/lots',
+  SUPPLY_LOTS_DETAIL: '/inventory/lots/:id',
   // Production Module
   PRODUCT_TEMPLATES: '/production/templates',
   PRODUCT_TEMPLATES_CREATE: '/production/templates/new',

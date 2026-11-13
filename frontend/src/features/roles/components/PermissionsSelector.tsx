@@ -70,6 +70,7 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
 
   // Inventario y Catálogos
   Movimientos: ['create_inventory_movements', 'read_inventory_movements', 'manage_inventory'],
+  'Rollos y lotes': ['read_supply_lots', 'create_supply_lots', 'manage_supply_lots', 'manage_material_consumption'],
   Proveedores: ['create_suppliers', 'read_suppliers', 'update_suppliers', 'delete_suppliers'],
   Productos: ['create_products', 'read_products', 'update_products', 'delete_products'],
   'Categorías de Productos': ['create_product_categories', 'read_product_categories', 'update_product_categories', 'delete_product_categories'],
@@ -158,6 +159,7 @@ const TABS = [
     label: 'Inventario',
     groups: [
       'Movimientos',
+      'Rollos y lotes',
       'Proveedores',
       'Productos',
       'Categorías de Productos',
