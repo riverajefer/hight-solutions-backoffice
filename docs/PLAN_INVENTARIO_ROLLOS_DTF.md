@@ -166,6 +166,19 @@ Los rollos reales no traen exactamente lo nominal y el final se pierde. «Cerrar
 
 Las fases 1–3 son el pedido de DTF. La 4 reutiliza el motor sin tocar su núcleo.
 
+## 9. Decisiones del cliente (2026-11-10)
+
+| # | Pregunta | Decisión | Qué cambia en el diseño |
+|---|---|---|---|
+| 1 | ¿Cuándo se descuenta? | **Al crear el ítem**, aunque la OP esté en borrador; si se anula, se devuelve. | `syncForOrderItem` corre en crear/editar sin mirar el estado. Los borradores viejos deben anularse para devolver el material (las 350 OP DTF en `DRAFT` de PRD no se tocan: el descuento empieza con las OP nuevas). |
+| 2 | ¿Varias impresoras por tipo? | **Un solo «rollo en uso» por tipo.** | `IN_USE` único por insumo (índice único parcial `(supply_id) WHERE status = 'IN_USE'`). Sin `machineId`. |
+| 3 | ¿Y si no hay stock registrado? | **Dejar pasar la venta** y registrar el consumo «sin rollo», en una bandeja para asignarlo después. | `MaterialConsumption.lotId` nulo = pendiente de asignar. Bandeja de consumos sin rollo; al asignarlo se genera el `EXIT` contra el lote. Nunca se bloquea la OP ni queda un lote en negativo. |
+| 4 | Merma de impresión (pruebas, reimpresiones) | **Alternativa simple:** solo al cerrar el rollo. | Se elimina `kind`/`REPRINT`. Toda la merma sale por el cierre del rollo y se reporta en la rentabilidad del rollo, no de la OP. |
+| 5 | Devolución a un rollo ya cerrado | **Merma recuperada**; el rollo no se reabre. | El `RETURN` sobre un lote `CLOSED` no suma saldo: se registra como merma recuperada del rollo (resta de su merma). |
+| 6 | ¿Los rollos se compran siempre por OG? | **Sí.** | El rollo puede nacer desde la línea de OG (`SupplyLot.expenseOrderItemId`) y esa línea se excluye de la rentabilidad de la OP para no contarla dos veces. Revisar las 6 OG de rollos amarradas a OT en PRD. |
+| 7 | ¿Rentabilidad sin IVA? | **Sí, subtotal sin IVA** para todas las OP. | `_calcProfitability` usa ingreso sin IVA. Cambia las cifras que el cliente ya ve: avisarle al desplegar. |
+| 8 | Rollos actuales en bodega | **Pendiente.** | Hay que cargarlos en «Rollos y lotes» antes de activar el descuento automático; sin ellos, los consumos caen en la bandeja «sin rollo». |
+
 ## 10. Fase 4: rollos por metro (calandra, papel, cinta, plotter) — diseño 2026-11-14
 
 ### 10.1 El pedido
@@ -220,25 +233,34 @@ En PRD (últimos 3 meses, sin anuladas) «Calandra y Sublimación» es el área 
 
 Sin el paso 2 todo cae en la bandeja «sin rollo», igual que con DTF.
 
-### 10.6 Preguntas al cliente que bloquean
+### 10.6 Preguntas para la fase 5 (medida libre) — guardadas, sin enviar
+
+> **Orden acordado (2026-11-14):** primero se termina y despliega la fase 4 (productos con receta) y el cliente carga insumos, rollos y recetas. Estas preguntas son de la fase 5 y se envían **después**; no bloquean la fase 4.
 
 | # | Pregunta | Qué cambia |
 |---|---|---|
 | A | En vinilo, banner y telas a la medida, ¿de dónde sacamos los metros gastados: el asesor escribe ancho × alto en el ítem, o producción registra los metros reales al imprimir? | Define la fase 5: campos de medida en el ítem + conversión con el ancho del rollo, o un registro de producción. |
 | B | De un mismo material (p. ej. la misma tela o el mismo papel), ¿puede haber más de un rollo montado a la vez, en dos máquinas o en dos anchos? | Hoy hay un solo «rollo en uso» por insumo (índice único). Si cada ancho o color es un insumo distinto, no cambia nada; si hay dos máquinas gastando el mismo insumo a la vez, hay que poder elegir el rollo en el consumo. |
 
-## 9. Decisiones del cliente (2026-11-10)
+**Ejemplos reales de PRD** (2026-11-14): OP-2026-5961, «VINILO LAMINADO MATE DE 2*1», cantidad 2 → la medida solo está en el texto; con un rollo de 1,52 m salen ~4 m lineales de vinilo y 4 de laminado (≈6,1 m² de rollo por 4 m² vendidos). OP-2026-5932, «BANDERA en satín licrado de 1.20x180… doble cara», cantidad 21 → ~37,8 m de tela con rollo de 1,50 m, y el doble de papel por ser doble cara. El patrón se repite en banners, roll ups, tulas y banderas: `specifications` viene vacío.
 
-| # | Pregunta | Decisión | Qué cambia en el diseño |
-|---|---|---|---|
-| 1 | ¿Cuándo se descuenta? | **Al crear el ítem**, aunque la OP esté en borrador; si se anula, se devuelve. | `syncForOrderItem` corre en crear/editar sin mirar el estado. Los borradores viejos deben anularse para devolver el material (las 350 OP DTF en `DRAFT` de PRD no se tocan: el descuento empieza con las OP nuevas). |
-| 2 | ¿Varias impresoras por tipo? | **Un solo «rollo en uso» por tipo.** | `IN_USE` único por insumo (índice único parcial `(supply_id) WHERE status = 'IN_USE'`). Sin `machineId`. |
-| 3 | ¿Y si no hay stock registrado? | **Dejar pasar la venta** y registrar el consumo «sin rollo», en una bandeja para asignarlo después. | `MaterialConsumption.lotId` nulo = pendiente de asignar. Bandeja de consumos sin rollo; al asignarlo se genera el `EXIT` contra el lote. Nunca se bloquea la OP ni queda un lote en negativo. |
-| 4 | Merma de impresión (pruebas, reimpresiones) | **Alternativa simple:** solo al cerrar el rollo. | Se elimina `kind`/`REPRINT`. Toda la merma sale por el cierre del rollo y se reporta en la rentabilidad del rollo, no de la OP. |
-| 5 | Devolución a un rollo ya cerrado | **Merma recuperada**; el rollo no se reabre. | El `RETURN` sobre un lote `CLOSED` no suma saldo: se registra como merma recuperada del rollo (resta de su merma). |
-| 6 | ¿Los rollos se compran siempre por OG? | **Sí.** | El rollo puede nacer desde la línea de OG (`SupplyLot.expenseOrderItemId`) y esa línea se excluye de la rentabilidad de la OP para no contarla dos veces. Revisar las 6 OG de rollos amarradas a OT en PRD. |
-| 7 | ¿Rentabilidad sin IVA? | **Sí, subtotal sin IVA** para todas las OP. | `_calcProfitability` usa ingreso sin IVA. Cambia las cifras que el cliente ya ve: avisarle al desplegar. |
-| 8 | Rollos actuales en bodega | **Pendiente.** | Hay que cargarlos en «Rollos y lotes» antes de activar el descuento automático; sin ellos, los consumos caen en la bandeja «sin rollo». |
+**Borrador para WhatsApp** (listo para enviar cuando toque la fase 5):
+
+```
+¡Hola! 👋 Para seguir con los trabajos *a la medida* necesito que me respondas 2 preguntas:
+
+*1. ¿Cómo sabemos cuántos metros se gastaron en un trabajo a la medida?* (vinilo, banner, telas de cualquier tamaño)
+
+📌 *Ejemplo real:* la OP-2026-5961 tiene "VINILO LAMINADO MATE DE 2*1", cantidad 2. El sistema solo sabe que se vendieron "2"; la medida está escrita en la descripción. Pero del rollo salieron unos *4 metros de vinilo y 4 de laminado*, según el ancho del rollo y cómo se acomodaron las piezas.
+
+   *a)* El asesor escribe el *ancho y el alto* del trabajo en la orden, y el sistema calcula los metros según el ancho del rollo (es un cálculo aproximado).
+   *b)* Producción registra los *metros reales* que gastó al imprimir (es exacto, pero alguien tiene que registrarlo).
+
+*2. De un mismo material, ¿puede haber más de un rollo montado al mismo tiempo?*
+Por ejemplo, la misma tela o el mismo papel en dos máquinas, o en dos anchos distintos. ¿O siempre hay *uno solo en uso* por material?
+
+Con esas dos respuestas puedo avanzar. ¡Gracias! 🙌
+```
 
 ### 10.7 Cómo quedó implementado (2026-11-14)
 
