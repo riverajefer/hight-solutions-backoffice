@@ -40,6 +40,7 @@ interface ConsumptionRow {
   lotId: string | null;
   quantity: Prisma.Decimal;
   source: MaterialConsumptionSource;
+  factor: Prisma.Decimal | null;
   createdAt: Date;
 }
 
@@ -50,7 +51,18 @@ interface GroupContext {
   orderItemId: string | null;
   supplyId: string;
   source: MaterialConsumptionSource;
+  /** Factor que se congela en las filas nuevas (nulo en correcciones manuales). */
+  factor: Prisma.Decimal | null;
   userId: string;
+}
+
+/** Lo que debería consumir un grupo (ítem × insumo) y quién lo decide. */
+interface DesiredGroup {
+  itemId: string | null;
+  supplyId: string;
+  desired: Prisma.Decimal;
+  source: MaterialConsumptionSource;
+  factor: Prisma.Decimal | null;
 }
 
 /**
@@ -85,102 +97,153 @@ export class MaterialConsumptionService {
    */
   async syncOrder(orderId: string, userId?: string): Promise<void> {
     const alerts: LotLowAlert[] = [];
-
     await this.prisma.$transaction(async (tx) => {
-      await lockOrderForUpdate(tx, orderId);
-      const order = await tx.order.findUnique({
-        where: { id: orderId },
-        select: {
-          id: true,
-          orderNumber: true,
-          status: true,
-          createdById: true,
-          items: { select: { id: true, productId: true, quantity: true } },
-        },
-      });
-      if (!order) return;
-
-      const productIds = [
-        ...new Set(order.items.map((i) => i.productId).filter((p): p is string => !!p)),
-      ];
-      const rules = productIds.length
-        ? await tx.productSupplyRule.findMany({
-            where: {
-              productId: { in: productIds },
-              isActive: true,
-              autoConsume: true,
-              supply: { trackLots: true, isActive: true },
-            },
-            select: { productId: true, supplyId: true, factor: true },
-          })
-        : [];
-
-      const rows = await tx.materialConsumption.findMany({
-        where: { orderId },
-        select: this.rowSelect,
-      });
-
-      const annulled = order.status === OrderStatus.ANULADO;
-      const groups = new Map<string, { itemId: string | null; supplyId: string; desired: Prisma.Decimal | null }>();
-      const key = (itemId: string | null, supplyId: string) => `${itemId ?? 'orphan'}|${supplyId}`;
-
-      // Lo que dicen las reglas para cada ítem vivo.
-      if (!annulled) {
-        for (const item of order.items) {
-          for (const rule of rules.filter((r) => r.productId === item.productId)) {
-            groups.set(key(item.id, rule.supplyId), {
-              itemId: item.id,
-              supplyId: rule.supplyId,
-              desired: new Prisma.Decimal(item.quantity).mul(rule.factor).toDecimalPlaces(4),
-            });
-          }
-        }
-      }
-
-      // Lo ya registrado: lo que no tiene regla vigente vuelve a cero, salvo una
-      // corrección manual de un ítem vivo, que se respeta tal cual.
-      const itemIds = new Set(order.items.map((i) => i.id));
-      for (const row of rows) {
-        const k = key(row.orderItemId, row.supplyId);
-        const group = groups.get(k);
-        const alive = !annulled && row.orderItemId !== null && itemIds.has(row.orderItemId);
-        if (!alive) {
-          groups.set(k, { itemId: row.orderItemId, supplyId: row.supplyId, desired: ZERO });
-        } else if (row.source === MaterialConsumptionSource.MANUAL) {
-          groups.set(k, { itemId: row.orderItemId, supplyId: row.supplyId, desired: null });
-        } else if (!group) {
-          groups.set(k, { itemId: row.orderItemId, supplyId: row.supplyId, desired: ZERO });
-        }
-      }
-
-      const pending = [...groups.values()].filter((g) => g.desired !== null);
-      if (pending.length === 0) return;
-
-      await this.lockSupplies(tx, pending.map((g) => g.supplyId));
-      const actor = userId ?? order.createdById;
-
-      for (const group of pending) {
-        const groupRows = rows.filter(
-          (r) => r.orderItemId === group.itemId && r.supplyId === group.supplyId,
-        );
-        await this.adjustGroup(
-          tx,
-          {
-            orderId,
-            orderNumber: order.orderNumber,
-            orderItemId: group.itemId,
-            supplyId: group.supplyId,
-            source: MaterialConsumptionSource.AUTO,
-            userId: actor,
-          },
-          groupRows,
-          group.desired as Prisma.Decimal,
-          alerts,
-        );
-      }
+      await this.syncOrderTx(tx, orderId, userId, alerts);
     });
-
     this.notifyLowLots(alerts);
+  }
+
+  /**
+   * Núcleo de la sincronización, dentro de una transacción ajena. Qué debería
+   * consumir cada ítem × insumo:
+   *
+   * 1. Una corrección manual (`MaterialOverride`) gana siempre, incluso en 0.
+   * 2. Si el ítem ya consumió por una regla, sigue esa regla con el factor que
+   *    quedó congelado en sus filas (cambiar la receta no mueve lo hecho).
+   * 3. Si no ha consumido, aplica la regla solo si está activa, es automática
+   *    y el ítem se creó desde su vigencia (`effectiveFrom`).
+   * 4. Todo lo demás vuelve a 0: ítem borrado, OP anulada, producto cambiado.
+   */
+  private async syncOrderTx(
+    tx: Tx,
+    orderId: string,
+    userId: string | undefined,
+    alerts: LotLowAlert[],
+  ): Promise<void> {
+    await lockOrderForUpdate(tx, orderId);
+    const order = await tx.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        createdById: true,
+        items: { select: { id: true, productId: true, quantity: true, createdAt: true } },
+      },
+    });
+    if (!order) return;
+
+    const productIds = [
+      ...new Set(order.items.map((i) => i.productId).filter((p): p is string => !!p)),
+    ];
+    const itemIds = order.items.map((i) => i.id);
+    // En serie: es una transacción interactiva (una sola conexión).
+    const rules = await tx.productSupplyRule.findMany({
+      where: { productId: { in: productIds } },
+      select: {
+        productId: true,
+        supplyId: true,
+        factor: true,
+        isActive: true,
+        autoConsume: true,
+        effectiveFrom: true,
+        supply: { select: { trackLots: true, isActive: true } },
+      },
+    });
+    const overrides = await tx.materialOverride.findMany({
+      where: { orderItemId: { in: itemIds } },
+      select: { orderItemId: true, supplyId: true, quantity: true },
+    });
+    const rows = await tx.materialConsumption.findMany({ where: { orderId }, select: this.rowSelect });
+
+    const annulled = order.status === OrderStatus.ANULADO;
+    const key = (itemId: string | null, supplyId: string) => `${itemId ?? 'orphan'}|${supplyId}`;
+    const rowsOf = (itemId: string | null, supplyId: string) =>
+      rows.filter((r) => r.orderItemId === itemId && r.supplyId === supplyId);
+    const groups = new Map<string, DesiredGroup>();
+
+    if (!annulled) {
+      for (const item of order.items) {
+        const qty = new Prisma.Decimal(item.quantity);
+        for (const rule of rules.filter((r) => r.productId === item.productId)) {
+          const existing = rowsOf(item.id, rule.supplyId);
+          let factor: Prisma.Decimal | null = null;
+          if (existing.length > 0) {
+            factor = existing.find((r) => r.factor !== null)?.factor ?? new Prisma.Decimal(rule.factor);
+          } else if (
+            rule.isActive &&
+            rule.autoConsume &&
+            rule.supply.trackLots &&
+            rule.supply.isActive &&
+            item.createdAt >= rule.effectiveFrom
+          ) {
+            factor = new Prisma.Decimal(rule.factor);
+          }
+          if (factor === null) continue;
+          groups.set(key(item.id, rule.supplyId), {
+            itemId: item.id,
+            supplyId: rule.supplyId,
+            desired: qty.mul(factor).toDecimalPlaces(4),
+            source: MaterialConsumptionSource.AUTO,
+            factor,
+          });
+        }
+      }
+      for (const o of overrides) {
+        groups.set(key(o.orderItemId, o.supplyId), {
+          itemId: o.orderItemId,
+          supplyId: o.supplyId,
+          desired: new Prisma.Decimal(o.quantity),
+          source: MaterialConsumptionSource.MANUAL,
+          factor: null,
+        });
+      }
+    }
+
+    // Lo registrado que ya no corresponde a nada vuelve a cero.
+    for (const row of rows) {
+      const k = key(row.orderItemId, row.supplyId);
+      if (!groups.has(k)) {
+        groups.set(k, {
+          itemId: row.orderItemId,
+          supplyId: row.supplyId,
+          desired: ZERO,
+          source: row.source,
+          factor: row.factor,
+        });
+      }
+    }
+    if (groups.size === 0) return;
+
+    await this.lockSupplies(tx, [...groups.values()].map((g) => g.supplyId));
+    const actor = userId ?? order.createdById;
+
+    for (const group of groups.values()) {
+      const groupRows = rowsOf(group.itemId, group.supplyId);
+      // El origen visible acompaña a quien manda hoy (regla o corrección).
+      const stale = groupRows.filter((r) => r.source !== group.source).map((r) => r.id);
+      if (stale.length > 0 && !group.desired.isZero()) {
+        await tx.materialConsumption.updateMany({
+          where: { id: { in: stale } },
+          data: { source: group.source },
+        });
+      }
+      await this.adjustGroup(
+        tx,
+        {
+          orderId,
+          orderNumber: order.orderNumber,
+          orderItemId: group.itemId,
+          supplyId: group.supplyId,
+          source: group.source,
+          factor: group.factor,
+          userId: actor,
+        },
+        groupRows,
+        group.desired,
+        alerts,
+      );
+    }
   }
 
   /**
@@ -216,6 +279,7 @@ export class MaterialConsumptionService {
             orderItemId: groupRows[0].orderItemId,
             supplyId: groupRows[0].supplyId,
             source: groupRows[0].source,
+            factor: groupRows[0].factor,
             userId: userId ?? order.createdById,
           },
           groupRows,
@@ -227,81 +291,152 @@ export class MaterialConsumptionService {
   }
 
   // ---------------------------------------------------------------------------
-  // Corrección manual y bandeja de pendientes
+  // Corrección manual, cambio de insumo y bandeja de pendientes
   // ---------------------------------------------------------------------------
 
   /**
-   * Corrige a mano cuánto material usó un ítem (p. ej. stickers vendidos por
-   * unidad). Con `quantity: null` vuelve al cálculo automático de la regla.
+   * Fija a mano cuánto material usó un ítem (p. ej. stickers vendidos por
+   * unidad, o 0 si el material lo puso el cliente). Sirve también para un
+   * insumo que el producto no tiene en su receta. Con `quantity: null` borra la
+   * corrección y vuelve al cálculo de la regla.
    */
   async correctItem(
     orderItemId: string,
     supplyId: string,
     quantity: number | null,
     userId: string,
+    note?: string | null,
   ) {
+    const orderId = await this.orderIdOf(orderItemId);
+    const cleanNote = note?.trim() || null;
+    if (quantity !== null && quantity < 0) {
+      throw new BadRequestException('La cantidad no puede ser negativa.');
+    }
+    if (quantity === 0 && !cleanNote) {
+      throw new BadRequestException('Indica el motivo cuando el ítem no gastó material (p. ej. lo trajo el cliente).');
+    }
+
+    const alerts: LotLowAlert[] = [];
+    await this.prisma.$transaction(async (tx) => {
+      await this.assertOrderEditable(tx, orderId);
+      if (quantity === null) {
+        await tx.materialOverride.deleteMany({ where: { orderItemId, supplyId } });
+      } else {
+        await this.assertLotSupply(tx, supplyId);
+        await this.upsertOverride(tx, orderItemId, supplyId, quantity, cleanNote, userId);
+      }
+      await this.syncOrderTx(tx, orderId, userId, alerts);
+    });
+
+    this.notifyLowLots(alerts);
+    return this.getOrderConsumption(orderId);
+  }
+
+  /**
+   * El ítem se hizo en otro insumo que el de la receta (p. ej. otra tela): deja
+   * el de la receta en 0 y pasa la cantidad al nuevo, en una sola transacción.
+   * Sin `quantity` se traslada lo que llevaba el insumo de origen.
+   */
+  async swapSupply(
+    orderItemId: string,
+    fromSupplyId: string,
+    toSupplyId: string,
+    quantity: number | null | undefined,
+    userId: string,
+    note?: string | null,
+  ) {
+    if (fromSupplyId === toSupplyId) {
+      throw new BadRequestException('Elige un insumo distinto al actual.');
+    }
+    const orderId = await this.orderIdOf(orderItemId);
+
+    const alerts: LotLowAlert[] = [];
+    await this.prisma.$transaction(async (tx) => {
+      await this.assertOrderEditable(tx, orderId);
+      const from = await tx.supply.findUnique({
+        where: { id: fromSupplyId },
+        select: { name: true, consumptionUnitId: true },
+      });
+      const to = await this.assertLotSupply(tx, toSupplyId);
+      if (!from) throw new NotFoundException('Insumo de origen no encontrado');
+      if (from.consumptionUnitId !== to.consumptionUnitId) {
+        throw new BadRequestException(
+          `«${to.name}» se mide en otra unidad que «${from.name}»: corrige cada uno por separado.`,
+        );
+      }
+
+      let qty = quantity === null || quantity === undefined ? null : new Prisma.Decimal(quantity);
+      if (qty === null) {
+        const current = await tx.materialConsumption.aggregate({
+          where: { orderItemId, supplyId: fromSupplyId },
+          _sum: { quantity: true },
+        });
+        qty = new Prisma.Decimal(current._sum.quantity ?? 0);
+      }
+      if (qty.lessThanOrEqualTo(0)) {
+        throw new BadRequestException('Indica cuánto se usó del nuevo insumo.');
+      }
+
+      const extra = note?.trim();
+      await this.upsertOverride(
+        tx, orderItemId, fromSupplyId, 0,
+        `Se hizo en ${to.name}${extra ? `: ${extra}` : ''}`, userId,
+      );
+      await this.upsertOverride(
+        tx, orderItemId, toSupplyId, qty,
+        `En lugar de ${from.name}${extra ? `: ${extra}` : ''}`, userId,
+      );
+      await this.syncOrderTx(tx, orderId, userId, alerts);
+    });
+
+    this.notifyLowLots(alerts);
+    return this.getOrderConsumption(orderId);
+  }
+
+  private async orderIdOf(orderItemId: string): Promise<string> {
     const item = await this.prisma.orderItem.findUnique({
       where: { id: orderItemId },
       select: { orderId: true },
     });
     if (!item) throw new NotFoundException(`Ítem ${orderItemId} no encontrado`);
+    return item.orderId;
+  }
 
-    if (quantity === null) {
-      await this.prisma.materialConsumption.updateMany({
-        where: { orderItemId, supplyId },
-        data: { source: MaterialConsumptionSource.AUTO },
-      });
-      await this.syncOrder(item.orderId, userId);
-      return this.getOrderConsumption(item.orderId);
+  private async assertOrderEditable(tx: Tx, orderId: string) {
+    await lockOrderForUpdate(tx, orderId);
+    const order = await tx.order.findUnique({ where: { id: orderId }, select: { status: true } });
+    if (!order) throw new NotFoundException('OP no encontrada');
+    if (order.status === OrderStatus.ANULADO) {
+      throw new BadRequestException('La OP está anulada: su material ya se devolvió.');
     }
+  }
 
-    const alerts: LotLowAlert[] = [];
-    await this.prisma.$transaction(async (tx) => {
-      await lockOrderForUpdate(tx, item.orderId);
-      const order = await tx.order.findUnique({
-        where: { id: item.orderId },
-        select: { orderNumber: true, status: true },
-      });
-      if (!order) throw new NotFoundException('OP no encontrada');
-      if (order.status === OrderStatus.ANULADO) {
-        throw new BadRequestException('La OP está anulada: su material ya se devolvió.');
-      }
-      const supply = await tx.supply.findUnique({
-        where: { id: supplyId },
-        select: { trackLots: true, name: true },
-      });
-      if (!supply?.trackLots) {
-        throw new BadRequestException('El insumo no se controla por rollos/lotes.');
-      }
-
-      await tx.materialConsumption.updateMany({
-        where: { orderItemId, supplyId },
-        data: { source: MaterialConsumptionSource.MANUAL },
-      });
-      const rows = await tx.materialConsumption.findMany({
-        where: { orderItemId, supplyId },
-        select: this.rowSelect,
-      });
-
-      await this.lockSupplies(tx, [supplyId]);
-      await this.adjustGroup(
-        tx,
-        {
-          orderId: item.orderId,
-          orderNumber: order.orderNumber,
-          orderItemId,
-          supplyId,
-          source: MaterialConsumptionSource.MANUAL,
-          userId,
-        },
-        rows,
-        new Prisma.Decimal(quantity).toDecimalPlaces(4),
-        alerts,
-      );
+  private async assertLotSupply(tx: Tx, supplyId: string) {
+    const supply = await tx.supply.findUnique({
+      where: { id: supplyId },
+      select: { name: true, trackLots: true, isActive: true, consumptionUnitId: true },
     });
+    if (!supply) throw new NotFoundException('Insumo no encontrado');
+    if (!supply.trackLots || !supply.isActive) {
+      throw new BadRequestException(`«${supply.name}» no se controla por rollos/lotes.`);
+    }
+    return supply;
+  }
 
-    this.notifyLowLots(alerts);
-    return this.getOrderConsumption(item.orderId);
+  private upsertOverride(
+    tx: Tx,
+    orderItemId: string,
+    supplyId: string,
+    quantity: number | Prisma.Decimal,
+    note: string | null,
+    userId: string,
+  ) {
+    const qty = new Prisma.Decimal(quantity).toDecimalPlaces(4);
+    return tx.materialOverride.upsert({
+      where: { orderItemId_supplyId: { orderItemId, supplyId } },
+      create: { orderItemId, supplyId, quantity: qty, note, createdById: userId },
+      update: { quantity: qty, note, createdById: userId },
+    });
   }
 
   /**
@@ -337,6 +472,7 @@ export class MaterialConsumptionService {
             orderItemId: row.orderItemId,
             supplyId,
             source: row.source,
+            factor: row.factor,
             userId,
           },
           new Prisma.Decimal(row.quantity),
@@ -366,7 +502,35 @@ export class MaterialConsumptionService {
   // Consultas
   // ---------------------------------------------------------------------------
 
+  /**
+   * Consumo de la OP: las filas vigentes (por rollo) y las correcciones
+   * manuales, que incluyen las de 0 («lo puso el cliente»), sin filas.
+   */
   async getOrderConsumption(orderId: string) {
+    const [rows, overrides] = await Promise.all([
+      this.getOrderRows(orderId),
+      this.prisma.materialOverride.findMany({
+        where: { orderItem: { orderId } },
+        select: {
+          orderItemId: true,
+          quantity: true,
+          note: true,
+          updatedAt: true,
+          supply: {
+            select: { id: true, name: true, consumptionUnit: { select: { abbreviation: true } } },
+          },
+          createdBy: { select: { id: true, firstName: true, lastName: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+    ]);
+    return {
+      rows,
+      overrides: overrides.map((o) => ({ ...o, quantity: Number(o.quantity) })),
+    };
+  }
+
+  private async getOrderRows(orderId: string) {
     const rows = await this.prisma.materialConsumption.findMany({
       where: { orderId },
       select: {
@@ -532,6 +696,7 @@ export class MaterialConsumptionService {
     lotId: true,
     quantity: true,
     source: true,
+    factor: true,
     createdAt: true,
   } as const;
 
@@ -733,6 +898,7 @@ export class MaterialConsumptionService {
           lotId: null,
           quantity: qty,
           source: ctx.source,
+          factor: ctx.factor,
           createdById: ctx.userId,
         },
       });
@@ -768,6 +934,7 @@ export class MaterialConsumptionService {
         unitCost,
         totalCost: qty.mul(unitCost).toDecimalPlaces(2),
         source: ctx.source,
+        factor: ctx.factor,
         createdById: ctx.userId,
       },
       select: { id: true },

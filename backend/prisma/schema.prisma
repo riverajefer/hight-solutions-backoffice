@@ -97,6 +97,7 @@ model User {
   dtfRecords                                DtfRecord[]                            @relation("DtfCreatedBy")
   supplyLotsCreated                         SupplyLot[]                            @relation("SupplyLotCreatedBy")
   materialConsumptionsCreated               MaterialConsumption[]                  @relation("MaterialConsumptionCreatedBy")
+  materialOverridesCreated                  MaterialOverride[]                     @relation("MaterialOverrideCreatedBy")
   dtfStatusChanges                          DtfStatusHistory[]                     @relation("DtfStatusChangedBy")
   activityHeartbeats                        ActivityHeartbeat[]
   salesGoals                                SalesGoal[]                            @relation("AdvisorSalesGoals")
@@ -536,6 +537,7 @@ model Supply {
   lots            SupplyLot[]
   productRules    ProductSupplyRule[]
   consumptions    MaterialConsumption[]
+  overrides       MaterialOverride[]
 
   @@unique([name, categoryId])
   @@map("supplies")
@@ -597,14 +599,17 @@ model SupplyLot {
 // Receta mínima: qué insumo consume un producto y cuánto por unidad vendida.
 // DTF UV → Rollo DTF UV, factor 1 (1 m vendido = 1 m de film).
 model ProductSupplyRule {
-  id          String   @id @default(uuid())
-  productId   String   @map("product_id")
-  supplyId    String   @map("supply_id")
-  factor      Decimal  @default(1) @db.Decimal(12, 4)
-  autoConsume Boolean  @default(true) @map("auto_consume")
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id            String   @id @default(uuid())
+  productId     String   @map("product_id")
+  supplyId      String   @map("supply_id")
+  factor        Decimal  @default(1) @db.Decimal(12, 4)
+  autoConsume   Boolean  @default(true) @map("auto_consume")
+  isActive      Boolean  @default(true) @map("is_active")
+  // Solo descuenta en ítems creados desde aquí: una regla nueva (o reactivada)
+  // no toca las OP viejas cuando alguien las edita.
+  effectiveFrom DateTime @default(now()) @map("effective_from")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   product Product @relation(fields: [productId], references: [id])
   supply  Supply  @relation(fields: [supplyId], references: [id])
@@ -633,6 +638,9 @@ model MaterialConsumption {
   unitCost    Decimal?                  @map("unit_cost") @db.Decimal(14, 4) // Del lote; nulo mientras está pendiente
   totalCost   Decimal?                  @map("total_cost") @db.Decimal(14, 2)
   source      MaterialConsumptionSource @default(AUTO)
+  // Factor de la regla con que nació el consumo. Cambiar la receta no mueve lo
+  // ya descontado: si cambia la cantidad del ítem se recalcula con este factor.
+  factor      Decimal?                  @db.Decimal(12, 4)
   createdById String                    @map("created_by_id")
   createdAt   DateTime                  @default(now()) @map("created_at")
   updatedAt   DateTime                  @updatedAt @map("updated_at")
@@ -651,6 +659,31 @@ model MaterialConsumption {
   @@index([lotId])
   @@index([supplyId, lotId])
   @@map("material_consumptions")
+}
+
+// Cuánto material usó de verdad un ítem, fijado a mano. Gana sobre la regla del
+// producto y la sincronización lo respeta. Con 0 = el material lo puso el
+// cliente (o el ítem se hizo en otro insumo). Vive aparte de los consumos
+// porque un consumo en cero se borra y con él se perdería la corrección.
+model MaterialOverride {
+  id          String   @id @default(uuid())
+  orderItemId String   @map("order_item_id")
+  supplyId    String   @map("supply_id")
+  quantity    Decimal  @db.Decimal(14, 4)
+  note        String?
+  createdById String   @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Cascade: si el ítem se borra, la corrección se va con él y la
+  // sincronización devuelve el material de las filas que quedan huérfanas.
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  supply    Supply    @relation(fields: [supplyId], references: [id])
+  createdBy User      @relation("MaterialOverrideCreatedBy", fields: [createdById], references: [id])
+
+  @@unique([orderItemId, supplyId])
+  @@index([supplyId])
+  @@map("material_overrides")
 }
 
 // =============================================================================
@@ -934,6 +967,7 @@ model OrderItem {
   workOrderItems       WorkOrderItem[]
   refundRequestItems   RefundRequestItem[]
   materialConsumptions MaterialConsumption[]
+  materialOverrides    MaterialOverride[]
 
   @@index([orderId])
   @@index([productId])

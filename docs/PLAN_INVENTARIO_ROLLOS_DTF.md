@@ -1,6 +1,6 @@
 # Plan: consumo de inventario amarrado a la OP (empieza con rollos DTF)
 
-> Estado: **fases 1, 2 y 3 implementadas** (2026-11-10). Fase 2: el ítem de OP descuenta solo (reglas DTF UV y DTF TEXTIL, factor 1), con rollo en uso, partición entre rollos, bandeja «sin rollo», corrección manual, cierre con merma y devolución como merma recuperada. Fase 3: rentabilidad de toda OP sobre venta sin IVA (subtotal − descuento sin IVA + prueba de color; las retenciones no restan) con costo de material; rentabilidad por rollo; rollo amarrado a su línea de OG, que se excluye de la rentabilidad de la OP. Pendiente: fase 4 (carnets).
+> Estado: **fases 1, 2 y 3 implementadas** (2026-11-10). Fase 2: el ítem de OP descuenta solo (reglas DTF UV y DTF TEXTIL, factor 1), con rollo en uso, partición entre rollos, bandeja «sin rollo», corrección manual, cierre con merma y devolución como merma recuperada. Fase 3: rentabilidad de toda OP sobre venta sin IVA (subtotal − descuento sin IVA + prueba de color; las retenciones no restan) con costo de material; rentabilidad por rollo; rollo amarrado a su línea de OG, que se excluye de la rentabilidad de la OP. Fase 4 (rollos por metro: calandra, papel, cinta, plotter) **implementada** el 2026-11-14 (§10, ver §10.7); los carnets pasan a la fase 6.
 >
 > Dos reglas que se fijaron al implementar, sin pregunta explícita al cliente:
 > - Una OP **devuelta** (`RETURNED`, devolución total del dinero) **no** devuelve material: el trabajo se imprimió. Solo `ANULADO`, borrar el borrador o quitar el ítem lo devuelven.
@@ -160,10 +160,72 @@ Los rollos reales no traen exactamente lo nominal y el final se pierde. «Cerrar
 | **1** | Modelo (`SupplyLot`, `MaterialConsumption`, `ProductSupplyRule`, campos nuevos), registro de rollos, vista de rollos + detalle + histórico, alerta. Seed de insumos «Rollo DTF UV» y «Rollo DTF Textil» y sus reglas. | Se pueden cargar los rollos reales que hay hoy en bodega. |
 | **2** | Consumo automático DTF desde la OP (crear/editar/eliminar/anular), rollo en uso, partición entre rollos, cierre con merma. Invariantes SQL nuevas en `db-invariants.sh` (`remainingQuantity = initial − Σ movimientos`). | Las OP DTF empiezan a descontar. |
 | **3** | Costo de material en la rentabilidad de la OP y rentabilidad por rollo. | Rentabilidad real de DTF. |
-| **4** | Consumo manual de cualquier insumo desde la OP (carnets), costo promedio ponderado para insumos sin lotes. | Caso del cliente con los carnets. |
-| **5+** | Ir sumando productos con regla (vinilos, lonas…), reglas por m² (ancho × alto en `specifications`). | |
+| **4** | Rollos por metro más allá del DTF: recetas desde la pantalla, varios insumos por producto, cambiar de insumo en el ítem y «material del cliente». Ver §10. | Calandra (papel + tela), cintas portacarné y banners/vinilos de medida fija. |
+| **5** | Ítems de medida libre (m² contra metro lineal). Depende de la pregunta §10.6-A. | Vinilo y banner a la medida. |
+| **6** | Consumo manual de insumos **sin** lotes desde la OP (carnets), costo promedio ponderado. | Caso del cliente con los carnets. |
 
-Las fases 1–3 son el pedido de DTF. La 4 es pequeña porque reutiliza todo lo anterior; la pondría inmediatamente después.
+Las fases 1–3 son el pedido de DTF. La 4 reutiliza el motor sin tocar su núcleo.
+
+## 10. Fase 4: rollos por metro (calandra, papel, cinta, plotter) — diseño 2026-11-14
+
+### 10.1 El pedido
+
+El cliente quiere lo mismo que DTF para el **papel de sublimación**, la **tela** de calandra, la **cinta portacarné** y los rollos del **plotter** (vinilo, banner). Su caso concreto: 250 + 30 + 10 cintas de tres OP, 4 rollos de 100 m comprados, 0,90 m por cinta. Hoy cargan un rollo a cada OP y dejan uno como insumo; lo correcto es que cada OP se lleve 225 m, 27 m y 9 m, y el resto quede en el rollo.
+
+En PRD (últimos 3 meses, sin anuladas) «Calandra y Sublimación» es el área que más vende: $165,4M, por encima de DTF UV ($97,8M). Plotter ecosolvente: $44,0M.
+
+### 10.2 Qué ya sirve y qué falta
+
+| Pieza | Estado |
+|---|---|
+| Insumo con rollos (`trackLots`, prefijo, % de alerta) | **Ya existe en la pantalla de insumos.** El cliente puede crear «Papel de sublimación», «Cinta premium 20 mm», «Tela pluton», «Banner 13 oz»… sin desarrollo. |
+| Varios insumos por producto | **El motor ya lo soporta**: `syncOrder` agrupa por ítem × insumo y aplica cada regla del producto. La tabla tiene único `(productId, supplyId)`. Falta probarlo con dos reglas y verlo en la pestaña Materiales. |
+| Factor distinto de 1 (cinta = 0,90 m) | **Ya soportado** (`cantidad × factor`). |
+| Recetas (`ProductSupplyRule`) | **Sin pantalla ni API.** Las dos reglas DTF las sembró la migración `20261111000000_material_consumptions`. Es la pieza principal de la fase. |
+| Regla nueva sobre OP viejas | **Riesgo.** La regla no tiene fecha de vigencia: al crear la regla de CALANDRA, editar cualquier OP vieja con un ítem CALANDRA descontaría sus metros del rollo actual. |
+| Cambiar el factor | **Riesgo.** Al editar una OP, la sync recalcula con el factor nuevo y mueve consumos ya hechos. |
+| Corregir un consumo a 0 («lo trajo el cliente») | **Falla hoy.** `release` borra la fila cuando llega a 0 y con ella la marca `MANUAL`; la siguiente edición de la OP vuelve a descontar según la regla. Afecta también a DTF. |
+| Elegir qué tela gastó el ítem | **No existe.** La regla apunta a un insumo fijo, pero «CALANDRA» se hace en pluton, tifón, satín… |
+
+### 10.3 Diseño
+
+**A. Recetas por producto (pantalla + API).**
+- En el formulario del producto (Portafolio → Productos), sección «Insumos que consume»: filas `insumo con rollos` + `cantidad por unidad vendida` (en la unidad de consumo del insumo) + activo. Ejemplos: CINTA PREMIUM → Cinta premium 0,90 m + Papel de sublimación X m; Banner 1x2 → Banner 13 oz 2 m.
+- Solo se ofrecen insumos con `trackLots` (el motor ignora los demás).
+- API: `GET/PUT /products/:id/supply-rules` (reemplaza el juego completo en una transacción). Permisos: leer con `read_products`, editar con `update_products`. Sin permiso nuevo.
+- Borrar una regla = desactivarla (`isActive = false`), nunca borrado físico: hay consumos que la referencian por historia.
+
+**B. Vigencia de la regla.** Campo `ProductSupplyRule.effectiveFrom` (por defecto la fecha de creación; migración: las dos reglas DTF toman su `created_at`). La sync solo aplica una regla a ítems con `createdAt ≥ effectiveFrom`. Los consumos ya registrados siguen su curso normal (devolución al anular, etc.). Así una regla nueva no toca OP viejas al editarlas.
+
+**C. Factor congelado.** `MaterialConsumption.factor Decimal?` guarda el factor con el que nació la fila. Si un ítem ya tiene filas AUTO de ese insumo, la sync usa ese factor y no el vigente; el factor nuevo aplica a ítems nuevos. Si cambia la **cantidad** del ítem, se recalcula con el factor congelado.
+
+**D. Corrección a 0 que se respeta.** Una corrección `MANUAL` a 0 deja una fila con `quantity = 0`, `lotId` nulo y `source = MANUAL` como marca (no se borra). Hay que ajustar `release`, la bandeja de pendientes (filtrar `quantity > 0`), los totales y las invariantes SQL. En la pestaña Materiales, atajo **«Lo pone el cliente»** por línea = corrección a 0 con motivo obligatorio. Volver al cálculo automático (`quantity: null`) borra la marca. Arreglar esto beneficia también a DTF.
+
+**E. Cambiar de insumo en el ítem.** En la pestaña Materiales, «Cambiar insumo»: lleva a 0 la línea de la regla (marca del punto D) y registra un consumo `MANUAL` del otro insumo con rollos (misma unidad de consumo). Requiere que `correctItem` acepte un insumo **sin** regla para ese producto (hoy solo exige `trackLots`, así que en el backend basta con la validación de unidad). La receta guarda la tela por defecto; el operario la cambia cuando el pedido fue en otra.
+
+**F. Sin cambios en el núcleo.** Rollo en uso, partición entre rollos, bandeja «sin rollo», cierre con merma, rentabilidad por OP y por rollo funcionan igual para cualquier insumo con rollos.
+
+### 10.4 Lo que no entra en esta fase
+
+- Ítems de medida libre (vinilo/banner en m², banderas a la medida): fase 5, según la respuesta §10.6-A. Mientras tanto se pueden corregir a mano en la pestaña Materiales.
+- Tinta: no se puede medir por trabajo. Si se quiere, sería una regla más con un estimado por m² (decisión del cliente, no bloquea).
+- Insumos sin lotes (carnets): fase 6.
+- Limpieza del catálogo: hay productos duplicados con nombres distintos («Impreson y Calandra», «impresion y calandra», «impresion calandra y tela») y `priceUnit` es texto libre. Como la receta se amarra al producto, conviene que el cliente unifique antes de cargar recetas. Es trabajo de datos, no de código.
+
+### 10.5 Carga inicial (la hace el cliente, en este orden)
+
+1. Crear los insumos con rollos (pantalla de insumos ya existente): papel de sublimación por ancho, cada tela, cinta, cada vinilo y banner por ancho.
+2. Registrar los rollos que hay en bodega (`/inventory/lots`).
+3. Cargar las recetas de los productos (pantalla nueva).
+
+Sin el paso 2 todo cae en la bandeja «sin rollo», igual que con DTF.
+
+### 10.6 Preguntas al cliente que bloquean
+
+| # | Pregunta | Qué cambia |
+|---|---|---|
+| A | En vinilo, banner y telas a la medida, ¿de dónde sacamos los metros gastados: el asesor escribe ancho × alto en el ítem, o producción registra los metros reales al imprimir? | Define la fase 5: campos de medida en el ítem + conversión con el ancho del rollo, o un registro de producción. |
+| B | De un mismo material (p. ej. la misma tela o el mismo papel), ¿puede haber más de un rollo montado a la vez, en dos máquinas o en dos anchos? | Hoy hay un solo «rollo en uso» por insumo (índice único). Si cada ancho o color es un insumo distinto, no cambia nada; si hay dos máquinas gastando el mismo insumo a la vez, hay que poder elegir el rollo en el consumo. |
 
 ## 9. Decisiones del cliente (2026-11-10)
 
@@ -177,3 +239,12 @@ Las fases 1–3 son el pedido de DTF. La 4 es pequeña porque reutiliza todo lo 
 | 6 | ¿Los rollos se compran siempre por OG? | **Sí.** | El rollo puede nacer desde la línea de OG (`SupplyLot.expenseOrderItemId`) y esa línea se excluye de la rentabilidad de la OP para no contarla dos veces. Revisar las 6 OG de rollos amarradas a OT en PRD. |
 | 7 | ¿Rentabilidad sin IVA? | **Sí, subtotal sin IVA** para todas las OP. | `_calcProfitability` usa ingreso sin IVA. Cambia las cifras que el cliente ya ve: avisarle al desplegar. |
 | 8 | Rollos actuales en bodega | **Pendiente.** | Hay que cargarlos en «Rollos y lotes» antes de activar el descuento automático; sin ellos, los consumos caen en la bandeja «sin rollo». |
+
+### 10.7 Cómo quedó implementado (2026-11-14)
+
+- **Correcciones manuales en tabla aparte** (`material_overrides`, único por ítem × insumo, `quantity ≥ 0`, `note`). Se descartó la fila de consumo en 0 del punto D: `material_consumptions` tiene `CHECK quantity > 0` y una fila con `lotId` nulo significa «pendiente», así que un 0 ahí se confundiría con la bandeja. La sync lee la corrección como lo deseado y gana sobre la regla. Borrar el ítem la borra (Cascade) y la sync devuelve lo que quedó huérfano. La migración `20261114000000_material_overrides` pasa las filas `MANUAL` existentes a la tabla nueva (en PRD no había ninguna).
+- **Vigencia**: `product_supply_rules.effective_from` (las reglas DTF toman su `created_at`). Crear o reactivar una regla la fija en ese momento.
+- **Factor congelado**: `material_consumptions.factor`. Un ítem que ya consumió sigue con su regla y su factor aunque la regla se desactive o cambie; solo vuelve a 0 si el ítem se borra, la OP se anula o el producto del ítem cambia.
+- **API**: `GET/PUT /products/:productId/supply-rules` (`read_products` / `update_products`; quitar = desactivar), `PUT /material-consumption/order-items/:id` acepta `quantity: 0` con `note` obligatoria y cualquier insumo con rollos, `PUT /material-consumption/order-items/:id/swap` (misma unidad de consumo). `GET /material-consumption/orders/:id` ahora devuelve `{ rows, overrides }`.
+- **Pantallas**: tarjeta «Insumos que consume» en el formulario del producto (solo al editar; pide `read_supply_lots` para listar insumos). En la OP, «Material consumido» tiene menú por línea (corregir cantidad, lo puso el cliente, se hizo en otro insumo, volver a automático) y «Agregar material» para ítems sin receta.
+- **Invariante nueva**: «Correcciones de material que no se aplicaron» (lo cargado al ítem × insumo ≠ la corrección).

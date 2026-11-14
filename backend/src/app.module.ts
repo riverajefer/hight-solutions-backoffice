@@ -29,6 +29,7 @@ import { ProductionAreasModule } from './modules/production-areas/production-are
 import { MachinesModule } from './modules/machines/machines.module';
 import { SupplyLotsModule } from './modules/supply-lots/supply-lots.module';
 import { MaterialConsumptionModule } from './modules/material-consumption/material-consumption.module';
+import { ProductSupplyRulesModule } from './modules/product-supply-rules/product-supply-rules.module';
 import { WorkOrderTimeModule } from './modules/work-order-time/work-order-time.module';
 import { CommercialChannelsModule } from './modules/commercial-channels/commercial-channels.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -136,6 +137,7 @@ import { ClientErrorsModule } from './modules/client-errors/client-errors.module
     MachinesModule,
     SupplyLotsModule,
     MaterialConsumptionModule,
+    ProductSupplyRulesModule,
     // Temporizador de producción de la OT
     WorkOrderTimeModule,
     // Módulo de Canales de Venta
