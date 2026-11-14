@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
-import { materialConsumptionApi, supplyLotsApi } from '../../../api';
+import { materialConsumptionApi, productSupplyRulesApi, supplyLotsApi } from '../../../api';
 import { CreateSupplyLotDto, SupplyLotFilters } from '../../../types';
 import { INVENTORY_LOW_STOCK_QUERY_KEY, INVENTORY_MOVEMENTS_QUERY_KEY, INVENTORY_VALUATION_QUERY_KEY } from './useInventory';
 
@@ -160,14 +160,69 @@ export const useCorrectConsumption = () => {
   const { enqueueSnackbar } = useSnackbar();
   const invalidate = useInvalidateStock();
   return useMutation({
-    mutationFn: (args: { orderItemId: string; supplyId: string; quantity: number | null }) =>
-      materialConsumptionApi.correctItem(args.orderItemId, args.supplyId, args.quantity),
+    mutationFn: (args: { orderItemId: string; supplyId: string; quantity: number | null; note?: string }) =>
+      materialConsumptionApi.correctItem(args.orderItemId, args.supplyId, args.quantity, args.note),
     onSuccess: () => {
       enqueueSnackbar('Consumo de material actualizado', { variant: 'success' });
       invalidate();
     },
     onError: (error) =>
       enqueueSnackbar(errorMessage(error, 'No se pudo corregir el consumo'), { variant: 'error' }),
+  });
+};
+
+export const useSwapConsumptionSupply = () => {
+  const { enqueueSnackbar } = useSnackbar();
+  const invalidate = useInvalidateStock();
+  return useMutation({
+    mutationFn: (args: {
+      orderItemId: string;
+      fromSupplyId: string;
+      toSupplyId: string;
+      quantity?: number;
+      note?: string;
+    }) => {
+      const { orderItemId, ...dto } = args;
+      return materialConsumptionApi.swapSupply(orderItemId, dto);
+    },
+    onSuccess: () => {
+      enqueueSnackbar('Insumo cambiado', { variant: 'success' });
+      invalidate();
+    },
+    onError: (error) =>
+      enqueueSnackbar(errorMessage(error, 'No se pudo cambiar el insumo'), { variant: 'error' }),
+  });
+};
+
+/** Insumos con rollos (con su saldo): alimenta los selectores de receta y de material. */
+export const useLotSupplies = (enabled = true) =>
+  useQuery({
+    queryKey: [...SUPPLY_LOTS_QUERY_KEY, 'summary'],
+    queryFn: () => supplyLotsApi.getSummary(),
+    enabled,
+  });
+
+export const PRODUCT_SUPPLY_RULES_QUERY_KEY = ['product-supply-rules'];
+
+export const useProductSupplyRules = (productId: string | undefined, enabled = true) =>
+  useQuery({
+    queryKey: [...PRODUCT_SUPPLY_RULES_QUERY_KEY, productId],
+    queryFn: () => productSupplyRulesApi.getByProduct(productId as string),
+    enabled: !!productId && enabled,
+  });
+
+export const useReplaceProductSupplyRules = () => {
+  const { enqueueSnackbar } = useSnackbar();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (args: { productId: string; rules: { supplyId: string; factor: number }[] }) =>
+      productSupplyRulesApi.replace(args.productId, args.rules),
+    onSuccess: (_data, args) => {
+      enqueueSnackbar('Receta guardada. Aplica a los ítems que se creen desde ahora', { variant: 'success' });
+      queryClient.invalidateQueries({ queryKey: [...PRODUCT_SUPPLY_RULES_QUERY_KEY, args.productId] });
+    },
+    onError: (error) =>
+      enqueueSnackbar(errorMessage(error, 'No se pudo guardar la receta'), { variant: 'error' }),
   });
 };
 
