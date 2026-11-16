@@ -145,7 +145,7 @@ export const OrderMaterialsSection: React.FC<OrderMaterialsSectionProps> = ({ or
   const openDialog = (mode: DialogMode, group: ItemGroup | null) => {
     setMenu(null);
     setQuantity(group && mode !== 'client' ? String(group.quantity || '') : '');
-    setNote(mode === 'client' ? CLIENT_NOTE_DEFAULT : '');
+    setNote('');
     setItemId(group?.orderItemId ?? items[0]?.id ?? '');
     setSupplyId('');
     setDialog({ mode, group });
@@ -156,7 +156,8 @@ export const OrderMaterialsSection: React.FC<OrderMaterialsSectionProps> = ({ or
     if (!dialog) return;
     const { mode, group } = dialog;
     const qty = parseCurrencyInput(quantity, 4);
-    const cleanNote = note.trim() || undefined;
+    // «Lo puso el cliente» exige motivo: si lo dejan vacío se guarda el texto sugerido.
+    const cleanNote = note.trim() || (mode === 'client' ? CLIENT_NOTE_DEFAULT : undefined);
     if (mode === 'swap' && group?.orderItemId) {
       await swapMutation.mutateAsync({
         orderItemId: group.orderItemId,
@@ -208,7 +209,7 @@ export const OrderMaterialsSection: React.FC<OrderMaterialsSectionProps> = ({ or
   const saving = correctMutation.isPending || swapMutation.isPending;
   const canSubmit =
     mode === 'client'
-      ? note.trim().length > 0
+      ? true
       : mode === 'swap'
         ? !!supplyId
         : mode === 'add'
@@ -401,6 +402,8 @@ export const OrderMaterialsSection: React.FC<OrderMaterialsSectionProps> = ({ or
                 label={mode === 'swap' ? 'Cantidad usada (opcional)' : 'Cantidad usada'}
                 value={formatCurrencyInput(quantity, 4)}
                 onChange={(e) => setQuantity(sanitizeCurrencyInput(e.target.value, 4))}
+                // Viene prellenada: al enfocar se selecciona para que lo tecleado la reemplace.
+                onFocus={(e) => e.target.select()}
                 fullWidth
                 autoFocus={mode === 'correct'}
                 inputMode='decimal'
@@ -412,8 +415,11 @@ export const OrderMaterialsSection: React.FC<OrderMaterialsSectionProps> = ({ or
               label={mode === 'client' ? 'Motivo' : 'Observación (opcional)'}
               value={note}
               onChange={(e) => setNote(e.target.value)}
+              placeholder={mode === 'client' ? CLIENT_NOTE_DEFAULT : undefined}
+              helperText={mode === 'client' ? `Vacío = «${CLIENT_NOTE_DEFAULT}»` : undefined}
+              // Etiqueta siempre arriba: si no, el texto sugerido solo se ve con el foco.
+              InputLabelProps={mode === 'client' ? { shrink: true } : undefined}
               fullWidth
-              required={mode === 'client'}
               autoFocus={mode === 'client'}
               inputProps={{ maxLength: 300 }}
             />

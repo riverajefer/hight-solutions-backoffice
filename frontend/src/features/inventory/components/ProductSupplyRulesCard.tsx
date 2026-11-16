@@ -141,6 +141,10 @@ export const ProductSupplyRulesCard: React.FC<ProductSupplyRulesCardProps> = ({ 
                   label='Por unidad vendida'
                   value={formatCurrencyInput(d.factor, 4)}
                   onChange={(e) => update(d.key, { factor: sanitizeCurrencyInput(e.target.value, 4) })}
+                  // Al entrar al campo se selecciona lo que tiene, para que lo tecleado lo reemplace
+                  // (con el cursor al final, 0,9 sobre un 1 quedaba en 10,9).
+                  onFocus={(e) => e.target.select()}
+                  placeholder='Ej: 0,9'
                   disabled={!canEdit}
                   size='small'
                   inputMode='decimal'
@@ -169,7 +173,7 @@ export const ProductSupplyRulesCard: React.FC<ProductSupplyRulesCardProps> = ({ 
               size='small'
               startIcon={<AddIcon />}
               disabled={supplies.length === 0}
-              onClick={() => setDrafts((prev) => [...prev, { key: newKey(), supplyId: '', factor: '1' }])}
+              onClick={() => setDrafts((prev) => [...prev, { key: newKey(), supplyId: '', factor: '' }])}
             >
               Agregar insumo
             </Button>
