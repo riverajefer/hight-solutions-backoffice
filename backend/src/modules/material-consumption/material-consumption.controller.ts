@@ -5,7 +5,7 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../common/interfaces/auth.interface';
-import { AssignPendingDto, CorrectConsumptionDto } from './dto';
+import { AssignPendingDto, CorrectConsumptionDto, SwapConsumptionSupplyDto } from './dto';
 import { MaterialConsumptionService } from './material-consumption.service';
 
 @ApiTags('material-consumption')
@@ -43,7 +43,26 @@ export class MaterialConsumptionController {
     @Body() dto: CorrectConsumptionDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.service.correctItem(orderItemId, dto.supplyId, dto.quantity, user.id);
+    return this.service.correctItem(orderItemId, dto.supplyId, dto.quantity, user.id, dto.note);
+  }
+
+  @Put('order-items/:orderItemId/swap')
+  @RequirePermissions('manage_material_consumption')
+  @ApiOperation({ summary: 'El ítem se hizo en otro insumo: deja el de la receta en 0 y pasa la cantidad al nuevo' })
+  @ApiParam({ name: 'orderItemId', description: 'ID del ítem de la OP' })
+  swapSupply(
+    @Param('orderItemId', ParseUUIDPipe) orderItemId: string,
+    @Body() dto: SwapConsumptionSupplyDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.swapSupply(
+      orderItemId,
+      dto.fromSupplyId,
+      dto.toSupplyId,
+      dto.quantity,
+      user.id,
+      dto.note,
+    );
   }
 
   @Get('pending')

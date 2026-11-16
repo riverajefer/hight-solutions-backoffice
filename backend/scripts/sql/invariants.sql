@@ -281,6 +281,22 @@ consumos_sin_devolver AS (
   FROM material_consumptions c
   JOIN orders o ON o.id = c.order_id
   WHERE o.status = 'ANULADO' OR c.order_item_id IS NULL
+),
+
+-- Una corrección manual fija cuánto material usó el ítem (0 = lo puso el
+-- cliente). Lo cargado a ese ítem e insumo tiene que ser exactamente eso; si no,
+-- la sincronización no corrió después de corregir («Recalcular» en la OP).
+correccion_de_material_no_aplicada AS (
+  SELECT count(*) AS n,
+         count(*) FILTER (WHERE mo.updated_at >= now() - interval '30 days') AS n30
+  FROM material_overrides mo
+  JOIN order_items oi ON oi.id = mo.order_item_id
+  JOIN orders o ON o.id = oi.order_id
+  LEFT JOIN (
+    SELECT order_item_id, supply_id, sum(quantity) AS q
+    FROM material_consumptions GROUP BY order_item_id, supply_id
+  ) c ON c.order_item_id = mo.order_item_id AND c.supply_id = mo.supply_id
+  WHERE o.status <> 'ANULADO' AND COALESCE(c.q, 0) <> mo.quantity
 )
 
 -- ── Resultado ───────────────────────────────────────────────────────────────
@@ -305,6 +321,7 @@ SELECT * FROM (
   UNION ALL SELECT 'CRITICA', 'Insumos por lotes cuyo stock no es la suma de sus lotes', n, n30 FROM stock_insumo_por_lotes_descuadrado
   UNION ALL SELECT 'CRITICA', 'Rollos cuyo consumo por OP no cuadra con el kardex', n, n30 FROM consumo_de_rollo_descuadrado
   UNION ALL SELECT 'ALTA', 'Consumos de material sin devolver (OP anulada o ítem borrado)', n, n30 FROM consumos_sin_devolver
+  UNION ALL SELECT 'ALTA', 'Correcciones de material que no se aplicaron', n, n30 FROM correccion_de_material_no_aplicada
 ) resultados
 ORDER BY
   CASE WHEN ultimos_30_dias > 0 THEN 0 WHEN total > 0 THEN 1 ELSE 2 END,

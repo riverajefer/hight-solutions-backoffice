@@ -136,6 +136,39 @@ export interface OrderMaterialConsumption {
   supply: { id: string; name: string; consumptionUnit: { abbreviation: string } };
 }
 
+/** Corrección manual de un ítem × insumo. Con `quantity: 0` = no gastó (lo puso el cliente). */
+export interface OrderMaterialOverride {
+  orderItemId: string;
+  quantity: number;
+  note: string | null;
+  updatedAt: string;
+  supply: { id: string; name: string; consumptionUnit: { abbreviation: string } };
+  createdBy: { id: string; firstName: string | null; lastName: string | null } | null;
+}
+
+export interface OrderMaterials {
+  rows: OrderMaterialConsumption[];
+  overrides: OrderMaterialOverride[];
+}
+
+/** Regla de la receta: cuánto de un insumo con rollos gasta cada unidad vendida. */
+export interface ProductSupplyRule {
+  id: string;
+  supplyId: string;
+  factor: number;
+  isActive: boolean;
+  effectiveFrom: string;
+  updatedAt: string;
+  supply: {
+    id: string;
+    name: string;
+    lotPrefix: string | null;
+    trackLots: boolean;
+    isActive: boolean;
+    consumptionUnit: { abbreviation: string };
+  };
+}
+
 export interface PendingMaterialConsumption {
   id: string;
   quantity: number;
