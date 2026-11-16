@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Recetas de material — Manual de usuario</title>
+<style>
+  @page { size: A4; margin: 0; }
+  :root {
+    --navy: #181c2e;
+    --ink: #1d2233;
+    --muted: #5d6475;
+    --line: #e3e6ec;
+    --teal: #1f9fbf;
+    --teal-soft: #e8f6fa;
+    --amber: #e0951f;
+    --amber-soft: #fdf4e6;
+    --red: #d24b4b;
+    --green: #1f9d6b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  body {
+    font-family: "Inter", -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    font-size: 10.5pt;
+    line-height: 1.5;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .page {
+    width: 210mm;
+    height: 297mm;
+    position: relative;
+    overflow: hidden;
+    page-break-after: always;
+    padding: 18mm 18mm 22mm;
+  }
+  .page:last-child { page-break-after: auto; }
+  .footer {
+    position: absolute;
+    left: 18mm; right: 18mm; bottom: 10mm;
+    display: flex; justify-content: space-between;
+    font-size: 7.5pt; color: var(--muted);
+  }
+
+  /* Portada */
+  .cover { padding: 0; }
+  .cover .band {
+    background: var(--navy);
+    color: #fff;
+    height: 148mm;
+    padding: 24mm 18mm 0;
+  }
+  .cover .logo { height: 17mm; }
+  .cover .eyebrow {
+    margin-top: 34mm;
+    color: #6cc7dd;
+    letter-spacing: .14em;
+    font-size: 7.5pt;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .cover h1 { font-size: 27pt; line-height: 1.12; margin: 4mm 0 5mm; font-weight: 700; }
+  .cover .lead { color: #c7cbd6; font-size: 10.5pt; max-width: 120mm; margin: 0; }
+  .cover .cards { display: flex; gap: 7mm; padding: 14mm 18mm 0; }
+  .cover .card { flex: 1; border-top: 1.5px solid var(--teal); padding-top: 3mm; }
+  .cover .card h3 { font-size: 9.5pt; margin: 0 0 1.5mm; }
+  .cover .card p { font-size: 8.5pt; color: var(--muted); margin: 0; }
+  .cover .version {
+    position: absolute; left: 18mm; right: 18mm; bottom: 22mm;
+    border-top: 1px solid var(--line); padding-top: 3mm;
+    font-size: 8.5pt; color: var(--muted);
+  }
+
+  /* Contenido */
+  h2 {
+    display: flex; align-items: center; gap: 3mm;
+    font-size: 15pt; margin: 0 0 3mm; font-weight: 700;
+  }
+  h2 .n {
+    width: 7mm; height: 7mm; border-radius: 50%;
+    background: var(--teal); color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 9pt; flex: none;
+  }
+  h3 { font-size: 11pt; margin: 5mm 0 2mm; }
+  p { margin: 0 0 2.5mm; }
+  .section + .section { margin-top: 8mm; }
+  .toc { margin: 0 0 8mm; }
+  .toc h2 { margin-bottom: 4mm; }
+  .toc ol { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 10mm; }
+  .toc li { break-inside: avoid; }
+  .toc li {
+    display: flex; gap: 6mm; padding: 1.6mm 0;
+    border-bottom: 1px solid var(--line); font-size: 9.5pt;
+  }
+  .toc li span { color: var(--teal); font-weight: 600; width: 4mm; }
+
+  .steps { list-style: none; padding: 0; margin: 2mm 0 0; }
+  .steps li { display: flex; gap: 3mm; margin-bottom: 3mm; }
+  .steps .s {
+    flex: none; width: 5.5mm; height: 5.5mm; border-radius: 50%;
+    border: 1.3px solid var(--teal); color: var(--teal);
+    font-size: 7.5pt; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-top: .4mm;
+  }
+  .two { display: flex; gap: 7mm; align-items: flex-start; }
+  .two > .col { flex: 1; min-width: 0; }
+
+  figure { margin: 4mm 0 5mm; text-align: center; }
+  figure img {
+    max-width: 100%;
+    border-radius: 2.5mm;
+    box-shadow: 0 1.5mm 5mm rgba(24, 28, 46, .18);
+  }
+  figure figcaption { font-size: 8pt; color: var(--muted); margin-top: 2mm; }
+  .w60 img { max-width: 62%; }
+  .w75 img { max-width: 78%; }
+  .w85 img { max-width: 84%; }
+
+  .note {
+    border-left: 3px solid var(--amber); background: var(--amber-soft);
+    padding: 3mm 4mm; border-radius: 0 2mm 2mm 0;
+    font-size: 9.5pt; margin: 4mm 0;
+  }
+  .tip {
+    border-left: 3px solid var(--teal); background: var(--teal-soft);
+    padding: 3mm 4mm; border-radius: 0 2mm 2mm 0;
+    font-size: 9.5pt; margin: 4mm 0;
+  }
+  .boxes { display: flex; gap: 4mm; margin: 3mm 0; }
+  .box { flex: 1; border: 1px solid var(--line); border-radius: 2mm; padding: 3mm 3.5mm; }
+  .box b { display: block; font-size: 9.5pt; }
+  .box small { color: var(--muted); font-size: 8.5pt; }
+
+  table.t { width: 100%; border-collapse: collapse; font-size: 9pt; margin: 2mm 0 3mm; }
+  table.t th { text-align: left; font-weight: 600; color: var(--muted); font-size: 8pt;
+    text-transform: uppercase; letter-spacing: .04em; border-bottom: 1.5px solid var(--line); padding: 2mm 2mm; }
+  table.t td { border-bottom: 1px solid var(--line); padding: 2mm; vertical-align: top; }
+
+  .chip { display: inline-block; border-radius: 99px; padding: .3mm 2.6mm; font-size: 8pt; font-weight: 600; white-space: nowrap; }
+  .chip.ok { background: #d9f4ec; color: #157a52; }
+  .chip.low { background: #fde9cc; color: #a5620c; }
+  .chip.out { border: 1px solid #b9bfcc; color: #5d6475; }
+  .chip.void { background: #f9dcdc; color: #b23434; }
+  .chip.use { background: #d6f0f8; color: #137a96; }
+  .faq h3 { margin-top: 5mm; }
+</style>
+</head>
+<body>
+
+<!-- 1 · Portada -->
+<section class="page cover">
+  <div class="band">
+    <img class="logo" src="img/logo.png" alt="High Solutions">
+    <div class="eyebrow">Manual de usuario · High Solutions CRM</div>
+    <h1>Recetas de material:<br>calandra, cintas y plotter</h1>
+    <p class="lead">Cómo decirle al CRM cuánto material gasta cada producto, para que cada OP descuente sola el papel, la tela, la cinta o el banner de sus rollos, y cómo corregirlo cuando el trabajo fue distinto.</p>
+  </div>
+  <div class="cards">
+    <div class="card">
+      <h3>Para quién</h3>
+      <p>Gerencia, producción y asesores comerciales.</p>
+    </div>
+    <div class="card">
+      <h3>Qué cambia</h3>
+      <p>Cualquier producto con receta descuenta solo de sus rollos, como ya pasa con el DTF.</p>
+    </div>
+    <div class="card">
+      <h3>Antes de empezar</h3>
+      <p>Crear los insumos, registrar los rollos de bodega y cargar las recetas.</p>
+    </div>
+  </div>
+  <div class="version">Versión 1.0 · Noviembre de 2026 · Complementa el manual «Rollos DTF y consumo de material»</div>
+  <div class="footer"><span>High Solutions CRM · Recetas de material · Manual de usuario</span><span>1</span></div>
+</section>
+
+<!-- 2 · Contenido + 1 + 2 -->
+<section class="page">
+  <div class="toc">
+    <h2>Contenido</h2>
+    <ol>
+      <li><span>1</span>Qué hace esta función</li>
+      <li><span>2</span>Antes de empezar</li>
+      <li><span>3</span>Crear un insumo con rollos</li>
+      <li><span>4</span>Registrar los rollos</li>
+      <li><span>5</span>Cargar la receta de un producto</li>
+      <li><span>6</span>Cómo se descuenta en la OP</li>
+      <li><span>7</span>Corregir: lo puso el cliente</li>
+      <li><span>8</span>Se hizo en otro insumo</li>
+      <li><span>9</span>Agregar material a un ítem</li>
+      <li><span>10</span>Cambiar o quitar una receta</li>
+      <li><span>11</span>Preguntas frecuentes</li>
+    </ol>
+  </div>
+
+  <div class="section">
+    <h2><span class="n">1</span>Qué hace esta función</h2>
+    <p>Una <b>receta</b> dice cuánto material gasta <b>una unidad vendida</b> de un producto. Por ejemplo: una cinta portacarné gasta 0,90 m de cinta y un poco de papel de sublimación.</p>
+    <p>Con la receta cargada, cada vez que se vende ese producto en una OP, el CRM <b>descuenta solo</b> el material de los rollos, igual que con el DTF. Así cada OP carga con lo que de verdad gastó, y no con un rollo entero.</p>
+    <div class="boxes">
+      <div class="box"><b>Cargar</b><small>La receta del producto, una sola vez.</small></div>
+      <div class="box"><b>Vender</b><small>La OP descuenta sola cada insumo de su rollo.</small></div>
+      <div class="box"><b>Corregir</b><small>Si el cliente trajo el material o se usó otro.</small></div>
+    </div>
+    <div class="tip"><b>Ejemplo de la vida real:</b> se venden 250 cintas a un cliente, 30 a otro y 10 a otro, con 4 rollos de 100 m comprados. Cada cinta gasta 0,90 m, así que las OP se llevan <b>225 m, 27 m y 9 m</b>. En los rollos quedan 139 m para las siguientes ventas. Ya no hace falta cargar un rollo entero a cada orden.</div>
+  </div>
+
+  <div class="section">
+    <h2><span class="n">2</span>Antes de empezar</h2>
+    <p>Hay que hacer tres cosas, <b>en este orden</b>, todas desde el menú <b>Logística</b>:</p>
+    <ol class="steps">
+      <li><span class="s">1</span><div><b>Crear los insumos con rollos</b> (sección 3): papel de sublimación, cada tela, cinta, vinilo, banner…</div></li>
+      <li><span class="s">2</span><div><b>Registrar los rollos</b> que hay hoy en bodega, con su largo real (sección 4).</div></li>
+      <li><span class="s">3</span><div><b>Cargar la receta</b> de cada producto que se vende (sección 5).</div></li>
+    </ol>
+    <table class="t">
+      <tr><th>Permiso</th><th>Qué permite</th></tr>
+      <tr><td>Crear Insumos / Actualizar Insumos</td><td>Crear los insumos y marcarlos para controlarlos por rollos.</td></tr>
+      <tr><td>Registrar Rollos y Lotes</td><td>Registrar los rollos que llegan.</td></tr>
+      <tr><td>Actualizar Productos + Ver Rollos y Lotes</td><td>Cargar y cambiar las recetas.</td></tr>
+      <tr><td>Corregir Consumo de Material en OP</td><td>Las correcciones de las secciones 7, 8 y 9.</td></tr>
+    </table>
+  </div>
+  <div class="footer"><span>High Solutions CRM · Recetas de material · Manual de usuario</span><span>2</span></div>
+</section>
+
+<!-- 3 · Insumo -->
+<section class="page">
+  <div class="section">
+    <h2><span class="n">3</span>Crear un insumo con rollos</h2>
+    <p>Cada material que se compra en rollo se crea una vez como insumo.</p>
+    <ol class="steps">
+      <li><span class="s">1</span><div>Entra a <b>Logística → Insumos</b> y crea un insumo nuevo, por ejemplo <b>Papel de sublimación 1,60 m</b>.</div></li>
+      <li><span class="s">2</span><div>En <b>Unidad de Compra</b> y <b>Unidad de Consumo</b> elige <b>metro (m)</b>.</div></li>
+      <li><span class="s">3</span><div>En la parte de <b>Inventario</b>, activa <b>Controlar por rollos/lotes</b>.</div></li>
+      <li><span class="s">4</span><div>Escribe el <b>Prefijo de los rollos</b>, por ejemplo <b>PAP</b>: los rollos quedarán como PAP-0001, PAP-0002… Si quieres, cambia la <b>Alerta de inventario bajo</b> (vacío = 10 %).</div></li>
+      <li><span class="s">5</span><div>Guarda el insumo.</div></li>
+    </ol>
+    <figure class="w85">
+      <img src="img/insumo-con-rollos.png" alt="">
+      <figcaption>Insumo controlado por rollos, con prefijo PAP y alerta al 10 %.</figcaption>
+    </figure>
+    <div class="tip"><b>Crea un insumo por cada material y ancho distintos.</b> Por ejemplo, «Papel de sublimación 1,60 m» y «Papel de sublimación 1,10 m» por separado, y una tela por cada referencia. La receta y el rollo en uso van por insumo: si dos anchos comparten insumo, el CRM no sabe de cuál descontar.</div>
+    <div class="note"><b>Importante:</b> el control por rollos solo se puede activar en un insumo <b>sin stock</b>. Con rollos, el stock deja de escribirse a mano: es la suma de sus rollos.</div>
+  </div>
+  <div class="footer"><span>High Solutions CRM · Recetas de material · Manual de usuario</span><span>3</span></div>
+</section>
+
+<!-- 4 · Rollos -->
+<section class="page">
+  <div class="section">
+    <h2><span class="n">4</span>Registrar los rollos</h2>
+    <p>Se hace igual que con el DTF: en <b>Logística → Rollos y lotes</b>, botón <b>Registrar rollo</b>. Eliges el insumo, escribes el largo, la fecha y el costo (por metro o el valor total) y, si lo compraste con una OG, la amarras. El paso a paso está en la sección 3 del manual «Rollos DTF y consumo de material».</p>
+    <p>Cada insumo con rollos aparece como una tarjeta con sus metros disponibles y lo que vale ese inventario:</p>
+    <figure>
+      <img src="img/rollos-tipos.png" alt="">
+      <figcaption>Una tarjeta por insumo: banner, cinta, papel, telas y los rollos DTF.</figcaption>
+    </figure>
+    <div class="note"><b>Primero los rollos de bodega.</b> Si se vende un producto con receta y su insumo no tiene rollos registrados, la venta no se frena, pero el material queda <b>sin rollo</b> y sin costo hasta que se registre y se asigne (sección 8 del manual de DTF).</div>
+    <div class="tip"><b>El rollo en uso, por insumo.</b> Cada insumo tiene su propio rollo en uso: puede estar montado un rollo de papel, uno de tela y uno de cinta al mismo tiempo. Cuando uno se acaba, el CRM monta solo el siguiente del mismo insumo.</div>
+  </div>
+  <div class="footer"><span>High Solutions CRM · Recetas de material · Manual de usuario</span><span>4</span></div>
+</section>
+
+<!-- 5 · Receta -->
+<section class="page">
+  <div class="section">
+    <h2><span class="n">5</span>Cargar la receta de un producto</h2>
+    <p>La receta se carga en el mismo formulario del producto.</p>
+    <div class="two">
+      <div class="col">
+        <ol class="steps">
+          <li><span class="s">1</span><div>Entra a <b>Logística → Productos</b> y edita el producto, por ejemplo <b>CINTA PREMIUM</b>.</div></li>
+          <li><span class="s">2</span><div>Debajo del formulario está la tarjeta <b>Insumos que consume</b>. Haz clic en <b>Agregar insumo</b>.</div></li>
+          <li><span class="s">3</span><div>Elige el insumo y escribe cuánto gasta <b>una unidad vendida</b>, en la unidad del insumo (metros).</div></li>
+          <li><span class="s">4</span><div>Repite para cada insumo y haz clic en <b>Guardar receta</b>.</div></li>
+        </ol>
+      </div>
+      <div class="col">
+        <figure>
+          <img src="img/receta-producto.png" alt="">
+          <figcaption>Cada cinta gasta 0,90 m de cinta y 0,05 m de papel.</figcaption>
+        </figure>
+      </div>
+    </div>
+    <h3>Ejemplos</h3>
+    <table class="t">
+      <tr><th>Producto</th><th>Se vende por</th><th>Receta (por unidad vendida)</th></tr>
+      <tr><td>CINTA PREMIUM</td><td>Unidad</td><td>0,90 m de cinta + el papel de una cinta</td></tr>
+      <tr><td>CALANDRA</td><td>Metro</td><td>1 m de papel de sublimación + 1 m de tela</td></tr>
+      <tr><td>Banner 1x2 metros</td><td>Unidad</td><td>2 m de banner de 1,00 m de ancho</td></tr>
+      <tr><td>DTF UV</td><td>Metro</td><td>1 m de rollo DTF UV (ya viene cargada)</td></tr>
+    </table>
+    <div class="note"><b>Las cantidades de esta tabla son ejemplos.</b> Pon las de tu taller: cuánto papel gasta de verdad una cinta, o cuánto banner un 1x2 según el ancho del rollo. Si la cuenta no es exacta, se puede corregir en cada OP (sección 7).</div>
+    <div class="tip"><b>La tarjeta aparece al editar el producto</b>, no al crearlo: primero crea el producto y luego entra a editarlo. El botón <b>Guardar receta</b> es aparte del botón <b>Actualizar</b> del producto.</div>
+  </div>
+  <div class="footer"><span>High Solutions CRM · Recetas de material · Manual de usuario</span><span>5</span></div>
+</section>
+
+<!-- 6 · Cómo se descuenta -->
+<section class="page">
+  <div class="section">
+    <h2><span class="n">6</span>Cómo se descuenta en la OP</h2>
+    <p>No hay que hacer nada distinto al vender. Cuando una OP tiene un ítem con un producto que tiene receta, el CRM multiplica la <b>cantidad del ítem</b> por la receta y lo descuenta de los rollos. En el detalle de la OP, el panel <b>Material consumido</b> muestra cada insumo, de qué rollo salió y cuánto costó.</p>
+    <figure class="w85">
+      <img src="img/material-receta.png" alt="">
+      <figcaption>Una OP con cintas, calandra y banner: cada ítem descuenta cada insumo de su receta.</figcaption>
+    </figure>
+    <table class="t">
+      <tr><td style="width:52mm"><b>250 cintas</b></td><td>250 × 0,90 = <b>225 m de cinta</b>. Como un rollo tiene 100 m, salieron de tres rollos: 100 + 100 + 25. Además, 12,5 m de papel.</td></tr>
+      <tr><td><b>6 m de calandra</b></td><td>6 m de papel y 6 m de tela pluton.</td></tr>
+      <tr><td><b>2 banners 1x2</b></td><td>2 × 2 = 4 m de banner.</td></tr>
+    </table>
+    <p>Todo lo que ya conoces del DTF aplica igual: si se edita la cantidad se mueve solo la diferencia; si se quita el ítem o se anula la OP, el material vuelve al rollo; y si se devuelve el dinero al cliente, el material no vuelve.</p>
+  </div>
+  <div class="footer"><span>High Solutions CRM · Recetas de material · Manual de usuario</span><span>6</span></div>
+</section>
+
+<!-- 7 · Lo puso el cliente -->
+<section class="page">
+  <div class="section">
+    <h2><span class="n">7</span>Corregir: lo puso el cliente</h2>
+    <p>La receta dice lo normal, pero no siempre pasa lo normal. Cada línea del panel <b>Material consumido</b> tiene un menú (<b>⋮</b>) con estas opciones:</p>
+    <figure class="w85">
+      <img src="img/menu-acciones.png" alt="">
+      <figcaption>El menú de la línea de tela de la calandra.</figcaption>
+    </figure>
+    <table class="t">
+      <tr><td style="width:46mm"><b>Corregir cantidad</b></td><td>Se gastó más o menos de lo que dice la receta. Escribes lo real.</td></tr>
+      <tr><td><b>Lo puso el cliente</b></td><td>No se gastó de nuestros rollos: el cliente trajo la tela, el papel ya impreso, etc.</td></tr>
+      <tr><td><b>Se hizo en otro insumo</b></td><td>Se usó otra tela u otro papel (sección 8).</td></tr>
+      <tr><td><b>Volver a automático</b></td><td>Borra la corrección y vuelve a calcular con la receta. Solo aparece cuando la línea ya tiene una corrección.</td></tr>
+    </table>
+    <div class="two">
+      <div class="col">
+        <h3 style="margin-top:2mm">Lo puso el cliente</h3>
+        <ol class="steps">
+          <li><span class="s">1</span><div>En la línea del insumo, abre el menú y elige <b>Lo puso el cliente</b>.</div></li>
+          <li><span class="s">2</span><div>Escribe el <b>motivo</b> (es obligatorio), por ejemplo «El cliente trajo la tela».</div></li>
+          <li><span class="s">3</span><div>Haz clic en <b>Guardar</b>. Lo que se había descontado vuelve al rollo y la línea queda en 0 m con la marca <b>No gastó</b>.</div></li>
+        </ol>
+      </div>
+      <div class="col">
+        <figure>
+          <img src="img/lo-puso-el-cliente.png" alt="">
+          <figcaption>Solo se marca la tela: el papel sí se gastó.</figcaption>
+        </figure>
+      </div>
+    </div>
+    <div class="note"><b>Una corrección se respeta siempre.</b> Si después alguien edita la OP o cambia la cantidad, esa línea no se recalcula. Para que vuelva a la receta, usa <b>Volver a automático</b>.</div>
+  </div>
+  <div class="footer"><span>High Solutions CRM · Recetas de material · Manual de usuario</span><span>7</span></div>
+</section>
+
+<!-- 8 + 9 -->
+<section class="page">
+  <div class="section">
+    <h2><span class="n">8</span>Se hizo en otro insumo</h2>
+    <p>La receta tiene un insumo por defecto. Si el trabajo se hizo en otro (por ejemplo, la calandra se hizo en tela tifón y no en pluton), no hay que tocar la receta, solo esa OP.</p>
+    <div class="two">
+      <div class="col">
+        <ol class="steps">
+          <li><span class="s">1</span><div>En la línea del insumo de la receta, abre el menú y elige <b>Se hizo en otro insumo</b>.</div></li>
+          <li><span class="s">2</span><div>Elige el <b>insumo que se usó</b>. Solo aparecen insumos con rollos de la misma unidad, con lo que les queda.</div></li>
+          <li><span class="s">3</span><div>La <b>cantidad</b> es opcional: vacía, se pasa la misma.</div></li>
+          <li><span class="s">4</span><div>Haz clic en <b>Guardar</b>. El insumo de la receta vuelve a su rollo y queda en 0 m; el nuevo se descuenta de los suyos.</div></li>
+        </ol>
+      </div>
+      <div class="col">
+        <figure class="w85">
+          <img src="img/cambiar-insumo.png" alt="">
+          <figcaption>La calandra se hizo en tela tifón.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2><span class="n">9</span>Agregar material a un ítem</h2>
+    <p>Algunos ítems no tienen receta porque cada trabajo es distinto, como una <b>bandera a la medida</b>. Si gastaron material de un rollo, regístralo a mano.</p>
+    <div class="two">
+      <div class="col">
+        <ol class="steps">
+          <li><span class="s">1</span><div>En el panel <b>Material consumido</b>, haz clic en <b>Agregar material</b>.</div></li>
+          <li><span class="s">2</span><div>Elige el <b>ítem</b>, el <b>insumo</b> y la <b>cantidad usada</b>. La observación es opcional pero ayuda.</div></li>
+          <li><span class="s">3</span><div>Haz clic en <b>Guardar</b>. La línea queda marcada como <b>Corregido</b>.</div></li>
+        </ol>
+        <p style="font-size:9pt;color:var(--muted)">Una bandera de 1,20 × 1,80 m cabe a lo ancho de un rollo de 1,50 m, así que gasta 1,80 m de largo.</p>
+      </div>
+      <div class="col">
+        <figure class="w85">
+          <img src="img/agregar-material.png" alt="">
+          <figcaption>1,8 m de tela tifón para la bandera.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>High Solutions CRM · Recetas de material · Manual de usuario</span><span>8</span></div>
+</section>
+
+<!-- Resultado + 10 -->
+<section class="page">
+  <div class="section">
+    <p>Así queda el panel después de las correcciones: la tela de la calandra en 0 m porque la puso el cliente, y la bandera con su tela registrada a mano. El costo de material de la OP bajó de $ 470.700 a $ 430.200.</p>
+    <figure class="w75">
+      <img src="img/material-despues.png" alt="">
+      <figcaption>Las marcas <b>No gastó</b> y <b>Corregido</b> llevan debajo el motivo.</figcaption>
+    </figure>
+  </div>
+
+  <div class="section">
+    <h2><span class="n">10</span>Cambiar o quitar una receta</h2>
+    <p>Las recetas se pueden cambiar cuando quieras desde el mismo formulario del producto. Para no mover lo que ya pasó, el CRM sigue estas reglas:</p>
+    <table class="t">
+      <tr><td style="width:52mm"><b>Receta nueva</b></td><td>Solo descuenta en los ítems que se creen <b>desde ese momento</b>. Las OP viejas no se tocan, aunque alguien las edite.</td></tr>
+      <tr><td><b>Cambiar una cantidad</b></td><td>Vale para los ítems nuevos. Lo ya descontado queda con la cantidad con que se hizo.</td></tr>
+      <tr><td><b>Quitar un insumo</b></td><td>Deja de descontarse en lo nuevo, pero <b>no devuelve</b> lo que ya gastaron las OP.</td></tr>
+      <tr><td><b>Cambiar el producto de un ítem</b></td><td>Se devuelve el material de la receta anterior y se aplica la del producto nuevo.</td></tr>
+    </table>
+    <div class="tip"><b>¿Una receta tenía un error?</b> Corrígela en el producto para lo que viene. Las OP que ya se hicieron con el error se arreglan una por una con <b>Corregir cantidad</b>.</div>
+  </div>
+  <div class="footer"><span>High Solutions CRM · Recetas de material · Manual de usuario</span><span>9</span></div>
+</section>
+
+<!-- 11 · FAQ -->
+<section class="page faq">
+  <div class="section">
+    <h2><span class="n">11</span>Preguntas frecuentes</h2>
+
+    <h3>¿Qué productos descuentan de los rollos?</h3>
+    <p>Los que tienen receta. Un producto sin receta no descuenta nada solo, pero se le puede agregar material a mano (sección 9).</p>
+
+    <h3>Cargué la receta hoy. ¿Las OP de ayer descuentan?</h3>
+    <p>No. La receta empieza a contar con los ítems que se creen después de cargarla. Si una OP vieja necesita su material, agrégalo a mano.</p>
+
+    <h3>¿Y los trabajos a la medida, como un vinilo de 2 × 1 o un banner de cualquier tamaño?</h3>
+    <p>Por ahora se registran con <b>Agregar material</b> o <b>Corregir cantidad</b>, escribiendo los metros que se gastaron. Que el CRM los calcule solo es la siguiente etapa.</p>
+
+    <h3>Vendí un producto con receta y el panel dice «Pendiente».</h3>
+    <p>Ese insumo no tenía rollos con saldo. Registra el rollo y asigna la venta desde la pestaña <b>Sin rollo</b> de Rollos y lotes.</p>
+
+    <h3>¿Puedo poner en la receta tinta, ojales u otros insumos?</h3>
+    <p>Solo insumos que se controlan por rollos. Los demás insumos no entran en las recetas por ahora.</p>
+
+    <h3>¿Qué pasa si anulo la OP?</h3>
+    <p>Todo el material vuelve a sus rollos, también lo corregido a mano. Si el rollo ya se cerró, se suma a su merma.</p>
+
+    <h3>¿Quién puede cargar recetas y corregir?</h3>
+    <p>Las recetas, quien tenga <b>Actualizar Productos</b> y <b>Ver Rollos y Lotes</b>. Las correcciones en la OP, quien tenga <b>Corregir Consumo de Material en OP</b>.</p>
+  </div>
+  <div class="footer"><span>High Solutions CRM · Recetas de material · Manual de usuario</span><span>10</span></div>
+</section>
+
+</body>
+</html>
