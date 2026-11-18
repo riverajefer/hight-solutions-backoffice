@@ -264,6 +264,7 @@ export const ROUTES = {
   MACHINES: '/machines',
   PRODUCTION_PLANT: '/production-plant',
   PRODUCTION_REPORTS: '/production-reports',
+  MANUALS: '/manuales',
   AUDIT_LOGS: '/audit-logs',
   SESSION_LOGS: '/session-logs',
   SETTINGS: '/settings',

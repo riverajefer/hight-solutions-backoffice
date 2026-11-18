@@ -19,6 +19,7 @@ export const PATHS = {
   MACHINES: '/machines',
   PRODUCTION_PLANT: '/production-plant',
   PRODUCTION_REPORTS: '/production-reports',
+  MANUALS: '/manuales',
   CARGOS: '/cargos',
   CARGOS_CREATE: '/cargos/new',
   CARGOS_EDIT: '/cargos/:id/edit',

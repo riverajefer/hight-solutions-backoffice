@@ -27,6 +27,7 @@ import {
   UpdateProductDto,
 } from '../../../../types/product.types';
 import { ROUTES } from '../../../../utils/constants';
+import { ProductSupplyRulesCard } from '../../../inventory/components/ProductSupplyRulesCard';
 
 // Zod schema for validation
 const productSchema = z.object({
@@ -287,6 +288,8 @@ const ProductFormPage: React.FC = () => {
           </form>
         </CardContent>
       </Card>
+
+      {isEdit && id && <ProductSupplyRulesCard productId={id} productName={product?.name} />}
     </Box>
   );
 };
