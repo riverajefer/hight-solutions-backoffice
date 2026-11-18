@@ -64,6 +64,7 @@ import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import HistoryEduIcon from '@mui/icons-material/HistoryEdu';
 import StorefrontIcon from '@mui/icons-material/Storefront';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import { useAuthStore } from '../../store/authStore';
 import { ROUTES, PERMISSIONS } from '../../utils/constants';
 import { neonColors } from '../../theme';
@@ -542,6 +543,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, collapsed = fal
         PERMISSIONS.READ_SESSION_LOGS,
         PERMISSIONS.READ_ATTENDANCE,
       ],
+    },
+    {
+      label: 'Manuales',
+      icon: <MenuBookIcon />,
+      path: ROUTES.MANUALS,
+      permission: null,
     },
   ];
 
