@@ -26,6 +26,7 @@ const MachinesListPage = lazyWithRetry(() => import('../features/machines/pages/
 const ProductionPlantPage = lazyWithRetry(() => import('../features/work-orders/pages/ProductionPlantPage'));
 const ProductivityReportPage = lazyWithRetry(() => import('../features/work-orders/pages/ProductivityReportPage'));
 const CommercialDashboardPage = lazyWithRetry(() => import('../features/dashboard/pages/CommercialDashboardPage'));
+const ManualsPage = lazyWithRetry(() => import('../features/manuals/pages/ManualsPage'));
 const CargosListPage = lazyWithRetry(() => import('../features/cargos/pages/CargosListPage'));
 const CargoFormPage = lazyWithRetry(() => import('../features/cargos/pages/CargoFormPage'));
 const CargoDetailPage = lazyWithRetry(() => import('../features/cargos/pages/CargoDetailPage'));
@@ -175,6 +176,17 @@ const RoutesConfig: FC = () => {
             <AuthGuard>
               <MainLayout>
                 <DashboardPage />
+              </MainLayout>
+            </AuthGuard>
+          }
+        />
+
+        <Route
+          path={PATHS.MANUALS}
+          element={
+            <AuthGuard>
+              <MainLayout>
+                <ManualsPage />
               </MainLayout>
             </AuthGuard>
           }
