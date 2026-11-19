@@ -71,10 +71,16 @@ export class SupplyLotsRepository {
     if (supplyId) where.supplyId = supplyId;
     if (search?.trim()) where.code = { contains: search.trim(), mode: 'insensitive' };
 
+    // Vigentes y bajos solo de insumos activos, igual que las tarjetas del
+    // resumen: un insumo desactivado ya no se usa y sus rollos/lotes no deben
+    // aparecer como disponibles. Siguen visibles en «Todos» (y en «Histórico»
+    // cuando se cierran).
     if (view === 'active') {
       where.status = { in: ACTIVE_LOT_STATUSES };
+      where.supply = { isActive: true };
     } else if (view === 'low') {
       where.status = { in: ACTIVE_LOT_STATUSES };
+      where.supply = { isActive: true };
       // Comparación de columnas en SQL: el umbral está congelado en el lote.
       where.remainingQuantity = { lt: this.prisma.supplyLot.fields.lowStockQuantity };
     } else if (view === 'history') {
