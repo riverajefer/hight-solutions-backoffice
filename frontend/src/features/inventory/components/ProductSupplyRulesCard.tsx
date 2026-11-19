@@ -92,14 +92,14 @@ export const ProductSupplyRulesCard: React.FC<ProductSupplyRulesCardProps> = ({ 
           Insumos que consume
         </Typography>
         <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
-          Cuánto de cada insumo con rollos gasta una unidad vendida de {productName ?? 'este producto'}.
-          Al crear o editar un ítem de OP se descuenta solo del rollo en uso. Los cambios aplican a los
+          Cuánto de cada insumo con rollos o lotes gasta una unidad vendida de {productName ?? 'este producto'}.
+          Al crear o editar un ítem de OP se descuenta solo del rollo o lote en uso. Los cambios aplican a los
           ítems que se creen desde ahora; lo ya descontado no se mueve.
         </Typography>
 
         {supplies.length === 0 && !suppliesQuery.isLoading && (
           <Alert severity='info' sx={{ mb: 2 }}>
-            No hay insumos con rollos. Créalos en{' '}
+            No hay insumos con rollos o lotes. Créalos en{' '}
             <Link component={RouterLink} to={ROUTES.SUPPLIES}>Insumos</Link> marcando «Controlar por rollos/lotes».
           </Alert>
         )}

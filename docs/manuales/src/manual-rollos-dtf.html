@@ -229,8 +229,8 @@
     <div class="two">
       <div class="col">
         <ol class="steps">
-          <li><span class="s">1</span><div>Entra a <b>Logística → Rollos y lotes</b> y haz clic en <b>Registrar rollo</b>.</div></li>
-          <li><span class="s">2</span><div>Elige el <b>Tipo de rollo</b>: Rollo DTF UV o Rollo DTF Textil.</div></li>
+          <li><span class="s">1</span><div>Entra a <b>Logística → Rollos y lotes</b> y haz clic en <b>Registrar rollo o lote</b>.</div></li>
+          <li><span class="s">2</span><div>Elige el <b>Insumo</b>: Rollo DTF UV o Rollo DTF Textil. El título del formulario cambia a <b>Registrar rollo</b>.</div></li>
           <li><span class="s">3</span><div>Escribe el <b>Largo inicial</b> en metros y la <b>Fecha de ingreso</b>.</div></li>
           <li><span class="s">4</span><div>Escribe el costo como te quede más fácil: <b>Costo por m</b> o <b>Valor total</b> de la factura. El CRM calcula el otro y te muestra desde cuántos metros avisará que el rollo está bajo.</div></li>
           <li><span class="s">5</span><div>Si el rollo se compró con una OG, búscala en <b>OG de compra</b> por su número. El valor del rollo toma el total de esa línea.</div></li>
@@ -255,7 +255,7 @@
   <div class="section">
     <h2><span class="n">4</span>Ver los rollos y su estado</h2>
     <p>Arriba de la lista hay una tarjeta por tipo de rollo con los metros disponibles y lo que vale ese inventario. Al hacer clic en una tarjeta, la lista se filtra por ese tipo.</p>
-    <figure>
+    <figure class="w60">
       <img src="img/lista-rollos.png" alt="">
       <figcaption>Tarjetas por tipo, pestañas y lista de rollos vigentes.</figcaption>
     </figure>
@@ -265,7 +265,7 @@
       <tr><td><b>Bajo inventario</b></td><td>Rollos a los que les queda menos del 10 % de su largo.</td></tr>
       <tr><td><b>Histórico</b></td><td>Rollos agotados, cerrados o anulados. Nunca se borran.</td></tr>
       <tr><td><b>Todos</b></td><td>Todo lo anterior junto.</td></tr>
-      <tr><td><b>Sin rollo</b></td><td>Ventas hechas sin saldo en los rollos registrados (sección 8).</td></tr>
+      <tr><td><b>Sin asignar</b></td><td>Ventas hechas sin saldo en los rollos registrados (sección 8).</td></tr>
     </table>
     <h3>Los estados de un rollo</h3>
     <table class="t">
@@ -362,7 +362,7 @@
   <div class="section">
     <h2><span class="n">8</span>Ventas sin rollo</h2>
     <p>Si se vende DTF y los rollos registrados no tienen saldo suficiente, <b>la venta no se frena</b>. El faltante queda <b>sin rollo</b>: aparece en naranja en el panel de la OP y todavía no tiene costo.</p>
-    <p>Pasa casi siempre porque llegó un rollo que nadie registró. En la página de Rollos y lotes aparece un aviso y la pestaña <b>Sin rollo</b> muestra cada venta pendiente:</p>
+    <p>Pasa casi siempre porque llegó un rollo que nadie registró. En la página de Rollos y lotes aparece un aviso y la pestaña <b>Sin asignar</b> muestra cada venta pendiente:</p>
     <figure>
       <img src="img/sin-rollo.png" alt="">
       <figcaption>Una venta de 1,2 m de DTF UV hecha sin saldo en los rollos.</figcaption>
@@ -370,7 +370,7 @@
     <h3>Cómo resolverlo</h3>
     <ol class="steps">
       <li><span class="s">1</span><div>Registra el rollo que se usó (sección 3).</div></li>
-      <li><span class="s">2</span><div>En la pestaña <b>Sin rollo</b>, haz clic en <b>Asignar a rollos</b>. Las ventas pendientes se toman en orden de llegada, del rollo en uso primero.</div></li>
+      <li><span class="s">2</span><div>En la pestaña <b>Sin asignar</b>, haz clic en <b>Asignar a rollos</b>. Las ventas pendientes se toman en orden de llegada, del rollo en uso primero.</div></li>
       <li><span class="s">3</span><div>Si el saldo no alcanza para todas, las que falten siguen en la pestaña hasta que haya rollo.</div></li>
     </ol>
     <div class="note"><b>Importante:</b> mientras una venta esté sin rollo, la utilidad de esa OP se ve más alta de lo que es, porque su material todavía no cuenta. La rentabilidad lo marca con un aviso.</div>
@@ -439,7 +439,7 @@
     <p>No. El material se descuenta desde la OP, tenga o no OT.</p>
 
     <h3>Se vendió DTF y el panel dice «Pendiente». ¿Qué hago?</h3>
-    <p>No había saldo en los rollos registrados. Registra el rollo que se usó y asigna la venta desde la pestaña <b>Sin rollo</b> (sección 8).</p>
+    <p>No había saldo en los rollos registrados. Registra el rollo que se usó y asigna la venta desde la pestaña <b>Sin asignar</b> (sección 8).</p>
 
     <h3>El rollo físico se acabó, pero el CRM dice que le quedan metros.</h3>
     <p>Esa diferencia es merma (pruebas, reimpresiones, el final del rollo). Cierra el rollo (sección 9) y lo que le quedaba sale como merma.</p>

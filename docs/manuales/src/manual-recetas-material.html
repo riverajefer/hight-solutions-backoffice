@@ -172,7 +172,7 @@
       <p>Crear los insumos, registrar los rollos de bodega y cargar las recetas.</p>
     </div>
   </div>
-  <div class="version">Versión 1.0 · Noviembre de 2026 · Complementa el manual «Rollos DTF y consumo de material»</div>
+  <div class="version">Versión 1.1 · Noviembre de 2026 · Complementa el manual «Rollos DTF y consumo de material»</div>
   <div class="footer"><span>High Solutions CRM · Recetas de material · Manual de usuario</span><span>1</span></div>
 </section>
 
@@ -191,7 +191,8 @@
       <li><span>8</span>Se hizo en otro insumo</li>
       <li><span>9</span>Agregar material a un ítem</li>
       <li><span>10</span>Cambiar o quitar una receta</li>
-      <li><span>11</span>Preguntas frecuentes</li>
+      <li><span>11</span>Insumos por unidad: carnets</li>
+      <li><span>12</span>Preguntas frecuentes</li>
     </ol>
   </div>
 
@@ -252,7 +253,7 @@
 <section class="page">
   <div class="section">
     <h2><span class="n">4</span>Registrar los rollos</h2>
-    <p>Se hace igual que con el DTF: en <b>Logística → Rollos y lotes</b>, botón <b>Registrar rollo</b>. Eliges el insumo, escribes el largo, la fecha y el costo (por metro o el valor total) y, si lo compraste con una OG, la amarras. El paso a paso está en la sección 3 del manual «Rollos DTF y consumo de material».</p>
+    <p>Se hace igual que con el DTF: en <b>Logística → Rollos y lotes</b>, botón <b>Registrar rollo o lote</b>. Eliges el insumo, escribes el largo, la fecha y el costo (por metro o el valor total) y, si lo compraste con una OG, la amarras. El paso a paso está en la sección 3 del manual «Rollos DTF y consumo de material».</p>
     <p>Cada insumo con rollos aparece como una tarjeta con sus metros disponibles y lo que vale ese inventario:</p>
     <figure>
       <img src="img/rollos-tipos.png" alt="">
@@ -338,7 +339,7 @@
         <h3 style="margin-top:2mm">Lo puso el cliente</h3>
         <ol class="steps">
           <li><span class="s">1</span><div>En la línea del insumo, abre el menú y elige <b>Lo puso el cliente</b>.</div></li>
-          <li><span class="s">2</span><div>Escribe el <b>motivo</b> (es obligatorio), por ejemplo «El cliente trajo la tela».</div></li>
+          <li><span class="s">2</span><div>Escribe el <b>motivo</b>, por ejemplo «El cliente trajo la tela». Si lo dejas vacío, se guarda «El cliente trajo el material».</div></li>
           <li><span class="s">3</span><div>Haz clic en <b>Guardar</b>. Lo que se había descontado vuelve al rollo y la línea queda en 0 m con la marca <b>No gastó</b>.</div></li>
         </ol>
       </div>
@@ -424,10 +425,83 @@
   <div class="footer"><span>High Solutions CRM · Recetas de material · Manual de usuario</span><span>9</span></div>
 </section>
 
-<!-- 11 · FAQ -->
+<!-- 11 · Carnets (1/2) -->
+<section class="page">
+  <div class="section">
+    <h2><span class="n">11</span>Insumos por unidad: carnets</h2>
+    <p>El control por rollos no es solo para metros. Sirve para todo lo que se compra por cantidad y se gasta en los trabajos: <b>carnets, pliegos, láminas</b>. Cuando el insumo no se mide en metros, el CRM no habla de «rollo» sino de <b>lote</b>: cada compra es un lote con su cantidad y su costo.</p>
+    <p><b>Ejemplo:</b> ayer se compraron 500 carnets para marcar en rígido, antes de tener la aprobación del cliente. Hoy se crea la OP. El CRM tiene que descontar lo que se usó, llevar ese costo a la OP y mostrar lo que sobró.</p>
+
+    <h3>Paso 1 · Crear el insumo</h3>
+    <ol class="steps">
+      <li><span class="s">1</span><div>En <b>Logística → Insumos</b>, crea el insumo, por ejemplo <b>Carnet PVC blanco</b>. Un insumo por cada tipo de carnet.</div></li>
+      <li><span class="s">2</span><div>En <b>Unidad de Compra</b> y <b>Unidad de Consumo</b> elige <b>unidad (und)</b>.</div></li>
+      <li><span class="s">3</span><div>Activa <b>Controlar por rollos/lotes</b> y escribe el <b>Prefijo de los lotes</b>, por ejemplo <b>CAR</b>. Los lotes quedarán como CAR-0001, CAR-0002…</div></li>
+    </ol>
+
+    <h3>Paso 2 · Registrar la compra como un lote</h3>
+    <div class="two">
+      <div class="col">
+        <ol class="steps">
+          <li><span class="s">1</span><div>En <b>Logística → Rollos y lotes</b>, haz clic en <b>Registrar rollo o lote</b>.</div></li>
+          <li><span class="s">2</span><div>Elige el insumo <b>Carnet PVC blanco</b>. El formulario pasa a decir <b>Registrar lote</b> y <b>Cantidad inicial</b>.</div></li>
+          <li><span class="s">3</span><div>Escribe la cantidad (500) y el costo, por unidad o el valor total de la factura. Si se compró con una OG, amárrala.</div></li>
+          <li><span class="s">4</span><div>Haz clic en <b>Registrar lote</b>.</div></li>
+        </ol>
+        <p style="font-size:9pt;color:var(--muted)">No hace falta tener la OP: el lote queda en bodega hasta que se use.</p>
+      </div>
+      <div class="col">
+        <figure class="w85">
+          <img src="img/registrar-lote-carnets.png" alt="">
+          <figcaption>500 carnets por $ 250.000: el CRM calcula $ 500 por unidad.</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <h3>Paso 3 · Descontarlos en la OP</h3>
+    <p>Hay dos formas. Elige una según cómo se trabaje:</p>
+    <table class="t">
+      <tr><td style="width:46mm"><b>Con receta</b></td><td>En el producto <b>CARNET</b>, carga la receta «1 und de Carnet PVC blanco». Cada OP descuenta sola un carnet por cada uno vendido. Sirve si todos los carnets de ese producto salen del mismo insumo.</td></tr>
+      <tr><td><b>A mano</b></td><td>En la OP, panel <b>Material consumido → Agregar material</b>: eliges el ítem, el insumo y la cantidad que <b>de verdad</b> se usó, contando los dañados.</td></tr>
+    </table>
+  </div>
+  <div class="footer"><span>High Solutions CRM · Recetas de material · Manual de usuario</span><span>10</span></div>
+</section>
+
+<!-- 11 · Carnets (2/2) -->
+<section class="page">
+  <div class="section">
+    <div class="two">
+      <div class="col">
+        <figure>
+          <img src="img/agregar-carnets.png" alt="">
+          <figcaption>Se vendieron 450, pero se usaron 480: 30 se dañaron.</figcaption>
+        </figure>
+      </div>
+      <div class="col">
+        <figure>
+          <img src="img/material-carnets.png" alt="">
+          <figcaption>Los 480 salen del lote CAR-0001 y su costo ($ 240.000) entra a la rentabilidad de la OP.</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <h3>Paso 4 · Ver el sobrante</h3>
+    <p>En <b>Rollos y lotes</b>, abre el lote. <b>Disponible</b> es lo que sobró: los carnets que siguen en bodega para la próxima OP.</p>
+    <figure class="w85">
+      <img src="img/lote-carnets.png" alt="">
+      <figcaption>De 500 carnets se usaron 480; quedan 20, que valen $ 10.000.</figcaption>
+    </figure>
+    <div class="note"><b>Si el sobrante ya no sirve</b> (dañados, de un diseño que no se va a repetir), usa <b>Cerrar lote</b>: lo que quede sale del inventario como merma y no se carga a ninguna OP.</div>
+    <div class="tip"><b>Ten en cuenta:</b> el CRM descuenta del lote en uso del insumo, el más antiguo primero; no se elige una compra en particular. Si dos compras no se deben mezclar, créalas como insumos distintos. Los insumos sin control por lotes (agendas, gorras…) todavía no se descuentan contra la OP.</div>
+  </div>
+  <div class="footer"><span>High Solutions CRM · Recetas de material · Manual de usuario</span><span>11</span></div>
+</section>
+
+<!-- 12 · FAQ -->
 <section class="page faq">
   <div class="section">
-    <h2><span class="n">11</span>Preguntas frecuentes</h2>
+    <h2><span class="n">12</span>Preguntas frecuentes</h2>
 
     <h3>¿Qué productos descuentan de los rollos?</h3>
     <p>Los que tienen receta. Un producto sin receta no descuenta nada solo, pero se le puede agregar material a mano (sección 9).</p>
@@ -439,10 +513,10 @@
     <p>Por ahora se registran con <b>Agregar material</b> o <b>Corregir cantidad</b>, escribiendo los metros que se gastaron. Que el CRM los calcule solo es la siguiente etapa.</p>
 
     <h3>Vendí un producto con receta y el panel dice «Pendiente».</h3>
-    <p>Ese insumo no tenía rollos con saldo. Registra el rollo y asigna la venta desde la pestaña <b>Sin rollo</b> de Rollos y lotes.</p>
+    <p>Ese insumo no tenía rollos con saldo. Registra el rollo y asigna la venta desde la pestaña <b>Sin asignar</b> de Rollos y lotes.</p>
 
     <h3>¿Puedo poner en la receta tinta, ojales u otros insumos?</h3>
-    <p>Solo insumos que se controlan por rollos. Los demás insumos no entran en las recetas por ahora.</p>
+    <p>Solo insumos que se controlan por rollos o lotes. Los demás insumos no entran en las recetas por ahora.</p>
 
     <h3>¿Qué pasa si anulo la OP?</h3>
     <p>Todo el material vuelve a sus rollos, también lo corregido a mano. Si el rollo ya se cerró, se suma a su merma.</p>
@@ -450,7 +524,7 @@
     <h3>¿Quién puede cargar recetas y corregir?</h3>
     <p>Las recetas, quien tenga <b>Actualizar Productos</b> y <b>Ver Rollos y Lotes</b>. Las correcciones en la OP, quien tenga <b>Corregir Consumo de Material en OP</b>.</p>
   </div>
-  <div class="footer"><span>High Solutions CRM · Recetas de material · Manual de usuario</span><span>10</span></div>
+  <div class="footer"><span>High Solutions CRM · Recetas de material · Manual de usuario</span><span>12</span></div>
 </section>
 
 </body>

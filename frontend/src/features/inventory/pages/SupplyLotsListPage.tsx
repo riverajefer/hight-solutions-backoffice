@@ -33,7 +33,7 @@ import { PendingConsumptionsPanel } from '../components/PendingConsumptionsPanel
 import { SupplyLotStatusChip } from '../components/SupplyLotStatusChip';
 import { SupplyLotProgress } from '../components/SupplyLotProgress';
 import { SupplyLotFormDialog } from '../components/SupplyLotFormDialog';
-import { formatLotDate, formatLotQuantity } from '../utils/supplyLotFormat';
+import { formatLotDate, formatLotQuantity, lotTerms } from '../utils/supplyLotFormat';
 
 const VIEWS: { value: SupplyLotView; label: string }[] = [
   { value: 'active', label: 'Vigentes' },
@@ -67,8 +67,11 @@ const SummaryCard: React.FC<{
           {formatLotQuantity(summary.remainingQuantity, summary.unit.abbreviation)}
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          {summary.activeLots} rollo{summary.activeLots === 1 ? '' : 's'} vigente
-          {summary.activeLots === 1 ? '' : 's'} · {formatCurrency(summary.remainingValue)} en inventario
+          {summary.activeLots}{' '}
+          {summary.activeLots === 1
+            ? `${lotTerms(summary.unit.abbreviation).noun} vigente`
+            : `${lotTerms(summary.unit.abbreviation).plural} vigentes`}{' '}
+          · {formatCurrency(summary.remainingValue)} en inventario
         </Typography>
       </CardContent>
     </CardActionArea>
@@ -93,7 +96,7 @@ const SupplyLotsListPage: React.FC = () => {
     () => [
       {
         field: 'code',
-        headerName: 'Rollo',
+        headerName: 'Rollo / lote',
         width: 130,
         renderCell: (p: GridRenderCellParams<SupplyLot>) => (
           <Typography variant="body2" fontWeight={600}>
@@ -150,7 +153,7 @@ const SupplyLotsListPage: React.FC = () => {
       },
       {
         field: 'totalCost',
-        headerName: 'Valor rollo',
+        headerName: 'Valor',
         width: 120,
         responsive: 'md',
         valueGetter: (_v: unknown, row: SupplyLot) => formatCurrency(row.totalCost),
@@ -182,12 +185,12 @@ const SupplyLotsListPage: React.FC = () => {
     <Box>
       <PageHeader
         title="Rollos y lotes"
-        subtitle="Ingreso, saldo y estado de cada rollo de inventario"
+        subtitle="Ingreso, saldo y estado de cada rollo o lote de inventario"
         icon={<ViewInArOutlinedIcon />}
         action={
           canCreate ? (
             <Button variant="contained" startIcon={<AddIcon />} onClick={() => setFormOpen(true)}>
-              Registrar rollo
+              Registrar rollo o lote
             </Button>
           ) : undefined
         }
@@ -223,7 +226,7 @@ const SupplyLotsListPage: React.FC = () => {
             </Button>
           }
         >
-          {pending.length} consumo(s) de OP sin rollo asignado: se vendieron sin saldo en los rollos registrados.
+          {pending.length} consumo(s) de OP sin rollo o lote asignado: se vendieron sin saldo en los registrados.
         </Alert>
       )}
 
@@ -244,7 +247,7 @@ const SupplyLotsListPage: React.FC = () => {
         {VIEWS.map((v) => (
           <Tab key={v.value} value={v.value} label={v.label} />
         ))}
-        <Tab value="pending" label={`Sin rollo${pending.length ? ` (${pending.length})` : ''}`} />
+        <Tab value="pending" label={`Sin asignar${pending.length ? ` (${pending.length})` : ''}`} />
       </Tabs>
 
       {showPending ? (
@@ -256,7 +259,7 @@ const SupplyLotsListPage: React.FC = () => {
         <TextField
           select
           size="small"
-          label="Tipo de rollo"
+          label="Insumo"
           value={filters.supplyId ?? ''}
           onChange={(e) => updateFilters({ supplyId: e.target.value || undefined })}
           sx={{ minWidth: 200 }}
@@ -275,12 +278,12 @@ const SupplyLotsListPage: React.FC = () => {
         columns={columns}
         loading={lotsQuery.isLoading || lotsQuery.isFetching}
         onRowClick={(row: SupplyLot) => navigate(ROUTES.SUPPLY_LOTS_DETAIL.replace(':id', row.id))}
-        searchPlaceholder="Buscar por código de rollo..."
+        searchPlaceholder="Buscar por código..."
         serverSideSearch
         searchValue={filters.search ?? ''}
         onSearchChange={(value) => updateFilters({ search: value || undefined })}
         emptyMessage={
-          filters.view === 'history' ? 'No hay rollos agotados, cerrados ni anulados' : 'No hay rollos registrados'
+          filters.view === 'history' ? 'No hay rollos ni lotes agotados, cerrados o anulados' : 'No hay rollos ni lotes registrados'
         }
         rowCount={lotsQuery.data?.meta.total ?? 0}
         currentPage={(filters.page ?? 1) - 1}

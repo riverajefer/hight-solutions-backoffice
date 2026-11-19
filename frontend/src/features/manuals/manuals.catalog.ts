@@ -38,11 +38,11 @@ export const MANUALS: Manual[] = [
     slug: 'recetas-de-material',
     title: 'Recetas de material',
     description:
-      'Cuánto material gasta cada producto (calandra, cintas, plotter) para que cada OP descuente sola de sus rollos, y cómo corregirlo cuando el trabajo fue distinto.',
+      'Cuánto material gasta cada producto (calandra, cintas, plotter) para que cada OP descuente sola de sus rollos, cómo corregirlo cuando el trabajo fue distinto y cómo descontar insumos por unidad, como los carnets.',
     category: 'Inventario',
     audience: 'Bodega y producción',
     file: 'Manual-usuario-recetas-de-material.pdf',
-    updatedAt: '2026-11-14',
+    updatedAt: '2026-11-18',
   },
   {
     slug: 'rollos-dtf',
@@ -52,7 +52,7 @@ export const MANUALS: Manual[] = [
     category: 'Inventario',
     audience: 'Bodega y producción',
     file: 'Manual-usuario-rollos-dtf.pdf',
-    updatedAt: '2026-11-12',
+    updatedAt: '2026-11-18',
   },
   {
     slug: 'verificacion-en-dos-pasos',

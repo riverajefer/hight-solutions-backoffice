@@ -19,6 +19,7 @@ import { PERMISSIONS, ROUTES } from '../../../utils/constants';
 import { InventoryMovement, InventoryMovementType } from '../../../types';
 import { useResponsiveColumns, type ResponsiveGridColDef } from '../../../hooks';
 import { MovementTypeChip } from '../components/MovementTypeChip';
+import { lotTerms } from '../utils/supplyLotFormat';
 
 const MOVEMENT_TYPES: { value: InventoryMovementType; label: string }[] = [
   { value: 'ENTRY', label: 'Entrada' },
@@ -105,7 +106,7 @@ const InventoryMovementsListPage: React.FC = () => {
         responsive: 'md',
         valueGetter: (_v: any, row: InventoryMovement) =>
           row.lot
-            ? `Rollo ${row.lot.code}`
+            ? `${lotTerms(row.supply?.consumptionUnit?.abbreviation).Noun} ${row.lot.code}`
             : row.referenceType === 'WORK_ORDER'
               ? `OT`
               : (row.referenceType ?? '—'),

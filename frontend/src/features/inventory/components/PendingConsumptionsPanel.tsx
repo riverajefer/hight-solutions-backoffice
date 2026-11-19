@@ -19,7 +19,7 @@ import { useAuthStore } from '../../../store/authStore';
 import { PERMISSIONS, ROUTES } from '../../../utils/constants';
 import { PendingMaterialConsumption } from '../../../types';
 import { useAssignPending } from '../hooks/useSupplyLots';
-import { formatLotDate, formatLotQuantity } from '../utils/supplyLotFormat';
+import { formatLotDate, formatLotQuantity, lotTerms } from '../utils/supplyLotFormat';
 
 /**
  * Bandeja de consumos vendidos sin saldo en los rollos registrados. La venta no
@@ -48,21 +48,21 @@ export const PendingConsumptionsPanel: React.FC<{ rows: PendingMaterialConsumpti
   }, [rows]);
 
   if (rows.length === 0) {
-    return <Alert severity="success">No hay consumos sin rollo: todo el material vendido salió de un rollo registrado.</Alert>;
+    return <Alert severity="success">No hay consumos sin asignar: todo el material vendido salió de un rollo o lote registrado.</Alert>;
   }
 
   return (
     <Stack spacing={2}>
       <Alert severity="info">
-        Estas ventas se hicieron sin saldo en los rollos registrados. Registra el rollo que se usó y
-        luego «Asignar a rollos»: se toman en orden de llegada, del rollo en uso primero.
+        Estas ventas se hicieron sin saldo en los rollos o lotes registrados. Registra el rollo o lote
+        que se usó y luego «Asignar»: se toman en orden de llegada, del que está en uso primero.
       </Alert>
       {bySupply.map(([supplyId, g]) => (
         <Card key={supplyId} variant="outlined">
           <CardContent>
             <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} spacing={1} sx={{ mb: 1 }}>
               <Typography variant="subtitle1" fontWeight={600}>
-                {g.name} · {formatLotQuantity(g.total, g.unit)} sin rollo
+                {g.name} · {formatLotQuantity(g.total, g.unit)} sin {lotTerms(g.unit).noun}
               </Typography>
               {canAssign && (
                 <LoadingButton
@@ -72,7 +72,7 @@ export const PendingConsumptionsPanel: React.FC<{ rows: PendingMaterialConsumpti
                   disabled={assignMutation.isPending}
                   onClick={() => assignMutation.mutate(supplyId)}
                 >
-                  Asignar a rollos
+                  Asignar a {lotTerms(g.unit).plural}
                 </LoadingButton>
               )}
             </Stack>
