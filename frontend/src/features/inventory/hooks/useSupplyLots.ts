@@ -4,6 +4,11 @@ import { useSnackbar } from 'notistack';
 import { materialConsumptionApi, productSupplyRulesApi, supplyLotsApi } from '../../../api';
 import { CreateSupplyLotDto, SupplyLotFilters } from '../../../types';
 import { INVENTORY_LOW_STOCK_QUERY_KEY, INVENTORY_MOVEMENTS_QUERY_KEY, INVENTORY_VALUATION_QUERY_KEY } from './useInventory';
+import { lotTerms } from '../utils/supplyLotFormat';
+
+/** «Rollo» o «Lote» según la unidad del insumo del lote (ver `lotTerms`). */
+const nounOf = (lot: { supply?: { consumptionUnit?: { abbreviation?: string } } }) =>
+  lotTerms(lot.supply?.consumptionUnit?.abbreviation).Noun;
 
 export const SUPPLY_LOTS_QUERY_KEY = ['supply-lots'];
 export const MATERIAL_CONSUMPTION_QUERY_KEY = ['material-consumption'];
@@ -66,11 +71,11 @@ export const useCreateSupplyLot = () => {
   return useMutation({
     mutationFn: (dto: CreateSupplyLotDto) => supplyLotsApi.create(dto),
     onSuccess: (lot) => {
-      enqueueSnackbar(`Rollo ${lot.code} registrado`, { variant: 'success' });
+      enqueueSnackbar(`${nounOf(lot)} ${lot.code} registrado`, { variant: 'success' });
       invalidate();
     },
     onError: (error) =>
-      enqueueSnackbar(errorMessage(error, 'No se pudo registrar el rollo'), { variant: 'error' }),
+      enqueueSnackbar(errorMessage(error, 'No se pudo registrar el rollo o lote'), { variant: 'error' }),
   });
 };
 
@@ -80,11 +85,11 @@ export const useVoidSupplyLot = () => {
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) => supplyLotsApi.void(id, reason),
     onSuccess: (lot) => {
-      enqueueSnackbar(`Rollo ${lot.code} anulado`, { variant: 'success' });
+      enqueueSnackbar(`${nounOf(lot)} ${lot.code} anulado`, { variant: 'success' });
       invalidate();
     },
     onError: (error) =>
-      enqueueSnackbar(errorMessage(error, 'No se pudo anular el rollo'), { variant: 'error' }),
+      enqueueSnackbar(errorMessage(error, 'No se pudo anular el rollo o lote'), { variant: 'error' }),
   });
 };
 
@@ -94,11 +99,11 @@ export const useSetLotInUse = () => {
   return useMutation({
     mutationFn: (id: string) => supplyLotsApi.setInUse(id),
     onSuccess: (lot) => {
-      enqueueSnackbar(`Rollo ${lot.code} montado: de él sale el consumo de las OP`, { variant: 'success' });
+      enqueueSnackbar(`${nounOf(lot)} ${lot.code} montado: de él sale el consumo de las OP`, { variant: 'success' });
       invalidate();
     },
     onError: (error) =>
-      enqueueSnackbar(errorMessage(error, 'No se pudo montar el rollo'), { variant: 'error' }),
+      enqueueSnackbar(errorMessage(error, 'No se pudo montar el rollo o lote'), { variant: 'error' }),
   });
 };
 
@@ -108,11 +113,11 @@ export const useCloseSupplyLot = () => {
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) => supplyLotsApi.close(id, reason),
     onSuccess: (lot) => {
-      enqueueSnackbar(`Rollo ${lot.code} cerrado`, { variant: 'success' });
+      enqueueSnackbar(`${nounOf(lot)} ${lot.code} cerrado`, { variant: 'success' });
       invalidate();
     },
     onError: (error) =>
-      enqueueSnackbar(errorMessage(error, 'No se pudo cerrar el rollo'), { variant: 'error' }),
+      enqueueSnackbar(errorMessage(error, 'No se pudo cerrar el rollo o lote'), { variant: 'error' }),
   });
 };
 
@@ -138,8 +143,8 @@ export const useAssignPending = () => {
     onSuccess: ({ assigned, remaining }) => {
       enqueueSnackbar(
         remaining > 0
-          ? `${assigned} consumo(s) asignado(s); ${remaining} siguen sin rollo por falta de saldo`
-          : `${assigned} consumo(s) asignado(s) a rollos`,
+          ? `${assigned} consumo(s) asignado(s); ${remaining} siguen sin asignar por falta de saldo`
+          : `${assigned} consumo(s) asignado(s)`,
         { variant: remaining > 0 ? 'warning' : 'success' },
       );
       invalidate();
@@ -256,7 +261,7 @@ export const useLinkPurchaseLine = () => {
       supplyLotsApi.linkPurchaseLine(id, expenseOrderItemId),
     onSuccess: (lot) => {
       enqueueSnackbar(
-        lot.purchaseLine ? `Rollo amarrado a ${lot.purchaseLine.ogNumber}` : 'Rollo desvinculado de la OG',
+        lot.purchaseLine ? `${nounOf(lot)} amarrado a ${lot.purchaseLine.ogNumber}` : `${nounOf(lot)} desvinculado de la OG`,
         { variant: 'success' },
       );
       invalidate();

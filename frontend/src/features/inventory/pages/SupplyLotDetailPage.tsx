@@ -49,7 +49,7 @@ import {
   useSupplyLot,
   useVoidSupplyLot,
 } from '../hooks/useSupplyLots';
-import { formatLotDate, formatLotQuantity, formatLotUser } from '../utils/supplyLotFormat';
+import { formatLotDate, formatLotQuantity, formatLotUser, lotTerms } from '../utils/supplyLotFormat';
 
 const Metric: React.FC<{ label: string; value: React.ReactNode; hint?: React.ReactNode }> = ({
   label,
@@ -124,11 +124,13 @@ const SupplyLotDetailPage: React.FC = () => {
 
   if (lotQuery.isLoading) return <LoadingSpinner />;
   if (lotQuery.isError || !lotQuery.data) {
-    return <Alert severity="error">No se pudo cargar el rollo.</Alert>;
+    return <Alert severity="error">No se pudo cargar el rollo o lote.</Alert>;
   }
 
   const lot = lotQuery.data;
   const unit = lot.supply.consumptionUnit.abbreviation;
+  // «Rollo» si se mide en metros; «lote» para carnets, pliegos, m²…
+  const t = lotTerms(unit);
   const isActive = lot.status === 'AVAILABLE' || lot.status === 'IN_USE';
   const canVoid = canManage && isActive && lot.consumedQuantity === 0 && lot.movements.length <= 1;
   const canMount = canManage && lot.status === 'AVAILABLE' && lot.remainingQuantity > 0;
@@ -138,7 +140,7 @@ const SupplyLotDetailPage: React.FC = () => {
   return (
     <Box>
       <PageHeader
-        title={`Rollo ${lot.code}`}
+        title={`${t.Noun} ${lot.code}`}
         subtitle={lot.supply.name}
         icon={<ViewInArOutlinedIcon />}
         badge={
@@ -162,14 +164,14 @@ const SupplyLotDetailPage: React.FC = () => {
                 startIcon={<PlayCircleOutlineIcon />}
                 loading={inUseMutation.isPending}
                 onClick={() => inUseMutation.mutate(lot.id)}
-                tooltip="El consumo de las OP sale primero de este rollo"
+                tooltip={`El consumo de las OP sale primero de este ${t.noun}`}
               >
                 Montar
               </LoadingButton>
             )}
             {canManage && isActive && (
               <Button variant="outlined" startIcon={<StopCircleOutlinedIcon />} onClick={() => setCloseOpen(true)}>
-                Cerrar rollo
+                Cerrar {t.noun}
               </Button>
             )}
             {canVoid && (
@@ -184,18 +186,18 @@ const SupplyLotDetailPage: React.FC = () => {
       {lot.displayStatus === 'LOW' && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           Quedan {formatLotQuantity(lot.remainingQuantity, unit)}: menos del umbral de alerta (
-          {formatLotQuantity(lot.lowStockQuantity, unit)}). Prepara el siguiente rollo.
+          {formatLotQuantity(lot.lowStockQuantity, unit)}). Prepara el siguiente {t.noun}.
         </Alert>
       )}
       {lot.status === 'VOIDED' && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          Rollo anulado el {formatLotDate(lot.depletedAt)}. Motivo: {lot.voidReason}
+          {t.Noun} anulado el {formatLotDate(lot.depletedAt)}. Motivo: {lot.voidReason}
         </Alert>
       )}
 
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid item xs={6} md={3}>
-          <Metric label="Largo inicial" value={formatLotQuantity(lot.initialQuantity, unit)} />
+          <Metric label={t.initialLabel} value={formatLotQuantity(lot.initialQuantity, unit)} />
         </Grid>
         <Grid item xs={6} md={3}>
           <Metric
@@ -229,7 +231,7 @@ const SupplyLotDetailPage: React.FC = () => {
       <Card variant="outlined" sx={{ mb: 2 }}>
         <CardContent>
           <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-            Información del rollo
+            Información del {t.noun}
           </Typography>
           <InfoRow label="Tipo" value={lot.supply.name} />
           <InfoRow label="Fecha de ingreso" value={formatLotDate(lot.receivedAt)} />
@@ -272,7 +274,7 @@ const SupplyLotDetailPage: React.FC = () => {
         <Card variant="outlined" sx={{ mb: 2 }}>
           <CardContent>
             <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-              Rentabilidad del rollo
+              Rentabilidad del {t.noun}
             </Typography>
             <Grid container spacing={2}>
               <Grid item xs={6} md={3}>
@@ -305,8 +307,8 @@ const SupplyLotDetailPage: React.FC = () => {
               </Grid>
             </Grid>
             <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-              La venta de cada ítem se reparte por los metros que salieron de este rollo; un ítem que usó dos
-              rollos no se cuenta dos veces. Es la ganancia sobre el material, no la utilidad neta de las OP.
+              La venta de cada ítem se reparte por {t.isRoll ? 'los metros' : 'la cantidad'} que salió de este {t.noun}; un ítem
+              que usó dos {t.plural} no se cuenta dos veces. Es la ganancia sobre el material, no la utilidad neta de las OP.
             </Typography>
           </CardContent>
         </Card>
@@ -315,11 +317,11 @@ const SupplyLotDetailPage: React.FC = () => {
       <Card variant="outlined" sx={{ mb: 2 }}>
         <CardContent>
           <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-            Órdenes que consumieron de este rollo
+            Órdenes que consumieron de este {t.noun}
           </Typography>
           {consumptions.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
-              Ninguna OP tiene material cargado a este rollo.
+              Ninguna OP tiene material cargado a este {t.noun}.
             </Typography>
           ) : (
             <TableContainer>
@@ -366,7 +368,7 @@ const SupplyLotDetailPage: React.FC = () => {
       <Card variant="outlined">
         <CardContent>
           <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-            Movimientos del rollo
+            Movimientos del {t.noun}
           </Typography>
           <TableContainer>
             <Table size="small">
@@ -411,10 +413,10 @@ const SupplyLotDetailPage: React.FC = () => {
       </Card>
 
       <Dialog open={linkOpen} onClose={() => setLinkOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>OG de compra del rollo {lot.code}</DialogTitle>
+        <DialogTitle>OG de compra del {t.noun} {lot.code}</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>
-            La línea amarrada deja de sumar como gasto en la rentabilidad de la OP: el costo del rollo ya entra
+            La línea amarrada deja de sumar como gasto en la rentabilidad de la OP: el costo del {t.noun} ya entra
             por el material que consume cada OP.
           </DialogContentText>
           <PurchaseLinePicker value={linkLine} onChange={setLinkLine} />
@@ -450,10 +452,13 @@ const SupplyLotDetailPage: React.FC = () => {
       </Dialog>
 
       <Dialog open={closeOpen} onClose={() => setCloseOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Cerrar rollo {lot.code}</DialogTitle>
+        <DialogTitle>Cerrar {t.noun} {lot.code}</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>
-            Ciérralo cuando el rollo ya no sirva (se acabó, el final no alcanza para imprimir). Lo que
+            {t.isRoll
+              ? 'Ciérralo cuando el rollo ya no sirva (se acabó, el final no alcanza para imprimir).'
+              : 'Ciérralo cuando al lote no le quede nada útil (se acabó, lo que sobra está dañado).'}{' '}
+            Lo que
             el sistema le ve —{formatLotQuantity(lot.remainingQuantity, unit)}, {formatCurrency(lot.remainingValue)}— sale
             del inventario como merma y no se carga a ninguna OP.
           </DialogContentText>
@@ -466,7 +471,7 @@ const SupplyLotDetailPage: React.FC = () => {
             multiline
             minRows={2}
             autoFocus
-            helperText="Mínimo 5 caracteres (p. ej. fin del rollo, pruebas de color)"
+            helperText={`Mínimo 5 caracteres (p. ej. ${t.isRoll ? 'fin del rollo, pruebas de color' : 'piezas dañadas, sobrante sin uso'})`}
           />
         </DialogContent>
         <DialogActions>
@@ -477,17 +482,17 @@ const SupplyLotDetailPage: React.FC = () => {
             disabled={closeReason.trim().length < 5}
             onClick={confirmClose}
           >
-            Cerrar rollo
+            Cerrar {t.noun}
           </LoadingButton>
         </DialogActions>
       </Dialog>
 
       <Dialog open={voidOpen} onClose={() => setVoidOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Anular rollo {lot.code}</DialogTitle>
+        <DialogTitle>Anular {t.noun} {lot.code}</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>
-            Úsalo solo si el rollo se registró por error. Sus{' '}
-            {formatLotQuantity(lot.remainingQuantity, unit)} salen del inventario y el rollo queda en el
+            Úsalo solo si el {t.noun} se registró por error. Sus{' '}
+            {formatLotQuantity(lot.remainingQuantity, unit)} salen del inventario y el {t.noun} queda en el
             histórico como anulado; no se borra.
           </DialogContentText>
           <TextField
@@ -511,7 +516,7 @@ const SupplyLotDetailPage: React.FC = () => {
             disabled={voidReason.trim().length < 5}
             onClick={confirmVoid}
           >
-            Anular rollo
+            Anular {t.noun}
           </LoadingButton>
         </DialogActions>
       </Dialog>
