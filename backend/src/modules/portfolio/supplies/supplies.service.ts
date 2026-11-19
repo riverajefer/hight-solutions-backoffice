@@ -7,6 +7,7 @@ import { CreateSupplyDto, UpdateSupplyDto } from './dto';
 import { SuppliesRepository } from './supplies.repository';
 import { PrismaService } from '../../../database/prisma.service';
 import { InventoryMovementType, Prisma } from '../../../generated/prisma';
+import { ACTIVE_LOT_STATUSES } from '../../../common/utils/supply-lot-stock.util';
 
 @Injectable()
 export class SuppliesService {
@@ -300,6 +301,35 @@ export class SuppliesService {
     return data;
   }
 
+  private async assertNoLotsWithBalance(supply: {
+    id: string;
+    name: string;
+    consumptionUnit?: { abbreviation?: string | null } | null;
+  }) {
+    const open = await this.prisma.supplyLot.aggregate({
+      where: {
+        supplyId: supply.id,
+        status: { in: ACTIVE_LOT_STATUSES },
+        remainingQuantity: { gt: 0 },
+      },
+      _count: { _all: true },
+      _sum: { remainingQuantity: true },
+    });
+    const count = open._count._all;
+    if (count === 0) return;
+
+    const unit = supply.consumptionUnit?.abbreviation ?? '';
+    const isRoll = unit.trim().toLowerCase() === 'm';
+    const noun = isRoll ? (count === 1 ? 'rollo' : 'rollos') : count === 1 ? 'lote' : 'lotes';
+    const remaining = Number(open._sum.remainingQuantity ?? 0).toLocaleString('es-CO', {
+      maximumFractionDigits: 2,
+    });
+    throw new BadRequestException(
+      `No se puede eliminar «${supply.name}»: tiene ${count} ${noun} con saldo (${remaining}${unit ? ` ${unit}` : ''}). ` +
+        `${count === 1 ? 'Úsalo o ciérralo' : 'Úsalos o ciérralos'} primero desde Rollos y lotes.`,
+    );
+  }
+
   private async assertLotPrefixAvailable(lotPrefix: string | null, excludeId?: string) {
     if (!lotPrefix) return;
     const taken = await this.prisma.supply.findFirst({
@@ -321,7 +351,12 @@ export class SuppliesService {
    */
   async remove(id: string) {
     // Verificar que existe
-    await this.findOne(id);
+    const supply = await this.findOne(id);
+
+    // Un insumo con rollos/lotes con saldo no se desactiva: ese inventario sigue
+    // en bodega y dejaría de verse en «Rollos y lotes» (las vistas de vigentes
+    // solo muestran insumos activos). Primero se usan o se cierran.
+    await this.assertNoLotsWithBalance(supply);
 
     // TODO: En el futuro, verificar que no esté siendo usado en otros módulos
     // (órdenes de trabajo, producción, etc.)

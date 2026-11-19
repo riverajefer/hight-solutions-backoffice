@@ -8,7 +8,10 @@ import { Prisma } from '../../../generated/prisma';
 const mockPrisma: any = {
   $transaction: jest.fn(),
   inventoryMovement: { create: jest.fn() },
+  supplyLot: { aggregate: jest.fn(), count: jest.fn() },
 };
+// Sin lotes con saldo por defecto: `remove` solo bloquea cuando los hay.
+const noOpenLots = { _count: { _all: 0 }, _sum: { remainingQuantity: null } };
 // La transacción ejecuta el callback con el mismo mock, así el servicio ve un
 // `tx` funcional.
 const runTransaction = (cb: any) => cb(mockPrisma);
@@ -65,6 +68,7 @@ describe('SuppliesService', () => {
   afterEach(() => {
     jest.clearAllMocks();
     mockPrisma.$transaction.mockImplementation(runTransaction);
+    mockPrisma.supplyLot.aggregate.mockResolvedValue(noOpenLots);
   });
 
   // ─────────────────────────────────────────────
@@ -436,6 +440,38 @@ describe('SuppliesService', () => {
 
       await expect(service.remove('bad-id')).rejects.toThrow(NotFoundException);
       expect(mockSuppliesRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('no desactiva un insumo con lotes con saldo y dice cuántos y cuánto', async () => {
+      mockSuppliesRepository.findById.mockResolvedValue(mockSupply);
+      mockPrisma.supplyLot.aggregate.mockResolvedValue({
+        _count: { _all: 2 },
+        _sum: { remainingQuantity: 37.5 },
+      });
+
+      await expect(service.remove('supply-1')).rejects.toThrow(
+        'tiene 2 lotes con saldo (37,5 L)',
+      );
+      expect(mockSuppliesRepository.update).not.toHaveBeenCalled();
+      expect(mockPrisma.supplyLot.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ supplyId: 'supply-1', remainingQuantity: { gt: 0 } }),
+        }),
+      );
+    });
+
+    it('habla de «rollo» cuando el insumo se mide en metros', async () => {
+      mockSuppliesRepository.findById.mockResolvedValue({
+        ...mockSupply,
+        consumptionUnit: { id: 'unit-m', name: 'metro', abbreviation: 'm' },
+      });
+      mockPrisma.supplyLot.aggregate.mockResolvedValue({
+        _count: { _all: 1 },
+        _sum: { remainingQuantity: 10 },
+      });
+
+      await expect(service.remove('supply-1')).rejects.toThrow(BadRequestException);
+      await expect(service.remove('supply-1')).rejects.toThrow('tiene 1 rollo con saldo (10 m)');
     });
   });
 });
