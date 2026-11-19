@@ -27,7 +27,7 @@ import { formatCurrency } from '../../../utils/formatters';
 import { PurchaseLineCandidate, SupplyLotSummary } from '../../../types';
 import { PurchaseLinePicker } from './PurchaseLinePicker';
 import { useCreateSupplyLot } from '../hooks/useSupplyLots';
-import { formatLotQuantity } from '../utils/supplyLotFormat';
+import { formatLotQuantity, lotTerms } from '../utils/supplyLotFormat';
 
 type CostMode = 'unit' | 'total';
 
@@ -35,8 +35,8 @@ const positive = (message: string) =>
   z.string().refine((v) => parseCurrencyInput(v) > 0, message);
 
 const schema = z.object({
-  supplyId: z.string().min(1, 'Selecciona el tipo de rollo'),
-  initialQuantity: positive('Indica el largo del rollo'),
+  supplyId: z.string().min(1, 'Selecciona el insumo'),
+  initialQuantity: positive('Indica la cantidad inicial'),
   costMode: z.enum(['unit', 'total']),
   cost: positive('Indica el costo'),
   receivedAt: z.date({ invalid_type_error: 'Fecha inválida' }).nullable().refine((d) => Boolean(d), 'Indica la fecha de ingreso'),
@@ -103,7 +103,9 @@ export const SupplyLotFormDialog: React.FC<SupplyLotFormDialogProps> = ({
   });
 
   const supply = supplies.find((s) => s.supplyId === supplyId);
-  const unit = supply?.unit.abbreviation ?? 'm';
+  const unit = supply?.unit.abbreviation ?? '';
+  // «Rollo» si el insumo se mide en metros; «lote» para carnets, pliegos, m²…
+  const terms = lotTerms(supply?.unit.abbreviation);
 
   // El otro valor se calcula en vivo: el usuario ve el total si digita el costo
   // por metro, o el costo por metro si digita el total de la factura.
@@ -112,9 +114,9 @@ export const SupplyLotFormDialog: React.FC<SupplyLotFormDialogProps> = ({
     const value = parseCurrencyInput(cost);
     if (qty <= 0 || value <= 0) return null;
     return costMode === 'unit'
-      ? { label: 'Valor total del rollo', value: formatCurrency(Math.round(value * qty * 100) / 100) }
-      : { label: `Costo por ${unit}`, value: formatCurrency(value / qty, 2) };
-  }, [initialQuantity, cost, costMode, unit]);
+      ? { label: `Valor total del ${terms.noun}`, value: formatCurrency(Math.round(value * qty * 100) / 100) }
+      : { label: `Costo por ${unit || 'unidad'}`, value: formatCurrency(value / qty, 2) };
+  }, [initialQuantity, cost, costMode, unit, terms.noun]);
 
   const submit = useSingleFlight(async (values: FormValues) => {
     const amount = parseCurrencyInput(values.cost);
@@ -132,7 +134,7 @@ export const SupplyLotFormDialog: React.FC<SupplyLotFormDialogProps> = ({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Registrar rollo</DialogTitle>
+      <DialogTitle>Registrar {terms.noun}</DialogTitle>
       <form onSubmit={handleSubmit(submit)} noValidate>
         <DialogContent>
           {supplies.length === 0 ? (
@@ -149,7 +151,7 @@ export const SupplyLotFormDialog: React.FC<SupplyLotFormDialogProps> = ({
                   <TextField
                     {...field}
                     select
-                    label="Tipo de rollo"
+                    label="Insumo"
                     required
                     error={Boolean(fieldState.error)}
                     helperText={fieldState.error?.message}
@@ -172,7 +174,7 @@ export const SupplyLotFormDialog: React.FC<SupplyLotFormDialogProps> = ({
                       {...field}
                       value={formatCurrencyInput(field.value)}
                       onChange={(e) => field.onChange(sanitizeCurrencyInput(e.target.value))}
-                      label="Largo inicial"
+                      label={terms.initialLabel}
                       required
                       fullWidth
                       inputMode="decimal"
@@ -220,7 +222,7 @@ export const SupplyLotFormDialog: React.FC<SupplyLotFormDialogProps> = ({
                       }}
                       sx={{ mb: 1 }}
                     >
-                      <ToggleButton value="unit">Costo por {unit}</ToggleButton>
+                      <ToggleButton value="unit">Costo por {unit || 'unidad'}</ToggleButton>
                       <ToggleButton value="total">Valor total</ToggleButton>
                     </ToggleButtonGroup>
                   )}
@@ -233,7 +235,7 @@ export const SupplyLotFormDialog: React.FC<SupplyLotFormDialogProps> = ({
                       {...field}
                       value={formatCurrencyInput(field.value)}
                       onChange={(e) => field.onChange(sanitizeCurrencyInput(e.target.value))}
-                      label={costMode === 'unit' ? `Costo por ${unit}` : 'Valor total de adquisición'}
+                      label={costMode === 'unit' ? `Costo por ${unit || 'unidad'}` : 'Valor total de adquisición'}
                       required
                       fullWidth
                       inputMode="decimal"
@@ -285,7 +287,7 @@ export const SupplyLotFormDialog: React.FC<SupplyLotFormDialogProps> = ({
             loading={createMutation.isPending}
             disabled={supplies.length === 0}
           >
-            Registrar rollo
+            Registrar {terms.noun}
           </LoadingButton>
         </DialogActions>
       </form>

@@ -28,6 +28,7 @@ import {
 } from '../hooks/useSupplies';
 import { useSupplyCategories } from '../../supply-categories/hooks/useSupplyCategories';
 import { useUnitsOfMeasure } from '../../units-of-measure/hooks/useUnitsOfMeasure';
+import { lotTerms } from '../../../inventory/utils/supplyLotFormat';
 import {
   CreateSupplyDto,
   UpdateSupplyDto,
@@ -142,8 +143,11 @@ const SupplyFormPage: React.FC = () => {
   });
 
   const trackLots = useWatch({ control, name: 'trackLots' });
+  const consumptionUnitId = useWatch({ control, name: 'consumptionUnitId' });
   // El backend solo deja cambiar el control por lotes sin stock ni lotes.
   const lotToggleLocked = isEdit && !!supply && Number(supply.currentStock) !== 0;
+  // «Rollo» si el insumo se consume en metros; «lote» para carnets, pliegos, m²…
+  const lt = lotTerms(unitsOfMeasure.find((u) => u.id === consumptionUnitId)?.abbreviation ?? 'm');
 
   // Populate form when editing
   useEffect(() => {
@@ -466,7 +470,7 @@ const SupplyFormPage: React.FC = () => {
                         helperText={
                           errors.currentStock?.message ||
                           (trackLots
-                            ? 'Es la suma de los rollos/lotes: se registran desde «Rollos y lotes»'
+                            ? `Es la suma de los ${lt.plural}: se registran desde «Rollos y lotes»`
                             : isEdit
                               ? 'Para corregirlo, registra un movimiento de ajuste en Inventario'
                               : 'Queda registrado como movimiento de carga inicial')
@@ -519,7 +523,9 @@ const SupplyFormPage: React.FC = () => {
                 <Typography variant="caption" color="text.secondary" display="block">
                   {lotToggleLocked
                     ? 'Solo se puede cambiar en un insumo sin stock.'
-                    : 'Cada rollo se registra con su largo y su costo, y el stock es la suma de los rollos (p. ej. rollos DTF).'}
+                    : lt.isRoll
+                      ? 'Cada rollo se registra con su largo y su costo, y el stock es la suma de los rollos (p. ej. rollos DTF).'
+                      : 'Cada compra se registra como un lote con su cantidad y su costo, y el stock es la suma de los lotes (p. ej. carnets).'}
                 </Typography>
               </Box>
 
@@ -533,7 +539,7 @@ const SupplyFormPage: React.FC = () => {
                         <TextField
                           {...field}
                           onChange={(e) => field.onChange(e.target.value.toUpperCase())}
-                          label="Prefijo de los rollos"
+                          label={`Prefijo de los ${lt.plural}`}
                           required
                           fullWidth
                           error={!!errors.lotPrefix}
@@ -555,7 +561,7 @@ const SupplyFormPage: React.FC = () => {
                           error={!!errors.lowStockPercent}
                           helperText={
                             errors.lowStockPercent?.message ||
-                            'Alerta cuando al rollo le quede menos de este % (vacío = 10 %). Aplica a los rollos que se registren desde ahora.'
+                            `Alerta cuando al ${lt.noun} le quede menos de este % (vacío = 10 %). Aplica a los ${lt.plural} que se registren desde ahora.`
                           }
                           placeholder="10"
                         />

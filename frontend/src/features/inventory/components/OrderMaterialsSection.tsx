@@ -47,7 +47,7 @@ import {
   useSwapConsumptionSupply,
   useSyncOrderMaterials,
 } from '../hooks/useSupplyLots';
-import { formatLotQuantity } from '../utils/supplyLotFormat';
+import { formatLotQuantity, lotTerms } from '../utils/supplyLotFormat';
 
 interface OrderMaterialsSectionProps {
   orderId: string;
@@ -205,6 +205,8 @@ export const OrderMaterialsSection: React.FC<OrderMaterialsSectionProps> = ({ or
   );
   const addSupply = lotSupplies.find((s) => s.supplyId === supplyId);
   const unit = mode === 'add' ? addSupply?.unit.abbreviation ?? '' : group?.unit ?? '';
+  // «Rollo» si el insumo se mide en metros; «lote» para carnets, pliegos, m²…
+  const terms = lotTerms(unit);
   const qty = parseCurrencyInput(quantity, 4);
   const saving = correctMutation.isPending || swapMutation.isPending;
   const canSubmit =
@@ -234,20 +236,20 @@ export const OrderMaterialsSection: React.FC<OrderMaterialsSectionProps> = ({ or
           <ViewInArOutlinedIcon color='action' />
           <Typography fontWeight={600}>Material consumido</Typography>
           <Chip size='small' label={formatCurrency(totalCost)} />
-          {pendingCount > 0 && <Chip size='small' color='warning' label='Sin rollo asignado' />}
+          {pendingCount > 0 && <Chip size='small' color='warning' label='Sin rollo o lote asignado' />}
         </Stack>
       </AccordionSummary>
       <AccordionDetails>
         {pendingCount > 0 && (
           <Alert severity='warning' sx={{ mb: 2 }}>
-            Parte del material se vendió sin saldo en los rollos registrados. Queda pendiente hasta
-            que se registre el rollo y se asigne desde{' '}
+            Parte del material se vendió sin saldo en los rollos o lotes registrados. Queda pendiente
+            hasta que se registre el rollo o lote y se asigne desde{' '}
             <Link component={RouterLink} to={ROUTES.SUPPLY_LOTS}>Rollos y lotes</Link>; mientras tanto no tiene costo.
           </Alert>
         )}
         {!hasData ? (
           <Typography variant='body2' color='text.secondary'>
-            Ningún ítem de esta OP tiene receta de material. Si alguno gastó un insumo con rollos
+            Ningún ítem de esta OP tiene receta de material. Si alguno gastó un insumo con rollos o lotes
             (p. ej. una bandera a la medida), regístralo con «Agregar material».
           </Typography>
         ) : (
@@ -258,7 +260,7 @@ export const OrderMaterialsSection: React.FC<OrderMaterialsSectionProps> = ({ or
                   <TableCell>Ítem</TableCell>
                   <TableCell>Material</TableCell>
                   <TableCell align='right'>Cantidad</TableCell>
-                  <TableCell>Rollo(s)</TableCell>
+                  <TableCell>Rollo o lote</TableCell>
                   <TableCell align='right'>Costo</TableCell>
                   {canCorrect && <TableCell />}
                 </TableRow>
@@ -341,10 +343,10 @@ export const OrderMaterialsSection: React.FC<OrderMaterialsSectionProps> = ({ or
 
       <Menu anchorEl={menu?.anchor} open={!!menu} onClose={() => setMenu(null)}>
         <MenuItem onClick={() => menu && openDialog('correct', menu.group)}>
-          <ListItemText primary='Corregir cantidad' secondary='Lo vendido no está en la unidad del rollo' />
+          <ListItemText primary='Corregir cantidad' secondary='Lo vendido no está en la unidad del insumo' />
         </MenuItem>
         <MenuItem onClick={() => menu && openDialog('client', menu.group)}>
-          <ListItemText primary='Lo puso el cliente' secondary='No se gastó de nuestros rollos' />
+          <ListItemText primary='Lo puso el cliente' secondary={`No se gastó de nuestros ${lotTerms(menu?.group.unit).plural}`} />
         </MenuItem>
         <MenuItem onClick={() => menu && openDialog('swap', menu.group)}>
           <ListItemText primary='Se hizo en otro insumo' secondary='P. ej. otra tela u otro papel' />
@@ -363,10 +365,10 @@ export const OrderMaterialsSection: React.FC<OrderMaterialsSectionProps> = ({ or
             {mode === 'correct' &&
               `${group?.description}: cuánto ${group?.supplyName} se usó de verdad. Úsalo cuando la cantidad vendida no está en ${group?.unit} (p. ej. stickers por unidad).`}
             {mode === 'client' &&
-              `${group?.description}: no se descuenta ${group?.supplyName} de los rollos y lo que ya salió vuelve al rollo.`}
+              `${group?.description}: no se descuenta ${group?.supplyName} de los ${terms.plural} y lo que ya salió vuelve al ${terms.noun}.`}
             {mode === 'swap' &&
-              `${group?.description}: ${group?.supplyName} vuelve al rollo y el consumo pasa al insumo que elijas.`}
-            {mode === 'add' && 'Para un ítem sin receta que gastó un insumo con rollos (p. ej. una bandera a la medida).'}
+              `${group?.description}: ${group?.supplyName} vuelve al ${terms.noun} y el consumo pasa al insumo que elijas.`}
+            {mode === 'add' && 'Para un ítem sin receta que gastó un insumo con rollos o lotes (p. ej. una bandera a la medida o carnets).'}
             {' '}Editar la OP ya no lo recalcula.
           </DialogContentText>
           <Stack spacing={2}>
@@ -386,7 +388,7 @@ export const OrderMaterialsSection: React.FC<OrderMaterialsSectionProps> = ({ or
                 fullWidth
                 helperText={
                   (mode === 'swap' ? swapTargets : lotSupplies).length === 0
-                    ? `No hay otros insumos con rollos${mode === 'swap' ? ` en ${group?.unit}` : ''}. Créalos en Insumos.`
+                    ? `No hay otros insumos con rollos o lotes${mode === 'swap' ? ` en ${group?.unit}` : ''}. Créalos en Insumos.`
                     : undefined
                 }
               >
