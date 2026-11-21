@@ -4,6 +4,7 @@ import {
   IsDateString,
   IsOptional,
   IsString,
+  Matches,
   IsArray,
   ValidateNested,
   IsNumber,
@@ -80,6 +81,7 @@ export class CreateOrderItemDto {
     example: 'Diseño de logo corporativo',
   })
   @IsString()
+  @Matches(/\S/, { message: 'La descripción del ítem no puede estar vacía' })
   description: string;
 
   @ApiProperty({

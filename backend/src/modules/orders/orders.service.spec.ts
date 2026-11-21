@@ -167,6 +167,11 @@ const mockPrisma = {
   workOrderItem: {
     findMany: jest.fn(),
     create: jest.fn(),
+    update: jest.fn(),
+  },
+  workOrderItemProductionArea: {
+    deleteMany: jest.fn(),
+    createMany: jest.fn(),
   },
   // Sin OT activa por defecto: los ítems nuevos de la OP no tienen a dónde ir.
   workOrder: {
@@ -1353,7 +1358,7 @@ describe('OrdersService', () => {
       // ítem. Con la FK en RESTRICT esto era un 500; ahora la OT pierde su ítem y
       // el borrado queda registrado para que producción pueda rastrearlo.
       mockPrisma.orderItem.findMany.mockResolvedValueOnce([
-        { id: 'item-1' },
+        { id: 'item-1', description: 'A' },
         { id: 'item-2' },
       ]);
       mockPrisma.workOrderItem.findMany.mockResolvedValue([
@@ -1386,8 +1391,76 @@ describe('OrdersService', () => {
       );
     });
 
+    it('should carry an edited description and areas to the item in the open work order', async () => {
+      // OP-2026-6117: el ítem entró en blanco y corregirlo en la OP no lo
+      // corregía en la OT. Ahora la edición se refleja.
+      mockPrisma.orderItem.findMany.mockResolvedValueOnce([
+        { id: 'item-1', description: '\n\n', productionAreas: [{ productionAreaId: 'area-1' }] },
+      ]);
+      mockPrisma.workOrderItem.findMany.mockResolvedValueOnce([
+        {
+          id: 'woi-1',
+          orderItemId: 'item-1',
+          productDescription: '\n\n',
+          workOrder: { id: 'wo-1', workOrderNumber: 'OT-2026-1118' },
+        },
+      ]);
+
+      await service.update(
+        'order-1',
+        {
+          items: [
+            { id: 'item-1', description: 'TERMO', quantity: 50, unitPrice: 16000, productionAreaIds: ['area-2'] },
+          ],
+        },
+        'user-1',
+      );
+
+      expect(mockPrisma.workOrderItem.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            orderItemId: { in: ['item-1'] },
+            workOrder: expect.objectContaining({ orderId: 'order-1' }),
+          }),
+        }),
+      );
+      expect(mockPrisma.workOrderItem.update).toHaveBeenCalledWith({
+        where: { id: 'woi-1' },
+        data: { productDescription: 'TERMO' },
+      });
+      expect(mockPrisma.workOrderItemProductionArea.deleteMany).toHaveBeenCalledWith({
+        where: { workOrderItemId: 'woi-1', productionAreaId: { in: ['area-1'] } },
+      });
+      expect(mockPrisma.workOrderItemProductionArea.createMany).toHaveBeenCalledWith({
+        data: [{ workOrderItemId: 'woi-1', productionAreaId: 'area-2' }],
+        skipDuplicates: true,
+      });
+      expect(mockAuditLogsService.logUpdate).toHaveBeenCalledWith(
+        'WorkOrderItem',
+        'woi-1',
+        { productDescription: '\n\n' },
+        expect.objectContaining({ productDescription: 'TERMO', workOrderNumber: 'OT-2026-1118' }),
+        'user-1',
+      );
+    });
+
+    it('should not touch the work order when only quantity or price change', async () => {
+      mockPrisma.orderItem.findMany.mockResolvedValueOnce([
+        { id: 'item-1', description: 'A', productionAreas: [] },
+      ]);
+
+      await service.update(
+        'order-1',
+        { items: [{ id: 'item-1', description: 'A', quantity: 9, unitPrice: 99 }] },
+        'user-1',
+      );
+
+      expect(mockPrisma.workOrderItem.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.workOrderItem.update).not.toHaveBeenCalled();
+    });
+
     it('should not look up work order items when no item is removed', async () => {
-      mockPrisma.orderItem.findMany.mockResolvedValueOnce([{ id: 'item-1' }]);
+      mockPrisma.orderItem.findMany.mockResolvedValueOnce([{ id: 'item-1', description: 'A' }]);
 
       await service.update(
         'order-1',
