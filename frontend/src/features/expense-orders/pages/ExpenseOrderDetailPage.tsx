@@ -64,6 +64,8 @@ import {
 } from '../../../utils/withholdings';
 import { PageHeader } from '../../../components/common/PageHeader';
 import ExpenseOrderCashTransferPanel from '../components/ExpenseOrderCashTransferPanel';
+import { ExpenseOrderVoidButton, ExpenseOrderVoidStatus } from '../components/ExpenseOrderVoidStatus';
+import { ExpenseOrderReductionButton, ExpenseOrderReductionStatus } from '../components/ExpenseOrderReductionStatus';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { BankSelector } from '../../../components/common/BankSelector';
 import { ApprovalQueueBar } from '../../../components/common/ApprovalQueueBar';
@@ -128,6 +130,7 @@ const STATUS_TRANSITIONS: Record<ExpenseOrderStatus, ExpenseOrderStatus[]> = {
   [ExpenseOrderStatus.ADMIN_AUTHORIZED]: [], // La segunda firma usa el botón dedicado
   [ExpenseOrderStatus.AUTHORIZED]: [],
   [ExpenseOrderStatus.PAID]: [],
+  [ExpenseOrderStatus.VOIDED]: [], // Solo por solicitud de anulación
 };
 
 const formatShortDate = (date?: string | null): string => {
@@ -594,8 +597,13 @@ export const ExpenseOrderDetailPage = () => {
     !!og.returnedForCorrectionReason &&
     (!og.cajaRejectedAt ||
       new Date(og.returnedForCorrectionAt ?? 0) > new Date(og.cajaRejectedAt));
+  // Una OG anulada no recibe comprobantes ni factura (el backend también lo bloquea).
+  const canAttachReceipt = canUpdate && og.status !== ExpenseOrderStatus.VOIDED;
   const canRegisterInvoice =
-    !isParentOrderAnulado && canUpdate && og.status !== ExpenseOrderStatus.DRAFT;
+    !isParentOrderAnulado &&
+    canUpdate &&
+    og.status !== ExpenseOrderStatus.DRAFT &&
+    og.status !== ExpenseOrderStatus.VOIDED;
 
   const availableTransitions = isParentOrderAnulado
     ? []
@@ -623,17 +631,21 @@ export const ExpenseOrderDetailPage = () => {
             { label: og.ogNumber },
           ]}
         />
-        {canDelete && isDeletable && (
-          <Button
-            startIcon={<DeleteOutlineIcon />}
-            size="small"
-            variant="outlined"
-            color="error"
-            onClick={() => setConfirmDelete(true)}
-          >
-            Eliminar OG
-          </Button>
-        )}
+        <Stack direction="row" gap={1}>
+          {canDelete && isDeletable && (
+            <Button
+              startIcon={<DeleteOutlineIcon />}
+              size="small"
+              variant="outlined"
+              color="error"
+              onClick={() => setConfirmDelete(true)}
+            >
+              Eliminar OG
+            </Button>
+          )}
+          <ExpenseOrderReductionButton og={og} />
+          {!isDeletable && <ExpenseOrderVoidButton og={og} />}
+        </Stack>
       </Stack>
 
       <ApprovalQueueBar
@@ -654,6 +666,9 @@ export const ExpenseOrderDetailPage = () => {
         color={statusConfig.color}
         sx={{ mt: 2 }}
       />
+
+      <ExpenseOrderVoidStatus og={og} />
+      <ExpenseOrderReductionStatus og={og} canRegisterRefund={canCajaAuthorize} />
 
       {/* Banner contextual según estado y rol */}
       {(() => {
@@ -1209,7 +1224,7 @@ export const ExpenseOrderDetailPage = () => {
                                 </IconButton>
                               </span>
                             </Tooltip>
-                            {canUpdate && (
+                            {canAttachReceipt && (
                               <Tooltip title="Actualizar comprobante">
                                 <IconButton
                                   size="small"
@@ -1223,7 +1238,7 @@ export const ExpenseOrderDetailPage = () => {
                               </Tooltip>
                             )}
                           </Stack>
-                        ) : canUpdate ? (
+                        ) : canAttachReceipt ? (
                           <Tooltip title="Adjuntar comprobante">
                             <IconButton
                               size="small"

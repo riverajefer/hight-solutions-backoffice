@@ -174,62 +174,68 @@ export class SupplyLotsService {
    * con un ajuste y el lote queda como `VOIDED`, sin borrarse.
    */
   async void(id: string, dto: VoidSupplyLotDto, userId: string) {
-    await this.prisma.$transaction(async (tx) => {
-      const existing = await this.repository.findById(id, tx);
-      if (!existing) throw new NotFoundException(`Lote con id ${id} no encontrado`);
+    await this.prisma.$transaction((tx) => this.voidInTransaction(tx, id, dto.reason, userId));
+    return this.findOne(id);
+  }
 
-      // Orden de bloqueo fijo (insumo → lote) para no cruzarse con el registro.
-      await this.repository.lockSupply(tx, existing.supplyId);
-      await this.repository.lockLot(tx, id);
-      const lot = await this.repository.findById(id, tx);
-      if (!lot) throw new NotFoundException(`Lote con id ${id} no encontrado`);
+  /**
+   * Lo mismo que `void`, dentro de una transacción ajena: la anulación de una
+   * OG anula sus rollos en la misma transacción que sus egresos de caja.
+   */
+  async voidInTransaction(tx: Prisma.TransactionClient, id: string, rawReason: string, userId: string) {
+    const reason = rawReason.trim();
+    const existing = await this.repository.findById(id, tx);
+    if (!existing) throw new NotFoundException(`Lote con id ${id} no encontrado`);
 
-      if (!ACTIVE_LOT_STATUSES.includes(lot.status)) {
-        throw new BadRequestException(`El lote ${lot.code} ya está ${this.statusLabel(lot.status)}`);
-      }
-      const used = await this.repository.countNonEntryMovements(tx, id);
-      if (used > 0 || !new Prisma.Decimal(lot.remainingQuantity).equals(lot.initialQuantity)) {
-        throw new BadRequestException(
-          `El lote ${lot.code} ya tiene consumos o ajustes: no se puede anular.`,
-        );
-      }
+    // Orden de bloqueo fijo (insumo → lote) para no cruzarse con el registro.
+    await this.repository.lockSupply(tx, existing.supplyId);
+    await this.repository.lockLot(tx, id);
+    const lot = await this.repository.findById(id, tx);
+    if (!lot) throw new NotFoundException(`Lote con id ${id} no encontrado`);
 
-      const quantity = new Prisma.Decimal(lot.remainingQuantity);
-      const updated = await tx.supply.update({
-        where: { id: lot.supplyId },
-        data: { currentStock: { decrement: quantity } },
-        select: { currentStock: true },
-      });
-      const newStock = new Prisma.Decimal(updated.currentStock);
+    if (!ACTIVE_LOT_STATUSES.includes(lot.status)) {
+      throw new BadRequestException(`El lote ${lot.code} ya está ${this.statusLabel(lot.status)}`);
+    }
+    const used = await this.repository.countNonEntryMovements(tx, id);
+    if (used > 0 || !new Prisma.Decimal(lot.remainingQuantity).equals(lot.initialQuantity)) {
+      throw new BadRequestException(
+        `El lote ${lot.code} ya tiene consumos o ajustes: no se puede anular.`,
+      );
+    }
 
-      await tx.inventoryMovement.create({
-        data: {
-          supplyId: lot.supplyId,
-          lotId: id,
-          type: InventoryMovementType.ADJUSTMENT,
-          quantity,
-          unitCost: lot.unitCost,
-          previousStock: newStock.add(quantity),
-          newStock,
-          referenceType: SUPPLY_LOT_REFERENCE,
-          referenceId: id,
-          reason: `Anulación del lote ${lot.code}: ${dto.reason.trim()}`,
-          performedById: userId,
-        },
-      });
+    const quantity = new Prisma.Decimal(lot.remainingQuantity);
+    const updated = await tx.supply.update({
+      where: { id: lot.supplyId },
+      data: { currentStock: { decrement: quantity } },
+      select: { currentStock: true },
+    });
+    const newStock = new Prisma.Decimal(updated.currentStock);
 
-      await tx.supplyLot.update({
-        where: { id },
-        data: {
-          status: SupplyLotStatus.VOIDED,
-          remainingQuantity: 0,
-          depletedAt: new Date(),
-          voidReason: dto.reason.trim(),
-        },
-      });
+    await tx.inventoryMovement.create({
+      data: {
+        supplyId: lot.supplyId,
+        lotId: id,
+        type: InventoryMovementType.ADJUSTMENT,
+        quantity,
+        unitCost: lot.unitCost,
+        previousStock: newStock.add(quantity),
+        newStock,
+        referenceType: SUPPLY_LOT_REFERENCE,
+        referenceId: id,
+        reason: `Anulación del lote ${lot.code}: ${reason}`,
+        performedById: userId,
+      },
     });
 
-    return this.findOne(id);
+    await tx.supplyLot.update({
+      where: { id },
+      data: {
+        status: SupplyLotStatus.VOIDED,
+        remainingQuantity: 0,
+        depletedAt: new Date(),
+        voidReason: reason,
+      },
+    });
   }
 
   /**
@@ -338,9 +344,15 @@ export class SupplyLotsService {
   private async assertPurchaseLineFree(tx: Prisma.TransactionClient, expenseOrderItemId: string) {
     const line = await tx.expenseOrderItem.findUnique({
       where: { id: expenseOrderItemId },
-      select: { supplyLot: { select: { code: true } } },
+      select: {
+        supplyLot: { select: { code: true } },
+        expenseOrder: { select: { ogNumber: true, status: true } },
+      },
     });
     if (!line) throw new NotFoundException('La línea de OG no existe');
+    if (line.expenseOrder.status === 'VOIDED') {
+      throw new BadRequestException(`La ${line.expenseOrder.ogNumber} está anulada: no compró ningún rollo.`);
+    }
     if (line.supplyLot) {
       throw new BadRequestException(`Esa línea de OG ya está amarrada al rollo ${line.supplyLot.code}.`);
     }

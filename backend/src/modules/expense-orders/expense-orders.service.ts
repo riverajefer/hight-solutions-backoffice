@@ -62,6 +62,7 @@ const ALLOWED_TRANSITIONS: Record<ExpenseOrderStatus, ExpenseOrderStatus[]> = {
   [ExpenseOrderStatus.ADMIN_AUTHORIZED]: [], // La segunda firma usa el endpoint dedicado /caja-authorize
   [ExpenseOrderStatus.AUTHORIZED]: [],
   [ExpenseOrderStatus.PAID]: [],
+  [ExpenseOrderStatus.VOIDED]: [], // Solo por solicitud de anulación (expense-order-void-requests)
 };
 
 const EDITABLE_STATUSES: ExpenseOrderStatus[] = [
@@ -1360,6 +1361,9 @@ export class ExpenseOrdersService {
         'No se puede registrar una factura electrónica en una OG en estado BORRADOR.',
       );
     }
+    if (expenseOrder.status === ExpenseOrderStatus.VOIDED) {
+      throw new BadRequestException(`La ${expenseOrder.ogNumber} está anulada.`);
+    }
 
     return this.repository.registerElectronicInvoice(id, electronicInvoiceNumber);
   }
@@ -1374,6 +1378,10 @@ export class ExpenseOrdersService {
     const expenseOrder = await this.repository.findById(id);
     if (!expenseOrder) {
       throw new NotFoundException(`OG con id ${id} no encontrada`);
+    }
+
+    if (expenseOrder.status === ExpenseOrderStatus.VOIDED) {
+      throw new BadRequestException(`La ${expenseOrder.ogNumber} está anulada.`);
     }
 
     const item = expenseOrder.items.find((i) => i.id === itemId);
