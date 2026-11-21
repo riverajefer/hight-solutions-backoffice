@@ -103,6 +103,12 @@ export class ExpenseOrdersRepository {
     returnedForCorrectionBy: {
       select: { id: true, firstName: true, lastName: true, email: true },
     },
+    voidedById: true,
+    voidedAt: true,
+    voidReason: true,
+    voidedBy: {
+      select: { id: true, firstName: true, lastName: true, email: true },
+    },
     items: {
       select: {
         id: true,

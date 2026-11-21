@@ -115,6 +115,12 @@ model User {
   reviewedVoidRequests                      CashMovementVoidRequest[]              @relation("ReviewedVoidRequests")
   requestedTransferRequests                 CashMovementTransferRequest[]          @relation("RequestedTransferRequests")
   reviewedTransferRequests                  CashMovementTransferRequest[]          @relation("ReviewedTransferRequests")
+  voidedExpenseOrders                       ExpenseOrder[]                         @relation("VoidedExpenseOrders")
+  requestedExpenseOrderVoidRequests         ExpenseOrderVoidRequest[]              @relation("RequestedExpenseOrderVoidRequests")
+  reviewedExpenseOrderVoidRequests          ExpenseOrderVoidRequest[]              @relation("ReviewedExpenseOrderVoidRequests")
+  requestedExpenseOrderReductions           ExpenseOrderReductionRequest[]         @relation("RequestedExpenseOrderReductions")
+  reviewedExpenseOrderReductions            ExpenseOrderReductionRequest[]         @relation("ReviewedExpenseOrderReductions")
+  receivedExpenseOrderRefunds               ExpenseOrderReductionRequest[]         @relation("ReceivedExpenseOrderRefunds")
   requestedRefundRequests                   RefundRequest[]                        @relation("RequestedRefundRequests")
   reviewedRefundRequests                    RefundRequest[]                        @relation("ReviewedRefundRequests")
   executedRefundRequests                    RefundRequest[]                        @relation("ExecutedRefundRequests")
@@ -1161,6 +1167,8 @@ enum ApprovalRequestType {
   ADVISOR_CHANGE
   CLIENT_ADVISOR_ASSIGNMENT
   QUOTE_RESTORE
+  EXPENSE_ORDER_VOID
+  EXPENSE_ORDER_REDUCTION
 }
 
 enum NotificationType {
@@ -1201,6 +1209,12 @@ enum NotificationType {
   CASH_TRANSFER_REQUEST_PENDING // Nueva solicitud de traslado de un movimiento a la caja de hoy
   CASH_TRANSFER_REQUEST_APPROVED // Traslado aprobado y aplicado
   CASH_TRANSFER_REQUEST_REJECTED // Traslado rechazado
+  EXPENSE_ORDER_VOID_REQUEST_PENDING // Nueva solicitud de anulación de una OG
+  EXPENSE_ORDER_VOID_REQUEST_APPROVED // Anulación de OG aprobada y aplicada
+  EXPENSE_ORDER_VOID_REQUEST_REJECTED // Anulación de OG rechazada
+  EXPENSE_ORDER_REDUCTION_PENDING // Nueva solicitud para bajar el valor de una OG pagada
+  EXPENSE_ORDER_REDUCTION_APPROVED // Valor de la OG bajado (puede quedar un reintegro pendiente)
+  EXPENSE_ORDER_REDUCTION_REJECTED // Solicitud para bajar el valor rechazada
   REFUND_REQUEST_PENDING // Nueva solicitud de devolución de dinero al cliente
   REFUND_REQUEST_APPROVED // Devolución aprobada
   AP_AUTH_REQUEST_PENDING // Nueva solicitud de autorización de Cuenta por Pagar
@@ -1696,6 +1710,7 @@ enum ExpenseOrderStatus {
   ADMIN_AUTHORIZED // Pre-autorizada por Admin (pendiente de Caja)
   AUTHORIZED // Autorizada por Caja (registra pago)
   PAID // Pagada
+  VOIDED // Anulada con aprobación del admin: sus egresos de caja se anulan y la CP queda anulada
 }
 
 model ExpenseType {
@@ -1795,20 +1810,28 @@ model ExpenseOrder {
   returnedForCorrectionAt     DateTime? @map("returned_for_correction_at")
   returnedForCorrectionReason String?   @map("returned_for_correction_reason")
 
+  // Anulación (ver ExpenseOrderVoidRequest): la OG no se borra, queda VOIDED.
+  voidedById String?   @map("voided_by_id")
+  voidedAt   DateTime? @map("voided_at")
+  voidReason String?   @map("void_reason")
+
   // Relaciones
-  expenseType             ExpenseType                 @relation(fields: [expenseTypeId], references: [id])
-  expenseSubcategory      ExpenseSubcategory          @relation(fields: [expenseSubcategoryId], references: [id])
-  workOrder               WorkOrder?                  @relation(fields: [workOrderId], references: [id])
-  machine                 Machine?                    @relation(fields: [machineId], references: [id], onDelete: SetNull)
+  expenseType             ExpenseType                    @relation(fields: [expenseTypeId], references: [id])
+  expenseSubcategory      ExpenseSubcategory             @relation(fields: [expenseSubcategoryId], references: [id])
+  workOrder               WorkOrder?                     @relation(fields: [workOrderId], references: [id])
+  machine                 Machine?                       @relation(fields: [machineId], references: [id], onDelete: SetNull)
   // La migración la creó con `RESTRICT`, no con el `SET NULL` que Prisma
   // asume por defecto en una relación opcional.
-  authorizedTo            User?                       @relation("AuthorizedExpenseOrders", fields: [authorizedToId], references: [id], onDelete: Restrict)
-  responsible             User?                       @relation("ResponsibleExpenseOrders", fields: [responsibleId], references: [id])
-  createdBy               User                        @relation("CreatedExpenseOrders", fields: [createdById], references: [id])
-  authorizedBy            User?                       @relation("ApprovedExpenseOrders", fields: [authorizedById], references: [id])
-  cajaAuthorizedBy        User?                       @relation("CajaAuthorizedExpenseOrders", fields: [cajaAuthorizedById], references: [id])
-  cajaRejectedBy          User?                       @relation("CajaRejectedExpenseOrders", fields: [cajaRejectedById], references: [id])
-  returnedForCorrectionBy User?                       @relation("ReturnedForCorrectionExpenseOrders", fields: [returnedForCorrectionById], references: [id])
+  authorizedTo            User?                          @relation("AuthorizedExpenseOrders", fields: [authorizedToId], references: [id], onDelete: Restrict)
+  responsible             User?                          @relation("ResponsibleExpenseOrders", fields: [responsibleId], references: [id])
+  createdBy               User                           @relation("CreatedExpenseOrders", fields: [createdById], references: [id])
+  authorizedBy            User?                          @relation("ApprovedExpenseOrders", fields: [authorizedById], references: [id])
+  cajaAuthorizedBy        User?                          @relation("CajaAuthorizedExpenseOrders", fields: [cajaAuthorizedById], references: [id])
+  cajaRejectedBy          User?                          @relation("CajaRejectedExpenseOrders", fields: [cajaRejectedById], references: [id])
+  returnedForCorrectionBy User?                          @relation("ReturnedForCorrectionExpenseOrders", fields: [returnedForCorrectionById], references: [id])
+  voidedBy                User?                          @relation("VoidedExpenseOrders", fields: [voidedById], references: [id])
+  voidRequests            ExpenseOrderVoidRequest[]
+  reductionRequests       ExpenseOrderReductionRequest[]
   items                   ExpenseOrderItem[]
   // Ítems de la OT a los que aplica el gasto. Vacío = gasto de toda la OT.
   workOrderItems          ExpenseOrderWorkOrderItem[]
@@ -2796,6 +2819,7 @@ model CashMovement {
   originalMovement        CashMovement?                 @relation("CounterMovement")
   linkedPayment           Payment?
   voidRequests            CashMovementVoidRequest[]
+  expenseOrderRefundOf    ExpenseOrderReductionRequest? @relation("ExpenseOrderRefundMovement")
   transferRequests        CashMovementTransferRequest[]
   refundRequest           RefundRequest?
   accountPayablePayment   AccountPayablePayment?
@@ -2851,6 +2875,97 @@ model CashMovementVoidRequest {
 /// abono registrado durante el arqueo cuyo billete quedó en la sesión
 /// siguiente. Anular no sirve: el cierre está congelado y el gasto se
 /// duplicaría. Ver docs/PROPUESTA_TRASLADO_MOVIMIENTOS_CAJA.md.
+/// Solicitud para anular una OG. La pide cualquiera que vea la OG y la aprueba
+/// un admin distinto de quien la pidió. Al aprobarse, en una transacción: anula
+/// los egresos de caja (recalculando el cierre si la sesión ya cerró), revierte
+/// los abonos de la CP y la deja CANCELLED, anula los rollos sin consumos y
+/// deja la OG en VOIDED.
+model ExpenseOrderVoidRequest {
+  id                 String            @id @default(uuid())
+  expenseOrderId     String            @map("expense_order_id")
+  requestedById      String            @map("requested_by_id")
+  reason             String
+  /// Respuesta a «¿El dinero sigue en la caja (o nunca salió)?». Nula si la OG
+  /// no tiene egresos vivos; si los tiene, solo se crea con `true`.
+  cashStayedInDrawer Boolean?          @map("cash_stayed_in_drawer")
+  status             EditRequestStatus @default(PENDING)
+
+  reviewedById String?   @map("reviewed_by_id")
+  reviewedAt   DateTime? @map("reviewed_at")
+  reviewNotes  String?   @map("review_notes")
+
+  /// Lo que se aplicó: egresos anulados, cierres recalculados (antes/después),
+  /// abonos revertidos y rollos anulados. Constancia para el admin y auditoría.
+  appliedEffect Json?     @map("applied_effect")
+  appliedAt     DateTime? @map("applied_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  expenseOrder ExpenseOrder @relation(fields: [expenseOrderId], references: [id], onDelete: Cascade)
+  requestedBy  User         @relation("RequestedExpenseOrderVoidRequests", fields: [requestedById], references: [id])
+  reviewedBy   User?        @relation("ReviewedExpenseOrderVoidRequests", fields: [reviewedById], references: [id])
+
+  @@index([expenseOrderId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("expense_order_void_requests")
+}
+
+/// Dónde está la diferencia al bajar el valor de una OG pagada.
+enum ExpenseOrderReductionMoneyLocation {
+  /// El proveedor la devuelve: Caja registra un reintegro al recibirla.
+  SUPPLIER_RETURNS
+  /// Nunca salió de la caja (Caja entregó menos): se corrige el egreso y, si esa
+  /// caja ya cerró, se recalcula su cierre.
+  NEVER_LEFT
+}
+
+/// Solicitud para bajar el valor de una OG pagada. La pide cualquiera que vea la
+/// OG y la aprueba un admin distinto de quien la pidió (decisión del cliente,
+/// 2026-11-20). La edición normal de una OG pagada solo deja subir el total.
+model ExpenseOrderReductionRequest {
+  id             String                             @id @default(uuid())
+  expenseOrderId String                             @map("expense_order_id")
+  requestedById  String                             @map("requested_by_id")
+  reason         String
+  /// Valores nuevos por ítem: [{ itemId, quantity, unitPrice }].
+  newItems       Json                               @map("new_items")
+  previousTotal  Decimal                            @map("previous_total") @db.Decimal(14, 2)
+  newTotal       Decimal                            @map("new_total") @db.Decimal(14, 2)
+  /// Lo pagado menos el valor nuevo: lo que tiene que volver a la empresa.
+  difference     Decimal                            @db.Decimal(14, 2)
+  moneyLocation  ExpenseOrderReductionMoneyLocation @map("money_location")
+  status         EditRequestStatus                  @default(PENDING)
+
+  reviewedById String?   @map("reviewed_by_id")
+  reviewedAt   DateTime? @map("reviewed_at")
+  reviewNotes  String?   @map("review_notes")
+
+  appliedEffect Json?     @map("applied_effect")
+  appliedAt     DateTime? @map("applied_at")
+
+  /// Reintegro que registra Caja cuando el proveedor devuelve el dinero
+  /// (solo SUPPLIER_RETURNS). Nulo mientras está pendiente.
+  refundMovementId   String?   @unique @map("refund_movement_id")
+  refundReceivedAt   DateTime? @map("refund_received_at")
+  refundReceivedById String?   @map("refund_received_by_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  expenseOrder     ExpenseOrder  @relation(fields: [expenseOrderId], references: [id], onDelete: Cascade)
+  requestedBy      User          @relation("RequestedExpenseOrderReductions", fields: [requestedById], references: [id])
+  reviewedBy       User?         @relation("ReviewedExpenseOrderReductions", fields: [reviewedById], references: [id])
+  refundReceivedBy User?         @relation("ReceivedExpenseOrderRefunds", fields: [refundReceivedById], references: [id])
+  refundMovement   CashMovement? @relation("ExpenseOrderRefundMovement", fields: [refundMovementId], references: [id])
+
+  @@index([expenseOrderId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("expense_order_reduction_requests")
+}
+
 model CashMovementTransferRequest {
   id                 String            @id @default(uuid())
   cashMovementId     String            @map("cash_movement_id")

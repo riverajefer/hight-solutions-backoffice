@@ -815,7 +815,9 @@ export class OrdersRepository {
         workOrders: {
           select: {
             workOrderNumber: true,
+            // Una OG anulada no es costo de la OP.
             expenseOrders: {
+              where: { status: { not: 'VOIDED' } },
               select: {
                 id: true,
                 ogNumber: true,
@@ -885,6 +887,7 @@ export class OrdersRepository {
           workOrders: {
             select: {
               expenseOrders: {
+                where: { status: { not: 'VOIDED' } },
                 select: {
                   items: { select: PROFITABILITY_EXPENSE_ITEM_SELECT },
                 },

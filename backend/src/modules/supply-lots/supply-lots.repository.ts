@@ -211,6 +211,8 @@ export class SupplyLotsRepository {
     return this.prisma.expenseOrderItem.findMany({
       where: {
         supplyLot: null,
+        // Una OG anulada no compró nada.
+        expenseOrder: { status: { not: 'VOIDED' } },
         ...(term && {
           OR: [
             { expenseOrder: { ogNumber: { contains: term, mode: 'insensitive' } } },

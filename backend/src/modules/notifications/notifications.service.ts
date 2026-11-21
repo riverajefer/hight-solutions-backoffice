@@ -191,6 +191,10 @@ export class NotificationsService {
         return target('CASH_SESSION', (await this.prisma.cashMovement.findUnique({ where: { id }, select: { cashSessionId: true } }))?.cashSessionId);
       case 'CashMovementTransferRequest':
         return target('CASH_SESSION', (await this.prisma.cashMovementTransferRequest.findUnique({ where: { id }, select: { sourceSessionId: true } }))?.sourceSessionId);
+      case 'ExpenseOrderReductionRequest':
+        return target('EXPENSE_ORDER', (await this.prisma.expenseOrderReductionRequest.findUnique({ where: { id }, select: { expenseOrderId: true } }))?.expenseOrderId);
+      case 'ExpenseOrderVoidRequest':
+        return target('EXPENSE_ORDER', (await this.prisma.expenseOrderVoidRequest.findUnique({ where: { id }, select: { expenseOrderId: true } }))?.expenseOrderId);
       case 'CashMovementVoidRequest':
         return target('CASH_SESSION', (await this.prisma.cashMovementVoidRequest.findUnique({ where: { id }, select: { cashMovement: { select: { cashSessionId: true } } } }))?.cashMovement?.cashSessionId);
 
