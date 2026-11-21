@@ -54,6 +54,10 @@ import {
   VoidPaymentDto,
 } from './dto';
 import { InitialPaymentDto } from './dto/create-order.dto';
+import {
+  diffOrderItemForWorkOrder,
+  EditedOrderItemChange,
+} from './utils/order-item-work-order-sync.util';
 import { CashSessionStatus, EditRequestStatus, OrderStatus, PaymentMethod, Prisma, WorkOrderStatus } from '../../generated/prisma';
 import {
   isValidTransition,
@@ -171,6 +175,18 @@ interface CascadedWorkOrderItem {
     workOrderNumber: string;
     status: WorkOrderStatus;
   };
+}
+
+/** Ítem de OT actualizado por una edición de su OP. Se audita tras el commit. */
+interface SyncedWorkOrderItem {
+  id: string;
+  orderItemId: string;
+  workOrderId: string;
+  workOrderNumber: string;
+  oldDescription: string;
+  newDescription?: string;
+  addedAreaIds: string[];
+  removedAreaIds: string[];
 }
 
 /**
@@ -1370,6 +1386,116 @@ export class OrdersService implements OnModuleInit {
     return propagated;
   }
 
+  /**
+   * Lleva a la OT los cambios de descripción y de áreas de producción hechos a
+   * ítems de OP que ya estaban en ella.
+   *
+   * La OT guarda su propia copia de la descripción y de las áreas; sin esto,
+   * corregir el ítem en la OP no le llegaba al taller (OP-2026-6117: el ítem
+   * entró en blanco y arreglarlo en la OP no lo arreglaba en la OT).
+   *
+   * Solo aplica lo que cambió en esta edición y las áreas van por diferencia:
+   * un área que producción agregó en la OT y la OP no conoce se queda. Mismos
+   * estados de OT que reciben ítems nuevos; una OT terminada no se toca.
+   */
+  private async syncEditedItemsToWorkOrder(
+    tx: Prisma.TransactionClient,
+    orderId: string,
+    changes: EditedOrderItemChange[],
+  ): Promise<SyncedWorkOrderItem[]> {
+    if (changes.length === 0) return [];
+
+    const workOrderItems = await tx.workOrderItem.findMany({
+      where: {
+        orderItemId: { in: changes.map((c) => c.orderItemId) },
+        workOrder: {
+          orderId,
+          status: { in: WORK_ORDER_STATUSES_RECEIVING_NEW_ITEMS },
+        },
+      },
+      select: {
+        id: true,
+        orderItemId: true,
+        productDescription: true,
+        workOrder: { select: { id: true, workOrderNumber: true } },
+      },
+    });
+
+    const synced: SyncedWorkOrderItem[] = [];
+    for (const woi of workOrderItems) {
+      const change = changes.find((c) => c.orderItemId === woi.orderItemId)!;
+
+      if (change.description !== undefined) {
+        await tx.workOrderItem.update({
+          where: { id: woi.id },
+          data: { productDescription: change.description },
+        });
+      }
+      if (change.removedAreaIds.length > 0) {
+        await tx.workOrderItemProductionArea.deleteMany({
+          where: {
+            workOrderItemId: woi.id,
+            productionAreaId: { in: change.removedAreaIds },
+          },
+        });
+      }
+      if (change.addedAreaIds.length > 0) {
+        await tx.workOrderItemProductionArea.createMany({
+          data: change.addedAreaIds.map((productionAreaId) => ({
+            workOrderItemId: woi.id,
+            productionAreaId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      synced.push({
+        id: woi.id,
+        orderItemId: woi.orderItemId,
+        workOrderId: woi.workOrder.id,
+        workOrderNumber: woi.workOrder.workOrderNumber,
+        oldDescription: woi.productDescription,
+        newDescription: change.description,
+        addedAreaIds: change.addedAreaIds,
+        removedAreaIds: change.removedAreaIds,
+      });
+    }
+    return synced;
+  }
+
+  /** Deja constancia de los ítems de OT actualizados desde la OP. Después del commit. */
+  private auditWorkOrderItemsSyncedFromOrder(
+    synced: SyncedWorkOrderItem[],
+    orderNumber: string,
+    userId?: string,
+  ): void {
+    if (synced.length === 0) return;
+
+    this.logger.log(
+      `Editar ${orderNumber} actualizó ${synced.length} ítem(s) de la OT ${synced[0].workOrderNumber}`,
+    );
+
+    for (const woi of synced) {
+      this.auditLogsService.logUpdate(
+        'WorkOrderItem',
+        woi.id,
+        { productDescription: woi.oldDescription },
+        {
+          orderItemId: woi.orderItemId,
+          workOrderId: woi.workOrderId,
+          workOrderNumber: woi.workOrderNumber,
+          ...(woi.newDescription !== undefined && {
+            productDescription: woi.newDescription,
+          }),
+          addedProductionAreaIds: woi.addedAreaIds,
+          removedProductionAreaIds: woi.removedAreaIds,
+          reason: `Actualizado en la OT al editarse la orden ${orderNumber}`,
+        },
+        userId,
+      );
+    }
+  }
+
   /** Deja constancia de los ítems que llegaron solos a la OT. Después del commit. */
   private auditWorkOrderItemsAddedFromOrder(
     propagated: PropagatedWorkOrderItem[],
@@ -1438,6 +1564,7 @@ export class OrdersService implements OnModuleInit {
       // Se llena dentro de la transacción y se audita al confirmarse.
       let cascadedWorkOrderItems: CascadedWorkOrderItem[] = [];
       let propagatedWorkOrderItems: PropagatedWorkOrderItem[] = [];
+      let syncedWorkOrderItems: SyncedWorkOrderItem[] = [];
 
       const updatedOrder = await this.prisma.$transaction(async (tx) => {
         // Preparar datos de actualización de fecha
@@ -1507,6 +1634,7 @@ export class OrdersService implements OnModuleInit {
         if (updateOrderDto.items) {
           const currentItems = await tx.orderItem.findMany({
             where: { orderId: id },
+            include: { productionAreas: { select: { productionAreaId: true } } },
           });
           const currentIds = new Set(currentItems.map((i) => i.id));
 
@@ -1560,7 +1688,12 @@ export class OrdersService implements OnModuleInit {
           }
 
           // Actualizar items existentes (solo los que cambiaron se generarán logs de auditoría)
+          const editedItemChanges: EditedOrderItemChange[] = [];
           for (const item of itemsToUpdate) {
+            const current = currentItems.find((c) => c.id === item.id)!;
+            const change = diffOrderItemForWorkOrder(current, item);
+            if (change) editedItemChanges.push(change);
+
             const itemTotal = new Prisma.Decimal(item.quantity).mul(
               item.unitPrice,
             );
@@ -1592,6 +1725,12 @@ export class OrdersService implements OnModuleInit {
               }
             }
           }
+
+          syncedWorkOrderItems = await this.syncEditedItemsToWorkOrder(
+            tx,
+            id,
+            editedItemChanges,
+          );
 
           // Crear items nuevos
           if (itemsToCreate.length > 0) {
@@ -1786,6 +1925,11 @@ export class OrdersService implements OnModuleInit {
       );
       this.auditWorkOrderItemsAddedFromOrder(
         propagatedWorkOrderItems,
+        oldOrder.orderNumber,
+        userId,
+      );
+      this.auditWorkOrderItemsSyncedFromOrder(
+        syncedWorkOrderItems,
         oldOrder.orderNumber,
         userId,
       );
