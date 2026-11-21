@@ -102,6 +102,35 @@ describe('expense-order-reduction.util', () => {
     expect(() => mergeReductionItems(og().items, [])).toThrow(/todos los ítems/);
   });
 
+  it('rechaza un ítem que no es de la OG, cantidad cero o precio negativo', () => {
+    expect(() => mergeReductionItems(og().items, [{ itemId: 'otro', quantity: 1, unitPrice: 1 }])).toThrow(
+      /Falta el ítem/,
+    );
+    expect(() => mergeReductionItems(og().items, [{ itemId: 'item-1', quantity: 0, unitPrice: 1 }])).toThrow(
+      /mayor que cero/,
+    );
+    expect(() => mergeReductionItems(og().items, [{ itemId: 'item-1', quantity: 1, unitPrice: -1 }])).toThrow(
+      /negativo/,
+    );
+  });
+
+  it('calcula el total nuevo del ítem y conserva el anterior', () => {
+    const [item] = mergeReductionItems(og().items, lowerTo80k);
+    expect(item).toMatchObject({ total: '80000', previousTotal: '109585', previousQuantity: '202' });
+  });
+
+  it('dice cuánto falta si los egresos no alcanzan, y salta los que están en cero', () => {
+    const { allocations, shortfall } = allocateReduction(
+      [
+        { id: 'cero', amount: 0 },
+        { id: 'chico', amount: 5_000 },
+      ],
+      D(8_000),
+    );
+    expect(allocations.map((a) => a.movement.id)).toEqual(['chico']);
+    expect(shortfall.toString()).toBe('3000');
+  });
+
   it('reparte la diferencia del egreso más reciente al más antiguo', () => {
     const { allocations, shortfall } = allocateReduction(
       [
