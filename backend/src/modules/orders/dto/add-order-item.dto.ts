@@ -3,6 +3,7 @@ import {
   IsUUID,
   IsOptional,
   IsString,
+  Matches,
   IsNumber,
   IsPositive,
   IsArray,
@@ -23,6 +24,7 @@ export class AddOrderItemDto {
     example: 'Banner Refilado 70x100',
   })
   @IsString()
+  @Matches(/\S/, { message: 'La descripción del ítem no puede estar vacía' })
   description: string;
 
   @ApiProperty({

@@ -68,7 +68,11 @@ import { paymentMethodLabel, requiresZeroAmount } from '../../../utils/paymentMe
 
 const orderItemSchema = z.object({
   id: z.string(),
-  description: z.string().min(1, 'La descripción es requerida'),
+  // Solo espacios o saltos de línea no cuentan: el ítem llegaba en blanco a la OT
+  // y el taller no sabía qué producir (OP-2026-6117).
+  description: z
+    .string()
+    .refine((v) => v.trim().length > 0, 'La descripción es requerida'),
   quantity: z.string().min(1, 'La cantidad es requerida'),
   unitPrice: z.string().min(1, 'El precio unitario es requerido'),
   total: z.number().min(0),
