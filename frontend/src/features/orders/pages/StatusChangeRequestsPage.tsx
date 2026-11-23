@@ -36,6 +36,11 @@ import BlockIcon from '@mui/icons-material/Block';
 import SyncAltIcon from '@mui/icons-material/SyncAlt';
 import CashTransferRequestsTab from '../../cash-register/components/CashTransferRequestsTab';
 import { usePendingCashTransferCount } from '../../../hooks/useCashTransferRequests';
+import ExpenseOrderVoidRequestsTab from '../../expense-orders/components/ExpenseOrderVoidRequestsTab';
+import { usePendingExpenseOrderVoidCount } from '../../../hooks/useExpenseOrderVoidRequests';
+import ExpenseOrderReductionRequestsTab from '../../expense-orders/components/ExpenseOrderReductionRequestsTab';
+import { usePendingExpenseOrderReductionCount } from '../../../hooks/useExpenseOrderReductions';
+import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange';
 import PercentIcon from '@mui/icons-material/Percent';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -134,6 +139,8 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const canApproveVoidRequests = hasPermission('approve_cash_movements') || isAdmin;
   // Solo el admin aprueba traslados de caja (decisión del cliente, 2026-11-04).
   const canApproveCashTransfers = isAdmin;
+  // Anulación de OG: la aprueba un admin distinto de quien la pidió.
+  const canApproveExpenseOrderVoids = isAdmin;
   const canApproveRefunds = hasPermission('approve_refunds') || isAdmin;
   const canApproveAccountsPayable = hasPermission('approve_accounts_payable') || isAdmin;
   const canCajaAuthorizeAp = hasPermission('caja_authorize_ap_payment');
@@ -163,7 +170,7 @@ export const StatusChangeRequestsPage: React.FC = () => {
   }, [navWidth]);
 
   const [tabValue, setTabValue] = useState<string>(
-    canApproveOrders ? 'status' : canApproveAdvancePayments ? 'advance' : canApproveDiscounts ? 'discount' : canApprovePaymentEdits ? 'payment-edit' : canApproveClientOwnership ? 'ownership' : canApproveAdvisorChange ? 'advisor' : canApproveClientAdvisor ? 'client-advisor' : canApproveQuoteRestore ? 'quote-restore' : canApproveExpenseOrders ? 'og' : canApproveVoidRequests ? 'void' : canApproveCashTransfers ? 'cash-transfer' : canApproveRefunds ? 'refund' : canApproveAccountsPayable ? 'ap' : canGerenciaApproveReversal ? 'ap-reversal' : 'status',
+    canApproveOrders ? 'status' : canApproveAdvancePayments ? 'advance' : canApproveDiscounts ? 'discount' : canApprovePaymentEdits ? 'payment-edit' : canApproveClientOwnership ? 'ownership' : canApproveAdvisorChange ? 'advisor' : canApproveClientAdvisor ? 'client-advisor' : canApproveQuoteRestore ? 'quote-restore' : canApproveExpenseOrders ? 'og' : canApproveVoidRequests ? 'void' : canApproveCashTransfers ? 'cash-transfer' : canApproveExpenseOrderVoids ? 'og-void' : canApproveRefunds ? 'refund' : canApproveAccountsPayable ? 'ap' : canGerenciaApproveReversal ? 'ap-reversal' : 'status',
   );
   
   const [viewMode, setViewMode] = useState<'pending' | 'history'>('pending');
@@ -2939,6 +2946,8 @@ export const StatusChangeRequestsPage: React.FC = () => {
   const quoteRestoreCount = quoteRestoreRequests?.length || 0;
   const voidCount = voidRequests?.length || 0;
   const cashTransferCount = usePendingCashTransferCount(canApproveCashTransfers);
+  const ogVoidCount = usePendingExpenseOrderVoidCount(canApproveExpenseOrderVoids);
+  const ogReductionCount = usePendingExpenseOrderReductionCount(canApproveExpenseOrderVoids);
   const refundCount = refundRequests?.length || 0;
   const apAuthCount = apAuthRequests?.length || 0;
   const cajaApCount = cajaApRequests?.length || 0;
@@ -3070,6 +3079,20 @@ export const StatusChangeRequestsPage: React.FC = () => {
                 {cashTransferCount > 0 && <Badge badgeContent={cashTransferCount} color="warning" sx={{ mr: 1 }} />}
               </ListItemButton>
             )}
+            {canApproveExpenseOrderVoids && (
+              <ListItemButton selected={tabValue === 'og-void'} onClick={() => setTabValue('og-void')} sx={{ borderRadius: 1, mx: 1 }}>
+                <ListItemIcon sx={{ minWidth: 36 }}><BlockIcon fontSize="small" /></ListItemIcon>
+                <ListItemText primary="Anulación de OG" primaryTypographyProps={{ variant: 'body2' }} />
+                {ogVoidCount > 0 && <Badge badgeContent={ogVoidCount} color="warning" sx={{ mr: 1 }} />}
+              </ListItemButton>
+            )}
+            {canApproveExpenseOrderVoids && (
+              <ListItemButton selected={tabValue === 'og-reduction'} onClick={() => setTabValue('og-reduction')} sx={{ borderRadius: 1, mx: 1 }}>
+                <ListItemIcon sx={{ minWidth: 36 }}><TrendingDownIcon fontSize="small" /></ListItemIcon>
+                <ListItemText primary="Bajar valor de OG" primaryTypographyProps={{ variant: 'body2' }} />
+                {ogReductionCount > 0 && <Badge badgeContent={ogReductionCount} color="warning" sx={{ mr: 1 }} />}
+              </ListItemButton>
+            )}
             {canApproveRefunds && (
               <ListItemButton selected={tabValue === 'refund'} onClick={() => setTabValue('refund')} sx={{ borderRadius: 1, mx: 1 }}>
                 <ListItemIcon sx={{ minWidth: 36 }}><CurrencyExchangeIcon fontSize="small" /></ListItemIcon>
@@ -3189,6 +3212,12 @@ export const StatusChangeRequestsPage: React.FC = () => {
           )}
           {tabValue === 'cash-transfer' && canApproveCashTransfers && (
             <CashTransferRequestsTab viewMode={viewMode} />
+          )}
+          {tabValue === 'og-void' && canApproveExpenseOrderVoids && (
+            <ExpenseOrderVoidRequestsTab viewMode={viewMode} />
+          )}
+          {tabValue === 'og-reduction' && canApproveExpenseOrderVoids && (
+            <ExpenseOrderReductionRequestsTab viewMode={viewMode} />
           )}
           {tabValue === 'refund' && canApproveRefunds && (
             <DataTable rows={refundRequests || []} columns={refundColumns} loading={refundLoading} getRowId={(row) => row.id} density="compact" pageSize={20} pageSizeOptions={[20, 50, 100]} />

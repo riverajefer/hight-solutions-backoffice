@@ -61,6 +61,7 @@ const STATUS_OPTIONS: { value: ExpenseOrderStatus | ''; label: string }[] = [
   { value: ExpenseOrderStatus.ADMIN_AUTHORIZED, label: 'Autorizada (Admin)' },
   { value: ExpenseOrderStatus.AUTHORIZED, label: 'Autorizada (Caja)' },
   { value: ExpenseOrderStatus.PAID, label: 'Pagada' },
+  { value: ExpenseOrderStatus.VOIDED, label: 'Anulada' },
 ];
 
 export const ExpenseOrdersListPage = () => {

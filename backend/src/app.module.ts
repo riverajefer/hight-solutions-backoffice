@@ -71,6 +71,8 @@ import { CashSessionModule } from './modules/cash-session/cash-session.module';
 import { CashMovementModule } from './modules/cash-movement/cash-movement.module';
 import { CashMovementVoidRequestsModule } from './modules/cash-movement-void-requests/cash-movement-void-requests.module';
 import { CashMovementTransferRequestsModule } from './modules/cash-movement-transfer-requests/cash-movement-transfer-requests.module';
+import { ExpenseOrderVoidRequestsModule } from './modules/expense-order-void-requests/expense-order-void-requests.module';
+import { ExpenseOrderReductionRequestsModule } from './modules/expense-order-reduction-requests/expense-order-reduction-requests.module';
 import { RefundRequestsModule } from './modules/refund-requests/refund-requests.module';
 import { WsEventsModule } from './modules/ws-events/ws-events.module';
 import { AccountsPayableModule } from './modules/accounts-payable/accounts-payable.module';
@@ -195,6 +197,8 @@ import { ClientErrorsModule } from './modules/client-errors/client-errors.module
     CashMovementModule,
     CashMovementVoidRequestsModule,
     CashMovementTransferRequestsModule,
+    ExpenseOrderVoidRequestsModule,
+    ExpenseOrderReductionRequestsModule,
     // Módulo de Cuentas por Pagar
     AccountsPayableModule,
     AccountsPayableAuthRequestsModule,

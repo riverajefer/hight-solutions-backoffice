@@ -6,6 +6,7 @@ export enum ExpenseOrderStatus {
   ADMIN_AUTHORIZED = 'ADMIN_AUTHORIZED',
   AUTHORIZED = 'AUTHORIZED',
   PAID = 'PAID',
+  VOIDED = 'VOIDED',
 }
 
 export enum PaymentMethod {
@@ -30,6 +31,7 @@ export const EXPENSE_ORDER_STATUS_CONFIG: Record<ExpenseOrderStatus, ExpenseOrde
   [ExpenseOrderStatus.ADMIN_AUTHORIZED]: { label: 'Autorizada (Admin)', color: 'warning' },
   [ExpenseOrderStatus.AUTHORIZED]: { label: 'Autorizada (Caja)', color: 'secondary' },
   [ExpenseOrderStatus.PAID]: { label: 'Pagada', color: 'success' },
+  [ExpenseOrderStatus.VOIDED]: { label: 'Anulada', color: 'error' },
 };
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
@@ -223,6 +225,15 @@ export interface ExpenseOrder {
   returnedForCorrectionAt?: string | null;
   returnedForCorrectionReason?: string | null;
   returnedForCorrectionBy?: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    email: string;
+  } | null;
+  voidedById?: string | null;
+  voidedAt?: string | null;
+  voidReason?: string | null;
+  voidedBy?: {
     id: string;
     firstName?: string | null;
     lastName?: string | null;
